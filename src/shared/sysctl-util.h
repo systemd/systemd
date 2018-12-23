@@ -4,4 +4,3 @@
 char *sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);
 int sysctl_write(const char *property, const char *value);
-

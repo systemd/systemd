@@ -12,7 +12,7 @@
 static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
 #if HAVE_ACL
         _cleanup_strv_free_ char **g = NULL;
-        const char* dir;
+        const char *dir;
 #endif
         int r;
 
@@ -62,20 +62,22 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
                 if (!s)
                         return log_oom();
 
-                log_notice("Hint: You are currently not seeing messages from %s.\n"
-                           "      Users in groups '%s' can see all messages.\n"
-                           "      Pass -q to turn off this notice.",
-                           want_other_users ? "other users and the system" : "the system",
-                           s);
+                log_notice(
+                        "Hint: You are currently not seeing messages from %s.\n"
+                        "      Users in groups '%s' can see all messages.\n"
+                        "      Pass -q to turn off this notice.",
+                        want_other_users ? "other users and the system" : "the system",
+                        s);
                 return 1;
         }
 #endif
 
         /* If no ACLs were found, print a short version of the message. */
-        log_notice("Hint: You are currently not seeing messages from %s.\n"
-                   "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
-                   "      turn off this notice.",
-                   want_other_users ? "other users and the system" : "the system");
+        log_notice(
+                "Hint: You are currently not seeing messages from %s.\n"
+                "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
+                "      turn off this notice.",
+                want_other_users ? "other users and the system" : "the system");
 
         return 1;
 }
@@ -117,9 +119,10 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         break;
 
                 case EPROTONOSUPPORT:
-                        log_warning_errno(err, "Journal file %1$s uses an unsupported feature, ignoring file.\n"
-                                               "Use SYSTEMD_LOG_LEVEL=debug journalctl --file=%1$s to see the details.",
-                                               path);
+                        log_warning_errno(err,
+                                          "Journal file %1$s uses an unsupported feature, ignoring file.\n"
+                                          "Use SYSTEMD_LOG_LEVEL=debug journalctl --file=%1$s to see the details.",
+                                          path);
                         break;
 
                 case EBADMSG:
@@ -165,9 +168,7 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
 
         /* Only allow A-Z0-9 and '_' */
         for (a = p; a < p + l; a++)
-                if ((*a < 'A' || *a > 'Z') &&
-                    (*a < '0' || *a > '9') &&
-                    *a != '_')
+                if ((*a < 'A' || *a > 'Z') && (*a < '0' || *a > '9') && *a != '_')
                         return false;
 
         return true;

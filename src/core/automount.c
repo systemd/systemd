@@ -36,12 +36,10 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
-        [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
-        [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
-        [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-        [AUTOMOUNT_FAILED] = UNIT_FAILED
-};
+static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = { [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
+                                                                               [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
+                                                                               [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
+                                                                               [AUTOMOUNT_FAILED] = UNIT_FAILED };
 
 struct expire_data {
         int dev_autofs_fd;
@@ -57,7 +55,7 @@ static inline void expire_data_free(struct expire_data *data) {
         free(data);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data *, expire_data_free);
 
 static int open_dev_autofs(Manager *m);
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata);
@@ -307,11 +305,16 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWhere: %s\n"
                 "%sDirectoryMode: %04o\n"
                 "%sTimeoutIdleUSec: %s\n",
-                prefix, automount_state_to_string(a->state),
-                prefix, automount_result_to_string(a->result),
-                prefix, a->where,
-                prefix, a->directory_mode,
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, a->timeout_idle_usec, USEC_PER_SEC));
+                prefix,
+                automount_state_to_string(a->state),
+                prefix,
+                automount_result_to_string(a->result),
+                prefix,
+                a->where,
+                prefix,
+                a->directory_mode,
+                prefix,
+                format_timespan(time_string, FORMAT_TIMESPAN_MAX, a->timeout_idle_usec, USEC_PER_SEC));
 }
 
 static void automount_enter_dead(Automount *a, AutomountResult f) {
@@ -334,7 +337,7 @@ static int open_dev_autofs(Manager *m) {
 
         (void) label_fix("/dev/autofs", 0);
 
-        m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
+        m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC | O_RDONLY);
         if (m->dev_autofs_fd < 0)
                 return log_error_errno(errno, "Failed to open /dev/autofs: %m");
 
@@ -475,10 +478,7 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
                  * if you pass a positive status code here, kernels
                  * prior to 4.12 will freeze! Yay! */
 
-                k = autofs_send_ready(UNIT(a)->manager->dev_autofs_fd,
-                                      ioctl_fd,
-                                      token,
-                                      status);
+                k = autofs_send_ready(UNIT(a)->manager->dev_autofs_fd, ioctl_fd, token, status);
                 if (k < 0)
                         r = k;
         }
@@ -523,10 +523,14 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
         }
 
         if (IN_SET(MOUNT(other)->state,
-                   MOUNT_MOUNTING, MOUNT_MOUNTING_DONE,
-                   MOUNT_MOUNTED, MOUNT_REMOUNTING,
-                   MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
-                   MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_MOUNTING,
+                   MOUNT_MOUNTING_DONE,
+                   MOUNT_MOUNTED,
+                   MOUNT_REMOUNTING,
+                   MOUNT_REMOUNTING_SIGTERM,
+                   MOUNT_REMOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_SIGTERM,
+                   MOUNT_UNMOUNTING_SIGKILL,
                    MOUNT_FAILED)) {
 
                 (void) automount_send_ready(a, a->expire_tokens, -ENODEV);
@@ -537,9 +541,12 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 
         /* The mount is in some unhappy state now, let's unfreeze any waiting clients */
         if (IN_SET(MOUNT(other)->state,
-                   MOUNT_DEAD, MOUNT_UNMOUNTING,
-                   MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
-                   MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_DEAD,
+                   MOUNT_UNMOUNTING,
+                   MOUNT_REMOUNTING_SIGTERM,
+                   MOUNT_REMOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_SIGTERM,
+                   MOUNT_UNMOUNTING_SIGKILL,
                    MOUNT_FAILED)) {
 
                 (void) automount_send_ready(a, a->tokens, -ENODEV);
@@ -552,8 +559,7 @@ static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct")
-                     + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
+        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct") + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -578,13 +584,13 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
+        if (pipe2(p, O_NONBLOCK | O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
-        xsprintf(name, "systemd-"PID_FMT, getpid_cached());
+        xsprintf(options, "fd=%i,pgrp=" PID_FMT ",minproto=5,maxproto=5,direct", p[1], getpgrp());
+        xsprintf(name, "systemd-" PID_FMT, getpid_cached());
         if (mount(name, a->where, "autofs", 0, options) < 0) {
                 r = -errno;
                 goto fail;
@@ -642,7 +648,7 @@ fail:
 
 static void *expire_thread(void *p) {
         struct autofs_dev_ioctl param;
-        _cleanup_(expire_data_freep) struct expire_data *data = (struct expire_data*)p;
+        _cleanup_(expire_data_freep) struct expire_data *data = (struct expire_data *) p;
         int r;
 
         assert(data->dev_autofs_fd >= 0);
@@ -701,7 +707,7 @@ static int automount_start_expire(Automount *a) {
         if (a->timeout_idle_usec == 0)
                 return 0;
 
-        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/3, USEC_PER_SEC);
+        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec / 3, USEC_PER_SEC);
 
         if (a->expire_event_source) {
                 r = sd_event_source_set_time(a->expire_event_source, timeout);
@@ -711,11 +717,7 @@ static int automount_start_expire(Automount *a) {
                 return sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_ONESHOT);
         }
 
-        r = sd_event_add_time(
-                        UNIT(a)->manager->event,
-                        &a->expire_event_source,
-                        CLOCK_MONOTONIC, timeout, 0,
-                        automount_dispatch_expire, a);
+        r = sd_event_add_time(UNIT(a)->manager->event, &a->expire_event_source, CLOCK_MONOTONIC, timeout, 0, automount_dispatch_expire, a);
         if (r < 0)
                 return r;
 
@@ -850,9 +852,9 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item_format(f, "dev-id", "%lu", (unsigned long) a->dev_id);
 
         SET_FOREACH(p, a->tokens, i)
-                (void) serialize_item_format(f, "token", "%u", PTR_TO_UINT(p));
+        (void) serialize_item_format(f, "token", "%u", PTR_TO_UINT(p));
         SET_FOREACH(p, a->expire_tokens, i)
-                (void) serialize_item_format(f, "expire-token", "%u", PTR_TO_UINT(p));
+        (void) serialize_item_format(f, "expire-token", "%u", PTR_TO_UINT(p));
 
         r = serialize_fd(f, fds, "pipe-fd", a->pipe_fd);
         if (r < 0)
@@ -975,7 +977,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         assert(fd == a->pipe_fd);
 
         if (events != EPOLLIN) {
-                log_unit_error(UNIT(a), "Got invalid poll event %"PRIu32" on pipe (fd=%d)", events, fd);
+                log_unit_error(UNIT(a), "Got invalid poll event %" PRIu32 " on pipe (fd=%d)", events, fd);
                 goto fail;
         }
 
@@ -993,7 +995,11 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         _cleanup_free_ char *p = NULL;
 
                         get_process_comm(packet.v5_packet.pid, &p);
-                        log_unit_info(UNIT(a), "Got automount request for %s, triggered by %"PRIu32" (%s)", a->where, packet.v5_packet.pid, strna(p));
+                        log_unit_info(UNIT(a),
+                                      "Got automount request for %s, triggered by %" PRIu32 " (%s)",
+                                      a->where,
+                                      packet.v5_packet.pid,
+                                      strna(p));
                 } else
                         log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);
 
@@ -1080,7 +1086,7 @@ static bool automount_supported(void) {
         return supported;
 }
 
-static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
+static const char *const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_SUCCESS] = "success",
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
         [AUTOMOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
@@ -1128,14 +1134,17 @@ const UnitVTable automount_vtable = {
         .shutdown = automount_shutdown,
         .supported = automount_supported,
 
-        .status_message_formats = {
-                .finished_start_job = {
-                        [JOB_DONE]       = "Set up automount %s.",
-                        [JOB_FAILED]     = "Failed to set up automount %s.",
+        .status_message_formats =
+                {
+                        .finished_start_job =
+                                {
+                                        [JOB_DONE] = "Set up automount %s.",
+                                        [JOB_FAILED] = "Failed to set up automount %s.",
+                                },
+                        .finished_stop_job =
+                                {
+                                        [JOB_DONE] = "Unset automount %s.",
+                                        [JOB_FAILED] = "Failed to unset automount %s.",
+                                },
                 },
-                .finished_stop_job = {
-                        [JOB_DONE]       = "Unset automount %s.",
-                        [JOB_FAILED]     = "Failed to unset automount %s.",
-                },
-        },
 };

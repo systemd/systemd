@@ -24,7 +24,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
         for (;;) {
 
-                switch(u->entry_state) {
+                switch (u->entry_state) {
                 case ENTRY_CURSOR: {
                         u->current_cursor = mfree(u->current_cursor);
 
@@ -32,8 +32,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get cursor: %m");
 
-                        r = snprintf(buf + pos, size - pos,
-                                     "__CURSOR=%s\n", u->current_cursor);
+                        r = snprintf(buf + pos, size - pos, "__CURSOR=%s\n", u->current_cursor);
                         assert(r >= 0);
                         if ((size_t) r > size - pos)
                                 /* not enough space */
@@ -57,8 +56,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
 
-                        r = snprintf(buf + pos, size - pos,
-                                     "__REALTIME_TIMESTAMP="USEC_FMT"\n", realtime);
+                        r = snprintf(buf + pos, size - pos, "__REALTIME_TIMESTAMP=" USEC_FMT "\n", realtime);
                         assert(r >= 0);
                         if ((size_t) r > size - pos)
                                 /* not enough space */
@@ -83,8 +81,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
-                        r = snprintf(buf + pos, size - pos,
-                                     "__MONOTONIC_TIMESTAMP="USEC_FMT"\n", monotonic);
+                        r = snprintf(buf + pos, size - pos, "__MONOTONIC_TIMESTAMP=" USEC_FMT "\n", monotonic);
                         assert(r >= 0);
                         if ((size_t) r > size - pos)
                                 /* not enough space */
@@ -109,8 +106,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
-                        r = snprintf(buf + pos, size - pos,
-                                     "_BOOT_ID=%s\n", sd_id128_to_string(boot_id, sid));
+                        r = snprintf(buf + pos, size - pos, "_BOOT_ID=%s\n", sd_id128_to_string(boot_id, sid));
                         assert(r >= 0);
                         if ((size_t) r > size - pos)
                                 /* not enough space */
@@ -130,9 +126,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                 case ENTRY_NEW_FIELD: {
                         u->field_pos = 0;
 
-                        r = sd_journal_enumerate_data(u->journal,
-                                                      &u->field_data,
-                                                      &u->field_length);
+                        r = sd_journal_enumerate_data(u->journal, &u->field_data, &u->field_length);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move to next field in entry: %m");
                         else if (r == 0) {
@@ -164,9 +158,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         else
                                 tocopy = size - pos;
 
-                        memcpy(buf + pos,
-                               (char*) u->field_data + u->field_pos,
-                               tocopy);
+                        memcpy(buf + pos, (char *) u->field_data + u->field_pos, tocopy);
 
                         if (done) {
                                 buf[pos + tocopy] = '\n';
@@ -185,10 +177,9 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
 
                         c = memchr(u->field_data, '=', u->field_length);
                         if (!c || c == u->field_data)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid field.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-                        len = c - (const char*)u->field_data;
+                        len = c - (const char *) u->field_data;
 
                         /* need space for label + '\n' */
                         if (size - pos < len + 1)
@@ -287,7 +278,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         u->entry_state = ENTRY_CURSOR;
                 }
 
-                w = write_entry((char*)buf + filled, size * nmemb - filled, u);
+                w = write_entry((char *) buf + filled, size * nmemb - filled, u);
                 if (w < 0)
                         return CURL_READFUNC_ABORT;
                 filled += w;
@@ -299,8 +290,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                         /* This means that all available space was used up */
                         break;
 
-                log_debug("Entry %zu (%s) has been uploaded.",
-                          u->entries_sent, u->current_cursor);
+                log_debug("Entry %zu (%s) has been uploaded.", u->entries_sent, u->current_cursor);
         }
 
         return filled;
@@ -353,10 +343,7 @@ int check_journal_input(Uploader *u) {
         return process_journal_input(u, 1);
 }
 
-static int dispatch_journal_input(sd_event_source *event,
-                                  int fd,
-                                  uint32_t revents,
-                                  void *userp) {
+static int dispatch_journal_input(sd_event_source *event, int fd, uint32_t revents, void *userp) {
         Uploader *u = userp;
 
         assert(u);
@@ -368,11 +355,7 @@ static int dispatch_journal_input(sd_event_source *event,
         return check_journal_input(u);
 }
 
-int open_journal_for_upload(Uploader *u,
-                            sd_journal *j,
-                            const char *cursor,
-                            bool after_cursor,
-                            bool follow) {
+int open_journal_for_upload(Uploader *u, sd_journal *j, const char *cursor, bool after_cursor, bool follow) {
         int fd, r, events;
 
         u->journal = j;
@@ -393,21 +376,18 @@ int open_journal_for_upload(Uploader *u,
                 else
                         u->timeout = JOURNAL_UPLOAD_POLL_TIMEOUT;
 
-                r = sd_event_add_io(u->events, &u->input_event,
-                                    fd, events, dispatch_journal_input, u);
+                r = sd_event_add_io(u->events, &u->input_event, fd, events, dispatch_journal_input, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to register input event: %m");
 
-                log_debug("Listening for journal events on fd:%d, timeout %d",
-                          fd, u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
+                log_debug("Listening for journal events on fd:%d, timeout %d", fd, u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
         } else
                 log_debug("Not listening for journal events.");
 
         if (cursor) {
                 r = sd_journal_seek_cursor(j, cursor);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to seek to cursor %s: %m",
-                                               cursor);
+                        return log_error_errno(r, "Failed to seek to cursor %s: %m", cursor);
         }
 
         return process_journal_input(u, 1 + !!after_cursor);

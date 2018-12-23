@@ -23,7 +23,8 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid(".foobar", false));
         assert_se(!hostname_is_valid("foo..bar", false));
         assert_se(!hostname_is_valid("foo.bar..", false));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", false));
+        assert_se(!hostname_is_valid(
+                "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", false));
         assert_se(!hostname_is_valid("au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", false));
 
         assert_se(hostname_is_valid("foobar", true));
@@ -41,7 +42,8 @@ static void test_hostname_is_valid(void) {
         assert_se(!hostname_is_valid(".foobar", true));
         assert_se(!hostname_is_valid("foo..bar", true));
         assert_se(!hostname_is_valid("foo.bar..", true));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", true));
+        assert_se(!hostname_is_valid(
+                "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", true));
 }
 
 static void test_hostname_cleanup(void) {
@@ -126,14 +128,14 @@ static void test_read_etc_hostname(void) {
         hostname = mfree(hostname);
 
         /* no value set */
-        hostname = (char*) 0x1234;
+        hostname = (char *) 0x1234;
         assert_se(write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+        assert_se(hostname == (char *) 0x1234); /* does not touch argument on error */
 
         /* nonexisting file */
         assert_se(read_etc_hostname("/non/existing", &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+        assert_se(hostname == (char *) 0x1234); /* does not touch argument on error */
 
         unlink(path);
 }

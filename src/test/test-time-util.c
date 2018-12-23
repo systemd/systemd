@@ -181,13 +181,13 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
         const char *t;
         usec_t y;
 
-        log_info(USEC_FMT"     (at accuracy "USEC_FMT")", x, accuracy);
+        log_info(USEC_FMT "     (at accuracy " USEC_FMT ")", x, accuracy);
 
         assert_se(t = format_timespan(l, sizeof l, x, accuracy));
         log_info(" = <%s>", t);
 
         assert_se(parse_sec(t, &y) >= 0);
-        log_info(" = "USEC_FMT, y);
+        log_info(" = " USEC_FMT, y);
 
         if (accuracy <= 0)
                 accuracy = 1;
@@ -196,12 +196,12 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
 }
 
 static void test_format_timespan(usec_t accuracy) {
-        log_info("/* %s accuracy="USEC_FMT" */", __func__, accuracy);
+        log_info("/* %s accuracy=" USEC_FMT " */", __func__, accuracy);
 
         test_format_timespan_one(0, accuracy);
         test_format_timespan_one(1, accuracy);
-        test_format_timespan_one(1*USEC_PER_SEC, accuracy);
-        test_format_timespan_one(999*USEC_PER_MSEC, accuracy);
+        test_format_timespan_one(1 * USEC_PER_SEC, accuracy);
+        test_format_timespan_one(999 * USEC_PER_MSEC, accuracy);
         test_format_timespan_one(1234567, accuracy);
         test_format_timespan_one(12, accuracy);
         test_format_timespan_one(123, accuracy);
@@ -219,7 +219,7 @@ static void test_format_timespan(usec_t accuracy) {
         test_format_timespan_one(1234567, accuracy);
         test_format_timespan_one(986087, accuracy);
         test_format_timespan_one(500 * USEC_PER_MSEC, accuracy);
-        test_format_timespan_one(9*USEC_PER_YEAR/5 - 23, accuracy);
+        test_format_timespan_one(9 * USEC_PER_YEAR / 5 - 23, accuracy);
         test_format_timespan_one(USEC_INFINITY, accuracy);
 }
 
@@ -242,7 +242,7 @@ static void test_get_timezones(void) {
         assert_se(r == 0);
 
         STRV_FOREACH(zone, zones)
-                assert_se(timezone_is_valid(*zone, LOG_ERR));
+        assert_se(timezone_is_valid(*zone, LOG_ERR));
 }
 
 static void test_usec_add(void) {
@@ -252,9 +252,9 @@ static void test_usec_add(void) {
         assert_se(usec_add(1, 4) == 5);
         assert_se(usec_add(USEC_INFINITY, 5) == USEC_INFINITY);
         assert_se(usec_add(5, USEC_INFINITY) == USEC_INFINITY);
-        assert_se(usec_add(USEC_INFINITY-5, 2) == USEC_INFINITY-3);
-        assert_se(usec_add(USEC_INFINITY-2, 2) == USEC_INFINITY);
-        assert_se(usec_add(USEC_INFINITY-1, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY - 5, 2) == USEC_INFINITY - 3);
+        assert_se(usec_add(USEC_INFINITY - 2, 2) == USEC_INFINITY);
+        assert_se(usec_add(USEC_INFINITY - 1, 2) == USEC_INFINITY);
         assert_se(usec_add(USEC_INFINITY, 2) == USEC_INFINITY);
 }
 
@@ -269,12 +269,12 @@ static void test_usec_sub_unsigned(void) {
         assert_se(usec_sub_unsigned(1, 2) == 0);
         assert_se(usec_sub_unsigned(1, 3) == 0);
         assert_se(usec_sub_unsigned(1, USEC_INFINITY) == 0);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 0) == USEC_INFINITY-1);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 1) == USEC_INFINITY-2);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, 2) == USEC_INFINITY-3);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-2) == 1);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY-1) == 0);
-        assert_se(usec_sub_unsigned(USEC_INFINITY-1, USEC_INFINITY) == 0);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, 0) == USEC_INFINITY - 1);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, 1) == USEC_INFINITY - 2);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, 2) == USEC_INFINITY - 3);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, USEC_INFINITY - 2) == 1);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, USEC_INFINITY - 1) == 0);
+        assert_se(usec_sub_unsigned(USEC_INFINITY - 1, USEC_INFINITY) == 0);
         assert_se(usec_sub_unsigned(USEC_INFINITY, 0) == USEC_INFINITY);
         assert_se(usec_sub_unsigned(USEC_INFINITY, 1) == USEC_INFINITY);
         assert_se(usec_sub_unsigned(USEC_INFINITY, 2) == USEC_INFINITY);
@@ -288,10 +288,10 @@ static void test_usec_sub_signed(void) {
         assert_se(usec_sub_signed(4, 1) == 3);
         assert_se(usec_sub_signed(4, 4) == 0);
         assert_se(usec_sub_signed(4, 5) == 0);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY - 3, -3) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY - 3, -3) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY - 3, -4) == USEC_INFINITY);
+        assert_se(usec_sub_signed(USEC_INFINITY - 3, -5) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY, 5) == USEC_INFINITY);
 }
 
@@ -412,7 +412,7 @@ static void assert_similar(usec_t a, usec_t b) {
         else
                 d = b - a;
 
-        assert(d < 10*USEC_PER_SEC);
+        assert(d < 10 * USEC_PER_SEC);
 }
 
 static void test_usec_shift_clock(void) {
@@ -427,20 +427,22 @@ static void test_usec_shift_clock(void) {
         assert_se(usec_shift_clock(USEC_INFINITY, CLOCK_REALTIME, CLOCK_MONOTONIC) == USEC_INFINITY);
 
         assert_similar(usec_shift_clock(rt + USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_MONOTONIC), mn + USEC_PER_HOUR);
-        assert_similar(usec_shift_clock(rt + 2*USEC_PER_HOUR, CLOCK_REALTIME, clock_boottime_or_monotonic()), bt + 2*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(rt + 3*USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_REALTIME_ALARM) == rt + 3*USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(rt + 2 * USEC_PER_HOUR, CLOCK_REALTIME, clock_boottime_or_monotonic()), bt + 2 * USEC_PER_HOUR);
+        assert_se(usec_shift_clock(rt + 3 * USEC_PER_HOUR, CLOCK_REALTIME, CLOCK_REALTIME_ALARM) == rt + 3 * USEC_PER_HOUR);
 
-        assert_similar(usec_shift_clock(mn + 4*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_REALTIME_ALARM), rt + 4*USEC_PER_HOUR);
-        assert_similar(usec_shift_clock(mn + 5*USEC_PER_HOUR, CLOCK_MONOTONIC, clock_boottime_or_monotonic()), bt + 5*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(mn + 6*USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_MONOTONIC) == mn + 6*USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(mn + 4 * USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_REALTIME_ALARM), rt + 4 * USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(mn + 5 * USEC_PER_HOUR, CLOCK_MONOTONIC, clock_boottime_or_monotonic()), bt + 5 * USEC_PER_HOUR);
+        assert_se(usec_shift_clock(mn + 6 * USEC_PER_HOUR, CLOCK_MONOTONIC, CLOCK_MONOTONIC) == mn + 6 * USEC_PER_HOUR);
 
-        assert_similar(usec_shift_clock(bt + 7*USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_MONOTONIC), mn + 7*USEC_PER_HOUR);
-        assert_similar(usec_shift_clock(bt + 8*USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_REALTIME_ALARM), rt + 8*USEC_PER_HOUR);
-        assert_se(usec_shift_clock(bt + 9*USEC_PER_HOUR, clock_boottime_or_monotonic(), clock_boottime_or_monotonic()) == bt + 9*USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(bt + 7 * USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_MONOTONIC), mn + 7 * USEC_PER_HOUR);
+        assert_similar(usec_shift_clock(bt + 8 * USEC_PER_HOUR, clock_boottime_or_monotonic(), CLOCK_REALTIME_ALARM), rt + 8 * USEC_PER_HOUR);
+        assert_se(usec_shift_clock(bt + 9 * USEC_PER_HOUR, clock_boottime_or_monotonic(), clock_boottime_or_monotonic()) ==
+                  bt + 9 * USEC_PER_HOUR);
 
         if (mn > USEC_PER_MINUTE) {
                 assert_similar(usec_shift_clock(rt - 30 * USEC_PER_SEC, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC), mn - 30 * USEC_PER_SEC);
-                assert_similar(usec_shift_clock(rt - 50 * USEC_PER_SEC, CLOCK_REALTIME, clock_boottime_or_monotonic()), bt - 50 * USEC_PER_SEC);
+                assert_similar(usec_shift_clock(rt - 50 * USEC_PER_SEC, CLOCK_REALTIME, clock_boottime_or_monotonic()),
+                               bt - 50 * USEC_PER_SEC);
         }
 }
 
@@ -465,8 +467,10 @@ static void test_in_utc_timezone(void) {
 int main(int argc, char *argv[]) {
         uintmax_t x;
 
-        log_info("realtime=" USEC_FMT "\n"
-                 "monotonic=" USEC_FMT "\n"
+        log_info("realtime=" USEC_FMT
+                 "\n"
+                 "monotonic=" USEC_FMT
+                 "\n"
                  "boottime=" USEC_FMT "\n",
                  now(CLOCK_REALTIME),
                  now(CLOCK_MONOTONIC),

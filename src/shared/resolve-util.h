@@ -8,7 +8,8 @@ typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
 typedef enum DnsOverTlsMode DnsOverTlsMode;
 
-enum ResolveSupport {
+enum ResolveSupport
+{
         RESOLVE_SUPPORT_NO,
         RESOLVE_SUPPORT_YES,
         RESOLVE_SUPPORT_RESOLVE,
@@ -16,7 +17,8 @@ enum ResolveSupport {
         _RESOLVE_SUPPORT_INVALID = -1
 };
 
-enum DnssecMode {
+enum DnssecMode
+{
         /* No DNSSEC validation is done */
         DNSSEC_NO,
 
@@ -34,7 +36,8 @@ enum DnssecMode {
         _DNSSEC_MODE_INVALID = -1
 };
 
-enum DnsOverTlsMode {
+enum DnsOverTlsMode
+{
         /* No connection is made for DNS-over-TLS */
         DNS_OVER_TLS_NO,
 
@@ -50,11 +53,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 
-const char* resolve_support_to_string(ResolveSupport p) _const_;
+const char *resolve_support_to_string(ResolveSupport p) _const_;
 ResolveSupport resolve_support_from_string(const char *s) _pure_;
 
-const char* dnssec_mode_to_string(DnssecMode p) _const_;
+const char *dnssec_mode_to_string(DnssecMode p) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;
 
-const char* dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
+const char *dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
 DnsOverTlsMode dns_over_tls_mode_from_string(const char *s) _pure_;

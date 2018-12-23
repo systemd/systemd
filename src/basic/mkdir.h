@@ -3,9 +3,10 @@
 
 #include <sys/types.h>
 
-typedef enum MkdirFlags {
+typedef enum MkdirFlags
+{
         MKDIR_FOLLOW_SYMLINK = 1 << 0,
-        MKDIR_WARN_MODE      = 1 << 1,
+        MKDIR_WARN_MODE = 1 << 1,
 } MkdirFlags;
 
 int mkdir_errno_wrapper(const char *pathname, mode_t mode);

@@ -10,11 +10,7 @@
 static void test_error(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
         const sd_bus_error const_error = SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_FILE_EXISTS, "const error");
-        const sd_bus_error temporarily_const_error = {
-                .name = SD_BUS_ERROR_ACCESS_DENIED,
-                .message = "oh! no",
-                ._need_free = -1
-        };
+        const sd_bus_error temporarily_const_error = { .name = SD_BUS_ERROR_ACCESS_DENIED, .message = "oh! no", ._need_free = -1 };
 
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set(&error, SD_BUS_ERROR_NOT_SUPPORTED, "xxx") == -EOPNOTSUPP);
@@ -120,11 +116,11 @@ static void dump_mapping_table(void) {
         const sd_bus_error_map *m;
 
         printf("----- errno mappings ------\n");
-        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void*));
+        m = ALIGN_TO_PTR(__start_SYSTEMD_BUS_ERROR_MAP, sizeof(void *));
         while (m < __stop_SYSTEMD_BUS_ERROR_MAP) {
 
                 if (m->code == BUS_ERROR_MAP_END_MARKER) {
-                        m = ALIGN_TO_PTR(m + 1, sizeof(void*));
+                        m = ALIGN_TO_PTR(m + 1, sizeof(void *));
                         continue;
                 }
 
@@ -141,40 +137,26 @@ static void test_errno_mapping_standard(void) {
         assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
 }
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error", 5),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-2", 52),
-        SD_BUS_ERROR_MAP_END
-};
+BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error", 5),
+                                                                    SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-2", 52),
+                                                                    SD_BUS_ERROR_MAP_END };
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors2[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-3", 33),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-4", 44),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-33", 333),
-        SD_BUS_ERROR_MAP_END
-};
+BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors2[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-3", 33),
+                                                                     SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-4", 44),
+                                                                     SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-33", 333),
+                                                                     SD_BUS_ERROR_MAP_END };
 
-static const sd_bus_error_map test_errors3[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-88", 888),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-99", 999),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors3[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-88", 888),
+                                                 SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-99", 999),
+                                                 SD_BUS_ERROR_MAP_END };
 
-static const sd_bus_error_map test_errors4[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-77", 777),
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-78", 778),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors4[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-77", 777),
+                                                 SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-78", 778),
+                                                 SD_BUS_ERROR_MAP_END };
 
-static const sd_bus_error_map test_errors_bad1[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", 0),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors_bad1[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", 0), SD_BUS_ERROR_MAP_END };
 
-static const sd_bus_error_map test_errors_bad2[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", -1),
-        SD_BUS_ERROR_MAP_END
-};
+static const sd_bus_error_map test_errors_bad2[] = { SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-1", -1), SD_BUS_ERROR_MAP_END };
 
 static void test_errno_mapping_custom(void) {
         assert_se(sd_bus_error_set(NULL, "org.freedesktop.custom-dbus-error", NULL) == -5);

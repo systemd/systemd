@@ -8,7 +8,8 @@
 #include "json.h"
 #include "macro.h"
 
-typedef enum TableDataType {
+typedef enum TableDataType
+{
         TABLE_EMPTY,
         TABLE_STRING,
         TABLE_BOOLEAN,
@@ -30,9 +31,17 @@ Table *table_new_internal(const char *first_header, ...) _sentinel_;
 Table *table_new_raw(size_t n_columns);
 Table *table_unref(Table *t);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Table*, table_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Table *, table_unref);
 
-int table_add_cell_full(Table *t, TableCell **ret_cell, TableDataType type, const void *data, size_t minimum_width, size_t maximum_width, unsigned weight, unsigned align_percent, unsigned ellipsize_percent);
+int table_add_cell_full(Table *t,
+                        TableCell **ret_cell,
+                        TableDataType type,
+                        const void *data,
+                        size_t minimum_width,
+                        size_t maximum_width,
+                        unsigned weight,
+                        unsigned align_percent,
+                        unsigned ellipsize_percent);
 static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
         return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
 }
@@ -62,7 +71,7 @@ int table_set_reverse(Table *t, size_t column, bool b);
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
 
-static inline TableCell* TABLE_HEADER_CELL(size_t i) {
+static inline TableCell *TABLE_HEADER_CELL(size_t i) {
         return SIZE_TO_PTR(i + 1);
 }
 

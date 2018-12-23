@@ -145,11 +145,7 @@ static int cat_file(const char *filename, bool newline) {
         if (r < 0)
                 return r;
 
-        printf("%s%s# %s%s\n",
-               newline ? "\n" : "",
-               ansi_highlight_blue(),
-               urlified,
-               ansi_normal());
+        printf("%s%s# %s%s\n", newline ? "\n" : "", ansi_highlight_blue(), urlified, ansi_normal());
         fflush(stdout);
 
         for (;;) {
@@ -174,10 +170,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         if (file) {
                 r = cat_file(file, false);
                 if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# config file %s not found%s\n",
-                               ansi_highlight_magenta(),
-                               file,
-                               ansi_normal());
+                        printf("%s# config file %s not found%s\n", ansi_highlight_magenta(), file, ansi_normal());
                 else if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }
@@ -227,7 +220,7 @@ int conf_files_cat(const char *root, const char *name) {
                         return log_error_errno(r, "Failed to build directory list: %m");
         }
 
-        r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);
+        r = conf_files_list_strv(&files, ".conf", root, 0, (const char *const *) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
@@ -239,7 +232,7 @@ int conf_files_cat(const char *root, const char *name) {
                 log_debug("Looking for configuration in:");
                 log_debug("   %s", path);
                 STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*.conf", *t);
+                log_debug("   %s/*.conf", *t);
         }
 
         /* show */

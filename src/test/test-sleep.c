@@ -17,7 +17,7 @@ static void test_parse_sleep_config(void) {
         log_info("/* %s */", __func__);
 
         FOREACH_STRING(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")
-                assert_se(parse_sleep_config(verb, NULL, NULL, NULL, NULL) == 0);
+        assert_se(parse_sleep_config(verb, NULL, NULL, NULL, NULL) == 0);
 }
 
 static int test_fiemap(const char *path) {
@@ -42,22 +42,15 @@ static int test_fiemap(const char *path) {
         log_info("\t number of mapped extents: %" PRIu32, fiemap->fm_mapped_extents);
         log_info("\t extent count: %" PRIu32, fiemap->fm_extent_count);
         if (fiemap->fm_extent_count > 0)
-                log_info("\t first extent location: %" PRIu64,
-                         (uint64_t) (fiemap->fm_extents[0].fe_physical / page_size()));
+                log_info("\t first extent location: %" PRIu64, (uint64_t)(fiemap->fm_extents[0].fe_physical / page_size()));
 
         return 0;
 }
 
 static void test_sleep(void) {
-        _cleanup_strv_free_ char
-                **standby = strv_new("standby"),
-                **mem = strv_new("mem"),
-                **disk = strv_new("disk"),
-                **suspend = strv_new("suspend"),
-                **reboot = strv_new("reboot"),
-                **platform = strv_new("platform"),
-                **shutdown = strv_new("shutdown"),
-                **freez = strv_new("freeze");
+        _cleanup_strv_free_ char **standby = strv_new("standby"), **mem = strv_new("mem"), **disk = strv_new("disk"),
+                                 **suspend = strv_new("suspend"), **reboot = strv_new("reboot"), **platform = strv_new("platform"),
+                                 **shutdown = strv_new("shutdown"), **freez = strv_new("freeze");
         int r;
 
         log_info("/* %s */", __func__);
@@ -83,7 +76,7 @@ static void test_sleep(void) {
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         int i, r = 0, k;
 
         test_setup_logging(LOG_INFO);

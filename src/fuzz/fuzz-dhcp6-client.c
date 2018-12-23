@@ -12,8 +12,7 @@
 
 static int test_dhcp_fd[2] = { -1, -1 };
 
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
-                                  const void *packet, size_t len) {
+int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address, const void *packet, size_t len) {
         return len;
 }
 
@@ -37,7 +36,8 @@ static void fuzz_client(const uint8_t *data, size_t size, bool is_information_re
         assert_se(sd_dhcp6_client_start(client) >= 0);
 
         if (size >= sizeof(DHCP6Message))
-                assert_se(sd_dhcp6_client_set_transaction_id(client, htobe32(0x00ffffff) & ((const DHCP6Message *) data)->transaction_id) == 0);
+                assert_se(sd_dhcp6_client_set_transaction_id(client, htobe32(0x00ffffff) & ((const DHCP6Message *) data)->transaction_id) ==
+                          0);
 
         assert_se(write(test_dhcp_fd[1], data, size) == (ssize_t) size);
 

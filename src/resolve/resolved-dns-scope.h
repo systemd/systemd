@@ -15,7 +15,8 @@ typedef struct DnsScope DnsScope;
 #include "resolved-dns-zone.h"
 #include "resolved-link.h"
 
-typedef enum DnsScopeMatch {
+typedef enum DnsScopeMatch
+{
         DNS_SCOPE_NO,
         DNS_SCOPE_MAYBE,
         DNS_SCOPE_YES_BASE, /* Add the number of matching labels to this */
@@ -42,7 +43,7 @@ struct DnsScope {
         OrderedHashmap *conflict_queue;
         sd_event_source *conflict_event_source;
 
-        bool announced:1;
+        bool announced : 1;
         sd_event_source *announce_event_source;
 
         RateLimit ratelimit;
@@ -67,13 +68,18 @@ struct DnsScope {
 };
 
 int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol p, int family);
-DnsScope* dns_scope_free(DnsScope *s);
+DnsScope *dns_scope_free(DnsScope *s);
 
 void dns_scope_packet_received(DnsScope *s, usec_t rtt);
 void dns_scope_packet_lost(DnsScope *s, usec_t usec);
 
 int dns_scope_emit_udp(DnsScope *s, int fd, DnsPacket *p);
-int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address);
+int dns_scope_socket_tcp(DnsScope *s,
+                         int family,
+                         const union in_addr_union *address,
+                         DnsServer *server,
+                         uint16_t port,
+                         union sockaddr_union *ret_socket_address);
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port);
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain);
@@ -86,7 +92,8 @@ void dns_scope_next_dns_server(DnsScope *s);
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
 int dns_scope_mdns_membership(DnsScope *s, bool b);
 
-int dns_scope_make_reply_packet(DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, bool tentative, DnsPacket **ret);
+int dns_scope_make_reply_packet(
+        DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, bool tentative, DnsPacket **ret);
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
 DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok);

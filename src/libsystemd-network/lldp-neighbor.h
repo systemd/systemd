@@ -42,9 +42,9 @@ struct sd_lldp_neighbor {
         size_t rindex;
 
         /* And a couple of fields parsed out. */
-        bool has_ttl:1;
-        bool has_capabilities:1;
-        bool has_port_vlan_id:1;
+        bool has_ttl : 1;
+        bool has_capabilities : 1;
+        bool has_port_vlan_id : 1;
 
         uint16_t ttl;
 
@@ -62,22 +62,22 @@ struct sd_lldp_neighbor {
 };
 
 static inline void *LLDP_NEIGHBOR_RAW(const sd_lldp_neighbor *n) {
-        return (uint8_t*) n + ALIGN(sizeof(sd_lldp_neighbor));
+        return (uint8_t *) n + ALIGN(sizeof(sd_lldp_neighbor));
 }
 
 static inline uint8_t LLDP_NEIGHBOR_TLV_TYPE(const sd_lldp_neighbor *n) {
-        return ((uint8_t*) LLDP_NEIGHBOR_RAW(n))[n->rindex] >> 1;
+        return ((uint8_t *) LLDP_NEIGHBOR_RAW(n))[n->rindex] >> 1;
 }
 
 static inline size_t LLDP_NEIGHBOR_TLV_LENGTH(const sd_lldp_neighbor *n) {
         uint8_t *p;
 
-        p = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
-        return p[1] + (((size_t) (p[0] & 1)) << 8);
+        p = (uint8_t *) LLDP_NEIGHBOR_RAW(n) + n->rindex;
+        return p[1] + (((size_t)(p[0] & 1)) << 8);
 }
 
-static inline void* LLDP_NEIGHBOR_TLV_DATA(const sd_lldp_neighbor *n) {
-        return ((uint8_t*) LLDP_NEIGHBOR_RAW(n)) + n->rindex + 2;
+static inline void *LLDP_NEIGHBOR_TLV_DATA(const sd_lldp_neighbor *n) {
+        return ((uint8_t *) LLDP_NEIGHBOR_RAW(n)) + n->rindex + 2;
 }
 
 extern const struct hash_ops lldp_neighbor_hash_ops;

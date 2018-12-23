@@ -280,26 +280,26 @@ static inline int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
 
-static inline sd_network_monitor* FD_TO_MONITOR(int fd) {
-        return (sd_network_monitor*) (unsigned long) (fd + 1);
+static inline sd_network_monitor *FD_TO_MONITOR(int fd) {
+        return (sd_network_monitor *) (unsigned long) (fd + 1);
 }
 
 static int monitor_add_inotify_watch(int fd) {
         int k;
 
-        k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO|IN_DELETE);
+        k = inotify_add_watch(fd, "/run/systemd/netif/links/", IN_MOVED_TO | IN_DELETE);
         if (k >= 0)
                 return 0;
         else if (errno != ENOENT)
                 return -errno;
 
-        k = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE|IN_ISDIR);
+        k = inotify_add_watch(fd, "/run/systemd/netif/", IN_CREATE | IN_ISDIR);
         if (k >= 0)
                 return 0;
         else if (errno != ENOENT)
                 return -errno;
 
-        k = inotify_add_watch(fd, "/run/systemd/", IN_CREATE|IN_ISDIR);
+        k = inotify_add_watch(fd, "/run/systemd/", IN_CREATE | IN_ISDIR);
         if (k < 0)
                 return -errno;
 
@@ -313,7 +313,7 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
 
         assert_return(m, -EINVAL);
 
-        fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -334,7 +334,7 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
         return 0;
 }
 
-_public_ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
+_public_ sd_network_monitor *sd_network_monitor_unref(sd_network_monitor *m) {
         int fd;
 
         if (m) {

@@ -28,7 +28,7 @@
  * if code processes JSON objects recursively. Note that we store the depth in an uint16_t, hence make sure this
  * remains under 2^16.
  * The value was 16k, but it was discovered to be too high on llvm/x86-64. See also the issue #10738. */
-#define DEPTH_MAX (4U*1024U)
+#define DEPTH_MAX (4U * 1024U)
 assert_cc(DEPTH_MAX <= UINT16_MAX);
 
 typedef struct JsonSource {
@@ -56,19 +56,19 @@ struct JsonVariant {
         JsonSource *source;
         unsigned line, column;
 
-        JsonVariantType type:5;
+        JsonVariantType type : 5;
 
         /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
          * is valid. If false, the 'n_ref' field above is valid instead. */
-        bool is_embedded:1;
+        bool is_embedded : 1;
 
         /* In some conditions (for example, if this object is part of an array of strings or objects), we don't store
          * any data inline, but instead simply reference an external object and act as surrogate of it. In that case
          * this bool is set, and the external object is referenced through the .reference field below. */
-        bool is_reference:1;
+        bool is_reference : 1;
 
         /* While comparing two arrays, we use this for marking what we already have seen */
-        bool is_marked:1;
+        bool is_marked : 1;
 
         /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
         uint16_t depth;
@@ -109,7 +109,7 @@ assert_cc(sizeof(JsonVariant) == 48U);
 assert_cc(INLINE_STRING_MAX == 15U);
 #endif
 
-static JsonSource* json_source_new(const char *name) {
+static JsonSource *json_source_new(const char *name) {
         JsonSource *s;
 
         assert(name);
@@ -118,7 +118,7 @@ static JsonSource* json_source_new(const char *name) {
         if (!s)
                 return NULL;
 
-        *s = (JsonSource) {
+        *s = (JsonSource){
                 .n_ref = 1,
         };
         strcpy(s->name, name);
@@ -138,7 +138,7 @@ static bool json_source_equal(JsonSource *a, JsonSource *b) {
         return streq(a->name, b->name);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(JsonSource*, json_source_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(JsonSource *, json_source_unref);
 
 /* There are four kind of JsonVariant* pointers:
  *
@@ -430,7 +430,7 @@ static void json_variant_set(JsonVariant *a, JsonVariant *b) {
                 assert_se(s = json_variant_string(b));
 
                 /* Short strings we can store inline */
-                if (strnlen(s, INLINE_STRING_MAX+1) <= INLINE_STRING_MAX) {
+                if (strnlen(s, INLINE_STRING_MAX + 1) <= INLINE_STRING_MAX) {
                         strcpy(a->string, s);
                         break;
                 }
@@ -475,18 +475,17 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
         }
         assert_return(array, -EINVAL);
 
-        v = new(JsonVariant, n + 1);
+        v = new (JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
-        *v = (JsonVariant) {
+        *v = (JsonVariant){
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
         };
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
-                JsonVariant *w = v + 1 + v->n_elements,
-                        *c = array[v->n_elements];
+                JsonVariant *w = v + 1 + v->n_elements, *c = array[v->n_elements];
                 uint16_t d;
 
                 d = json_variant_depth(c);
@@ -495,7 +494,7 @@ int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n) {
                 if (d >= v->depth)
                         v->depth = d + 1;
 
-                *w = (JsonVariant) {
+                *w = (JsonVariant){
                         .is_embedded = true,
                         .parent = v,
                 };
@@ -519,11 +518,11 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
         }
         assert_return(p, -EINVAL);
 
-        v = new(JsonVariant, n + 1);
+        v = new (JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
-        *v = (JsonVariant) {
+        *v = (JsonVariant){
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
                 .n_elements = n,
@@ -533,11 +532,11 @@ int json_variant_new_array_bytes(JsonVariant **ret, const void *p, size_t n) {
         for (i = 0; i < n; i++) {
                 JsonVariant *w = v + 1 + i;
 
-                *w = (JsonVariant) {
+                *w = (JsonVariant){
                         .is_embedded = true,
                         .parent = v,
                         .type = JSON_VARIANT_UNSIGNED,
-                        .value.unsig = ((const uint8_t*) p)[i],
+                        .value.unsig = ((const uint8_t *) p)[i],
                 };
         }
 
@@ -558,11 +557,11 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 return 0;
         }
 
-        v = new(JsonVariant, n + 1);
+        v = new (JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
-        *v = (JsonVariant) {
+        *v = (JsonVariant){
                 .n_ref = 1,
                 .type = JSON_VARIANT_ARRAY,
                 .depth = 1,
@@ -572,7 +571,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 JsonVariant *w = v + 1 + v->n_elements;
                 size_t k;
 
-                *w = (JsonVariant) {
+                *w = (JsonVariant){
                         .is_embedded = true,
                         .parent = v,
                         .type = JSON_VARIANT_STRING,
@@ -589,7 +588,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
 
                         w->is_reference = true;
                 } else
-                        memcpy(w->string, l[v->n_elements], k+1);
+                        memcpy(w->string, l[v->n_elements], k + 1);
         }
 
         *ret = TAKE_PTR(v);
@@ -607,22 +606,20 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
         assert_return(array, -EINVAL);
         assert_return(n % 2 == 0, -EINVAL);
 
-        v = new(JsonVariant, n + 1);
+        v = new (JsonVariant, n + 1);
         if (!v)
                 return -ENOMEM;
 
-        *v = (JsonVariant) {
+        *v = (JsonVariant){
                 .n_ref = 1,
                 .type = JSON_VARIANT_OBJECT,
         };
 
         for (v->n_elements = 0; v->n_elements < n; v->n_elements++) {
-                JsonVariant *w = v + 1 + v->n_elements,
-                        *c = array[v->n_elements];
+                JsonVariant *w = v + 1 + v->n_elements, *c = array[v->n_elements];
                 uint16_t d;
 
-                if ((v->n_elements & 1) == 0 &&
-                    !json_variant_is_string(c))
+                if ((v->n_elements & 1) == 0 && !json_variant_is_string(c))
                         return -EINVAL; /* Every second one needs to be a string, as it is the key name */
 
                 d = json_variant_depth(c);
@@ -631,7 +628,7 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
                 if (d >= v->depth)
                         v->depth = d + 1;
 
-                *w = (JsonVariant) {
+                *w = (JsonVariant){
                         .is_embedded = true,
                         .parent = v,
                 };
@@ -722,7 +719,7 @@ const char *json_variant_string(JsonVariant *v) {
                 uintptr_t p = (uintptr_t) v;
 
                 assert((p & 1) != 0);
-                return (const char*) (p ^ 1U);
+                return (const char *) (p ^ 1U);
         }
 
         if (v->is_reference)
@@ -761,9 +758,7 @@ mismatch:
 intmax_t json_variant_integer(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-            v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-            v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -809,9 +804,7 @@ mismatch:
 uintmax_t json_variant_unsigned(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-            v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-            v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -857,9 +850,7 @@ mismatch:
 long double json_variant_real(JsonVariant *v) {
         if (!v)
                 return 0.0;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-            v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-            v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0.0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -907,9 +898,7 @@ mismatch:
 bool json_variant_is_negative(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER ||
-            v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
-            v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return false;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -1009,9 +998,9 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
 
         /* Any integer that can be converted lossley to a real and back may also be considered a real */
         if (rt == JSON_VARIANT_INTEGER && type == JSON_VARIANT_REAL)
-                return (intmax_t) (long double) v->value.integer == v->value.integer;
+                return (intmax_t)(long double) v->value.integer == v->value.integer;
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_REAL)
-                return (uintmax_t) (long double) v->value.unsig == v->value.unsig;
+                return (uintmax_t)(long double) v->value.unsig == v->value.unsig;
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
@@ -1028,8 +1017,7 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
 size_t json_variant_elements(JsonVariant *v) {
         if (!v)
                 return 0;
-        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
-            v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
+        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY || v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
                 return 0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -1048,8 +1036,7 @@ mismatch:
 JsonVariant *json_variant_by_index(JsonVariant *v, size_t idx) {
         if (!v)
                 return NULL;
-        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
-            v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
+        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY || v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
                 return NULL;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -1197,7 +1184,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
                                         continue;
 
                                 if (json_variant_equal(json_variant_by_index(a, i), key_b) &&
-                                    json_variant_equal(json_variant_by_index(a, i+1), json_variant_by_index(b, j+1))) {
+                                    json_variant_equal(json_variant_by_index(a, i + 1), json_variant_by_index(b, j + 1))) {
                                         /* Key and values match! */
                                         key_b->is_marked = found = true;
 
@@ -1239,7 +1226,7 @@ int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *r
 static int print_source(FILE *f, JsonVariant *v, JsonFormatFlags flags, bool whitespace) {
         size_t w, k;
 
-        if (!FLAGS_SET(flags, JSON_FORMAT_SOURCE|JSON_FORMAT_PRETTY))
+        if (!FLAGS_SET(flags, JSON_FORMAT_SOURCE | JSON_FORMAT_PRETTY))
                 return 0;
 
         if (!json_variant_is_regular(v))
@@ -1249,22 +1236,14 @@ static int print_source(FILE *f, JsonVariant *v, JsonFormatFlags flags, bool whi
                 return 0;
 
         /* The max width we need to format the line numbers for this source file */
-        w = (v->source && v->source->max_line > 0) ?
-                DECIMAL_STR_WIDTH(v->source->max_line) :
-                DECIMAL_STR_MAX(unsigned)-1;
-        k = (v->source && v->source->max_column > 0) ?
-                DECIMAL_STR_WIDTH(v->source->max_column) :
-                DECIMAL_STR_MAX(unsigned) -1;
+        w = (v->source && v->source->max_line > 0) ? DECIMAL_STR_WIDTH(v->source->max_line) : DECIMAL_STR_MAX(unsigned) - 1;
+        k = (v->source && v->source->max_column > 0) ? DECIMAL_STR_WIDTH(v->source->max_column) : DECIMAL_STR_MAX(unsigned) - 1;
 
         if (whitespace) {
                 size_t i, n;
 
-                n = 1 + (v->source ? strlen(v->source->name) : 0) +
-                        ((v->source && (v->line > 0 || v->column > 0)) ? 1 : 0) +
-                        (v->line > 0 ? w : 0) +
-                        (((v->source || v->line > 0) && v->column > 0) ? 1 : 0) +
-                        (v->column > 0 ? k : 0) +
-                        2;
+                n = 1 + (v->source ? strlen(v->source->name) : 0) + ((v->source && (v->line > 0 || v->column > 0)) ? 1 : 0) +
+                        (v->line > 0 ? w : 0) + (((v->source || v->line > 0) && v->column > 0) ? 1 : 0) + (v->column > 0 ? k : 0) + 2;
 
                 for (i = 0; i < n; i++)
                         fputc(' ', f);
@@ -1519,7 +1498,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
 
                                 fputs(flags & JSON_FORMAT_PRETTY ? " : " : ":", f);
 
-                                r = json_format(f, json_variant_by_index(v, i+1), flags, prefix2);
+                                r = json_format(f, json_variant_by_index(v, i + 1), flags, prefix2);
                                 if (r < 0)
                                         return r;
                         }
@@ -1581,7 +1560,7 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 
         print_source(f, v, flags, false);
 
-        if (((flags & (JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
+        if (((flags & (JSON_FORMAT_COLOR_AUTO | JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
                 flags |= JSON_FORMAT_COLOR;
 
         if (flags & JSON_FORMAT_SSE)
@@ -1591,7 +1570,7 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 
         json_format(f, v, flags, prefix);
 
-        if (flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_SEQ|JSON_FORMAT_SSE|JSON_FORMAT_NEWLINE))
+        if (flags & (JSON_FORMAT_PRETTY | JSON_FORMAT_SEQ | JSON_FORMAT_SSE | JSON_FORMAT_NEWLINE))
                 fputc('\n', f);
         if (flags & JSON_FORMAT_SSE)
                 fputc('\n', f); /* In case of SSE add a second newline */
@@ -1643,7 +1622,7 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 source = json_variant_string(v);
                 k = strnlen(source, INLINE_STRING_MAX + 1);
                 if (k <= INLINE_STRING_MAX) {
-                        k ++;
+                        k++;
                         break;
                 }
 
@@ -1652,7 +1631,7 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         default:
                 /* Everything else copy by reference */
 
-                c = malloc0(offsetof(JsonVariant, reference) + sizeof(JsonVariant*));
+                c = malloc0(offsetof(JsonVariant, reference) + sizeof(JsonVariant *));
                 if (!c)
                         return -ENOMEM;
 
@@ -1715,9 +1694,7 @@ static int json_variant_set_source(JsonVariant **v, JsonSource *source, unsigned
                         return 0;
 
         } else {
-                if (json_source_equal((*v)->source, source) &&
-                    (*v)->line == line &&
-                    (*v)->column == column)
+                if (json_source_equal((*v)->source, source) && (*v)->line == line && (*v)->column == column)
                         return 0;
 
                 if (json_single_ref(*v)) { /* Sole reference? */
@@ -1804,10 +1781,7 @@ static int unhex_ucs2(const char *c, uint16_t *ret) {
         if (dd < 0)
                 return -EINVAL;
 
-        x =     ((uint16_t) aa << 12) |
-                ((uint16_t) bb << 8) |
-                ((uint16_t) cc << 4) |
-                ((uint16_t) dd);
+        x = ((uint16_t) aa << 12) | ((uint16_t) bb << 8) | ((uint16_t) cc << 4) | ((uint16_t) dd);
 
         if (x <= 0)
                 return -EINVAL;
@@ -1924,7 +1898,7 @@ static int json_parse_string(const char **p, char **ret) {
                                 return -ENOMEM;
 
                         s[n++] = ch;
-                        c ++;
+                        c++;
                         continue;
                 }
 
@@ -2040,28 +2014,28 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         } else if (negative) {
                 ret->integer = i;
                 return JSON_TOKEN_INTEGER;
-        } else  {
+        } else {
                 ret->unsig = u;
                 return JSON_TOKEN_UNSIGNED;
         }
 }
 
-int json_tokenize(
-                const char **p,
-                char **ret_string,
-                JsonValue *ret_value,
-                unsigned *ret_line,   /* 'ret_line' returns the line at the beginning of this token */
-                unsigned *ret_column,
-                void **state,
-                unsigned *line,       /* 'line' is used as a line state, it always reflect the line we are at after the token was read */
-                unsigned *column) {
+int json_tokenize(const char **p,
+                  char **ret_string,
+                  JsonValue *ret_value,
+                  unsigned *ret_line, /* 'ret_line' returns the line at the beginning of this token */
+                  unsigned *ret_column,
+                  void **state,
+                  unsigned *line, /* 'line' is used as a line state, it always reflect the line we are at after the token was read */
+                  unsigned *column) {
 
         unsigned start_line, start_column;
         const char *start, *c;
         size_t n;
         int t, r;
 
-        enum {
+        enum
+        {
                 STATE_NULL,
                 STATE_VALUE,
                 STATE_VALUE_POST,
@@ -2172,7 +2146,6 @@ int json_tokenize(
                         *state = INT_TO_PTR(STATE_VALUE_POST);
                         r = JSON_TOKEN_NULL;
                         goto finish;
-
                 }
 
                 return -EINVAL;
@@ -2224,7 +2197,8 @@ finish:
         return r;
 }
 
-typedef enum JsonExpect {
+typedef enum JsonExpect
+{
         /* The following values are used by json_parse() */
         EXPECT_TOPLEVEL,
         EXPECT_END,
@@ -2258,13 +2232,7 @@ static void json_stack_release(JsonStack *s) {
         s->elements = mfree(s->elements);
 }
 
-static int json_parse_internal(
-                const char **input,
-                JsonSource *source,
-                JsonVariant **ret,
-                unsigned *line,
-                unsigned *column,
-                bool continue_end) {
+static int json_parse_internal(const char **input, JsonSource *source, JsonVariant **ret, unsigned *line, unsigned *column, bool continue_end) {
 
         size_t n_stack = 1, n_stack_allocated = 0, i;
         unsigned line_buffer = 0, column_buffer = 0;
@@ -2281,7 +2249,7 @@ static int json_parse_internal(
         if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack))
                 return -ENOMEM;
 
-        stack[0] = (JsonStack) {
+        stack[0] = (JsonStack){
                 .expect = EXPECT_TOPLEVEL,
         };
 
@@ -2352,7 +2320,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2368,7 +2336,7 @@ static int json_parse_internal(
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
-                        stack[n_stack++] = (JsonStack) {
+                        stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_OBJECT_FIRST_KEY,
                                 .line_before = line_token,
                                 .column_before = column_token,
@@ -2403,7 +2371,7 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2419,7 +2387,7 @@ static int json_parse_internal(
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
-                        stack[n_stack++] = (JsonStack) {
+                        stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_ARRAY_FIRST_ELEMENT,
                                 .line_before = line_token,
                                 .column_before = column_token,
@@ -2447,7 +2415,13 @@ static int json_parse_internal(
                         break;
 
                 case JSON_TOKEN_STRING:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_FIRST_KEY, EXPECT_OBJECT_NEXT_KEY, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_FIRST_KEY,
+                                    EXPECT_OBJECT_NEXT_KEY,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2650,7 +2624,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
         if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack))
                 return -ENOMEM;
 
-        stack[0] = (JsonStack) {
+        stack[0] = (JsonStack){
                 .expect = EXPECT_TOPLEVEL,
         };
 
@@ -2844,7 +2818,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         /* Note that we don't care for current->n_suppress here, after all the variant is already
                          * allocated anyway... */
-                        add = va_arg(ap, JsonVariant*);
+                        add = va_arg(ap, JsonVariant *);
                         if (!add)
                                 add = JSON_VARIANT_MAGIC_NULL;
                         else
@@ -2900,7 +2874,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2913,7 +2887,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         else
                                 assert(current->expect == EXPECT_ARRAY_ELEMENT);
 
-                        stack[n_stack++] = (JsonStack) {
+                        stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_ARRAY_ELEMENT,
                                 .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
                                                                                            * new array, then we should
@@ -2979,7 +2953,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack+1)) {
+                        if (!GREEDY_REALLOC(stack, n_stack_allocated, n_stack + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2992,7 +2966,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         else
                                 assert(current->expect == EXPECT_ARRAY_ELEMENT);
 
-                        stack[n_stack++] = (JsonStack) {
+                        stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_OBJECT_KEY,
                                 .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
                                                                                            * new object, then we should
@@ -3071,7 +3045,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         current->expect = EXPECT_OBJECT_VALUE;
                         break;
-                }}
+                }
+                }
 
                 /* If a variant was generated, add it to our current variant, but only if we are not supposed to suppress additions */
                 if (add && current->n_suppress == 0) {
@@ -3123,14 +3098,7 @@ int json_build(JsonVariant **ret, ...) {
         return r;
 }
 
-int json_log_internal(
-                JsonVariant *variant,
-                int level,
-                int error,
-                const char *file,
-                int line,
-                const char *func,
-                const char *format, ...) {
+int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
 
         PROTECT_ERRNO;
 
@@ -3160,24 +3128,29 @@ int json_log_internal(
         }
 
         if (source && source_line > 0 && source_column > 0)
-                return log_struct_internal(
-                                LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
-                                error,
-                                file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                "CONFIG_FILE=%s", source,
-                                "CONFIG_LINE=%u", source_line,
-                                "CONFIG_COLUMN=%u", source_column,
-                                LOG_MESSAGE("%s:%u: %s", source, line, buffer),
-                                NULL);
+                return log_struct_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                           error,
+                                           file,
+                                           line,
+                                           func,
+                                           "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                           "CONFIG_FILE=%s",
+                                           source,
+                                           "CONFIG_LINE=%u",
+                                           source_line,
+                                           "CONFIG_COLUMN=%u",
+                                           source_column,
+                                           LOG_MESSAGE("%s:%u: %s", source, line, buffer),
+                                           NULL);
         else
-                return log_struct_internal(
-                                LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
-                                error,
-                                file, line, func,
-                                "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
-                                LOG_MESSAGE("%s", buffer),
-                                NULL);
+                return log_struct_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, level),
+                                           error,
+                                           file,
+                                           line,
+                                           func,
+                                           "MESSAGE_ID=" SD_MESSAGE_INVALID_CONFIGURATION_STR,
+                                           LOG_MESSAGE("%s", buffer),
+                                           NULL);
 }
 
 int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallback bad, JsonDispatchFlags flags, void *userdata) {
@@ -3205,11 +3178,10 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                 JsonVariant *key, *value;
 
                 assert_se(key = json_variant_by_index(v, i));
-                assert_se(value = json_variant_by_index(v, i+1));
+                assert_se(value = json_variant_by_index(v, i + 1));
 
                 for (p = table; p->name; p++)
-                        if (p->name == (const char*) -1 ||
-                            streq_ptr(json_variant_string(key), p->name))
+                        if (p->name == (const char *) -1 || streq_ptr(json_variant_string(key), p->name))
                                 break;
 
                 if (p->name) { /* Found a matching entry! :-) */
@@ -3217,12 +3189,15 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
 
                         merged_flags = flags | p->flags;
 
-                        if (p->type != _JSON_VARIANT_TYPE_INVALID &&
-                            !json_variant_has_type(value, p->type)) {
+                        if (p->type != _JSON_VARIANT_TYPE_INVALID && !json_variant_has_type(value, p->type)) {
 
-                                json_log(value, merged_flags, 0,
-                                         "Object field '%s' has wrong type %s, expected %s.", json_variant_string(key),
-                                         json_variant_type_to_string(json_variant_type(value)), json_variant_type_to_string(p->type));
+                                json_log(value,
+                                         merged_flags,
+                                         0,
+                                         "Object field '%s' has wrong type %s, expected %s.",
+                                         json_variant_string(key),
+                                         json_variant_type_to_string(json_variant_type(value)),
+                                         json_variant_type_to_string(p->type));
 
                                 if (merged_flags & JSON_PERMISSIVE)
                                         continue;
@@ -3230,7 +3205,7 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                                 return -EINVAL;
                         }
 
-                        if (found[p-table]) {
+                        if (found[p - table]) {
                                 json_log(value, merged_flags, 0, "Duplicate object field '%s'.", json_variant_string(key));
 
                                 if (merged_flags & JSON_PERMISSIVE)
@@ -3239,10 +3214,10 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                                 return -ENOTUNIQ;
                         }
 
-                        found[p-table] = true;
+                        found[p - table] = true;
 
                         if (p->callback) {
-                                r = p->callback(json_variant_string(key), value, merged_flags, (uint8_t*) userdata + p->offset);
+                                r = p->callback(json_variant_string(key), value, merged_flags, (uint8_t *) userdata + p->offset);
                                 if (r < 0) {
                                         if (merged_flags & JSON_PERMISSIVE)
                                                 continue;
@@ -3251,7 +3226,7 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                                 }
                         }
 
-                        done ++;
+                        done++;
 
                 } else { /* Didn't find a matching entry! :-( */
 
@@ -3263,9 +3238,9 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
 
                                         return r;
                                 } else
-                                        done ++;
+                                        done++;
 
-                        } else  {
+                        } else {
                                 json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
 
                                 if (flags & JSON_PERMISSIVE)
@@ -3279,7 +3254,7 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
         for (p = table; p->name; p++) {
                 JsonDispatchFlags merged_flags = p->flags | flags;
 
-                if ((merged_flags & JSON_MANDATORY) && !found[p-table]) {
+                if ((merged_flags & JSON_MANDATORY) && !found[p - table]) {
                         json_log(v, merged_flags, 0, "Missing object field '%s'.", p->name);
 
                         if ((merged_flags & JSON_PERMISSIVE))
@@ -3466,16 +3441,10 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
         return 0;
 }
 
-static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {
-        [JSON_VARIANT_STRING] = "string",
-        [JSON_VARIANT_INTEGER] = "integer",
-        [JSON_VARIANT_UNSIGNED] = "unsigned",
-        [JSON_VARIANT_REAL] = "real",
-        [JSON_VARIANT_NUMBER] = "number",
-        [JSON_VARIANT_BOOLEAN] = "boolean",
-        [JSON_VARIANT_ARRAY] = "array",
-        [JSON_VARIANT_OBJECT] = "object",
-        [JSON_VARIANT_NULL] = "null",
+static const char *const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {
+        [JSON_VARIANT_STRING] = "string", [JSON_VARIANT_INTEGER] = "integer", [JSON_VARIANT_UNSIGNED] = "unsigned",
+        [JSON_VARIANT_REAL] = "real",     [JSON_VARIANT_NUMBER] = "number",   [JSON_VARIANT_BOOLEAN] = "boolean",
+        [JSON_VARIANT_ARRAY] = "array",   [JSON_VARIANT_OBJECT] = "object",   [JSON_VARIANT_NULL] = "null",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(json_variant_type, JsonVariantType);

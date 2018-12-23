@@ -56,19 +56,16 @@ bool manager_all_configured(Manager *m) {
                 }
 
                 if (!l->state) {
-                        log_debug("link %s has not yet been processed by udev",
-                                  l->ifname);
+                        log_debug("link %s has not yet been processed by udev", l->ifname);
                         return false;
                 }
 
                 if (STR_IN_SET(l->state, "configuring", "pending")) {
-                        log_debug("link %s is being processed by networkd",
-                                  l->ifname);
+                        log_debug("link %s is being processed by networkd", l->ifname);
                         return false;
                 }
 
-                if (l->operational_state &&
-                    STR_IN_SET(l->operational_state, "degraded", "routable"))
+                if (l->operational_state && STR_IN_SET(l->operational_state, "degraded", "routable"))
                         /* we wait for at least one link to be ready,
                            regardless of who manages it */
                         one_ready = true;
@@ -238,8 +235,7 @@ static int manager_network_monitor_listen(Manager *m) {
         if (events < 0)
                 return events;
 
-        r = sd_event_add_io(m->event, &m->network_monitor_event_source,
-                            fd, events, &on_network_event, m);
+        r = sd_event_add_io(m->event, &m->network_monitor_event_source, fd, events, &on_network_event, m);
         if (r < 0)
                 return r;
 
@@ -263,7 +259,7 @@ int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout)
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         if (timeout > 0) {

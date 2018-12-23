@@ -33,13 +33,7 @@
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_pool_path, "s", "/var/lib/machines");
 
 static int property_get_pool_usage(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
@@ -47,7 +41,7 @@ static int property_get_pool_usage(
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open("/var/lib/machines", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -59,13 +53,7 @@ static int property_get_pool_usage(
 }
 
 static int property_get_pool_limit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
@@ -73,7 +61,7 @@ static int property_get_pool_limit(
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open("/var/lib/machines", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -170,7 +158,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
         if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID "PID_FMT" does not belong to any known machine", pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID " PID_FMT " does not belong to any known machine", pid);
 
         p = machine_bus_path(machine);
         if (!p)
@@ -204,11 +192,8 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
                 if (!p)
                         return -ENOMEM;
 
-                r = sd_bus_message_append(reply, "(ssso)",
-                                          machine->name,
-                                          strempty(machine_class_to_string(machine->class)),
-                                          machine->service,
-                                          p);
+                r = sd_bus_message_append(
+                        reply, "(ssso)", machine->name, strempty(machine_class_to_string(machine->class)), machine->service, p);
                 if (r < 0)
                         return sd_bus_error_set_errno(error, r);
         }
@@ -258,7 +243,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         if (read_network) {
                 size_t i;
 
-                r = sd_bus_message_read_array(message, 'i', (const void**) &netif, &n_netif);
+                r = sd_bus_message_read_array(message, 'i', (const void **) &netif, &n_netif);
                 if (r < 0)
                         return r;
 
@@ -293,7 +278,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
 
                 assert_cc(sizeof(uint32_t) == sizeof(pid_t));
 
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
+                r = sd_bus_creds_get_pid(creds, (pid_t *) &leader);
                 if (r < 0)
                         return r;
         }
@@ -396,9 +381,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         r = cg_pid_get_unit(m->leader, &m->unit);
         if (r < 0) {
-                r = sd_bus_error_set_errnof(error, r,
-                                            "Failed to determine unit of process "PID_FMT" : %m",
-                                            m->leader);
+                r = sd_bus_error_set_errnof(error, r, "Failed to determine unit of process " PID_FMT " : %m", m->leader);
                 goto fail;
         }
 
@@ -497,7 +480,8 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 if (!p)
                         return -ENOMEM;
 
-                r = sd_bus_message_append(reply, "(ssbttto)",
+                r = sd_bus_message_append(reply,
+                                          "(ssbttto)",
                                           image->name,
                                           image_type_to_string(image->type),
                                           image->read_only,
@@ -545,7 +529,7 @@ static int method_get_machine_uid_shift(sd_bus_message *message, void *userdata,
 }
 
 static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
-        _cleanup_(image_unrefp) Image* i = NULL;
+        _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
         int r;
 
@@ -684,7 +668,8 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
 }
 
 static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        enum {
+        enum
+        {
                 REMOVE_ALL,
                 REMOVE_HIDDEN,
         } mode;
@@ -714,26 +699,19 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mode '%s'.", mm);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-machines",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+        if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
         /* Create a temporary file we can dump information about deleted images into. We use a temporary file for this
          * instead of a pipe or so, since this might grow quit large in theory and we don't want to process this
          * continuously */
-        result_fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        result_fd = open_tmpfile_unlinkable(NULL, O_RDWR | O_CLOEXEC);
         if (result_fd < 0)
                 return -errno;
 
@@ -787,11 +765,11 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                                 (void) ftruncate(result_fd, 0);
                                 (void) lseek(result_fd, 0, SEEK_SET);
                                 (void) write(result_fd, &success, sizeof(success));
-                                (void) write(result_fd, image->name, strlen(image->name)+1);
+                                (void) write(result_fd, image->name, strlen(image->name) + 1);
                                 goto child_fail;
                         }
 
-                        l = write(result_fd, image->name, strlen(image->name)+1);
+                        l = write(result_fd, image->name, strlen(image->name) + 1);
                         if (l < 0) {
                                 r = -errno;
                                 goto child_fail;
@@ -845,14 +823,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-machines",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1284,20 +1255,19 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         log_debug("System manager has been reloaded, rechecking machines...");
 
         HASHMAP_FOREACH(machine, m->machines, i)
-                machine_add_to_gc_queue(machine);
+        machine_add_to_gc_queue(machine);
 
         return 0;
 }
 
-int manager_start_scope(
-                Manager *manager,
-                const char *scope,
-                pid_t pid,
-                const char *slice,
-                const char *description,
-                sd_bus_message *more_properties,
-                sd_bus_error *error,
-                char **job) {
+int manager_start_scope(Manager *manager,
+                        const char *scope,
+                        pid_t pid,
+                        const char *slice,
+                        const char *description,
+                        sd_bus_message *more_properties,
+                        sd_bus_error *error,
+                        char **job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
@@ -1306,13 +1276,12 @@ int manager_start_scope(
         assert(scope);
         assert(pid > 1);
 
-        r = sd_bus_message_new_method_call(
-                        manager->bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = sd_bus_message_new_method_call(manager->bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "StartTransientUnit");
         if (r < 0)
                 return r;
 
@@ -1336,12 +1305,24 @@ int manager_start_scope(
                         return r;
         }
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, pid,
-                                  "Delegate", "b", 1,
-                                  "CollectMode", "s", "inactive-or-failed",
-                                  "AddRef", "b", 1,
-                                  "TasksMax", "t", UINT64_C(16384));
+        r = sd_bus_message_append(m,
+                                  "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs",
+                                  "au",
+                                  1,
+                                  pid,
+                                  "Delegate",
+                                  "b",
+                                  1,
+                                  "CollectMode",
+                                  "s",
+                                  "inactive-or-failed",
+                                  "AddRef",
+                                  "b",
+                                  1,
+                                  "TasksMax",
+                                  "t",
+                                  UINT64_C(16384));
         if (r < 0)
                 return r;
 
@@ -1381,24 +1362,20 @@ int manager_start_scope(
         return 1;
 }
 
-int manager_unref_unit(
-                Manager *m,
-                const char *unit,
-                sd_bus_error *error) {
+int manager_unref_unit(Manager *m, const char *unit, sd_bus_error *error) {
 
         assert(m);
         assert(unit);
 
-        return sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnrefUnit",
-                        error,
-                        NULL,
-                        "s",
-                        unit);
+        return sd_bus_call_method(m->bus,
+                                  "org.freedesktop.systemd1",
+                                  "/org/freedesktop/systemd1",
+                                  "org.freedesktop.systemd1.Manager",
+                                  "UnrefUnit",
+                                  error,
+                                  NULL,
+                                  "s",
+                                  unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -1408,18 +1385,18 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         assert(manager);
         assert(unit);
 
-        r = sd_bus_call_method(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit",
-                        error,
-                        &reply,
-                        "ss", unit, "fail");
+        r = sd_bus_call_method(manager->bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StopUnit",
+                               error,
+                               &reply,
+                               "ss",
+                               unit,
+                               "fail");
         if (r < 0) {
-                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) || sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
 
                         if (job)
                                 *job = NULL;
@@ -1453,15 +1430,17 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
         assert(manager);
         assert(unit);
 
-        return sd_bus_call_method(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        error,
-                        NULL,
-                        "ssi", unit, "all", signo);
+        return sd_bus_call_method(manager->bus,
+                                  "org.freedesktop.systemd1",
+                                  "/org/freedesktop/systemd1",
+                                  "org.freedesktop.systemd1.Manager",
+                                  "KillUnit",
+                                  error,
+                                  NULL,
+                                  "ssi",
+                                  unit,
+                                  "all",
+                                  signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {
@@ -1479,21 +1458,12 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
                 return -ENOMEM;
 
         r = sd_bus_get_property(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "ActiveState",
-                        &error,
-                        &reply,
-                        "s");
+                manager->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "ActiveState", &error, &reply, "s");
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
-                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
                         return true;
 
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) || sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
                         return false;
 
                 return r;
@@ -1515,17 +1485,9 @@ int manager_job_is_active(Manager *manager, const char *path) {
         assert(path);
 
         r = sd_bus_get_property(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Job",
-                        "State",
-                        &error,
-                        &reply,
-                        "s");
+                manager->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Job", "State", &error, &reply, "s");
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
-                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
                         return true;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))

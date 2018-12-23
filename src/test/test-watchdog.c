@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to ping watchdog: %m");
 
-                usleep(t/2);
+                usleep(t / 2);
         }
 
         watchdog_close(true);

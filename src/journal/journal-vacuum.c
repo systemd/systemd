@@ -33,8 +33,7 @@ struct vacuum_info {
 static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info *b) {
         int r;
 
-        if (a->have_seqnum && b->have_seqnum &&
-            sd_id128_equal(a->seqnum_id, b->seqnum_id))
+        if (a->have_seqnum && b->have_seqnum && sd_id128_equal(a->seqnum_id, b->seqnum_id))
                 return CMP(a->seqnum, b->seqnum);
 
         r = CMP(a->realtime, b->realtime);
@@ -47,11 +46,7 @@ static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info 
         return strcmp(a->filename, b->filename);
 }
 
-static void patch_realtime(
-                int fd,
-                const char *fn,
-                const struct stat *st,
-                unsigned long long *realtime) {
+static void patch_realtime(int fd, const char *fn, const struct stat *st, unsigned long long *realtime) {
 
         usec_t x, crtime = 0;
 
@@ -93,10 +88,10 @@ static int journal_file_empty(int dir_fd, const char *name) {
         le64_t n_entries;
         ssize_t n;
 
-        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK|O_NOATIME);
+        fd = openat(dir_fd, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK | O_NOATIME);
         if (fd < 0) {
                 /* Maybe failed due to O_NOATIME and lack of privileges? */
-                fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                fd = openat(dir_fd, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
                 if (fd < 0)
                         return -errno;
         }
@@ -119,12 +114,7 @@ static int journal_file_empty(int dir_fd, const char *name) {
 }
 
 int journal_directory_vacuum(
-                const char *directory,
-                uint64_t max_use,
-                uint64_t n_max_files,
-                usec_t max_retention_usec,
-                usec_t *oldest_usec,
-                bool verbose) {
+        const char *directory, uint64_t max_use, uint64_t n_max_files, usec_t max_retention_usec, usec_t *oldest_usec, bool verbose) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, n_allocated = 0, i;
@@ -177,9 +167,8 @@ int journal_directory_vacuum(
                                 continue;
                         }
 
-                        if (de->d_name[q-8-16-1] != '-' ||
-                            de->d_name[q-8-16-1-16-1] != '-' ||
-                            de->d_name[q-8-16-1-16-1-32-1] != '@') {
+                        if (de->d_name[q - 8 - 16 - 1] != '-' || de->d_name[q - 8 - 16 - 1 - 16 - 1] != '-' ||
+                            de->d_name[q - 8 - 16 - 1 - 16 - 1 - 32 - 1] != '@') {
                                 n_active_files++;
                                 continue;
                         }
@@ -190,13 +179,13 @@ int journal_directory_vacuum(
                                 goto finish;
                         }
 
-                        de->d_name[q-8-16-1-16-1] = 0;
-                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
+                        de->d_name[q - 8 - 16 - 1 - 16 - 1] = 0;
+                        if (sd_id128_from_string(de->d_name + q - 8 - 16 - 1 - 16 - 1 - 32, &seqnum_id) < 0) {
                                 n_active_files++;
                                 continue;
                         }
 
-                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
+                        if (sscanf(de->d_name + q - 8 - 16 - 1 - 16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
                                 n_active_files++;
                                 continue;
                         }
@@ -213,8 +202,7 @@ int journal_directory_vacuum(
                                 continue;
                         }
 
-                        if (de->d_name[q-1-8-16-1] != '-' ||
-                            de->d_name[q-1-8-16-1-16-1] != '@') {
+                        if (de->d_name[q - 1 - 8 - 16 - 1] != '-' || de->d_name[q - 1 - 8 - 16 - 1 - 16 - 1] != '@') {
                                 n_active_files++;
                                 continue;
                         }
@@ -225,7 +213,7 @@ int journal_directory_vacuum(
                                 goto finish;
                         }
 
-                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
+                        if (sscanf(de->d_name + q - 1 - 8 - 16 - 1 - 16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
                                 n_active_files++;
                                 continue;
                         }
@@ -251,7 +239,10 @@ int journal_directory_vacuum(
                         if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
+                                         "Deleted empty archived journal %s/%s (%s).",
+                                         directory,
+                                         p,
+                                         format_bytes(sbytes, sizeof(sbytes), size));
 
                                 freed += size;
                         } else if (r != -ENOENT)
@@ -267,7 +258,7 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list++] = (struct vacuum_info) {
+                list[n_list++] = (struct vacuum_info){
                         .filename = TAKE_PTR(p),
                         .usage = size,
                         .seqnum = seqnum,
@@ -286,14 +277,17 @@ int journal_directory_vacuum(
 
                 left = n_active_files + n_list - i;
 
-                if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
-                    (max_use <= 0 || sum <= max_use) &&
+                if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) && (max_use <= 0 || sum <= max_use) &&
                     (n_max_files <= 0 || left <= n_max_files))
                         break;
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
                 if (r >= 0) {
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                 "Deleted archived journal %s/%s (%s).",
+                                 directory,
+                                 list[i].filename,
+                                 format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
                         if (list[i].usage < sum)
@@ -315,7 +309,10 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.", format_bytes(sbytes, sizeof(sbytes), freed), directory);
+        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                 "Vacuuming done, freed %s of archived journals from %s.",
+                 format_bytes(sbytes, sizeof(sbytes), freed),
+                 directory);
 
         return r;
 }

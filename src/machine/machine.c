@@ -32,7 +32,7 @@
 #include "user-util.h"
 #include "util.h"
 
-Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
+Machine *machine_new(Manager *manager, MachineClass class, const char *name) {
         Machine *m;
 
         assert(manager);
@@ -72,7 +72,7 @@ fail:
         return mfree(m);
 }
 
-Machine* machine_free(Machine *m) {
+Machine *machine_free(Machine *m) {
         if (!m)
                 return NULL;
 
@@ -142,7 +142,9 @@ int machine_save(Machine *m) {
                         goto fail;
                 }
 
-                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+                fprintf(f,
+                        "SCOPE=%s\n",
+                        escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
         }
 
         if (m->scope_job)
@@ -174,15 +176,16 @@ int machine_save(Machine *m) {
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
         if (m->leader != 0)
-                fprintf(f, "LEADER="PID_FMT"\n", m->leader);
+                fprintf(f, "LEADER=" PID_FMT "\n", m->leader);
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
 
         if (dual_timestamp_is_set(&m->timestamp))
                 fprintf(f,
-                        "REALTIME="USEC_FMT"\n"
-                        "MONOTONIC="USEC_FMT"\n",
+                        "REALTIME=" USEC_FMT
+                        "\n"
+                        "MONOTONIC=" USEC_FMT "\n",
                         m->timestamp.realtime,
                         m->timestamp.monotonic);
 
@@ -254,17 +257,28 @@ int machine_load(Machine *m) {
         if (!m->state_file)
                 return 0;
 
-        r = parse_env_file(NULL, m->state_file,
-                           "SCOPE",     &m->unit,
-                           "SCOPE_JOB", &m->scope_job,
-                           "SERVICE",   &m->service,
-                           "ROOT",      &m->root_directory,
-                           "ID",        &id,
-                           "LEADER",    &leader,
-                           "CLASS",     &class,
-                           "REALTIME",  &realtime,
-                           "MONOTONIC", &monotonic,
-                           "NETIF",     &netif);
+        r = parse_env_file(NULL,
+                           m->state_file,
+                           "SCOPE",
+                           &m->unit,
+                           "SCOPE_JOB",
+                           &m->scope_job,
+                           "SERVICE",
+                           &m->service,
+                           "ROOT",
+                           &m->root_directory,
+                           "ID",
+                           &id,
+                           "LEADER",
+                           &leader,
+                           "CLASS",
+                           &class,
+                           "REALTIME",
+                           &realtime,
+                           "MONOTONIC",
+                           &monotonic,
+                           "NETIF",
+                           &netif);
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
@@ -314,7 +328,7 @@ int machine_load(Machine *m) {
                         if (parse_ifindex(word, &ifi) < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
+                        if (!GREEDY_REALLOC(ni, allocated, nr + 1)) {
                                 free(ni);
                                 return log_oom();
                         }
@@ -385,8 +399,10 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
-                   "NAME=%s", m->name,
-                   "LEADER="PID_FMT, m->leader,
+                   "NAME=%s",
+                   m->name,
+                   "LEADER=" PID_FMT,
+                   m->leader,
                    LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
@@ -451,8 +467,10 @@ int machine_finalize(Machine *m) {
         if (m->started)
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
-                           "NAME=%s", m->name,
-                           "LEADER="PID_FMT, m->leader,
+                           "NAME=%s",
+                           m->name,
+                           "LEADER=" PID_FMT,
+                           m->leader,
                            LOG_MESSAGE("Machine %s terminated.", m->name));
 
         machine_unlink(m);
@@ -685,7 +703,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         return 0;
 }
 
-static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
+static const char *const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_CONTAINER] = "container",
         [MACHINE_VM] = "vm",
         [MACHINE_HOST] = "host",
@@ -693,17 +711,12 @@ static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
 
-static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
-        [MACHINE_OPENING] = "opening",
-        [MACHINE_RUNNING] = "running",
-        [MACHINE_CLOSING] = "closing"
-};
+static const char *const machine_state_table[_MACHINE_STATE_MAX] = { [MACHINE_OPENING] = "opening",
+                                                                     [MACHINE_RUNNING] = "running",
+                                                                     [MACHINE_CLOSING] = "closing" };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
 
-static const char* const kill_who_table[_KILL_WHO_MAX] = {
-        [KILL_LEADER] = "leader",
-        [KILL_ALL] = "all"
-};
+static const char *const kill_who_table[_KILL_WHO_MAX] = { [KILL_LEADER] = "leader", [KILL_ALL] = "all" };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

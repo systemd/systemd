@@ -47,7 +47,7 @@ static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdli
                 _cleanup_free_ char *word = NULL;
                 const char *c;
 
-                r = extract_first_word(&q, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&q, &word, NULL, EXTRACT_QUOTES | EXTRACT_RELAX);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -125,9 +125,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 }
 
 static bool relaxed_equal_char(char a, char b) {
-        return a == b ||
-                (a == '_' && b == '-') ||
-                (a == '-' && b == '_');
+        return a == b || (a == '_' && b == '-') || (a == '-' && b == '_');
 }
 
 char *proc_cmdline_key_startswith(const char *s, const char *prefix) {
@@ -140,7 +138,7 @@ char *proc_cmdline_key_startswith(const char *s, const char *prefix) {
                 if (!relaxed_equal_char(*s, *prefix))
                         return NULL;
 
-        return (char*) s;
+        return (char *) s;
 }
 
 bool proc_cmdline_key_streq(const char *x, const char *y) {
@@ -203,7 +201,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
                                 continue;
 
                         if (*e == '=') {
-                                r = free_and_strdup(&ret, e+1);
+                                r = free_and_strdup(&ret, e + 1);
                                 if (r < 0)
                                         return r;
 
@@ -283,11 +281,11 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
                         char **v;
                         const char *k, *e;
 
-                        k = va_arg(ap, const char*);
+                        k = va_arg(ap, const char *);
                         if (!k)
                                 break;
 
-                        assert_se(v = va_arg(ap, char**));
+                        assert_se(v = va_arg(ap, char **));
 
                         e = proc_cmdline_key_startswith(word, k);
                         if (e && *e == '=') {
@@ -318,30 +316,18 @@ int shall_restore_state(void) {
         return r > 0 ? ret : true;
 }
 
-static const char * const rlmap[] = {
-        "emergency", SPECIAL_EMERGENCY_TARGET,
-        "-b",        SPECIAL_EMERGENCY_TARGET,
-        "rescue",    SPECIAL_RESCUE_TARGET,
-        "single",    SPECIAL_RESCUE_TARGET,
-        "-s",        SPECIAL_RESCUE_TARGET,
-        "s",         SPECIAL_RESCUE_TARGET,
-        "S",         SPECIAL_RESCUE_TARGET,
-        "1",         SPECIAL_RESCUE_TARGET,
-        "2",         SPECIAL_MULTI_USER_TARGET,
-        "3",         SPECIAL_MULTI_USER_TARGET,
-        "4",         SPECIAL_MULTI_USER_TARGET,
-        "5",         SPECIAL_GRAPHICAL_TARGET,
-        NULL
-};
+static const char *const rlmap[] = { "emergency", SPECIAL_EMERGENCY_TARGET,  "-b",     SPECIAL_EMERGENCY_TARGET,
+                                     "rescue",    SPECIAL_RESCUE_TARGET,     "single", SPECIAL_RESCUE_TARGET,
+                                     "-s",        SPECIAL_RESCUE_TARGET,     "s",      SPECIAL_RESCUE_TARGET,
+                                     "S",         SPECIAL_RESCUE_TARGET,     "1",      SPECIAL_RESCUE_TARGET,
+                                     "2",         SPECIAL_MULTI_USER_TARGET, "3",      SPECIAL_MULTI_USER_TARGET,
+                                     "4",         SPECIAL_MULTI_USER_TARGET, "5",      SPECIAL_GRAPHICAL_TARGET,
+                                     NULL };
 
-static const char * const rlmap_initrd[] = {
-        "emergency", SPECIAL_EMERGENCY_TARGET,
-        "rescue",    SPECIAL_RESCUE_TARGET,
-        NULL
-};
+static const char *const rlmap_initrd[] = { "emergency", SPECIAL_EMERGENCY_TARGET, "rescue", SPECIAL_RESCUE_TARGET, NULL };
 
-const char* runlevel_to_target(const char *word) {
-        const char * const *rlmap_ptr;
+const char *runlevel_to_target(const char *word) {
+        const char *const *rlmap_ptr;
         size_t i;
 
         if (!word)
@@ -357,7 +343,7 @@ const char* runlevel_to_target(const char *word) {
 
         for (i = 0; rlmap_ptr[i]; i += 2)
                 if (streq(word, rlmap_ptr[i]))
-                        return rlmap_ptr[i+1];
+                        return rlmap_ptr[i + 1];
 
         return NULL;
 }

@@ -26,8 +26,7 @@ int main(int argc, char *argv[]) {
         assert_se(v >= 0);
 
         log_info("virtualization=%s id=%s",
-                 VIRTUALIZATION_IS_CONTAINER(v) ? "container" :
-                 VIRTUALIZATION_IS_VM(v)        ? "vm" : "n/a",
+                 VIRTUALIZATION_IS_CONTAINER(v) ? "container" : VIRTUALIZATION_IS_VM(v) ? "vm" : "n/a",
                  virtualization_to_string(v));
 
         a = uname_architecture();

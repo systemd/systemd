@@ -92,7 +92,9 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
                 "[Mount]\n"
                 "What=%s\n"
                 "Where=%s\n"
-                "Options=ro\n", what, where);
+                "Options=ro\n",
+                what,
+                where);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -104,15 +106,10 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
         return 0;
 }
 
-static int create_disk(
-                const char *name,
-                const char *device,
-                const char *keydev,
-                const char *password,
-                const char *options) {
+static int create_disk(const char *name, const char *device, const char *keydev, const char *password, const char *options) {
 
-        _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
-                *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL;
+        _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL, *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL,
+                            *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
@@ -121,16 +118,18 @@ static int create_disk(
         assert(name);
         assert(device);
 
-        noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
-        nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
+        noauto = fstab_test_yes_no_option(options,
+                                          "noauto\0"
+                                          "auto\0");
+        nofail = fstab_test_yes_no_option(options,
+                                          "nofail\0"
+                                          "fail\0");
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
 
         if (tmp && swap)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.",
-                                       name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
 
         name_escaped = specifier_escape(name);
         if (!name_escaped)
@@ -163,8 +162,7 @@ static int create_disk(
         }
 
         if (keydev && !password)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Key device is specified, but path to the password file is missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key device is specified, but path to the password file is missing.");
 
         r = generator_open_unit_file(arg_dest, NULL, n, &f);
         if (r < 0)
@@ -196,9 +194,7 @@ static int create_disk(
         }
 
         if (!nofail)
-                fprintf(f,
-                        "Before=%s\n",
-                        netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
+                fprintf(f, "Before=%s\n", netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
 
         if (password) {
                 if (PATH_IN_SET(password, "/dev/urandom", "/dev/random", "/dev/hw_random"))
@@ -231,11 +227,11 @@ static int create_disk(
                         "BindsTo=%s\n"
                         "After=%s\n"
                         "Before=umount.target\n",
-                        d, d);
+                        d,
+                        d);
 
                 if (swap)
-                        fputs("Before=dev-mapper-%i.swap\n",
-                              f);
+                        fputs("Before=dev-mapper-%i.swap\n", f);
         } else
                 /* For loopback devices, add systemd-tmpfiles-setup-dev.service
                    dependency to ensure that loopback support is available in
@@ -260,27 +256,25 @@ static int create_disk(
                 "\n[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "TimeoutSec=0\n" /* the binary handles timeouts anyway */
+                "TimeoutSec=0\n"       /* the binary handles timeouts anyway */
                 "KeyringMode=shared\n" /* make sure we can share cached keys among instances */
-                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
+                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH
+                " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
-                name_escaped, u_escaped, strempty(password_escaped), strempty(filtered_escaped),
+                name_escaped,
+                u_escaped,
+                strempty(password_escaped),
+                strempty(filtered_escaped),
                 name_escaped);
 
         if (tmp)
-                fprintf(f,
-                        "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
-                        name_escaped);
+                fprintf(f, "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n", name_escaped);
 
         if (swap)
-                fprintf(f,
-                        "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
-                        name_escaped);
+                fprintf(f, "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n", name_escaped);
 
         if (keydev)
-                fprintf(f,
-                        "ExecStartPost=" UMOUNT_PATH " %s\n\n",
-                        keydev_mount);
+                fprintf(f, "ExecStartPost=" UMOUNT_PATH " %s\n\n", keydev_mount);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -291,9 +285,8 @@ static int create_disk(
                 if (r < 0)
                         return r;
 
-                r = generator_add_symlink(arg_dest,
-                                          netdev ? "remote-cryptsetup.target" : "cryptsetup.target",
-                                          nofail ? "wants" : "requires", n);
+                r = generator_add_symlink(
+                        arg_dest, netdev ? "remote-cryptsetup.target" : "cryptsetup.target", nofail ? "wants" : "requires", n);
                 if (r < 0)
                         return r;
         }
@@ -304,7 +297,10 @@ static int create_disk(
                 return r;
 
         if (!noauto && !nofail) {
-                r = write_drop_in(arg_dest, dmname, 90, "device-timeout",
+                r = write_drop_in(arg_dest,
+                                  dmname,
+                                  90,
+                                  "device-timeout",
                                   "# Automatically generated by systemd-cryptsetup-generator \n\n"
                                   "[Unit]\nJobTimeoutSec=0");
                 if (r < 0)
@@ -314,7 +310,7 @@ static int create_disk(
         return 0;
 }
 
-static crypto_device* crypt_device_free(crypto_device *d) {
+static crypto_device *crypt_device_free(crypto_device *d) {
         if (!d)
                 return NULL;
 
@@ -381,7 +377,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                d = get_crypto_device(startswith(value, "luks-") ? value+5 : value);
+                d = get_crypto_device(startswith(value, "luks-") ? value + 5 : value);
                 if (!d)
                         return log_oom();
 
@@ -414,7 +410,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 n = strspn(value, LETTERS DIGITS "-");
                 if (value[n] != '=') {
                         if (free_and_strdup(&arg_default_keyfile, value) < 0)
-                                 return log_oom();
+                                return log_oom();
                         return 0;
                 }
 
@@ -434,7 +430,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 keyspec = value + n + 1;
                 c = strrchr(keyspec, ':');
                 if (c) {
-                         *c = '\0';
+                        *c = '\0';
                         keyfile = strdup(keyspec);
                         keydev = strdup(c + 1);
 
@@ -576,8 +572,8 @@ static int add_proc_cmdline_devices(void) {
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(crypt_device_hash_ops, char, string_hash_func, string_compare_func,
-                                              crypto_device, crypt_device_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        crypt_device_hash_ops, char, string_hash_func, string_compare_func, crypto_device, crypt_device_free);
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         int r;

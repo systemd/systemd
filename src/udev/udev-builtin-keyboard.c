@@ -73,23 +73,23 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
         } else {
                 /* check if it's a numeric code already */
                 keycode_num = strtoul(keycode, &endptr, 0);
-                if (endptr[0] !='\0')
+                if (endptr[0] != '\0')
                         return log_device_error_errno(dev, EINVAL, "Failed to parse key identifier '%s'", keycode);
         }
 
         map.scan = scancode;
         map.key = keycode_num;
 
-        log_device_debug(dev, "keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)",
-                         map.scan, map.scan, map.key, map.key);
+        log_device_debug(dev, "keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)", map.scan, map.scan, map.key, map.key);
 
         if (ioctl(fd, EVIOCSKEYCODE, &map) < 0)
-                return log_device_error_errno(dev, errno, "Failed to call EVIOCSKEYCODE with scan code 0x%x, and key code %d: %m", map.scan, map.key);
+                return log_device_error_errno(
+                        dev, errno, "Failed to call EVIOCSKEYCODE with scan code 0x%x, and key code %d: %m", map.scan, map.key);
 
         return 0;
 }
 
-static inline char* parse_token(const char *current, int32_t *val_out) {
+static inline char *parse_token(const char *current, int32_t *val_out) {
         char *next;
         int32_t val;
 
@@ -126,8 +126,14 @@ static int override_abs(sd_device *dev, int fd, unsigned evcode, const char *val
         if (!next)
                 return log_device_error(dev, "Failed to parse EV_ABS override '%s'", value);
 
-        log_device_debug(dev, "keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32,
-                         evcode, absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat);
+        log_device_debug(dev,
+                         "keyboard: %x overridden with %" PRIi32 "/%" PRIi32 "/%" PRIi32 "/%" PRIi32 "/%" PRIi32,
+                         evcode,
+                         absinfo.minimum,
+                         absinfo.maximum,
+                         absinfo.resolution,
+                         absinfo.fuzz,
+                         absinfo.flat);
         r = ioctl(fd, EVIOCSABS(evcode), &absinfo);
         if (r < 0)
                 return log_device_error_errno(dev, errno, "Failed to call EVIOCSABS");
@@ -193,7 +199,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                                 keycode++;
 
                                 release[release_count] = scancode;
-                                if (release_count < ELEMENTSOF(release)-1)
+                                if (release_count < ELEMENTSOF(release) - 1)
                                         release_count++;
 
                                 if (keycode[0] == '\0')
@@ -201,7 +207,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         }
 
                         if (fd < 0) {
-                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = open(node, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
                                 if (fd < 0)
                                         return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
                         }
@@ -218,7 +224,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
                         }
 
                         if (fd < 0) {
-                                fd = open(node, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+                                fd = open(node, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
                                 if (fd < 0)
                                         return log_device_error_errno(dev, errno, "Failed to open device '%s': %m", node);
                         }

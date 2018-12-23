@@ -20,29 +20,30 @@ int manager_parse_config_file(Manager *m) {
         return config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
                                         CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
                                         "DHCP\0",
-                                        config_item_perf_lookup, networkd_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+                                        config_item_perf_lookup,
+                                        networkd_gperf_lookup,
+                                        CONFIG_PARSE_WARN,
+                                        m);
 }
 
-static const char* const duid_type_table[_DUID_TYPE_MAX] = {
-        [DUID_TYPE_LLT]  = "link-layer-time",
-        [DUID_TYPE_EN]   = "vendor",
-        [DUID_TYPE_LL]   = "link-layer",
+static const char *const duid_type_table[_DUID_TYPE_MAX] = {
+        [DUID_TYPE_LLT] = "link-layer-time",
+        [DUID_TYPE_EN] = "vendor",
+        [DUID_TYPE_LL] = "link-layer",
         [DUID_TYPE_UUID] = "uuid",
 };
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(duid_type, DUIDType);
 
-int config_parse_duid_type(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_duid_type(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
 
         _cleanup_free_ char *type_string = NULL;
         const char *p = rvalue;
@@ -59,20 +60,17 @@ int config_parse_duid_type(
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid syntax, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
         if (r == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to extract DUID type from '%s', ignoring.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to extract DUID type from '%s', ignoring.", rvalue);
                 return 0;
         }
 
         type = duid_type_from_string(type_string);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse DUID type '%s', ignoring.", type_string);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse DUID type '%s', ignoring.", type_string);
                 return 0;
         }
 
@@ -80,15 +78,13 @@ int config_parse_duid_type(
                 usec_t u;
 
                 if (type != DUID_TYPE_LLT) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 r = parse_timestamp(p, &u);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse timestamp, ignoring: %s", p);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse timestamp, ignoring: %s", p);
                         return 0;
                 }
 
@@ -100,17 +96,16 @@ int config_parse_duid_type(
         return 0;
 }
 
-int config_parse_duid_rawdata(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_duid_rawdata(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
 
         DUID *ret = data;
         uint8_t raw_data[MAX_DUID_LEN];
@@ -141,7 +136,8 @@ int config_parse_duid_rawdata(
 
                 len = strlen(cbyte);
                 if (!IN_SET(len, 1, 2)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
                         return 0;
                 }
                 n1 = unhexchar(cbyte[0]);
@@ -155,7 +151,7 @@ int config_parse_duid_rawdata(
                         return 0;
                 }
 
-                byte = ((uint8_t) n1 << (4 * (len-1))) | (uint8_t) n2;
+                byte = ((uint8_t) n1 << (4 * (len - 1))) | (uint8_t) n2;
                 raw_data[count++] = byte;
         }
 

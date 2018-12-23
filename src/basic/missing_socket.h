@@ -12,10 +12,7 @@ struct sockaddr_vm {
         unsigned short svm_reserved1;
         unsigned int svm_port;
         unsigned int svm_cid;
-        unsigned char svm_zero[sizeof(struct sockaddr) -
-                               sizeof(unsigned short) -
-                               sizeof(unsigned short) -
-                               sizeof(unsigned int) -
+        unsigned char svm_zero[sizeof(struct sockaddr) - sizeof(unsigned short) - sizeof(unsigned short) - sizeof(unsigned int) -
                                sizeof(unsigned int)];
 };
 #endif /* !HAVE_LINUX_VM_SOCKETS_H */

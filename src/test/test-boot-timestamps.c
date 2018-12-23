@@ -70,7 +70,7 @@ static int test_boot_timestamps(void) {
         return 1;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         int p, q, r;
 
         test_setup_logging(LOG_DEBUG);

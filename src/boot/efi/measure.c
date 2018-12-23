@@ -6,7 +6,12 @@
 #include <efilib.h>
 #include "measure.h"
 
-#define EFI_TCG_PROTOCOL_GUID { 0xf541796d, 0xa62e, 0x4954, {0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd} }
+#define EFI_TCG_PROTOCOL_GUID                                          \
+        {                                                              \
+                0xf541796d, 0xa62e, 0x4954, {                          \
+                        0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd \
+                }                                                      \
+        }
 
 typedef struct _TCG_VERSION {
         UINT8 Major;
@@ -42,7 +47,7 @@ typedef struct tdTREE_BOOT_SERVICE_CAPABILITY {
 } TREE_BOOT_SERVICE_CAPABILITY;
 
 typedef UINT32 TCG_ALGORITHM_ID;
-#define TCG_ALG_SHA 0x00000004  // The SHA1 algorithm
+#define TCG_ALG_SHA 0x00000004 // The SHA1 algorithm
 
 #define SHA1_DIGEST_SIZE 20
 
@@ -62,35 +67,37 @@ typedef struct _TCG_PCR_EVENT {
 
 INTERFACE_DECL(_EFI_TCG);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG_STATUS_CHECK) (IN struct _EFI_TCG * This,
-                                                   OUT struct _TCG_BOOT_SERVICE_CAPABILITY * ProtocolCapability,
-                                                   OUT UINT32 * TCGFeatureFlags,
-                                                   OUT EFI_PHYSICAL_ADDRESS * EventLogLocation,
-                                                   OUT EFI_PHYSICAL_ADDRESS * EventLogLastEntry);
+typedef EFI_STATUS(EFIAPI *EFI_TCG_STATUS_CHECK)(IN struct _EFI_TCG *This,
+                                                 OUT struct _TCG_BOOT_SERVICE_CAPABILITY *ProtocolCapability,
+                                                 OUT UINT32 *TCGFeatureFlags,
+                                                 OUT EFI_PHYSICAL_ADDRESS *EventLogLocation,
+                                                 OUT EFI_PHYSICAL_ADDRESS *EventLogLastEntry);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG_HASH_ALL) (IN struct _EFI_TCG * This,
-                                               IN UINT8 * HashData,
-                                               IN UINT64 HashDataLen,
-                                               IN TCG_ALGORITHM_ID AlgorithmId,
-                                               IN OUT UINT64 * HashedDataLen, IN OUT UINT8 ** HashedDataResult);
+typedef EFI_STATUS(EFIAPI *EFI_TCG_HASH_ALL)(IN struct _EFI_TCG *This,
+                                             IN UINT8 *HashData,
+                                             IN UINT64 HashDataLen,
+                                             IN TCG_ALGORITHM_ID AlgorithmId,
+                                             IN OUT UINT64 *HashedDataLen,
+                                             IN OUT UINT8 **HashedDataResult);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG_LOG_EVENT) (IN struct _EFI_TCG * This,
-                                                IN struct _TCG_PCR_EVENT * TCGLogData,
-                                                IN OUT UINT32 * EventNumber, IN UINT32 Flags);
+typedef EFI_STATUS(EFIAPI *EFI_TCG_LOG_EVENT)(IN struct _EFI_TCG *This,
+                                              IN struct _TCG_PCR_EVENT *TCGLogData,
+                                              IN OUT UINT32 *EventNumber,
+                                              IN UINT32 Flags);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG_PASS_THROUGH_TO_TPM) (IN struct _EFI_TCG * This,
-                                                          IN UINT32 TpmInputParameterBlockSize,
-                                                          IN UINT8 * TpmInputParameterBlock,
-                                                          IN UINT32 TpmOutputParameterBlockSize,
-                                                          IN UINT8 * TpmOutputParameterBlock);
+typedef EFI_STATUS(EFIAPI *EFI_TCG_PASS_THROUGH_TO_TPM)(IN struct _EFI_TCG *This,
+                                                        IN UINT32 TpmInputParameterBlockSize,
+                                                        IN UINT8 *TpmInputParameterBlock,
+                                                        IN UINT32 TpmOutputParameterBlockSize,
+                                                        IN UINT8 *TpmOutputParameterBlock);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG_HASH_LOG_EXTEND_EVENT) (IN struct _EFI_TCG * This,
-                                                            IN EFI_PHYSICAL_ADDRESS HashData,
-                                                            IN UINT64 HashDataLen,
-                                                            IN TCG_ALGORITHM_ID AlgorithmId,
-                                                            IN struct _TCG_PCR_EVENT * TCGLogData,
-                                                            IN OUT UINT32 * EventNumber,
-                                                            OUT EFI_PHYSICAL_ADDRESS * EventLogLastEntry);
+typedef EFI_STATUS(EFIAPI *EFI_TCG_HASH_LOG_EXTEND_EVENT)(IN struct _EFI_TCG *This,
+                                                          IN EFI_PHYSICAL_ADDRESS HashData,
+                                                          IN UINT64 HashDataLen,
+                                                          IN TCG_ALGORITHM_ID AlgorithmId,
+                                                          IN struct _TCG_PCR_EVENT *TCGLogData,
+                                                          IN OUT UINT32 *EventNumber,
+                                                          OUT EFI_PHYSICAL_ADDRESS *EventLogLastEntry);
 
 typedef struct _EFI_TCG {
         EFI_TCG_STATUS_CHECK StatusCheck;
@@ -100,7 +107,12 @@ typedef struct _EFI_TCG {
         EFI_TCG_HASH_LOG_EXTEND_EVENT HashLogExtendEvent;
 } EFI_TCG;
 
-#define EFI_TCG2_PROTOCOL_GUID {0x607f766c, 0x7455, 0x42be, { 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f }}
+#define EFI_TCG2_PROTOCOL_GUID                                         \
+        {                                                              \
+                0x607f766c, 0x7455, 0x42be, {                          \
+                        0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f \
+                }                                                      \
+        }
 
 typedef struct tdEFI_TCG2_PROTOCOL EFI_TCG2_PROTOCOL;
 
@@ -108,8 +120,8 @@ typedef UINT32 EFI_TCG2_EVENT_LOG_BITMAP;
 typedef UINT32 EFI_TCG2_EVENT_LOG_FORMAT;
 typedef UINT32 EFI_TCG2_EVENT_ALGORITHM_BITMAP;
 
-#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2       0x00000001
-#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_2         0x00000002
+#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2 0x00000001
+#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_2 0x00000002
 
 typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY {
         UINT8 Size;
@@ -125,7 +137,7 @@ typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY {
         EFI_TCG2_EVENT_ALGORITHM_BITMAP ActivePcrBanks;
 } EFI_TCG2_BOOT_SERVICE_CAPABILITY;
 
-#define EFI_TCG2_EVENT_HEADER_VERSION  1
+#define EFI_TCG2_EVENT_HEADER_VERSION 1
 
 typedef struct {
         UINT32 HeaderSize;
@@ -140,31 +152,33 @@ typedef struct tdEFI_TCG2_EVENT {
         UINT8 Event[1];
 } __attribute__((packed)) EFI_TCG2_EVENT;
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_CAPABILITY) (IN EFI_TCG2_PROTOCOL * This,
-                                                      IN OUT EFI_TCG2_BOOT_SERVICE_CAPABILITY * ProtocolCapability);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_GET_CAPABILITY)(IN EFI_TCG2_PROTOCOL *This, IN OUT EFI_TCG2_BOOT_SERVICE_CAPABILITY *ProtocolCapability);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_EVENT_LOG) (IN EFI_TCG2_PROTOCOL * This,
-                                                     IN EFI_TCG2_EVENT_LOG_FORMAT EventLogFormat,
-                                                     OUT EFI_PHYSICAL_ADDRESS * EventLogLocation,
-                                                     OUT EFI_PHYSICAL_ADDRESS * EventLogLastEntry,
-                                                     OUT BOOLEAN * EventLogTruncated);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_GET_EVENT_LOG)(IN EFI_TCG2_PROTOCOL *This,
+                                                   IN EFI_TCG2_EVENT_LOG_FORMAT EventLogFormat,
+                                                   OUT EFI_PHYSICAL_ADDRESS *EventLogLocation,
+                                                   OUT EFI_PHYSICAL_ADDRESS *EventLogLastEntry,
+                                                   OUT BOOLEAN *EventLogTruncated);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_HASH_LOG_EXTEND_EVENT) (IN EFI_TCG2_PROTOCOL * This,
-                                                             IN UINT64 Flags,
-                                                             IN EFI_PHYSICAL_ADDRESS DataToHash,
-                                                             IN UINT64 DataToHashLen, IN EFI_TCG2_EVENT * EfiTcgEvent);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_HASH_LOG_EXTEND_EVENT)(IN EFI_TCG2_PROTOCOL *This,
+                                                           IN UINT64 Flags,
+                                                           IN EFI_PHYSICAL_ADDRESS DataToHash,
+                                                           IN UINT64 DataToHashLen,
+                                                           IN EFI_TCG2_EVENT *EfiTcgEvent);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_SUBMIT_COMMAND) (IN EFI_TCG2_PROTOCOL * This,
-                                                      IN UINT32 InputParameterBlockSize,
-                                                      IN UINT8 * InputParameterBlock,
-                                                      IN UINT32 OutputParameterBlockSize, IN UINT8 * OutputParameterBlock);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_SUBMIT_COMMAND)(IN EFI_TCG2_PROTOCOL *This,
+                                                    IN UINT32 InputParameterBlockSize,
+                                                    IN UINT8 *InputParameterBlock,
+                                                    IN UINT32 OutputParameterBlockSize,
+                                                    IN UINT8 *OutputParameterBlock);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_ACTIVE_PCR_BANKS) (IN EFI_TCG2_PROTOCOL * This, OUT UINT32 * ActivePcrBanks);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_GET_ACTIVE_PCR_BANKS)(IN EFI_TCG2_PROTOCOL *This, OUT UINT32 *ActivePcrBanks);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_SET_ACTIVE_PCR_BANKS) (IN EFI_TCG2_PROTOCOL * This, IN UINT32 ActivePcrBanks);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_SET_ACTIVE_PCR_BANKS)(IN EFI_TCG2_PROTOCOL *This, IN UINT32 ActivePcrBanks);
 
-typedef EFI_STATUS(EFIAPI * EFI_TCG2_GET_RESULT_OF_SET_ACTIVE_PCR_BANKS) (IN EFI_TCG2_PROTOCOL * This,
-                                                                          OUT UINT32 * OperationPresent, OUT UINT32 * Response);
+typedef EFI_STATUS(EFIAPI *EFI_TCG2_GET_RESULT_OF_SET_ACTIVE_PCR_BANKS)(IN EFI_TCG2_PROTOCOL *This,
+                                                                        OUT UINT32 *OperationPresent,
+                                                                        OUT UINT32 *Response);
 
 typedef struct tdEFI_TCG2_PROTOCOL {
         EFI_TCG2_GET_CAPABILITY GetCapability;
@@ -176,8 +190,8 @@ typedef struct tdEFI_TCG2_PROTOCOL {
         EFI_TCG2_GET_RESULT_OF_SET_ACTIVE_PCR_BANKS GetResultOfSetActivePcrBanks;
 } EFI_TCG2;
 
-static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
-                                                    UINTN buffer_size, const CHAR16 *description) {
+static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
+        const EFI_TCG *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_STATUS status;
         TCG_PCR_EVENT *tcg_event;
         UINT32 event_number;
@@ -192,14 +206,14 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
                 return EFI_OUT_OF_RESOURCES;
 
         tcg_event->EventSize = desc_len;
-        CopyMem((VOID *) & tcg_event->Event[0], (VOID *) description, desc_len);
+        CopyMem((VOID *) &tcg_event->Event[0], (VOID *) description, desc_len);
 
         tcg_event->PCRIndex = pcrindex;
         tcg_event->EventType = EV_IPL;
 
         event_number = 1;
-        status = uefi_call_wrapper(tcg->HashLogExtendEvent, 7,
-                                   (EFI_TCG *) tcg, buffer, buffer_size, TCG_ALG_SHA, tcg_event, &event_number, &event_log_last);
+        status = uefi_call_wrapper(
+                tcg->HashLogExtendEvent, 7, (EFI_TCG *) tcg, buffer, buffer_size, TCG_ALG_SHA, tcg_event, &event_number, &event_log_last);
 
         if (EFI_ERROR(status))
                 return status;
@@ -217,17 +231,19 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
  * internal switch through calling get_event_log() in order to allow
  * to retrieve the logs from OS runtime.
  */
-static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg, EFI_TCG2_EVENT_LOG_FORMAT log_fmt)
-{
+static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg, EFI_TCG2_EVENT_LOG_FORMAT log_fmt) {
         EFI_PHYSICAL_ADDRESS loc;
         EFI_PHYSICAL_ADDRESS last_loc;
         BOOLEAN truncated;
-        return uefi_call_wrapper(tcg->GetEventLog, 5, (EFI_TCG2 *) tcg,
-                                 log_fmt, &loc, &last_loc, &truncated);
+        return uefi_call_wrapper(tcg->GetEventLog, 5, (EFI_TCG2 *) tcg, log_fmt, &loc, &last_loc, &truncated);
 }
 
-static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
-                                                    UINT64 buffer_size, const CHAR16 *description, EFI_TCG2_EVENT_LOG_FORMAT log_fmt) {
+static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg,
+                                                    UINT32 pcrindex,
+                                                    const EFI_PHYSICAL_ADDRESS buffer,
+                                                    UINT64 buffer_size,
+                                                    const CHAR16 *description,
+                                                    EFI_TCG2_EVENT_LOG_FORMAT log_fmt) {
         EFI_STATUS status;
         EFI_TCG2_EVENT *tcg_event;
         UINTN desc_len;
@@ -266,7 +282,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
         return EFI_SUCCESS;
 }
 
-static EFI_TCG * tcg1_interface_check(void) {
+static EFI_TCG *tcg1_interface_check(void) {
         EFI_GUID tpm_guid = EFI_TCG_PROTOCOL_GUID;
         EFI_STATUS status;
         EFI_TCG *tcg;
@@ -295,7 +311,7 @@ static EFI_TCG * tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *caps) {
+static EFI_TCG2 *tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *caps) {
         EFI_GUID tpm2_guid = EFI_TCG2_PROTOCOL_GUID;
         EFI_STATUS status;
         EFI_TCG2 *tcg;
@@ -311,10 +327,9 @@ static EFI_TCG2 * tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *caps) {
         if (EFI_ERROR(status))
                 return NULL;
 
-        if (caps->StructureVersion.Major == 1 &&
-            caps->StructureVersion.Minor == 0) {
+        if (caps->StructureVersion.Major == 1 && caps->StructureVersion.Minor == 0) {
                 TCG_BOOT_SERVICE_CAPABILITY *caps_1_0;
-                caps_1_0 = (TCG_BOOT_SERVICE_CAPABILITY *)caps;
+                caps_1_0 = (TCG_BOOT_SERVICE_CAPABILITY *) caps;
                 if (caps_1_0->TPMPresentFlag)
                         return tcg;
         }
@@ -335,9 +350,8 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UIN
                 EFI_TCG2_EVENT_LOG_BITMAP supported_logs;
                 EFI_TCG2_EVENT_LOG_FORMAT log_fmt;
 
-                if (caps.StructureVersion.Major == 1 &&
-                    caps.StructureVersion.Minor == 0)
-                        supported_logs = ((TREE_BOOT_SERVICE_CAPABILITY *)&caps)->SupportedEventLogs;
+                if (caps.StructureVersion.Major == 1 && caps.StructureVersion.Minor == 0)
+                        supported_logs = ((TREE_BOOT_SERVICE_CAPABILITY *) &caps)->SupportedEventLogs;
                 else
                         supported_logs = caps.SupportedEventLogs;
 

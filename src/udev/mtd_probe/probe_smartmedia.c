@@ -32,11 +32,9 @@
 #include "alloc-util.h"
 #include "mtd_probe.h"
 
-static const uint8_t cis_signature[] = {
-        0x01, 0x03, 0xD9, 0x01, 0xFF, 0x18, 0x02, 0xDF, 0x01, 0x20
-};
+static const uint8_t cis_signature[] = { 0x01, 0x03, 0xD9, 0x01, 0xFF, 0x18, 0x02, 0xDF, 0x01, 0x20 };
 
-int probe_smart_media(int mtd_fd, mtd_info_t* info) {
+int probe_smart_media(int mtd_fd, mtd_info_t *info) {
         int sector_size;
         int block_size;
         int size_in_megs;
@@ -50,18 +48,16 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
                 return log_oom();
 
         if (info->type != MTD_NANDFLASH)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not marked MTD_NANDFLASH.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Not marked MTD_NANDFLASH.");
 
         sector_size = info->writesize;
         block_size = info->erasesize;
         size_in_megs = info->size / (1024 * 1024);
 
         if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unexpected sector size: %i", sector_size);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unexpected sector size: %i", sector_size);
 
-        switch(size_in_megs) {
+        switch (size_in_megs) {
         case 1:
         case 2:
                 spare_count = 6;
@@ -84,13 +80,11 @@ int probe_smart_media(int mtd_fd, mtd_info_t* info) {
         }
 
         if (!cis_found)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "CIS not found");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "CIS not found");
 
         if (memcmp(cis_buffer, cis_signature, sizeof(cis_signature)) != 0 &&
             memcmp(cis_buffer + SM_SMALL_PAGE, cis_signature, sizeof(cis_signature)) != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "CIS signature didn't match");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "CIS signature didn't match");
 
         printf("MTD_FTL=smartmedia\n");
         return 0;

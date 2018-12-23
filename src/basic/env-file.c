@@ -14,13 +14,11 @@
 #include "tmpfile-util.h"
 #include "utf8.h"
 
-static int parse_env_file_internal(
-                FILE *f,
-                const char *fname,
-                int (*push) (const char *filename, unsigned line,
-                             const char *key, char *value, void *userdata, int *n_pushed),
-                void *userdata,
-                int *n_pushed) {
+static int parse_env_file_internal(FILE *f,
+                                   const char *fname,
+                                   int (*push)(const char *filename, unsigned line, const char *key, char *value, void *userdata, int *n_pushed),
+                                   void *userdata,
+                                   int *n_pushed) {
 
         size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
         _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
@@ -28,7 +26,8 @@ static int parse_env_file_internal(
         char *p;
         int r;
 
-        enum {
+        enum
+        {
                 PRE_KEY,
                 KEY,
                 PRE_VALUE,
@@ -61,7 +60,7 @@ static int parse_env_file_internal(
                                 state = KEY;
                                 last_key_whitespace = (size_t) -1;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key + 2))
                                         return -ENOMEM;
 
                                 key[n_key++] = c;
@@ -80,9 +79,9 @@ static int parse_env_file_internal(
                                 if (!strchr(WHITESPACE, c))
                                         last_key_whitespace = (size_t) -1;
                                 else if (last_key_whitespace == (size_t) -1)
-                                         last_key_whitespace = n_key;
+                                        last_key_whitespace = n_key;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key + 2))
                                         return -ENOMEM;
 
                                 key[n_key++] = c;
@@ -120,8 +119,8 @@ static int parse_env_file_internal(
                         else if (!strchr(WHITESPACE, c)) {
                                 state = VALUE;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return  -ENOMEM;
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -163,7 +162,7 @@ static int parse_env_file_internal(
                                 else if (last_value_whitespace == (size_t) -1)
                                         last_value_whitespace = n_value;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -176,7 +175,7 @@ static int parse_env_file_internal(
 
                         if (!strchr(NEWLINE, c)) {
                                 /* Escaped newlines we eat up entirely */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -189,7 +188,7 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = SINGLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -201,7 +200,7 @@ static int parse_env_file_internal(
                         state = SINGLE_QUOTE_VALUE;
 
                         if (!strchr(NEWLINE, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -214,7 +213,7 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = DOUBLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -226,7 +225,7 @@ static int parse_env_file_internal(
                         state = DOUBLE_QUOTE_VALUE;
 
                         if (!strchr(NEWLINE, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value + 2))
                                         return -ENOMEM;
 
                                 value[n_value++] = c;
@@ -280,36 +279,27 @@ static int parse_env_file_internal(
         return 0;
 }
 
-static int check_utf8ness_and_warn(
-                const char *filename, unsigned line,
-                const char *key, char *value) {
+static int check_utf8ness_and_warn(const char *filename, unsigned line, const char *key, char *value) {
 
         if (!utf8_is_valid(key)) {
                 _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(key);
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s:%u: invalid UTF-8 in key '%s', ignoring.",
-                                       strna(filename), line, p);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s:%u: invalid UTF-8 in key '%s', ignoring.", strna(filename), line, p);
         }
 
         if (value && !utf8_is_valid(value)) {
                 _cleanup_free_ char *p = NULL;
 
                 p = utf8_escape_invalid(value);
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
-                                       strna(filename), line, key, p);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.", strna(filename), line, key, p);
         }
 
         return 0;
 }
 
-static int parse_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+static int parse_env_file_push(const char *filename, unsigned line, const char *key, char *value, void *userdata, int *n_pushed) {
 
         const char *k;
         va_list aq, *ap = userdata;
@@ -344,10 +334,7 @@ static int parse_env_file_push(
         return 0;
 }
 
-int parse_env_filev(
-                FILE *f,
-                const char *fname,
-                va_list ap) {
+int parse_env_filev(FILE *f, const char *fname, va_list ap) {
 
         int r, n_pushed = 0;
         va_list aq;
@@ -361,10 +348,7 @@ int parse_env_filev(
         return n_pushed;
 }
 
-int parse_env_file_sentinel(
-                FILE *f,
-                const char *fname,
-                ...) {
+int parse_env_file_sentinel(FILE *f, const char *fname, ...) {
 
         va_list ap;
         int r;
@@ -376,11 +360,7 @@ int parse_env_file_sentinel(
         return r;
 }
 
-static int load_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+static int load_env_file_push(const char *filename, unsigned line, const char *key, char *value, void *userdata, int *n_pushed) {
         char ***m = userdata;
         char *p;
         int r;
@@ -420,11 +400,7 @@ int load_env_file(FILE *f, const char *fname, char ***rl) {
         return 0;
 }
 
-static int load_env_file_push_pairs(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+static int load_env_file_push_pairs(const char *filename, unsigned line, const char *key, char *value, void *userdata, int *n_pushed) {
         char ***m = userdata;
         int r;
 
@@ -466,11 +442,7 @@ int load_env_file_pairs(FILE *f, const char *fname, char ***rl) {
         return 0;
 }
 
-static int merge_env_file_push(
-                const char *filename, unsigned line,
-                const char *key, char *value,
-                void *userdata,
-                int *n_pushed) {
+static int merge_env_file_push(const char *filename, unsigned line, const char *key, char *value, void *userdata, int *n_pushed) {
 
         char ***env = userdata;
         char *expanded_value;
@@ -488,10 +460,7 @@ static int merge_env_file_push(
                 return 0;
         }
 
-        expanded_value = replace_env(value, *env,
-                                     REPLACE_ENV_USE_ENVIRONMENT|
-                                     REPLACE_ENV_ALLOW_BRACELESS|
-                                     REPLACE_ENV_ALLOW_EXTENDED);
+        expanded_value = replace_env(value, *env, REPLACE_ENV_USE_ENVIRONMENT | REPLACE_ENV_ALLOW_BRACELESS | REPLACE_ENV_ALLOW_EXTENDED);
         if (!expanded_value)
                 return -ENOMEM;
 
@@ -500,10 +469,7 @@ static int merge_env_file_push(
         return load_env_file_push(filename, line, key, value, env, n_pushed);
 }
 
-int merge_env_file(
-                char ***env,
-                FILE *f,
-                const char *fname) {
+int merge_env_file(char ***env, FILE *f, const char *fname) {
 
         /* NOTE: this function supports braceful and braceless variable expansions,
          * plus "extended" substitutions, unlike other exported parsing functions.
@@ -524,7 +490,7 @@ static void write_env_var(FILE *f, const char *v) {
         }
 
         p++;
-        fwrite_unlocked(v, 1, p-v, f);
+        fwrite_unlocked(v, 1, p - v, f);
 
         if (string_has_cc(p, NULL) || chars_intersect(p, WHITESPACE SHELL_NEED_QUOTES)) {
                 fputc_unlocked('\"', f);
@@ -559,7 +525,7 @@ int write_env_file(const char *fname, char **l) {
         (void) fchmod_umask(fileno(f), 0644);
 
         STRV_FOREACH(i, l)
-                write_env_var(f, *i);
+        write_env_var(f, *i);
 
         r = fflush_and_check(f);
         if (r >= 0) {

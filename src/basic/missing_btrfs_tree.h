@@ -9,28 +9,28 @@
 #if HAVE_LINUX_BTRFS_TREE_H
 #include <linux/btrfs_tree.h>
 #else
-#define BTRFS_ROOT_TREE_OBJECTID  1
+#define BTRFS_ROOT_TREE_OBJECTID 1
 #define BTRFS_QUOTA_TREE_OBJECTID 8
 #define BTRFS_FIRST_FREE_OBJECTID 256
 #define BTRFS_LAST_FREE_OBJECTID -256ULL
 
-#define BTRFS_ROOT_ITEM_KEY       132
-#define BTRFS_ROOT_BACKREF_KEY    144
-#define BTRFS_QGROUP_STATUS_KEY   240
-#define BTRFS_QGROUP_INFO_KEY     242
-#define BTRFS_QGROUP_LIMIT_KEY    244
+#define BTRFS_ROOT_ITEM_KEY 132
+#define BTRFS_ROOT_BACKREF_KEY 144
+#define BTRFS_QGROUP_STATUS_KEY 240
+#define BTRFS_QGROUP_INFO_KEY 242
+#define BTRFS_QGROUP_LIMIT_KEY 244
 #define BTRFS_QGROUP_RELATION_KEY 246
 
 struct btrfs_disk_key {
         __le64 objectid;
         __u8 type;
         __le64 offset;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 struct btrfs_timespec {
         __le64 sec;
         __le32 nsec;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 struct btrfs_inode_item {
         __le64 generation;
@@ -50,7 +50,7 @@ struct btrfs_inode_item {
         struct btrfs_timespec ctime;
         struct btrfs_timespec mtime;
         struct btrfs_timespec otime;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 #define BTRFS_ROOT_SUBVOL_RDONLY (1ULL << 0)
 
@@ -81,15 +81,15 @@ struct btrfs_root_item {
         struct btrfs_timespec stime;
         struct btrfs_timespec rtime;
         __le64 reserved[8]; /* for future */
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 struct btrfs_root_ref {
         __le64 dirid;
         __le64 sequence;
         __le16 name_len;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
-#define BTRFS_QGROUP_LEVEL_SHIFT  48
+#define BTRFS_QGROUP_LEVEL_SHIFT 48
 
 struct btrfs_qgroup_info_item {
         __le64 generation;
@@ -97,7 +97,7 @@ struct btrfs_qgroup_info_item {
         __le64 rfer_cmpr;
         __le64 excl;
         __le64 excl_cmpr;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 
 struct btrfs_qgroup_limit_item {
         __le64 flags;
@@ -105,5 +105,5 @@ struct btrfs_qgroup_limit_item {
         __le64 max_excl;
         __le64 rsv_rfer;
         __le64 rsv_excl;
-} __attribute__ ((__packed__));
+} __attribute__((__packed__));
 #endif

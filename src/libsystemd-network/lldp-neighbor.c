@@ -19,12 +19,16 @@ static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash 
 }
 
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y) {
-        return memcmp_nn(x->chassis_id, x->chassis_id_size, y->chassis_id, y->chassis_id_size)
-            ?: memcmp_nn(x->port_id, x->port_id_size, y->port_id, y->port_id_size);
+        return memcmp_nn(x->chassis_id, x->chassis_id_size, y->chassis_id, y->chassis_id_size) ?:
+                memcmp_nn(x->port_id, x->port_id_size, y->port_id, y->port_id_size);
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops, LLDPNeighborID, lldp_neighbor_id_hash_func, lldp_neighbor_id_compare_func,
-                                      sd_lldp_neighbor, lldp_neighbor_unlink);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(lldp_neighbor_hash_ops,
+                                      LLDPNeighborID,
+                                      lldp_neighbor_id_hash_func,
+                                      lldp_neighbor_id_compare_func,
+                                      sd_lldp_neighbor,
+                                      lldp_neighbor_unlink);
 
 int lldp_neighbor_prioq_compare_func(const void *a, const void *b) {
         const sd_lldp_neighbor *x = a, *y = b;
@@ -124,7 +128,7 @@ static int parse_string(char **s, const void *q, size_t n) {
         }
 
         /* Strip trailing NULs, just to be nice */
-        while (n > 0 && p[n-1] == 0)
+        while (n > 0 && p[n - 1] == 0)
                 n--;
 
         if (n <= 0) /* Ignore empty strings */
@@ -167,12 +171,8 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 return -EBADMSG;
         }
 
-        if (h.ether_dhost[0] != 0x01 ||
-            h.ether_dhost[1] != 0x80 ||
-            h.ether_dhost[2] != 0xc2 ||
-            h.ether_dhost[3] != 0x00 ||
-            h.ether_dhost[4] != 0x00 ||
-            !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
+        if (h.ether_dhost[0] != 0x01 || h.ether_dhost[1] != 0x80 || h.ether_dhost[2] != 0xc2 || h.ether_dhost[3] != 0x00 ||
+            h.ether_dhost[4] != 0x00 || !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
                 log_lldp("Received packet with wrong destination address, ignoring.");
                 return -EBADMSG;
         }
@@ -180,7 +180,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
         memcpy(&n->source_address, h.ether_shost, sizeof(struct ether_addr));
         memcpy(&n->destination_address, h.ether_dhost, sizeof(struct ether_addr));
 
-        p = (const uint8_t*) LLDP_NEIGHBOR_RAW(n) + sizeof(struct ether_header);
+        p = (const uint8_t *) LLDP_NEIGHBOR_RAW(n) + sizeof(struct ether_header);
         left = n->raw_size - sizeof(struct ether_header);
 
         for (;;) {
@@ -193,7 +193,7 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 }
 
                 type = p[0] >> 1;
-                length = p[1] + (((uint16_t) (p[0] & 1)) << 8);
+                length = p[1] + (((uint16_t)(p[0] & 1)) << 8);
                 p += 2, left -= 2;
 
                 if (left < length) {
@@ -306,7 +306,6 @@ end_marker:
         if (!n->id.chassis_id || !n->id.port_id || !n->has_ttl) {
                 log_lldp("One or more mandatory TLV missing in datagram. Ignoring.");
                 return -EBADMSG;
-
         }
 
         n->rindex = sizeof(struct ether_header);
@@ -346,7 +345,7 @@ bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b) {
         return memcmp(LLDP_NEIGHBOR_RAW(a), LLDP_NEIGHBOR_RAW(b), a->raw_size) == 0;
 }
 
-_public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+_public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr *address) {
         assert_return(n, -EINVAL);
         assert_return(address, -EINVAL);
 
@@ -354,7 +353,7 @@ _public_ int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct eth
         return 0;
 }
 
-_public_ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address) {
+_public_ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr *address) {
         assert_return(n, -EINVAL);
         assert_return(address, -EINVAL);
 
@@ -381,8 +380,8 @@ _public_ int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type,
 
         assert(n->id.chassis_id_size > 0);
 
-        *type = *(uint8_t*) n->id.chassis_id;
-        *ret = (uint8_t*) n->id.chassis_id + 1;
+        *type = *(uint8_t *) n->id.chassis_id;
+        *ret = (uint8_t *) n->id.chassis_id + 1;
         *size = n->id.chassis_id_size - 1;
 
         return 0;
@@ -397,9 +396,9 @@ static int format_mac_address(const void *data, size_t sz, char **ret) {
         if (sz != 7)
                 return 0;
 
-        memcpy(&a, (uint8_t*) data + 1, sizeof(a));
+        memcpy(&a, (uint8_t *) data + 1, sizeof(a));
 
-        k = new(char, ETHER_ADDR_TO_STRING_MAX);
+        k = new (char, ETHER_ADDR_TO_STRING_MAX);
         if (!k)
                 return -ENOMEM;
 
@@ -411,11 +410,11 @@ static int format_network_address(const void *data, size_t sz, char **ret) {
         union in_addr_union a;
         int family, r;
 
-        if (sz == 6 && ((uint8_t*) data)[1] == 1) {
-                memcpy(&a.in, (uint8_t*) data + 2, sizeof(a.in));
+        if (sz == 6 && ((uint8_t *) data)[1] == 1) {
+                memcpy(&a.in, (uint8_t *) data + 2, sizeof(a.in));
                 family = AF_INET;
-        } else if (sz == 18 && ((uint8_t*) data)[1] == 2) {
-                memcpy(&a.in6, (uint8_t*) data + 2, sizeof(a.in6));
+        } else if (sz == 18 && ((uint8_t *) data)[1] == 2) {
+                memcpy(&a.in6, (uint8_t *) data + 2, sizeof(a.in6));
                 family = AF_INET6;
         } else
                 return 0;
@@ -440,14 +439,14 @@ _public_ int sd_lldp_neighbor_get_chassis_id_as_string(sd_lldp_neighbor *n, cons
 
         assert(n->id.chassis_id_size > 0);
 
-        switch (*(uint8_t*) n->id.chassis_id) {
+        switch (*(uint8_t *) n->id.chassis_id) {
 
         case SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT:
         case SD_LLDP_CHASSIS_SUBTYPE_INTERFACE_ALIAS:
         case SD_LLDP_CHASSIS_SUBTYPE_PORT_COMPONENT:
         case SD_LLDP_CHASSIS_SUBTYPE_INTERFACE_NAME:
         case SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED:
-                k = cescape_length((char*) n->id.chassis_id + 1, n->id.chassis_id_size - 1);
+                k = cescape_length((char *) n->id.chassis_id + 1, n->id.chassis_id_size - 1);
                 if (!k)
                         return -ENOMEM;
 
@@ -490,8 +489,8 @@ _public_ int sd_lldp_neighbor_get_port_id(sd_lldp_neighbor *n, uint8_t *type, co
 
         assert(n->id.port_id_size > 0);
 
-        *type = *(uint8_t*) n->id.port_id;
-        *ret = (uint8_t*) n->id.port_id + 1;
+        *type = *(uint8_t *) n->id.port_id;
+        *ret = (uint8_t *) n->id.port_id + 1;
         *size = n->id.port_id_size - 1;
 
         return 0;
@@ -511,13 +510,13 @@ _public_ int sd_lldp_neighbor_get_port_id_as_string(sd_lldp_neighbor *n, const c
 
         assert(n->id.port_id_size > 0);
 
-        switch (*(uint8_t*) n->id.port_id) {
+        switch (*(uint8_t *) n->id.port_id) {
 
         case SD_LLDP_PORT_SUBTYPE_INTERFACE_ALIAS:
         case SD_LLDP_PORT_SUBTYPE_PORT_COMPONENT:
         case SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME:
         case SD_LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED:
-                k = cescape_length((char*) n->id.port_id + 1, n->id.port_id_size - 1);
+                k = cescape_length((char *) n->id.port_id + 1, n->id.port_id_size - 1);
                 if (!k)
                         return -ENOMEM;
 
@@ -749,7 +748,7 @@ _public_ int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret,
         if (n->rindex + 2 + length > n->raw_size)
                 return -EBADMSG;
 
-        *ret = (uint8_t*) LLDP_NEIGHBOR_RAW(n) + n->rindex;
+        *ret = (uint8_t *) LLDP_NEIGHBOR_RAW(n) + n->rindex;
         *size = length + 2;
 
         return 0;

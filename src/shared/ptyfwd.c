@@ -39,23 +39,23 @@ struct PTYForward {
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
 
-        bool saved_stdin:1;
-        bool saved_stdout:1;
+        bool saved_stdin : 1;
+        bool saved_stdout : 1;
 
-        bool stdin_readable:1;
-        bool stdin_hangup:1;
-        bool stdout_writable:1;
-        bool stdout_hangup:1;
-        bool master_readable:1;
-        bool master_writable:1;
-        bool master_hangup:1;
+        bool stdin_readable : 1;
+        bool stdin_hangup : 1;
+        bool stdout_writable : 1;
+        bool stdout_hangup : 1;
+        bool master_readable : 1;
+        bool master_writable : 1;
+        bool master_hangup : 1;
 
-        bool read_from_master:1;
+        bool read_from_master : 1;
 
-        bool done:1;
-        bool drain:1;
+        bool done : 1;
+        bool drain : 1;
 
-        bool last_char_set:1;
+        bool last_char_set : 1;
         char last_char;
 
         char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
@@ -68,7 +68,7 @@ struct PTYForward {
         void *userdata;
 };
 
-#define ESCAPE_USEC (1*USEC_PER_SEC)
+#define ESCAPE_USEC (1 * USEC_PER_SEC)
 
 static void pty_forward_disconnect(PTYForward *f) {
 
@@ -124,7 +124,7 @@ static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
                 if (*p == 0x1D) {
                         usec_t nw = now(CLOCK_MONOTONIC);
 
-                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC)  {
+                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC) {
                                 f->escape_timestamp = nw;
                                 f->escape_counter = 1;
                         } else {
@@ -183,10 +183,8 @@ static int shovel(PTYForward *f) {
 
         assert(f);
 
-        while ((f->stdin_readable && f->in_buffer_full <= 0) ||
-               (f->master_writable && f->in_buffer_full > 0) ||
-               (f->master_readable && f->out_buffer_full <= 0) ||
-               (f->stdout_writable && f->out_buffer_full > 0)) {
+        while ((f->stdin_readable && f->in_buffer_full <= 0) || (f->master_writable && f->in_buffer_full > 0) ||
+               (f->master_readable && f->out_buffer_full <= 0) || (f->stdout_writable && f->out_buffer_full > 0)) {
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
@@ -210,7 +208,7 @@ static int shovel(PTYForward *f) {
                                 f->stdin_hangup = true;
 
                                 f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
-                        } else  {
+                        } else {
                                 /* Check if ^] has been pressed three times within one second. If we get this we quite
                                  * immediately. */
                                 if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
@@ -266,7 +264,7 @@ static int shovel(PTYForward *f) {
                                         log_error_errno(errno, "read(): %m");
                                         return pty_forward_done(f, -errno);
                                 }
-                        }  else {
+                        } else {
                                 f->read_from_master = true;
                                 f->out_buffer_full += (size_t) k;
                         }
@@ -291,7 +289,7 @@ static int shovel(PTYForward *f) {
                         } else {
 
                                 if (k > 0) {
-                                        f->last_char = f->out_buffer[k-1];
+                                        f->last_char = f->out_buffer[k - 1];
                                         f->last_char_set = true;
                                 }
 
@@ -306,8 +304,7 @@ static int shovel(PTYForward *f) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
 
-                if ((f->out_buffer_full <= 0 || f->stdout_hangup) &&
-                    (f->in_buffer_full <= 0 || f->master_hangup))
+                if ((f->out_buffer_full <= 0 || f->stdout_hangup) && (f->in_buffer_full <= 0 || f->master_hangup))
                         return pty_forward_done(f, 0);
         }
 
@@ -328,10 +325,10 @@ static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *u
         assert(fd >= 0);
         assert(fd == f->master);
 
-        if (revents & (EPOLLIN|EPOLLHUP))
+        if (revents & (EPOLLIN | EPOLLHUP))
                 f->master_readable = true;
 
-        if (revents & (EPOLLOUT|EPOLLHUP))
+        if (revents & (EPOLLOUT | EPOLLHUP))
                 f->master_writable = true;
 
         return shovel(f);
@@ -346,7 +343,7 @@ static int on_stdin_event(sd_event_source *e, int fd, uint32_t revents, void *us
         assert(fd >= 0);
         assert(fd == STDIN_FILENO);
 
-        if (revents & (EPOLLIN|EPOLLHUP))
+        if (revents & (EPOLLIN | EPOLLHUP))
                 f->stdin_readable = true;
 
         return shovel(f);
@@ -361,7 +358,7 @@ static int on_stdout_event(sd_event_source *e, int fd, uint32_t revents, void *u
         assert(fd >= 0);
         assert(fd == STDOUT_FILENO);
 
-        if (revents & (EPOLLOUT|EPOLLHUP))
+        if (revents & (EPOLLOUT | EPOLLHUP))
                 f->stdout_writable = true;
 
         return shovel(f);
@@ -382,21 +379,17 @@ static int on_sigwinch_event(sd_event_source *e, const struct signalfd_siginfo *
         return 0;
 }
 
-int pty_forward_new(
-                sd_event *event,
-                int master,
-                PTYForwardFlags flags,
-                PTYForward **ret) {
+int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **ret) {
 
         _cleanup_(pty_forward_freep) PTYForward *f = NULL;
         struct winsize ws;
         int r;
 
-        f = new(PTYForward, 1);
+        f = new (PTYForward, 1);
         if (!f)
                 return -ENOMEM;
 
-        *f = (struct PTYForward) {
+        *f = (struct PTYForward){
                 .flags = flags,
                 .master = -1,
         };
@@ -429,7 +422,7 @@ int pty_forward_new(
                 /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
                  * i.e. something derived from $COLUMNS and $LINES if set. */
 
-                ws = (struct winsize) {
+                ws = (struct winsize){
                         .ws_row = lines(),
                         .ws_col = columns(),
                 };
@@ -461,7 +454,7 @@ int pty_forward_new(
                         tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
                 }
 
-                r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN|EPOLLET, on_stdin_event, f);
+                r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN | EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
                         return r;
 
@@ -469,7 +462,7 @@ int pty_forward_new(
                         (void) sd_event_source_set_description(f->stdin_event_source, "ptyfwd-stdin");
         }
 
-        r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT|EPOLLET, on_stdout_event, f);
+        r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT | EPOLLET, on_stdout_event, f);
         if (r == -EPERM)
                 /* stdout without epoll support. Likely redirected to regular file. */
                 f->stdout_writable = true;
@@ -478,7 +471,7 @@ int pty_forward_new(
         else
                 (void) sd_event_source_set_description(f->stdout_event_source, "ptyfwd-stdout");
 
-        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN|EPOLLOUT|EPOLLET, on_master_event, f);
+        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN | EPOLLOUT | EPOLLET, on_master_event, f);
         if (r < 0)
                 return r;
 
@@ -599,12 +592,10 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
         if (width == (unsigned) -1 && height == (unsigned) -1)
                 return 0; /* noop */
 
-        if (width != (unsigned) -1 &&
-            (width == 0 || width > USHRT_MAX))
+        if (width != (unsigned) -1 && (width == 0 || width > USHRT_MAX))
                 return -ERANGE;
 
-        if (height != (unsigned) -1 &&
-            (height == 0 || height > USHRT_MAX))
+        if (height != (unsigned) -1 && (height == 0 || height > USHRT_MAX))
                 return -ERANGE;
 
         if (width == (unsigned) -1 || height == (unsigned) -1) {
@@ -616,7 +607,7 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
                 if (height != (unsigned) -1)
                         ws.ws_row = height;
         } else
-                ws = (struct winsize) {
+                ws = (struct winsize){
                         .ws_row = height,
                         .ws_col = width,
                 };

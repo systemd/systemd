@@ -99,11 +99,12 @@ typedef struct Manager {
 
         usec_t last_usec;
 
-        bool stop_exec_queue:1;
-        bool exit:1;
+        bool stop_exec_queue : 1;
+        bool exit : 1;
 } Manager;
 
-enum event_state {
+enum event_state
+{
         EVENT_UNDEF,
         EVENT_QUEUED,
         EVENT_RUNNING,
@@ -128,7 +129,8 @@ struct event {
 
 static void event_queue_cleanup(Manager *manager, enum event_state type);
 
-enum worker_state {
+enum worker_state
+{
         WORKER_UNDEF,
         WORKER_RUNNING,
         WORKER_IDLE,
@@ -144,8 +146,7 @@ struct worker {
 };
 
 /* passed from worker to main process */
-struct worker_message {
-};
+struct worker_message {};
 
 static void event_free(struct event *event) {
         if (!event)
@@ -164,8 +165,7 @@ static void event_free(struct event *event) {
                 event->worker->event = NULL;
 
         /* only clean up the queue from the process that created it */
-        if (LIST_IS_EMPTY(event->manager->events) &&
-            event->manager->pid == getpid_cached())
+        if (LIST_IS_EMPTY(event->manager->events) && event->manager->pid == getpid_cached())
                 if (unlink("/run/udev/queue") < 0)
                         log_warning_errno(errno, "Failed to unlink /run/udev/queue: %m");
 
@@ -192,7 +192,7 @@ static void manager_workers_free(Manager *manager) {
         assert(manager);
 
         HASHMAP_FOREACH(worker, manager->workers, i)
-                worker_free(worker);
+        worker_free(worker);
 
         manager->workers = hashmap_free(manager->workers);
 }
@@ -238,7 +238,7 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         kill_and_sigcont(event->worker->pid, SIGKILL);
         event->worker->state = WORKER_KILLED;
 
-        log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
+        log_device_error(event->dev, "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " killed", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -249,7 +249,8 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         assert(event);
         assert(event->worker);
 
-        log_device_warning(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" is taking a long time", event->worker->pid, event->seqnum);
+        log_device_warning(
+                event->dev, "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " is taking a long time", event->worker->pid, event->seqnum);
 
         return 1;
 }
@@ -273,11 +274,16 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
 
         assert_se(sd_event_now(e, CLOCK_MONOTONIC, &usec) >= 0);
 
-        (void) sd_event_add_time(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                 usec + udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC, on_event_timeout_warning, event);
+        (void) sd_event_add_time(e,
+                                 &event->timeout_warning_event,
+                                 CLOCK_MONOTONIC,
+                                 usec + udev_warn_timeout(arg_event_timeout_usec),
+                                 USEC_PER_SEC,
+                                 on_event_timeout_warning,
+                                 event);
 
-        (void) sd_event_add_time(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                 usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
+        (void) sd_event_add_time(
+                e, &event->timeout_event, CLOCK_MONOTONIC, usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
 }
 
 static void manager_clear_for_worker(Manager *manager) {
@@ -319,7 +325,7 @@ static void manager_free(Manager *manager) {
         free(manager);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 static int worker_send_message(int fd) {
         struct worker_message message = {};
@@ -380,13 +386,13 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devname: %m");
 
-        fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        fd = open(val, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
         if (fd < 0) {
                 log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
                 return 0;
         }
 
-        if (flock(fd, LOCK_SH|LOCK_NB) < 0)
+        if (flock(fd, LOCK_SH | LOCK_NB) < 0)
                 return log_device_debug_errno(dev, errno, "Failed to flock(%s): %m", val);
 
         *ret_fd = TAKE_FD(fd);
@@ -552,7 +558,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev, "Worker ["PID_FMT"] is forked for processing SEQNUM=%"PRIu64".", pid, event->seqnum);
+        log_device_debug(event->dev, "Worker [" PID_FMT "] is forked for processing SEQNUM=%" PRIu64 ".", pid, event->seqnum);
         return 0;
 }
 
@@ -570,8 +576,8 @@ static void event_run(Manager *manager, struct event *event) {
 
                 r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev);
                 if (r < 0) {
-                        log_device_error_errno(event->dev, r, "Worker ["PID_FMT"] did not accept message, killing the worker: %m",
-                                               worker->pid);
+                        log_device_error_errno(
+                                event->dev, r, "Worker [" PID_FMT "] did not accept message, killing the worker: %m", worker->pid);
                         (void) kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -627,11 +633,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
 
-        event = new(struct event, 1);
+        event = new (struct event, 1);
         if (!event)
                 return -ENOMEM;
 
-        *event = (struct event) {
+        *event = (struct event){
                 .manager = manager,
                 .dev = sd_device_ref(dev),
                 .dev_kernel = TAKE_PTR(clone),
@@ -651,7 +657,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
                 if (sd_device_get_property_value(dev, "ACTION", &val) < 0)
                         val = NULL;
 
-                log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, strnull(val));
+                log_device_debug(dev, "Device (SEQNUM=%" PRIu64 ", ACTION=%s) is queued", seqnum, strnull(val));
         }
 
         return 0;
@@ -730,8 +736,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         if (sd_device_get_subsystem(loop_event->dev, &s) < 0)
                                 continue;
 
-                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
-                            devnum == d && is_block == streq(s, "block"))
+                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 && devnum == d && is_block == streq(s, "block"))
                                 return true;
                 }
 
@@ -739,8 +744,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
                 if (ifindex > 0) {
                         int i;
 
-                        if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
-                            ifindex == i)
+                        if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 && ifindex == i)
                                 return true;
                 }
 
@@ -826,8 +830,7 @@ static void manager_exit(Manager *manager) {
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
 
-        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC,
-                              usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
+        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC, usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
         if (r < 0)
                 return;
 }
@@ -847,7 +850,8 @@ static void manager_reload(Manager *manager) {
 
         sd_notifyf(false,
                    "READY=1\n"
-                   "STATUS=Processing with %u children at max", arg_children_max);
+                   "STATUS=Processing with %u children at max",
+                   arg_children_max);
 }
 
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -868,16 +872,13 @@ static void event_queue_start(Manager *manager) {
 
         assert(manager);
 
-        if (LIST_IS_EMPTY(manager->events) ||
-            manager->exit || manager->stop_exec_queue)
+        if (LIST_IS_EMPTY(manager->events) || manager->exit || manager->stop_exec_queue)
                 return;
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
-        if (manager->last_usec == 0 ||
-            (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
-                if (udev_rules_check_timestamp(manager->rules) ||
-                    udev_builtin_validate())
+        if (manager->last_usec == 0 || (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
+                if (udev_rules_check_timestamp(manager->rules) || udev_builtin_validate())
                         manager_reload(manager);
 
                 manager->last_usec = usec;
@@ -960,11 +961,10 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                CMSG_FOREACH(cmsg, &msghdr) {
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_CREDENTIALS &&
+                CMSG_FOREACH (cmsg, &msghdr) {
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS &&
                             cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                                ucred = (struct ucred*) CMSG_DATA(cmsg);
+                                ucred = (struct ucred *) CMSG_DATA(cmsg);
                 }
 
                 if (!ucred || ucred->pid <= 0) {
@@ -975,7 +975,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 /* lookup worker who sent the signal */
                 worker = hashmap_get(manager->workers, PID_TO_PTR(ucred->pid));
                 if (!worker) {
-                        log_debug("Worker ["PID_FMT"] returned, but is no longer tracked", ucred->pid);
+                        log_debug("Worker [" PID_FMT "] returned, but is no longer tracked", ucred->pid);
                         continue;
                 }
 
@@ -1114,7 +1114,8 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
 
                 (void) sd_notifyf(false,
                                   "READY=1\n"
-                                  "STATUS=Processing with %u children at max", arg_children_max);
+                                  "STATUS=Processing with %u children at max",
+                                  arg_children_max);
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
@@ -1156,9 +1157,7 @@ static int synthesize_change(sd_device *dev) {
         if (r < 0)
                 return r;
 
-        if (streq_ptr("block", subsystem) &&
-            streq_ptr("disk", devtype) &&
-            !startswith(sysname, "dm-")) {
+        if (streq_ptr("block", subsystem) && streq_ptr("disk", devtype) && !startswith(sysname, "dm-")) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
                 bool part_table_read = false, has_partitions = false;
                 sd_device *d;
@@ -1170,9 +1169,9 @@ static int synthesize_change(sd_device *dev) {
                  * partition table is found, and we will not get an event for
                  * the disk.
                  */
-                fd = open(devname, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+                fd = open(devname, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
                 if (fd >= 0) {
-                        r = flock(fd, LOCK_EX|LOCK_NB);
+                        r = flock(fd, LOCK_EX | LOCK_NB);
                         if (r >= 0)
                                 r = ioctl(fd, BLKRRPART, 0);
 
@@ -1201,8 +1200,7 @@ static int synthesize_change(sd_device *dev) {
                 FOREACH_DEVICE(e, d) {
                         const char *t;
 
-                        if (sd_device_get_devtype(d, &t) < 0 ||
-                            !streq("partition", t))
+                        if (sd_device_get_devtype(d, &t) < 0 || !streq("partition", t))
                                 continue;
 
                         has_partitions = true;
@@ -1228,12 +1226,10 @@ static int synthesize_change(sd_device *dev) {
                 FOREACH_DEVICE(e, d) {
                         const char *t, *n, *s;
 
-                        if (sd_device_get_devtype(d, &t) < 0 ||
-                            !streq("partition", t))
+                        if (sd_device_get_devtype(d, &t) < 0 || !streq("partition", t))
                                 continue;
 
-                        if (sd_device_get_devname(d, &n) < 0 ||
-                            sd_device_get_syspath(d, &s) < 0)
+                        if (sd_device_get_devname(d, &n) < 0 || sd_device_get_syspath(d, &s) < 0)
                                 continue;
 
                         log_debug("Device '%s' is closed, synthesising partition '%s' 'change'", devname, n);
@@ -1329,28 +1325,31 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
 
                 worker = hashmap_get(manager->workers, PID_TO_PTR(pid));
                 if (!worker) {
-                        log_warning("Worker ["PID_FMT"] is unknown, ignoring", pid);
+                        log_warning("Worker [" PID_FMT "] is unknown, ignoring", pid);
                         continue;
                 }
 
                 if (WIFEXITED(status)) {
                         if (WEXITSTATUS(status) == 0)
-                                log_debug("Worker ["PID_FMT"] exited", pid);
+                                log_debug("Worker [" PID_FMT "] exited", pid);
                         else
-                                log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
+                                log_warning("Worker [" PID_FMT "] exited with return code %i", pid, WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                        log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
+                        log_warning("Worker [" PID_FMT "] terminated by signal %i (%s)",
+                                    pid,
+                                    WTERMSIG(status),
+                                    signal_to_string(WTERMSIG(status)));
                 } else if (WIFSTOPPED(status)) {
-                        log_info("Worker ["PID_FMT"] stopped", pid);
+                        log_info("Worker [" PID_FMT "] stopped", pid);
                         continue;
                 } else if (WIFCONTINUED(status)) {
-                        log_info("Worker ["PID_FMT"] continued", pid);
+                        log_info("Worker [" PID_FMT "] continued", pid);
                         continue;
                 } else
-                        log_warning("Worker ["PID_FMT"] exit with status 0x%04x", pid, status);
+                        log_warning("Worker [" PID_FMT "] exit with status 0x%04x", pid, status);
 
                 if ((!WIFEXITED(status) || WEXITSTATUS(status) != 0) && worker->event) {
-                        log_device_error(worker->event->dev, "Worker ["PID_FMT"] failed", pid);
+                        log_device_error(worker->event->dev, "Worker [" PID_FMT "] failed", pid);
 
                         /* delete state from disk */
                         device_delete_db(worker->event->dev);
@@ -1390,9 +1389,16 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (!hashmap_isempty(manager->workers)) {
                 /* There are idle workers */
-                (void) event_reset_time(manager->event, &manager->kill_workers_event, CLOCK_MONOTONIC,
-                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC, USEC_PER_SEC,
-                                        on_kill_workers_event, manager, 0, "kill-workers-event", false);
+                (void) event_reset_time(manager->event,
+                                        &manager->kill_workers_event,
+                                        CLOCK_MONOTONIC,
+                                        now(CLOCK_MONOTONIC) + 3 * USEC_PER_SEC,
+                                        USEC_PER_SEC,
+                                        on_kill_workers_event,
+                                        manager,
+                                        0,
+                                        "kill-workers-event",
+                                        false);
                 return 1;
         }
 
@@ -1516,26 +1522,23 @@ static int help(void) {
                "  -t --event-timeout=SECONDS  Seconds to wait before terminating an event\n"
                "  -N --resolve-names=early|late|never\n"
                "                              When to resolve users and groups\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "daemon",             no_argument,            NULL, 'd' },
-                { "debug",              no_argument,            NULL, 'D' },
-                { "children-max",       required_argument,      NULL, 'c' },
-                { "exec-delay",         required_argument,      NULL, 'e' },
-                { "event-timeout",      required_argument,      NULL, 't' },
-                { "resolve-names",      required_argument,      NULL, 'N' },
-                { "help",               no_argument,            NULL, 'h' },
-                { "version",            no_argument,            NULL, 'V' },
-                {}
-        };
+        static const struct option options[] = { { "daemon", no_argument, NULL, 'd' },
+                                                 { "debug", no_argument, NULL, 'D' },
+                                                 { "children-max", required_argument, NULL, 'c' },
+                                                 { "exec-delay", required_argument, NULL, 'e' },
+                                                 { "event-timeout", required_argument, NULL, 't' },
+                                                 { "resolve-names", required_argument, NULL, 'N' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 {} };
 
         int c, r;
 
@@ -1585,7 +1588,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 default:
                         assert_not_reached("Unhandled option");
-
                 }
         }
 
@@ -1598,11 +1600,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 
         assert(ret);
 
-        manager = new(Manager, 1);
+        manager = new (Manager, 1);
         if (!manager)
                 return log_oom();
 
-        *manager = (Manager) {
+        *manager = (Manager){
                 .fd_inotify = -1,
                 .worker_watch = { -1, -1 },
                 .cgroup = cgroup,
@@ -1635,7 +1637,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
         /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        r = socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
 
@@ -1734,7 +1736,8 @@ static int main_loop(int fd_ctrl, int fd_uevent, const char *cgroup) {
 
         (void) sd_notifyf(false,
                           "READY=1\n"
-                          "STATUS=Processing with %u children at max", arg_children_max);
+                          "STATUS=Processing with %u children at max",
+                          arg_children_max);
 
         r = sd_event_loop(manager->event);
         if (r < 0) {
@@ -1791,7 +1794,7 @@ static int run(int argc, char *argv[]) {
                 if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
                         arg_children_max += CPU_COUNT(&cpu_set) * 8;
 
-                mem_limit = physical_memory() / (128LU*1024*1024);
+                mem_limit = physical_memory() / (128LU * 1024 * 1024);
                 arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
 
                 log_debug("Set children_max to %u", arg_children_max);

@@ -4,12 +4,7 @@
 #include "dns-domain.h"
 #include "resolved-dns-search-domain.h"
 
-int dns_search_domain_new(
-                Manager *m,
-                DnsSearchDomain **ret,
-                DnsSearchDomainType type,
-                Link *l,
-                const char *name) {
+int dns_search_domain_new(Manager *m, DnsSearchDomain **ret, DnsSearchDomainType type, Link *l, const char *name) {
 
         _cleanup_free_ char *normalized = NULL;
         DnsSearchDomain *d;
@@ -65,7 +60,7 @@ int dns_search_domain_new(
         return 0;
 }
 
-static DnsSearchDomain* dns_search_domain_free(DnsSearchDomain *d) {
+static DnsSearchDomain *dns_search_domain_free(DnsSearchDomain *d) {
         assert(d);
 
         free(d->name);

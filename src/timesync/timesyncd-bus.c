@@ -13,13 +13,7 @@
 #include "timesyncd-bus.h"
 
 static int property_get_servers(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         ServerName *p, **s = userdata;
         int r;
@@ -42,13 +36,7 @@ static int property_get_servers(
 }
 
 static int property_get_current_server_name(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         ServerName **s = userdata;
 
@@ -60,13 +48,7 @@ static int property_get_current_server_name(
 }
 
 static int property_get_current_server_address(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         ServerAddress *a;
         int r;
@@ -90,8 +72,10 @@ static int property_get_current_server_address(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append_array(reply, 'y',
-                                        a->sockaddr.sa.sa_family == AF_INET ? (void*) &a->sockaddr.in.sin_addr : (void*) &a->sockaddr.in6.sin6_addr,
+        r = sd_bus_message_append_array(reply,
+                                        'y',
+                                        a->sockaddr.sa.sa_family == AF_INET ? (void *) &a->sockaddr.in.sin_addr :
+                                                                              (void *) &a->sockaddr.in6.sin6_addr,
                                         FAMILY_ADDRESS_SIZE(a->sockaddr.sa.sa_family));
         if (r < 0)
                 return r;
@@ -108,13 +92,7 @@ static usec_t ntp_ts_to_usec(const struct ntp_ts *ts) {
 }
 
 static int property_get_ntp_message(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Manager *m = userdata;
         int r;
@@ -126,7 +104,8 @@ static int property_get_ntp_message(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "uuuuitt",
+        r = sd_bus_message_append(reply,
+                                  "uuuuitt",
                                   NTP_FIELD_LEAP(m->ntpmsg.field),
                                   NTP_FIELD_VERSION(m->ntpmsg.field),
                                   NTP_FIELD_MODE(m->ntpmsg.field),
@@ -141,14 +120,15 @@ static int property_get_ntp_message(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "ttttbtt",
+        r = sd_bus_message_append(reply,
+                                  "ttttbtt",
                                   timespec_load(&m->origin_time),
                                   ntp_ts_to_usec(&m->ntpmsg.recv_time),
                                   ntp_ts_to_usec(&m->ntpmsg.trans_time),
                                   timespec_load(&m->dest_time),
                                   m->spike,
                                   m->packet_count,
-                                  (usec_t) (m->samples_jitter * USEC_PER_SEC));
+                                  (usec_t)(m->samples_jitter * USEC_PER_SEC));
         if (r < 0)
                 return r;
 
@@ -163,9 +143,12 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("FallbackNTPServers", "as", property_get_servers, offsetof(Manager, fallback_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ServerName", "s", property_get_current_server_name, offsetof(Manager, current_server_name), 0),
         SD_BUS_PROPERTY("ServerAddress", "(iay)", property_get_current_server_address, offsetof(Manager, current_server_address), 0),
-        SD_BUS_PROPERTY("RootDistanceMaxUSec", "t", bus_property_get_usec, offsetof(Manager, max_root_distance_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PollIntervalMinUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_min_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PollIntervalMaxUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "RootDistanceMaxUSec", "t", bus_property_get_usec, offsetof(Manager, max_root_distance_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "PollIntervalMinUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_min_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "PollIntervalMaxUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_usec), 0),
         SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),

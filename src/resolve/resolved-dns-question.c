@@ -10,7 +10,7 @@ DnsQuestion *dns_question_new(size_t n) {
 
         assert(n > 0);
 
-        q = malloc0(offsetof(DnsQuestion, keys) + sizeof(DnsResourceKey*) * n);
+        q = malloc0(offsetof(DnsQuestion, keys) + sizeof(DnsResourceKey *) * n);
         if (!q)
                 return NULL;
 
@@ -203,7 +203,8 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                 if (cname->key->type == DNS_TYPE_CNAME)
                         d = cname->cname.name;
                 else {
-                        r = dns_name_change_suffix(dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
+                        r = dns_name_change_suffix(
+                                dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -354,13 +355,7 @@ int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_
         return 0;
 }
 
-int dns_question_new_service(
-                DnsQuestion **ret,
-                const char *service,
-                const char *type,
-                const char *domain,
-                bool with_txt,
-                bool convert_idna) {
+int dns_question_new_service(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool with_txt, bool convert_idna) {
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;

@@ -57,15 +57,12 @@ int chvt(int vt) {
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
 
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal("/dev/tty0", O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
         if (vt <= 0) {
-                int tiocl[2] = {
-                        TIOCL_GETKMSGREDIRECT,
-                        0
-                };
+                int tiocl[2] = { TIOCL_GETKMSGREDIRECT, 0 };
 
                 if (ioctl(fd, TIOCLINUX, tiocl) < 0)
                         return -errno;
@@ -143,7 +140,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         return 0;
 }
 
-#define DEFAULT_ASK_REFRESH_USEC (2*USEC_PER_SEC)
+#define DEFAULT_ASK_REFRESH_USEC (2 * USEC_PER_SEC)
 
 int ask_char(char *ret, const char *replies, const char *fmt, ...) {
         int r;
@@ -270,22 +267,22 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_cflag |= CREAD;
         termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOPRT | ECHOKE;
 
-        termios.c_cc[VINTR]    =   03;  /* ^C */
-        termios.c_cc[VQUIT]    =  034;  /* ^\ */
-        termios.c_cc[VERASE]   = 0177;
-        termios.c_cc[VKILL]    =  025;  /* ^X */
-        termios.c_cc[VEOF]     =   04;  /* ^D */
-        termios.c_cc[VSTART]   =  021;  /* ^Q */
-        termios.c_cc[VSTOP]    =  023;  /* ^S */
-        termios.c_cc[VSUSP]    =  032;  /* ^Z */
-        termios.c_cc[VLNEXT]   =  026;  /* ^V */
-        termios.c_cc[VWERASE]  =  027;  /* ^W */
-        termios.c_cc[VREPRINT] =  022;  /* ^R */
-        termios.c_cc[VEOL]     =    0;
-        termios.c_cc[VEOL2]    =    0;
+        termios.c_cc[VINTR] = 03;  /* ^C */
+        termios.c_cc[VQUIT] = 034; /* ^\ */
+        termios.c_cc[VERASE] = 0177;
+        termios.c_cc[VKILL] = 025;    /* ^X */
+        termios.c_cc[VEOF] = 04;      /* ^D */
+        termios.c_cc[VSTART] = 021;   /* ^Q */
+        termios.c_cc[VSTOP] = 023;    /* ^S */
+        termios.c_cc[VSUSP] = 032;    /* ^Z */
+        termios.c_cc[VLNEXT] = 026;   /* ^V */
+        termios.c_cc[VWERASE] = 027;  /* ^W */
+        termios.c_cc[VREPRINT] = 022; /* ^R */
+        termios.c_cc[VEOL] = 0;
+        termios.c_cc[VEOL2] = 0;
 
-        termios.c_cc[VTIME]  = 0;
-        termios.c_cc[VMIN]   = 1;
+        termios.c_cc[VTIME] = 0;
+        termios.c_cc[VMIN] = 1;
 
         if (tcsetattr(fd, TCSANOW, &termios) < 0)
                 r = -errno;
@@ -304,7 +301,7 @@ int reset_terminal(const char *name) {
          * don't block on carrier if this is a terminal with carrier
          * configured. */
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -351,10 +348,7 @@ int open_terminal(const char *name, int mode) {
         return fd;
 }
 
-int acquire_terminal(
-                const char *name,
-                AcquireTerminalFlags flags,
-                usec_t timeout) {
+int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout) {
 
         _cleanup_close_ int notify = -1, fd = -1;
         usec_t ts = USEC_INFINITY;
@@ -386,10 +380,11 @@ int acquire_terminal(
         }
 
         for (;;) {
-                struct sigaction sa_old, sa_new = {
-                        .sa_handler = SIG_IGN,
-                        .sa_flags = SA_RESTART,
-                };
+                struct sigaction sa_old,
+                        sa_new = {
+                                .sa_handler = SIG_IGN,
+                                .sa_flags = SA_RESTART,
+                        };
 
                 if (notify >= 0) {
                         r = flush_fd(notify);
@@ -399,7 +394,7 @@ int acquire_terminal(
 
                 /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
                  * to figure out if we successfully became the controlling process of the tty */
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
@@ -407,8 +402,7 @@ int acquire_terminal(
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                r = ioctl(fd, TIOCSCTTY,
-                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
+                r = ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
@@ -462,7 +456,8 @@ int acquire_terminal(
                         }
 
                         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                                if (e->mask & IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
+                                if (e->mask &
+                                    IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
                                         break;
 
                                 if (e->wd != wd || !(e->mask & IN_CLOSE)) /* Safety checks */
@@ -490,7 +485,7 @@ int release_terminal(void) {
         struct sigaction sa_old;
         int r;
 
-        fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open("/dev/tty", O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -517,7 +512,7 @@ int terminal_vhangup_fd(int fd) {
 int terminal_vhangup(const char *name) {
         _cleanup_close_ int fd;
 
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -542,15 +537,16 @@ int vt_disallocate(const char *name) {
                 /* So this is not a VT. I guess we cannot deallocate
                  * it then. But let's at least clear the screen */
 
-                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
                 loop_write(fd,
-                           "\033[r"    /* clear scrolling region */
-                           "\033[H"    /* move home */
-                           "\033[2J",  /* clear screen */
-                           10, false);
+                           "\033[r"   /* clear scrolling region */
+                           "\033[H"   /* move home */
+                           "\033[2J", /* clear screen */
+                           10,
+                           false);
                 return 0;
         }
 
@@ -566,7 +562,7 @@ int vt_disallocate(const char *name) {
                 return -EINVAL;
 
         /* Try to deallocate */
-        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        fd = open_terminal("/dev/tty0", O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
                 return fd;
 
@@ -581,7 +577,7 @@ int vt_disallocate(const char *name) {
 
         /* Couldn't deallocate, so let's clear it fully with
          * scrollback */
-        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -589,7 +585,8 @@ int vt_disallocate(const char *name) {
                    "\033[r"   /* clear scrolling region */
                    "\033[H"   /* move home */
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
-                   10, false);
+                   10,
+                   false);
         return 0;
 }
 
@@ -598,7 +595,7 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE|ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
+        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE | ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
 
@@ -634,13 +631,13 @@ int vtnr_from_tty(const char *tty) {
 
         tty = skip_dev_prefix(tty);
 
-        if (!startswith(tty, "tty") )
+        if (!startswith(tty, "tty"))
                 return -EINVAL;
 
         if (tty[3] < '0' || tty[3] > '9')
                 return -EINVAL;
 
-        r = safe_atoi(tty+3, &i);
+        r = safe_atoi(tty + 3, &i);
         if (r < 0)
                 return r;
 
@@ -650,7 +647,7 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
- int resolve_dev_console(char **ret) {
+int resolve_dev_console(char **ret) {
         _cleanup_free_ char *active = NULL;
         char *tty;
         int r;
@@ -882,9 +879,7 @@ bool on_tty(void) {
          * terminal functionality when outputting stuff, even if the input is piped to us. */
 
         if (cached_on_tty < 0)
-                cached_on_tty =
-                        isatty(STDOUT_FILENO) > 0 &&
-                        isatty(STDERR_FILENO) > 0;
+                cached_on_tty = isatty(STDOUT_FILENO) > 0 && isatty(STDERR_FILENO) > 0;
 
         return cached_on_tty;
 }
@@ -956,7 +951,8 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 
         p++;
 
-        if (sscanf(p, " "
+        if (sscanf(p,
+                   " "
                    "%*c "  /* state */
                    "%*d "  /* ppid */
                    "%*d "  /* pgrp */
@@ -1037,7 +1033,7 @@ int ptsname_malloc(int fd, char **ret) {
         for (;;) {
                 char *c;
 
-                c = new(char, l);
+                c = new (char, l);
                 if (!c)
                         return -ENOMEM;
 
@@ -1089,8 +1085,8 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
-                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork(
+                "(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1098,7 +1094,7 @@ int openpt_in_namespace(pid_t pid, int flags) {
 
                 pair[0] = safe_close(pair[0]);
 
-                master = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
+                master = posix_openpt(flags | O_NOCTTY | O_CLOEXEC);
                 if (master < 0)
                         _exit(EXIT_FAILURE);
 
@@ -1135,8 +1131,8 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
-                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork(
+                "(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1144,7 +1140,7 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 
                 pair[0] = safe_close(pair[0]);
 
-                master = open_terminal(name, mode|O_NOCTTY|O_CLOEXEC);
+                master = open_terminal(name, mode | O_NOCTTY | O_CLOEXEC);
                 if (master < 0)
                         _exit(EXIT_FAILURE);
 

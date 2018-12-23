@@ -29,9 +29,9 @@ int dns_synthesize_family(uint64_t flags) {
          * here. */
 
         if (!(flags & SD_RESOLVED_DNS)) {
-                if (flags & (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_MDNS_IPV4))
+                if (flags & (SD_RESOLVED_LLMNR_IPV4 | SD_RESOLVED_MDNS_IPV4))
                         return AF_INET;
-                if (flags & (SD_RESOLVED_LLMNR_IPV6|SD_RESOLVED_MDNS_IPV6))
+                if (flags & (SD_RESOLVED_LLMNR_IPV6 | SD_RESOLVED_MDNS_IPV6))
                         return AF_INET6;
         }
 
@@ -132,11 +132,7 @@ static int synthesize_localhost_ptr(Manager *m, const DnsResourceKey *key, int i
         return 0;
 }
 
-static int answer_add_addresses_rr(
-                DnsAnswer **answer,
-                const char *name,
-                struct local_address *addresses,
-                unsigned n_addresses) {
+static int answer_add_addresses_rr(DnsAnswer **answer, const char *name, struct local_address *addresses, unsigned n_addresses) {
 
         unsigned j;
         int r;
@@ -163,12 +159,12 @@ static int answer_add_addresses_rr(
         return 0;
 }
 
-static int answer_add_addresses_ptr(
-                DnsAnswer **answer,
-                const char *name,
-                struct local_address *addresses,
-                unsigned n_addresses,
-                int af, const union in_addr_union *match) {
+static int answer_add_addresses_ptr(DnsAnswer **answer,
+                                    const char *name,
+                                    struct local_address *addresses,
+                                    unsigned n_addresses,
+                                    int af,
+                                    const union in_addr_union *match) {
 
         bool added = false;
         unsigned j;
@@ -228,22 +224,20 @@ static int synthesize_system_hostname_rr(Manager *m, const DnsResourceKey *key, 
                          * and 127.0.0.2 as local ones. */
 
                         if (IN_SET(af, AF_INET, AF_UNSPEC))
-                                buffer[n++] = (struct local_address) {
+                                buffer[n++] = (struct local_address){
                                         .family = AF_INET,
                                         .ifindex = dns_synthesize_ifindex(ifindex),
                                         .address.in.s_addr = htobe32(0x7F000002),
                                 };
 
                         if (IN_SET(af, AF_INET6, AF_UNSPEC))
-                                buffer[n++] = (struct local_address) {
+                                buffer[n++] = (struct local_address){
                                         .family = AF_INET6,
                                         .ifindex = dns_synthesize_ifindex(ifindex),
                                         .address.in6 = in6addr_loopback,
                                 };
 
-                        return answer_add_addresses_rr(answer,
-                                                       dns_resource_key_name(key),
-                                                       buffer, n);
+                        return answer_add_addresses_rr(answer, dns_resource_key_name(key), buffer, n);
                 }
         }
 
@@ -267,15 +261,18 @@ static int synthesize_system_hostname_ptr(Manager *m, int af, const union in_add
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->full_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(
+                        answer, "2.0.0.127.in-addr.arpa", m->full_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(
+                        answer, "2.0.0.127.in-addr.arpa", m->llmnr_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
-                r = answer_add_ptr(answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
+                r = answer_add_ptr(
+                        answer, "2.0.0.127.in-addr.arpa", m->mdns_hostname, dns_synthesize_ifindex(ifindex), DNS_ANSWER_AUTHENTICATED);
                 if (r < 0)
                         return r;
 
@@ -323,7 +320,7 @@ static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifin
         if (af >= 0) {
                 n = local_gateways(m->rtnl, ifindex, af, &addresses);
                 if (n <= 0)
-                        return n;  /* < 0 means: error; == 0 means we have no gateway */
+                        return n; /* < 0 means: error; == 0 means we have no gateway */
         }
 
         r = answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
@@ -348,11 +345,7 @@ static int synthesize_gateway_ptr(Manager *m, int af, const union in_addr_union 
         return answer_add_addresses_ptr(answer, "_gateway", addresses, n, af, address);
 }
 
-int dns_synthesize_answer(
-                Manager *m,
-                DnsQuestion *q,
-                int ifindex,
-                DnsAnswer **ret) {
+int dns_synthesize_answer(Manager *m, DnsQuestion *q, int ifindex, DnsAnswer **ret) {
 
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         DnsResourceKey *key;

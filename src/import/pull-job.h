@@ -14,20 +14,22 @@ typedef int (*PullJobOpenDisk)(PullJob *job);
 typedef int (*PullJobHeader)(PullJob *job, const char *header, size_t sz);
 typedef void (*PullJobProgress)(PullJob *job);
 
-typedef enum PullJobState {
+typedef enum PullJobState
+{
         PULL_JOB_INIT,
         PULL_JOB_ANALYZING, /* Still reading into ->payload, to figure out what we have */
-        PULL_JOB_RUNNING,  /* Writing to destination */
+        PULL_JOB_RUNNING,   /* Writing to destination */
         PULL_JOB_DONE,
         PULL_JOB_FAILED,
         _PULL_JOB_STATE_MAX,
         _PULL_JOB_STATE_INVALID = -1,
 } PullJobState;
 
-typedef enum VerificationStyle {
+typedef enum VerificationStyle
+{
         VERIFICATION_STYLE_UNSET,
-        VERIFICATION_PER_FILE,        /* SuSE-style ".sha256" files with inline signature */
-        VERIFICATION_PER_DIRECTORY,   /* Ubuntu-style SHA256SUM files with detach SHA256SUM.gpg signatures */
+        VERIFICATION_PER_FILE,      /* SuSE-style ".sha256" files with inline signature */
+        VERIFICATION_PER_DIRECTORY, /* Ubuntu-style SHA256SUM files with detach SHA256SUM.gpg signatures */
 } VerificationStyle;
 
 #define PULL_JOB_IS_COMPLETE(j) (IN_SET((j)->state, PULL_JOB_DONE, PULL_JOB_FAILED))
@@ -84,10 +86,10 @@ struct PullJob {
 };
 
 int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
-PullJob* pull_job_unref(PullJob *job);
+PullJob *pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);
 
 void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob*, pull_job_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob *, pull_job_unref);

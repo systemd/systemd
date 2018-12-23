@@ -15,7 +15,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
+DnsResourceKey *dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
         size_t l;
 
@@ -30,12 +30,12 @@ DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *
         k->class = class;
         k->type = type;
 
-        strcpy((char*) k + sizeof(DnsResourceKey), name);
+        strcpy((char *) k + sizeof(DnsResourceKey), name);
 
         return k;
 }
 
-DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
+DnsResourceKey *dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname) {
         int r;
 
         assert(key);
@@ -53,7 +53,7 @@ DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const D
                 if (r < 0)
                         return NULL;
                 if (r == 0)
-                        return dns_resource_key_ref((DnsResourceKey*) key);
+                        return dns_resource_key_ref((DnsResourceKey *) key);
 
                 k = dns_resource_key_new_consume(key->class, key->type, destination);
                 if (!k)
@@ -91,7 +91,7 @@ int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key
         return 0;
 }
 
-DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
+DnsResourceKey *dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name) {
         DnsResourceKey *k;
 
         assert(name);
@@ -108,7 +108,7 @@ DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char
         return k;
 }
 
-DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
+DnsResourceKey *dns_resource_key_ref(DnsResourceKey *k) {
 
         if (!k)
                 return NULL;
@@ -123,7 +123,7 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *k) {
         return k;
 }
 
-DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
+DnsResourceKey *dns_resource_key_unref(DnsResourceKey *k) {
         if (!k)
                 return NULL;
 
@@ -139,7 +139,7 @@ DnsResourceKey* dns_resource_key_unref(DnsResourceKey *k) {
         return NULL;
 }
 
-const char* dns_resource_key_name(const DnsResourceKey *key) {
+const char *dns_resource_key_name(const DnsResourceKey *key) {
         const char *name;
 
         if (!key)
@@ -148,7 +148,7 @@ const char* dns_resource_key_name(const DnsResourceKey *key) {
         if (key->_name)
                 name = key->_name;
         else
-                name = (char*) key + sizeof(DnsResourceKey);
+                name = (char *) key + sizeof(DnsResourceKey);
 
         if (dns_name_is_root(name))
                 return ".";
@@ -173,8 +173,7 @@ bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key) {
         if (key->type != DNS_TYPE_PTR)
                 return false;
 
-        return dns_name_endswith(dns_resource_key_name(key), "_tcp.local") ||
-                dns_name_endswith(dns_resource_key_name(key), "_udp.local");
+        return dns_name_endswith(dns_resource_key_name(key), "_tcp.local") || dns_name_endswith(dns_resource_key_name(key), "_udp.local");
 }
 
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
@@ -310,7 +309,7 @@ static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResou
 
 DEFINE_HASH_OPS(dns_resource_key_hash_ops, DnsResourceKey, dns_resource_key_hash_func, dns_resource_key_compare_func);
 
-char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size) {
+char *dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size) {
         const char *c, *t;
         char *ans = buf;
 
@@ -320,10 +319,16 @@ char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t bu
         c = dns_class_to_string(key->class);
         t = dns_type_to_string(key->type);
 
-        snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
+        snprintf(buf,
+                 buf_size,
+                 "%s %s%s%.0u %s%s%.0u",
                  dns_resource_key_name(key),
-                 strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
-                 strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
+                 strempty(c),
+                 c ? "" : "CLASS",
+                 c ? 0 : key->class,
+                 strempty(t),
+                 t ? "" : "TYPE",
+                 t ? 0 : key->type);
 
         return ans;
 }
@@ -368,7 +373,7 @@ bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b) {
         return true;
 }
 
-DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
+DnsResourceRecord *dns_resource_record_new(DnsResourceKey *key) {
         DnsResourceRecord *rr;
 
         rr = new0(DnsResourceRecord, 1);
@@ -383,7 +388,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
         return rr;
 }
 
-DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name) {
+DnsResourceRecord *dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
         key = dns_resource_key_new(class, type, name);
@@ -393,11 +398,11 @@ DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, c
         return dns_resource_record_new(key);
 }
 
-static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
+static DnsResourceRecord *dns_resource_record_free(DnsResourceRecord *rr) {
         assert(rr);
 
         if (rr->key) {
-                switch(rr->key->type) {
+                switch (rr->key->type) {
 
                 case DNS_TYPE_SRV:
                         free(rr->srv.name);
@@ -553,9 +558,7 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
         return 0;
 }
 
-#define FIELD_EQUAL(a, b, field) \
-        ((a).field ## _size == (b).field ## _size &&  \
-         memcmp((a).field, (b).field, (a).field ## _size) == 0)
+#define FIELD_EQUAL(a, b, field) ((a).field##_size == (b).field##_size && memcmp((a).field, (b).field, (a).field##_size) == 0)
 
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
@@ -580,9 +583,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 if (r <= 0)
                         return r;
 
-                return a->srv.priority == b->srv.priority &&
-                       a->srv.weight == b->srv.weight &&
-                       a->srv.port == b->srv.port;
+                return a->srv.priority == b->srv.priority && a->srv.weight == b->srv.weight && a->srv.port == b->srv.port;
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -591,8 +592,7 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 return dns_name_equal(a->ptr.name, b->ptr.name);
 
         case DNS_TYPE_HINFO:
-                return strcaseeq(a->hinfo.cpu, b->hinfo.cpu) &&
-                       strcaseeq(a->hinfo.os, b->hinfo.os);
+                return strcaseeq(a->hinfo.cpu, b->hinfo.cpu) && strcaseeq(a->hinfo.os, b->hinfo.os);
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
@@ -612,11 +612,8 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
                 if (r <= 0)
                         return r;
 
-                return a->soa.serial  == b->soa.serial &&
-                       a->soa.refresh == b->soa.refresh &&
-                       a->soa.retry   == b->soa.retry &&
-                       a->soa.expire  == b->soa.expire &&
-                       a->soa.minimum == b->soa.minimum;
+                return a->soa.serial == b->soa.serial && a->soa.refresh == b->soa.refresh && a->soa.retry == b->soa.retry &&
+                        a->soa.expire == b->soa.expire && a->soa.minimum == b->soa.minimum;
 
         case DNS_TYPE_MX:
                 if (a->mx.priority != b->mx.priority)
@@ -627,64 +624,43 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         case DNS_TYPE_LOC:
                 assert(a->loc.version == b->loc.version);
 
-                return a->loc.size == b->loc.size &&
-                       a->loc.horiz_pre == b->loc.horiz_pre &&
-                       a->loc.vert_pre == b->loc.vert_pre &&
-                       a->loc.latitude == b->loc.latitude &&
-                       a->loc.longitude == b->loc.longitude &&
-                       a->loc.altitude == b->loc.altitude;
+                return a->loc.size == b->loc.size && a->loc.horiz_pre == b->loc.horiz_pre && a->loc.vert_pre == b->loc.vert_pre &&
+                        a->loc.latitude == b->loc.latitude && a->loc.longitude == b->loc.longitude && a->loc.altitude == b->loc.altitude;
 
         case DNS_TYPE_DS:
-                return a->ds.key_tag == b->ds.key_tag &&
-                       a->ds.algorithm == b->ds.algorithm &&
-                       a->ds.digest_type == b->ds.digest_type &&
-                       FIELD_EQUAL(a->ds, b->ds, digest);
+                return a->ds.key_tag == b->ds.key_tag && a->ds.algorithm == b->ds.algorithm && a->ds.digest_type == b->ds.digest_type &&
+                        FIELD_EQUAL(a->ds, b->ds, digest);
 
         case DNS_TYPE_SSHFP:
-                return a->sshfp.algorithm == b->sshfp.algorithm &&
-                       a->sshfp.fptype == b->sshfp.fptype &&
-                       FIELD_EQUAL(a->sshfp, b->sshfp, fingerprint);
+                return a->sshfp.algorithm == b->sshfp.algorithm && a->sshfp.fptype == b->sshfp.fptype &&
+                        FIELD_EQUAL(a->sshfp, b->sshfp, fingerprint);
 
         case DNS_TYPE_DNSKEY:
-                return a->dnskey.flags == b->dnskey.flags &&
-                       a->dnskey.protocol == b->dnskey.protocol &&
-                       a->dnskey.algorithm == b->dnskey.algorithm &&
-                       FIELD_EQUAL(a->dnskey, b->dnskey, key);
+                return a->dnskey.flags == b->dnskey.flags && a->dnskey.protocol == b->dnskey.protocol &&
+                        a->dnskey.algorithm == b->dnskey.algorithm && FIELD_EQUAL(a->dnskey, b->dnskey, key);
 
         case DNS_TYPE_RRSIG:
                 /* do the fast comparisons first */
-                return a->rrsig.type_covered == b->rrsig.type_covered &&
-                       a->rrsig.algorithm == b->rrsig.algorithm &&
-                       a->rrsig.labels == b->rrsig.labels &&
-                       a->rrsig.original_ttl == b->rrsig.original_ttl &&
-                       a->rrsig.expiration == b->rrsig.expiration &&
-                       a->rrsig.inception == b->rrsig.inception &&
-                       a->rrsig.key_tag == b->rrsig.key_tag &&
-                       FIELD_EQUAL(a->rrsig, b->rrsig, signature) &&
-                       dns_name_equal(a->rrsig.signer, b->rrsig.signer);
+                return a->rrsig.type_covered == b->rrsig.type_covered && a->rrsig.algorithm == b->rrsig.algorithm &&
+                        a->rrsig.labels == b->rrsig.labels && a->rrsig.original_ttl == b->rrsig.original_ttl &&
+                        a->rrsig.expiration == b->rrsig.expiration && a->rrsig.inception == b->rrsig.inception &&
+                        a->rrsig.key_tag == b->rrsig.key_tag && FIELD_EQUAL(a->rrsig, b->rrsig, signature) &&
+                        dns_name_equal(a->rrsig.signer, b->rrsig.signer);
 
         case DNS_TYPE_NSEC:
-                return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
-                       bitmap_equal(a->nsec.types, b->nsec.types);
+                return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) && bitmap_equal(a->nsec.types, b->nsec.types);
 
         case DNS_TYPE_NSEC3:
-                return a->nsec3.algorithm == b->nsec3.algorithm &&
-                       a->nsec3.flags == b->nsec3.flags &&
-                       a->nsec3.iterations == b->nsec3.iterations &&
-                       FIELD_EQUAL(a->nsec3, b->nsec3, salt) &&
-                       FIELD_EQUAL(a->nsec3, b->nsec3, next_hashed_name) &&
-                       bitmap_equal(a->nsec3.types, b->nsec3.types);
+                return a->nsec3.algorithm == b->nsec3.algorithm && a->nsec3.flags == b->nsec3.flags &&
+                        a->nsec3.iterations == b->nsec3.iterations && FIELD_EQUAL(a->nsec3, b->nsec3, salt) &&
+                        FIELD_EQUAL(a->nsec3, b->nsec3, next_hashed_name) && bitmap_equal(a->nsec3.types, b->nsec3.types);
 
         case DNS_TYPE_TLSA:
-                return a->tlsa.cert_usage == b->tlsa.cert_usage &&
-                       a->tlsa.selector == b->tlsa.selector &&
-                       a->tlsa.matching_type == b->tlsa.matching_type &&
-                       FIELD_EQUAL(a->tlsa, b->tlsa, data);
+                return a->tlsa.cert_usage == b->tlsa.cert_usage && a->tlsa.selector == b->tlsa.selector &&
+                        a->tlsa.matching_type == b->tlsa.matching_type && FIELD_EQUAL(a->tlsa, b->tlsa, data);
 
         case DNS_TYPE_CAA:
-                return a->caa.flags == b->caa.flags &&
-                       streq(a->caa.tag, b->caa.tag) &&
-                       FIELD_EQUAL(a->caa, b->caa, value);
+                return a->caa.flags == b->caa.flags && streq(a->caa.tag, b->caa.tag) && FIELD_EQUAL(a->caa, b->caa, value);
 
         case DNS_TYPE_OPENPGPKEY:
         default:
@@ -692,20 +668,20 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         }
 }
 
-static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t altitude,
-                             uint8_t size, uint8_t horiz_pre, uint8_t vert_pre) {
+static char *format_location(uint32_t latitude, uint32_t longitude, uint32_t altitude, uint8_t size, uint8_t horiz_pre, uint8_t vert_pre) {
         char *s;
-        char NS = latitude >= 1U<<31 ? 'N' : 'S';
-        char EW = longitude >= 1U<<31 ? 'E' : 'W';
+        char NS = latitude >= 1U << 31 ? 'N' : 'S';
+        char EW = longitude >= 1U << 31 ? 'E' : 'W';
 
-        int lat = latitude >= 1U<<31 ? (int) (latitude - (1U<<31)) : (int) ((1U<<31) - latitude);
-        int lon = longitude >= 1U<<31 ? (int) (longitude - (1U<<31)) : (int) ((1U<<31) - longitude);
-        double alt = altitude >= 10000000u ? altitude - 10000000u : -(double)(10000000u - altitude);
+        int lat = latitude >= 1U << 31 ? (int) (latitude - (1U << 31)) : (int) ((1U << 31) - latitude);
+        int lon = longitude >= 1U << 31 ? (int) (longitude - (1U << 31)) : (int) ((1U << 31) - longitude);
+        double alt = altitude >= 10000000u ? altitude - 10000000u : -(double) (10000000u - altitude);
         double siz = (size >> 4) * exp10((double) (size & 0xF));
         double hor = (horiz_pre >> 4) * exp10((double) (horiz_pre & 0xF));
         double ver = (vert_pre >> 4) * exp10((double) (vert_pre & 0xF));
 
-        if (asprintf(&s, "%d %d %.3f %c %d %d %.3f %c %.2fm %.2fm %.2fm %.2fm",
+        if (asprintf(&s,
+                     "%d %d %.3f %c %d %d %.3f %c %.2fm %.2fm %.2fm %.2fm",
                      (lat / 60000 / 60),
                      (lat / 60000) % 60,
                      (lat % 60000) / 1000.,
@@ -776,9 +752,9 @@ static char *format_txt(DnsTxtItem *first) {
         char *p, *s;
 
         LIST_FOREACH(items, i, first)
-                c += i->length * 4 + 3;
+        c += i->length * 4 + 3;
 
-        p = s = new(char, c);
+        p = s = new (char, c);
         if (!s)
                 return NULL;
 
@@ -822,12 +798,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
-                r = asprintf(&s, "%s %u %u %u %s",
-                             k,
-                             rr->srv.priority,
-                             rr->srv.weight,
-                             rr->srv.port,
-                             strna(rr->srv.name));
+                r = asprintf(&s, "%s %u %u %u %s", k, rr->srv.priority, rr->srv.weight, rr->srv.port, strna(rr->srv.name));
                 if (r < 0)
                         return NULL;
                 break;
@@ -862,7 +833,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_A: {
                 _cleanup_free_ char *x = NULL;
 
-                r = in_addr_to_string(AF_INET, (const union in_addr_union*) &rr->a.in_addr, &x);
+                r = in_addr_to_string(AF_INET, (const union in_addr_union *) &rr->a.in_addr, &x);
                 if (r < 0)
                         return NULL;
 
@@ -873,7 +844,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         case DNS_TYPE_AAAA:
-                r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &rr->aaaa.in6_addr, &t);
+                r = in_addr_to_string(AF_INET6, (const union in_addr_union *) &rr->aaaa.in6_addr, &t);
                 if (r < 0)
                         return NULL;
 
@@ -883,7 +854,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
 
         case DNS_TYPE_SOA:
-                r = asprintf(&s, "%s %s %s %u %u %u %u %u",
+                r = asprintf(&s,
+                             "%s %s %s %u %u %u %u %u",
                              k,
                              strna(rr->soa.mname),
                              strna(rr->soa.rname),
@@ -897,10 +869,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 break;
 
         case DNS_TYPE_MX:
-                r = asprintf(&s, "%s %u %s",
-                             k,
-                             rr->mx.priority,
-                             rr->mx.exchange);
+                r = asprintf(&s, "%s %u %s", k, rr->mx.priority, rr->mx.exchange);
                 if (r < 0)
                         return NULL;
                 break;
@@ -908,12 +877,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_LOC:
                 assert(rr->loc.version == 0);
 
-                t = format_location(rr->loc.latitude,
-                                    rr->loc.longitude,
-                                    rr->loc.altitude,
-                                    rr->loc.size,
-                                    rr->loc.horiz_pre,
-                                    rr->loc.vert_pre);
+                t = format_location(rr->loc.latitude, rr->loc.longitude, rr->loc.altitude, rr->loc.size, rr->loc.horiz_pre, rr->loc.vert_pre);
                 if (!t)
                         return NULL;
 
@@ -927,12 +891,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %u %s",
-                             k,
-                             rr->ds.key_tag,
-                             rr->ds.algorithm,
-                             rr->ds.digest_type,
-                             t);
+                r = asprintf(&s, "%s %u %u %u %s", k, rr->ds.key_tag, rr->ds.algorithm, rr->ds.digest_type, t);
                 if (r < 0)
                         return NULL;
                 break;
@@ -942,11 +901,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s",
-                             k,
-                             rr->sshfp.algorithm,
-                             rr->sshfp.fptype,
-                             t);
+                r = asprintf(&s, "%s %u %u %s", k, rr->sshfp.algorithm, rr->sshfp.fptype, t);
                 if (r < 0)
                         return NULL;
                 break;
@@ -963,22 +918,16 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s %n",
-                             k,
-                             rr->dnskey.flags,
-                             rr->dnskey.protocol,
-                             alg,
-                             &n);
+                r = asprintf(&s, "%s %u %u %s %n", k, rr->dnskey.flags, rr->dnskey.protocol, alg, &n);
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
-                                  rr->dnskey.key, rr->dnskey.key_size,
-                                  8, columns());
+                r = base64_append(&s, n, rr->dnskey.key, rr->dnskey.key_size, 8, columns());
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&ss, "%s\n"
+                r = asprintf(&ss,
+                             "%s\n"
                              "        -- Flags:%s%s%s\n"
                              "        -- Key tag: %u",
                              s,
@@ -1017,10 +966,12 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %n",
+                r = asprintf(&s,
+                             "%s %s%.*u %s %u %u %s %s %u %s %n",
                              k,
                              type ?: "TYPE",
-                             type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
+                             type ? 0 : 1,
+                             type ? 0u : (unsigned) rr->rrsig.type_covered,
                              alg,
                              rr->rrsig.labels,
                              rr->rrsig.original_ttl,
@@ -1032,9 +983,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
-                                  rr->rrsig.signature, rr->rrsig.signature_size,
-                                  8, columns());
+                r = base64_append(&s, n, rr->rrsig.signature, rr->rrsig.signature_size, 8, columns());
                 if (r < 0)
                         return NULL;
 
@@ -1046,10 +995,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %s %s",
-                             k,
-                             rr->nsec.next_domain_name,
-                             t);
+                r = asprintf(&s, "%s %s %s", k, rr->nsec.next_domain_name, t);
                 if (r < 0)
                         return NULL;
                 break;
@@ -1071,7 +1017,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&s, "%s %"PRIu8" %"PRIu8" %"PRIu16" %s %s %s",
+                r = asprintf(&s,
+                             "%s %" PRIu8 " %" PRIu8 " %" PRIu16 " %s %s %s",
                              k,
                              rr->nsec3.algorithm,
                              rr->nsec3.flags,
@@ -1122,7 +1069,8 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (!value)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %s \"%s\"%s%s%s%.0u",
+                r = asprintf(&s,
+                             "%s %u %s \"%s\"%s%s%s%.0u",
                              k,
                              rr->caa.flags,
                              rr->caa.tag,
@@ -1140,15 +1088,11 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_OPENPGPKEY: {
                 int n;
 
-                r = asprintf(&s, "%s %n",
-                             k,
-                             &n);
+                r = asprintf(&s, "%s %n", k, &n);
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
-                                  rr->generic.data, rr->generic.data_size,
-                                  8, columns());
+                r = base64_append(&s, n, rr->generic.data, rr->generic.data_size, 8, columns());
                 if (r < 0)
                         return NULL;
                 break;
@@ -1174,7 +1118,7 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         assert(rr);
         assert(out);
 
-        switch(rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
         case DNS_TYPE_SRV:
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -1787,29 +1731,29 @@ int dns_txt_item_new_empty(DnsTxtItem **ret) {
         return 0;
 }
 
-static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
+static const char *const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
-        [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
-        [DNSSEC_ALGORITHM_DH]                 = "DH",
-        [DNSSEC_ALGORITHM_DSA]                = "DSA",
-        [DNSSEC_ALGORITHM_ECC]                = "ECC",
-        [DNSSEC_ALGORITHM_RSASHA1]            = "RSASHA1",
-        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1]     = "DSA-NSEC3-SHA1",
+        [DNSSEC_ALGORITHM_RSAMD5] = "RSAMD5",
+        [DNSSEC_ALGORITHM_DH] = "DH",
+        [DNSSEC_ALGORITHM_DSA] = "DSA",
+        [DNSSEC_ALGORITHM_ECC] = "ECC",
+        [DNSSEC_ALGORITHM_RSASHA1] = "RSASHA1",
+        [DNSSEC_ALGORITHM_DSA_NSEC3_SHA1] = "DSA-NSEC3-SHA1",
         [DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1] = "RSASHA1-NSEC3-SHA1",
-        [DNSSEC_ALGORITHM_RSASHA256]          = "RSASHA256",
-        [DNSSEC_ALGORITHM_RSASHA512]          = "RSASHA512",
-        [DNSSEC_ALGORITHM_ECC_GOST]           = "ECC-GOST",
-        [DNSSEC_ALGORITHM_ECDSAP256SHA256]    = "ECDSAP256SHA256",
-        [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
-        [DNSSEC_ALGORITHM_ED25519]            = "ED25519",
-        [DNSSEC_ALGORITHM_ED448]              = "ED448",
-        [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
-        [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
-        [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",
+        [DNSSEC_ALGORITHM_RSASHA256] = "RSASHA256",
+        [DNSSEC_ALGORITHM_RSASHA512] = "RSASHA512",
+        [DNSSEC_ALGORITHM_ECC_GOST] = "ECC-GOST",
+        [DNSSEC_ALGORITHM_ECDSAP256SHA256] = "ECDSAP256SHA256",
+        [DNSSEC_ALGORITHM_ECDSAP384SHA384] = "ECDSAP384SHA384",
+        [DNSSEC_ALGORITHM_ED25519] = "ED25519",
+        [DNSSEC_ALGORITHM_ED448] = "ED448",
+        [DNSSEC_ALGORITHM_INDIRECT] = "INDIRECT",
+        [DNSSEC_ALGORITHM_PRIVATEDNS] = "PRIVATEDNS",
+        [DNSSEC_ALGORITHM_PRIVATEOID] = "PRIVATEOID",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(dnssec_algorithm, int, 255);
 
-static const char* const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
+static const char *const dnssec_digest_table[_DNSSEC_DIGEST_MAX_DEFINED] = {
         /* Names as listed on https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
         [DNSSEC_DIGEST_SHA1] = "SHA-1",
         [DNSSEC_DIGEST_SHA256] = "SHA-256",

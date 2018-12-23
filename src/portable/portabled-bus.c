@@ -17,13 +17,7 @@
 #include "user-util.h"
 
 static int property_get_pool_path(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         assert(bus);
         assert(reply);
@@ -32,13 +26,7 @@ static int property_get_pool_path(
 }
 
 static int property_get_pool_usage(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
@@ -46,7 +34,7 @@ static int property_get_pool_usage(
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/portables", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open("/var/lib/portables", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -58,13 +46,7 @@ static int property_get_pool_usage(
 }
 
 static int property_get_pool_limit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
@@ -72,7 +54,7 @@ static int property_get_pool_limit(
         assert(bus);
         assert(reply);
 
-        fd = open("/var/lib/portables", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open("/var/lib/portables", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -84,13 +66,7 @@ static int property_get_pool_limit(
 }
 
 static int property_get_profiles(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -166,17 +142,12 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 if (r < 0)
                         return r;
 
-                r = portable_get_state(
-                                sd_bus_message_get_bus(message),
-                                image->path,
-                                0,
-                                &state,
-                                &error_state);
+                r = portable_get_state(sd_bus_message_get_bus(message), image->path, 0, &state, &error_state);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to get state of image '%s', ignoring: %s",
-                                        image->path, bus_error_message(&error_state, r));
+                        log_debug_errno(r, "Failed to get state of image '%s', ignoring: %s", image->path, bus_error_message(&error_state, r));
 
-                r = sd_bus_message_append(reply, "(ssbtttso)",
+                r = sd_bus_message_append(reply,
+                                          "(ssbtttso)",
                                           image->name,
                                           image_type_to_string(image->type),
                                           image->read_only,
@@ -197,10 +168,10 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int redirect_method_to_image(
-                Manager *m,
-                sd_bus_message *message,
-                sd_bus_error *error,
-                int (*method)(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error* error)) {
+        Manager *m,
+        sd_bus_message *message,
+        sd_bus_error *error,
+        int (*method)(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error)) {
 
         const char *name_or_path;
         int r;
@@ -235,12 +206,7 @@ static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        r = portable_get_state(
-                        sd_bus_message_get_bus(message),
-                        name_or_path,
-                        0,
-                        &state,
-                        error);
+        r = portable_get_state(sd_bus_message_get_bus(message), name_or_path, 0, &state, error);
         if (r < 0)
                 return r;
 
@@ -270,26 +236,13 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
                 return r;
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.portable1.attach-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.portable1.attach-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = portable_detach(
-                        sd_bus_message_get_bus(message),
-                        name_or_path,
-                        runtime ? PORTABLE_RUNTIME : 0,
-                        &changes,
-                        &n_changes,
-                        error);
+        r = portable_detach(sd_bus_message_get_bus(message), name_or_path, runtime ? PORTABLE_RUNTIME : 0, &changes, &n_changes, error);
         if (r < 0)
                 goto finish;
 
@@ -326,14 +279,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.portable1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.portable1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -387,10 +333,7 @@ int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, siz
                 return r;
 
         for (i = 0; i < n_changes; i++) {
-                r = sd_bus_message_append(reply, "(sss)",
-                                          portable_change_type_to_string(changes[i].type),
-                                          changes[i].path,
-                                          changes[i].source);
+                r = sd_bus_message_append(reply, "(sss)", portable_change_type_to_string(changes[i].type), changes[i].path, changes[i].source);
                 if (r < 0)
                         return r;
         }

@@ -22,7 +22,7 @@
 #include "strv.h"
 #include "tests.h"
 
-char* setup_fake_runtime_dir(void) {
+char *setup_fake_runtime_dir(void) {
         char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
 
         assert_se(mkdtemp(t));
@@ -51,10 +51,10 @@ static void load_testdata_env(void) {
                 return;
 
         STRV_FOREACH_PAIR(k, v, pairs)
-                setenv(*k, *v, 0);
+        setenv(*k, *v, 0);
 }
 
-const char* get_testdata_dir(void) {
+const char *get_testdata_dir(void) {
         const char *env;
 
         load_testdata_env();
@@ -71,7 +71,7 @@ const char* get_testdata_dir(void) {
         return env;
 }
 
-const char* get_catalog_dir(void) {
+const char *get_catalog_dir(void) {
         const char *env;
 
         load_testdata_env();
@@ -106,14 +106,12 @@ void test_setup_logging(int level) {
 }
 
 int log_tests_skipped(const char *message) {
-        log_notice("%s: %s, skipping tests.",
-                   program_invocation_short_name, message);
+        log_notice("%s: %s, skipping tests.", program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
 }
 
 int log_tests_skipped_errno(int r, const char *message) {
-        log_notice_errno(r, "%s: %s, skipping tests: %m",
-                         program_invocation_short_name, message);
+        log_notice_errno(r, "%s: %s, skipping tests: %m", program_invocation_short_name, message);
         return EXIT_TEST_SKIP;
 }
 
@@ -132,7 +130,7 @@ bool have_namespaces(void) {
                 if (unshare(CLONE_NEWNS) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);

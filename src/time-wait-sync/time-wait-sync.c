@@ -28,8 +28,8 @@
 #include "time-util.h"
 
 typedef struct ClockState {
-        int timerfd_fd;                  /* non-negative is descriptor from timerfd_create */
-        int adjtime_state;               /* return value from last adjtimex(2) call */
+        int timerfd_fd;                        /* non-negative is descriptor from timerfd_create */
+        int adjtime_state;                     /* return value from last adjtimex(2) call */
         sd_event_source *timerfd_event_source; /* non-null is the active io event source */
         int inotify_fd;
         sd_event_source *inotify_event_source;
@@ -52,14 +52,11 @@ static void clock_state_release(ClockState *sp) {
 static int clock_state_update(ClockState *sp, sd_event *event);
 
 static int update_notify_run_systemd_timesync(ClockState *sp) {
-        sp->run_systemd_timesync_wd = inotify_add_watch(sp->inotify_fd, "/run/systemd/timesync", IN_CREATE|IN_DELETE_SELF);
+        sp->run_systemd_timesync_wd = inotify_add_watch(sp->inotify_fd, "/run/systemd/timesync", IN_CREATE | IN_DELETE_SELF);
         return sp->run_systemd_timesync_wd;
 }
 
-static int timerfd_handler(sd_event_source *s,
-                           int fd,
-                           uint32_t revents,
-                           void *userdata) {
+static int timerfd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         ClockState *sp = userdata;
 
         return clock_state_update(sp, sd_event_source_get_event(s));
@@ -81,10 +78,7 @@ static void process_inotify_event(sd_event *event, ClockState *sp, struct inotif
         }
 }
 
-static int inotify_handler(sd_event_source *s,
-                           int fd,
-                           uint32_t revents,
-                           void *userdata) {
+static int inotify_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         sd_event *event = sd_event_source_get_event(s);
         ClockState *sp = userdata;
         union inotify_event_buffer buffer;
@@ -99,18 +93,16 @@ static int inotify_handler(sd_event_source *s,
                 return log_warning_errno(errno, "Lost access to inotify: %m");
         }
         FOREACH_INOTIFY_EVENT(e, buffer, l)
-                process_inotify_event(event, sp, e);
+        process_inotify_event(event, sp, e);
 
         return 0;
 }
 
-static int clock_state_update(
-                ClockState *sp,
-                sd_event *event) {
+static int clock_state_update(ClockState *sp, sd_event *event) {
 
-        char buf[MAX((size_t)FORMAT_TIMESTAMP_MAX, STRLEN("unrepresentable"))];
+        char buf[MAX((size_t) FORMAT_TIMESTAMP_MAX, STRLEN("unrepresentable"))];
         struct timex tx = {};
-        const char * ts;
+        const char *ts;
         usec_t t;
         int r;
 
@@ -169,8 +161,7 @@ static int clock_state_update(
         else if (sp->adjtime_state == TIME_ERROR) {
                 /* Not synchronized.  Do a one-shot wait on the descriptor and inform the caller we need to keep
                  * running. */
-                r = sd_event_add_io(event, &sp->timerfd_event_source, sp->timerfd_fd,
-                                    EPOLLIN, timerfd_handler, sp);
+                r = sd_event_add_io(event, &sp->timerfd_event_source, sp->timerfd_fd, EPOLLIN, timerfd_handler, sp);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create time change monitor source: %m");
                         goto finish;
@@ -180,13 +171,13 @@ static int clock_state_update(
                 /* Synchronized; we can exit. */
                 r = 0;
 
- finish:
+finish:
         if (r <= 0)
                 (void) sd_event_exit(event, r);
         return r;
 }
 
-static int run(int argc, char * argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event;
         _cleanup_(clock_state_release) ClockState state = {
                 .timerfd_fd = -1,
@@ -214,14 +205,13 @@ static int run(int argc, char * argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create watchdog event source: %m");
 
-        r = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        r = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create inotify descriptor: %m");
 
         state.inotify_fd = r;
 
-        r = sd_event_add_io(event, &state.inotify_event_source, state.inotify_fd,
-                            EPOLLIN, inotify_handler, &state);
+        r = sd_event_add_io(event, &state.inotify_event_source, state.inotify_fd, EPOLLIN, inotify_handler, &state);
         if (r < 0)
                 return log_error_errno(r, "Failed to create notify event source: %m");
 

@@ -5,10 +5,11 @@
 
 #include "log.h"
 
-typedef enum ProcCmdlineFlags {
+typedef enum ProcCmdlineFlags
+{
         PROC_CMDLINE_STRIP_RD_PREFIX = 1 << 0,
-        PROC_CMDLINE_VALUE_OPTIONAL  = 1 << 1,
-        PROC_CMDLINE_RD_STRICT       = 1 << 2,
+        PROC_CMDLINE_VALUE_OPTIONAL = 1 << 1,
+        PROC_CMDLINE_RD_STRICT = 1 << 2,
 } ProcCmdlineFlags;
 
 typedef int (*proc_cmdline_parse_t)(const char *key, const char *value, void *data);
@@ -28,7 +29,7 @@ char *proc_cmdline_key_startswith(const char *s, const char *prefix);
 bool proc_cmdline_key_streq(const char *x, const char *y);
 
 int shall_restore_state(void);
-const char* runlevel_to_target(const char *rl);
+const char *runlevel_to_target(const char *rl);
 
 /* A little helper call, to be used in proc_cmdline_parse_t callbacks */
 static inline bool proc_cmdline_value_missing(const char *key, const char *value) {

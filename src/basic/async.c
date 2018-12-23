@@ -13,7 +13,7 @@
 #include "signal-util.h"
 #include "util.h"
 
-int asynchronous_job(void* (*func)(void *p), void *arg) {
+int asynchronous_job(void *(*func)(void *p), void *arg) {
         sigset_t ss, saved_ss;
         pthread_attr_t a;
         pthread_t t;
@@ -67,7 +67,7 @@ int asynchronous_sync(pid_t *ret_pid) {
          * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
          * syscalls. */
 
-        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, ret_pid);
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -100,7 +100,7 @@ int asynchronous_close(int fd) {
 
                 r = asynchronous_job(close_thread, FD_TO_PTR(fd));
                 if (r < 0)
-                         assert_se(close_nointr(fd) != -EBADF);
+                        assert_se(close_nointr(fd) != -EBADF);
         }
 
         return -1;

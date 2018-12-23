@@ -22,11 +22,11 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-static char** arg_listen = NULL;
+static char **arg_listen = NULL;
 static bool arg_accept = false;
 static int arg_socket_type = SOCK_STREAM;
-static char** arg_args = NULL;
-static char** arg_setenv = NULL;
+static char **arg_args = NULL;
+static char **arg_setenv = NULL;
 static char **arg_fdnames = NULL;
 static bool arg_inetd = false;
 
@@ -82,7 +82,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept*SOCK_CLOEXEC));
+                fd = make_socket_fd(LOG_DEBUG, *address, arg_socket_type, (arg_accept * SOCK_CLOEXEC));
                 if (fd < 0) {
                         log_open();
                         return log_error_errno(fd, "Failed to open '%s': %m", *address);
@@ -113,7 +113,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char* name, char **argv, char **env, int start_fd, size_t n_fds) {
+static int exec_process(const char *name, char **argv, char **env, int start_fd, size_t n_fds) {
 
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
@@ -123,8 +123,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         int r;
 
         if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--inetd only supported for single file descriptors.");
 
         length = strv_length(arg_setenv);
 
@@ -195,10 +194,10 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         start_fd = SD_LISTEN_FDS_START;
                 }
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
+                if (asprintf((char **) (envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
                         return log_oom();
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
+                if (asprintf((char **) (envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
                         return log_oom();
 
                 if (arg_fdnames) {
@@ -240,7 +239,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         return log_error_errno(errno, "Failed to execp %s (%s): %m", name, joined);
 }
 
-static int fork_and_exec_process(const char* child, char** argv, char **env, int fd) {
+static int fork_and_exec_process(const char *child, char **argv, char **env, int fd) {
         _cleanup_free_ char *joined = NULL;
         pid_t child_pid;
         int r;
@@ -249,7 +248,7 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         if (!joined)
                 return log_oom();
 
-        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &child_pid);
+        r = safe_fork("(activate)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &child_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -262,7 +261,7 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         return 0;
 }
 
-static int do_accept(const char* name, char **argv, char **envp, int fd) {
+static int do_accept(const char *name, char **argv, char **envp, int fd) {
         _cleanup_free_ char *local = NULL, *peer = NULL;
         _cleanup_close_ int fd_accepted = -1;
 
@@ -286,7 +285,7 @@ static void sigchld_hdl(int sig) {
                 int r;
 
                 si.si_pid = 0;
-                r = waitid(P_ALL, 0, &si, WEXITED|WNOHANG);
+                r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
                                 log_error_errno(errno, "Failed to reap children: %m");
@@ -301,7 +300,7 @@ static void sigchld_hdl(int sig) {
 
 static int install_chld_handler(void) {
         static const struct sigaction act = {
-                .sa_flags = SA_NOCLDSTOP|SA_RESTART,
+                .sa_flags = SA_NOCLDSTOP | SA_RESTART,
                 .sa_handler = sigchld_hdl,
         };
 
@@ -332,35 +331,33 @@ static int help(void) {
                "     --fdname=NAME[:NAME...] Specify names for file descriptors\n"
                "     --inetd                 Enable inetd file descriptor passing protocol\n"
                "\nNote: file descriptors from sd_listen_fds() will be passed through.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_FDNAME,
                 ARG_SEQPACKET,
                 ARG_INETD,
         };
 
-        static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'           },
-                { "version",     no_argument,       NULL, ARG_VERSION   },
-                { "datagram",    no_argument,       NULL, 'd'           },
-                { "seqpacket",   no_argument,       NULL, ARG_SEQPACKET },
-                { "listen",      required_argument, NULL, 'l'           },
-                { "accept",      no_argument,       NULL, 'a'           },
-                { "setenv",      required_argument, NULL, 'E'           },
-                { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
-                { "fdname",      required_argument, NULL, ARG_FDNAME    },
-                { "inetd",       no_argument,       NULL, ARG_INETD     },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "datagram", no_argument, NULL, 'd' },
+                                                 { "seqpacket", no_argument, NULL, ARG_SEQPACKET },
+                                                 { "listen", required_argument, NULL, 'l' },
+                                                 { "accept", no_argument, NULL, 'a' },
+                                                 { "setenv", required_argument, NULL, 'E' },
+                                                 { "environment", required_argument, NULL, 'E' }, /* legacy alias */
+                                                 { "fdname", required_argument, NULL, ARG_FDNAME },
+                                                 { "inetd", no_argument, NULL, ARG_INETD },
+                                                 {} };
 
         int c, r;
 
@@ -368,7 +365,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "+hl:aE:d", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
                         return help();
 
@@ -384,16 +381,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'd':
                         if (arg_socket_type == SOCK_SEQPACKET)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--datagram may not be combined with --seqpacket.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--datagram may not be combined with --seqpacket.");
 
                         arg_socket_type = SOCK_DGRAM;
                         break;
 
                 case ARG_SEQPACKET:
                         if (arg_socket_type == SOCK_DGRAM)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--seqpacket may not be combined with --datagram.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--seqpacket may not be combined with --datagram.");
 
                         arg_socket_type = SOCK_SEQPACKET;
                         break;
@@ -418,17 +413,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         STRV_FOREACH(s, names)
-                                if (!fdname_is_valid(*s)) {
-                                        _cleanup_free_ char *esc;
+                        if (!fdname_is_valid(*s)) {
+                                _cleanup_free_ char *esc;
 
-                                        esc = cescape(*s);
-                                        log_warning("File descriptor name \"%s\" is not valid.", esc);
-                                }
+                                esc = cescape(*s);
+                                log_warning("File descriptor name \"%s\" is not valid.", esc);
+                        }
 
                         /* Empty optargs means one empty name */
-                        r = strv_extend_strv(&arg_fdnames,
-                                             strv_isempty(names) ? STRV_MAKE("") : names,
-                                             false);
+                        r = strv_extend_strv(&arg_fdnames, strv_isempty(names) ? STRV_MAKE("") : names, false);
                         if (r < 0)
                                 return log_error_errno(r, "strv_extend_strv: %m");
                         break;
@@ -446,9 +439,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind == argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: command to execute is missing.",
-                                       program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s: command to execute is missing.", program_invocation_short_name);
 
         if (arg_socket_type == SOCK_DGRAM && arg_accept)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

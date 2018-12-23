@@ -18,13 +18,7 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
 
 static int property_get_cgroup_mask(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupMask *mask = userdata;
         CGroupController ctrl;
@@ -50,13 +44,7 @@ static int property_get_cgroup_mask(
 }
 
 static int property_get_delegate_controllers(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
 
@@ -71,13 +59,7 @@ static int property_get_delegate_controllers(
 }
 
 static int property_get_io_device_weight(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupIODeviceWeight *w;
@@ -101,13 +83,7 @@ static int property_get_io_device_weight(
 }
 
 static int property_get_io_device_limits(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupIODeviceLimit *l;
@@ -137,13 +113,7 @@ static int property_get_io_device_limits(
 }
 
 static int property_get_io_device_latency(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupIODeviceLatency *l;
@@ -167,13 +137,7 @@ static int property_get_io_device_latency(
 }
 
 static int property_get_blockio_device_weight(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupBlockIODeviceWeight *w;
@@ -197,13 +161,7 @@ static int property_get_blockio_device_weight(
 }
 
 static int property_get_blockio_device_bandwidths(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupBlockIODeviceBandwidth *b;
@@ -237,13 +195,7 @@ static int property_get_blockio_device_bandwidths(
 }
 
 static int property_get_device_allow(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         CGroupContext *c = userdata;
         CGroupDeviceAllow *a;
@@ -279,15 +231,9 @@ static int property_get_device_allow(
 }
 
 static int property_get_ip_address_access(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
-        IPAddressAccessItem** items = userdata, *i;
+        IPAddressAccessItem **items = userdata, *i;
         int r;
 
         r = sd_bus_message_open_container(reply, 'a', "(iayu)");
@@ -364,12 +310,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
 };
 
 static int bus_cgroup_set_transient_property(
-                Unit *u,
-                CGroupContext *c,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Unit *u, CGroupContext *c, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         int r;
 
@@ -453,13 +394,7 @@ static int bus_cgroup_set_transient_property(
 }
 
 static int bus_cgroup_set_boolean(
-                Unit *u,
-                const char *name,
-                bool *p,
-                CGroupMask mask,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Unit *u, const char *name, bool *p, CGroupMask mask, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         int b, r;
 
@@ -478,117 +413,99 @@ static int bus_cgroup_set_boolean(
         return 1;
 }
 
-#define BUS_DEFINE_SET_CGROUP_WEIGHT(function, mask, check, val)        \
-        static int bus_cgroup_set_##function(                           \
-                        Unit *u,                                        \
-                        const char *name,                               \
-                        uint64_t *p,                                    \
-                        sd_bus_message *message,                        \
-                        UnitWriteFlags flags,                           \
-                        sd_bus_error *error) {                          \
-                                                                        \
-                uint64_t v;                                             \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                r = sd_bus_message_read(message, "t", &v);              \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                if (!check(v))                                          \
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
-                                                 "Value specified in %s is out of range", name); \
-                                                                        \
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
-                                                                        \
-                        if (v == (val))                                 \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=", name);       \
-                        else                                            \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=%" PRIu64, name, v); \
-                }                                                       \
-                                                                        \
-                return 1;                                               \
+#define BUS_DEFINE_SET_CGROUP_WEIGHT(function, mask, check, val)                                                                   \
+        static int bus_cgroup_set_##function(                                                                                      \
+                Unit *u, const char *name, uint64_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {      \
+                                                                                                                                   \
+                uint64_t v;                                                                                                        \
+                int r;                                                                                                             \
+                                                                                                                                   \
+                assert(p);                                                                                                         \
+                                                                                                                                   \
+                r = sd_bus_message_read(message, "t", &v);                                                                         \
+                if (r < 0)                                                                                                         \
+                        return r;                                                                                                  \
+                                                                                                                                   \
+                if (!check(v))                                                                                                     \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name); \
+                                                                                                                                   \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                                                                               \
+                        *p = v;                                                                                                    \
+                        unit_invalidate_cgroup(u, (mask));                                                                         \
+                                                                                                                                   \
+                        if (v == (val))                                                                                            \
+                                unit_write_settingf(u, flags, name, "%s=", name);                                                  \
+                        else                                                                                                       \
+                                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, v);                                       \
+                }                                                                                                                  \
+                                                                                                                                   \
+                return 1;                                                                                                          \
         }
 
-#define BUS_DEFINE_SET_CGROUP_LIMIT(function, mask, scale, minimum)     \
-        static int bus_cgroup_set_##function(                           \
-                        Unit *u,                                        \
-                        const char *name,                               \
-                        uint64_t *p,                                    \
-                        sd_bus_message *message,                        \
-                        UnitWriteFlags flags,                           \
-                        sd_bus_error *error) {                          \
-                                                                        \
-                uint64_t v;                                             \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                r = sd_bus_message_read(message, "t", &v);              \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                if (v < minimum)                                        \
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
-                                                 "Value specified in %s is out of range", name); \
-                                                                        \
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
-                                                                        \
-                        if (v == CGROUP_LIMIT_MAX)                      \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=infinity", name); \
-                        else                                            \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=%" PRIu64, name, v); \
-                }                                                       \
-                                                                        \
-                return 1;                                               \
-        }                                                               \
-        static int bus_cgroup_set_##function##_scale(                   \
-                        Unit *u,                                        \
-                        const char *name,                               \
-                        uint64_t *p,                                    \
-                        sd_bus_message *message,                        \
-                        UnitWriteFlags flags,                           \
-                        sd_bus_error *error) {                          \
-                                                                        \
-                uint64_t v;                                             \
-                uint32_t raw;                                           \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                r = sd_bus_message_read(message, "u", &raw);            \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                v = scale(raw, UINT32_MAX);                             \
-                if (v < minimum || v >= UINT64_MAX)                     \
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
-                                                 "Value specified in %s is out of range", name); \
-                                                                        \
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        const char *e;                                  \
-                                                                        \
-                        *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
-                                                                        \
-                        /* Chop off suffix */                           \
-                        assert_se(e = endswith(name, "Scale"));         \
-                        name = strndupa(name, e - name);                \
-                                                                        \
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name, \
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
-                }                                                       \
-                                                                        \
-                return 1;                                               \
+#define BUS_DEFINE_SET_CGROUP_LIMIT(function, mask, scale, minimum)                                                                \
+        static int bus_cgroup_set_##function(                                                                                      \
+                Unit *u, const char *name, uint64_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {      \
+                                                                                                                                   \
+                uint64_t v;                                                                                                        \
+                int r;                                                                                                             \
+                                                                                                                                   \
+                assert(p);                                                                                                         \
+                                                                                                                                   \
+                r = sd_bus_message_read(message, "t", &v);                                                                         \
+                if (r < 0)                                                                                                         \
+                        return r;                                                                                                  \
+                                                                                                                                   \
+                if (v < minimum)                                                                                                   \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name); \
+                                                                                                                                   \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                                                                               \
+                        *p = v;                                                                                                    \
+                        unit_invalidate_cgroup(u, (mask));                                                                         \
+                                                                                                                                   \
+                        if (v == CGROUP_LIMIT_MAX)                                                                                 \
+                                unit_write_settingf(u, flags, name, "%s=infinity", name);                                          \
+                        else                                                                                                       \
+                                unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, v);                                       \
+                }                                                                                                                  \
+                                                                                                                                   \
+                return 1;                                                                                                          \
+        }                                                                                                                          \
+        static int bus_cgroup_set_##function##_scale(                                                                              \
+                Unit *u, const char *name, uint64_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {      \
+                                                                                                                                   \
+                uint64_t v;                                                                                                        \
+                uint32_t raw;                                                                                                      \
+                int r;                                                                                                             \
+                                                                                                                                   \
+                assert(p);                                                                                                         \
+                                                                                                                                   \
+                r = sd_bus_message_read(message, "u", &raw);                                                                       \
+                if (r < 0)                                                                                                         \
+                        return r;                                                                                                  \
+                                                                                                                                   \
+                v = scale(raw, UINT32_MAX);                                                                                        \
+                if (v < minimum || v >= UINT64_MAX)                                                                                \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Value specified in %s is out of range", name); \
+                                                                                                                                   \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                                                                               \
+                        const char *e;                                                                                             \
+                                                                                                                                   \
+                        *p = v;                                                                                                    \
+                        unit_invalidate_cgroup(u, (mask));                                                                         \
+                                                                                                                                   \
+                        /* Chop off suffix */                                                                                      \
+                        assert_se(e = endswith(name, "Scale"));                                                                    \
+                        name = strndupa(name, e - name);                                                                           \
+                                                                                                                                   \
+                        unit_write_settingf(u,                                                                                     \
+                                            flags,                                                                                 \
+                                            name,                                                                                  \
+                                            "%s=%" PRIu32 "%%",                                                                    \
+                                            name,                                                                                  \
+                                            (uint32_t)(DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX)));               \
+                }                                                                                                                  \
+                                                                                                                                   \
+                return 1;                                                                                                          \
         }
 
 #pragma GCC diagnostic push
@@ -602,13 +519,7 @@ BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(tasks_max, CGROUP_MASK_PIDS, system_tasks_max_scale, 1);
 #pragma GCC diagnostic pop
 
-int bus_cgroup_set_property(
-                Unit *u,
-                CGroupContext *c,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_cgroup_set_property(Unit *u, CGroupContext *c, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         CGroupIOLimitType iol_type;
         int r;
@@ -720,9 +631,7 @@ int bus_cgroup_set_property(
                         else
                                 /* config_parse_cpu_quota() requires an integer, so truncating division is used on
                                  * purpose here. */
-                                unit_write_settingf(u, flags, "CPUQuota",
-                                                    "CPUQuota=%0.f%%",
-                                                    (double) (c->cpu_quota_per_sec_usec / 10000));
+                                unit_write_settingf(u, flags, "CPUQuota", "CPUQuota=%0.f%%", (double) (c->cpu_quota_per_sec_usec / 10000));
                 }
 
                 return 1;
@@ -739,7 +648,8 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
 
                         if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceLimit *a = NULL, *b;
@@ -790,7 +700,7 @@ int bus_cgroup_set_property(
 
                         if (n == 0) {
                                 LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        a->limits[iol_type] = cgroup_io_limit_defaults[iol_type];
+                                a->limits[iol_type] = cgroup_io_limit_defaults[iol_type];
                         }
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_IO);
@@ -803,8 +713,8 @@ int bus_cgroup_set_property(
 
                         fprintf(f, "%s=\n", name);
                         LIST_FOREACH(device_limits, a, c->io_device_limits)
-                                        if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
-                                                fprintf(f, "%s=%s %" PRIu64 "\n", name, a->path, a->limits[iol_type]);
+                        if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
+                                fprintf(f, "%s=%s %" PRIu64 "\n", name, a->path, a->limits[iol_type]);
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -826,7 +736,8 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
 
                         if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
@@ -885,7 +796,7 @@ int bus_cgroup_set_property(
 
                         fputs("IODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->io_device_weights)
-                                fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
+                        fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -907,7 +818,8 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(st)", &path, &target)) > 0) {
 
                         if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceLatency *a = NULL, *b;
@@ -964,8 +876,7 @@ int bus_cgroup_set_property(
 
                         fputs("IODeviceLatencyTargetSec=\n", f);
                         LIST_FOREACH(device_latencies, a, c->io_device_latencies)
-                                fprintf(f, "IODeviceLatencyTargetSec=%s %s\n",
-                                        a->path, format_timespan(ts, sizeof(ts), a->target_usec, 1));
+                        fprintf(f, "IODeviceLatencyTargetSec=%s %s\n", a->path, format_timespan(ts, sizeof(ts), a->target_usec, 1));
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -991,7 +902,8 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
 
                         if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupBlockIODeviceBandwidth *a = NULL, *b;
@@ -1060,13 +972,13 @@ int bus_cgroup_set_property(
                         if (read) {
                                 fputs("BlockIOReadBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (a->rbps != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
+                                if (a->rbps != CGROUP_LIMIT_MAX)
+                                        fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
                         } else {
                                 fputs("BlockIOWriteBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
-                                        if (a->wbps != CGROUP_LIMIT_MAX)
-                                                fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
+                                if (a->wbps != CGROUP_LIMIT_MAX)
+                                        fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
                         }
 
                         r = fflush_and_check(f);
@@ -1090,7 +1002,8 @@ int bus_cgroup_set_property(
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
 
                         if (!path_is_normalized(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path '%s' specified in %s= is not normalized.", name, path);
 
                         if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
@@ -1149,7 +1062,7 @@ int bus_cgroup_set_property(
 
                         fputs("BlockIODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
-                                fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
+                        fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -1257,7 +1170,7 @@ int bus_cgroup_set_property(
 
                         fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
-                                fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                        fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
                         r = fflush_and_check(f);
                         if (r < 0)
@@ -1317,15 +1230,23 @@ int bus_cgroup_set_property(
                                 return r;
 
                         if (an != FAMILY_ADDRESS_SIZE(family))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IP address has wrong size for family (%s, expected %zu, got %zu)",
-                                                               af_to_name(family), FAMILY_ADDRESS_SIZE(family), an);
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "IP address has wrong size for family (%s, expected %zu, got %zu)",
+                                                         af_to_name(family),
+                                                         FAMILY_ADDRESS_SIZE(family),
+                                                         an);
 
                         r = sd_bus_message_read(message, "u", &prefixlen);
                         if (r < 0)
                                 return r;
 
-                        if (prefixlen > FAMILY_ADDRESS_SIZE(family)*8)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Prefix length %" PRIu32 " too large for address family %s.", prefixlen, af_to_name(family));
+                        if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Prefix length %" PRIu32 " too large for address family %s.",
+                                                         prefixlen,
+                                                         af_to_name(family));
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 IPAddressAccessItem *item;
@@ -1398,7 +1319,8 @@ int bus_cgroup_set_property(
 
                                         log_full(warned ? LOG_DEBUG : LOG_WARNING,
                                                  "Transient unit %s configures an IP firewall, but the local system does not support BPF/cgroup firewalling.\n"
-                                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first started transient unit using IP firewalling.)", u->id);
+                                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first started transient unit using IP firewalling.)",
+                                                 u->id);
 
                                         warned = true;
                                 }

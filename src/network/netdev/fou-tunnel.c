@@ -15,14 +15,13 @@
 #include "string-util.h"
 #include "util.h"
 
-static const char* const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = {
+static const char *const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = {
         [NETDEV_FOO_OVER_UDP_ENCAP_DIRECT] = "FooOverUDP",
         [NETDEV_FOO_OVER_UDP_ENCAP_GUE] = "GenericUDPEncapsulation",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(fou_encap_type, FooOverUDPEncapType);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType,
-                         "Failed to parse Encapsulation=");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType, "Failed to parse Encapsulation=");
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;

@@ -26,16 +26,13 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_PATH = 0x100,
                 ARG_VERSION,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, {} };
 
         int c;
 
@@ -79,15 +76,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_get_property_trivial(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "NFailedUnits",
-                        &error,
-                        'u',
-                        &n);
+        r = sd_bus_get_property_trivial(bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "NFailedUnits",
+                                        &error,
+                                        'u',
+                                        &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to get failed units counter: %s", bus_error_message(&error, r));
 

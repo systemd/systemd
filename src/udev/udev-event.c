@@ -50,11 +50,11 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
 
         assert(dev);
 
-        event = new(UdevEvent, 1);
+        event = new (UdevEvent, 1);
         if (!event)
                 return NULL;
 
-        *event = (UdevEvent) {
+        *event = (UdevEvent){
                 .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
                 .exec_delay_usec = exec_delay_usec,
@@ -79,7 +79,8 @@ UdevEvent *udev_event_free(UdevEvent *event) {
         return mfree(event);
 }
 
-enum subst_type {
+enum subst_type
+{
         SUBST_DEVNODE,
         SUBST_ATTR,
         SUBST_ENV,
@@ -105,29 +106,27 @@ struct subst_map_entry {
 };
 
 static const struct subst_map_entry map[] = {
-           { .name = "devnode",  .fmt = 'N', .type = SUBST_DEVNODE },
-           { .name = "tempnode", .fmt = 'N', .type = SUBST_DEVNODE },
-           { .name = "attr",     .fmt = 's', .type = SUBST_ATTR },
-           { .name = "sysfs",    .fmt = 's', .type = SUBST_ATTR },
-           { .name = "env",      .fmt = 'E', .type = SUBST_ENV },
-           { .name = "kernel",   .fmt = 'k', .type = SUBST_KERNEL },
-           { .name = "number",   .fmt = 'n', .type = SUBST_KERNEL_NUMBER },
-           { .name = "driver",   .fmt = 'd', .type = SUBST_DRIVER },
-           { .name = "devpath",  .fmt = 'p', .type = SUBST_DEVPATH },
-           { .name = "id",       .fmt = 'b', .type = SUBST_ID },
-           { .name = "major",    .fmt = 'M', .type = SUBST_MAJOR },
-           { .name = "minor",    .fmt = 'm', .type = SUBST_MINOR },
-           { .name = "result",   .fmt = 'c', .type = SUBST_RESULT },
-           { .name = "parent",   .fmt = 'P', .type = SUBST_PARENT },
-           { .name = "name",     .fmt = 'D', .type = SUBST_NAME },
-           { .name = "links",    .fmt = 'L', .type = SUBST_LINKS },
-           { .name = "root",     .fmt = 'r', .type = SUBST_ROOT },
-           { .name = "sys",      .fmt = 'S', .type = SUBST_SYS },
+        { .name = "devnode", .fmt = 'N', .type = SUBST_DEVNODE },
+        { .name = "tempnode", .fmt = 'N', .type = SUBST_DEVNODE },
+        { .name = "attr", .fmt = 's', .type = SUBST_ATTR },
+        { .name = "sysfs", .fmt = 's', .type = SUBST_ATTR },
+        { .name = "env", .fmt = 'E', .type = SUBST_ENV },
+        { .name = "kernel", .fmt = 'k', .type = SUBST_KERNEL },
+        { .name = "number", .fmt = 'n', .type = SUBST_KERNEL_NUMBER },
+        { .name = "driver", .fmt = 'd', .type = SUBST_DRIVER },
+        { .name = "devpath", .fmt = 'p', .type = SUBST_DEVPATH },
+        { .name = "id", .fmt = 'b', .type = SUBST_ID },
+        { .name = "major", .fmt = 'M', .type = SUBST_MAJOR },
+        { .name = "minor", .fmt = 'm', .type = SUBST_MINOR },
+        { .name = "result", .fmt = 'c', .type = SUBST_RESULT },
+        { .name = "parent", .fmt = 'P', .type = SUBST_PARENT },
+        { .name = "name", .fmt = 'D', .type = SUBST_NAME },
+        { .name = "links", .fmt = 'L', .type = SUBST_LINKS },
+        { .name = "root", .fmt = 'r', .type = SUBST_ROOT },
+        { .name = "sys", .fmt = 'S', .type = SUBST_SYS },
 };
 
-static ssize_t subst_format_var(UdevEvent *event,
-                                const struct subst_map_entry *entry, char *attr,
-                                char *dest, size_t l) {
+static ssize_t subst_format_var(UdevEvent *event, const struct subst_map_entry *entry, char *attr, char *dest, size_t l) {
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
@@ -286,10 +285,10 @@ static ssize_t subst_format_var(UdevEvent *event,
                 break;
         case SUBST_LINKS:
                 FOREACH_DEVICE_DEVLINK(dev, val)
-                        if (s == dest)
-                                l = strpcpy(&s, l, val + STRLEN("/dev/"));
-                        else
-                                l = strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
+                if (s == dest)
+                        l = strpcpy(&s, l, val + STRLEN("/dev/"));
+                else
+                        l = strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
                 break;
         case SUBST_ROOT:
                 l = strpcpy(&s, l, "/dev");
@@ -312,9 +311,7 @@ static ssize_t subst_format_var(UdevEvent *event,
         return s - dest;
 }
 
-ssize_t udev_event_apply_format(UdevEvent *event,
-                                const char *src, char *dest, size_t size,
-                                bool replace_whitespace) {
+ssize_t udev_event_apply_format(UdevEvent *event, const char *src, char *dest, size_t size, bool replace_whitespace) {
         const char *from;
         char *s;
         size_t l;
@@ -348,7 +345,7 @@ ssize_t udev_event_apply_format(UdevEvent *event,
                                 for (i = 0; i < ELEMENTSOF(map); i++) {
                                         if (startswith(&from[1], map[i].name)) {
                                                 entry = &map[i];
-                                                from += strlen(map[i].name)+1;
+                                                from += strlen(map[i].name) + 1;
                                                 format_dollar = true;
                                                 goto subst;
                                         }
@@ -370,7 +367,7 @@ ssize_t udev_event_apply_format(UdevEvent *event,
                                         }
                                 }
                         }
-copy:
+                copy:
                         /* copy char */
                         if (l < 2) /* need space for this char and the terminating NUL */
                                 goto out;
@@ -381,7 +378,7 @@ copy:
                 }
 
                 goto out;
-subst:
+        subst:
                 /* extract possible $format{attr} */
                 if (from[0] == '{') {
                         unsigned i;
@@ -397,7 +394,7 @@ subst:
                                 goto out;
                         memcpy(attrbuf, from, i);
                         attrbuf[i] = '\0';
-                        from += i+1;
+                        from += i + 1;
                         attr = attrbuf;
                 } else
                         attr = NULL;
@@ -405,7 +402,8 @@ subst:
                 subst_len = subst_format_var(event, entry, attr, s, l);
                 if (subst_len < 0) {
                         if (format_dollar)
-                                log_device_warning_errno(event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
+                                log_device_warning_errno(
+                                        event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
                         else
                                 log_device_warning_errno(event->dev, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
 
@@ -469,8 +467,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                         return 0;
 
                 STRV_FOREACH(q, v)
-                        log_debug("'%s'(%s) '%s'", spawn->cmd,
-                                  fd == spawn->fd_stdout ? "out" : "err", *q);
+                log_debug("'%s'(%s) '%s'", spawn->cmd, fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
         return 0;
@@ -484,7 +481,9 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         kill_and_sigcont(spawn->pid, SIGKILL);
 
-        log_error("Spawned process '%s' ["PID_FMT"] timed out after %s, killing", spawn->cmd, spawn->pid,
+        log_error("Spawned process '%s' [" PID_FMT "] timed out after %s, killing",
+                  spawn->cmd,
+                  spawn->pid,
                   format_timespan(timeout, sizeof(timeout), spawn->timeout_usec, USEC_PER_SEC));
 
         return 1;
@@ -496,7 +495,9 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
         assert(spawn);
 
-        log_warning("Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete", spawn->cmd, spawn->pid,
+        log_warning("Spawned process '%s' [" PID_FMT "] is taking longer than %s to complete",
+                    spawn->cmd,
+                    spawn->pid,
                     format_timespan(timeout, sizeof(timeout), spawn->timeout_warn_usec, USEC_PER_SEC));
 
         return 1;
@@ -516,8 +517,7 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
                         return 1;
                 }
 
-                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
-                         "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING, "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
@@ -549,22 +549,19 @@ static int spawn_wait(Spawn *spawn) {
                 usec = now(CLOCK_MONOTONIC);
                 age_usec = usec - spawn->event_birth_usec;
                 if (age_usec < spawn->timeout_usec) {
-                        if (spawn->timeout_warn_usec > 0 &&
-                            spawn->timeout_warn_usec < spawn->timeout_usec &&
+                        if (spawn->timeout_warn_usec > 0 && spawn->timeout_warn_usec < spawn->timeout_usec &&
                             spawn->timeout_warn_usec > age_usec) {
                                 spawn->timeout_warn_usec -= age_usec;
 
-                                r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                                      usec + spawn->timeout_warn_usec, USEC_PER_SEC,
-                                                      on_spawn_timeout_warning, spawn);
+                                r = sd_event_add_time(
+                                        e, NULL, CLOCK_MONOTONIC, usec + spawn->timeout_warn_usec, USEC_PER_SEC, on_spawn_timeout_warning, spawn);
                                 if (r < 0)
                                         return r;
                         }
 
                         spawn->timeout_usec -= age_usec;
 
-                        r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                              usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
+                        r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC, usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
                         if (r < 0)
                                 return r;
                 }
@@ -593,12 +590,8 @@ static int spawn_wait(Spawn *spawn) {
         return ret;
 }
 
-int udev_event_spawn(UdevEvent *event,
-                     usec_t timeout_usec,
-                     bool accept_failure,
-                     const char *cmd,
-                     char *result, size_t ressize) {
-        _cleanup_close_pair_ int outpipe[2] = {-1, -1}, errpipe[2] = {-1, -1};
+int udev_event_spawn(UdevEvent *event, usec_t timeout_usec, bool accept_failure, const char *cmd, char *result, size_t ressize) {
+        _cleanup_close_pair_ int outpipe[2] = { -1, -1 }, errpipe[2] = { -1, -1 };
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
         Spawn spawn;
@@ -611,20 +604,19 @@ int udev_event_spawn(UdevEvent *event,
 
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
-                if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
+                if (pipe2(outpipe, O_NONBLOCK | O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
         if (log_get_max_level() >= LOG_INFO)
-                if (pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) != 0)
+                if (pipe2(errpipe, O_NONBLOCK | O_CLOEXEC) != 0)
                         return log_error_errno(errno, "Failed to create pipe for command '%s': %m", cmd);
 
-        argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
+        argv = strv_split_full(cmd, NULL, SPLIT_QUOTES | SPLIT_RELAX);
         if (!argv)
                 return log_oom();
 
         if (isempty(argv[0]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid command '%s'", cmd);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid command '%s'", cmd);
 
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (!path_is_absolute(argv[0])) {
@@ -643,7 +635,7 @@ int udev_event_spawn(UdevEvent *event,
 
         log_debug("Starting '%s'", cmd);
 
-        r = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(spawn)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork() to execute command '%s': %m", cmd);
         if (r == 0) {
@@ -661,7 +653,7 @@ int udev_event_spawn(UdevEvent *event,
         outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
         errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-        spawn = (Spawn) {
+        spawn = (Spawn){
                 .cmd = cmd,
                 .pid = pid,
                 .accept_failure = accept_failure,
@@ -719,7 +711,11 @@ static int rename_netif(UdevEvent *event) {
 
         r = device_rename(dev, event->name);
         if (r < 0)
-                return log_warning_errno(r, "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m", ifindex, oldname, name);
+                return log_warning_errno(r,
+                                         "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m",
+                                         ifindex,
+                                         oldname,
+                                         name);
 
         log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, name);
 
@@ -776,11 +772,7 @@ static int update_devnode(UdevEvent *event) {
         return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
-static void event_execute_rules_on_remove(
-                UdevEvent *event,
-                usec_t timeout_usec,
-                Hashmap *properties_list,
-                UdevRules *rules) {
+static void event_execute_rules_on_remove(UdevEvent *event, usec_t timeout_usec, Hashmap *properties_list, UdevRules *rules) {
 
         sd_device *dev = event->dev;
         int r;
@@ -806,10 +798,7 @@ static void event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 }
 
-int udev_event_execute_rules(UdevEvent *event,
-                             usec_t timeout_usec,
-                             Hashmap *properties_list,
-                             UdevRules *rules) {
+int udev_event_execute_rules(UdevEvent *event, usec_t timeout_usec, Hashmap *properties_list, UdevRules *rules) {
         sd_device *dev = event->dev;
         const char *subsystem, *action;
         int r;

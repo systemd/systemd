@@ -21,16 +21,21 @@
 #include "io-util.h"
 #include "socket-util.h"
 
-#define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
-        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } } }
+#define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT                                                                                 \
+        {                                                                                                                  \
+                {                                                                                                          \
+                        { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } \
+                }                                                                                                          \
+        }
 
-#define IN6ADDR_ALL_NODES_MULTICAST_INIT \
-        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
+#define IN6ADDR_ALL_NODES_MULTICAST_INIT                                                                                   \
+        {                                                                                                                  \
+                {                                                                                                          \
+                        { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } \
+                }                                                                                                          \
+        }
 
-static int icmp6_bind_router_message(const struct icmp6_filter *filter,
-                                     const struct ipv6_mreq *mreq) {
+static int icmp6_bind_router_message(const struct icmp6_filter *filter, const struct ipv6_mreq *mreq) {
         int index = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
         char ifname[IF_NAMESIZE] = "";
@@ -150,8 +155,7 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return 0;
 }
 
-int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
-                  triple_timestamp *timestamp) {
+int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst, triple_timestamp *timestamp) {
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int)) + /* ttl */
@@ -179,11 +183,10 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         if ((size_t) len != size)
                 return -EINVAL;
 
-        if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
-            sa.in6.sin6_family == AF_INET6)  {
+        if (msg.msg_namelen == sizeof(struct sockaddr_in6) && sa.in6.sin6_family == AF_INET6) {
 
                 *dst = sa.in6.sin6_addr;
-                if (in_addr_is_link_local(AF_INET6, (union in_addr_union*) dst) <= 0)
+                if (in_addr_is_link_local(AF_INET6, (union in_addr_union *) dst) <= 0)
                         return -EADDRNOTAVAIL;
 
         } else if (msg.msg_namelen > 0)
@@ -194,20 +197,16 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst,
         assert(!(msg.msg_flags & MSG_CTRUNC));
         assert(!(msg.msg_flags & MSG_TRUNC));
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_IPV6 &&
-                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        int hops = *(int*) CMSG_DATA(cmsg);
+        CMSG_FOREACH (cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT && cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                        int hops = *(int *) CMSG_DATA(cmsg);
 
                         if (hops != 255)
                                 return -EMULTIHOP;
                 }
 
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SO_TIMESTAMP &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP && cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval *) CMSG_DATA(cmsg)));
         }
 
         if (!triple_timestamp_is_set(timestamp))

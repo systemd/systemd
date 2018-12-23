@@ -63,8 +63,7 @@ static void *server(void *p) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        assert_se((sd_bus_can_send(bus, 'h') >= 1) ==
-                                  (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
+                        assert_se((sd_bus_can_send(bus, 'h') >= 1) == (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
                         r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {
@@ -76,9 +75,7 @@ static void *server(void *p) {
 
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
                         r = sd_bus_message_new_method_error(
-                                        m,
-                                        &reply,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
+                                m, &reply, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to allocate return: %m");
                                 goto fail;
@@ -117,13 +114,7 @@ static int client(struct context *c) {
         assert_se(sd_bus_set_anonymous(bus, c->client_anonymous_auth) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "Exit");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "Exit");
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate method call: %m");
 
@@ -134,8 +125,7 @@ static int client(struct context *c) {
         return 0;
 }
 
-static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds,
-                    bool client_anonymous_auth, bool server_anonymous_auth) {
+static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_fds, bool client_anonymous_auth, bool server_anonymous_auth) {
 
         struct context c;
         pthread_t s;

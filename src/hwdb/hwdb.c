@@ -37,33 +37,29 @@ static int help(void) {
                "  -h --help       Show this help\n"
                "     --version    Show package version\n"
                "  -s --strict     When updating, return non-zero exit value on any parsing error\n"
-               "     --usr        Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "     --usr        Generate in " UDEVLIBEXECDIR
+               " instead of /etc/udev\n"
                "  -r --root=PATH  Alternative root path in the filesystem\n\n"
                "Commands:\n"
                "  update          Update the hwdb database\n"
                "  query MODALIAS  Query database and print result\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_USR,
         };
 
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'         },
-                { "version",  no_argument,       NULL, ARG_VERSION },
-                { "usr",      no_argument,       NULL, ARG_USR     },
-                { "strict",   no_argument,       NULL, 's'         },
-                { "root",     required_argument, NULL, 'r'         },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },       { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "usr", no_argument, NULL, ARG_USR },    { "strict", no_argument, NULL, 's' },
+                                                 { "root", required_argument, NULL, 'r' }, {} };
 
         int c;
 
@@ -71,7 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "ust:r:h", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help();
@@ -104,7 +100,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int hwdb_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "update", 1, 1, 0, verb_update },
-                { "query",  2, 2, 0, verb_query  },
+                { "query", 2, 2, 0, verb_query },
                 {},
         };
 

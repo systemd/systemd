@@ -69,8 +69,16 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         continue;
                 }
 
-                if (sscanf(line, "%*i %i %*o %*u " PID_FMT " " PID_FMT " %u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
-                           &shmid, &cpid, &lpid, &n_attached, &uid, &gid, &cuid, &cgid) != 8)
+                if (sscanf(line,
+                           "%*i %i %*o %*u " PID_FMT " " PID_FMT " %u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
+                           &shmid,
+                           &cpid,
+                           &lpid,
+                           &n_attached,
+                           &uid,
+                           &gid,
+                           &cuid,
+                           &cgid) != 8)
                         continue;
 
                 if (n_attached > 0)
@@ -88,9 +96,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
-                        ret = log_warning_errno(errno,
-                                                "Failed to remove SysV shared memory segment %i: %m",
-                                                shmid);
+                        ret = log_warning_errno(errno, "Failed to remove SysV shared memory segment %i: %m", shmid);
                 } else {
                         log_debug("Removed SysV shared memory segment %i.", shmid);
                         if (ret == 0)
@@ -131,8 +137,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         continue;
                 }
 
-                if (sscanf(line, "%*i %i %*o %*u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
-                           &semid, &uid, &gid, &cuid, &cgid) != 5)
+                if (sscanf(line, "%*i %i %*o %*u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT, &semid, &uid, &gid, &cuid, &cgid) != 5)
                         continue;
 
                 if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
@@ -147,9 +152,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
-                        ret = log_warning_errno(errno,
-                                                "Failed to remove SysV semaphores object %i: %m",
-                                                semid);
+                        ret = log_warning_errno(errno, "Failed to remove SysV semaphores object %i: %m", semid);
                 } else {
                         log_debug("Removed SysV semaphore %i.", semid);
                         if (ret == 0)
@@ -191,8 +194,15 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         continue;
                 }
 
-                if (sscanf(line, "%*i %i %*o %*u %*u " PID_FMT " " PID_FMT " " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
-                           &msgid, &cpid, &lpid, &uid, &gid, &cuid, &cgid) != 7)
+                if (sscanf(line,
+                           "%*i %i %*o %*u %*u " PID_FMT " " PID_FMT " " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
+                           &msgid,
+                           &cpid,
+                           &lpid,
+                           &uid,
+                           &gid,
+                           &cuid,
+                           &cgid) != 7)
                         continue;
 
                 if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
@@ -207,9 +217,7 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
-                        ret = log_warning_errno(errno,
-                                                "Failed to remove SysV message queue %i: %m",
-                                                msgid);
+                        ret = log_warning_errno(errno, "Failed to remove SysV message queue %i: %m", msgid);
                 } else {
                         log_debug("Removed SysV message queue %i.", msgid);
                         if (ret == 0)
@@ -243,7 +251,7 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {
                 if (S_ISDIR(st.st_mode)) {
                         _cleanup_closedir_ DIR *kid;
 
-                        kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW|O_NOATIME);
+                        kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW | O_NOATIME);
                         if (!kid) {
                                 if (errno != ENOENT)
                                         ret = log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
@@ -327,7 +335,7 @@ static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
 
         FOREACH_DIRENT_ALL(de, dir, goto fail) {
                 struct stat st;
-                char fn[1+strlen(de->d_name)+1];
+                char fn[1 + strlen(de->d_name) + 1];
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
@@ -336,9 +344,7 @@ static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
                         if (errno == ENOENT)
                                 continue;
 
-                        ret = log_warning_errno(errno,
-                                                "Failed to stat() MQ segment %s: %m",
-                                                de->d_name);
+                        ret = log_warning_errno(errno, "Failed to stat() MQ segment %s: %m", de->d_name);
                         continue;
                 }
 
@@ -349,15 +355,13 @@ static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
                         return 1;
 
                 fn[0] = '/';
-                strcpy(fn+1, de->d_name);
+                strcpy(fn + 1, de->d_name);
 
                 if (mq_unlink(fn) < 0) {
                         if (errno == ENOENT)
                                 continue;
 
-                        ret = log_warning_errno(errno,
-                                                "Failed to unlink POSIX message queue %s: %m",
-                                                fn);
+                        ret = log_warning_errno(errno, "Failed to unlink POSIX message queue %s: %m", fn);
                 } else {
                         log_debug("Removed POSIX message queue %s", fn);
                         if (ret == 0)

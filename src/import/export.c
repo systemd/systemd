@@ -83,7 +83,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         determine_compression_from_filename(path);
 
         if (path) {
-                open_fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                open_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOCTTY, 0666);
                 if (open_fd < 0)
                         return log_error_errno(errno, "Failed to open tar image for export: %m");
 
@@ -96,7 +96,10 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.",
+                         local,
+                         strna(pretty),
+                         import_compress_type_to_string(arg_compress));
         }
 
         r = sd_event_default(&event);
@@ -104,7 +107,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_export_new(&export, event, on_tar_finished, event);
@@ -160,7 +163,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         determine_compression_from_filename(path);
 
         if (path) {
-                open_fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
+                open_fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOCTTY, 0666);
                 if (open_fd < 0)
                         return log_error_errno(errno, "Failed to open raw image for export: %m");
 
@@ -173,7 +176,10 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                 fd = STDOUT_FILENO;
 
                 (void) fd_get_path(fd, &pretty);
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.",
+                         local,
+                         strna(pretty),
+                         import_compress_type_to_string(arg_compress));
         }
 
         r = sd_event_default(&event);
@@ -181,7 +187,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_export_new(&export, event, on_raw_finished, event);
@@ -217,17 +223,16 @@ static int help(int argc, char *argv[], void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_FORMAT,
         };
 
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "format",  required_argument, NULL, ARG_FORMAT  },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "format", required_argument, NULL, ARG_FORMAT },
+                                                 {} };
 
         int c;
 
@@ -254,8 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "bzip2"))
                                 arg_compress = IMPORT_COMPRESS_BZIP2;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown format: %s", optarg);
                         break;
 
                 case '?':
@@ -270,10 +274,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int export_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
-                { "tar",  2,        3,        0, export_tar },
-                { "raw",  2,        3,        0, export_raw },
-                {}
+                { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, export_tar }, { "raw", 2, 3, 0, export_raw }, {}
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);

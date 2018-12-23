@@ -23,17 +23,11 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-void server_forward_kmsg(
-        Server *s,
-        int priority,
-        const char *identifier,
-        const char *message,
-        const struct ucred *ucred) {
+void server_forward_kmsg(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
 
         _cleanup_free_ char *ident_buf = NULL;
         struct iovec iovec[5];
-        char header_priority[DECIMAL_STR_MAX(priority) + 3],
-             header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
+        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
 
         assert(s);
@@ -62,7 +56,7 @@ void server_forward_kmsg(
                         identifier = ident_buf;
                 }
 
-                xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
+                xsprintf(header_pid, "[" PID_FMT "]: ", ucred->pid);
 
                 if (identifier)
                         iovec[n++] = IOVEC_MAKE_STRING(identifier);
@@ -90,13 +84,13 @@ static bool is_us(const char *identifier, const char *pid) {
         if (parse_pid(pid, &pid_num) < 0)
                 return false;
 
-        return pid_num == getpid_cached() &&
-               streq(identifier, program_invocation_short_name);
+        return pid_num == getpid_cached() && streq(identifier, program_invocation_short_name);
 }
 
 void dev_kmsg_record(Server *s, char *p, size_t l) {
 
-        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL,
+                            *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
         char *kernel_device = NULL;
         unsigned long long usec;
@@ -142,10 +136,10 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 /* Did we lose any? */
                 if (serial > *s->kernel_seqnum)
-                        server_driver_message(s, 0,
+                        server_driver_message(s,
+                                              0,
                                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_MISSED_STR,
-                                              LOG_MESSAGE("Missed %"PRIu64" kernel messages",
-                                                          serial - *s->kernel_seqnum),
+                                              LOG_MESSAGE("Missed %" PRIu64 " kernel messages", serial - *s->kernel_seqnum),
                                               NULL);
 
                 /* Make sure we never read this one again. Note that
@@ -263,7 +257,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (LOG_FAC(priority) == LOG_KERN)
                 iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");
         else {
-                pl -= syslog_parse_identifier((const char**) &p, &identifier, &pid);
+                pl -= syslog_parse_identifier((const char **) &p, &identifier, &pid);
 
                 /* Avoid any messages we generated ourselves via
                  * log_info() and friends. */
@@ -294,7 +288,7 @@ finish:
 }
 
 static int server_read_dev_kmsg(Server *s) {
-        char buffer[8192+1]; /* the kernel-side limit per record is 8K currently */
+        char buffer[8192 + 1]; /* the kernel-side limit per record is 8K currently */
         ssize_t l;
 
         assert(s);
@@ -358,7 +352,7 @@ static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void
                 log_warning("/dev/kmsg buffer overrun, some messages lost.");
 
         if (!(revents & EPOLLIN))
-                log_error("Got invalid event from epoll for /dev/kmsg: %"PRIx32, revents);
+                log_error("Got invalid event from epoll for /dev/kmsg: %" PRIx32, revents);
 
         return server_read_dev_kmsg(s);
 }
@@ -370,14 +364,13 @@ int server_open_dev_kmsg(Server *s) {
         assert(s);
 
         if (s->read_kmsg)
-                mode = O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+                mode = O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY;
         else
-                mode = O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY;
+                mode = O_WRONLY | O_CLOEXEC | O_NONBLOCK | O_NOCTTY;
 
         s->dev_kmsg_fd = open("/dev/kmsg", mode);
         if (s->dev_kmsg_fd < 0) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to open /dev/kmsg, ignoring: %m");
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
 
@@ -398,7 +391,7 @@ int server_open_dev_kmsg(Server *s) {
                 goto fail;
         }
 
-        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
+        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT + 10);
         if (r < 0) {
                 log_error_errno(r, "Failed to adjust priority of kmsg event source: %m");
                 goto fail;
@@ -426,7 +419,7 @@ int server_open_kernel_seqnum(Server *s) {
          * way we can just use it like a variable, but it is
          * persistent and automatically flushed at reboot. */
 
-        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR | O_CREAT | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW, 0644);
         if (fd < 0) {
                 log_error_errno(errno, "Failed to open /run/systemd/journal/kernel-seqnum, ignoring: %m");
                 return 0;
@@ -438,7 +431,7 @@ int server_open_kernel_seqnum(Server *s) {
                 return 0;
         }
 
-        p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        p = mmap(NULL, sizeof(uint64_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED) {
                 log_error_errno(errno, "Failed to map sequential number file, ignoring: %m");
                 return 0;

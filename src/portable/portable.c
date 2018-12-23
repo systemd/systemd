@@ -64,8 +64,8 @@ static bool unit_match(const char *unit, char **matches) {
 
         /* Otherwise, at least one needs to match */
         STRV_FOREACH(i, matches)
-                if (prefix_match(unit, *i))
-                        return true;
+        if (prefix_match(unit, *i))
+                return true;
 
         return false;
 }
@@ -104,12 +104,12 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         PortableMetadata *item;
         size_t k = 0;
 
-        sorted = new(PortableMetadata*, hashmap_size(unit_files));
+        sorted = new (PortableMetadata *, hashmap_size(unit_files));
         if (!sorted)
                 return -ENOMEM;
 
         HASHMAP_FOREACH(item, unit_files, iterator)
-                sorted[k++] = item;
+        sorted[k++] = item;
 
         assert(k == hashmap_size(unit_files));
 
@@ -119,10 +119,7 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         return 0;
 }
 
-static int send_item(
-                int socket_fd,
-                const char *name,
-                int fd) {
+static int send_item(int socket_fd, const char *name, int fd) {
 
         union {
                 struct cmsghdr cmsghdr;
@@ -161,17 +158,14 @@ static int send_item(
         return 0;
 }
 
-static int recv_item(
-                int socket_fd,
-                char **ret_name,
-                int *ret_fd) {
+static int recv_item(int socket_fd, char **ret_name, int *ret_fd) {
 
         union {
                 struct cmsghdr cmsghdr;
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control = {};
-        char buffer[PATH_MAX+2];
-        struct iovec iov = IOVEC_INIT(buffer, sizeof(buffer)-1);
+        char buffer[PATH_MAX + 2];
+        struct iovec iov = IOVEC_INIT(buffer, sizeof(buffer) - 1);
         struct msghdr mh = {
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
@@ -191,13 +185,12 @@ static int recv_item(
         if (n < 0)
                 return -errno;
 
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS) {
+        CMSG_FOREACH (cmsg, &mh) {
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
                         if (cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
                                 assert(found_fd < 0);
-                                found_fd = *(int*) CMSG_DATA(cmsg);
+                                found_fd = *(int *) CMSG_DATA(cmsg);
                                 break;
                         }
 
@@ -218,15 +211,10 @@ static int recv_item(
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(portable_metadata_hash_ops, char, string_hash_func, string_compare_func,
-                                              PortableMetadata, portable_metadata_unref);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        portable_metadata_hash_ops, char, string_hash_func, string_compare_func, PortableMetadata, portable_metadata_unref);
 
-static int extract_now(
-                const char *where,
-                char **matches,
-                int socket_fd,
-                PortableMetadata **ret_os_release,
-                Hashmap **ret_unit_files) {
+static int extract_now(const char *where, char **matches, int socket_fd, PortableMetadata **ret_os_release, Hashmap **ret_unit_files) {
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
@@ -308,7 +296,7 @@ static int extract_now(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
+                        fd = openat(dirfd(d), de->d_name, O_CLOEXEC | O_RDONLY);
                         if (fd < 0) {
                                 log_debug_errno(errno, "Failed to open unit file '%s', ignoring: %m", de->d_name);
                                 continue;
@@ -345,14 +333,10 @@ static int extract_now(
 }
 
 static int portable_extract_by_path(
-                const char *path,
-                char **matches,
-                PortableMetadata **ret_os_release,
-                Hashmap **ret_unit_files,
-                sd_bus_error *error) {
+        const char *path, char **matches, PortableMetadata **ret_os_release, Hashmap **ret_unit_files, sd_bus_error *error) {
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
+        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
 
@@ -384,9 +368,12 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP, &m);
+                r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_DISCARD_ON_LOOP, &m);
                 if (r == -ENOPKG)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
+                        sd_bus_error_setf(error,
+                                          SD_BUS_ERROR_INVALID_ARGS,
+                                          "Couldn't identify a suitable partition table or file system in '%s'.",
+                                          path);
                 else if (r == -EADDRNOTAVAIL)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No root partition for specified root hash found in '%s'.", path);
                 else if (r == -ENOTUNIQ)
@@ -394,20 +381,23 @@ static int portable_extract_by_path(
                 else if (r == -ENXIO)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No suitable root partition found in image '%s'.", path);
                 else if (r == -EPROTONOSUPPORT)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", path);
+                        sd_bus_error_setf(error,
+                                          SD_BUS_ERROR_INVALID_ARGS,
+                                          "Device '%s' is loopback block device with partition scanning turned off, please turn it on.",
+                                          path);
                 if (r < 0)
                         return r;
 
-                if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
+                if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, seq) < 0)
                         return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
 
-                r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
+                r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_LOG, &child);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         seq[0] = safe_close(seq[0]);
 
-                        r = dissected_image_mount(m, tmpdir, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_VALIDATE_OS);
+                        r = dissected_image_mount(m, tmpdir, UID_INVALID, DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_VALIDATE_OS);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to mount dissected image: %m");
                                 goto child_finish;
@@ -478,7 +468,8 @@ static int portable_extract_by_path(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image '%s' lacks os-release data, refusing.", path);
 
         if (hashmap_isempty(unit_files))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't find any matching unit files in image '%s', refusing.", path);
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't find any matching unit files in image '%s', refusing.", path);
 
         if (ret_unit_files)
                 *ret_unit_files = TAKE_PTR(unit_files);
@@ -489,12 +480,7 @@ static int portable_extract_by_path(
         return 0;
 }
 
-int portable_extract(
-                const char *name_or_path,
-                char **matches,
-                PortableMetadata **ret_os_release,
-                Hashmap **ret_unit_files,
-                sd_bus_error *error) {
+int portable_extract(const char *name_or_path, char **matches, PortableMetadata **ret_os_release, Hashmap **ret_unit_files, sd_bus_error *error) {
 
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
@@ -508,17 +494,10 @@ int portable_extract(
         return portable_extract_by_path(image->path, matches, ret_os_release, ret_unit_files, error);
 }
 
-static int unit_file_is_active(
-                sd_bus *bus,
-                const char *name,
-                sd_bus_error *error) {
+static int unit_file_is_active(sd_bus *bus, const char *name, sd_bus_error *error) {
 
         static const char *const active_states[] = {
-                "activating",
-                "active",
-                "reloading",
-                "deactivating",
-                NULL,
+                "activating", "active", "reloading", "deactivating", NULL,
         };
         int r;
 
@@ -526,7 +505,7 @@ static int unit_file_is_active(
                 return false;
 
         /* If we are looking at a plain or instance things are easy, we can just query the state */
-        if (unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+        if (unit_name_is_valid(name, UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE)) {
                 _cleanup_free_ char *path = NULL, *buf = NULL;
 
                 path = unit_dbus_path_from_name(name);
@@ -534,17 +513,11 @@ static int unit_file_is_active(
                         return -ENOMEM;
 
                 r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "ActiveState",
-                                error,
-                                &buf);
+                        bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "ActiveState", error, &buf);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to retrieve unit state: %s", bus_error_message(error, r));
 
-                return strv_contains((char**) active_states, buf);
+                return strv_contains((char **) active_states, buf);
         }
 
         /* Otherwise we need to enumerate. But let's build the most restricted query we can */
@@ -552,17 +525,16 @@ static int unit_file_is_active(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
                 const char *at, *prefix, *joined;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ListUnitsByPatterns");
+                r = sd_bus_message_new_method_call(bus,
+                                                   &m,
+                                                   "org.freedesktop.systemd1",
+                                                   "/org/freedesktop/systemd1",
+                                                   "org.freedesktop.systemd1.Manager",
+                                                   "ListUnitsByPatterns");
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append_strv(m, (char**) active_states);
+                r = sd_bus_message_append_strv(m, (char **) active_states);
                 if (r < 0)
                         return r;
 
@@ -594,12 +566,7 @@ static int unit_file_is_active(
         return -EINVAL;
 }
 
-static int portable_changes_add(
-                PortableChange **changes,
-                size_t *n_changes,
-                PortableChangeType type,
-                const char *path,
-                const char *source) {
+static int portable_changes_add(PortableChange **changes, size_t *n_changes, PortableChangeType type, const char *path, const char *source) {
 
         _cleanup_free_ char *p = NULL, *s = NULL;
         PortableChange *c;
@@ -629,7 +596,7 @@ static int portable_changes_add(
                 path_simplify(s, false);
         }
 
-        c[(*n_changes)++] = (PortableChange) {
+        c[(*n_changes)++] = (PortableChange){
                 .type = type,
                 .path = TAKE_PTR(p),
                 .source = TAKE_PTR(s),
@@ -639,12 +606,7 @@ static int portable_changes_add(
 }
 
 static int portable_changes_add_with_prefix(
-                PortableChange **changes,
-                size_t *n_changes,
-                PortableChangeType type,
-                const char *prefix,
-                const char *path,
-                const char *source) {
+        PortableChange **changes, size_t *n_changes, PortableChangeType type, const char *prefix, const char *path, const char *source) {
 
         assert(path);
         assert(!changes == !n_changes);
@@ -675,14 +637,13 @@ void portable_changes_free(PortableChange *changes, size_t n_changes) {
         free(changes);
 }
 
-static int install_chroot_dropin(
-                const char *image_path,
-                ImageType type,
-                const PortableMetadata *m,
-                const char *dropin_dir,
-                char **ret_dropin,
-                PortableChange **changes,
-                size_t *n_changes) {
+static int install_chroot_dropin(const char *image_path,
+                                 ImageType type,
+                                 const PortableMetadata *m,
+                                 const char *dropin_dir,
+                                 char **ret_dropin,
+                                 PortableChange **changes,
+                                 size_t *n_changes) {
 
         _cleanup_free_ char *text = NULL, *dropin = NULL;
         int r;
@@ -703,14 +664,20 @@ static int install_chroot_dropin(
                 if (!strextend(&text,
                                "\n"
                                "[Service]\n",
-                               IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=", image_path, "\n"
-                               "Environment=PORTABLE=", basename(image_path), "\n"
-                               "LogExtraFields=PORTABLE=", basename(image_path), "\n",
+                               IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=",
+                               image_path,
+                               "\n"
+                               "Environment=PORTABLE=",
+                               basename(image_path),
+                               "\n"
+                               "LogExtraFields=PORTABLE=",
+                               basename(image_path),
+                               "\n",
                                NULL))
 
                         return -ENOMEM;
 
-        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write '%s': %m", dropin);
 
@@ -749,15 +716,14 @@ static int find_profile(const char *name, const char *unit, char **ret) {
         return -ENOENT;
 }
 
-static int install_profile_dropin(
-                const char *image_path,
-                const PortableMetadata *m,
-                const char *dropin_dir,
-                const char *profile,
-                PortableFlags flags,
-                char **ret_dropin,
-                PortableChange **changes,
-                size_t *n_changes) {
+static int install_profile_dropin(const char *image_path,
+                                  const PortableMetadata *m,
+                                  const char *dropin_dir,
+                                  const char *profile,
+                                  PortableFlags flags,
+                                  char **ret_dropin,
+                                  PortableChange **changes,
+                                  size_t *n_changes) {
 
         _cleanup_free_ char *dropin = NULL, *from = NULL;
         int r;
@@ -818,15 +784,14 @@ static const char *attached_path(const LookupPaths *paths, PortableFlags flags) 
         return where;
 }
 
-static int attach_unit_file(
-                const LookupPaths *paths,
-                const char *image_path,
-                ImageType type,
-                const PortableMetadata *m,
-                const char *profile,
-                PortableFlags flags,
-                PortableChange **changes,
-                size_t *n_changes) {
+static int attach_unit_file(const LookupPaths *paths,
+                            const char *image_path,
+                            ImageType type,
+                            const PortableMetadata *m,
+                            const char *profile,
+                            PortableFlags flags,
+                            PortableChange **changes,
+                            size_t *n_changes) {
 
         _cleanup_(unlink_and_freep) char *chroot_dropin = NULL, *profile_dropin = NULL;
         _cleanup_(rmdir_and_freep) char *dropin_dir = NULL;
@@ -881,7 +846,7 @@ static int attach_unit_file(
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -1;
 
-                fd = open_tmpfile_linkable(where, O_WRONLY|O_CLOEXEC, &tmp);
+                fd = open_tmpfile_linkable(where, O_WRONLY | O_CLOEXEC, &tmp);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
@@ -909,10 +874,7 @@ static int attach_unit_file(
         return 0;
 }
 
-static int image_symlink(
-                const char *image_path,
-                PortableFlags flags,
-                char **ret) {
+static int image_symlink(const char *image_path, PortableFlags flags, char **ret) {
 
         const char *fn, *where;
         char *joined = NULL;
@@ -935,11 +897,7 @@ static int image_symlink(
         return 0;
 }
 
-static int install_image_symlink(
-                const char *image_path,
-                PortableFlags flags,
-                PortableChange **changes,
-                size_t *n_changes) {
+static int install_image_symlink(const char *image_path, PortableFlags flags, PortableChange **changes, size_t *n_changes) {
 
         _cleanup_free_ char *sl = NULL;
         int r;
@@ -965,15 +923,14 @@ static int install_image_symlink(
         return 0;
 }
 
-int portable_attach(
-                sd_bus *bus,
-                const char *name_or_path,
-                char **matches,
-                const char *profile,
-                PortableFlags flags,
-                PortableChange **changes,
-                size_t *n_changes,
-                sd_bus_error *error) {
+int portable_attach(sd_bus *bus,
+                    const char *name_or_path,
+                    char **matches,
+                    const char *profile,
+                    PortableFlags flags,
+                    PortableChange **changes,
+                    size_t *n_changes,
+                    sd_bus_error *error) {
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -1001,7 +958,8 @@ int portable_attach(
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
                 if (r > 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
+                        return sd_bus_error_setf(
+                                error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' exists on the host already, refusing.", item->name);
 
                 r = unit_file_is_active(bus, item->name, error);
                 if (r < 0)
@@ -1041,9 +999,7 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
                 if (!e)
                         return false;
 
-                return
-                        e[strspn(e, "/")] == 0 ||
-                        streq(e, ".raw");
+                return e[strspn(e, "/")] == 0 || streq(e, ".raw");
         } else {
                 const char *b;
                 size_t l;
@@ -1061,12 +1017,7 @@ static bool marker_matches_image(const char *marker, const char *name_or_path) {
         }
 }
 
-static int test_chroot_dropin(
-                DIR *d,
-                const char *where,
-                const char *fname,
-                const char *name_or_path,
-                char **ret_marker) {
+static int test_chroot_dropin(DIR *d, const char *where, const char *fname, const char *name_or_path, char **ret_marker) {
 
         _cleanup_free_ char *line = NULL, *marker = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -1081,7 +1032,7 @@ static int test_chroot_dropin(
         /* We recognize unis created from portable images via the drop-in we created for them */
 
         p = strjoina(fname, ".d/20-portable.conf");
-        fd = openat(dirfd(d), p, O_RDONLY|O_CLOEXEC);
+        fd = openat(dirfd(d), p, O_RDONLY | O_CLOEXEC);
         if (fd < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -1124,12 +1075,7 @@ static int test_chroot_dropin(
 }
 
 int portable_detach(
-                sd_bus *bus,
-                const char *name_or_path,
-                PortableFlags flags,
-                PortableChange **changes,
-                size_t *n_changes,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *name_or_path, PortableFlags flags, PortableChange **changes, size_t *n_changes, sd_bus_error *error) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_set_free_free_ Set *unit_files = NULL, *markers = NULL;
@@ -1189,7 +1135,11 @@ int portable_detach(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine unit file state of '%s': %m", de->d_name);
                 if (!IN_SET(state, UNIT_FILE_STATIC, UNIT_FILE_DISABLED, UNIT_FILE_LINKED, UNIT_FILE_RUNTIME))
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is in state '%s', can't detach.", de->d_name, unit_file_state_to_string(state));
+                        return sd_bus_error_setf(error,
+                                                 BUS_ERROR_UNIT_EXISTS,
+                                                 "Unit file '%s' is in state '%s', can't detach.",
+                                                 de->d_name,
+                                                 unit_file_state_to_string(state));
 
                 r = unit_file_is_active(bus, de->d_name, error);
                 if (r < 0)
@@ -1201,8 +1151,7 @@ int portable_detach(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
 
-                if (path_is_absolute(marker) &&
-                    !image_in_search_path(IMAGE_PORTABLE, marker)) {
+                if (path_is_absolute(marker) && !image_in_search_path(IMAGE_PORTABLE, marker)) {
 
                         r = set_ensure_allocated(&markers, &path_hash_ops);
                         if (r < 0)
@@ -1301,12 +1250,7 @@ not_found:
         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "No unit files associated with '%s' found. Image not attached?", name_or_path);
 }
 
-static int portable_get_state_internal(
-                sd_bus *bus,
-                const char *name_or_path,
-                PortableFlags flags,
-                PortableState *ret,
-                sd_bus_error *error) {
+static int portable_get_state_internal(sd_bus *bus, const char *name_or_path, PortableFlags flags, PortableState *ret, sd_bus_error *error) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
@@ -1377,19 +1321,16 @@ static int portable_get_state_internal(
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
         }
 
-        *ret = found_running ? (!set_isempty(unit_files) && (flags & PORTABLE_RUNTIME) ? PORTABLE_RUNNING_RUNTIME : PORTABLE_RUNNING) :
-                found_enabled ?            (flags & PORTABLE_RUNTIME ? PORTABLE_ENABLED_RUNTIME : PORTABLE_ENABLED) :
+        *ret = found_running ?
+                (!set_isempty(unit_files) && (flags & PORTABLE_RUNTIME) ? PORTABLE_RUNNING_RUNTIME : PORTABLE_RUNNING) :
+                found_enabled ?
+                (flags & PORTABLE_RUNTIME ? PORTABLE_ENABLED_RUNTIME : PORTABLE_ENABLED) :
                 !set_isempty(unit_files) ? (flags & PORTABLE_RUNTIME ? PORTABLE_ATTACHED_RUNTIME : PORTABLE_ATTACHED) : PORTABLE_DETACHED;
 
         return 0;
 }
 
-int portable_get_state(
-                sd_bus *bus,
-                const char *name_or_path,
-                PortableFlags flags,
-                PortableState *ret,
-                sd_bus_error *error) {
+int portable_get_state(sd_bus *bus, const char *name_or_path, PortableFlags flags, PortableState *ret, sd_bus_error *error) {
 
         PortableState state;
         int r;
@@ -1417,20 +1358,17 @@ int portable_get_state(
 int portable_get_profiles(char ***ret) {
         assert(ret);
 
-        return conf_files_list_nulstr(ret, NULL, NULL, CONF_FILES_DIRECTORY|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED, profile_dirs);
+        return conf_files_list_nulstr(ret, NULL, NULL, CONF_FILES_DIRECTORY | CONF_FILES_BASENAME | CONF_FILES_FILTER_MASKED, profile_dirs);
 }
 
-static const char* const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {
-        [PORTABLE_COPY] = "copy",
-        [PORTABLE_MKDIR] = "mkdir",
-        [PORTABLE_SYMLINK] = "symlink",
-        [PORTABLE_UNLINK] = "unlink",
-        [PORTABLE_WRITE] = "write",
+static const char *const portable_change_type_table[_PORTABLE_CHANGE_TYPE_MAX] = {
+        [PORTABLE_COPY] = "copy",     [PORTABLE_MKDIR] = "mkdir", [PORTABLE_SYMLINK] = "symlink",
+        [PORTABLE_UNLINK] = "unlink", [PORTABLE_WRITE] = "write",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(portable_change_type, PortableChangeType);
 
-static const char* const portable_state_table[_PORTABLE_STATE_MAX] = {
+static const char *const portable_state_table[_PORTABLE_STATE_MAX] = {
         [PORTABLE_DETACHED] = "detached",
         [PORTABLE_ATTACHED] = "attached",
         [PORTABLE_ATTACHED_RUNTIME] = "attached-runtime",

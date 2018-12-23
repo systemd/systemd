@@ -35,31 +35,29 @@ static int help(void) {
                "     --root=ROOT        Filesystem root\n"
                "     --commit           Commit transient ID\n"
                "     --print            Print used machine ID\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
                 ARG_COMMIT,
                 ARG_PRINT,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "root",      required_argument, NULL, ARG_ROOT      },
-                { "commit",    no_argument,       NULL, ARG_COMMIT    },
-                { "print",     no_argument,       NULL, ARG_PRINT     },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "root", required_argument, NULL, ARG_ROOT },
+                                                 { "commit", no_argument, NULL, ARG_COMMIT },
+                                                 { "print", no_argument, NULL, ARG_PRINT },
+                                                 {} };
 
         int c, r;
 
@@ -98,8 +96,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extraneous arguments");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extraneous arguments");
 
         return 1;
 }

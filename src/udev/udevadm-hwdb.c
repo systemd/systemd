@@ -18,37 +18,33 @@ static int help(void) {
                "  -V --version         Print version of the program\n"
                "  -u --update          Update the hardware database\n"
                "  -s --strict          When updating, return non-zero exit value on any parsing error\n"
-               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "     --usr             Generate in " UDEVLIBEXECDIR
+               " instead of /etc/udev\n"
                "  -t --test=MODALIAS   Query database and print result\n"
                "  -r --root=PATH       Alternative root path in the filesystem\n\n"
                "NOTE:\n"
                "The sub-command 'hwdb' is deprecated, and is left for backwards compatibility.\n"
-               "Please use systemd-hwdb instead.\n"
-               , program_invocation_short_name);
+               "Please use systemd-hwdb instead.\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_USR = 0x100,
         };
 
-        static const struct option options[] = {
-                { "update",  no_argument,       NULL, 'u'     },
-                { "usr",     no_argument,       NULL, ARG_USR },
-                { "strict",  no_argument,       NULL, 's'     },
-                { "test",    required_argument, NULL, 't'     },
-                { "root",    required_argument, NULL, 'r'     },
-                { "version", no_argument,       NULL, 'V'     },
-                { "help",    no_argument,       NULL, 'h'     },
-                {}
-        };
+        static const struct option options[] = { { "update", no_argument, NULL, 'u' },     { "usr", no_argument, NULL, ARG_USR },
+                                                 { "strict", no_argument, NULL, 's' },     { "test", required_argument, NULL, 't' },
+                                                 { "root", required_argument, NULL, 'r' }, { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },       {} };
 
         int c;
 
         while ((c = getopt_long(argc, argv, "ust:r:Vh", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'u':
                         arg_update = true;
                         break;
@@ -85,8 +81,7 @@ int hwdb_main(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (!arg_update && !arg_test)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Either --update or --test must be used.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Either --update or --test must be used.");
 
         if (arg_update) {
                 r = hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, true);

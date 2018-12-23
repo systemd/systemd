@@ -19,19 +19,16 @@ typedef struct Writer {
         unsigned n_ref;
 } Writer;
 
-Writer* writer_new(RemoteServer* server);
-Writer* writer_ref(Writer *w);
-Writer* writer_unref(Writer *w);
+Writer *writer_new(RemoteServer *server);
+Writer *writer_ref(Writer *w);
+Writer *writer_unref(Writer *w);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Writer *, writer_unref);
 
-int writer_write(Writer *s,
-                 struct iovec_wrapper *iovw,
-                 dual_timestamp *ts,
-                 bool compress,
-                 bool seal);
+int writer_write(Writer *s, struct iovec_wrapper *iovw, dual_timestamp *ts, bool compress, bool seal);
 
-typedef enum JournalWriteSplitMode {
+typedef enum JournalWriteSplitMode
+{
         JOURNAL_WRITE_SPLIT_NONE,
         JOURNAL_WRITE_SPLIT_HOST,
         _JOURNAL_WRITE_SPLIT_MAX,

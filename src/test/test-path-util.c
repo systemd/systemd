@@ -15,7 +15,8 @@
 #include "tests.h"
 #include "util.h"
 
-#define test_path_compare(a, b, result) {                 \
+#define test_path_compare(a, b, result)                   \
+        {                                                 \
                 assert_se(path_compare(a, b) == result);  \
                 assert_se(path_compare(b, a) == -result); \
                 assert_se(path_equal(a, b) == !result);   \
@@ -71,7 +72,7 @@ static void test_path(void) {
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
 
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOCTTY);
         assert_se(fd >= 0);
         assert_se(fd_is_mount_point(fd, "/", 0) > 0);
 
@@ -85,15 +86,12 @@ static void test_path(void) {
         test_path_simplify("./", ".", ".");
         test_path_simplify(".///.//./.", "./././.", ".");
         test_path_simplify(".///.//././/", "./././.", ".");
-        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
-                           "/./aaa/././.bbb/../c./d.dd/..eeee/.",
-                           "/aaa/.bbb/../c./d.dd/..eeee");
-        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
-                           "/./aaa/././.bbb/../c./d.dd/..eeee/..",
-                           "/aaa/.bbb/../c./d.dd/..eeee/..");
-        test_path_simplify(".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
-                           "././aaa/././.bbb/../c./d.dd/..eeee/..",
-                           "aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify(
+                "//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", "/./aaa/././.bbb/../c./d.dd/..eeee/.", "/aaa/.bbb/../c./d.dd/..eeee");
+        test_path_simplify(
+                "//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..", "/./aaa/././.bbb/../c./d.dd/..eeee/..", "/aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify(
+                ".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..", "././aaa/././.bbb/../c./d.dd/..eeee/..", "aaa/.bbb/../c./d.dd/..eeee/..");
         test_path_simplify("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
                            ".././aaa/././.bbb/../c./d.dd/..eeee/..",
                            "../aaa/.bbb/../c./d.dd/..eeee/..");
@@ -179,7 +177,7 @@ static void test_find_binary(const char *self) {
 }
 
 static void test_prefixes(void) {
-        static const char* values[] = { "/a/b/c/d", "/a/b/c", "/a/b", "/a", "", NULL};
+        static const char *values[] = { "/a/b/c/d", "/a/b/c", "/a/b", "/a", "", NULL };
         unsigned i;
         char s[PATH_MAX];
         bool b;
@@ -200,16 +198,16 @@ static void test_prefixes(void) {
 
         i = 0;
         PATH_FOREACH_PREFIX_MORE(s, "////a////b////c///d///////")
-                assert_se(streq(s, values[i++]));
+        assert_se(streq(s, values[i++]));
         assert_se(values[i] == NULL);
 
         i = 1;
         PATH_FOREACH_PREFIX(s, "////a////b////c///d///////")
-                assert_se(streq(s, values[i++]));
+        assert_se(streq(s, values[i++]));
         assert_se(values[i] == NULL);
 
         PATH_FOREACH_PREFIX(s, "////")
-                assert_not_reached("Wut?");
+        assert_not_reached("Wut?");
 
         b = false;
         PATH_FOREACH_PREFIX_MORE(s, "////") {
@@ -220,7 +218,7 @@ static void test_prefixes(void) {
         assert_se(b);
 
         PATH_FOREACH_PREFIX(s, "")
-                assert_not_reached("wut?");
+        assert_not_reached("wut?");
 
         b = false;
         PATH_FOREACH_PREFIX_MORE(s, "") {
@@ -232,30 +230,31 @@ static void test_prefixes(void) {
 
 static void test_path_join(void) {
 
-#define test_join(expected, ...) {        \
-                _cleanup_free_ char *z = NULL;   \
-                z = path_join(__VA_ARGS__); \
+#define test_join(expected, ...)                                       \
+        {                                                              \
+                _cleanup_free_ char *z = NULL;                         \
+                z = path_join(__VA_ARGS__);                            \
                 log_debug("got \"%s\", expected \"%s\"", z, expected); \
-                assert_se(streq(z, expected));   \
+                assert_se(streq(z, expected));                         \
         }
 
         test_join("/root/a/b/c", "/root", "/a/b", "/c");
         test_join("/root/a/b/c", "/root", "a/b", "c");
         test_join("/root/a/b/c", "/root", "/a/b", "c");
-        test_join("/root/c",     "/root", "/", "c");
-        test_join("/root/",      "/root", "/", NULL);
+        test_join("/root/c", "/root", "/", "c");
+        test_join("/root/", "/root", "/", NULL);
 
         test_join("/a/b/c", "", "/a/b", "/c");
-        test_join("a/b/c",  "", "a/b", "c");
+        test_join("a/b/c", "", "a/b", "c");
         test_join("/a/b/c", "", "/a/b", "c");
-        test_join("/c",     "", "/", "c");
-        test_join("/",      "", "/", NULL);
+        test_join("/c", "", "/", "c");
+        test_join("/", "", "/", NULL);
 
         test_join("/a/b/c", NULL, "/a/b", "/c");
-        test_join("a/b/c",  NULL, "a/b", "c");
+        test_join("a/b/c", NULL, "a/b", "c");
         test_join("/a/b/c", NULL, "/a/b", "c");
-        test_join("/c",     NULL, "/", "c");
-        test_join("/",      NULL, "/", NULL);
+        test_join("/c", NULL, "/", "c");
+        test_join("/", NULL, "/", NULL);
 
         test_join("", "", NULL);
         test_join("", NULL, "");
@@ -267,11 +266,11 @@ static void test_path_join(void) {
         test_join("foo/bar", "", "foo", "", "bar", "");
         test_join("foo/bar", "", "", "", "", "foo", "", "", "", "bar", "", "", "");
 
-        test_join("//foo///bar//",         "", "/", "", "/foo/", "", "/", "", "/bar/", "", "/", "");
-        test_join("/foo/bar/",             "/", "foo", "/", "bar", "/");
-        test_join("foo/bar/baz",           "foo", "bar", "baz");
-        test_join("foo/bar/baz",           "foo/", "bar", "/baz");
-        test_join("foo//bar//baz",         "foo/", "/bar/", "/baz");
+        test_join("//foo///bar//", "", "/", "", "/foo/", "", "/", "", "/bar/", "", "/", "");
+        test_join("/foo/bar/", "/", "foo", "/", "bar", "/");
+        test_join("foo/bar/baz", "foo", "bar", "baz");
+        test_join("foo/bar/baz", "foo/", "bar", "/baz");
+        test_join("foo//bar//baz", "foo/", "/bar/", "/baz");
         test_join("//foo////bar////baz//", "//foo/", "///bar/", "///baz//");
 }
 
@@ -293,7 +292,8 @@ static void test_make_relative(void) {
         assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
         assert_se(path_make_relative("/some/dotdot/../path", "/some/path", &result) < 0);
 
-#define test(from_dir, to_path, expected) {                \
+#define test(from_dir, to_path, expected)                  \
+        {                                                  \
                 _cleanup_free_ char *z = NULL;             \
                 path_make_relative(from_dir, to_path, &z); \
                 assert_se(streq(z, expected));             \
@@ -306,7 +306,9 @@ static void test_make_relative(void) {
         test("/some/path", "/", "../..");
         test("/some/path", "/some/other/path", "../other/path");
         test("/some/path/./dot", "/some/further/path", "../../further/path");
-        test("//extra.//.//./.slashes//./won't////fo.ol///anybody//", "/././/extra././/.slashes////ar.e/.just/././.fine///", "../../../ar.e/.just/.fine");
+        test("//extra.//.//./.slashes//./won't////fo.ol///anybody//",
+             "/././/extra././/.slashes////ar.e/.just/././.fine///",
+             "../../../ar.e/.just/.fine");
 }
 
 static void test_strv_resolve(void) {
@@ -334,7 +336,7 @@ static void test_strv_resolve(void) {
         assert_se(streq(search_dirs[1], "/dir2"));
         assert_se(streq(search_dirs[2], "/dir2"));
 
-        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
 }
 
 static void test_path_startswith(void) {
@@ -489,7 +491,7 @@ static void test_path_extract_filename(void) {
 }
 
 static void test_filename_is_valid(void) {
-        char foo[FILENAME_MAX+2];
+        char foo[FILENAME_MAX + 2];
         int i;
 
         assert_se(!filename_is_valid(""));
@@ -498,9 +500,9 @@ static void test_filename_is_valid(void) {
         assert_se(!filename_is_valid("."));
         assert_se(!filename_is_valid(".."));
 
-        for (i=0; i<FILENAME_MAX+1; i++)
+        for (i = 0; i < FILENAME_MAX + 1; i++)
                 foo[i] = 'a';
-        foo[FILENAME_MAX+1] = '\0';
+        foo[FILENAME_MAX + 1] = '\0';
 
         assert_se(!filename_is_valid(foo));
 
@@ -531,14 +533,13 @@ static void test_hidden_or_backup_file(void) {
 
 static void test_systemd_installation_has_version(const char *path) {
         int r;
-        const unsigned versions[] = {0, 231, atoi(PACKAGE_VERSION), 999};
+        const unsigned versions[] = { 0, 231, atoi(PACKAGE_VERSION), 999 };
         unsigned i;
 
         for (i = 0; i < ELEMENTSOF(versions); i++) {
                 r = systemd_installation_has_version(path, versions[i]);
                 assert_se(r >= 0);
-                log_info("%s has systemd >= %u: %s",
-                         path ?: "Current installation", versions[i], yes_no(r));
+                log_info("%s has systemd >= %u: %s", path ?: "Current installation", versions[i], yes_no(r));
         }
 }
 

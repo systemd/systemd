@@ -32,11 +32,8 @@ static const struct {
         const char *target;
 } rcnd_table[] = {
         /* Standard SysV runlevels for start-up */
-        { "rc1.d",  SPECIAL_RESCUE_TARGET     },
-        { "rc2.d",  SPECIAL_MULTI_USER_TARGET },
-        { "rc3.d",  SPECIAL_MULTI_USER_TARGET },
-        { "rc4.d",  SPECIAL_MULTI_USER_TARGET },
-        { "rc5.d",  SPECIAL_GRAPHICAL_TARGET  },
+        { "rc1.d", SPECIAL_RESCUE_TARGET },     { "rc2.d", SPECIAL_MULTI_USER_TARGET }, { "rc3.d", SPECIAL_MULTI_USER_TARGET },
+        { "rc4.d", SPECIAL_MULTI_USER_TARGET }, { "rc5.d", SPECIAL_GRAPHICAL_TARGET },
 
         /* We ignore the SysV runlevels for shutdown here, as SysV services get default dependencies anyway, and that
          * means they are shut down anyway at system power off if running. */
@@ -74,7 +71,7 @@ static void free_sysvstub(SysvStub *s) {
         free(s);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub*, free_sysvstub);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SysvStub *, free_sysvstub);
 
 static void free_sysvstub_hashmapp(Hashmap **h) {
         hashmap_free_with_destructor(*h, free_sysvstub);
@@ -148,11 +145,11 @@ static int generate_unit_file(SysvStub *s) {
         }
 
         STRV_FOREACH(p, s->before)
-                fprintf(f, "Before=%s\n", *p);
+        fprintf(f, "Before=%s\n", *p);
         STRV_FOREACH(p, s->after)
-                fprintf(f, "After=%s\n", *p);
+        fprintf(f, "After=%s\n", *p);
         STRV_FOREACH(p, s->wants)
-                fprintf(f, "Wants=%s\n", *p);
+        fprintf(f, "Wants=%s\n", *p);
 
         fprintf(f,
                 "\n[Service]\n"
@@ -177,15 +174,13 @@ static int generate_unit_file(SysvStub *s) {
 
         /* Consider two special LSB exit codes a clean exit */
         if (s->has_lsb)
-                fprintf(f,
-                        "SuccessExitStatus=%i %i\n",
-                        EXIT_NOTINSTALLED,
-                        EXIT_NOTCONFIGURED);
+                fprintf(f, "SuccessExitStatus=%i %i\n", EXIT_NOTINSTALLED, EXIT_NOTCONFIGURED);
 
         fprintf(f,
                 "ExecStart=%s start\n"
                 "ExecStop=%s stop\n",
-                path_escaped, path_escaped);
+                path_escaped,
+                path_escaped);
 
         if (s->reload)
                 fprintf(f, "ExecReload=%s reload\n", path_escaped);
@@ -195,18 +190,14 @@ static int generate_unit_file(SysvStub *s) {
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
         STRV_FOREACH(p, s->wanted_by)
-                (void) generator_add_symlink(arg_dest, *p, "wants", s->name);
+        (void) generator_add_symlink(arg_dest, *p, "wants", s->name);
 
         return 1;
 }
 
 static bool usage_contains_reload(const char *line) {
-        return (strcasestr(line, "{reload|") ||
-                strcasestr(line, "{reload}") ||
-                strcasestr(line, "{reload\"") ||
-                strcasestr(line, "|reload|") ||
-                strcasestr(line, "|reload}") ||
-                strcasestr(line, "|reload\""));
+        return (strcasestr(line, "{reload|") || strcasestr(line, "{reload}") || strcasestr(line, "{reload\"") ||
+                strcasestr(line, "|reload|") || strcasestr(line, "|reload}") || strcasestr(line, "|reload\""));
 }
 
 static char *sysv_translate_name(const char *name) {
@@ -235,15 +226,15 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
          * just follow what already exists and do not introduce new
          * uses or names we don't care who introduced a new name. */
 
-        static const char * const table[] = {
+        static const char *const table[] = {
                 /* LSB defined facilities */
-                "local_fs",             NULL,
-                "network",              SPECIAL_NETWORK_ONLINE_TARGET,
-                "named",                SPECIAL_NSS_LOOKUP_TARGET,
-                "portmap",              SPECIAL_RPCBIND_TARGET,
-                "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
-                "syslog",               NULL,
-                "time",                 SPECIAL_TIME_SYNC_TARGET,
+                "local_fs",  NULL,
+                "network",   SPECIAL_NETWORK_ONLINE_TARGET,
+                "named",     SPECIAL_NSS_LOOKUP_TARGET,
+                "portmap",   SPECIAL_RPCBIND_TARGET,
+                "remote_fs", SPECIAL_REMOTE_FS_TARGET,
+                "syslog",    NULL,
+                "time",      SPECIAL_TIME_SYNC_TARGET,
         };
 
         const char *filename;
@@ -264,12 +255,12 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
                 if (!streq(table[i], n))
                         continue;
 
-                if (!table[i+1]) {
+                if (!table[i + 1]) {
                         *ret = NULL;
                         return 0;
                 }
 
-                m = strdup(table[i+1]);
+                m = strdup(table[i + 1]);
                 if (!m)
                         return log_oom();
 
@@ -281,7 +272,7 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
          * out whether something is a target or a service alias. */
 
         /* Facilities starting with $ are most likely targets */
-        if (*name == '$')  {
+        if (*name == '$') {
                 r = unit_name_build(n, NULL, ".target", ret);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
@@ -322,7 +313,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
         for (;;) {
                 _cleanup_free_ char *word = NULL, *m = NULL;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES | EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -391,7 +382,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                 _cleanup_free_ char *word = NULL, *m = NULL;
                 bool is_before;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES | EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -423,7 +414,8 @@ static int load_sysv(SysvStub *s) {
         _cleanup_fclose_ FILE *f;
         unsigned line = 0;
         int r;
-        enum {
+        enum
+        {
                 NORMAL,
                 DESCRIPTION,
                 LSB,
@@ -463,12 +455,11 @@ static int load_sysv(SysvStub *s) {
                         /* Try to figure out whether this init script supports
                          * the reload operation. This heuristic looks for
                          * "Usage" lines which include the reload option. */
-                        if (state == USAGE_CONTINUATION ||
-                            (state == NORMAL && strcasestr(t, "usage"))) {
+                        if (state == USAGE_CONTINUATION || (state == NORMAL && strcasestr(t, "usage"))) {
                                 if (usage_contains_reload(t)) {
                                         supports_reload = true;
                                         state = NORMAL;
-                                } else if (t[strlen(t)-1] == '\\')
+                                } else if (t[strlen(t) - 1] == '\\')
                                         state = USAGE_CONTINUATION;
                                 else
                                         state = NORMAL;
@@ -501,12 +492,12 @@ static int load_sysv(SysvStub *s) {
                                 const char *j;
 
                                 k = strlen(t);
-                                if (k > 0 && t[k-1] == '\\') {
+                                if (k > 0 && t[k - 1] == '\\') {
                                         state = DESCRIPTION;
-                                        t[k-1] = 0;
+                                        t[k - 1] = 0;
                                 }
 
-                                j = empty_to_null(strstrip(t+12));
+                                j = empty_to_null(strstrip(t + 12));
 
                                 r = free_and_strdup(&chkconfig_description, j);
                                 if (r < 0)
@@ -517,7 +508,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = NORMAL;
 
-                                fn = strstrip(t+8);
+                                fn = strstrip(t + 8);
                                 if (!path_is_absolute(fn)) {
                                         log_error("[%s:%u] PID file not absolute. Ignoring.", s->path, line);
                                         continue;
@@ -537,8 +528,8 @@ static int load_sysv(SysvStub *s) {
                         char *j;
 
                         k = strlen(t);
-                        if (k > 0 && t[k-1] == '\\')
-                                t[k-1] = 0;
+                        if (k > 0 && t[k - 1] == '\\')
+                                t[k - 1] = 0;
                         else
                                 state = NORMAL;
 
@@ -566,10 +557,8 @@ static int load_sysv(SysvStub *s) {
                                 if (r < 0)
                                         return r;
 
-                        } else if (startswith_no_case(t, "Required-Start:") ||
-                                   startswith_no_case(t, "Should-Start:") ||
-                                   startswith_no_case(t, "X-Start-Before:") ||
-                                   startswith_no_case(t, "X-Start-After:")) {
+                        } else if (startswith_no_case(t, "Required-Start:") || startswith_no_case(t, "Should-Start:") ||
+                                   startswith_no_case(t, "X-Start-Before:") || startswith_no_case(t, "X-Start-After:")) {
 
                                 state = LSB;
 
@@ -582,7 +571,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB_DESCRIPTION;
 
-                                j = empty_to_null(strstrip(t+12));
+                                j = empty_to_null(strstrip(t + 12));
 
                                 r = free_and_strdup(&long_description, j);
                                 if (r < 0)
@@ -593,7 +582,7 @@ static int load_sysv(SysvStub *s) {
 
                                 state = LSB;
 
-                                j = empty_to_null(strstrip(t+18));
+                                j = empty_to_null(strstrip(t + 18));
 
                                 r = free_and_strdup(&short_description, j);
                                 if (r < 0)
@@ -823,7 +812,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                 return r;
 
         STRV_FOREACH(p, sysvrcnd_path) {
-                for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
+                for (i = 0; i < ELEMENTSOF(rcnd_table); i++) {
 
                         _cleanup_closedir_ DIR *d = NULL;
                         _cleanup_free_ char *path = NULL;
@@ -877,7 +866,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                         continue;
                                 }
 
-                                service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
+                                service->sysv_start_priority = MAX(a * 10 + b, service->sysv_start_priority);
 
                                 r = set_ensure_allocated(&runlevel_services[i], NULL);
                                 if (r < 0) {
@@ -894,7 +883,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                 }
         }
 
-        for (i = 0; i < ELEMENTSOF(rcnd_table); i ++)
+        for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 SET_FOREACH(service, runlevel_services[i], j) {
                         r = strv_extend(&service->before, rcnd_table[i].target);
                         if (r < 0) {
@@ -943,7 +932,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return r;
 
         HASHMAP_FOREACH(service, all_services, j)
-                (void) load_sysv(service);
+        (void) load_sysv(service);
 
         HASHMAP_FOREACH(service, all_services, j) {
                 (void) fix_order(service, all_services);

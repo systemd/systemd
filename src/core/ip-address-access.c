@@ -11,17 +11,16 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-int config_parse_ip_address_access(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ip_address_access(const char *unit,
+                                   const char *filename,
+                                   unsigned line,
+                                   const char *section,
+                                   unsigned section_line,
+                                   const char *lvalue,
+                                   int ltype,
+                                   const char *rvalue,
+                                   void *data,
+                                   void *userdata) {
 
         IPAddressAccessItem **list = data;
         const char *p;
@@ -96,9 +95,7 @@ int config_parse_ip_address_access(
                                 return log_oom();
 
                         a->family = AF_INET6;
-                        a->address.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xfe800000)
-                        };
+                        a->address.in6 = (struct in6_addr){ .s6_addr32[0] = htobe32(0xfe800000) };
                         a->prefixlen = 64;
 
                 } else if (streq(word, "multicast")) {
@@ -115,9 +112,7 @@ int config_parse_ip_address_access(
                                 return log_oom();
 
                         a->family = AF_INET6;
-                        a->address.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xff000000)
-                        };
+                        a->address.in6 = (struct in6_addr){ .s6_addr32[0] = htobe32(0xff000000) };
                         a->prefixlen = 8;
 
                 } else {
@@ -143,7 +138,11 @@ int config_parse_ip_address_access(
 
                         log_full(warned ? LOG_DEBUG : LOG_WARNING,
                                  "File %s:%u configures an IP firewall (%s=%s), but the local system does not support BPF/cgroup based firewalling.\n"
-                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
+                                 "Proceeding WITHOUT firewalling in effect! (This warning is only shown for the first loaded unit using IP firewalling.)",
+                                 filename,
+                                 line,
+                                 lvalue,
+                                 rvalue);
 
                         warned = true;
                 }
@@ -152,7 +151,7 @@ int config_parse_ip_address_access(
         return 0;
 }
 
-IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first) {
+IPAddressAccessItem *ip_address_access_free_all(IPAddressAccessItem *first) {
         IPAddressAccessItem *next, *p = first;
 
         while (p) {
@@ -165,7 +164,7 @@ IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first) {
         return NULL;
 }
 
-IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
+IPAddressAccessItem *ip_address_access_reduce(IPAddressAccessItem *first) {
         IPAddressAccessItem *a, *b, *tmp;
         int r;
 
@@ -188,10 +187,7 @@ IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
                         if (b->prefixlen > a->prefixlen)
                                 continue;
 
-                        r = in_addr_prefix_covers(b->family,
-                                                  &b->address,
-                                                  b->prefixlen,
-                                                  &a->address);
+                        r = in_addr_prefix_covers(b->family, &b->address, b->prefixlen, &a->address);
                         if (r > 0) {
                                 /* b covers a fully, then let's drop a */
                                 LIST_REMOVE(items, first, a);

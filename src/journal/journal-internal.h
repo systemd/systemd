@@ -18,7 +18,8 @@ typedef struct Match Match;
 typedef struct Location Location;
 typedef struct Directory Directory;
 
-typedef enum MatchType {
+typedef enum MatchType
+{
         MATCH_DISCRETE,
         MATCH_OR_TERM,
         MATCH_AND_TERM
@@ -102,16 +103,16 @@ struct sd_journal {
 
         int flags;
 
-        bool on_network:1;
-        bool no_new_files:1;
-        bool no_inotify:1;
-        bool unique_file_lost:1; /* File we were iterating over got
-                                    removed, and there were no more
-                                    files, so sd_j_enumerate_unique
-                                    will return a value equal to 0. */
-        bool fields_file_lost:1;
-        bool has_runtime_files:1;
-        bool has_persistent_files:1;
+        bool on_network : 1;
+        bool no_new_files : 1;
+        bool no_inotify : 1;
+        bool unique_file_lost : 1; /* File we were iterating over got
+                                      removed, and there were no more
+                                      files, so sd_j_enumerate_unique
+                                      will return a value equal to 0. */
+        bool fields_file_lost : 1;
+        bool has_runtime_files : 1;
+        bool has_persistent_files : 1;
 
         size_t data_threshold;
 
@@ -124,5 +125,5 @@ struct sd_journal {
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
 
-#define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
-        for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )
+#define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval) \
+        for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0;)

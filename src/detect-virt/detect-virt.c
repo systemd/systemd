@@ -39,33 +39,31 @@ static int help(void) {
                "     --private-users    Only detect whether we are running in a user namespace\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                "     --list             List all known and detectable types of virtualization\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_PRIVATE_USERS,
                 ARG_LIST,
         };
 
-        static const struct option options[] = {
-                { "help",          no_argument, NULL, 'h'               },
-                { "version",       no_argument, NULL, ARG_VERSION       },
-                { "container",     no_argument, NULL, 'c'               },
-                { "vm",            no_argument, NULL, 'v'               },
-                { "chroot",        no_argument, NULL, 'r'               },
-                { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
-                { "quiet",         no_argument, NULL, 'q'               },
-                { "list",          no_argument, NULL, ARG_LIST          },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "container", no_argument, NULL, 'c' },
+                                                 { "vm", no_argument, NULL, 'v' },
+                                                 { "chroot", no_argument, NULL, 'r' },
+                                                 { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
+                                                 { "quiet", no_argument, NULL, 'q' },
+                                                 { "list", no_argument, NULL, ARG_LIST },
+                                                 {} };
 
         int c;
 
@@ -114,9 +112,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no arguments.",
-                                       program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         return 1;
 }

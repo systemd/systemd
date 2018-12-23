@@ -79,32 +79,19 @@ static void test_dns_name_to_wire_format(void) {
         static const char out1[] = { 3, 'f', 'o', 'o', 0 };
         static const char out2[] = { 5, 'h', 'a', 'l', 'l', 'o', 3, 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
         static const char out3[] = { 4, ' ', 'f', 'o', 'o', 3, 'b', 'a', 'r', 0 };
-        static const char out4[] = { 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
-                                     3, 'a', '1', '2', 0 };
+        static const char out4[] = { 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 9, 'a', '1', '2', '3', '4', '5', '6', '7', '8',
+                                     9, 'a', '1', '2', '3', '4', '5', '6', '7', '8', 3, 'a', '1', '2', 0 };
 
         log_info("/* %s */", __func__);
 
@@ -119,8 +106,16 @@ static void test_dns_name_to_wire_format(void) {
 
         test_dns_name_to_wire_format_one("\\032foo.bar", out3, sizeof(out3), sizeof(out3));
 
-        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", NULL, 500, -EINVAL);
-        test_dns_name_to_wire_format_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", out4, sizeof(out4), sizeof(out4));
+        test_dns_name_to_wire_format_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123",
+                NULL,
+                500,
+                -EINVAL);
+        test_dns_name_to_wire_format_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12",
+                out4,
+                sizeof(out4),
+                sizeof(out4));
 }
 
 static void test_dns_label_unescape_suffix_one(const char *what, const char *expect1, const char *expect2, size_t buffer_sz, int ret1, int ret2) {
@@ -272,7 +267,8 @@ static void test_dns_name_between(void) {
         test_dns_name_between_one("example", "example", "example", false);
         test_dns_name_between_one("example", "example", "yljkjljk.a.example", false);
         test_dns_name_between_one("example", "yljkjljk.a.example", "yljkjljk.a.example", false);
-        test_dns_name_between_one("hkps.pool.sks-keyservers.net", "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", "ipv4.pool.sks-keyservers.net", true);
+        test_dns_name_between_one(
+                "hkps.pool.sks-keyservers.net", "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", "ipv4.pool.sks-keyservers.net", true);
 }
 
 static void test_dns_name_endswith_one(const char *a, const char *b, int ret) {
@@ -385,47 +381,59 @@ static void test_dns_name_is_valid_one(const char *s, int ret, int ret_ldh) {
 static void test_dns_name_is_valid(void) {
         log_info("/* %s */", __func__);
 
-        test_dns_name_is_valid_one("foo",               1, 1);
-        test_dns_name_is_valid_one("foo.",              1, 1);
-        test_dns_name_is_valid_one("foo..",             0, 0);
-        test_dns_name_is_valid_one("Foo",               1, 1);
-        test_dns_name_is_valid_one("foo.bar",           1, 1);
-        test_dns_name_is_valid_one("foo.bar.baz",       1, 1);
-        test_dns_name_is_valid_one("",                  1, 1);
-        test_dns_name_is_valid_one("foo..bar",          0, 0);
-        test_dns_name_is_valid_one(".foo.bar",          0, 0);
-        test_dns_name_is_valid_one("foo.bar.",          1, 1);
-        test_dns_name_is_valid_one("foo.bar..",         0, 0);
-        test_dns_name_is_valid_one("\\zbar",            0, 0);
-        test_dns_name_is_valid_one("ä",                 1, 0);
-        test_dns_name_is_valid_one("\n",                0, 0);
+        test_dns_name_is_valid_one("foo", 1, 1);
+        test_dns_name_is_valid_one("foo.", 1, 1);
+        test_dns_name_is_valid_one("foo..", 0, 0);
+        test_dns_name_is_valid_one("Foo", 1, 1);
+        test_dns_name_is_valid_one("foo.bar", 1, 1);
+        test_dns_name_is_valid_one("foo.bar.baz", 1, 1);
+        test_dns_name_is_valid_one("", 1, 1);
+        test_dns_name_is_valid_one("foo..bar", 0, 0);
+        test_dns_name_is_valid_one(".foo.bar", 0, 0);
+        test_dns_name_is_valid_one("foo.bar.", 1, 1);
+        test_dns_name_is_valid_one("foo.bar..", 0, 0);
+        test_dns_name_is_valid_one("\\zbar", 0, 0);
+        test_dns_name_is_valid_one("ä", 1, 0);
+        test_dns_name_is_valid_one("\n", 0, 0);
 
-        test_dns_name_is_valid_one("dash-",             1, 0);
-        test_dns_name_is_valid_one("-dash",             1, 0);
-        test_dns_name_is_valid_one("dash-dash",         1, 1);
-        test_dns_name_is_valid_one("foo.dash-",         1, 0);
-        test_dns_name_is_valid_one("foo.-dash",         1, 0);
-        test_dns_name_is_valid_one("foo.dash-dash",     1, 1);
-        test_dns_name_is_valid_one("foo.dash-.bar",     1, 0);
-        test_dns_name_is_valid_one("foo.-dash.bar",     1, 0);
+        test_dns_name_is_valid_one("dash-", 1, 0);
+        test_dns_name_is_valid_one("-dash", 1, 0);
+        test_dns_name_is_valid_one("dash-dash", 1, 1);
+        test_dns_name_is_valid_one("foo.dash-", 1, 0);
+        test_dns_name_is_valid_one("foo.-dash", 1, 0);
+        test_dns_name_is_valid_one("foo.dash-dash", 1, 1);
+        test_dns_name_is_valid_one("foo.dash-.bar", 1, 0);
+        test_dns_name_is_valid_one("foo.-dash.bar", 1, 0);
         test_dns_name_is_valid_one("foo.dash-dash.bar", 1, 1);
-        test_dns_name_is_valid_one("dash-.bar",         1, 0);
-        test_dns_name_is_valid_one("-dash.bar",         1, 0);
-        test_dns_name_is_valid_one("dash-dash.bar",     1, 1);
-        test_dns_name_is_valid_one("-.bar",             1, 0);
-        test_dns_name_is_valid_one("foo.-",             1, 0);
+        test_dns_name_is_valid_one("dash-.bar", 1, 0);
+        test_dns_name_is_valid_one("-dash.bar", 1, 0);
+        test_dns_name_is_valid_one("dash-dash.bar", 1, 1);
+        test_dns_name_is_valid_one("-.bar", 1, 0);
+        test_dns_name_is_valid_one("foo.-", 1, 0);
 
         /* 256 characters */
-        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345", 0, 0);
+        test_dns_name_is_valid_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345",
+                0,
+                0);
 
         /* 255 characters */
-        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a1234", 0, 0);
+        test_dns_name_is_valid_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a1234",
+                0,
+                0);
 
         /* 254 characters */
-        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123", 0, 0);
+        test_dns_name_is_valid_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a123",
+                0,
+                0);
 
         /* 253 characters */
-        test_dns_name_is_valid_one("a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12", 1, 1);
+        test_dns_name_is_valid_one(
+                "a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12345678.a12",
+                1,
+                1);
 
         /* label of 64 chars length */
         test_dns_name_is_valid_one("a123456789a123456789a123456789a123456789a123456789a123456789a123", 0, 0);
@@ -712,8 +720,7 @@ static void test_dns_name_apply_idna_one(const char *s, int expected, const char
         int r;
 
         r = dns_name_apply_idna(s, &buf);
-        log_debug("dns_name_apply_idna: \"%s\" → %d/\"%s\" (expected %d/\"%s\")",
-                  s, r, strnull(buf), expected, strnull(result));
+        log_debug("dns_name_apply_idna: \"%s\" → %d/\"%s\" (expected %d/\"%s\")", s, r, strnull(buf), expected, strnull(result));
 
         /* Different libidn2 versions are more and less accepting
          * of underscore-prefixed names. So let's list the lowest
@@ -756,14 +763,12 @@ static void test_dns_name_apply_idna(void) {
         test_dns_name_apply_idna_one("föö.bär.", ret, "xn--f-1gaa.xn--br-via");
         test_dns_name_apply_idna_one("xn--f-1gaa.xn--br-via", ret, "xn--f-1gaa.xn--br-via");
 
-        test_dns_name_apply_idna_one("_443._tcp.fedoraproject.org", ret2,
-                                     "_443._tcp.fedoraproject.org");
+        test_dns_name_apply_idna_one("_443._tcp.fedoraproject.org", ret2, "_443._tcp.fedoraproject.org");
         test_dns_name_apply_idna_one("_443", ret2, "_443");
         test_dns_name_apply_idna_one("gateway", ret, "gateway");
         test_dns_name_apply_idna_one("_gateway", ret2, "_gateway");
 
-        test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", ret2,
-                                     ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
+        test_dns_name_apply_idna_one("r3---sn-ab5l6ne7.googlevideo.com", ret2, ret2 ? "r3---sn-ab5l6ne7.googlevideo.com" : "");
 }
 
 static void test_dns_name_is_valid_or_address(void) {

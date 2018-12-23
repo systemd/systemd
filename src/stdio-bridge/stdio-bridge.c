@@ -31,23 +31,25 @@ static int help(void) {
                "     --version           Show package version\n"
                "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n"
                "  -M --machine=MACHINE   Name of machine to connect to\n",
-               program_invocation_short_name, DEFAULT_BUS_PATH);
+               program_invocation_short_name,
+               DEFAULT_BUS_PATH);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_MACHINE,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'         },
-                { "version",         no_argument,       NULL, ARG_VERSION },
-                { "bus-path",        required_argument, NULL, 'p'         },
-                { "machine",         required_argument, NULL, 'M'         },
+                { "help", no_argument, NULL, 'h' },
+                { "version", no_argument, NULL, ARG_VERSION },
+                { "bus-path", required_argument, NULL, 'p' },
+                { "machine", required_argument, NULL, 'M' },
                 {},
         };
 
@@ -82,8 +84,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 default:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unknown option code %c", c);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown option code %c", c);
                 }
         }
 
@@ -116,9 +117,7 @@ static int run(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        is_unix =
-                sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
-                sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
+        is_unix = sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 && sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         r = sd_bus_new(&a);
         if (r < 0)
@@ -239,10 +238,18 @@ static int run(int argc, char *argv[]) {
                 }
 
                 {
-                        struct pollfd p[3] = {
-                                {.fd = fd,            .events = events_a, },
-                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN, },
-                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT, }};
+                        struct pollfd p[3] = { {
+                                                       .fd = fd,
+                                                       .events = events_a,
+                                               },
+                                               {
+                                                       .fd = STDIN_FILENO,
+                                                       .events = events_b & POLLIN,
+                                               },
+                                               {
+                                                       .fd = STDOUT_FILENO,
+                                                       .events = events_b & POLLOUT,
+                                               } };
 
                         r = ppoll(p, ELEMENTSOF(p), ts, NULL);
                 }

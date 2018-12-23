@@ -23,7 +23,8 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-enum {
+enum
+{
         /* Temporary files */
         SD_PATH_TEMPORARY,
         SD_PATH_TEMPORARY_LARGE,

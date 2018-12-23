@@ -29,10 +29,10 @@
 struct strbuf *strbuf_new(void) {
         struct strbuf *str;
 
-        str = new(struct strbuf, 1);
+        str = new (struct strbuf, 1);
         if (!str)
                 return NULL;
-        *str = (struct strbuf) {
+        *str = (struct strbuf){
                 .buf = new0(char, 1),
                 .root = new0(struct strbuf_node, 1),
                 .len = 1,
@@ -47,7 +47,7 @@ struct strbuf *strbuf_new(void) {
         return str;
 }
 
-static struct strbuf_node* strbuf_node_cleanup(struct strbuf_node *node) {
+static struct strbuf_node *strbuf_node_cleanup(struct strbuf_node *node) {
         size_t i;
 
         for (i = 0; i < node->children_count; i++)
@@ -74,14 +74,11 @@ void strbuf_cleanup(struct strbuf *str) {
         free(str);
 }
 
-static int strbuf_children_cmp(const struct strbuf_child_entry *n1,
-                               const struct strbuf_child_entry *n2) {
+static int strbuf_children_cmp(const struct strbuf_child_entry *n1, const struct strbuf_child_entry *n2) {
         return n1->c - n2->c;
 }
 
-static void bubbleinsert(struct strbuf_node *node,
-                         uint8_t c,
-                         struct strbuf_node *node_child) {
+static void bubbleinsert(struct strbuf_node *node, uint8_t c, struct strbuf_node *node_child) {
 
         struct strbuf_child_entry new = {
                 .c = c,
@@ -90,15 +87,14 @@ static void bubbleinsert(struct strbuf_node *node,
         int left = 0, right = node->children_count;
 
         while (right > left) {
-                int middle = (right + left) / 2 ;
+                int middle = (right + left) / 2;
                 if (strbuf_children_cmp(&node->children[middle], &new) <= 0)
                         left = middle + 1;
                 else
                         right = middle;
         }
 
-        memmove(node->children + left + 1, node->children + left,
-                sizeof(struct strbuf_child_entry) * (node->children_count - left));
+        memmove(node->children + left + 1, node->children + left, sizeof(struct strbuf_child_entry) * (node->children_count - left));
         node->children[left] = new;
 
         node->children_count++;
@@ -149,7 +145,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         }
 
         /* add new string */
-        buf_new = realloc(str->buf, str->len + len+1);
+        buf_new = realloc(str->buf, str->len + len + 1);
         if (!buf_new)
                 return -ENOMEM;
         str->buf = buf_new;
@@ -159,10 +155,10 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         str->buf[str->len++] = '\0';
 
         /* new node */
-        node_child = new(struct strbuf_node, 1);
+        node_child = new (struct strbuf_node, 1);
         if (!node_child)
                 return -ENOMEM;
-        *node_child = (struct strbuf_node) {
+        *node_child = (struct strbuf_node){
                 .value_off = off,
                 .value_len = len,
         };

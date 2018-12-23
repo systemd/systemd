@@ -59,11 +59,11 @@ char *hexmem(const void *p, size_t l) {
         const uint8_t *x;
         char *r, *z;
 
-        z = r = new(char, l * 2 + 1);
+        z = r = new (char, l * 2 + 1);
         if (!r)
                 return NULL;
 
-        for (x = p; x < (const uint8_t*) p + l; x++) {
+        for (x = p; x < (const uint8_t *) p + l; x++) {
                 *(z++) = hexchar(*x >> 4);
                 *(z++) = hexchar(*x & 15);
         }
@@ -143,7 +143,7 @@ int unhexmem(const char *p, size_t l, void **ret, size_t *ret_len) {
 
         *z = 0;
 
-        *ret_len = (size_t) (z - buf);
+        *ret_len = (size_t)(z - buf);
         *ret = TAKE_PTR(buf);
 
         return 0;
@@ -156,8 +156,9 @@ int unhexmem(const char *p, size_t l, void **ret, size_t *ret_len) {
  * useful when representing NSEC3 hashes, as one can then verify the
  * order of hashes directly from their representation. */
 char base32hexchar(int x) {
-        static const char table[32] = "0123456789"
-                                      "ABCDEFGHIJKLMNOPQRSTUV";
+        static const char table[32] =
+                "0123456789"
+                "ABCDEFGHIJKLMNOPQRSTUV";
 
         return table[x & 31];
 }
@@ -210,7 +211,7 @@ char *base32hexmem(const void *p, size_t l, bool padding) {
         if (!r)
                 return NULL;
 
-        for (x = p; x < (const uint8_t*) p + (l / 5) * 5; x += 5) {
+        for (x = p; x < (const uint8_t *) p + (l / 5) * 5; x += 5) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ
                  * x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
                 *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
@@ -228,7 +229,7 @@ char *base32hexmem(const void *p, size_t l, bool padding) {
                 *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
                 *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6);  /* 000XXXYY */
                 *(z++) = base32hexchar((x[1] & 63) >> 1);             /* 000YYYYY */
-                *(z++) = base32hexchar((x[1] & 1) << 4 | x[2] >> 4);   /* 000YZZZZ */
+                *(z++) = base32hexchar((x[1] & 1) << 4 | x[2] >> 4);  /* 000YZZZZ */
                 *(z++) = base32hexchar((x[2] & 15) << 1 | x[3] >> 7); /* 000ZZZZQ */
                 *(z++) = base32hexchar((x[3] & 127) >> 2);            /* 000QQQQQ */
                 *(z++) = base32hexchar((x[3] & 3) << 3);              /* 000QQ000 */
@@ -507,9 +508,10 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
 /* https://tools.ietf.org/html/rfc4648#section-4 */
 char base64char(int x) {
-        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                      "abcdefghijklmnopqrstuvwxyz"
-                                      "0123456789+/";
+        static const char table[64] =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                "abcdefghijklmnopqrstuvwxyz"
+                "0123456789+/";
         return table[x & 63];
 }
 
@@ -554,7 +556,7 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         if (!r)
                 return -ENOMEM;
 
-        for (x = p; x < (const uint8_t*) p + (l / 3) * 3; x += 3) {
+        for (x = p; x < (const uint8_t *) p + (l / 3) * 3; x += 3) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ */
                 *(z++) = base64char(x[0] >> 2);                    /* 00XXXXXX */
                 *(z++) = base64char((x[0] & 3) << 4 | x[1] >> 4);  /* 00XXYYYY */
@@ -571,8 +573,8 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
 
                 break;
         case 1:
-                *(z++) = base64char(x[0] >> 2);        /* 00XXXXXX */
-                *(z++) = base64char((x[0] & 3) << 4);  /* 00XX0000 */
+                *(z++) = base64char(x[0] >> 2);       /* 00XXXXXX */
+                *(z++) = base64char((x[0] & 3) << 4); /* 00XX0000 */
                 *(z++) = '=';
                 *(z++) = '=';
 
@@ -584,11 +586,7 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         return z - r;
 }
 
-static int base64_append_width(
-                char **prefix, int plen,
-                const char *sep, int indent,
-                const void *p, size_t l,
-                int width) {
+static int base64_append_width(char **prefix, int plen, const char *sep, int indent, const void *p, size_t l, int width) {
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
@@ -629,10 +627,7 @@ static int base64_append_width(
         return 0;
 }
 
-int base64_append(
-                char **prefix, int plen,
-                const void *p, size_t l,
-                int indent, int width) {
+int base64_append(char **prefix, int plen, const void *p, size_t l, int indent, int width) {
 
         if (plen > width / 2 || plen + indent > width)
                 /* leave indent on the left, keep last column free */
@@ -742,7 +737,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
                         if (l > 0) /* Trailing rubbish? */
                                 return -ENAMETOOLONG;
 
-                        *(z++) = (uint8_t) a << 2 | (uint8_t) (b >> 4); /* XXXXXXYY */
+                        *(z++) = (uint8_t) a << 2 | (uint8_t)(b >> 4); /* XXXXXXYY */
                         break;
                 }
 
@@ -766,7 +761,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
 
         *z = 0;
 
-        *ret_size = (size_t) (z - buf);
+        *ret_size = (size_t)(z - buf);
         *ret = TAKE_PTR(buf);
 
         return 0;

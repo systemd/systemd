@@ -41,58 +41,49 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
 
         u->machine = NULL;
 
-        return sd_bus_message_read(
-                        message,
-                        "(ssssssouso)",
-                        &u->id,
-                        &u->description,
-                        &u->load_state,
-                        &u->active_state,
-                        &u->sub_state,
-                        &u->following,
-                        &u->unit_path,
-                        &u->job_id,
-                        &u->job_type,
-                        &u->job_path);
+        return sd_bus_message_read(message,
+                                   "(ssssssouso)",
+                                   &u->id,
+                                   &u->description,
+                                   &u->load_state,
+                                   &u->active_state,
+                                   &u->sub_state,
+                                   &u->following,
+                                   &u->unit_path,
+                                   &u->job_id,
+                                   &u->job_type,
+                                   &u->job_path);
 }
 
-#define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func) \
-        static int bus_append_##parse_func(                             \
-                        sd_bus_message *m,                              \
-                        const char *field,                              \
-                        const char *eq) {                               \
-                type val;                                               \
-                int r;                                                  \
-                                                                        \
-                r = parse_func(eq, &val);                               \
-                if (r < 0)                                              \
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq); \
-                                                                        \
-                r = sd_bus_message_append(m, "(sv)", field,             \
-                                          bus_type, (cast_type) val);   \
-                if (r < 0)                                              \
-                        return bus_log_create_error(r);                 \
-                                                                        \
-                return 1;                                               \
+#define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func)                         \
+        static int bus_append_##parse_func(sd_bus_message *m, const char *field, const char *eq) { \
+                type val;                                                                          \
+                int r;                                                                             \
+                                                                                                   \
+                r = parse_func(eq, &val);                                                          \
+                if (r < 0)                                                                         \
+                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);         \
+                                                                                                   \
+                r = sd_bus_message_append(m, "(sv)", field, bus_type, (cast_type) val);            \
+                if (r < 0)                                                                         \
+                        return bus_log_create_error(r);                                            \
+                                                                                                   \
+                return 1;                                                                          \
         }
 
-#define DEFINE_BUS_APPEND_PARSE(bus_type, parse_func)                   \
-        static int bus_append_##parse_func(                             \
-                        sd_bus_message *m,                              \
-                        const char *field,                              \
-                        const char *eq) {                               \
-                int r;                                                  \
-                                                                        \
-                r = parse_func(eq);                                     \
-                if (r < 0)                                              \
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s: %s", field, eq);                                 \
-                                                                        \
-                r = sd_bus_message_append(m, "(sv)", field,             \
-                                          bus_type, (int32_t) r);       \
-                if (r < 0)                                              \
-                        return bus_log_create_error(r);                 \
-                                                                        \
-                return 1;                                               \
+#define DEFINE_BUS_APPEND_PARSE(bus_type, parse_func)                                                         \
+        static int bus_append_##parse_func(sd_bus_message *m, const char *field, const char *eq) {            \
+                int r;                                                                                        \
+                                                                                                              \
+                r = parse_func(eq);                                                                           \
+                if (r < 0)                                                                                    \
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s: %s", field, eq); \
+                                                                                                              \
+                r = sd_bus_message_append(m, "(sv)", field, bus_type, (int32_t) r);                           \
+                if (r < 0)                                                                                    \
+                        return bus_log_create_error(r);                                                       \
+                                                                                                              \
+                return 1;                                                                                     \
         }
 
 DEFINE_BUS_APPEND_PARSE("b", parse_boolean);
@@ -286,12 +277,12 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
         } while (!done);
 
         if (explicit_path) {
-                r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                r = extract_first_word(&eq, &path, NULL, EXTRACT_QUOTES | EXTRACT_CUNESCAPE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse path: %m");
         }
 
-        r = strv_split_extract(&l, eq, NULL, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+        r = strv_split_extract(&l, eq, NULL, EXTRACT_QUOTES | EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 
@@ -381,9 +372,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_string(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting",
-                       "TasksAccounting", "IPAccounting"))
+        if (STR_IN_SET(field, "CPUAccounting", "MemoryAccounting", "IOAccounting", "BlockIOAccounting", "TasksAccounting", "IPAccounting"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
@@ -430,7 +419,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                          * size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
+                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t)(((uint64_t) r * UINT32_MAX) / 1000U));
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -450,8 +439,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 else {
                         r = parse_permille_unbounded(eq);
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                                       "CPU quota too small.");
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "CPU quota too small.");
                         if (r < 0)
                                 return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
@@ -474,7 +462,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         e = strchr(eq, ' ');
                         if (e) {
                                 path = strndupa(eq, e - eq);
-                                rwm = e+1;
+                                rwm = e + 1;
                         }
 
                         r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, strempty(rwm));
@@ -496,12 +484,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         e = strchr(eq, ' ');
                         if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s value %s.", field, eq);
 
                         path = strndupa(eq, e - eq);
-                        bandwidth = e+1;
+                        bandwidth = e + 1;
 
                         if (streq(bandwidth, "infinity"))
                                 bytes = CGROUP_LIMIT_MAX;
@@ -530,12 +516,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         e = strchr(eq, ' ');
                         if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s value %s.", field, eq);
 
                         path = strndupa(eq, e - eq);
-                        weight = e+1;
+                        weight = e + 1;
 
                         r = safe_atou64(weight, &u);
                         if (r < 0)
@@ -561,12 +545,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                         e = strchr(eq, ' ');
                         if (!e)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse %s value %s.",
-                                                       field, eq);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s value %s.", field, eq);
 
                         path = strndupa(eq, e - eq);
-                        target = e+1;
+                        target = e + 1;
 
                         r = parse_sec(target, &usec);
                         if (r < 0)
@@ -642,9 +624,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        prefix.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xfe800000)
-                        };
+                        prefix.in6 = (struct in6_addr){ .s6_addr32[0] = htobe32(0xfe800000) };
                         r = bus_append_ip_address_access(m, AF_INET6, &prefix, 64);
                         if (r < 0)
                                 return bus_log_create_error(r);
@@ -657,9 +637,7 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        prefix.in6 = (struct in6_addr) {
-                                .s6_addr32[0] = htobe32(0xff000000)
-                        };
+                        prefix.in6 = (struct in6_addr){ .s6_addr32[0] = htobe32(0xff000000) };
                         r = bus_append_ip_address_access(m, AF_INET6, &prefix, 8);
                         if (r < 0)
                                 return bus_log_create_error(r);
@@ -726,29 +704,64 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         int r;
 
         if (STR_IN_SET(field,
-                       "User", "Group",
-                       "UtmpIdentifier", "UtmpMode", "PAMName", "TTYPath",
-                       "WorkingDirectory", "RootDirectory", "SyslogIdentifier",
-                       "ProtectSystem", "ProtectHome", "SELinuxContext", "RootImage",
-                       "RuntimeDirectoryPreserve", "Personality", "KeyringMode"))
+                       "User",
+                       "Group",
+                       "UtmpIdentifier",
+                       "UtmpMode",
+                       "PAMName",
+                       "TTYPath",
+                       "WorkingDirectory",
+                       "RootDirectory",
+                       "SyslogIdentifier",
+                       "ProtectSystem",
+                       "ProtectHome",
+                       "SELinuxContext",
+                       "RootImage",
+                       "RuntimeDirectoryPreserve",
+                       "Personality",
+                       "KeyringMode"))
 
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
-                       "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
-                       "PrivateMounts", "NoNewPrivileges", "SyslogLevelPrefix",
-                       "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
-                       "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups",
-                       "MountAPIVFS", "CPUSchedulingResetOnFork", "LockPersonality"))
+                       "IgnoreSIGPIPE",
+                       "TTYVHangup",
+                       "TTYReset",
+                       "TTYVTDisallocate",
+                       "PrivateTmp",
+                       "PrivateDevices",
+                       "PrivateNetwork",
+                       "PrivateUsers",
+                       "PrivateMounts",
+                       "NoNewPrivileges",
+                       "SyslogLevelPrefix",
+                       "MemoryDenyWriteExecute",
+                       "RestrictRealtime",
+                       "DynamicUser",
+                       "RemoveIPC",
+                       "ProtectKernelTunables",
+                       "ProtectKernelModules",
+                       "ProtectControlGroups",
+                       "MountAPIVFS",
+                       "CPUSchedulingResetOnFork",
+                       "LockPersonality"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
-                       "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths",
-                       "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory",
-                       "SupplementaryGroups", "SystemCallArchitectures"))
+                       "ReadWriteDirectories",
+                       "ReadOnlyDirectories",
+                       "InaccessibleDirectories",
+                       "ReadWritePaths",
+                       "ReadOnlyPaths",
+                       "InaccessiblePaths",
+                       "RuntimeDirectory",
+                       "StateDirectory",
+                       "CacheDirectory",
+                       "LogsDirectory",
+                       "ConfigurationDirectory",
+                       "SupplementaryGroups",
+                       "SystemCallArchitectures"))
 
                 return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
 
@@ -789,8 +802,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_ioprio_parse_priority(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode",
-                       "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask"))
+                       "RuntimeDirectoryMode",
+                       "StateDirectoryMode",
+                       "CacheDirectoryMode",
+                       "LogsDirectoryMode",
+                       "ConfigurationDirectoryMode",
+                       "UMask"))
 
                 return bus_append_parse_mode(m, field, eq);
 
@@ -812,16 +829,14 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "Environment", "UnsetEnvironment", "PassEnvironment"))
 
-                return bus_append_strv(m, field, eq, EXTRACT_QUOTES|EXTRACT_CUNESCAPE);
+                return bus_append_strv(m, field, eq, EXTRACT_QUOTES | EXTRACT_CUNESCAPE);
 
         if (streq(field, "EnvironmentFile")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 0);
                 else
-                        r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 1,
-                                                  eq[0] == '-' ? eq + 1 : eq,
-                                                  eq[0] == '-');
+                        r = sd_bus_message_append(m, "(sv)", "EnvironmentFiles", "a(sb)", 1, eq[0] == '-' ? eq + 1 : eq, eq[0] == '-');
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1109,7 +1124,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         bool ignore_enoent = false;
                         uint64_t flags = MS_REC;
 
-                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_QUOTES | EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
@@ -1122,13 +1137,11 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         }
 
                         if (p && p[-1] == ':') {
-                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_QUOTES | EXTRACT_DONT_COALESCE_SEPARATORS);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse argument: %m");
                                 if (r == 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Missing argument after ':': %s",
-                                                               eq);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument after ':': %s", eq);
 
                                 d = destination;
 
@@ -1144,9 +1157,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                         else if (streq(options, "norbind"))
                                                 flags = 0;
                                         else
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                                       "Unknown options: %s",
-                                                                       eq);
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown options: %s", eq);
                                 }
                         } else
                                 d = s;
@@ -1205,9 +1216,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse argument: %s",
-                                                       p);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %s", p);
 
                         r = sd_bus_message_append(m, "(ss)", path, w);
                         if (r < 0)
@@ -1281,9 +1290,7 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
 
                 return bus_append_parse_mode(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "PathExists", "PathExistsGlob", "PathChanged",
-                       "PathModified", "DirectoryNotEmpty")) {
+        if (STR_IN_SET(field, "PathExists", "PathExistsGlob", "PathChanged", "PathModified", "DirectoryNotEmpty")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
@@ -1301,9 +1308,7 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field,
-                       "PIDFile", "Type", "Restart", "BusName", "NotifyAccess",
-                       "USBFunctionDescriptors", "USBFunctionStrings"))
+        if (STR_IN_SET(field, "PIDFile", "Type", "Restart", "BusName", "NotifyAccess", "USBFunctionDescriptors", "USBFunctionStrings"))
 
                 return bus_append_string(m, field, eq);
 
@@ -1328,9 +1333,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                 return bus_append_safe_atou(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "ExecStartPre", "ExecStart", "ExecStartPost",
-                       "ExecReload", "ExecStop", "ExecStopPost"))
+        if (STR_IN_SET(field, "ExecStartPre", "ExecStart", "ExecStartPost", "ExecReload", "ExecStop", "ExecStopPost"))
 
                 return bus_append_exec_command(m, field, eq);
 
@@ -1417,8 +1420,18 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
         int r;
 
         if (STR_IN_SET(field,
-                       "Accept", "Writable", "KeepAlive", "NoDelay", "FreeBind", "Transparent", "Broadcast",
-                       "PassCredentials", "PassSecurity", "ReusePort", "RemoveOnStop", "SELinuxContextFromNet"))
+                       "Accept",
+                       "Writable",
+                       "KeepAlive",
+                       "NoDelay",
+                       "FreeBind",
+                       "Transparent",
+                       "Broadcast",
+                       "PassCredentials",
+                       "PassSecurity",
+                       "ReusePort",
+                       "RemoveOnStop",
+                       "SELinuxContextFromNet"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
@@ -1455,9 +1468,15 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                 return bus_append_exec_command(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "SmackLabel", "SmackLabelIPIn", "SmackLabelIPOut", "TCPCongestion",
-                       "BindToDevice", "BindIPv6Only", "FileDescriptorName",
-                       "SocketUser", "SocketGroup"))
+                       "SmackLabel",
+                       "SmackLabelIPIn",
+                       "SmackLabelIPOut",
+                       "TCPCongestion",
+                       "BindToDevice",
+                       "BindIPv6Only",
+                       "FileDescriptorName",
+                       "SocketUser",
+                       "SocketGroup"))
 
                 return bus_append_string(m, field, eq);
 
@@ -1470,8 +1489,14 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                 return bus_append_parse_ip_protocol(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "ListenStream", "ListenDatagram", "ListenSequentialPacket", "ListenNetlink",
-                       "ListenSpecial", "ListenMessageQueue", "ListenFIFO", "ListenUSBFunction")) {
+                       "ListenStream",
+                       "ListenDatagram",
+                       "ListenSequentialPacket",
+                       "ListenNetlink",
+                       "ListenSpecial",
+                       "ListenMessageQueue",
+                       "ListenFIFO",
+                       "ListenUSBFunction")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
@@ -1496,9 +1521,7 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
 
                 return bus_append_parse_sec_rename(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "OnActiveSec", "OnBootSec", "OnStartupSec",
-                       "OnUnitActiveSec","OnUnitInactiveSec")) {
+        if (STR_IN_SET(field, "OnActiveSec", "OnBootSec", "OnStartupSec", "OnUnitActiveSec", "OnUnitInactiveSec")) {
 
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 0);
@@ -1537,16 +1560,26 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         int r;
 
         if (STR_IN_SET(field,
-                       "Description", "SourcePath", "OnFailureJobMode",
-                       "JobTimeoutAction", "JobTimeoutRebootArgument",
-                       "StartLimitAction", "FailureAction", "SuccessAction",
-                       "RebootArgument", "CollectMode"))
+                       "Description",
+                       "SourcePath",
+                       "OnFailureJobMode",
+                       "JobTimeoutAction",
+                       "JobTimeoutRebootArgument",
+                       "StartLimitAction",
+                       "FailureAction",
+                       "SuccessAction",
+                       "RebootArgument",
+                       "CollectMode"))
 
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field,
-                       "StopWhenUnneeded", "RefuseManualStart", "RefuseManualStop",
-                       "AllowIsolate", "IgnoreOnIsolate", "DefaultDependencies"))
+                       "StopWhenUnneeded",
+                       "RefuseManualStart",
+                       "RefuseManualStop",
+                       "AllowIsolate",
+                       "IgnoreOnIsolate",
+                       "DefaultDependencies"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
@@ -1577,8 +1610,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
                 return 1;
         }
 
-        if (unit_dependency_from_string(field) >= 0 ||
-            STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
+        if (unit_dependency_from_string(field) >= 0 || STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
 
                 return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
 
@@ -1602,8 +1634,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
                         if (negate)
                                 p++;
 
-                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 1,
-                                                  field, trigger, negate, p);
+                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 1, field, trigger, negate, p);
                 }
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1623,8 +1654,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
 
         eq = strchr(assignment, '=');
         if (!eq)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not an assignment: %s", assignment);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not an assignment: %s", assignment);
 
         field = strndupa(assignment, eq - assignment);
         eq++;
@@ -1727,20 +1757,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
         case UNIT_TARGET:
         case UNIT_DEVICE:
         case UNIT_SWAP:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not supported unit type");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not supported unit type");
 
         default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid unit type");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit type");
         }
 
         r = bus_append_unit_property(m, field, eq);
         if (r != 0)
                 return r;
 
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "Unknown assignment: %s", assignment);
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown assignment: %s", assignment);
 }
 
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l) {
@@ -1794,7 +1821,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return 0;
         }
 
-        found = set_remove(d->jobs, (char*) path);
+        found = set_remove(d->jobs, (char *) path);
         if (!found)
                 return 0;
 
@@ -1842,25 +1869,27 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         /* When we are a bus client we match by sender. Direct
          * connections OTOH have no initialized sender field, and
          * hence we ignore the sender then */
-        r = sd_bus_match_signal_async(
-                        bus,
-                        &d->slot_job_removed,
-                        bus->bus_client ? "org.freedesktop.systemd1" : NULL,
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        match_job_removed, NULL, d);
+        r = sd_bus_match_signal_async(bus,
+                                      &d->slot_job_removed,
+                                      bus->bus_client ? "org.freedesktop.systemd1" : NULL,
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "JobRemoved",
+                                      match_job_removed,
+                                      NULL,
+                                      d);
         if (r < 0)
                 return r;
 
-        r = sd_bus_match_signal_async(
-                        bus,
-                        &d->slot_disconnected,
-                        "org.freedesktop.DBus.Local",
-                        NULL,
-                        "org.freedesktop.DBus.Local",
-                        "Disconnected",
-                        match_disconnected, NULL, d);
+        r = sd_bus_match_signal_async(bus,
+                                      &d->slot_disconnected,
+                                      "org.freedesktop.DBus.Local",
+                                      NULL,
+                                      "org.freedesktop.DBus.Local",
+                                      "Disconnected",
+                                      match_disconnected,
+                                      NULL,
+                                      d);
         if (r < 0)
                 return r;
 
@@ -1899,29 +1928,22 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
         if (!dbus_path)
                 return -ENOMEM;
 
-        return sd_bus_get_property_string(d->bus,
-                                          "org.freedesktop.systemd1",
-                                          dbus_path,
-                                          "org.freedesktop.systemd1.Service",
-                                          "Result",
-                                          NULL,
-                                          result);
+        return sd_bus_get_property_string(
+                d->bus, "org.freedesktop.systemd1", dbus_path, "org.freedesktop.systemd1.Service", "Result", NULL, result);
 }
 
 static const struct {
         const char *result, *explanation;
-} explanations [] = {
-        { "resources",   "of unavailable resources or another system error" },
-        { "protocol",    "the service did not take the steps required by its unit configuration" },
-        { "timeout",     "a timeout was exceeded" },
-        { "exit-code",   "the control process exited with error code" },
-        { "signal",      "a fatal signal was delivered to the control process" },
-        { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
-        { "watchdog",    "the service failed to send watchdog ping" },
-        { "start-limit", "start of the service was attempted too often" }
-};
+} explanations[] = { { "resources", "of unavailable resources or another system error" },
+                     { "protocol", "the service did not take the steps required by its unit configuration" },
+                     { "timeout", "a timeout was exceeded" },
+                     { "exit-code", "the control process exited with error code" },
+                     { "signal", "a fatal signal was delivered to the control process" },
+                     { "core-dump", "a fatal signal was delivered causing the control process to dump core" },
+                     { "watchdog", "the service failed to send watchdog ping" },
+                     { "start-limit", "start of the service was attempted too often" } };
 
-static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
+static void log_job_error_with_service_result(const char *service, const char *result, const char *const *extra_args) {
         _cleanup_free_ char *service_shell_quoted = NULL;
         const char *systemctl = "systemctl", *journalctl = "journalctl";
 
@@ -1929,12 +1951,12 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
         service_shell_quoted = shell_maybe_quote(service, ESCAPE_BACKSLASH);
 
-        if (!strv_isempty((char**) extra_args)) {
+        if (!strv_isempty((char **) extra_args)) {
                 _cleanup_free_ char *t;
 
-                t = strv_join((char**) extra_args, " ");
-                systemctl = strjoina("systemctl ", t ? : "<args>");
-                journalctl = strjoina("journalctl ", t ? : "<args>");
+                t = strv_join((char **) extra_args, " ");
+                systemctl = strjoina("systemctl ", t ?: "<args>");
+                journalctl = strjoina("journalctl ", t ?: "<args>");
         }
 
         if (!isempty(result)) {
@@ -1945,34 +1967,37 @@ static void log_job_error_with_service_result(const char* service, const char *r
                                 break;
 
                 if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s.\n"
-                                  "See \"%s status %s\" and \"%s -xe\" for details.\n",
-                                  service,
-                                  explanations[i].explanation,
-                                  systemctl,
-                                  service_shell_quoted ?: "<service>",
-                                  journalctl);
+                        log_error(
+                                "Job for %s failed because %s.\n"
+                                "See \"%s status %s\" and \"%s -xe\" for details.\n",
+                                service,
+                                explanations[i].explanation,
+                                systemctl,
+                                service_shell_quoted ?: "<service>",
+                                journalctl);
                         goto finish;
                 }
         }
 
-        log_error("Job for %s failed.\n"
-                  "See \"%s status %s\" and \"%s -xe\" for details.\n",
-                  service,
-                  systemctl,
-                  service_shell_quoted ?: "<service>",
-                  journalctl);
+        log_error(
+                "Job for %s failed.\n"
+                "See \"%s status %s\" and \"%s -xe\" for details.\n",
+                service,
+                systemctl,
+                service_shell_quoted ?: "<service>",
+                journalctl);
 
 finish:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
-                log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
-                         "followed by \"%1$s start %2$s\" again.",
-                         systemctl,
-                         service_shell_quoted ?: "<service>");
+                log_info(
+                        "To force a start use \"%1$s reset-failed %2$s\"\n"
+                        "followed by \"%1$s start %2$s\" again.",
+                        systemctl,
+                        service_shell_quoted ?: "<service>");
 }
 
-static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
+static int check_wait_response(BusWaitForJobs *d, bool quiet, const char *const *extra_args) {
         assert(d->result);
 
         if (!quiet) {
@@ -2024,11 +2049,10 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
         else if (STR_IN_SET(d->result, "done", "skipped"))
                 return 0;
 
-        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                               "Unexpected job result, assuming server side newer than us: %s", d->result);
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Unexpected job result, assuming server side newer than us: %s", d->result);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
+int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char *const *extra_args) {
         int r = 0;
 
         assert(d);
@@ -2171,7 +2195,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                 return -ENOMEM;
 
         if (is_const)
-                cg->cgroup_path = (char*) path;
+                cg->cgroup_path = (char *) path;
         else {
                 cg->cgroup_path = strdup(path);
                 if (!cg->cgroup_path) {
@@ -2200,11 +2224,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
         return 1;
 }
 
-static int add_process(
-                Hashmap *cgroups,
-                const char *path,
-                pid_t pid,
-                const char *name) {
+static int add_process(Hashmap *cgroups, const char *path, pid_t pid, const char *name) {
 
         struct CGroupInfo *cg;
         int r;
@@ -2221,7 +2241,7 @@ static int add_process(
         if (r < 0)
                 return r;
 
-        return hashmap_put(cg->pids, PID_TO_PTR(pid), (void*) name);
+        return hashmap_put(cg->pids, PID_TO_PTR(pid), (void *) name);
 }
 
 static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
@@ -2244,16 +2264,11 @@ static void remove_cgroup(Hashmap *cgroups, struct CGroupInfo *cg) {
         free(cg);
 }
 
-static int cgroup_info_compare_func(struct CGroupInfo * const *a, struct CGroupInfo * const *b) {
+static int cgroup_info_compare_func(struct CGroupInfo *const *a, struct CGroupInfo *const *b) {
         return strcmp((*a)->cgroup_path, (*b)->cgroup_path);
 }
 
-static int dump_processes(
-                Hashmap *cgroups,
-                const char *cgroup_path,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags) {
+static int dump_processes(Hashmap *cgroups, const char *cgroup_path, const char *prefix, unsigned n_columns, OutputFlags flags) {
 
         struct CGroupInfo *cg;
         int r;
@@ -2279,12 +2294,12 @@ static int dump_processes(
                 pids = newa(pid_t, hashmap_size(cg->pids));
 
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j)
-                        pids[n++] = PTR_TO_PID(pidp);
+                pids[n++] = PTR_TO_PID(pidp);
 
                 assert(n == hashmap_size(cg->pids));
                 typesafe_qsort(pids, n, pid_compare_func);
 
-                width = DECIMAL_STR_WIDTH(pids[n-1]);
+                width = DECIMAL_STR_WIDTH(pids[n - 1]);
 
                 for (i = 0; i < n; i++) {
                         _cleanup_free_ char *e = NULL;
@@ -2304,14 +2319,10 @@ static int dump_processes(
                                         name = e;
                         }
 
-                        more = i+1 < n || cg->children;
+                        more = i + 1 < n || cg->children;
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
 
-                        fprintf(stdout, "%s%s%*"PID_PRI" %s\n",
-                                prefix,
-                                special,
-                                width, pids[i],
-                                name);
+                        fprintf(stdout, "%s%s%*" PID_PRI " %s\n", prefix, special, width, pids[i], name);
                 }
         }
 
@@ -2320,9 +2331,9 @@ static int dump_processes(
                 size_t n = 0, i;
 
                 /* Order subcgroups by their name */
-                children = newa(struct CGroupInfo*, cg->n_children);
+                children = newa(struct CGroupInfo *, cg->n_children);
                 LIST_FOREACH(siblings, child, cg->children)
-                        children[n++] = child;
+                children[n++] = child;
                 assert(n == cg->n_children);
                 typesafe_qsort(children, n, cgroup_info_compare_func);
 
@@ -2341,7 +2352,7 @@ static int dump_processes(
                                 return -EINVAL;
                         name++;
 
-                        more = i+1 < n;
+                        more = i + 1 < n;
                         special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
 
                         fputs(prefix, stdout);
@@ -2365,11 +2376,7 @@ static int dump_processes(
         return 0;
 }
 
-static int dump_extra_processes(
-                Hashmap *cgroups,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags) {
+static int dump_extra_processes(Hashmap *cgroups, const char *prefix, unsigned n_columns, OutputFlags flags) {
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
@@ -2402,7 +2409,7 @@ static int dump_extra_processes(
                 HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j) {
                         pids[n++] = PTR_TO_PID(pidp);
 
-                        r = hashmap_put(names, pidp, (void*) name);
+                        r = hashmap_put(names, pidp, (void *) name);
                         if (r < 0)
                                 return r;
                 }
@@ -2412,7 +2419,7 @@ static int dump_extra_processes(
                 return 0;
 
         typesafe_qsort(pids, n, pid_compare_func);
-        width = DECIMAL_STR_WIDTH(pids[n-1]);
+        width = DECIMAL_STR_WIDTH(pids[n - 1]);
 
         for (k = 0; k < n; k++) {
                 _cleanup_free_ char *e = NULL;
@@ -2431,24 +2438,14 @@ static int dump_extra_processes(
                                 name = e;
                 }
 
-                fprintf(stdout, "%s%s %*" PID_PRI " %s\n",
-                        prefix,
-                        special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET),
-                        width, pids[k],
-                        name);
+                fprintf(stdout, "%s%s %*" PID_PRI " %s\n", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), width, pids[k], name);
         }
 
         return 0;
 }
 
 int unit_show_processes(
-                sd_bus *bus,
-                const char *unit,
-                const char *cgroup_path,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *unit, const char *cgroup_path, const char *prefix, unsigned n_columns, OutputFlags flags, sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Hashmap *cgroups = NULL;
@@ -2465,16 +2462,15 @@ int unit_show_processes(
 
         prefix = strempty(prefix);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnitProcesses",
-                        error,
-                        &reply,
-                        "s",
-                        unit);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "GetUnitProcesses",
+                               error,
+                               &reply,
+                               "s",
+                               unit);
         if (r < 0)
                 return r;
 
@@ -2513,7 +2509,7 @@ int unit_show_processes(
 
 finish:
         while ((cg = hashmap_first(cgroups)))
-               remove_cgroup(cgroups, cg);
+                remove_cgroup(cgroups, cg);
 
         hashmap_free(cgroups);
 
@@ -2533,13 +2529,7 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
          * the dbus error message around. */
 
         r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "LoadState",
-                        &error,
-                        load_state);
+                bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "LoadState", &error, load_state);
         if (r < 0)
                 return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
 

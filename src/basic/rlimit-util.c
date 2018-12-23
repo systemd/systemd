@@ -34,14 +34,13 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (highest.rlim_max == RLIM_INFINITY)
                 return -EPERM;
 
-        fixed = (struct rlimit) {
+        fixed = (struct rlimit){
                 .rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max),
                 .rlim_max = MIN(rlim->rlim_max, highest.rlim_max),
         };
 
         /* Shortcut things if we wouldn't change anything. */
-        if (fixed.rlim_cur == highest.rlim_cur &&
-            fixed.rlim_max == highest.rlim_max)
+        if (fixed.rlim_cur == highest.rlim_cur && fixed.rlim_max == highest.rlim_max)
                 return 0;
 
         if (setrlimit(resource, &fixed) < 0)
@@ -207,7 +206,7 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
                 if (r < 0)
                         return r;
 
-                if (rl > (uint64_t) (-PRIO_MIN))
+                if (rl > (uint64_t)(-PRIO_MIN))
                         return -ERANGE;
 
                 rl = 20 + rl;
@@ -218,7 +217,7 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
                 if (r < 0)
                         return r;
 
-                if (rl > (uint64_t) (20 - PRIO_MIN))
+                if (rl > (uint64_t)(20 - PRIO_MIN))
                         return -ERANGE;
         }
 
@@ -227,21 +226,11 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
 }
 
 static int (*const rlimit_parse_table[_RLIMIT_MAX])(const char *val, rlim_t *ret) = {
-        [RLIMIT_CPU] = rlimit_parse_sec,
-        [RLIMIT_FSIZE] = rlimit_parse_size,
-        [RLIMIT_DATA] = rlimit_parse_size,
-        [RLIMIT_STACK] = rlimit_parse_size,
-        [RLIMIT_CORE] = rlimit_parse_size,
-        [RLIMIT_RSS] = rlimit_parse_size,
-        [RLIMIT_NOFILE] = rlimit_parse_u64,
-        [RLIMIT_AS] = rlimit_parse_size,
-        [RLIMIT_NPROC] = rlimit_parse_u64,
-        [RLIMIT_MEMLOCK] = rlimit_parse_size,
-        [RLIMIT_LOCKS] = rlimit_parse_u64,
-        [RLIMIT_SIGPENDING] = rlimit_parse_u64,
-        [RLIMIT_MSGQUEUE] = rlimit_parse_size,
-        [RLIMIT_NICE] = rlimit_parse_nice,
-        [RLIMIT_RTPRIO] = rlimit_parse_u64,
+        [RLIMIT_CPU] = rlimit_parse_sec,       [RLIMIT_FSIZE] = rlimit_parse_size, [RLIMIT_DATA] = rlimit_parse_size,
+        [RLIMIT_STACK] = rlimit_parse_size,    [RLIMIT_CORE] = rlimit_parse_size,  [RLIMIT_RSS] = rlimit_parse_size,
+        [RLIMIT_NOFILE] = rlimit_parse_u64,    [RLIMIT_AS] = rlimit_parse_size,    [RLIMIT_NPROC] = rlimit_parse_u64,
+        [RLIMIT_MEMLOCK] = rlimit_parse_size,  [RLIMIT_LOCKS] = rlimit_parse_u64,  [RLIMIT_SIGPENDING] = rlimit_parse_u64,
+        [RLIMIT_MSGQUEUE] = rlimit_parse_size, [RLIMIT_NICE] = rlimit_parse_nice,  [RLIMIT_RTPRIO] = rlimit_parse_u64,
         [RLIMIT_RTTIME] = rlimit_parse_usec,
 };
 
@@ -290,7 +279,7 @@ int rlimit_parse(int resource, const char *val, struct rlimit *ret) {
                         return -EILSEQ;
         }
 
-        *ret = (struct rlimit) {
+        *ret = (struct rlimit){
                 .rlim_cur = sl,
                 .rlim_max = hl,
         };
@@ -322,23 +311,13 @@ int rlimit_format(const struct rlimit *rl, char **ret) {
         return 0;
 }
 
-static const char* const rlimit_table[_RLIMIT_MAX] = {
-        [RLIMIT_AS]         = "AS",
-        [RLIMIT_CORE]       = "CORE",
-        [RLIMIT_CPU]        = "CPU",
-        [RLIMIT_DATA]       = "DATA",
-        [RLIMIT_FSIZE]      = "FSIZE",
-        [RLIMIT_LOCKS]      = "LOCKS",
-        [RLIMIT_MEMLOCK]    = "MEMLOCK",
-        [RLIMIT_MSGQUEUE]   = "MSGQUEUE",
-        [RLIMIT_NICE]       = "NICE",
-        [RLIMIT_NOFILE]     = "NOFILE",
-        [RLIMIT_NPROC]      = "NPROC",
-        [RLIMIT_RSS]        = "RSS",
-        [RLIMIT_RTPRIO]     = "RTPRIO",
-        [RLIMIT_RTTIME]     = "RTTIME",
-        [RLIMIT_SIGPENDING] = "SIGPENDING",
-        [RLIMIT_STACK]      = "STACK",
+static const char *const rlimit_table[_RLIMIT_MAX] = {
+        [RLIMIT_AS] = "AS",           [RLIMIT_CORE] = "CORE",         [RLIMIT_CPU] = "CPU",
+        [RLIMIT_DATA] = "DATA",       [RLIMIT_FSIZE] = "FSIZE",       [RLIMIT_LOCKS] = "LOCKS",
+        [RLIMIT_MEMLOCK] = "MEMLOCK", [RLIMIT_MSGQUEUE] = "MSGQUEUE", [RLIMIT_NICE] = "NICE",
+        [RLIMIT_NOFILE] = "NOFILE",   [RLIMIT_NPROC] = "NPROC",       [RLIMIT_RSS] = "RSS",
+        [RLIMIT_RTPRIO] = "RTPRIO",   [RLIMIT_RTTIME] = "RTTIME",     [RLIMIT_SIGPENDING] = "SIGPENDING",
+        [RLIMIT_STACK] = "STACK",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);

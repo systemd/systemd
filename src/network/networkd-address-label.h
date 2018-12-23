@@ -30,7 +30,7 @@ struct AddressLabel {
 
 void address_label_free(AddressLabel *label);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel*, address_label_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel *, address_label_free);
 
 int address_label_configure(AddressLabel *address, Link *link, link_netlink_message_handler_t callback, bool update);
 

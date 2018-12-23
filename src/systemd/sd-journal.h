@@ -39,20 +39,28 @@ int sd_journal_sendv(const struct iovec *iov, int n);
 int sd_journal_perror(const char *message);
 
 /* Used by the macros below. You probably don't want to call this directly. */
-int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(5, 6);
-int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_(5, 0);
-int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(4, 0) _sd_sentinel_;
+int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...)
+        _sd_printf_(5, 6);
+int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap)
+        _sd_printf_(5, 0);
+int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...)
+        _sd_printf_(4, 0) _sd_sentinel_;
 int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n);
 int sd_journal_perror_with_location(const char *file, const char *line, const char *func, const char *message);
 
 /* implicitly add code location to messages sent, if this is enabled */
 #ifndef SD_JOURNAL_SUPPRESS_LOCATION
 
-#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, format, ap)
-#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, iovec, n)
-#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, message)
+#define sd_journal_print(priority, ...) \
+        sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_printv(priority, format, ap) \
+        sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, format, ap)
+#define sd_journal_send(...) \
+        sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_sendv(iovec, n) \
+        sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, iovec, n)
+#define sd_journal_perror(message) \
+        sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, message)
 
 #endif
 
@@ -63,18 +71,20 @@ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix)
 typedef struct sd_journal sd_journal;
 
 /* Open flags */
-enum {
-        SD_JOURNAL_LOCAL_ONLY   = 1 << 0,
+enum
+{
+        SD_JOURNAL_LOCAL_ONLY = 1 << 0,
         SD_JOURNAL_RUNTIME_ONLY = 1 << 1,
-        SD_JOURNAL_SYSTEM       = 1 << 2,
+        SD_JOURNAL_SYSTEM = 1 << 2,
         SD_JOURNAL_CURRENT_USER = 1 << 3,
-        SD_JOURNAL_OS_ROOT      = 1 << 4,
+        SD_JOURNAL_OS_ROOT = 1 << 4,
 
         SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM /* deprecated name */
 };
 
 /* Wakeup event types */
-enum {
+enum
+{
         SD_JOURNAL_NOP,
         SD_JOURNAL_APPEND,
         SD_JOURNAL_INVALIDATE
@@ -144,26 +154,25 @@ int sd_journal_has_runtime_files(sd_journal *j);
 int sd_journal_has_persistent_files(sd_journal *j);
 
 /* The inverse condition avoids ambiguity of dangling 'else' after the macro */
-#define SD_JOURNAL_FOREACH(j)                                           \
-        if (sd_journal_seek_head(j) < 0) { }                            \
-        else while (sd_journal_next(j) > 0)
+#define SD_JOURNAL_FOREACH(j)              \
+        if (sd_journal_seek_head(j) < 0) { \
+        } else                             \
+                while (sd_journal_next(j) > 0)
 
 /* The inverse condition avoids ambiguity of dangling 'else' after the macro */
-#define SD_JOURNAL_FOREACH_BACKWARDS(j)                                 \
-        if (sd_journal_seek_tail(j) < 0) { }                            \
-        else while (sd_journal_previous(j) > 0)
+#define SD_JOURNAL_FOREACH_BACKWARDS(j)    \
+        if (sd_journal_seek_tail(j) < 0) { \
+        } else                             \
+                while (sd_journal_previous(j) > 0)
 
 /* Iterate through the data fields of the current journal entry */
-#define SD_JOURNAL_FOREACH_DATA(j, data, l)                             \
-        for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0; )
+#define SD_JOURNAL_FOREACH_DATA(j, data, l) for (sd_journal_restart_data(j); sd_journal_enumerate_data((j), &(data), &(l)) > 0;)
 
 /* Iterate through the all known values of a specific field */
-#define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
-        for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
+#define SD_JOURNAL_FOREACH_UNIQUE(j, data, l) for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0;)
 
 /* Iterate through all known field names */
-#define SD_JOURNAL_FOREACH_FIELD(j, field) \
-        for (sd_journal_restart_fields(j); sd_journal_enumerate_fields((j), &(field)) > 0; )
+#define SD_JOURNAL_FOREACH_FIELD(j, field) for (sd_journal_restart_fields(j); sd_journal_enumerate_fields((j), &(field)) > 0;)
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_journal, sd_journal_close);
 

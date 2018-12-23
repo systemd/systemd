@@ -70,7 +70,7 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len) {
                 break;
         }
         strncpy(to, type, len);
-        to[len-1] = '\0';
+        to[len - 1] = '\0';
 }
 
 static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len) {
@@ -134,8 +134,8 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
         strscpy(to, len, type);
 }
 
-#define USB_DT_DEVICE                        0x01
-#define USB_DT_INTERFACE                0x04
+#define USB_DT_DEVICE 0x01
+#define USB_DT_INTERFACE 0x04
 
 static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
         _cleanup_free_ char *filename = NULL;
@@ -164,7 +164,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
         if (asprintf(&filename, "%s/descriptors", syspath) < 0)
                 return log_oom();
 
-        fd = open(filename, O_RDONLY|O_CLOEXEC);
+        fd = open(filename, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to open USB device 'descriptors' file: %m");
 
@@ -173,8 +173,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 return -EIO;
 
         ifs_str[0] = '\0';
-        while (pos + sizeof(struct usb_interface_descriptor) < (size_t) size &&
-               strpos + 7 < len - 2) {
+        while (pos + sizeof(struct usb_interface_descriptor) < (size_t) size && strpos + 7 < len - 2) {
 
                 struct usb_interface_descriptor *desc;
                 char if_str[8];
@@ -187,17 +186,13 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 if (desc->bDescriptorType != USB_DT_INTERFACE)
                         continue;
 
-                if (snprintf(if_str, 8, ":%02x%02x%02x",
-                             desc->bInterfaceClass,
-                             desc->bInterfaceSubClass,
-                             desc->bInterfaceProtocol) != 7)
+                if (snprintf(if_str, 8, ":%02x%02x%02x", desc->bInterfaceClass, desc->bInterfaceSubClass, desc->bInterfaceProtocol) != 7)
                         continue;
 
                 if (strstr(ifs_str, if_str) != NULL)
                         continue;
 
-                memcpy(&ifs_str[strpos], if_str, 8),
-                strpos += 7;
+                memcpy(&ifs_str[strpos], if_str, 8), strpos += 7;
         }
 
         if (strpos > 0) {
@@ -287,9 +282,9 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         if (if_class_num == 8) {
                 /* mass storage */
                 if (sd_device_get_sysattr_value(dev_interface, "bInterfaceSubClass", &if_subclass) >= 0)
-                        protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
+                        protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str) - 1);
         } else
-                set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
+                set_usb_iftype(type_str, if_class_num, sizeof(type_str) - 1);
 
         log_device_debug(dev_interface, "if_class:%d protocol:%d", if_class_num, protocol);
 
@@ -327,7 +322,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         goto fallback;
                 }
                 udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-                util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
+                util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str) - 1);
                 util_replace_chars(vendor_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "model", &scsi_model);
@@ -336,7 +331,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         goto fallback;
                 }
                 udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
-                util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
+                util_replace_whitespace(scsi_model, model_str, sizeof(model_str) - 1);
                 util_replace_chars(model_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "type", &scsi_type);
@@ -344,14 +339,14 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI type attribute: %m");
                         goto fallback;
                 }
-                set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
+                set_scsi_type(type_str, scsi_type, sizeof(type_str) - 1);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "rev", &scsi_rev);
                 if (r < 0) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI revision attribute: %m");
                         goto fallback;
                 }
-                util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
+                util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str) - 1);
                 util_replace_chars(revision_str, NULL);
 
                 /*
@@ -377,7 +372,7 @@ fallback:
                 if (sd_device_get_sysattr_value(dev_usb, "manufacturer", &usb_vendor) < 0)
                         usb_vendor = vendor_id;
                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-                util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
+                util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str) - 1);
                 util_replace_chars(vendor_str, NULL);
         }
 
@@ -387,7 +382,7 @@ fallback:
                 if (sd_device_get_sysattr_value(dev_usb, "product", &usb_model) < 0)
                         usb_model = product_id;
                 udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
-                util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
+                util_replace_whitespace(usb_model, model_str, sizeof(model_str) - 1);
                 util_replace_chars(model_str, NULL);
         }
 
@@ -395,7 +390,7 @@ fallback:
                 const char *usb_rev;
 
                 if (sd_device_get_sysattr_value(dev_usb, "bcdDevice", &usb_rev) >= 0) {
-                        util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
+                        util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str) - 1);
                         util_replace_chars(revision_str, NULL);
                 }
         }
@@ -414,7 +409,7 @@ fallback:
                                 }
 
                         if (usb_serial) {
-                                util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
+                                util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str) - 1);
                                 util_replace_chars(serial_str, NULL);
                         }
                 }

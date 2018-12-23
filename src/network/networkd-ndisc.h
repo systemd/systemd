@@ -13,8 +13,8 @@ typedef struct NDiscDNSSL {
         /* The domain name follows immediately. */
 } NDiscDNSSL;
 
-static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
-        return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
+static inline char *NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
+        return ((char *) n) + ALIGN(sizeof(NDiscDNSSL));
 }
 
 int ndisc_configure(Link *link);

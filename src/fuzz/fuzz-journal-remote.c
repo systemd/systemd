@@ -43,7 +43,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(journal_remote_server_init(&s, name, JOURNAL_WRITE_SPLIT_NONE, false, false) >= 0);
 
-        assert_se(journal_remote_add_source(&s, fdin, (char*) "fuzz-data", false) > 0);
+        assert_se(journal_remote_add_source(&s, fdin, (char *) "fuzz-data", false) > 0);
 
         while (s.active) {
                 r = journal_remote_handle_raw_source(NULL, fdin, 0, &s);
@@ -55,7 +55,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* Out */
 
-        r = sd_journal_open_files(&j, (const char**) STRV_MAKE(name), 0);
+        r = sd_journal_open_files(&j, (const char **) STRV_MAKE(name), 0);
         assert_se(r >= 0);
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)

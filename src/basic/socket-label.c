@@ -20,18 +20,17 @@
 #include "socket-util.h"
 #include "umask-util.h"
 
-int socket_address_listen(
-                const SocketAddress *a,
-                int flags,
-                int backlog,
-                SocketAddressBindIPv6Only only,
-                const char *bind_to_device,
-                bool reuse_port,
-                bool free_bind,
-                bool transparent,
-                mode_t directory_mode,
-                mode_t socket_mode,
-                const char *label) {
+int socket_address_listen(const SocketAddress *a,
+                          int flags,
+                          int backlog,
+                          SocketAddressBindIPv6Only only,
+                          const char *bind_to_device,
+                          bool reuse_port,
+                          bool free_bind,
+                          bool transparent,
+                          mode_t directory_mode,
+                          mode_t socket_mode,
+                          const char *label) {
 
         _cleanup_close_ int fd = -1;
         const char *p;
@@ -69,7 +68,7 @@ int socket_address_listen(
 
         if (IN_SET(socket_address_family(a), AF_INET, AF_INET6)) {
                 if (bind_to_device)
-                        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
+                        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device) + 1) < 0)
                                 return -errno;
 
                 if (reuse_port) {
@@ -134,7 +133,7 @@ int socket_address_listen(
         return r;
 }
 
-int make_socket_fd(int log_level, const char* address, int type, int flags) {
+int make_socket_fd(int log_level, const char *address, int type, int flags) {
         SocketAddress a;
         int fd, r;
 
@@ -144,8 +143,7 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
 
         a.type = type;
 
-        fd = socket_address_listen(&a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT,
-                                   NULL, false, false, false, 0755, 0644, NULL);
+        fd = socket_address_listen(&a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT, NULL, false, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
 

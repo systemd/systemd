@@ -80,24 +80,24 @@ static void linebuf_rem_char(struct linebuf *buf) {
 }
 
 static const struct trie_child_entry_f *trie_node_child(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
-        const char *base = (const char *)node;
+        const char *base = (const char *) node;
 
         base += le64toh(hwdb->head->node_size);
         base += idx * le64toh(hwdb->head->child_entry_size);
-        return (const struct trie_child_entry_f *)base;
+        return (const struct trie_child_entry_f *) base;
 }
 
 static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
-        const char *base = (const char *)node;
+        const char *base = (const char *) node;
 
         base += le64toh(hwdb->head->node_size);
         base += node->children_count * le64toh(hwdb->head->child_entry_size);
         base += idx * le64toh(hwdb->head->value_entry_size);
-        return (const struct trie_value_entry_f *)base;
+        return (const struct trie_value_entry_f *) base;
 }
 
 static const struct trie_node_f *trie_node_from_off(sd_hwdb *hwdb, le64_t off) {
-        return (const struct trie_node_f *)(hwdb->map + le64toh(off));
+        return (const struct trie_node_f *) (hwdb->map + le64toh(off));
 }
 
 static const char *trie_string(sd_hwdb *hwdb, le64_t off) {
@@ -116,8 +116,11 @@ static const struct trie_node_f *node_lookup_f(sd_hwdb *hwdb, const struct trie_
         struct trie_child_entry_f search;
 
         search.c = c;
-        child = bsearch(&search, (const char *)node + le64toh(hwdb->head->node_size), node->children_count,
-                        le64toh(hwdb->head->child_entry_size), trie_children_cmp_f);
+        child = bsearch(&search,
+                        (const char *) node + le64toh(hwdb->head->node_size),
+                        node->children_count,
+                        le64toh(hwdb->head->child_entry_size),
+                        trie_children_cmp_f);
         if (child)
                 return trie_node_from_off(hwdb, child->child_off);
         return NULL;
@@ -143,7 +146,7 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         if (le64toh(hwdb->head->value_entry_size) >= sizeof(struct trie_value_entry2_f)) {
                 const struct trie_value_entry2_f *old, *entry2;
 
-                entry2 = (const struct trie_value_entry2_f *)entry;
+                entry2 = (const struct trie_value_entry2_f *) entry;
                 old = ordered_hashmap_get(hwdb->properties, key);
                 if (old) {
                         /* On duplicates, we order by filename priority and line-number.
@@ -185,7 +188,7 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         if (r < 0)
                 return r;
 
-        r = ordered_hashmap_replace(hwdb->properties, key, (void *)entry);
+        r = ordered_hashmap_replace(hwdb->properties, key, (void *) entry);
         if (r < 0)
                 return r;
 
@@ -194,8 +197,7 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         return 0;
 }
 
-static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t p,
-                          struct linebuf *buf, const char *search) {
+static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t p, struct linebuf *buf, const char *search) {
         size_t len;
         size_t i;
         const char *prefix;
@@ -334,26 +336,24 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
                 return -ENOENT;
         }
 
-        if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
-            (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
+        if (fstat(fileno(hwdb->f), &hwdb->st) < 0 || (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
                 return log_debug_errno(errno, "Failed to read %s: %m", hwdb_bin_path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
                 return log_debug_errno(errno, "Failed to map %s: %m", hwdb_bin_path);
 
-        if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
-            (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
+        if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 || (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
                 log_debug("Failed to recognize the format of %s", hwdb_bin_path);
                 return -EINVAL;
         }
 
         log_debug("=== trie on-disk ===");
-        log_debug("tool version:          %"PRIu64, le64toh(hwdb->head->tool_version));
-        log_debug("file size:        %8"PRIi64" bytes", hwdb->st.st_size);
-        log_debug("header size       %8"PRIu64" bytes", le64toh(hwdb->head->header_size));
-        log_debug("strings           %8"PRIu64" bytes", le64toh(hwdb->head->strings_len));
-        log_debug("nodes             %8"PRIu64" bytes", le64toh(hwdb->head->nodes_len));
+        log_debug("tool version:          %" PRIu64, le64toh(hwdb->head->tool_version));
+        log_debug("file size:        %8" PRIi64 " bytes", hwdb->st.st_size);
+        log_debug("header size       %8" PRIu64 " bytes", le64toh(hwdb->head->header_size));
+        log_debug("strings           %8" PRIu64 " bytes", le64toh(hwdb->head->strings_len));
+        log_debug("nodes             %8" PRIu64 " bytes", le64toh(hwdb->head->nodes_len));
 
         *ret = TAKE_PTR(hwdb);
 
@@ -364,7 +364,7 @@ static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
         assert(hwdb);
 
         if (hwdb->map)
-                munmap((void *)hwdb->map, hwdb->st.st_size);
+                munmap((void *) hwdb->map, hwdb->st.st_size);
         safe_fclose(hwdb->f);
         ordered_hashmap_free(hwdb->properties);
         return mfree(hwdb);
@@ -374,7 +374,7 @@ DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
 
 bool hwdb_validate(sd_hwdb *hwdb) {
         bool found = false;
-        const char* p;
+        const char *p;
         struct stat st;
 
         if (!hwdb)
@@ -457,7 +457,7 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (hwdb->properties_modified)
                 return -EAGAIN;
 
-        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **)&entry, &k);
+        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **) &entry, &k);
         if (!k)
                 return 0;
 

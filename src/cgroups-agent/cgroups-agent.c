@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 
         log_setup_service();
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to allocate socket: %m");
                 return EXIT_FAILURE;

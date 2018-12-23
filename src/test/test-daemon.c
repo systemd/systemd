@@ -28,8 +28,7 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < n; i++)
                 log_info("fd=%i name=%s\n", SD_LISTEN_FDS_START + i, l[i]);
 
-        sd_notify(0,
-                  "STATUS=Starting up");
+        sd_notify(0, "STATUS=Starting up");
         usleep(duration);
 
         sd_notify(0,

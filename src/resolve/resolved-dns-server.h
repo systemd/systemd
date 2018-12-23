@@ -5,7 +5,8 @@
 
 typedef struct DnsServer DnsServer;
 
-typedef enum DnsServerType {
+typedef enum DnsServerType
+{
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
@@ -13,10 +14,11 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_INVALID = -1
 } DnsServerType;
 
-const char* dns_server_type_to_string(DnsServerType i) _const_;
+const char *dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
-typedef enum DnsServerFeatureLevel {
+typedef enum DnsServerFeatureLevel
+{
         DNS_SERVER_FEATURE_LEVEL_TCP,
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
@@ -32,7 +34,7 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
 #define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
 
-const char* dns_server_feature_level_to_string(int i) _const_;
+const char *dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
 
 #include "resolved-link.h"
@@ -71,35 +73,28 @@ struct DnsServer {
         unsigned n_failed_tcp;
         unsigned n_failed_tls;
 
-        bool packet_truncated:1;
-        bool packet_bad_opt:1;
-        bool packet_rrsig_missing:1;
+        bool packet_truncated : 1;
+        bool packet_bad_opt : 1;
+        bool packet_rrsig_missing : 1;
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
 
         /* Whether we already warned about downgrading to non-DNSSEC mode for this server */
-        bool warned_downgrade:1;
+        bool warned_downgrade : 1;
 
         /* Used when GC'ing old DNS servers when configuration changes. */
-        bool marked:1;
+        bool marked : 1;
 
         /* If linked is set, then this server appears in the servers linked list */
-        bool linked:1;
+        bool linked : 1;
         LIST_FIELDS(DnsServer, servers);
 };
 
-int dns_server_new(
-                Manager *m,
-                DnsServer **ret,
-                DnsServerType type,
-                Link *link,
-                int family,
-                const union in_addr_union *address,
-                int ifindex);
+int dns_server_new(Manager *m, DnsServer **ret, DnsServerType type, Link *link, int family, const union in_addr_union *address, int ifindex);
 
-DnsServer* dns_server_ref(DnsServer *s);
-DnsServer* dns_server_unref(DnsServer *s);
+DnsServer *dns_server_ref(DnsServer *s);
+DnsServer *dns_server_unref(DnsServer *s);
 
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
@@ -139,7 +134,7 @@ bool dns_server_address_valid(int family, const union in_addr_union *sa);
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer *, dns_server_unref);
 
 extern const struct hash_ops dns_server_hash_ops;
 

@@ -14,12 +14,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-static int node_vtable_get_userdata(
-                sd_bus *bus,
-                const char *path,
-                struct node_vtable *c,
-                void **userdata,
-                sd_bus_error *error) {
+static int node_vtable_get_userdata(sd_bus *bus, const char *path, struct node_vtable *c, void **userdata, sd_bus_error *error) {
 
         sd_bus_slot *s;
         void *u, *found_u;
@@ -56,21 +51,16 @@ static int node_vtable_get_userdata(
 static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
-        return (uint8_t*) u + p->x.method.offset;
+        return (uint8_t *) u + p->x.method.offset;
 }
 
 static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
-        return (uint8_t*) u + p->x.property.offset;
+        return (uint8_t *) u + p->x.property.offset;
 }
 
-static int vtable_property_get_userdata(
-                sd_bus *bus,
-                const char *path,
-                struct vtable_member *p,
-                void **userdata,
-                sd_bus_error *error) {
+static int vtable_property_get_userdata(sd_bus *bus, const char *path, struct vtable_member *p, void **userdata, sd_bus_error *error) {
 
         void *u;
         int r;
@@ -90,12 +80,7 @@ static int vtable_property_get_userdata(
         return 1;
 }
 
-static int add_enumerated_to_set(
-                sd_bus *bus,
-                const char *prefix,
-                struct node_enumerator *first,
-                Set *s,
-                sd_bus_error *error) {
+static int add_enumerated_to_set(sd_bus *bus, const char *prefix, struct node_enumerator *first, Set *s, sd_bus_error *error) {
 
         struct node_enumerator *c;
         int r;
@@ -154,20 +139,15 @@ static int add_enumerated_to_set(
         return 0;
 }
 
-enum {
+enum
+{
         /* if set, add_subtree() works recursively */
-        CHILDREN_RECURSIVE      = 1 << 0,
+        CHILDREN_RECURSIVE = 1 << 0,
         /* if set, add_subtree() scans object-manager hierarchies recursively */
         CHILDREN_SUBHIERARCHIES = 1 << 1,
 };
 
-static int add_subtree_to_set(
-                sd_bus *bus,
-                const char *prefix,
-                struct node *n,
-                unsigned flags,
-                Set *s,
-                sd_bus_error *error) {
+static int add_subtree_to_set(sd_bus *bus, const char *prefix, struct node *n, unsigned flags, Set *s, sd_bus_error *error) {
 
         struct node *i;
         int r;
@@ -197,8 +177,7 @@ static int add_subtree_to_set(
                 if (r < 0 && r != -EEXIST)
                         return r;
 
-                if ((flags & CHILDREN_RECURSIVE) &&
-                    ((flags & CHILDREN_SUBHIERARCHIES) || !i->object_managers)) {
+                if ((flags & CHILDREN_RECURSIVE) && ((flags & CHILDREN_SUBHIERARCHIES) || !i->object_managers)) {
                         r = add_subtree_to_set(bus, prefix, i, flags, s, error);
                         if (r < 0)
                                 return r;
@@ -210,13 +189,7 @@ static int add_subtree_to_set(
         return 0;
 }
 
-static int get_child_nodes(
-                sd_bus *bus,
-                const char *prefix,
-                struct node *n,
-                unsigned flags,
-                Set **_s,
-                sd_bus_error *error) {
+static int get_child_nodes(sd_bus *bus, const char *prefix, struct node *n, unsigned flags, Set **_s, sd_bus_error *error) {
 
         Set *s = NULL;
         int r;
@@ -240,12 +213,7 @@ static int get_child_nodes(
         return 0;
 }
 
-static int node_callbacks_run(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct node_callback *first,
-                bool require_fallback,
-                bool *found_object) {
+static int node_callbacks_run(sd_bus *bus, sd_bus_message *m, struct node_callback *first, bool require_fallback, bool *found_object) {
 
         struct node_callback *c;
         int r;
@@ -333,12 +301,7 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access to %s.%s() not permitted.", c->interface, c->member);
 }
 
-static int method_callbacks_run(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct vtable_member *c,
-                bool require_fallback,
-                bool *found_object) {
+static int method_callbacks_run(sd_bus *bus, sd_bus_message *m, struct vtable_member *c, bool require_fallback, bool *found_object) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *signature;
@@ -381,11 +344,13 @@ static int method_callbacks_run(
                 return -EINVAL;
 
         if (!streq(strempty(c->vtable->x.method.signature), signature))
-                return sd_bus_reply_method_errorf(
-                                m,
-                                SD_BUS_ERROR_INVALID_ARGS,
-                                "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
-                                signature, c->interface, c->member, strempty(c->vtable->x.method.signature));
+                return sd_bus_reply_method_errorf(m,
+                                                  SD_BUS_ERROR_INVALID_ARGS,
+                                                  "Invalid arguments '%s' to call %s.%s(), expecting '%s'.",
+                                                  signature,
+                                                  c->interface,
+                                                  c->member,
+                                                  strempty(c->vtable->x.method.signature));
 
         /* Keep track what the signature of the reply to this message
          * should be, so that this can be enforced when sealing the
@@ -416,16 +381,15 @@ static int method_callbacks_run(
         return 1;
 }
 
-static int invoke_property_get(
-                sd_bus *bus,
-                sd_bus_slot *slot,
-                const sd_bus_vtable *v,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+static int invoke_property_get(sd_bus *bus,
+                               sd_bus_slot *slot,
+                               const sd_bus_vtable *v,
+                               const char *path,
+                               const char *interface,
+                               const char *property,
+                               sd_bus_message *reply,
+                               void *userdata,
+                               sd_bus_error *error) {
 
         const void *p;
         int r;
@@ -456,7 +420,7 @@ static int invoke_property_get(
         /* Automatic handling if no callback is defined. */
 
         if (streq(v->x.property.signature, "as"))
-                return sd_bus_message_append_strv(reply, *(char***) userdata);
+                return sd_bus_message_append_strv(reply, *(char ***) userdata);
 
         assert(signature_is_single(v->x.property.signature, false));
         assert(bus_type_is_basic(v->x.property.signature[0]));
@@ -465,11 +429,11 @@ static int invoke_property_get(
 
         case SD_BUS_TYPE_STRING:
         case SD_BUS_TYPE_SIGNATURE:
-                p = strempty(*(char**) userdata);
+                p = strempty(*(char **) userdata);
                 break;
 
         case SD_BUS_TYPE_OBJECT_PATH:
-                p = *(char**) userdata;
+                p = *(char **) userdata;
                 assert(p);
                 break;
 
@@ -481,16 +445,15 @@ static int invoke_property_get(
         return sd_bus_message_append_basic(reply, v->x.property.signature[0], p);
 }
 
-static int invoke_property_set(
-                sd_bus *bus,
-                sd_bus_slot *slot,
-                const sd_bus_vtable *v,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *value,
-                void *userdata,
-                sd_bus_error *error) {
+static int invoke_property_set(sd_bus *bus,
+                               sd_bus_slot *slot,
+                               const sd_bus_vtable *v,
+                               const char *path,
+                               const char *interface,
+                               const char *property,
+                               sd_bus_message *value,
+                               void *userdata,
+                               sd_bus_error *error) {
 
         int r;
 
@@ -538,8 +501,8 @@ static int invoke_property_set(
                 if (!n)
                         return -ENOMEM;
 
-                free(*(char**) userdata);
-                *(char**) userdata = n;
+                free(*(char **) userdata);
+                *(char **) userdata = n;
 
                 break;
         }
@@ -556,12 +519,7 @@ static int invoke_property_set(
 }
 
 static int property_get_set_callbacks_run(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct vtable_member *c,
-                bool require_fallback,
-                bool is_get,
-                bool *found_object) {
+        sd_bus *bus, sd_bus_message *m, struct vtable_member *c, bool require_fallback, bool is_get, bool *found_object) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -639,7 +597,12 @@ static int property_get_set_callbacks_run(
                         return r;
 
                 if (type != 'v' || !streq(strempty(signature), strempty(c->vtable->x.property.signature)))
-                        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INVALID_ARGS, "Incorrect parameters for property '%s', expected '%s', got '%s'.", c->member, strempty(c->vtable->x.property.signature), strempty(signature));
+                        return sd_bus_reply_method_errorf(m,
+                                                          SD_BUS_ERROR_INVALID_ARGS,
+                                                          "Incorrect parameters for property '%s', expected '%s', got '%s'.",
+                                                          c->member,
+                                                          strempty(c->vtable->x.property.signature),
+                                                          strempty(signature));
 
                 r = sd_bus_message_enter_container(m, 'v', c->vtable->x.property.signature);
                 if (r < 0)
@@ -668,14 +631,13 @@ static int property_get_set_callbacks_run(
         return 1;
 }
 
-static int vtable_append_one_property(
-                sd_bus *bus,
-                sd_bus_message *reply,
-                const char *path,
-                struct node_vtable *c,
-                const sd_bus_vtable *v,
-                void *userdata,
-                sd_bus_error *error) {
+static int vtable_append_one_property(sd_bus *bus,
+                                      sd_bus_message *reply,
+                                      const char *path,
+                                      struct node_vtable *c,
+                                      const sd_bus_vtable *v,
+                                      void *userdata,
+                                      sd_bus_error *error) {
 
         sd_bus_slot *slot;
         int r;
@@ -700,7 +662,8 @@ static int vtable_append_one_property(
 
         slot = container_of(c, sd_bus_slot, node_vtable);
 
-        r = invoke_property_get(bus, slot, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
+        r = invoke_property_get(
+                bus, slot, v, path, c->interface, v->x.property.member, reply, vtable_property_convert_userdata(v, userdata), error);
         if (r < 0)
                 return r;
         if (bus->nodes_modified)
@@ -718,12 +681,7 @@ static int vtable_append_one_property(
 }
 
 static int vtable_append_all_properties(
-                sd_bus *bus,
-                sd_bus_message *reply,
-                const char *path,
-                struct node_vtable *c,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, sd_bus_message *reply, const char *path, struct node_vtable *c, void *userdata, sd_bus_error *error) {
 
         const sd_bus_vtable *v;
         int r;
@@ -736,7 +694,7 @@ static int vtable_append_all_properties(
         if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
                 return 1;
 
-        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        for (v = c->vtable + 1; v->type != _SD_BUS_VTABLE_END; v++) {
                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                         continue;
 
@@ -757,12 +715,7 @@ static int vtable_append_all_properties(
 }
 
 static int property_get_all_callbacks_run(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct node_vtable *first,
-                bool require_fallback,
-                const char *iface,
-                bool *found_object) {
+        sd_bus *bus, sd_bus_message *m, struct node_vtable *first, bool require_fallback, const char *iface, bool *found_object) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         struct node_vtable *c;
@@ -781,9 +734,7 @@ static int property_get_all_callbacks_run(
         if (r < 0)
                 return r;
 
-        found_interface = !iface ||
-                streq(iface, "org.freedesktop.DBus.Properties") ||
-                streq(iface, "org.freedesktop.DBus.Peer") ||
+        found_interface = !iface || streq(iface, "org.freedesktop.DBus.Properties") || streq(iface, "org.freedesktop.DBus.Peer") ||
                 streq(iface, "org.freedesktop.DBus.Introspectable");
 
         LIST_FOREACH(vtables, c, first) {
@@ -818,10 +769,7 @@ static int property_get_all_callbacks_run(
                 return 0;
 
         if (!found_interface) {
-                r = sd_bus_reply_method_errorf(
-                                m,
-                                SD_BUS_ERROR_UNKNOWN_INTERFACE,
-                                "Unknown interface '%s'.", iface);
+                r = sd_bus_reply_method_errorf(m, SD_BUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface '%s'.", iface);
                 if (r < 0)
                         return r;
 
@@ -839,11 +787,7 @@ static int property_get_all_callbacks_run(
         return 1;
 }
 
-static int bus_node_exists(
-                sd_bus *bus,
-                struct node *n,
-                const char *path,
-                bool require_fallback) {
+static int bus_node_exists(sd_bus *bus, struct node *n, const char *path, bool require_fallback) {
 
         struct node_vtable *c;
         struct node_callback *k;
@@ -882,12 +826,7 @@ static int bus_node_exists(
         return 0;
 }
 
-static int process_introspect(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct node *n,
-                bool require_fallback,
-                bool *found_object) {
+static int process_introspect(sd_bus *bus, sd_bus_message *m, struct node *n, bool require_fallback, bool *found_object) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -994,12 +933,7 @@ finish:
 }
 
 static int object_manager_serialize_path(
-                sd_bus *bus,
-                sd_bus_message *reply,
-                const char *prefix,
-                const char *path,
-                bool require_fallback,
-                sd_bus_error *error) {
+        sd_bus *bus, sd_bus_message *reply, const char *prefix, const char *path, bool require_fallback, sd_bus_error *error) {
 
         const char *previous_interface = NULL;
         bool found_something = false;
@@ -1127,11 +1061,7 @@ static int object_manager_serialize_path(
         return 1;
 }
 
-static int object_manager_serialize_path_and_fallbacks(
-                sd_bus *bus,
-                sd_bus_message *reply,
-                const char *path,
-                sd_bus_error *error) {
+static int object_manager_serialize_path_and_fallbacks(sd_bus *bus, sd_bus_message *reply, const char *path, sd_bus_error *error) {
 
         char *prefix;
         int r;
@@ -1161,12 +1091,7 @@ static int object_manager_serialize_path_and_fallbacks(
         return 0;
 }
 
-static int process_get_managed_objects(
-                sd_bus *bus,
-                sd_bus_message *m,
-                struct node *n,
-                bool require_fallback,
-                bool *found_object) {
+static int process_get_managed_objects(sd_bus *bus, sd_bus_message *m, struct node *n, bool require_fallback, bool *found_object) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1221,12 +1146,7 @@ static int process_get_managed_objects(
         return 1;
 }
 
-static int object_find_and_run(
-                sd_bus *bus,
-                sd_bus_message *m,
-                const char *p,
-                bool require_fallback,
-                bool *found_object) {
+static int object_find_and_run(sd_bus *bus, sd_bus_message *m, const char *p, bool require_fallback, bool *found_object) {
 
         struct node *n;
         struct vtable_member vtable_key, *v;
@@ -1252,7 +1172,7 @@ static int object_find_and_run(
                 return 0;
 
         /* Then, look for a known method */
-        vtable_key.path = (char*) p;
+        vtable_key.path = (char *) p;
         vtable_key.interface = m->interface;
         vtable_key.member = m->member;
 
@@ -1277,7 +1197,7 @@ static int object_find_and_run(
                         if (r < 0)
                                 return r;
 
-                        vtable_key.path = (char*) p;
+                        vtable_key.path = (char *) p;
 
                         r = sd_bus_message_read(m, "ss", &vtable_key.interface, &vtable_key.member);
                         if (r < 0)
@@ -1370,7 +1290,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
 
         pl = strlen(m->path);
         do {
-                char prefix[pl+1];
+                char prefix[pl + 1];
 
                 bus->nodes_modified = false;
 
@@ -1396,15 +1316,10 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
 
         if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Get") ||
             sd_bus_message_is_method_call(m, "org.freedesktop.DBus.Properties", "Set"))
-                r = sd_bus_reply_method_errorf(
-                                m,
-                                SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                "Unknown property or interface.");
+                r = sd_bus_reply_method_errorf(m, SD_BUS_ERROR_UNKNOWN_PROPERTY, "Unknown property or interface.");
         else
                 r = sd_bus_reply_method_errorf(
-                                m,
-                                SD_BUS_ERROR_UNKNOWN_METHOD,
-                                "Unknown method '%s' or interface '%s'.", m->member, m->interface);
+                        m, SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method '%s' or interface '%s'.", m->member, m->interface);
 
         if (r < 0)
                 return r;
@@ -1473,11 +1388,7 @@ void bus_node_gc(sd_bus *b, struct node *n) {
         if (!n)
                 return;
 
-        if (n->child ||
-            n->callbacks ||
-            n->vtables ||
-            n->enumerators ||
-            n->object_managers)
+        if (n->child || n->callbacks || n->vtables || n->enumerators || n->object_managers)
                 return;
 
         assert_se(hashmap_remove(b->nodes, n->path) == n);
@@ -1516,13 +1427,7 @@ static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const 
         return !!n;
 }
 
-static int bus_add_object(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                bool fallback,
-                const char *path,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+static int bus_add_object(sd_bus *bus, sd_bus_slot **slot, bool fallback, const char *path, sd_bus_message_handler_t callback, void *userdata) {
 
         sd_bus_slot *s;
         struct node *n;
@@ -1563,22 +1468,12 @@ fail:
         return r;
 }
 
-_public_ int sd_bus_add_object(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *path,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+_public_ int sd_bus_add_object(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_message_handler_t callback, void *userdata) {
 
         return bus_add_object(bus, slot, false, path, callback, userdata);
 }
 
-_public_ int sd_bus_add_fallback(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *prefix,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+_public_ int sd_bus_add_fallback(sd_bus *bus, sd_bus_slot **slot, const char *prefix, sd_bus_message_handler_t callback, void *userdata) {
 
         return bus_add_object(bus, slot, true, prefix, callback, userdata);
 }
@@ -1610,15 +1505,14 @@ static int vtable_member_compare_func(const struct vtable_member *x, const struc
 
 DEFINE_PRIVATE_HASH_OPS(vtable_member_hash_ops, struct vtable_member, vtable_member_hash_func, vtable_member_compare_func);
 
-static int add_object_vtable_internal(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *path,
-                const char *interface,
-                const sd_bus_vtable *vtable,
-                bool fallback,
-                sd_bus_object_find_t find,
-                void *userdata) {
+static int add_object_vtable_internal(sd_bus *bus,
+                                      sd_bus_slot **slot,
+                                      const char *path,
+                                      const char *interface,
+                                      const sd_bus_vtable *vtable,
+                                      bool fallback,
+                                      sd_bus_object_find_t find,
+                                      void *userdata) {
 
         sd_bus_slot *s = NULL;
         struct node_vtable *i, *existing = NULL;
@@ -1634,10 +1528,9 @@ static int add_object_vtable_internal(
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
         assert_return(vtable[0].x.start.element_size == sizeof(struct sd_bus_vtable), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
-                      !streq(interface, "org.freedesktop.DBus.Introspectable") &&
-                      !streq(interface, "org.freedesktop.DBus.Peer") &&
-                      !streq(interface, "org.freedesktop.DBus.ObjectManager"), -EINVAL);
+        assert_return(!streq(interface, "org.freedesktop.DBus.Properties") && !streq(interface, "org.freedesktop.DBus.Introspectable") &&
+                              !streq(interface, "org.freedesktop.DBus.Peer") && !streq(interface, "org.freedesktop.DBus.ObjectManager"),
+                      -EINVAL);
 
         r = hashmap_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
         if (r < 0)
@@ -1684,18 +1577,19 @@ static int add_object_vtable_internal(
                 goto fail;
         }
 
-        for (v = s->node_vtable.vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        for (v = s->node_vtable.vtable + 1; v->type != _SD_BUS_VTABLE_END; v++) {
 
                 switch (v->type) {
 
                 case _SD_BUS_VTABLE_METHOD: {
                         struct vtable_member *m;
 
-                        if (!member_name_is_valid(v->x.method.member) ||
-                            !signature_is_valid(strempty(v->x.method.signature), false) ||
+                        if (!member_name_is_valid(v->x.method.member) || !signature_is_valid(strempty(v->x.method.signature), false) ||
                             !signature_is_valid(strempty(v->x.method.result), false) ||
                             !(v->x.method.handler || (isempty(v->x.method.signature) && isempty(v->x.method.result))) ||
-                            v->flags & (SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) {
+                            v->flags &
+                                    (SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE |
+                                     SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) {
                                 r = -EINVAL;
                                 goto fail;
                         }
@@ -1737,11 +1631,11 @@ static int add_object_vtable_internal(
                 case _SD_BUS_VTABLE_PROPERTY: {
                         struct vtable_member *m;
 
-                        if (!member_name_is_valid(v->x.property.member) ||
-                            !signature_is_single(v->x.property.signature, false) ||
+                        if (!member_name_is_valid(v->x.property.member) || !signature_is_single(v->x.property.signature, false) ||
                             !(v->x.property.get || bus_type_is_basic(v->x.property.signature[0]) || streq(v->x.property.signature, "as")) ||
                             (v->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ||
-                            (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
+                            (!!(v->flags & SD_BUS_VTABLE_PROPERTY_CONST) + !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) +
+                             !!(v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) > 1 ||
                             ((v->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) && (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)) ||
                             (v->flags & SD_BUS_VTABLE_UNPRIVILEGED && v->type == _SD_BUS_VTABLE_PROPERTY)) {
                                 r = -EINVAL;
@@ -1771,8 +1665,7 @@ static int add_object_vtable_internal(
 
                 case _SD_BUS_VTABLE_SIGNAL:
 
-                        if (!member_name_is_valid(v->x.signal.member) ||
-                            !signature_is_valid(strempty(v->x.signal.signature), false) ||
+                        if (!member_name_is_valid(v->x.signal.member) || !signature_is_valid(strempty(v->x.signal.signature), false) ||
                             v->flags & SD_BUS_VTABLE_UNPRIVILEGED) {
                                 r = -EINVAL;
                                 goto fail;
@@ -1803,34 +1696,23 @@ fail:
 }
 
 _public_ int sd_bus_add_object_vtable(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *path,
-                const char *interface,
-                const sd_bus_vtable *vtable,
-                void *userdata) {
+        sd_bus *bus, sd_bus_slot **slot, const char *path, const char *interface, const sd_bus_vtable *vtable, void *userdata) {
 
         return add_object_vtable_internal(bus, slot, path, interface, vtable, false, NULL, userdata);
 }
 
-_public_ int sd_bus_add_fallback_vtable(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *prefix,
-                const char *interface,
-                const sd_bus_vtable *vtable,
-                sd_bus_object_find_t find,
-                void *userdata) {
+_public_ int sd_bus_add_fallback_vtable(sd_bus *bus,
+                                        sd_bus_slot **slot,
+                                        const char *prefix,
+                                        const char *interface,
+                                        const sd_bus_vtable *vtable,
+                                        sd_bus_object_find_t find,
+                                        void *userdata) {
 
         return add_object_vtable_internal(bus, slot, prefix, interface, vtable, true, find, userdata);
 }
 
-_public_ int sd_bus_add_node_enumerator(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *path,
-                sd_bus_node_enumerator_t callback,
-                void *userdata) {
+_public_ int sd_bus_add_node_enumerator(sd_bus *bus, sd_bus_slot **slot, const char *path, sd_bus_node_enumerator_t callback, void *userdata) {
 
         sd_bus_slot *s;
         struct node *n;
@@ -1871,13 +1753,7 @@ fail:
 }
 
 static int emit_properties_changed_on_interface(
-                sd_bus *bus,
-                const char *prefix,
-                const char *path,
-                const char *interface,
-                bool require_fallback,
-                bool *found_interface,
-                char **names) {
+        sd_bus *bus, const char *prefix, const char *path, const char *interface, bool require_fallback, bool *found_interface, char **names) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1953,7 +1829,8 @@ static int emit_properties_changed_on_interface(
                                         continue;
 
                                 assert_return(v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE ||
-                                              v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION, -EDOM);
+                                                      v->vtable->flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION,
+                                              -EDOM);
 
                                 assert_return(!(v->vtable->flags & SD_BUS_VTABLE_HIDDEN), -EDOM);
 
@@ -1977,7 +1854,7 @@ static int emit_properties_changed_on_interface(
                          * we include all properties that are marked
                          * as changing in the message. */
 
-                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                        for (v = c->vtable + 1; v->type != _SD_BUS_VTABLE_END; v++) {
                                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                         continue;
 
@@ -2048,7 +1925,7 @@ static int emit_properties_changed_on_interface(
                         } else {
                                 const sd_bus_vtable *v;
 
-                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                for (v = c->vtable + 1; v->type != _SD_BUS_VTABLE_END; v++) {
                                         if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                                 continue;
 
@@ -2077,11 +1954,7 @@ static int emit_properties_changed_on_interface(
         return 1;
 }
 
-_public_ int sd_bus_emit_properties_changed_strv(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                char **names) {
+_public_ int sd_bus_emit_properties_changed_strv(sd_bus *bus, const char *path, const char *interface, char **names) {
 
         bool found_interface = false;
         char *prefix;
@@ -2128,11 +2001,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
         return found_interface ? 0 : -ENOENT;
 }
 
-_public_ int sd_bus_emit_properties_changed(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *name, ...)  {
+_public_ int sd_bus_emit_properties_changed(sd_bus *bus, const char *path, const char *interface, const char *name, ...) {
 
         char **names;
 
@@ -2153,13 +2022,7 @@ _public_ int sd_bus_emit_properties_changed(
         return sd_bus_emit_properties_changed_strv(bus, path, interface, names);
 }
 
-static int object_added_append_all_prefix(
-                sd_bus *bus,
-                sd_bus_message *m,
-                Set *s,
-                const char *prefix,
-                const char *path,
-                bool require_fallback) {
+static int object_added_append_all_prefix(sd_bus *bus, sd_bus_message *m, Set *s, const char *prefix, const char *path, bool require_fallback) {
 
         const char *previous_interface = NULL;
         struct node_vtable *c;
@@ -2367,13 +2230,7 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
         return sd_bus_send(bus, m, NULL);
 }
 
-static int object_removed_append_all_prefix(
-                sd_bus *bus,
-                sd_bus_message *m,
-                Set *s,
-                const char *prefix,
-                const char *path,
-                bool require_fallback) {
+static int object_removed_append_all_prefix(sd_bus *bus, sd_bus_message *m, Set *s, const char *prefix, const char *path, bool require_fallback) {
 
         const char *previous_interface = NULL;
         struct node_vtable *c;
@@ -2539,12 +2396,7 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
 }
 
 static int interfaces_added_append_one_prefix(
-                sd_bus *bus,
-                sd_bus_message *m,
-                const char *prefix,
-                const char *path,
-                const char *interface,
-                bool require_fallback) {
+        sd_bus *bus, sd_bus_message *m, const char *prefix, const char *path, const char *interface, bool require_fallback) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool found_interface = false;
@@ -2606,11 +2458,7 @@ static int interfaces_added_append_one_prefix(
         return found_interface;
 }
 
-static int interfaces_added_append_one(
-                sd_bus *bus,
-                sd_bus_message *m,
-                const char *path,
-                const char *interface) {
+static int interfaces_added_append_one(sd_bus *bus, sd_bus_message *m, const char *path, const char *interface) {
 
         char *prefix;
         int r;

@@ -25,20 +25,18 @@
 #include "strxcpyx.h"
 #include "udev-util.h"
 
-static const struct option options[] = {
-        { "device",             required_argument, NULL, 'd' },
-        { "config",             required_argument, NULL, 'f' },
-        { "page",               required_argument, NULL, 'p' },
-        { "blacklisted",        no_argument,       NULL, 'b' },
-        { "whitelisted",        no_argument,       NULL, 'g' },
-        { "replace-whitespace", no_argument,       NULL, 'u' },
-        { "sg-version",         required_argument, NULL, 's' },
-        { "verbose",            no_argument,       NULL, 'v' },
-        { "version",            no_argument,       NULL, 'V' }, /* don't advertise -V */
-        { "export",             no_argument,       NULL, 'x' },
-        { "help",               no_argument,       NULL, 'h' },
-        {}
-};
+static const struct option options[] = { { "device", required_argument, NULL, 'd' },
+                                         { "config", required_argument, NULL, 'f' },
+                                         { "page", required_argument, NULL, 'p' },
+                                         { "blacklisted", no_argument, NULL, 'b' },
+                                         { "whitelisted", no_argument, NULL, 'g' },
+                                         { "replace-whitespace", no_argument, NULL, 'u' },
+                                         { "sg-version", required_argument, NULL, 's' },
+                                         { "verbose", no_argument, NULL, 'v' },
+                                         { "version", no_argument, NULL, 'V' }, /* don't advertise -V */
+                                         { "export", no_argument, NULL, 'x' },
+                                         { "help", no_argument, NULL, 'h' },
+                                         {} };
 
 static bool all_good = false;
 static bool dev_specified = false;
@@ -144,8 +142,7 @@ static int argc_count(char *opts) {
  *
  * vendor and model can end in '\n'.
  */
-static int get_file_options(const char *vendor, const char *model,
-                            int *argc, char ***newargv) {
+static int get_file_options(const char *vendor, const char *model, int *argc, char ***newargv) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f;
         char *buf;
@@ -240,23 +237,20 @@ static int get_file_options(const char *vendor, const char *model,
                 if (vendor == NULL) {
                         if (vendor_in == NULL)
                                 break;
-                } else if (vendor_in &&
-                           startswith(vendor, vendor_in) &&
-                           (!model_in || startswith(model, model_in))) {
-                                /*
-                                 * Matched vendor and optionally model.
-                                 *
-                                 * Note: a short vendor_in or model_in can
-                                 * give a partial match (that is FOO
-                                 * matches FOOBAR).
-                                 */
-                                break;
+                } else if (vendor_in && startswith(vendor, vendor_in) && (!model_in || startswith(model, model_in))) {
+                        /*
+                         * Matched vendor and optionally model.
+                         *
+                         * Note: a short vendor_in or model_in can
+                         * give a partial match (that is FOO
+                         * matches FOOBAR).
+                         */
+                        break;
                 }
         }
 
         if (retval == 0) {
-                if (vendor_in != NULL || model_in != NULL ||
-                    options_in != NULL) {
+                if (vendor_in != NULL || model_in != NULL || options_in != NULL) {
                         /*
                          * Something matched. Allocate newargv, and store
                          * values found in options_in.
@@ -300,13 +294,11 @@ static void help(void) {
                "  -g --whitelisted                 Treat device as whitelisted\n"
                "  -u --replace-whitespace          Replace all whitespace by underscores\n"
                "  -v --verbose                     Verbose logging\n"
-               "  -x --export                      Print values as environment keys\n"
-               , program_invocation_short_name);
-
+               "  -x --export                      Print values as environment keys\n",
+               program_invocation_short_name);
 }
 
-static int set_options(int argc, char **argv,
-                       char *maj_min_dev) {
+static int set_options(int argc, char **argv, char *maj_min_dev) {
         int option;
 
         /*
@@ -457,12 +449,12 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path) {
         udev_util_encode_string(dev_scsi->vendor, vendor_enc_str, sizeof(vendor_enc_str));
         udev_util_encode_string(dev_scsi->model, model_enc_str, sizeof(model_enc_str));
 
-        util_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str)-1);
+        util_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str) - 1);
         util_replace_chars(vendor_str, NULL);
-        util_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str)-1);
+        util_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str) - 1);
         util_replace_chars(model_str, NULL);
         set_type(dev_scsi->type, type_str, sizeof(type_str));
-        util_replace_whitespace(dev_scsi->revision, revision_str, sizeof(revision_str)-1);
+        util_replace_whitespace(dev_scsi->revision, revision_str, sizeof(revision_str) - 1);
         util_replace_chars(revision_str, NULL);
         return 0;
 }
@@ -503,10 +495,10 @@ static int scsi_id(char *maj_min_dev) {
                 printf("ID_REVISION=%s\n", revision_str);
                 printf("ID_TYPE=%s\n", type_str);
                 if (dev_scsi.serial[0] != '\0') {
-                        util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str)-1);
+                        util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str) - 1);
                         util_replace_chars(serial_str, NULL);
                         printf("ID_SERIAL=%s\n", serial_str);
-                        util_replace_whitespace(dev_scsi.serial_short, serial_str, sizeof(serial_str)-1);
+                        util_replace_whitespace(dev_scsi.serial_short, serial_str, sizeof(serial_str) - 1);
                         util_replace_chars(serial_str, NULL);
                         printf("ID_SERIAL_SHORT=%s\n", serial_str);
                 }
@@ -533,7 +525,7 @@ static int scsi_id(char *maj_min_dev) {
         if (reformat_serial) {
                 char serial_str[MAX_SERIAL_LEN];
 
-                util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str)-1);
+                util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str) - 1);
                 util_replace_chars(serial_str, NULL);
                 printf("%s\n", serial_str);
                 goto out;

@@ -42,7 +42,7 @@ static inline size_t IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
 
                 sub = MIN(i[j].iov_len, k);
                 i[j].iov_len -= sub;
-                i[j].iov_base = (uint8_t*) i[j].iov_base + sub;
+                i[j].iov_base = (uint8_t *) i[j].iov_base + sub;
                 k -= sub;
         }
 
@@ -64,10 +64,10 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
                 return true;
 
         return FILE_SIZE_VALID(l);
-
 }
 
-#define IOVEC_INIT(base, len) { .iov_base = (base), .iov_len = (len) }
+#define IOVEC_INIT(base, len) \
+        { .iov_base = (base), .iov_len = (len) }
 #define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
-#define IOVEC_INIT_STRING(string) IOVEC_INIT((char*) string, strlen(string))
+#define IOVEC_INIT_STRING(string) IOVEC_INIT((char *) string, strlen(string))
 #define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)

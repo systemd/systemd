@@ -58,7 +58,7 @@ int chattr_path(const char *p, unsigned value, unsigned mask, unsigned *previous
         if (mask == 0)
                 return 0;
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open(p, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -88,7 +88,7 @@ int read_attr_path(const char *p, unsigned *ret) {
         assert(p);
         assert(ret);
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open(p, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 

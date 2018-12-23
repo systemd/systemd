@@ -27,7 +27,7 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-#define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
+#define JOURNAL_WAIT_TIMEOUT (10 * USEC_PER_SEC)
 
 static char *arg_key_pem = NULL;
 static char *arg_cert_pem = NULL;
@@ -60,7 +60,7 @@ typedef struct RequestMeta {
         bool n_fields_set;
 } RequestMeta;
 
-static const char* const mime_types[_OUTPUT_MODE_MAX] = {
+static const char *const mime_types[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "text/plain",
         [OUTPUT_JSON] = "application/json",
         [OUTPUT_JSON_SSE] = "text/event-stream",
@@ -83,11 +83,7 @@ static RequestMeta *request_meta(void **connection_cls) {
         return m;
 }
 
-static void request_meta_free(
-                void *cls,
-                struct MHD_Connection *connection,
-                void **connection_cls,
-                enum MHD_RequestTerminationCode toe) {
+static void request_meta_free(void *cls, struct MHD_Connection *connection, void **connection_cls, enum MHD_RequestTerminationCode toe) {
 
         RequestMeta *m = *connection_cls;
 
@@ -111,7 +107,7 @@ static int open_journal(RequestMeta *m) {
         if (arg_directory)
                 return sd_journal_open_directory(&m->journal, arg_directory, 0);
         else
-                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
+                return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM);
 }
 
 static int request_meta_ensure_tmp(RequestMeta *m) {
@@ -122,7 +118,7 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
         else {
                 int fd;
 
-                fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+                fd = open_tmpfile_unlinkable("/tmp", O_RDWR | O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
@@ -136,11 +132,7 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
         return 0;
 }
 
-static ssize_t request_reader_entries(
-                void *cls,
-                uint64_t pos,
-                char *buf,
-                size_t max) {
+static ssize_t request_reader_entries(void *cls, uint64_t pos, char *buf, size_t max) {
 
         RequestMeta *m = cls;
         int r;
@@ -159,8 +151,7 @@ static ssize_t request_reader_entries(
                 /* End of this entry, so let's serialize the next
                  * one */
 
-                if (m->n_entries_set &&
-                    m->n_entries <= 0)
+                if (m->n_entries_set && m->n_entries <= 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
                 if (m->n_skip < 0)
@@ -217,8 +208,7 @@ static ssize_t request_reader_entries(
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
-                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
-                                   NULL, NULL, NULL);
+                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL, NULL, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
@@ -257,9 +247,7 @@ static ssize_t request_reader_entries(
         return (ssize_t) k;
 }
 
-static int request_parse_accept(
-                RequestMeta *m,
-                struct MHD_Connection *connection) {
+static int request_parse_accept(RequestMeta *m, struct MHD_Connection *connection) {
 
         const char *header;
 
@@ -284,9 +272,7 @@ static int request_parse_accept(
         return 0;
 }
 
-static int request_parse_range(
-                RequestMeta *m,
-                struct MHD_Connection *connection) {
+static int request_parse_range(RequestMeta *m, struct MHD_Connection *connection) {
 
         const char *range, *colon, *colon2;
         int r;
@@ -348,11 +334,7 @@ static int request_parse_range(
         return 0;
 }
 
-static int request_parse_arguments_iterator(
-                void *cls,
-                enum MHD_ValueKind kind,
-                const char *key,
-                const char *value) {
+static int request_parse_arguments_iterator(void *cls, enum MHD_ValueKind kind, const char *key, const char *value) {
 
         RequestMeta *m = cls;
         _cleanup_free_ char *p = NULL;
@@ -419,7 +401,7 @@ static int request_parse_arguments_iterator(
                         }
 
                         sd_id128_to_string(bid, match + 9);
-                        r = sd_journal_add_match(m->journal, match, sizeof(match)-1);
+                        r = sd_journal_add_match(m->journal, match, sizeof(match) - 1);
                         if (r < 0) {
                                 m->argument_parse_error = r;
                                 return MHD_NO;
@@ -444,9 +426,7 @@ static int request_parse_arguments_iterator(
         return MHD_YES;
 }
 
-static int request_parse_arguments(
-                RequestMeta *m,
-                struct MHD_Connection *connection) {
+static int request_parse_arguments(RequestMeta *m, struct MHD_Connection *connection) {
 
         assert(m);
         assert(connection);
@@ -457,9 +437,7 @@ static int request_parse_arguments(
         return m->argument_parse_error;
 }
 
-static int request_handler_entries(
-                struct MHD_Connection *connection,
-                void *connection_cls) {
+static int request_handler_entries(struct MHD_Connection *connection, void *connection_cls) {
 
         struct MHD_Response *response;
         RequestMeta *m = connection_cls;
@@ -498,7 +476,7 @@ static int request_handler_entries(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_entries, m, NULL);
+        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_entries, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -522,21 +500,17 @@ static int output_field(FILE *f, OutputMode m, const char *d, size_t l) {
 
         if (m == OUTPUT_JSON) {
                 fprintf(f, "{ \"%.*s\" : ", (int) (eq - d), d);
-                json_escape(f, eq+1, j, OUTPUT_FULL_WIDTH);
+                json_escape(f, eq + 1, j, OUTPUT_FULL_WIDTH);
                 fputs(" }\n", f);
         } else {
-                fwrite(eq+1, 1, j, f);
+                fwrite(eq + 1, 1, j, f);
                 fputc('\n', f);
         }
 
         return 0;
 }
 
-static ssize_t request_reader_fields(
-                void *cls,
-                uint64_t pos,
-                char *buf,
-                size_t max) {
+static ssize_t request_reader_fields(void *cls, uint64_t pos, char *buf, size_t max) {
 
         RequestMeta *m = cls;
         int r;
@@ -557,8 +531,7 @@ static ssize_t request_reader_fields(
                 /* End of this field, so let's serialize the next
                  * one */
 
-                if (m->n_fields_set &&
-                    m->n_fields <= 0)
+                if (m->n_fields_set && m->n_fields <= 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
                 r = sd_journal_enumerate_unique(m->journal, &d, &l);
@@ -614,10 +587,7 @@ static ssize_t request_reader_fields(
         return (ssize_t) k;
 }
 
-static int request_handler_fields(
-                struct MHD_Connection *connection,
-                const char *field,
-                void *connection_cls) {
+static int request_handler_fields(struct MHD_Connection *connection, const char *field, void *connection_cls) {
 
         struct MHD_Response *response;
         RequestMeta *m = connection_cls;
@@ -637,7 +607,7 @@ static int request_handler_fields(
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4*1024, request_reader_fields, m, NULL);
+        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_fields, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -649,9 +619,7 @@ static int request_handler_fields(
         return r;
 }
 
-static int request_handler_redirect(
-                struct MHD_Connection *connection,
-                const char *target) {
+static int request_handler_redirect(struct MHD_Connection *connection, const char *target) {
 
         char *page;
         struct MHD_Response *response;
@@ -678,10 +646,7 @@ static int request_handler_redirect(
         return ret;
 }
 
-static int request_handler_file(
-                struct MHD_Connection *connection,
-                const char *path,
-                const char *mime_type) {
+static int request_handler_file(struct MHD_Connection *connection, const char *path, const char *mime_type) {
 
         struct MHD_Response *response;
         int ret;
@@ -692,7 +657,7 @@ static int request_handler_file(
         assert(path);
         assert(mime_type);
 
-        fd = open(path, O_RDONLY|O_CLOEXEC);
+        fd = open(path, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return mhd_respondf(connection, errno, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m", path);
 
@@ -723,13 +688,7 @@ static int get_virtualization(char **v) {
                 return r;
 
         r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Virtualization",
-                        NULL,
-                        &b);
+                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Virtualization", NULL, &b);
         if (r < 0)
                 return r;
 
@@ -743,14 +702,12 @@ static int get_virtualization(char **v) {
         return 1;
 }
 
-static int request_handler_machine(
-                struct MHD_Connection *connection,
-                void *connection_cls) {
+static int request_handler_machine(struct MHD_Connection *connection, void *connection_cls) {
 
         struct MHD_Response *response;
         RequestMeta *m = connection_cls;
         int r;
-        _cleanup_free_ char* hostname = NULL, *os_name = NULL;
+        _cleanup_free_ char *hostname = NULL, *os_name = NULL;
         uint64_t cutoff_from = 0, cutoff_to = 0, usage = 0;
         char *json;
         sd_id128_t mid, bid;
@@ -787,14 +744,18 @@ static int request_handler_machine(
         (void) get_virtualization(&v);
 
         r = asprintf(&json,
-                     "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","
-                     "\"boot_id\" : \"" SD_ID128_FORMAT_STR "\","
+                     "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR
+                     "\","
+                     "\"boot_id\" : \"" SD_ID128_FORMAT_STR
+                     "\","
                      "\"hostname\" : \"%s\","
                      "\"os_pretty_name\" : \"%s\","
                      "\"virtualization\" : \"%s\","
-                     "\"usage\" : \"%"PRIu64"\","
-                     "\"cutoff_from_realtime\" : \"%"PRIu64"\","
-                     "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
+                     "\"usage\" : \"%" PRIu64
+                     "\","
+                     "\"cutoff_from_realtime\" : \"%" PRIu64
+                     "\","
+                     "\"cutoff_to_realtime\" : \"%" PRIu64 "\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
                      hostname_cleanup(hostname),
@@ -820,15 +781,14 @@ static int request_handler_machine(
         return r;
 }
 
-static int request_handler(
-                void *cls,
-                struct MHD_Connection *connection,
-                const char *url,
-                const char *method,
-                const char *version,
-                const char *upload_data,
-                size_t *upload_data_size,
-                void **connection_cls) {
+static int request_handler(void *cls,
+                           struct MHD_Connection *connection,
+                           const char *url,
+                           const char *method,
+                           const char *version,
+                           const char *upload_data,
+                           size_t *upload_data_size,
+                           void **connection_cls) {
         int r, code;
 
         assert(connection);
@@ -885,16 +845,16 @@ static int help(void) {
                "     --key=KEY.PEM    Server key in PEM format\n"
                "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
                "  -D --directory=PATH Serve journal files in directory\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_KEY,
                 ARG_CERT,
@@ -903,22 +863,20 @@ static int parse_argv(int argc, char *argv[]) {
 
         int r, c;
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "key",       required_argument, NULL, ARG_KEY       },
-                { "cert",      required_argument, NULL, ARG_CERT      },
-                { "trust",     required_argument, NULL, ARG_TRUST     },
-                { "directory", required_argument, NULL, 'D'           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "key", required_argument, NULL, ARG_KEY },
+                                                 { "cert", required_argument, NULL, ARG_CERT },
+                                                 { "trust", required_argument, NULL, ARG_TRUST },
+                                                 { "directory", required_argument, NULL, 'D' },
+                                                 {} };
 
         assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "hD:", options, NULL)) >= 0)
 
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help();
@@ -928,8 +886,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_KEY:
                         if (arg_key_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Key file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file specified twice");
                         r = read_full_file(optarg, &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
@@ -938,8 +895,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CERT:
                         if (arg_cert_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Certificate file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate file specified twice");
                         r = read_full_file(optarg, &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
@@ -949,16 +905,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TRUST:
 #if HAVE_GNUTLS
                         if (arg_trust_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "CA certificate file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CA certificate file specified twice");
                         r = read_full_file(optarg, &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
                         break;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust is not available.");
 #endif
                 case 'D':
                         arg_directory = optarg;
@@ -972,16 +926,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program does not take arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
 
         if (!!arg_key_pem != !!arg_cert_pem)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Certificate and key files must be specified together");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate and key files must be specified together");
 
         if (arg_trust_pem && !arg_key_pem)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "CA certificate can only be used with certificate file");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CA certificate can only be used with certificate file");
 
         return 1;
 }
@@ -989,10 +940,8 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
         struct MHD_OptionItem opts[] = {
-                { MHD_OPTION_NOTIFY_COMPLETED,
-                  (intptr_t) request_meta_free, NULL },
-                { MHD_OPTION_EXTERNAL_LOGGER,
-                  (intptr_t) microhttpd_logger, NULL },
+                { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free, NULL },
+                { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger, NULL },
                 { MHD_OPTION_END, 0, NULL },
                 { MHD_OPTION_END, 0, NULL },
                 { MHD_OPTION_END, 0, NULL },
@@ -1009,12 +958,7 @@ static int run(int argc, char *argv[]) {
          * https://github.com/systemd/systemd/pull/1286
          */
 
-        int flags =
-                MHD_USE_DEBUG |
-                MHD_USE_DUAL_STACK |
-                MHD_USE_ITC |
-                MHD_USE_POLL_INTERNAL_THREAD |
-                MHD_USE_THREAD_PER_CONNECTION;
+        int flags = MHD_USE_DEBUG | MHD_USE_DUAL_STACK | MHD_USE_ITC | MHD_USE_POLL_INTERNAL_THREAD | MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
         log_setup_service();
@@ -1036,29 +980,21 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't listen on more than one socket.");
 
         if (n == 1)
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        { MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START };
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_LISTEN_SOCKET, SD_LISTEN_FDS_START };
 
         if (arg_key_pem) {
                 assert(arg_cert_pem);
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        { MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem };
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        { MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_KEY, 0, arg_key_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_CERT, 0, arg_cert_pem };
                 flags |= MHD_USE_TLS;
         }
 
         if (arg_trust_pem) {
                 assert(flags & MHD_USE_TLS);
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        { MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
         }
 
-        d = MHD_start_daemon(flags, 19531,
-                             NULL, NULL,
-                             request_handler, NULL,
-                             MHD_OPTION_ARRAY, opts,
-                             MHD_OPTION_END);
+        d = MHD_start_daemon(flags, 19531, NULL, NULL, request_handler, NULL, MHD_OPTION_ARRAY, opts, MHD_OPTION_END);
         if (!d)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
 

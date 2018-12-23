@@ -8,7 +8,8 @@ typedef struct KillContext KillContext;
 
 #include "macro.h"
 
-typedef enum KillMode {
+typedef enum KillMode
+{
         /* The kill mode is a property of a unit. */
         KILL_CONTROL_GROUP = 0,
         KILL_PROCESS,
@@ -27,7 +28,8 @@ struct KillContext {
         int watchdog_signal;
 };
 
-typedef enum KillWho {
+typedef enum KillWho
+{
         /* Kill who is a property of an operation */
         KILL_MAIN,
         KILL_CONTROL,

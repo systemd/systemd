@@ -32,12 +32,13 @@
 #include "virt.h"
 #include "volatile-util.h"
 
-typedef enum MountpointFlags {
-        NOAUTO    = 1 << 0,
-        NOFAIL    = 1 << 1,
+typedef enum MountpointFlags
+{
+        NOAUTO = 1 << 0,
+        NOFAIL = 1 << 1,
         AUTOMOUNT = 1 << 2,
-        MAKEFS    = 1 << 3,
-        GROWFS    = 1 << 4,
+        MAKEFS = 1 << 3,
+        GROWFS = 1 << 4,
 } MountpointFlags;
 
 static const char *arg_dest = NULL;
@@ -89,10 +90,7 @@ static int write_what(FILE *f, const char *what) {
         return 1;
 }
 
-static int add_swap(
-                const char *what,
-                struct mntent *me,
-                MountpointFlags flags) {
+static int add_swap(const char *what, struct mntent *me, MountpointFlags flags) {
 
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -123,7 +121,8 @@ static int add_swap(
               "[Unit]\n"
               "SourcePath=/etc/fstab\n"
               "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n\n"
-              "[Swap]\n", f);
+              "[Swap]\n",
+              f);
 
         r = write_what(f, what);
         if (r < 0)
@@ -153,8 +152,7 @@ static int add_swap(
                 log_warning("%s: growing swap devices is currently unsupported.", what);
 
         if (!(flags & NOAUTO)) {
-                r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET,
-                                          (flags & NOFAIL) ? "wants" : "requires", name);
+                r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
@@ -165,19 +163,16 @@ static int add_swap(
 static bool mount_is_network(struct mntent *me) {
         assert(me);
 
-        return fstab_test_option(me->mnt_opts, "_netdev\0") ||
-               fstype_is_network(me->mnt_type);
+        return fstab_test_option(me->mnt_opts, "_netdev\0") || fstype_is_network(me->mnt_type);
 }
 
 static bool mount_in_initrd(struct mntent *me) {
         assert(me);
 
-        return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") ||
-               streq(me->mnt_dir, "/usr");
+        return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") || streq(me->mnt_dir, "/usr");
 }
 
-static int write_timeout(FILE *f, const char *where, const char *opts,
-                         const char *filter, const char *variable) {
+static int write_timeout(FILE *f, const char *where, const char *opts, const char *filter, const char *variable) {
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
@@ -201,17 +196,14 @@ static int write_timeout(FILE *f, const char *where, const char *opts,
 }
 
 static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
-        return write_timeout(f, where, opts,
-                             "x-systemd.idle-timeout\0", "TimeoutIdleSec");
+        return write_timeout(f, where, opts, "x-systemd.idle-timeout\0", "TimeoutIdleSec");
 }
 
 static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
-        return write_timeout(f, where, opts,
-                             "x-systemd.mount-timeout\0", "TimeoutSec");
+        return write_timeout(f, where, opts, "x-systemd.mount-timeout\0", "TimeoutSec");
 }
 
-static int write_dependency(FILE *f, const char *opts,
-                const char *filter, const char *format) {
+static int write_dependency(FILE *f, const char *opts, const char *filter, const char *format) {
         _cleanup_strv_free_ char **names = NULL, **units = NULL;
         _cleanup_free_ char *res = NULL;
         char **s;
@@ -255,13 +247,11 @@ static int write_after(FILE *f, const char *opts) {
 }
 
 static int write_requires_after(FILE *f, const char *opts) {
-        return write_dependency(f, opts,
-                                "x-systemd.requires", "After=%1$s\nRequires=%1$s\n");
+        return write_dependency(f, opts, "x-systemd.requires", "After=%1$s\nRequires=%1$s\n");
 }
 
 static int write_before(FILE *f, const char *opts) {
-        return write_dependency(f, opts,
-                                "x-systemd.before", "Before=%1$s\n");
+        return write_dependency(f, opts, "x-systemd.before", "Before=%1$s\n");
 }
 
 static int write_requires_mounts_for(FILE *f, const char *opts) {
@@ -291,23 +281,18 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         return 0;
 }
 
-static int add_mount(
-                const char *dest,
-                const char *what,
-                const char *where,
-                const char *original_where,
-                const char *fstype,
-                const char *opts,
-                int passno,
-                MountpointFlags flags,
-                const char *post,
-                const char *source) {
+static int add_mount(const char *dest,
+                     const char *what,
+                     const char *where,
+                     const char *original_where,
+                     const char *fstype,
+                     const char *opts,
+                     int passno,
+                     MountpointFlags flags,
+                     const char *post,
+                     const char *source) {
 
-        _cleanup_free_ char
-                *name = NULL,
-                *automount_name = NULL,
-                *filtered = NULL,
-                *where_escaped = NULL;
+        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -325,8 +310,7 @@ static int add_mount(
                 return 0;
         }
 
-        if (mount_point_is_api(where) ||
-            mount_point_ignore(where))
+        if (mount_point_is_api(where) || mount_point_ignore(where))
                 return 0;
 
         if (path_equal(where, "/")) {
@@ -355,7 +339,9 @@ static int add_mount(
                 source);
 
         if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !(flags & AUTOMOUNT) &&
-            fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
+            fstab_test_yes_no_option(opts,
+                                     "bg\0"
+                                     "fg\0")) {
                 /* The default retry timeout that mount.nfs uses for 'bg' mounts
                  * is 10000 minutes, where as it uses 2 minutes for 'fg' mounts.
                  * As we are making  'bg' mounts look like an 'fg' mount to
@@ -372,18 +358,18 @@ static int add_mount(
                 fprintf(f, "Before=%s\n", post);
 
         if (!(flags & AUTOMOUNT) && opts) {
-                 r = write_after(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_requires_after(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_before(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_requires_mounts_for(f, opts);
-                 if (r < 0)
-                         return r;
+                r = write_after(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_requires_after(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_before(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_requires_mounts_for(f, opts);
+                if (r < 0)
+                        return r;
         }
 
         if (passno != 0) {
@@ -448,8 +434,7 @@ static int add_mount(
         }
 
         if (!(flags & NOAUTO) && !(flags & AUTOMOUNT)) {
-                r = generator_add_symlink(dest, post,
-                                          (flags & NOFAIL) ? "wants" : "requires", name);
+                r = generator_add_symlink(dest, post, (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
@@ -502,8 +487,7 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_name);
 
-                r = generator_add_symlink(dest, post,
-                                          (flags & NOFAIL) ? "wants" : "requires", automount_name);
+                r = generator_add_symlink(dest, post, (flags & NOFAIL) ? "wants" : "requires", automount_name);
                 if (r < 0)
                         return r;
         }
@@ -555,9 +539,7 @@ static int parse_fstab(bool initrd) {
                          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
                          * target is the final directory. */
-                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
-                                           CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
-                                           &canonical_where);
+                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &canonical_where);
                         if (r < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
                                 log_debug_errno(r, "Failed to read symlink target for %s, ignoring: %m", where);
                         else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
@@ -568,17 +550,23 @@ static int parse_fstab(bool initrd) {
 
                 makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
                 growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
-                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
-                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
+                noauto = fstab_test_yes_no_option(me->mnt_opts,
+                                                  "noauto\0"
+                                                  "auto\0");
+                nofail = fstab_test_yes_no_option(me->mnt_opts,
+                                                  "nofail\0"
+                                                  "fail\0");
 
                 log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
-                          what, where, me->mnt_type,
+                          what,
+                          where,
+                          me->mnt_type,
                           yes_no(makefs),
-                          yes_no(noauto), yes_no(nofail));
+                          yes_no(noauto),
+                          yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me,
-                                     makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL);
+                        k = add_swap(what, me, makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL);
                 else {
                         bool automount;
                         const char *post;
@@ -596,11 +584,11 @@ static int parse_fstab(bool initrd) {
                         k = add_mount(arg_dest,
                                       what,
                                       canonical_where ?: where,
-                                      canonical_where ? where: NULL,
+                                      canonical_where ? where : NULL,
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
+                                      makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL | automount * AUTOMOUNT,
                                       post,
                                       fstab_path);
                 }
@@ -641,7 +629,9 @@ static int add_sysroot_mount(void) {
         if (!arg_root_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
         else if (arg_root_rw >= 0 ||
-                 !fstab_test_option(arg_root_options, "ro\0" "rw\0"))
+                 !fstab_test_option(arg_root_options,
+                                    "ro\0"
+                                    "rw\0"))
                 opts = strjoina(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
@@ -701,7 +691,9 @@ static int add_sysroot_usr_mount(void) {
 
         if (!arg_usr_options)
                 opts = arg_root_rw > 0 ? "rw" : "ro";
-        else if (!fstab_test_option(arg_usr_options, "ro\0" "rw\0"))
+        else if (!fstab_test_option(arg_usr_options,
+                                    "ro\0"
+                                    "rw\0"))
                 opts = strjoina(arg_usr_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_usr_options;
@@ -746,16 +738,7 @@ static int add_volatile_var(void) {
 
         /* If requested, mount /var as tmpfs, but do so only if there's nothing else defined for this. */
 
-        return add_mount(arg_dest_late,
-                         "tmpfs",
-                         "/var",
-                         NULL,
-                         "tmpfs",
-                         "mode=0755",
-                         0,
-                         0,
-                         SPECIAL_LOCAL_FS_TARGET,
-                         "/proc/cmdline");
+        return add_mount(arg_dest_late, "tmpfs", "/var", NULL, "tmpfs", "mode=0755", 0, 0, SPECIAL_LOCAL_FS_TARGET, "/proc/cmdline");
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {

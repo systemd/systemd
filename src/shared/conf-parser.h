@@ -13,25 +13,18 @@
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
-typedef enum ConfigParseFlags {
-        CONFIG_PARSE_RELAXED       = 1 << 0,
+typedef enum ConfigParseFlags
+{
+        CONFIG_PARSE_RELAXED = 1 << 0,
         CONFIG_PARSE_ALLOW_INCLUDE = 1 << 1,
-        CONFIG_PARSE_WARN          = 1 << 2,
-        CONFIG_PARSE_REFUSE_BOM    = 1 << 3,
+        CONFIG_PARSE_WARN = 1 << 2,
+        CONFIG_PARSE_REFUSE_BOM = 1 << 3,
 } ConfigParseFlags;
 
 /* Argument list for parsers of specific configuration settings. */
-#define CONFIG_PARSER_ARGUMENTS                 \
-        const char *unit,                       \
-        const char *filename,                   \
-        unsigned line,                          \
-        const char *section,                    \
-        unsigned section_line,                  \
-        const char *lvalue,                     \
-        int ltype,                              \
-        const char *rvalue,                     \
-        void *data,                             \
-        void *userdata
+#define CONFIG_PARSER_ARGUMENTS                                                                                                           \
+        const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, \
+                const char *rvalue, void *data, void *userdata
 
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
@@ -44,11 +37,11 @@ typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
 /* Wraps information for parsing a specific configuration variable, to
  * be stored in a simple array */
 typedef struct ConfigTableItem {
-        const char *section;            /* Section */
-        const char *lvalue;             /* Name of the variable */
-        ConfigParserCallback parse;     /* Function that is called to parse the variable's value */
-        int ltype;                      /* Distinguish different variables passed to the same callback */
-        void *data;                     /* Where to store the variable's data */
+        const char *section;        /* Section */
+        const char *lvalue;         /* Name of the variable */
+        ConfigParserCallback parse; /* Function that is called to parse the variable's value */
+        int ltype;                  /* Distinguish different variables passed to the same callback */
+        void *data;                 /* Where to store the variable's data */
 } ConfigTableItem;
 
 /* Wraps information for parsing a specific configuration variable, to
@@ -61,54 +54,47 @@ typedef struct ConfigPerfItem {
 } ConfigPerfItem;
 
 /* Prototype for a low-level gperf lookup function */
-typedef const ConfigPerfItem* (*ConfigPerfItemLookup)(const char *section_and_lvalue, unsigned length);
+typedef const ConfigPerfItem *(*ConfigPerfItemLookup)(const char *section_and_lvalue, unsigned length);
 
 /* Prototype for a generic high-level lookup function */
 typedef int (*ConfigItemLookup)(
-                const void *table,
-                const char *section,
-                const char *lvalue,
-                ConfigParserCallback *func,
-                int *ltype,
-                void **data,
-                void *userdata);
+        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
 
 /* Linear table search implementation of ConfigItemLookup, based on
  * ConfigTableItem arrays */
-int config_item_table_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_table_lookup(
+        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
 
 /* gperf implementation of ConfigItemLookup, based on gperf
  * ConfigPerfItem tables */
-int config_item_perf_lookup(const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_perf_lookup(
+        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
 
-int config_parse(
-                const char *unit,
-                const char *filename,
-                FILE *f,
-                const char *sections,  /* nulstr */
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata);
+int config_parse(const char *unit,
+                 const char *filename,
+                 FILE *f,
+                 const char *sections, /* nulstr */
+                 ConfigItemLookup lookup,
+                 const void *table,
+                 ConfigParseFlags flags,
+                 void *userdata);
 
-int config_parse_many_nulstr(
-                const char *conf_file,      /* possibly NULL */
-                const char *conf_file_dirs, /* nulstr */
-                const char *sections,       /* nulstr */
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata);
+int config_parse_many_nulstr(const char *conf_file,      /* possibly NULL */
+                             const char *conf_file_dirs, /* nulstr */
+                             const char *sections,       /* nulstr */
+                             ConfigItemLookup lookup,
+                             const void *table,
+                             ConfigParseFlags flags,
+                             void *userdata);
 
-int config_parse_many(
-                const char *conf_file,      /* possibly NULL */
-                const char* const* conf_file_dirs,
-                const char *dropin_dirname,
-                const char *sections,       /* nulstr */
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata);
+int config_parse_many(const char *conf_file, /* possibly NULL */
+                      const char *const *conf_file_dirs,
+                      const char *dropin_dirname,
+                      const char *sections, /* nulstr */
+                      ConfigItemLookup lookup,
+                      const void *table,
+                      ConfigParseFlags flags,
+                      void *userdata);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
@@ -140,150 +126,143 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 
-typedef enum Disabled {
+typedef enum Disabled
+{
         DISABLED_CONFIGURATION,
         DISABLED_LEGACY,
         DISABLED_EXPERIMENTAL,
 } Disabled;
 
-#define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
-        CONFIG_PARSER_PROTOTYPE(function) {                             \
-                int *i = data, r;                                       \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                r = parser(rvalue);                                     \
-                if (r < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, r,    \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
-                                                                        \
-                *i = r;                                                 \
-                return 0;                                               \
+#define DEFINE_CONFIG_PARSE(function, parser, msg)                                                  \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                         \
+                int *i = data, r;                                                                   \
+                                                                                                    \
+                assert(filename);                                                                   \
+                assert(lvalue);                                                                     \
+                assert(rvalue);                                                                     \
+                assert(data);                                                                       \
+                                                                                                    \
+                r = parser(rvalue);                                                                 \
+                if (r < 0) {                                                                        \
+                        log_syntax(unit, LOG_ERR, filename, line, r, msg ", ignoring: %s", rvalue); \
+                        return 0;                                                                   \
+                }                                                                                   \
+                                                                                                    \
+                *i = r;                                                                             \
+                return 0;                                                                           \
         }
 
-#define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
-        CONFIG_PARSER_PROTOTYPE(function) {                             \
-                type *i = data;                                         \
-                int r;                                                  \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                r = parser(rvalue, i);                                  \
-                if (r < 0)                                              \
-                        log_syntax(unit, LOG_ERR, filename, line, r,    \
-                                   msg ", ignoring: %s", rvalue);       \
-                                                                        \
-                return 0;                                               \
+#define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)                                        \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                         \
+                type *i = data;                                                                     \
+                int r;                                                                              \
+                                                                                                    \
+                assert(filename);                                                                   \
+                assert(lvalue);                                                                     \
+                assert(rvalue);                                                                     \
+                assert(data);                                                                       \
+                                                                                                    \
+                r = parser(rvalue, i);                                                              \
+                if (r < 0)                                                                          \
+                        log_syntax(unit, LOG_ERR, filename, line, r, msg ", ignoring: %s", rvalue); \
+                                                                                                    \
+                return 0;                                                                           \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
-        CONFIG_PARSER_PROTOTYPE(function) {                             \
-                type *i = data, x;                                      \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                x = name##_from_string(rvalue);                         \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
-                                                                        \
-                *i = x;                                                 \
-                return 0;                                               \
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)                                         \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                         \
+                type *i = data, x;                                                                  \
+                                                                                                    \
+                assert(filename);                                                                   \
+                assert(lvalue);                                                                     \
+                assert(rvalue);                                                                     \
+                assert(data);                                                                       \
+                                                                                                    \
+                x = name##_from_string(rvalue);                                                     \
+                if (x < 0) {                                                                        \
+                        log_syntax(unit, LOG_ERR, filename, line, 0, msg ", ignoring: %s", rvalue); \
+                        return 0;                                                                   \
+                }                                                                                   \
+                                                                                                    \
+                *i = x;                                                                             \
+                return 0;                                                                           \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
-        CONFIG_PARSER_PROTOTYPE(function) {                             \
-                type *i = data, x;                                      \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                if (isempty(rvalue)) {                                  \
-                        *i = default_value;                             \
-                        return 0;                                       \
-                }                                                       \
-                                                                        \
-                x = name##_from_string(rvalue);                         \
-                if (x < 0) {                                            \
-                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
-                                   msg ", ignoring: %s", rvalue);       \
-                        return 0;                                       \
-                }                                                       \
-                                                                        \
-                *i = x;                                                 \
-                return 0;                                               \
+#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg)             \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                         \
+                type *i = data, x;                                                                  \
+                                                                                                    \
+                assert(filename);                                                                   \
+                assert(lvalue);                                                                     \
+                assert(rvalue);                                                                     \
+                assert(data);                                                                       \
+                                                                                                    \
+                if (isempty(rvalue)) {                                                              \
+                        *i = default_value;                                                         \
+                        return 0;                                                                   \
+                }                                                                                   \
+                                                                                                    \
+                x = name##_from_string(rvalue);                                                     \
+                if (x < 0) {                                                                        \
+                        log_syntax(unit, LOG_ERR, filename, line, 0, msg ", ignoring: %s", rvalue); \
+                        return 0;                                                                   \
+                }                                                                                   \
+                                                                                                    \
+                *i = x;                                                                             \
+                return 0;                                                                           \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
-        CONFIG_PARSER_PROTOTYPE(function) {                                    \
-                type **enums = data, x, *ys;                                   \
-                _cleanup_free_ type *xs = NULL;                                \
-                const char *word, *state;                                      \
-                size_t l, i = 0;                                               \
-                                                                               \
-                assert(filename);                                              \
-                assert(lvalue);                                                \
-                assert(rvalue);                                                \
-                assert(data);                                                  \
-                                                                               \
-                xs = new0(type, 1);                                            \
-                if (!xs)                                                       \
-                        return -ENOMEM;                                        \
-                                                                               \
-                *xs = invalid;                                                 \
-                                                                               \
-                FOREACH_WORD(word, l, rvalue, state) {                         \
-                        _cleanup_free_ char *en = NULL;                        \
-                        type *new_xs;                                          \
-                                                                               \
-                        en = strndup(word, l);                                 \
-                        if (!en)                                               \
-                                return -ENOMEM;                                \
-                                                                               \
-                        if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_ERR, filename, line, 0,   \
-                                           msg ", ignoring: %s", en);          \
-                                continue;                                      \
-                        }                                                      \
-                                                                               \
-                        for (ys = xs; x != invalid && *ys != invalid; ys++) {  \
-                                if (*ys == x) {                                \
-                                        log_syntax(unit, LOG_NOTICE, filename, \
-                                                   line, 0,                    \
-                                                   "Duplicate entry, ignoring: %s", \
-                                                   en);                        \
-                                        x = invalid;                           \
-                                }                                              \
-                        }                                                      \
-                                                                               \
-                        if (x == invalid)                                      \
-                                continue;                                      \
-                                                                               \
-                        *(xs + i) = x;                                         \
-                        new_xs = realloc(xs, (++i + 1) * sizeof(type));        \
-                        if (new_xs)                                            \
-                                xs = new_xs;                                   \
-                        else                                                   \
-                                return -ENOMEM;                                \
-                                                                               \
-                        *(xs + i) = invalid;                                   \
-                }                                                              \
-                                                                               \
-                free_and_replace(*enums, xs);                                  \
-                return 0;                                                      \
+#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)                                                         \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                                                   \
+                type **enums = data, x, *ys;                                                                                  \
+                _cleanup_free_ type *xs = NULL;                                                                               \
+                const char *word, *state;                                                                                     \
+                size_t l, i = 0;                                                                                              \
+                                                                                                                              \
+                assert(filename);                                                                                             \
+                assert(lvalue);                                                                                               \
+                assert(rvalue);                                                                                               \
+                assert(data);                                                                                                 \
+                                                                                                                              \
+                xs = new0(type, 1);                                                                                           \
+                if (!xs)                                                                                                      \
+                        return -ENOMEM;                                                                                       \
+                                                                                                                              \
+                *xs = invalid;                                                                                                \
+                                                                                                                              \
+                FOREACH_WORD(word, l, rvalue, state) {                                                                        \
+                        _cleanup_free_ char *en = NULL;                                                                       \
+                        type *new_xs;                                                                                         \
+                                                                                                                              \
+                        en = strndup(word, l);                                                                                \
+                        if (!en)                                                                                              \
+                                return -ENOMEM;                                                                               \
+                                                                                                                              \
+                        if ((x = name##_from_string(en)) < 0) {                                                               \
+                                log_syntax(unit, LOG_ERR, filename, line, 0, msg ", ignoring: %s", en);                       \
+                                continue;                                                                                     \
+                        }                                                                                                     \
+                                                                                                                              \
+                        for (ys = xs; x != invalid && *ys != invalid; ys++) {                                                 \
+                                if (*ys == x) {                                                                               \
+                                        log_syntax(unit, LOG_NOTICE, filename, line, 0, "Duplicate entry, ignoring: %s", en); \
+                                        x = invalid;                                                                          \
+                                }                                                                                             \
+                        }                                                                                                     \
+                                                                                                                              \
+                        if (x == invalid)                                                                                     \
+                                continue;                                                                                     \
+                                                                                                                              \
+                        *(xs + i) = x;                                                                                        \
+                        new_xs = realloc(xs, (++i + 1) * sizeof(type));                                                       \
+                        if (new_xs)                                                                                           \
+                                xs = new_xs;                                                                                  \
+                        else                                                                                                  \
+                                return -ENOMEM;                                                                               \
+                                                                                                                              \
+                        *(xs + i) = invalid;                                                                                  \
+                }                                                                                                             \
+                                                                                                                              \
+                free_and_replace(*enums, xs);                                                                                 \
+                return 0;                                                                                                     \
         }

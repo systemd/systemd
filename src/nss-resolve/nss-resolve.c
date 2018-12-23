@@ -21,10 +21,8 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
-        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED);
+        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) || sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED);
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
@@ -102,15 +100,12 @@ static bool avoid_deadlock(void) {
                 return false;
 
         return streq_ptr(getenv("SYSTEMD_ACTIVATION_UNIT"), "systemd-resolved.service") &&
-               streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
+                streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
 }
 
 enum nss_status _nss_resolve_gethostbyname4_r(
-                const char *name,
-                struct gaih_addrtuple **pat,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) {
+        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+{
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -141,12 +136,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto fail;
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -160,8 +150,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
@@ -184,7 +173,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 canonical = name;
 
         l = strlen(canonical);
-        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
+        ms = ALIGN(l + 1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
@@ -193,11 +182,11 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, canonical, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, canonical, l + 1);
+        idx = ALIGN(l + 1);
 
         /* Second, append addresses */
-        r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
+        r_tuple_first = (struct gaih_addrtuple *) (buffer + idx);
 
         r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
         if (r < 0)
@@ -235,8 +224,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                         goto fail;
                 }
 
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                r_tuple->next = i == c-1 ? NULL : (struct gaih_addrtuple*) ((char*) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
+                r_tuple = (struct gaih_addrtuple *) (buffer + idx);
+                r_tuple->next = i == c - 1 ? NULL : (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
                 r_tuple->scopeid = ifindex_to_scopeid(family, a, ifindex);
@@ -277,13 +266,8 @@ not_found:
 }
 
 enum nss_status _nss_resolve_gethostbyname3_r(
-                const char *name,
-                int af,
-                struct hostent *result,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp,
-                char **canonp) {
+        const char *name, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+{
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -321,12 +305,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -340,8 +319,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -361,7 +339,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         alen = FAMILY_ADDRESS_SIZE(af);
         l = strlen(canonical);
 
-        ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
+        ms = ALIGN(l + 1) + c * ALIGN(alen) + (c + 2) * sizeof(char *);
 
         if (buflen < ms) {
                 *errnop = ERANGE;
@@ -371,13 +349,13 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, canonical, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, canonical, l + 1);
+        idx = ALIGN(l + 1);
 
         /* Second, create empty aliases array */
         r_aliases = buffer + idx;
-        ((char**) r_aliases)[0] = NULL;
-        idx += sizeof(char*);
+        ((char **) r_aliases)[0] = NULL;
+        idx += sizeof(char *);
 
         /* Third, append addresses */
         r_addr = buffer + idx;
@@ -416,7 +394,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         goto fail;
                 }
 
-                memcpy(r_addr + i*ALIGN(alen), a, alen);
+                memcpy(r_addr + i * ALIGN(alen), a, alen);
                 i++;
         }
         if (r < 0)
@@ -428,18 +406,18 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         /* Fourth, append address pointer array */
         r_addr_list = buffer + idx;
         for (i = 0; i < c; i++)
-                ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
+                ((char **) r_addr_list)[i] = r_addr + i * ALIGN(alen);
 
-        ((char**) r_addr_list)[i] = NULL;
-        idx += (c+1) * sizeof(char*);
+        ((char **) r_addr_list)[i] = NULL;
+        idx += (c + 1) * sizeof(char *);
 
         assert(idx == ms);
 
         result->h_name = r_name;
-        result->h_aliases = (char**) r_aliases;
+        result->h_aliases = (char **) r_aliases;
         result->h_addrtype = af;
         result->h_length = alen;
-        result->h_addr_list = (char**) r_addr_list;
+        result->h_addr_list = (char **) r_addr_list;
 
         if (ttlp)
                 *ttlp = 0;
@@ -465,12 +443,8 @@ not_found:
 }
 
 enum nss_status _nss_resolve_gethostbyaddr2_r(
-                const void* addr, socklen_t len,
-                int af,
-                struct hostent *result,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) {
+        const void *addr, socklen_t len, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+{
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -513,12 +487,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveAddress");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveAddress");
         if (r < 0)
                 goto fail;
 
@@ -540,8 +509,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -571,9 +539,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (c <= 0)
                 goto not_found;
 
-        ms += ALIGN(len) +              /* the address */
-              2 * sizeof(char*) +       /* pointers to the address, plus trailing NULL */
-              c * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
+        ms += ALIGN(len) +           /* the address */
+                2 * sizeof(char *) + /* pointers to the address, plus trailing NULL */
+                c * sizeof(char *);  /* pointers to aliases, plus trailing NULL */
 
         if (buflen < ms) {
                 *errnop = ERANGE;
@@ -588,13 +556,13 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         /* Second, place address list */
         r_addr_list = buffer + idx;
-        ((char**) r_addr_list)[0] = r_addr;
-        ((char**) r_addr_list)[1] = NULL;
-        idx += sizeof(char*) * 2;
+        ((char **) r_addr_list)[0] = r_addr;
+        ((char **) r_addr_list)[1] = NULL;
+        idx += sizeof(char *) * 2;
 
         /* Third, reserve space for the aliases array */
         r_aliases = buffer + idx;
-        idx += sizeof(char*) * c;
+        idx += sizeof(char *) * c;
 
         /* Fourth, place aliases */
         i = 0;
@@ -605,25 +573,25 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
                 l = strlen(n);
                 p = buffer + idx;
-                memcpy(p, n, l+1);
+                memcpy(p, n, l + 1);
 
                 if (i > 0)
-                        ((char**) r_aliases)[i-1] = p;
+                        ((char **) r_aliases)[i - 1] = p;
                 i++;
 
-                idx += ALIGN(l+1);
+                idx += ALIGN(l + 1);
         }
         if (r < 0)
                 goto fail;
 
-        ((char**) r_aliases)[c-1] = NULL;
+        ((char **) r_aliases)[c - 1] = NULL;
         assert(idx == ms);
 
         result->h_name = r_name;
-        result->h_aliases = (char**) r_aliases;
+        result->h_aliases = (char **) r_aliases;
         result->h_addrtype = af;
         result->h_length = len;
-        result->h_addr_list = (char**) r_addr_list;
+        result->h_addr_list = (char **) r_addr_list;
 
         if (ttlp)
                 *ttlp = 0;

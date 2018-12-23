@@ -16,27 +16,27 @@
 
 static void test_clock_is_localtime(void) {
         _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";
-        _cleanup_fclose_ FILE* f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
 
         static const struct scenario {
-                const char* contents;
+                const char *contents;
                 int expected_result;
         } scenarios[] = {
                 /* adjtime configures UTC */
-                {"0.0 0 0\n0\nUTC\n", 0},
+                { "0.0 0 0\n0\nUTC\n", 0 },
                 /* adjtime configures local time */
-                {"0.0 0 0\n0\nLOCAL\n", 1},
+                { "0.0 0 0\n0\nLOCAL\n", 1 },
                 /* no final EOL */
-                {"0.0 0 0\n0\nUTC", 0},
-                {"0.0 0 0\n0\nLOCAL", 1},
+                { "0.0 0 0\n0\nUTC", 0 },
+                { "0.0 0 0\n0\nLOCAL", 1 },
                 /* empty value -> defaults to UTC */
-                {"0.0 0 0\n0\n", 0},
+                { "0.0 0 0\n0\n", 0 },
                 /* unknown value -> defaults to UTC */
-                {"0.0 0 0\n0\nFOO\n", 0},
+                { "0.0 0 0\n0\nFOO\n", 0 },
                 /* no third line */
-                {"0.0 0 0", 0},
-                {"0.0 0 0\n", 0},
-                {"0.0 0 0\n0", 0},
+                { "0.0 0 0", 0 },
+                { "0.0 0 0\n", 0 },
+                { "0.0 0 0\n0", 0 },
         };
 
         /* without an adjtime file we default to UTC */

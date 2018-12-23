@@ -77,7 +77,7 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
         return 0;
 }
 
-static char* keyval(const char *str, const char **key, const char **val) {
+static char *keyval(const char *str, const char **key, const char **val) {
         char *buf, *pos;
 
         buf = strdup(str);
@@ -116,37 +116,37 @@ static int help(void) {
                "  -y --sysname-match=NAME           Trigger devices with this /sys path\n"
                "     --name-match=NAME              Trigger devices with this /dev name\n"
                "  -b --parent-match=NAME            Trigger devices with that parent device\n"
-               "  -w --settle                       Wait for the triggered events to complete\n"
-               , program_invocation_short_name);
+               "  -w --settle                       Wait for the triggered events to complete\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 int trigger_main(int argc, char *argv[], void *userdata) {
-        enum {
+        enum
+        {
                 ARG_NAME = 0x100,
         };
 
-        static const struct option options[] = {
-                { "verbose",           no_argument,       NULL, 'v'      },
-                { "dry-run",           no_argument,       NULL, 'n'      },
-                { "type",              required_argument, NULL, 't'      },
-                { "action",            required_argument, NULL, 'c'      },
-                { "subsystem-match",   required_argument, NULL, 's'      },
-                { "subsystem-nomatch", required_argument, NULL, 'S'      },
-                { "attr-match",        required_argument, NULL, 'a'      },
-                { "attr-nomatch",      required_argument, NULL, 'A'      },
-                { "property-match",    required_argument, NULL, 'p'      },
-                { "tag-match",         required_argument, NULL, 'g'      },
-                { "sysname-match",     required_argument, NULL, 'y'      },
-                { "name-match",        required_argument, NULL, ARG_NAME },
-                { "parent-match",      required_argument, NULL, 'b'      },
-                { "settle",            no_argument,       NULL, 'w'      },
-                { "version",           no_argument,       NULL, 'V'      },
-                { "help",              no_argument,       NULL, 'h'      },
-                {}
-        };
-        enum {
+        static const struct option options[] = { { "verbose", no_argument, NULL, 'v' },
+                                                 { "dry-run", no_argument, NULL, 'n' },
+                                                 { "type", required_argument, NULL, 't' },
+                                                 { "action", required_argument, NULL, 'c' },
+                                                 { "subsystem-match", required_argument, NULL, 's' },
+                                                 { "subsystem-nomatch", required_argument, NULL, 'S' },
+                                                 { "attr-match", required_argument, NULL, 'a' },
+                                                 { "attr-nomatch", required_argument, NULL, 'A' },
+                                                 { "property-match", required_argument, NULL, 'p' },
+                                                 { "tag-match", required_argument, NULL, 'g' },
+                                                 { "sysname-match", required_argument, NULL, 'y' },
+                                                 { "name-match", required_argument, NULL, ARG_NAME },
+                                                 { "parent-match", required_argument, NULL, 'b' },
+                                                 { "settle", no_argument, NULL, 'w' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
+        enum
+        {
                 TYPE_DEVICES,
                 TYPE_SUBSYSTEMS,
         } device_type = TYPE_DEVICES;

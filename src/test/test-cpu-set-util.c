@@ -110,7 +110,7 @@ static void test_parse_cpu_set(void) {
         /* Empty string */
         c = NULL;
         ncpus = parse_cpu_set_and_warn("", &c, NULL, "fake", 1, "CPUAffinity");
-        assert_se(ncpus == 0);  /* empty string returns 0 */
+        assert_se(ncpus == 0); /* empty string returns 0 */
         assert_se(!c);
 
         /* Runaway quoted string */

@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         assert_se(!id128_is_valid("01020304-0506-0708-090a0b0c0d0e0f10"));
         assert_se(!id128_is_valid("010203040506-0708-090a-0b0c0d0e0f10"));
 
-        fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
+        fd = open_tmpfile_unlinkable(NULL, O_RDWR | O_CLOEXEC);
         assert_se(fd >= 0);
 
         /* First, write as UUID */
@@ -137,14 +137,16 @@ int main(int argc, char *argv[]) {
         assert_se(id128_read_fd(fd, ID128_UUID, &id2) >= 0);
         assert_se(sd_id128_equal(id, id2));
 
-        r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id);
+        r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0, 3d, aa, eb, 1c, 33, 4b, 43, a7, 32, 17, 29, 44, bf, 77, 2e), &id);
         if (r == -EOPNOTSUPP)
                 log_info("khash not supported on this kernel, skipping sd_id128_get_machine_app_specific() checks");
         else {
                 assert_se(r >= 0);
-                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
+                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0, 3d, aa, eb, 1c, 33, 4b, 43, a7, 32, 17, 29, 44, bf, 77, 2e),
+                                                            &id2) >= 0);
                 assert_se(sd_id128_equal(id, id2));
-                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
+                assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51, df, 0b, 4b, c3, b0, 4c, 97, 80, e2, 99, b9, 8c, a3, 73, b8),
+                                                            &id2) >= 0);
                 assert_se(!sd_id128_equal(id, id2));
         }
 

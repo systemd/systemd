@@ -35,31 +35,29 @@ static int help(void) {
                "  -i --interface=INTERFACE  Block until at least these interfaces have appeared\n"
                "     --ignore=INTERFACE     Don't take these interfaces into account\n"
                "     --timeout=SECS         Maximum time to wait for network connectivity\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_IGNORE,
                 ARG_TIMEOUT,
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'         },
-                { "version",         no_argument,       NULL, ARG_VERSION },
-                { "quiet",           no_argument,       NULL, 'q'         },
-                { "interface",       required_argument, NULL, 'i'         },
-                { "ignore",          required_argument, NULL, ARG_IGNORE  },
-                { "timeout",         required_argument, NULL, ARG_TIMEOUT  },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "quiet", no_argument, NULL, 'q' },
+                                                 { "interface", required_argument, NULL, 'i' },
+                                                 { "ignore", required_argument, NULL, ARG_IGNORE },
+                                                 { "timeout", required_argument, NULL, ARG_TIMEOUT },
+                                                 {} };
 
         int c, r;
 
@@ -135,9 +133,10 @@ static int run(int argc, char *argv[]) {
         if (manager_all_configured(m))
                 goto success;
 
-        notify_message = notify_start("READY=1\n"
-                                      "STATUS=Waiting for network connections...",
-                                      "STATUS=Failed to wait for network connectivity...");
+        notify_message = notify_start(
+                "READY=1\n"
+                "STATUS=Waiting for network connections...",
+                "STATUS=Failed to wait for network connectivity...");
 
         r = sd_event_loop(m->event);
         if (r < 0)

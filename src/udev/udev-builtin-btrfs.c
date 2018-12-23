@@ -20,7 +20,7 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
         if (argc != 3 || !streq(argv[1], "ready"))
                 return log_device_error_errno(dev, EINVAL, "Invalid arguments");
 
-        fd = open("/dev/btrfs-control", O_RDWR|O_CLOEXEC);
+        fd = open("/dev/btrfs-control", O_RDWR | O_CLOEXEC);
         if (fd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to open /dev/btrfs-control: %m");
 

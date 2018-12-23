@@ -21,13 +21,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_
 static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
 
 static int property_get_listen(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Socket *s = SOCKET(userdata);
         SocketPort *p;
@@ -46,24 +40,24 @@ static int property_get_listen(
                 const char *a;
 
                 switch (p->type) {
-                        case SOCKET_SOCKET: {
-                                r = socket_address_print(&p->address, &address);
-                                if (r)
-                                        return r;
+                case SOCKET_SOCKET: {
+                        r = socket_address_print(&p->address, &address);
+                        if (r)
+                                return r;
 
-                                a = address;
-                                break;
-                        }
+                        a = address;
+                        break;
+                }
 
-                        case SOCKET_SPECIAL:
-                        case SOCKET_MQUEUE:
-                        case SOCKET_FIFO:
-                        case SOCKET_USB_FUNCTION:
-                                a = p->path;
-                                break;
+                case SOCKET_SPECIAL:
+                case SOCKET_MQUEUE:
+                case SOCKET_FIFO:
+                case SOCKET_USB_FUNCTION:
+                        a = p->path;
+                        break;
 
-                        default:
-                                assert_not_reached("Unknown socket type");
+                default:
+                        assert_not_reached("Unknown socket type");
                 }
 
                 r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);
@@ -88,9 +82,10 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Writable", "b", bus_property_get_bool, offsetof(Socket, writable), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAlive", "b", bus_property_get_bool, offsetof(Socket, keep_alive), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAliveTimeUSec", "t", bus_property_get_usec, offsetof(Socket, keep_alive_time), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KeepAliveIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, keep_alive_interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "KeepAliveIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, keep_alive_interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAliveProbes", "u", bus_property_get_unsigned, offsetof(Socket, keep_alive_cnt), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DeferAcceptUSec" , "t", bus_property_get_usec, offsetof(Socket, defer_accept), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferAcceptUSec", "t", bus_property_get_usec, offsetof(Socket, defer_accept), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoDelay", "b", bus_property_get_bool, offsetof(Socket, no_delay), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Priority", "i", bus_property_get_int, offsetof(Socket, priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReceiveBuffer", "t", bus_property_get_size, offsetof(Socket, receive_buffer), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -108,11 +103,15 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Symlinks", "as", NULL, offsetof(Socket, symlinks), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Mark", "i", bus_property_get_int, offsetof(Socket, mark), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MaxConnections", "u", bus_property_get_unsigned, offsetof(Socket, max_connections), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MaxConnectionsPerSource", "u", bus_property_get_unsigned, offsetof(Socket, max_connections_per_source), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MaxConnectionsPerSource",
+                        "u",
+                        bus_property_get_unsigned,
+                        offsetof(Socket, max_connections_per_source),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MessageQueueMaxMessages", "x", bus_property_get_long, offsetof(Socket, mq_maxmsg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MessageQueueMessageSize", "x", bus_property_get_long, offsetof(Socket, mq_msgsize), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TCPCongestion", "s", NULL, offsetof(Socket, tcp_congestion), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ReusePort", "b",  bus_property_get_bool, offsetof(Socket, reuse_port), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReusePort", "b", bus_property_get_bool, offsetof(Socket, reuse_port), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SmackLabel", "s", NULL, offsetof(Socket, smack), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SmackLabelIPIn", "s", NULL, offsetof(Socket, smack_ip_in), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SmackLabelIPOut", "s", NULL, offsetof(Socket, smack_ip_out), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -123,14 +122,20 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("NRefused", "u", bus_property_get_unsigned, offsetof(Socket, n_refused), 0),
         SD_BUS_PROPERTY("FileDescriptorName", "s", property_get_fdname, 0, 0),
         SD_BUS_PROPERTY("SocketProtocol", "i", bus_property_get_int, offsetof(Socket, socket_protocol), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TriggerLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, trigger_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "TriggerLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, trigger_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPre", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStopPre", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStopPost", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_VTABLE_END
 };
 
@@ -138,7 +143,7 @@ static inline bool check_size_t_truncation(uint64_t t) {
         return (size_t) t == t;
 }
 
-static inline const char* socket_protocol_to_string(int32_t i) {
+static inline const char *socket_protocol_to_string(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
@@ -157,12 +162,7 @@ static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
 
-static int bus_socket_set_transient_property(
-                Socket *s,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+static int bus_socket_set_transient_property(Socket *s, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         SocketExecCommand ci;
         Unit *u = UNIT(s);
@@ -322,7 +322,7 @@ static int bus_socket_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
                                 s->symlinks = strv_free(s->symlinks);
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=", name);
+                                unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
@@ -334,7 +334,7 @@ static int bus_socket_set_transient_property(
                                 if (!joined)
                                         return -ENOMEM;
 
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, joined);
+                                unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, joined);
                         }
                 }
 
@@ -351,11 +351,11 @@ static int bus_socket_set_transient_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &t, &a)) > 0) {
                         _cleanup_free_ SocketPort *p = NULL;
 
-                        p = new(SocketPort, 1);
+                        p = new (SocketPort, 1);
                         if (!p)
                                 return log_oom();
 
-                        *p = (SocketPort) {
+                        *p = (SocketPort){
                                 .fd = -1,
                                 .socket = s,
                         };
@@ -396,7 +396,7 @@ static int bus_socket_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 LIST_APPEND(port, s->ports, TAKE_PTR(p));
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Listen%s=%s", t, a);
+                                unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "Listen%s=%s", t, a);
                         }
                 }
                 if (r < 0)
@@ -408,7 +408,7 @@ static int bus_socket_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags) && empty) {
                         socket_free_ports(s);
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "ListenStream=");
+                        unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "ListenStream=");
                 }
 
                 return 1;
@@ -417,12 +417,7 @@ static int bus_socket_set_transient_property(
         return 0;
 }
 
-int bus_socket_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_socket_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Socket *s = SOCKET(u);
         int r;

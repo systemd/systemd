@@ -8,14 +8,10 @@
 #include "process-util.h"
 #include "util.h"
 
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG))
-          == LOG_REALM_SYSTEMD);
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG))
-          == LOG_REALM_UDEV);
-assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG_FACMASK)
-          == LOG_LOCAL3);
-assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK)
-          == LOG_INFO);
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG)) == LOG_REALM_SYSTEMD);
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG)) == LOG_REALM_UDEV);
+assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG_FACMASK) == LOG_LOCAL3);
+assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK) == LOG_INFO);
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
 assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
@@ -27,22 +23,27 @@ assert_cc(!IS_SYNTHETIC_ERRNO(0));
 #define X1000(x) X100(X10(x))
 
 static void test_log_struct(void) {
-        log_struct(LOG_INFO,
-                   "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
-                   "SERVICE=piepapo");
+        log_struct(LOG_INFO, "MESSAGE=Waldo PID=" PID_FMT " (no errno)", getpid_cached(), "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, EILSEQ,
-                   "MESSAGE=Waldo PID="PID_FMT": %m (normal)", getpid_cached(),
-                   "SERVICE=piepapo");
+        log_struct_errno(LOG_INFO, EILSEQ, "MESSAGE=Waldo PID=" PID_FMT ": %m (normal)", getpid_cached(), "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, SYNTHETIC_ERRNO(EILSEQ),
-                   "MESSAGE=Waldo PID="PID_FMT": %m (synthetic)", getpid_cached(),
-                   "SERVICE=piepapo");
+        log_struct_errno(
+                LOG_INFO, SYNTHETIC_ERRNO(EILSEQ), "MESSAGE=Waldo PID=" PID_FMT ": %m (synthetic)", getpid_cached(), "SERVICE=piepapo");
 
         log_struct(LOG_INFO,
-                   "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
+                   "MESSAGE=Foobar PID=" PID_FMT,
+                   getpid_cached(),
                    "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
-                   (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
+                   (int) 1,
+                   'A',
+                   (short) 2,
+                   (long int) 3,
+                   (long long int) 4,
+                   (void *) 1,
+                   "foo",
+                   (float) 2.5f,
+                   (double) 3.5,
+                   (long double) 4.5,
                    "SUFFIX=GOT IT");
 }
 
@@ -56,13 +57,14 @@ static void test_long_lines(void) {
                             X1000("obj_") "ect",
                             "EXTRA=",
                             X1000("ext_") "tra",
-                            "asdfasdf %s asdfasdfa", "foobar");
+                            "asdfasdf %s asdfasdfa",
+                            "foobar");
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         int target;
 
-        for (target = 0; target <  _LOG_TARGET_MAX; target++) {
+        for (target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
                 log_open();
 

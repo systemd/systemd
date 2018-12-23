@@ -126,17 +126,20 @@
 
 #define WG_KEY_LEN 32
 
-enum wg_cmd {
+enum wg_cmd
+{
         WG_CMD_GET_DEVICE,
         WG_CMD_SET_DEVICE,
         __WG_CMD_MAX
 };
 #define WG_CMD_MAX (__WG_CMD_MAX - 1)
 
-enum wgdevice_flag {
- WGDEVICE_F_REPLACE_PEERS = 1U << 0
+enum wgdevice_flag
+{
+        WGDEVICE_F_REPLACE_PEERS = 1U << 0
 };
-enum wgdevice_attribute {
+enum wgdevice_attribute
+{
         WGDEVICE_A_UNSPEC,
         WGDEVICE_A_IFINDEX,
         WGDEVICE_A_IFNAME,
@@ -150,11 +153,13 @@ enum wgdevice_attribute {
 };
 #define WGDEVICE_A_MAX (__WGDEVICE_A_LAST - 1)
 
-enum wgpeer_flag {
+enum wgpeer_flag
+{
         WGPEER_F_REMOVE_ME = 1U << 0,
         WGPEER_F_REPLACE_ALLOWEDIPS = 1U << 1
 };
-enum wgpeer_attribute {
+enum wgpeer_attribute
+{
         WGPEER_A_UNSPEC,
         WGPEER_A_PUBLIC_KEY,
         WGPEER_A_PRESHARED_KEY,
@@ -169,7 +174,8 @@ enum wgpeer_attribute {
 };
 #define WGPEER_A_MAX (__WGPEER_A_LAST - 1)
 
-enum wgallowedip_attribute {
+enum wgallowedip_attribute
+{
         WGALLOWEDIP_A_UNSPEC,
         WGALLOWEDIP_A_FAMILY,
         WGALLOWEDIP_A_IPADDR,

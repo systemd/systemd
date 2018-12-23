@@ -53,7 +53,7 @@ eaddrinuse:
         return 0;
 }
 
-static int mdns_rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
+static int mdns_rr_compare(DnsResourceRecord *const *a, DnsResourceRecord *const *b) {
         DnsResourceRecord *x = *(DnsResourceRecord **) a, *y = *(DnsResourceRecord **) b;
         size_t m;
         int r;
@@ -125,7 +125,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         if (size == 0)
                 return 0;
 
-        list = new(DnsResourceRecord *, size);
+        list = new (DnsResourceRecord *, size);
         if (!list)
                 return -ENOMEM;
 
@@ -151,12 +151,12 @@ static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p
         int r;
 
         size = dns_answer_size(answer);
-        our = new(DnsResourceRecord *, size);
+        our = new (DnsResourceRecord *, size);
         if (!our)
                 return -ENOMEM;
 
         DNS_ANSWER_FOREACH(rr, answer)
-                our[i++] = rr;
+        our[i++] = rr;
 
         typesafe_qsort(our, size, mdns_rr_compare);
 
@@ -290,8 +290,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                         /* If the received reply packet contains ANY record that is not .local or .in-addr.arpa,
                          * we assume someone's playing tricks on us and discard the packet completely. */
-                        if (!(dns_name_endswith(name, "in-addr.arpa") > 0 ||
-                              dns_name_endswith(name, "local") > 0))
+                        if (!(dns_name_endswith(name, "in-addr.arpa") > 0 || dns_name_endswith(name, "local") > 0))
                                 return 0;
 
                         if (rr->ttl == 0) {
@@ -305,22 +304,25 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 dns_transaction_process_reply(t, p);
 
                         /* Also look for the various types of ANY transactions */
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(
+                                scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(
+                                scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(
+                                scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
                 }
 
                 dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
 
-        } else if (dns_packet_validate_query(p) > 0)  {
+        } else if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 
                 r = mdns_scope_process_query(scope, p);
@@ -347,7 +349,7 @@ int manager_mdns_ipv4_fd(Manager *m) {
         if (m->mdns_ipv4_fd >= 0)
                 return m->mdns_ipv4_fd;
 
-        s = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "mDNS-IPv4: Failed to create socket: %m");
 
@@ -383,7 +385,8 @@ int manager_mdns_ipv4_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "mDNS-IPv4: Failed to bind socket: %m");
 
-                log_warning("mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "mDNS-IPv4: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
@@ -420,7 +423,7 @@ int manager_mdns_ipv6_fd(Manager *m) {
         if (m->mdns_ipv6_fd >= 0)
                 return m->mdns_ipv6_fd;
 
-        s = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "mDNS-IPv6: Failed to create socket: %m");
 
@@ -456,7 +459,8 @@ int manager_mdns_ipv6_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "mDNS-IPv6: Failed to bind socket: %m");
 
-                log_warning("mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "mDNS-IPv6: There appears to be another mDNS responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);

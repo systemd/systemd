@@ -5,9 +5,10 @@
 
 #include "unit.h"
 
-enum {
-        BPF_FIREWALL_UNSUPPORTED          = 0,
-        BPF_FIREWALL_SUPPORTED            = 1,
+enum
+{
+        BPF_FIREWALL_UNSUPPORTED = 0,
+        BPF_FIREWALL_SUPPORTED = 1,
         BPF_FIREWALL_SUPPORTED_WITH_MULTI = 2,
 };
 

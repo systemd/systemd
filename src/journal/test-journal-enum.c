@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 
                 assert_se(sd_journal_get_data(j, "MESSAGE", &d, &l) >= 0);
 
-                printf("%.*s\n", (int) l, (char*) d);
+                printf("%.*s\n", (int) l, (char *) d);
 
                 n++;
                 if (n >= 10)

@@ -98,7 +98,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_pull_new(&pull, event, arg_image_root, on_tar_finished, event);
@@ -185,7 +185,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
@@ -226,7 +226,8 @@ static int help(int argc, char *argv[], void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
                 ARG_IMAGE_ROOT,
@@ -235,16 +236,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOTHASH,
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "verify",          required_argument, NULL, ARG_VERIFY          },
-                { "settings",        required_argument, NULL, ARG_SETTINGS        },
-                { "roothash",        required_argument, NULL, ARG_ROOTHASH        },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "force", no_argument, NULL, ARG_FORCE },
+                                                 { "image-root", required_argument, NULL, ARG_IMAGE_ROOT },
+                                                 { "verify", required_argument, NULL, ARG_VERIFY },
+                                                 { "settings", required_argument, NULL, ARG_SETTINGS },
+                                                 { "roothash", required_argument, NULL, ARG_ROOTHASH },
+                                                 {} };
 
         int c, r;
 
@@ -272,8 +271,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY:
                         arg_verify = import_verify_from_string(optarg);
                         if (arg_verify < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid verification setting '%s'", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid verification setting '%s'", optarg);
 
                         break;
 
@@ -304,12 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int pull_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help     },
-                { "tar",  2,        3,        0, pull_tar },
-                { "raw",  2,        3,        0, pull_raw },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, pull_tar }, { "raw", 2, 3, 0, pull_raw }, {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

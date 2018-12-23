@@ -15,7 +15,8 @@ int secure_bits_to_string_alloc(int i, char **s) {
 
         assert(s);
 
-        r = asprintf(&str, "%s%s%s%s%s%s",
+        r = asprintf(&str,
+                     "%s%s%s%s%s%s",
                      (i & (1 << SECURE_KEEP_CAPS)) ? "keep-caps " : "",
                      (i & (1 << SECURE_KEEP_CAPS_LOCKED)) ? "keep-caps-locked " : "",
                      (i & (1 << SECURE_NO_SETUID_FIXUP)) ? "no-setuid-fixup " : "",

@@ -49,7 +49,7 @@ struct TarImport {
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
+        uint8_t buffer[16 * 1024];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -63,7 +63,7 @@ struct TarImport {
         RateLimit progress_rate_limit;
 };
 
-TarImport* tar_import_unref(TarImport *i) {
+TarImport *tar_import_unref(TarImport *i) {
         if (!i)
                 return NULL;
 
@@ -75,7 +75,7 @@ TarImport* tar_import_unref(TarImport *i) {
         }
 
         if (i->temp_path) {
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(i->temp_path, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
                 free(i->temp_path);
         }
 
@@ -91,12 +91,7 @@ TarImport* tar_import_unref(TarImport *i) {
         return mfree(i);
 }
 
-int tar_import_new(
-                TarImport **ret,
-                sd_event *event,
-                const char *image_root,
-                TarImportFinished on_finished,
-                void *userdata) {
+int tar_import_new(TarImport **ret, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata) {
 
         _cleanup_(tar_import_unrefp) TarImport *i = NULL;
         _cleanup_free_ char *root = NULL;
@@ -108,11 +103,11 @@ int tar_import_new(
         if (!root)
                 return -ENOMEM;
 
-        i = new(TarImport, 1);
+        i = new (TarImport, 1);
         if (!i)
                 return -ENOMEM;
 
-        *i = (TarImport) {
+        *i = (TarImport){
                 .input_fd = -1,
                 .tar_fd = -1,
                 .on_finished = on_finished,
@@ -191,7 +186,7 @@ static int tar_import_finish(TarImport *i) {
         }
 
         if (i->force_local)
-                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(i->final_path, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
 
         r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
         if (r < 0)

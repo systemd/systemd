@@ -88,7 +88,7 @@ static int verify_tty(const char *name) {
 
         /* O_NONBLOCK is essential here, to make sure we don't wait
          * for DCD */
-        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        fd = open(p, O_RDWR | O_NONBLOCK | O_NOCTTY | O_CLOEXEC | O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -182,13 +182,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
-        FOREACH_STRING(j,
-                       "hvc0",
-                       "xvc0",
-                       "hvsi0",
-                       "sclp_line0",
-                       "ttysclp0",
-                       "3270!tty1") {
+        FOREACH_STRING(j, "hvc0", "xvc0", "hvsi0", "sclp_line0", "ttysclp0", "3270!tty1") {
                 const char *p;
 
                 p = strjoina("/sys/class/tty/", j);

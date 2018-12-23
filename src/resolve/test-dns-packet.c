@@ -18,7 +18,7 @@
 #include "tests.h"
 #include "unaligned.h"
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
+#define HASH_KEY SD_ID128_MAKE(d3, 1e, 48, 90, 4b, fa, 4c, fe, af, 9d, d5, a1, d7, 2e, 8a, b1)
 
 static void verify_rr_copy(DnsResourceRecord *rr) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
@@ -41,7 +41,7 @@ static uint64_t hash(DnsResourceRecord *rr) {
         return siphash24_finalize(&state);
 }
 
-static void test_packet_from_file(const char* filename, bool canonical) {
+static void test_packet_from_file(const char *filename, bool canonical) {
         _cleanup_free_ char *data = NULL;
         size_t data_size, packet_size, offset;
 

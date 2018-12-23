@@ -34,12 +34,7 @@
 #include "user-util.h"
 #include "util.h"
 
-int user_new(User **ret,
-             Manager *m,
-             uid_t uid,
-             gid_t gid,
-             const char *name,
-             const char *home) {
+int user_new(User **ret, Manager *m, uid_t uid, gid_t gid, const char *name, const char *home) {
 
         _cleanup_(user_freep) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
@@ -49,11 +44,11 @@ int user_new(User **ret,
         assert(m);
         assert(name);
 
-        u = new(User, 1);
+        u = new (User, 1);
         if (!u)
                 return -ENOMEM;
 
-        *u = (User) {
+        *u = (User){
                 .manager = m,
                 .uid = uid,
                 .gid = gid,
@@ -68,10 +63,10 @@ int user_new(User **ret,
         if (!u->home)
                 return -ENOMEM;
 
-        if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
+        if (asprintf(&u->state_file, "/run/systemd/users/" UID_FMT, uid) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
+        if (asprintf(&u->runtime_path, "/run/user/" UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         xsprintf(lu, UID_FMT, uid);
@@ -165,8 +160,8 @@ static int user_save_internal(User *u) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "NAME=%s\n"
-                "STATE=%s\n"         /* friendly user-facing state */
-                "STOPPING=%s\n",     /* low-level state */
+                "STATE=%s\n"     /* friendly user-facing state */
+                "STOPPING=%s\n", /* low-level state */
                 u->name,
                 user_state_to_string(user_get_state(u)),
                 yes_no(u->stopping));
@@ -183,14 +178,14 @@ static int user_save_internal(User *u) {
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
-                        "REALTIME="USEC_FMT"\n"
-                        "MONOTONIC="USEC_FMT"\n",
+                        "REALTIME=" USEC_FMT
+                        "\n"
+                        "MONOTONIC=" USEC_FMT "\n",
                         u->timestamp.realtime,
                         u->timestamp.monotonic);
 
         if (u->last_session_timestamp != USEC_INFINITY)
-                fprintf(f, "LAST_SESSION_TIMESTAMP=" USEC_FMT "\n",
-                        u->last_session_timestamp);
+                fprintf(f, "LAST_SESSION_TIMESTAMP=" USEC_FMT "\n", u->last_session_timestamp);
 
         if (u->sessions) {
                 Session *i;
@@ -314,12 +309,18 @@ int user_load(User *u) {
 
         assert(u);
 
-        r = parse_env_file(NULL, u->state_file,
-                           "SERVICE_JOB",            &u->service_job,
-                           "STOPPING",               &stopping,
-                           "REALTIME",               &realtime,
-                           "MONOTONIC",              &monotonic,
-                           "LAST_SESSION_TIMESTAMP", &last_session_timestamp);
+        r = parse_env_file(NULL,
+                           u->state_file,
+                           "SERVICE_JOB",
+                           &u->service_job,
+                           "STOPPING",
+                           &stopping,
+                           "REALTIME",
+                           &realtime,
+                           "MONOTONIC",
+                           &monotonic,
+                           "LAST_SESSION_TIMESTAMP",
+                           &last_session_timestamp);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -556,7 +557,8 @@ static bool user_unit_active(User *u) {
 
                 r = manager_unit_is_active(u->manager, i, &error);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
+                        log_debug_errno(
+                                r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
                 if (r != 0)
                         return true;
         }
@@ -580,8 +582,7 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
                 if (u->manager->user_stop_delay == USEC_INFINITY)
                         return false; /* Leave it around forever! */
-                if (u->manager->user_stop_delay > 0 &&
-                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
+                if (u->manager->user_stop_delay > 0 && now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
                         return false; /* Leave it around for a bit longer. */
         }
 
@@ -597,7 +598,10 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
                 r = manager_job_is_active(u->manager, u->service_job, &error);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s", u->service_job, bus_error_message(&error, r));
+                        log_debug_errno(r,
+                                        "Failed to determine whether job '%s' is pending, ignoring: %s",
+                                        u->service_job,
+                                        bus_error_message(&error, r));
                 if (r != 0)
                         return false;
         }
@@ -667,12 +671,8 @@ static bool elect_display_filter(Session *s) {
 static int elect_display_compare(Session *s1, Session *s2) {
         /* Indexed by SessionType. Lower numbers mean more preferred. */
         const int type_ranks[_SESSION_TYPE_MAX] = {
-                [SESSION_UNSPECIFIED] = 0,
-                [SESSION_TTY] = -2,
-                [SESSION_X11] = -3,
-                [SESSION_WAYLAND] = -3,
-                [SESSION_MIR] = -3,
-                [SESSION_WEB] = -1,
+                [SESSION_UNSPECIFIED] = 0, [SESSION_TTY] = -2, [SESSION_X11] = -3,
+                [SESSION_WAYLAND] = -3,    [SESSION_MIR] = -3, [SESSION_WEB] = -1,
         };
 
         /* Calculate the partial order relationship between s1 and s2,
@@ -763,8 +763,10 @@ void user_update_last_session_timer(User *u) {
         r = sd_event_add_time(u->manager->event,
                               &u->timer_event_source,
                               CLOCK_MONOTONIC,
-                              usec_add(u->last_session_timestamp, u->manager->user_stop_delay), 0,
-                              user_stop_timeout_callback, u);
+                              usec_add(u->last_session_timestamp, u->manager->user_stop_delay),
+                              0,
+                              user_stop_timeout_callback,
+                              u);
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
 
@@ -777,28 +779,22 @@ void user_update_last_session_timer(User *u) {
         }
 }
 
-static const char* const user_state_table[_USER_STATE_MAX] = {
-        [USER_OFFLINE] = "offline",
-        [USER_OPENING] = "opening",
-        [USER_LINGERING] = "lingering",
-        [USER_ONLINE] = "online",
-        [USER_ACTIVE] = "active",
-        [USER_CLOSING] = "closing"
-};
+static const char *const user_state_table[_USER_STATE_MAX] = { [USER_OFFLINE] = "offline",     [USER_OPENING] = "opening",
+                                                               [USER_LINGERING] = "lingering", [USER_ONLINE] = "online",
+                                                               [USER_ACTIVE] = "active",       [USER_CLOSING] = "closing" };
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);
 
-int config_parse_tmpfs_size(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_tmpfs_size(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
         uint64_t *sz = data;
         int r;
@@ -818,7 +814,7 @@ int config_parse_tmpfs_size(
                 /* If the passed argument was not a percentage, or out of range, parse as byte size */
 
                 r = parse_size(rvalue, 1024, &k);
-                if (r >= 0 && (k <= 0 || (uint64_t) (size_t) k != k))
+                if (r >= 0 && (k <= 0 || (uint64_t)(size_t) k != k))
                         r = -ERANGE;
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
@@ -831,29 +827,27 @@ int config_parse_tmpfs_size(
         return 0;
 }
 
-int config_parse_compat_user_tasks_max(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_compat_user_tasks_max(const char *unit,
+                                       const char *filename,
+                                       unsigned line,
+                                       const char *section,
+                                       unsigned section_line,
+                                       const char *lvalue,
+                                       int ltype,
+                                       const char *rvalue,
+                                       void *data,
+                                       void *userdata) {
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        log_syntax(unit, LOG_NOTICE, filename, line, 0,
-                   "Support for option %s= has been removed.",
-                   lvalue);
-        log_info("Hint: try creating /etc/systemd/system/user-.slice.d/50-limits.conf with:\n"
-                 "        [Slice]\n"
-                 "        TasksMax=%s",
-                 rvalue);
+        log_syntax(unit, LOG_NOTICE, filename, line, 0, "Support for option %s= has been removed.", lvalue);
+        log_info(
+                "Hint: try creating /etc/systemd/system/user-.slice.d/50-limits.conf with:\n"
+                "        [Slice]\n"
+                "        TasksMax=%s",
+                rvalue);
         return 0;
 }

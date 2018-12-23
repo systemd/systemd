@@ -40,16 +40,12 @@ const sd_bus_vtable bus_swap_vtable[] = {
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_VTABLE("ExecActivate", offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_VTABLE("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_VTABLE(
+                "ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_VTABLE_END
 };
 
-int bus_swap_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_swap_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Swap *s = SWAP(u);
 

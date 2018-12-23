@@ -98,20 +98,10 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
-static const char* const user_data_unit_paths[] = {
-        "/usr/local/lib/systemd/user",
-        "/usr/local/share/systemd/user",
-        USER_DATA_UNIT_PATH,
-        "/usr/lib/systemd/user",
-        "/usr/share/systemd/user",
-        NULL
-};
+static const char *const user_data_unit_paths[] = { "/usr/local/lib/systemd/user", "/usr/local/share/systemd/user", USER_DATA_UNIT_PATH,
+                                                    "/usr/lib/systemd/user",       "/usr/share/systemd/user",       NULL };
 
-static const char* const user_config_unit_paths[] = {
-        USER_CONFIG_UNIT_PATH,
-        "/etc/systemd/user",
-        NULL
-};
+static const char *const user_config_unit_paths[] = { USER_CONFIG_UNIT_PATH, "/etc/systemd/user", NULL };
 
 int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         /* Implement the mechanisms defined in
@@ -136,8 +126,7 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         if (e)
                 data_dirs = strv_split(e, ":");
         else
-                data_dirs = strv_new("/usr/local/share",
-                                     "/usr/share");
+                data_dirs = strv_new("/usr/local/share", "/usr/share");
         if (!data_dirs)
                 return -ENOMEM;
 
@@ -147,17 +136,16 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
         return 0;
 }
 
-static char** user_dirs(
-                const char *persistent_config,
-                const char *runtime_config,
-                const char *global_persistent_config,
-                const char *global_runtime_config,
-                const char *generator,
-                const char *generator_early,
-                const char *generator_late,
-                const char *transient,
-                const char *persistent_control,
-                const char *runtime_control) {
+static char **user_dirs(const char *persistent_config,
+                        const char *runtime_config,
+                        const char *global_persistent_config,
+                        const char *global_runtime_config,
+                        const char *generator,
+                        const char *generator_early,
+                        const char *generator_late,
+                        const char *transient,
+                        const char *persistent_control,
+                        const char *runtime_control) {
 
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
@@ -195,7 +183,7 @@ static char** user_dirs(
         if (strv_extend(&res, global_persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
+        if (strv_extend_strv(&res, (char **) user_config_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, runtime_config) < 0)
@@ -213,7 +201,7 @@ static char** user_dirs(
         if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
                 return NULL;
 
-        if (strv_extend_strv(&res, (char**) user_data_unit_paths, false) < 0)
+        if (strv_extend_strv(&res, (char **) user_data_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, generator_late) < 0)
@@ -228,21 +216,16 @@ static char** user_dirs(
 bool path_is_user_data_dir(const char *path) {
         assert(path);
 
-        return strv_contains((char**) user_data_unit_paths, path);
+        return strv_contains((char **) user_data_unit_paths, path);
 }
 
 bool path_is_user_config_dir(const char *path) {
         assert(path);
 
-        return strv_contains((char**) user_config_unit_paths, path);
+        return strv_contains((char **) user_config_unit_paths, path);
 }
 
-static int acquire_generator_dirs(
-                UnitFileScope scope,
-                const char *tempdir,
-                char **generator,
-                char **generator_early,
-                char **generator_late) {
+static int acquire_generator_dirs(UnitFileScope scope, const char *tempdir, char **generator, char **generator_early, char **generator_late) {
 
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
         const char *prefix;
@@ -289,10 +272,7 @@ static int acquire_generator_dirs(
         return 0;
 }
 
-static int acquire_transient_dir(
-                UnitFileScope scope,
-                const char *tempdir,
-                char **ret) {
+static int acquire_transient_dir(UnitFileScope scope, const char *tempdir, char **ret) {
 
         char *transient;
 
@@ -375,7 +355,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
 
         switch (scope) {
 
-        case UNIT_FILE_SYSTEM:  {
+        case UNIT_FILE_SYSTEM: {
                 _cleanup_free_ char *b = NULL;
 
                 a = strdup("/etc/systemd/system.control");
@@ -420,10 +400,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
         return 0;
 }
 
-static int acquire_attached_dirs(
-                UnitFileScope scope,
-                char **ret_persistent,
-                char **ret_runtime) {
+static int acquire_attached_dirs(UnitFileScope scope, char **ret_persistent, char **ret_runtime) {
 
         _cleanup_free_ char *a = NULL, *b = NULL;
 
@@ -482,21 +459,13 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         return 0;
 }
 
-int lookup_paths_init(
-                LookupPaths *p,
-                UnitFileScope scope,
-                LookupPathsFlags flags,
-                const char *root_dir) {
+int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir) {
 
         _cleanup_(rmdir_and_freep) char *tempdir = NULL;
-        _cleanup_free_ char
-                *root = NULL,
-                *persistent_config = NULL, *runtime_config = NULL,
-                *global_persistent_config = NULL, *global_runtime_config = NULL,
-                *generator = NULL, *generator_early = NULL, *generator_late = NULL,
-                *transient = NULL,
-                *persistent_control = NULL, *runtime_control = NULL,
-                *persistent_attached = NULL, *runtime_attached = NULL;
+        _cleanup_free_ char *root = NULL, *persistent_config = NULL, *runtime_config = NULL, *global_persistent_config = NULL,
+                            *global_runtime_config = NULL, *generator = NULL, *generator_early = NULL, *generator_late = NULL,
+                            *transient = NULL, *persistent_control = NULL, *runtime_control = NULL, *persistent_attached = NULL,
+                            *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         const char *e;
@@ -544,8 +513,7 @@ int lookup_paths_init(
 
         if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
-                r = acquire_generator_dirs(scope, tempdir,
-                                           &generator, &generator_early, &generator_late);
+                r = acquire_generator_dirs(scope, tempdir, &generator, &generator_early, &generator_late);
                 if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENXIO))
                         return r;
         }
@@ -597,56 +565,61 @@ int lookup_paths_init(
 
                 case UNIT_FILE_SYSTEM:
                         add = strv_new(
-                                        /* If you modify this you also want to modify
-                                         * systemdsystemunitpath= in systemd.pc.in! */
-                                        STRV_IFNOTNULL(persistent_control),
-                                        STRV_IFNOTNULL(runtime_control),
-                                        STRV_IFNOTNULL(transient),
-                                        STRV_IFNOTNULL(generator_early),
-                                        persistent_config,
-                                        SYSTEM_CONFIG_UNIT_PATH,
-                                        "/etc/systemd/system",
-                                        STRV_IFNOTNULL(persistent_attached),
-                                        runtime_config,
-                                        "/run/systemd/system",
-                                        STRV_IFNOTNULL(runtime_attached),
-                                        STRV_IFNOTNULL(generator),
-                                        "/usr/local/lib/systemd/system",
-                                        SYSTEM_DATA_UNIT_PATH,
-                                        "/usr/lib/systemd/system",
-                                        STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
-                                        STRV_IFNOTNULL(generator_late));
+                                /* If you modify this you also want to modify
+                                 * systemdsystemunitpath= in systemd.pc.in! */
+                                STRV_IFNOTNULL(persistent_control),
+                                STRV_IFNOTNULL(runtime_control),
+                                STRV_IFNOTNULL(transient),
+                                STRV_IFNOTNULL(generator_early),
+                                persistent_config,
+                                SYSTEM_CONFIG_UNIT_PATH,
+                                "/etc/systemd/system",
+                                STRV_IFNOTNULL(persistent_attached),
+                                runtime_config,
+                                "/run/systemd/system",
+                                STRV_IFNOTNULL(runtime_attached),
+                                STRV_IFNOTNULL(generator),
+                                "/usr/local/lib/systemd/system",
+                                SYSTEM_DATA_UNIT_PATH,
+                                "/usr/lib/systemd/system",
+                                STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
+                                STRV_IFNOTNULL(generator_late));
                         break;
 
                 case UNIT_FILE_GLOBAL:
                         add = strv_new(
-                                        /* If you modify this you also want to modify
-                                         * systemduserunitpath= in systemd.pc.in, and
-                                         * the arrays in user_dirs() above! */
-                                        STRV_IFNOTNULL(persistent_control),
-                                        STRV_IFNOTNULL(runtime_control),
-                                        STRV_IFNOTNULL(transient),
-                                        STRV_IFNOTNULL(generator_early),
-                                        persistent_config,
-                                        USER_CONFIG_UNIT_PATH,
-                                        "/etc/systemd/user",
-                                        runtime_config,
-                                        "/run/systemd/user",
-                                        STRV_IFNOTNULL(generator),
-                                        "/usr/local/share/systemd/user",
-                                        "/usr/share/systemd/user",
-                                        "/usr/local/lib/systemd/user",
-                                        USER_DATA_UNIT_PATH,
-                                        "/usr/lib/systemd/user",
-                                        STRV_IFNOTNULL(generator_late));
+                                /* If you modify this you also want to modify
+                                 * systemduserunitpath= in systemd.pc.in, and
+                                 * the arrays in user_dirs() above! */
+                                STRV_IFNOTNULL(persistent_control),
+                                STRV_IFNOTNULL(runtime_control),
+                                STRV_IFNOTNULL(transient),
+                                STRV_IFNOTNULL(generator_early),
+                                persistent_config,
+                                USER_CONFIG_UNIT_PATH,
+                                "/etc/systemd/user",
+                                runtime_config,
+                                "/run/systemd/user",
+                                STRV_IFNOTNULL(generator),
+                                "/usr/local/share/systemd/user",
+                                "/usr/share/systemd/user",
+                                "/usr/local/lib/systemd/user",
+                                USER_DATA_UNIT_PATH,
+                                "/usr/lib/systemd/user",
+                                STRV_IFNOTNULL(generator_late));
                         break;
 
                 case UNIT_FILE_USER:
-                        add = user_dirs(persistent_config, runtime_config,
-                                        global_persistent_config, global_runtime_config,
-                                        generator, generator_early, generator_late,
+                        add = user_dirs(persistent_config,
+                                        runtime_config,
+                                        global_persistent_config,
+                                        global_runtime_config,
+                                        generator,
+                                        generator_early,
+                                        generator_late,
                                         transient,
-                                        persistent_control, runtime_control);
+                                        persistent_control,
+                                        runtime_control);
                         break;
 
                 default:
@@ -705,7 +678,7 @@ int lookup_paths_init(
         if (r < 0)
                 return -ENOMEM;
 
-        *p = (LookupPaths) {
+        *p = (LookupPaths){
                 .search_path = strv_uniq(paths),
 
                 .persistent_config = TAKE_PTR(persistent_config),
@@ -775,8 +748,7 @@ int lookup_paths_reduce(LookupPaths *p) {
                 size_t k;
 
                 /* Never strip the transient and control directories from the path */
-                if (path_equal_ptr(p->search_path[c], p->transient) ||
-                    path_equal_ptr(p->search_path[c], p->persistent_control) ||
+                if (path_equal_ptr(p->search_path[c], p->transient) || path_equal_ptr(p->search_path[c], p->persistent_control) ||
                     path_equal_ptr(p->search_path[c], p->runtime_control)) {
                         c++;
                         continue;
@@ -793,14 +765,13 @@ int lookup_paths_reduce(LookupPaths *p) {
                 }
 
                 for (k = 0; k < n_stats; k++)
-                        if (stats[k].st_dev == st.st_dev &&
-                            stats[k].st_ino == st.st_ino)
+                        if (stats[k].st_dev == st.st_dev && stats[k].st_ino == st.st_ino)
                                 break;
 
                 if (k < n_stats) /* Is there already an entry with the same device/inode? */
                         goto remove_item;
 
-                if (!GREEDY_REALLOC(stats, allocated, n_stats+1))
+                if (!GREEDY_REALLOC(stats, allocated, n_stats + 1))
                         return -ENOMEM;
 
                 stats[n_stats++] = st;
@@ -809,9 +780,7 @@ int lookup_paths_reduce(LookupPaths *p) {
 
         remove_item:
                 free(p->search_path[c]);
-                memmove(p->search_path + c,
-                        p->search_path + c + 1,
-                        (strv_length(p->search_path + c + 1) + 1) * sizeof(char*));
+                memmove(p->search_path + c, p->search_path + c + 1, (strv_length(p->search_path + c + 1) + 1) * sizeof(char *));
         }
 
         if (strv_isempty(p->search_path)) {
@@ -870,14 +839,14 @@ void lookup_paths_flush_generator(LookupPaths *p) {
         /* Flush the generated unit files in full */
 
         if (p->generator)
-                (void) rm_rf(p->generator, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p->generator, REMOVE_ROOT | REMOVE_PHYSICAL);
         if (p->generator_early)
-                (void) rm_rf(p->generator_early, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p->generator_early, REMOVE_ROOT | REMOVE_PHYSICAL);
         if (p->generator_late)
-                (void) rm_rf(p->generator_late, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p->generator_late, REMOVE_ROOT | REMOVE_PHYSICAL);
 
         if (p->temporary_dir)
-                (void) rm_rf(p->temporary_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p->temporary_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 char **generator_binary_paths(UnitFileScope scope) {

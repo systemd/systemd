@@ -13,10 +13,10 @@
 #include "sparse-endian.h"
 #include "virt.h"
 
-#define SYSTEMD_PEN    43793
-#define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
-#define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
-#define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
+#define SYSTEMD_PEN 43793
+#define HASH_KEY SD_ID128_MAKE(80, 11, 8c, c2, fe, 4a, 03, ee, 3e, d6, 0c, 6f, 36, 39, 14, 09)
+#define APPLICATION_ID SD_ID128_MAKE(a5, 0a, d1, 12, bf, 60, 45, 77, a2, fb, 74, 1a, b1, 95, 5b, 03)
+#define USEC_2000 ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict) {
         struct duid d;
@@ -72,7 +72,7 @@ int dhcp_identifier_set_duid_llt(struct duid *duid, usec_t t, const uint8_t *add
         if (t < USEC_2000)
                 time_from_2000y = 0;
         else
-                time_from_2000y = (uint16_t) (((t - USEC_2000) / USEC_PER_SEC) & 0xffffffff);
+                time_from_2000y = (uint16_t)(((t - USEC_2000) / USEC_PER_SEC) & 0xffffffff);
 
         unaligned_write_be16(&duid->type, DUID_TYPE_LLT);
         unaligned_write_be16(&duid->llt.htype, arp_type);
@@ -154,12 +154,7 @@ int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len) {
         return 0;
 }
 
-int dhcp_identifier_set_iaid(
-                int ifindex,
-                const uint8_t *mac,
-                size_t mac_len,
-                bool legacy_unstable_byteorder,
-                void *_id) {
+int dhcp_identifier_set_iaid(int ifindex, const uint8_t *mac, size_t mac_len, bool legacy_unstable_byteorder, void *_id) {
         /* name is a pointer to memory in the sd_device struct, so must
          * have the same scope */
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;

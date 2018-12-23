@@ -180,7 +180,7 @@ static void test_chase_symlinks(void) {
         assert_se(streq(result, "/etc"));
         result = mfree(result);
 
-        r = chase_symlinks("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &result);
+        r = chase_symlinks("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(streq(result, "/test-chase.fsldajfl"));
         result = mfree(result);
@@ -268,7 +268,7 @@ static void test_chase_symlinks(void) {
 
                 assert_se(pfd >= 0);
 
-                fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
+                fd = fd_reopen(pfd, O_RDONLY | O_CLOEXEC);
                 assert_se(fd >= 0);
                 safe_close(pfd);
 
@@ -282,7 +282,7 @@ static void test_chase_symlinks(void) {
         p = strjoina(temp, "/target");
         q = strjoina(temp, "/symlink");
         assert_se(symlink(p, q) >= 0);
-        pfd = chase_symlinks(q, NULL, CHASE_OPEN|CHASE_NOFOLLOW, &result);
+        pfd = chase_symlinks(q, NULL, CHASE_OPEN | CHASE_NOFOLLOW, &result);
         assert_se(pfd > 0);
         assert_se(path_equal(result, q));
         assert_se(fstat(pfd, &st) >= 0);
@@ -294,7 +294,7 @@ static void test_chase_symlinks(void) {
         assert_se(symlink("s2", q) >= 0);
         p = strjoina(temp, "/s2");
         assert_se(symlink("nonexistent", p) >= 0);
-        pfd = chase_symlinks(q, NULL, CHASE_OPEN|CHASE_NOFOLLOW, &result);
+        pfd = chase_symlinks(q, NULL, CHASE_OPEN | CHASE_NOFOLLOW, &result);
         assert_se(pfd > 0);
         assert_se(path_equal(result, q));
         assert_se(fstat(pfd, &st) >= 0);
@@ -344,8 +344,8 @@ static void test_chase_symlinks(void) {
         assert_se(streq("/usr", result));
         result = mfree(result);
 
- cleanup:
-        assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+cleanup:
+        assert_se(rm_rf(temp, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_unlink_noerrno(void) {
@@ -402,7 +402,7 @@ static void test_readlink_and_make_absolute(void) {
                 assert_se(chdir(pwd) >= 0);
         }
 
-        assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        assert_se(rm_rf(tempdir, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_get_files_in_directory(void) {
@@ -456,17 +456,17 @@ static void test_var_tmp(void) {
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
         assert_se(streq(tmp_dir, "/var/tmp"));
 
-        if (tmpdir_backup)  {
+        if (tmpdir_backup) {
                 assert_se(setenv("TMPDIR", tmpdir_backup, true) >= 0);
                 assert_se(streq(getenv("TMPDIR"), tmpdir_backup));
         }
 
-        if (temp_backup)  {
+        if (temp_backup) {
                 assert_se(setenv("TEMP", temp_backup, true) >= 0);
                 assert_se(streq(getenv("TEMP"), temp_backup));
         }
 
-        if (tmp_backup)  {
+        if (tmp_backup) {
                 assert_se(setenv("TMP", tmp_backup, true) >= 0);
                 assert_se(streq(getenv("TMP"), tmp_backup));
         }
@@ -494,7 +494,7 @@ static void test_access_fd(void) {
         a = strjoina(arg_test_dir ?: "/tmp", "/access-fd.XXXXXX");
         assert_se(mkdtemp_malloc(a, &p) >= 0);
 
-        fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        fd = open(p, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
         assert_se(fd >= 0);
 
         assert_se(access_fd(fd, R_OK) >= 0);
@@ -624,7 +624,7 @@ static void test_unlinkat_deallocate(void) {
 
         assert_se(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p) >= 0);
 
-        fd = open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600);
+        fd = open(p, O_WRONLY | O_CLOEXEC | O_CREAT | O_EXCL, 0600);
         assert_se(fd >= 0);
 
         assert_se(write(fd, "hallo\n", 6) == 6);
@@ -655,14 +655,7 @@ static void test_fsync_directory_of_file(void) {
 }
 
 static void test_rename_noreplace(void) {
-        static const char* const table[] = {
-                "/reg",
-                "/dir",
-                "/fifo",
-                "/socket",
-                "/symlink",
-                NULL
-        };
+        static const char *const table[] = { "/reg", "/dir", "/fifo", "/socket", "/symlink", NULL };
 
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
         const char *j = NULL;
@@ -689,7 +682,7 @@ static void test_rename_noreplace(void) {
         j = strjoina(z, table[4]);
         (void) symlink("foobar", j);
 
-        STRV_FOREACH(a, (char**) table) {
+        STRV_FOREACH(a, (char **) table) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
                 x = strjoin(z, *a);
@@ -700,7 +693,7 @@ static void test_rename_noreplace(void) {
                         continue;
                 }
 
-                STRV_FOREACH(b, (char**) table) {
+                STRV_FOREACH(b, (char **) table) {
                         _cleanup_free_ char *w = NULL;
 
                         w = strjoin(w, *b);

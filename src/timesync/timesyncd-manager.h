@@ -21,8 +21,8 @@ typedef struct Manager Manager;
  * "A client MUST NOT under any conditions use a poll interval less
  * than 15 seconds."
  */
-#define NTP_POLL_INTERVAL_MIN_USEC      (32 * USEC_PER_SEC)
-#define NTP_POLL_INTERVAL_MAX_USEC      (2048 * USEC_PER_SEC)
+#define NTP_POLL_INTERVAL_MIN_USEC (32 * USEC_PER_SEC)
+#define NTP_POLL_INTERVAL_MAX_USEC (2048 * USEC_PER_SEC)
 
 struct Manager {
         sd_bus *bus;
@@ -33,7 +33,7 @@ struct Manager {
         LIST_HEAD(ServerName, link_servers);
         LIST_HEAD(ServerName, fallback_servers);
 
-        bool have_fallbacks:1;
+        bool have_fallbacks : 1;
 
         RateLimit ratelimit;
         bool exhausted_servers;
@@ -99,7 +99,7 @@ struct Manager {
 int manager_new(Manager **ret);
 void manager_free(Manager *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 void manager_set_server_name(Manager *m, ServerName *n);
 void manager_set_server_address(Manager *m, ServerAddress *a);

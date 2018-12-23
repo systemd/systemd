@@ -11,7 +11,7 @@
 #include "path-util.h"
 #include "strv.h"
 
-static void closedir_wrapper(void* v) {
+static void closedir_wrapper(void *v) {
         (void) closedir(v);
 }
 
@@ -24,9 +24,9 @@ int safe_glob(const char *path, int flags, glob_t *pglob) {
         if (!pglob->gl_closedir)
                 pglob->gl_closedir = closedir_wrapper;
         if (!pglob->gl_readdir)
-                pglob->gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot;
+                pglob->gl_readdir = (struct dirent * (*) (void *) ) readdir_no_dot;
         if (!pglob->gl_opendir)
-                pglob->gl_opendir = (void *(*)(const char *)) opendir;
+                pglob->gl_opendir = (void *(*) (const char *) ) opendir;
         if (!pglob->gl_lstat)
                 pglob->gl_lstat = lstat;
         if (!pglob->gl_stat)
@@ -53,7 +53,7 @@ int glob_exists(const char *path) {
 
         assert(path);
 
-        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE, &g);
+        k = safe_glob(path, GLOB_NOSORT | GLOB_BRACE, &g);
         if (k == -ENOENT)
                 return false;
         if (k < 0)
@@ -65,7 +65,7 @@ int glob_extend(char ***strv, const char *path) {
         _cleanup_globfree_ glob_t g = {};
         int k;
 
-        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE, &g);
+        k = safe_glob(path, GLOB_NOSORT | GLOB_BRACE, &g);
         if (k < 0)
                 return k;
 

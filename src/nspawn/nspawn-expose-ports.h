@@ -23,4 +23,4 @@ int expose_port_watch_rtnl(sd_event *event, int recv_fd, sd_netlink_message_hand
 int expose_port_send_rtnl(int send_fd);
 
 int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *exposed);
-int expose_port_flush(ExposePort* l, union in_addr_union *exposed);
+int expose_port_flush(ExposePort *l, union in_addr_union *exposed);

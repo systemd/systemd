@@ -14,10 +14,10 @@
 #include "user-util.h"
 #include "util.h"
 
-#define DEFAULT_MAX_USE_LOWER (uint64_t) (1ULL*1024ULL*1024ULL)           /* 1 MiB */
-#define DEFAULT_MAX_USE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
-#define DEFAULT_KEEP_FREE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL) /* 4 GiB */
-#define DEFAULT_KEEP_FREE (uint64_t) (1024ULL*1024ULL)                    /* 1 MB */
+#define DEFAULT_MAX_USE_LOWER (uint64_t)(1ULL * 1024ULL * 1024ULL)             /* 1 MiB */
+#define DEFAULT_MAX_USE_UPPER (uint64_t)(4ULL * 1024ULL * 1024ULL * 1024ULL)   /* 4 GiB */
+#define DEFAULT_KEEP_FREE_UPPER (uint64_t)(4ULL * 1024ULL * 1024ULL * 1024ULL) /* 4 GiB */
+#define DEFAULT_KEEP_FREE (uint64_t)(1024ULL * 1024ULL)                        /* 1 MB */
 
 struct vacuum_candidate {
         unsigned n_files;
@@ -33,13 +33,13 @@ static void vacuum_candidate_free(struct vacuum_candidate *c) {
         free(c);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct vacuum_candidate*, vacuum_candidate_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct vacuum_candidate *, vacuum_candidate_free);
 
 static void vacuum_candidate_hashmap_free(Hashmap *h) {
         hashmap_free_with_destructor(h, vacuum_candidate_free);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap *, vacuum_candidate_hashmap_free);
 
 static int uid_from_file_name(const char *filename, uid_t *uid) {
         const char *p, *e, *u;
@@ -59,7 +59,7 @@ static int uid_from_file_name(const char *filename, uid_t *uid) {
         if (!e)
                 return -EINVAL;
 
-        u = strndupa(p, e-p);
+        u = strndupa(p, e - p);
         return parse_uid(u, uid);
 }
 
@@ -155,7 +155,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (r < 0)
                                 continue;
 
-                        if (fstatat(dirfd(d), de->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (fstatat(dirfd(d), de->d_name, &st, AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW) < 0) {
                                 if (errno == ENOENT)
                                         continue;
 
@@ -166,9 +166,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (!S_ISREG(st.st_mode))
                                 continue;
 
-                        if (exclude_fd >= 0 &&
-                            exclude_st.st_dev == st.st_dev &&
-                            exclude_st.st_ino == st.st_ino)
+                        if (exclude_fd >= 0 && exclude_st.st_dev == st.st_dev && exclude_st.st_ino == st.st_ino)
                                 continue;
 
                         r = hashmap_ensure_allocated(&h, NULL);
@@ -214,9 +212,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
                         c->n_files++;
 
-                        if (!worst ||
-                            worst->n_files < c->n_files ||
-                            (worst->n_files == c->n_files && c->oldest_mtime < worst->oldest_mtime))
+                        if (!worst || worst->n_files < c->n_files || (worst->n_files == c->n_files && c->oldest_mtime < worst->oldest_mtime))
                                 worst = c;
 
                         sum += st.st_blocks * 512;

@@ -51,11 +51,11 @@ static int address_label_new_static(Network *network, const char *filename, unsi
                 }
         }
 
-        label = new(AddressLabel, 1);
+        label = new (AddressLabel, 1);
         if (!label)
                 return -ENOMEM;
 
-        *label = (AddressLabel) {
+        *label = (AddressLabel){
                 .network = network,
         };
 
@@ -105,11 +105,7 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-int address_label_configure(
-                AddressLabel *label,
-                Link *link,
-                link_netlink_message_handler_t callback,
-                bool update) {
+int address_label_configure(AddressLabel *label, Link *link, link_netlink_message_handler_t callback, bool update) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -120,8 +116,7 @@ int address_label_configure(
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &req, RTM_NEWADDRLABEL,
-                                          link->ifindex, AF_INET6);
+        r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &req, RTM_NEWADDRLABEL, link->ifindex, AF_INET6);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
 
@@ -137,9 +132,7 @@ int address_label_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_label_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: address_label_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -184,17 +177,16 @@ int config_parse_address_label_prefix(const char *unit,
         return 0;
 }
 
-int config_parse_address_label(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_address_label(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
 
         _cleanup_(address_label_freep) AddressLabel *n = NULL;
         Network *network = userdata;

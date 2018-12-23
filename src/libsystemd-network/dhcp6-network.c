@@ -55,8 +55,7 @@ int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
         return TAKE_FD(s);
 }
 
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
-                                  const void *packet, size_t len) {
+int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address, const void *packet, size_t len) {
         union sockaddr_union dest = {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(DHCP6_PORT_SERVER),

@@ -7,11 +7,11 @@
 
 /* When we cache a memfd block for reuse, we will truncate blocks
  * longer than this in order not to keep too much data around. */
-#define MEMFD_CACHE_ITEM_SIZE_MAX (128*1024)
+#define MEMFD_CACHE_ITEM_SIZE_MAX (128 * 1024)
 
 /* This determines at which minimum size we prefer sending memfds over
  * sending vectors */
-#define MEMFD_MIN_SIZE (512*1024)
+#define MEMFD_MIN_SIZE (512 * 1024)
 
 struct memfd_cache {
         int fd;

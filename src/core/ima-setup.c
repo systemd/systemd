@@ -36,13 +36,13 @@ int ima_setup(void) {
         }
 
         if (access(IMA_POLICY_PATH, F_OK) < 0) {
-                log_debug_errno(errno, "No IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
+                log_debug_errno(errno, "No IMA custom policy file " IMA_POLICY_PATH ", ignoring: %m");
                 return 0;
         }
 
-        imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
+        imafd = open(IMA_SECFS_POLICY, O_WRONLY | O_CLOEXEC);
         if (imafd < 0) {
-                log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
+                log_error_errno(errno, "Failed to open the IMA kernel interface " IMA_SECFS_POLICY ", ignoring: %m");
                 return 0;
         }
 
@@ -53,15 +53,15 @@ int ima_setup(void) {
         /* fall back to copying the policy line-by-line */
         input = fopen(IMA_POLICY_PATH, "re");
         if (!input) {
-                log_warning_errno(errno, "Failed to open the IMA custom policy file "IMA_POLICY_PATH", ignoring: %m");
+                log_warning_errno(errno, "Failed to open the IMA custom policy file " IMA_POLICY_PATH ", ignoring: %m");
                 return 0;
         }
 
         safe_close(imafd);
 
-        imafd = open(IMA_SECFS_POLICY, O_WRONLY|O_CLOEXEC);
+        imafd = open(IMA_SECFS_POLICY, O_WRONLY | O_CLOEXEC);
         if (imafd < 0) {
-                log_error_errno(errno, "Failed to open the IMA kernel interface "IMA_SECFS_POLICY", ignoring: %m");
+                log_error_errno(errno, "Failed to open the IMA kernel interface " IMA_SECFS_POLICY ", ignoring: %m");
                 return 0;
         }
 
@@ -71,7 +71,7 @@ int ima_setup(void) {
 
                 r = read_line(input, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read the IMA custom policy file "IMA_POLICY_PATH": %m");
+                        return log_error_errno(r, "Failed to read the IMA custom policy file " IMA_POLICY_PATH ": %m");
                 if (r == 0)
                         break;
 
@@ -79,12 +79,11 @@ int ima_setup(void) {
                 lineno++;
 
                 if (len > 0 && write(imafd, line, len) < 0)
-                        return log_error_errno(errno, "Failed to load the IMA custom policy file "IMA_POLICY_PATH"%u: %m",
-                                               lineno);
+                        return log_error_errno(errno, "Failed to load the IMA custom policy file " IMA_POLICY_PATH "%u: %m", lineno);
         }
 
 done:
-        log_info("Successfully loaded the IMA custom policy "IMA_POLICY_PATH".");
+        log_info("Successfully loaded the IMA custom policy " IMA_POLICY_PATH ".");
 #endif /* ENABLE_IMA */
         return 0;
 }

@@ -12,8 +12,7 @@ typedef const struct {
         const char *name;
 } dns_type;
 
-static const struct dns_type_name *
-lookup_dns_type (register const char *str, register GPERF_LEN_TYPE len);
+static const struct dns_type_name *lookup_dns_type(register const char *str, register GPERF_LEN_TYPE len);
 
 #include "dns_type-from-name.h"
 #include "dns_type-to-name.h"
@@ -31,8 +30,7 @@ int dns_type_from_string(const char *s) {
         if (s) {
                 unsigned x;
 
-                if (safe_atou(s, &x) >= 0 &&
-                    x <= UINT16_MAX)
+                if (safe_atou(s, &x) >= 0 && x <= UINT16_MAX)
                         return (int) x;
         }
 
@@ -55,8 +53,7 @@ bool dns_type_is_pseudo(uint16_t type) {
                       DNS_TYPE_IXFR,
                       DNS_TYPE_OPT,
                       DNS_TYPE_TSIG,
-                      DNS_TYPE_TKEY
-        );
+                      DNS_TYPE_TKEY);
 }
 
 bool dns_class_is_pseudo(uint16_t class) {
@@ -84,9 +81,7 @@ bool dns_type_is_zone_transer(uint16_t type) {
 
         /* Zone transfers, either normal or incremental */
 
-        return IN_SET(type,
-                      DNS_TYPE_AXFR,
-                      DNS_TYPE_IXFR);
+        return IN_SET(type, DNS_TYPE_AXFR, DNS_TYPE_IXFR);
 }
 
 bool dns_type_is_valid_rr(uint16_t type) {
@@ -94,10 +89,7 @@ bool dns_type_is_valid_rr(uint16_t type) {
         /* The types valid as RR in packets (but not necessarily
          * stored on servers). */
 
-        return !IN_SET(type,
-                       DNS_TYPE_ANY,
-                       DNS_TYPE_AXFR,
-                       DNS_TYPE_IXFR);
+        return !IN_SET(type, DNS_TYPE_ANY, DNS_TYPE_AXFR, DNS_TYPE_IXFR);
 }
 
 bool dns_class_is_valid_rr(uint16_t class) {
@@ -112,15 +104,8 @@ bool dns_type_may_redirect(uint16_t type) {
         if (dns_type_is_pseudo(type))
                 return false;
 
-        return !IN_SET(type,
-                       DNS_TYPE_CNAME,
-                       DNS_TYPE_DNAME,
-                       DNS_TYPE_NSEC3,
-                       DNS_TYPE_NSEC,
-                       DNS_TYPE_RRSIG,
-                       DNS_TYPE_NXT,
-                       DNS_TYPE_SIG,
-                       DNS_TYPE_KEY);
+        return !IN_SET(
+                type, DNS_TYPE_CNAME, DNS_TYPE_DNAME, DNS_TYPE_NSEC3, DNS_TYPE_NSEC, DNS_TYPE_RRSIG, DNS_TYPE_NXT, DNS_TYPE_SIG, DNS_TYPE_KEY);
 }
 
 bool dns_type_may_wildcard(uint16_t type) {
@@ -144,19 +129,13 @@ bool dns_type_apex_only(uint16_t type) {
 
         return IN_SET(type,
                       DNS_TYPE_SOA,
-                      DNS_TYPE_NS,            /* this one can appear elsewhere, too, but not signed */
+                      DNS_TYPE_NS, /* this one can appear elsewhere, too, but not signed */
                       DNS_TYPE_DNSKEY,
                       DNS_TYPE_NSEC3PARAM);
 }
 
 bool dns_type_is_dnssec(uint16_t type) {
-        return IN_SET(type,
-                      DNS_TYPE_DS,
-                      DNS_TYPE_DNSKEY,
-                      DNS_TYPE_RRSIG,
-                      DNS_TYPE_NSEC,
-                      DNS_TYPE_NSEC3,
-                      DNS_TYPE_NSEC3PARAM);
+        return IN_SET(type, DNS_TYPE_DS, DNS_TYPE_DNSKEY, DNS_TYPE_RRSIG, DNS_TYPE_NSEC, DNS_TYPE_NSEC3, DNS_TYPE_NSEC3PARAM);
 }
 
 bool dns_type_is_obsolete(uint16_t type) {
@@ -247,7 +226,7 @@ int dns_class_from_string(const char *s) {
         return _DNS_CLASS_INVALID;
 }
 
-const char* tlsa_cert_usage_to_string(uint8_t cert_usage) {
+const char *tlsa_cert_usage_to_string(uint8_t cert_usage) {
 
         switch (cert_usage) {
 
@@ -270,10 +249,10 @@ const char* tlsa_cert_usage_to_string(uint8_t cert_usage) {
                 return "Private use";
         }
 
-        return NULL;  /* clang cannot count that we covered everything */
+        return NULL; /* clang cannot count that we covered everything */
 }
 
-const char* tlsa_selector_to_string(uint8_t selector) {
+const char *tlsa_selector_to_string(uint8_t selector) {
         switch (selector) {
 
         case 0:
@@ -292,7 +271,7 @@ const char* tlsa_selector_to_string(uint8_t selector) {
         return NULL;
 }
 
-const char* tlsa_matching_type_to_string(uint8_t selector) {
+const char *tlsa_matching_type_to_string(uint8_t selector) {
 
         switch (selector) {
 

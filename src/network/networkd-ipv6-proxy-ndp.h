@@ -10,17 +10,17 @@ typedef struct IPv6ProxyNDPAddress IPv6ProxyNDPAddress;
 typedef struct Link Link;
 
 struct IPv6ProxyNDPAddress {
-    Network *network;
-    struct in6_addr in_addr;
+        Network *network;
+        struct in6_addr in_addr;
 
-    LIST_FIELDS(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
+        LIST_FIELDS(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
 };
 
-int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress ** ipv6_proxy_ndp_address);
+int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **ipv6_proxy_ndp_address);
 void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address);
 int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy_ndp_address);
 int ipv6_proxy_ndp_addresses_configure(Link *link);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6ProxyNDPAddress*, ipv6_proxy_ndp_address_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6ProxyNDPAddress *, ipv6_proxy_ndp_address_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_proxy_ndp_address);

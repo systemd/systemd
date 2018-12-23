@@ -34,8 +34,7 @@ static void test_string_erase(void) {
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
         int r;
 
-        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
-                  __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
+        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)", __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
 
         r = free_and_strndup(t, src, l);
         assert_se(streq_ptr(*t, expected));
@@ -48,43 +47,30 @@ static void test_free_and_strndup(void) {
                 size_t len;
                 const char *expected;
         } cases[] = {
-                     {"abc", 0, ""},
-                     {"abc", 0, ""},
-                     {"abc", 1, "a"},
-                     {"abc", 2, "ab"},
-                     {"abc", 3, "abc"},
-                     {"abc", 4, "abc"},
-                     {"abc", 5, "abc"},
-                     {"abc", 5, "abc"},
-                     {"abc", 4, "abc"},
-                     {"abc", 3, "abc"},
-                     {"abc", 2, "ab"},
-                     {"abc", 1, "a"},
-                     {"abc", 0, ""},
+                { "abc", 0, "" },    { "abc", 0, "" },
+                { "abc", 1, "a" },   { "abc", 2, "ab" },
+                { "abc", 3, "abc" }, { "abc", 4, "abc" },
+                { "abc", 5, "abc" }, { "abc", 5, "abc" },
+                { "abc", 4, "abc" }, { "abc", 3, "abc" },
+                { "abc", 2, "ab" },  { "abc", 1, "a" },
+                { "abc", 0, "" },
 
-                     {"", 0, ""},
-                     {"", 1, ""},
-                     {"", 2, ""},
-                     {"", 0, ""},
-                     {"", 1, ""},
-                     {"", 2, ""},
-                     {"", 2, ""},
-                     {"", 1, ""},
-                     {"", 0, ""},
+                { "", 0, "" },       { "", 1, "" },
+                { "", 2, "" },       { "", 0, "" },
+                { "", 1, "" },       { "", 2, "" },
+                { "", 2, "" },       { "", 1, "" },
+                { "", 0, "" },
 
-                     {NULL, 0, NULL},
+                { NULL, 0, NULL },
 
-                     {"foo", 3, "foo"},
-                     {"foobar", 6, "foobar"},
+                { "foo", 3, "foo" }, { "foobar", 6, "foobar" },
         };
 
         _cleanup_free_ char *t = NULL;
         const char *prev_expected = t;
 
         for (unsigned i = 0; i < ELEMENTSOF(cases); i++) {
-                test_free_and_strndup_one(&t,
-                                          cases[i].src, cases[i].len, cases[i].expected,
-                                          !streq_ptr(cases[i].expected, prev_expected));
+                test_free_and_strndup_one(&t, cases[i].src, cases[i].len, cases[i].expected, !streq_ptr(cases[i].expected, prev_expected));
                 prev_expected = t;
         }
 }
@@ -358,21 +344,13 @@ static void test_foreach_word(void) {
         size_t l;
         int i = 0;
         const char test[] = "test abc d\te   f   ";
-        const char * const expected[] = {
-                "test",
-                "abc",
-                "d",
-                "e",
-                "f",
-                "",
-                NULL
-        };
+        const char *const expected[] = { "test", "abc", "d", "e", "f", "", NULL };
 
         FOREACH_WORD(word, l, test, state)
-                assert_se(strneq(expected[i++], word, l));
+        assert_se(strneq(expected[i++], word, l));
 }
 
-static void check(const char *test, char** expected, bool trailing) {
+static void check(const char *test, char **expected, bool trailing) {
         int i = 0, r;
 
         printf("<<<%s>>>\n", test);
@@ -395,28 +373,11 @@ static void check(const char *test, char** expected, bool trailing) {
 }
 
 static void test_foreach_word_quoted(void) {
-        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"",
-              STRV_MAKE("test",
-                        "a",
-                        "b",
-                        "c",
-                        "d",
-                        "e",
-                        "",
-                        "",
-                        "hhh",
-                        "",
-                        "",
-                        "a b c"),
-              false);
+        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"", STRV_MAKE("test", "a", "b", "c", "d", "e", "", "", "hhh", "", "", "a b c"), false);
 
-        check("test \"xxx",
-              STRV_MAKE("test"),
-              true);
+        check("test \"xxx", STRV_MAKE("test"), true);
 
-        check("test\\",
-              STRV_MAKE_EMPTY,
-              true);
+        check("test\\", STRV_MAKE_EMPTY, true);
 }
 
 static void test_endswith(void) {
@@ -449,10 +410,7 @@ static void test_delete_chars(void) {
 
 static void test_delete_trailing_chars(void) {
 
-        char *s,
-                input1[] = " \n \r k \n \r ",
-                input2[] = "kkkkthiskkkiskkkaktestkkk",
-                input3[] = "abcdef";
+        char *s, input1[] = " \n \r k \n \r ", input2[] = "kkkkthiskkkiskkkaktestkkk", input3[] = "abcdef";
 
         s = delete_trailing_chars(input1, WHITESPACE);
         assert_se(streq(s, " \n \r k"));
@@ -472,10 +430,7 @@ static void test_delete_trailing_chars(void) {
 }
 
 static void test_delete_trailing_slashes(void) {
-        char s1[] = "foobar//",
-             s2[] = "foobar/",
-             s3[] = "foobar",
-             s4[] = "";
+        char s1[] = "foobar//", s2[] = "foobar/", s3[] = "foobar", s4[] = "";
 
         assert_se(streq(delete_trailing_chars(s1, "_"), "foobar//"));
         assert_se(streq(delete_trailing_chars(s1, "/"), "foobar"));
@@ -485,9 +440,7 @@ static void test_delete_trailing_slashes(void) {
 }
 
 static void test_skip_leading_chars(void) {
-        char input1[] = " \n \r k \n \r ",
-                input2[] = "kkkkthiskkkiskkkaktestkkk",
-                input3[] = "abcdef";
+        char input1[] = " \n \r k \n \r ", input2[] = "kkkkthiskkkiskkkaktestkkk", input3[] = "abcdef";
 
         assert_se(streq(skip_leading_chars(input1, WHITESPACE), "k \n \r "));
         assert_se(streq(skip_leading_chars(input2, "k"), "thiskkkiskkkaktestkkk"));
@@ -572,10 +525,10 @@ static void test_memory_startswith_no_case(void) {
         assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
         assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
 
-        assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
-        assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
-        assert_se(memory_startswith_no_case((char[2]){'X', 'x'}, 2, "Xx"));
-        assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
+        assert_se(memory_startswith_no_case((char[2]){ 'x', 'x' }, 2, "xx"));
+        assert_se(memory_startswith_no_case((char[2]){ 'x', 'X' }, 2, "xX"));
+        assert_se(memory_startswith_no_case((char[2]){ 'X', 'x' }, 2, "Xx"));
+        assert_se(memory_startswith_no_case((char[2]){ 'X', 'X' }, 2, "XX"));
 }
 
 int main(int argc, char *argv[]) {

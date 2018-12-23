@@ -12,11 +12,11 @@ int fstab_filter_options(const char *opts, const char *names,
 */
 
 static void do_fstab_filter_options(const char *opts,
-                                      const char *remove,
-                                      int r_expected,
-                                      const char *name_expected,
-                                      const char *value_expected,
-                                      const char *filtered_expected) {
+                                    const char *remove,
+                                    int r_expected,
+                                    const char *name_expected,
+                                    const char *value_expected,
+                                    const char *filtered_expected) {
 
         int r;
         const char *name;
@@ -24,8 +24,15 @@ static void do_fstab_filter_options(const char *opts,
 
         r = fstab_filter_options(opts, remove, &name, &value, &filtered);
         log_info("\"%s\" → %d, \"%s\", \"%s\", \"%s\", expected %d, \"%s\", \"%s\", \"%s\"",
-                 opts, r, name, value, filtered,
-                 r_expected, name_expected, value_expected, filtered_expected ?: opts);
+                 opts,
+                 r,
+                 name,
+                 value,
+                 filtered,
+                 r_expected,
+                 name_expected,
+                 value_expected,
+                 filtered_expected ?: opts);
         assert_se(r == r_expected);
         assert_se(streq_ptr(name, name_expected));
         assert_se(streq_ptr(value, value_expected));
@@ -33,9 +40,7 @@ static void do_fstab_filter_options(const char *opts,
 
         /* also test the malloc-less mode */
         r = fstab_filter_options(opts, remove, &name, NULL, NULL);
-        log_info("\"%s\" → %d, \"%s\", expected %d, \"%s\"",
-                 opts, r, name,
-                 r_expected, name_expected);
+        log_info("\"%s\" → %d, \"%s\", expected %d, \"%s\"", opts, r, name, r_expected, name_expected);
         assert_se(r == r_expected);
         assert_se(streq_ptr(name, name_expected));
 }

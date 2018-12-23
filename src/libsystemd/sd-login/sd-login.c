@@ -127,7 +127,6 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
                 c = strdup("/");
                 if (!c)
                         return -ENOMEM;
-
         }
 
         *cgroup = c;
@@ -257,7 +256,7 @@ static int file_of_uid(uid_t uid, char **p) {
         return 0;
 }
 
-_public_ int sd_uid_get_state(uid_t uid, char**state) {
+_public_ int sd_uid_get_state(uid_t uid, char **state) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -358,8 +357,8 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
                 return -ENOMEM;
 
         FOREACH_WORD(word, l, s, state)
-                if (strneq(t, word, l))
-                        return 1;
+        if (strneq(t, word, l))
+                return 1;
 
         return 0;
 }
@@ -400,21 +399,11 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
 }
 
 _public_ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions) {
-        return uid_get_array(
-                        uid,
-                        require_active == 0 ? "ONLINE_SESSIONS" :
-                        require_active > 0  ? "ACTIVE_SESSIONS" :
-                                              "SESSIONS",
-                        sessions);
+        return uid_get_array(uid, require_active == 0 ? "ONLINE_SESSIONS" : require_active > 0 ? "ACTIVE_SESSIONS" : "SESSIONS", sessions);
 }
 
 _public_ int sd_uid_get_seats(uid_t uid, int require_active, char ***seats) {
-        return uid_get_array(
-                        uid,
-                        require_active == 0 ? "ONLINE_SEATS" :
-                        require_active > 0  ? "ACTIVE_SEATS" :
-                                              "SEATS",
-                        seats);
+        return uid_get_array(uid, require_active == 0 ? "ONLINE_SEATS" : require_active > 0 ? "ACTIVE_SEATS" : "SEATS", seats);
 }
 
 static int file_of_session(const char *session, char **_p) {
@@ -630,9 +619,7 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p,
-                           "ACTIVE", &s,
-                           "ACTIVE_UID", &t);
+        r = parse_env_file(NULL, p, "ACTIVE", &s, "ACTIVE_UID", &t);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -667,9 +654,7 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p,
-                           "SESSIONS", &s,
-                           "UIDS", &t);
+        r = parse_env_file(NULL, p, "SESSIONS", &s, "UIDS", &t);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -686,12 +671,12 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                 size_t l;
 
                 FOREACH_WORD(word, l, t, state)
-                        n++;
+                n++;
 
                 if (n > 0) {
                         unsigned i = 0;
 
-                        b = new(uid_t, n);
+                        b = new (uid_t, n);
                         if (!b)
                                 return -ENOMEM;
 
@@ -735,8 +720,7 @@ static int seat_get_can(const char *seat, const char *variable) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p,
-                           variable, &s);
+        r = parse_env_file(NULL, p, variable, &s);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
@@ -817,7 +801,7 @@ _public_ int sd_get_uids(uid_t **users) {
                         if ((unsigned) r >= n) {
                                 uid_t *t;
 
-                                n = MAX(16, 2*r);
+                                n = MAX(16, 2 * r);
                                 t = realloc(l, sizeof(uid_t) * n);
                                 if (!t)
                                         return -ENOMEM;
@@ -925,15 +909,15 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
         }
 
         FOREACH_WORD(word, l, netif, state) {
-                char buf[l+1];
+                char buf[l + 1];
                 int ifi;
 
-                *(char*) (mempcpy(buf, word, l)) = 0;
+                *(char *) (mempcpy(buf, word, l)) = 0;
 
                 if (parse_ifindex(buf, &ifi) < 0)
                         continue;
 
-                if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
+                if (!GREEDY_REALLOC(ni, allocated, nr + 1)) {
                         free(ni);
                         return -ENOMEM;
                 }
@@ -949,8 +933,8 @@ static inline int MONITOR_TO_FD(sd_login_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
 
-static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
-        return (sd_login_monitor*) (unsigned long) (fd + 1);
+static inline sd_login_monitor *FD_TO_MONITOR(int fd) {
+        return (sd_login_monitor *) (unsigned long) (fd + 1);
 }
 
 _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
@@ -960,12 +944,12 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
         assert_return(m, -EINVAL);
 
-        fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
         if (!category || streq(category, "seat")) {
-                k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO | IN_DELETE);
                 if (k < 0)
                         return -errno;
 
@@ -973,7 +957,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "session")) {
-                k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO | IN_DELETE);
                 if (k < 0)
                         return -errno;
 
@@ -981,7 +965,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "uid")) {
-                k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO | IN_DELETE);
                 if (k < 0)
                         return -errno;
 
@@ -989,7 +973,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "machine")) {
-                k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO | IN_DELETE);
                 if (k < 0)
                         return -errno;
 
@@ -1005,7 +989,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         return 0;
 }
 
-_public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
+_public_ sd_login_monitor *sd_login_monitor_unref(sd_login_monitor *m) {
         int fd;
 
         if (!m)

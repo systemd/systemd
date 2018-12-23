@@ -28,23 +28,21 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "  -V --version              Show package version\n"
                "  -t --timeout=SEC          Maximum time to wait for events\n"
-               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n"
-               , program_invocation_short_name);
+               "  -E --exit-if-exists=FILE  Stop waiting if file exists\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "timeout",        required_argument, NULL, 't' },
-                { "exit-if-exists", required_argument, NULL, 'E' },
-                { "version",        no_argument,       NULL, 'V' },
-                { "help",           no_argument,       NULL, 'h' },
-                { "seq-start",      required_argument, NULL, 's' }, /* removed */
-                { "seq-end",        required_argument, NULL, 'e' }, /* removed */
-                { "quiet",          no_argument,       NULL, 'q' }, /* removed */
-                {}
-        };
+        static const struct option options[] = { { "timeout", required_argument, NULL, 't' },
+                                                 { "exit-if-exists", required_argument, NULL, 'E' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "seq-start", required_argument, NULL, 's' }, /* removed */
+                                                 { "seq-end", required_argument, NULL, 'e' },   /* removed */
+                                                 { "quiet", no_argument, NULL, 'q' },           /* removed */
+                                                 {} };
 
         int c, r;
 
@@ -65,9 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 's':
                 case 'e':
                 case 'q':
-                        return log_info_errno(SYNTHETIC_ERRNO(EINVAL),
-                                              "Option -%c no longer supported.",
-                                              c);
+                        return log_info_errno(SYNTHETIC_ERRNO(EINVAL), "Option -%c no longer supported.", c);
                 case '?':
                         return -EINVAL;
                 default:
@@ -114,7 +110,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        pfd = (struct pollfd) {
+        pfd = (struct pollfd){
                 .events = POLLIN,
                 .fd = r,
         };

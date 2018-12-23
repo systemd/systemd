@@ -27,16 +27,15 @@
 #include "virt.h"
 
 /* use 8 MB for receive socket kernel queue. */
-#define RCVBUF_SIZE    (8*1024*1024)
+#define RCVBUF_SIZE (8 * 1024 * 1024)
 
-const char* const network_dirs[] = {
-        "/etc/systemd/network",
-        "/run/systemd/network",
-        "/usr/lib/systemd/network",
+const char *const network_dirs[] = { "/etc/systemd/network",
+                                     "/run/systemd/network",
+                                     "/usr/lib/systemd/network",
 #if HAVE_SPLIT_USR
-        "/lib/systemd/network",
+                                     "/lib/systemd/network",
 #endif
-        NULL};
+                                     NULL };
 
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
@@ -137,17 +136,19 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
         if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
+                return log_error_errno(r, "Failed to add link object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add link enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
         if (r < 0)
-               return log_error_errno(r, "Failed to add network object vtable: %m");
+                return log_error_errno(r, "Failed to add network object vtable: %m");
 
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
         if (r < 0)
@@ -162,24 +163,19 @@ int manager_connect_bus(Manager *m) {
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.DBus.Local",
-                        NULL,
-                        "org.freedesktop.DBus.Local",
-                        "Connected",
-                        on_connected, NULL, m);
+                m->bus, NULL, "org.freedesktop.DBus.Local", NULL, "org.freedesktop.DBus.Local", "Connected", on_connected, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match on Connected signal: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "PrepareForSleep",
-                        match_prepare_for_sleep, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.login1",
+                                      "/org/freedesktop/login1",
+                                      "org.freedesktop.login1.Manager",
+                                      "PrepareForSleep",
+                                      match_prepare_for_sleep,
+                                      NULL,
+                                      m);
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
@@ -560,9 +556,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         } else if (r >= 0) {
                 if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                                    cinfo.ifa_valid * USEC_PER_SEC,
-                                                    USEC_PER_SEC);
+                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX, cinfo.ifa_valid * USEC_PER_SEC, USEC_PER_SEC);
         }
 
         (void) address_get(link, family, &in_addr, prefixlen, &address);
@@ -570,8 +564,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         switch (type) {
         case RTM_NEWADDR:
                 if (address)
-                        log_link_debug(link, "Updating address: %s/%u (valid %s%s)", buf, prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
+                        log_link_debug(link,
+                                       "Updating address: %s/%u (valid %s%s)",
+                                       buf,
+                                       prefixlen,
+                                       valid_str ? "for " : "forever",
+                                       strempty(valid_str));
                 else {
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
@@ -579,8 +577,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                 log_link_warning_errno(link, r, "Failed to add address %s/%u, ignoring: %m", buf, prefixlen);
                                 return 0;
                         } else
-                                log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
-                                               valid_str ? "for " : "forever", strempty(valid_str));
+                                log_link_debug(link,
+                                               "Adding address: %s/%u (valid %s%s)",
+                                               buf,
+                                               prefixlen,
+                                               valid_str ? "for " : "forever",
+                                               strempty(valid_str));
                 }
 
                 r = address_update(address, flags, scope, &cinfo);
@@ -594,12 +596,20 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         case RTM_DELADDR:
 
                 if (address) {
-                        log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
+                        log_link_debug(link,
+                                       "Removing address: %s/%u (valid %s%s)",
+                                       buf,
+                                       prefixlen,
+                                       valid_str ? "for " : "forever",
+                                       strempty(valid_str));
                         (void) address_drop(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s), ignoring", buf, prefixlen,
-                                         valid_str ? "for " : "forever", strempty(valid_str));
+                        log_link_warning(link,
+                                         "Removing non-existent address: %s/%u (valid %s%s), ignoring",
+                                         buf,
+                                         prefixlen,
+                                         valid_str ? "for " : "forever",
+                                         strempty(valid_str));
 
                 break;
         default:
@@ -849,12 +859,14 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 return 0;
         }
 
-        (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
+        (void) routing_policy_rule_get(
+                m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
 
         switch (type) {
         case RTM_NEWRULE:
                 if (!rule) {
-                        r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
+                        r = routing_policy_rule_add_foreign(
+                                m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, &sport, &dport, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not add rule, ignoring: %m");
                                 return 0;
@@ -880,7 +892,7 @@ static int systemd_netlink_fd(void) {
         if (n <= 0)
                 return -EINVAL;
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
                         if (rtnl_fd >= 0)
                                 return -EINVAL;
@@ -994,7 +1006,7 @@ static int ordered_set_put_in_addr_datav(OrderedSet *s, const struct in_addr_dat
         assert(addresses || n == 0);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_in_addr_data(s, addresses+i);
+                r = ordered_set_put_in_addr_data(s, addresses + i);
                 if (r < 0)
                         return r;
 
@@ -1011,7 +1023,7 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
         assert(s);
         assert(address);
 
-        r = in_addr_to_string(AF_INET, (const union in_addr_union*) address, &p);
+        r = in_addr_to_string(AF_INET, (const union in_addr_union *) address, &p);
         if (r < 0)
                 return r;
 
@@ -1030,7 +1042,7 @@ static int ordered_set_put_in4_addrv(OrderedSet *s, const struct in_addr *addres
         assert(n == 0 || addresses);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_in4_addr(s, addresses+i);
+                r = ordered_set_put_in4_addr(s, addresses + i);
                 if (r < 0)
                         return r;
 
@@ -1051,7 +1063,7 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
         fputs(field, f);
 
         ORDERED_SET_FOREACH(p, s, i)
-                fputs_with_space(f, p, NULL, &space);
+        fputs_with_space(f, p, NULL, &space);
 
         fputc('\n', f);
 }
@@ -1145,7 +1157,8 @@ static int manager_save(Manager *m) {
                         const char *domainname;
                         char **domains = NULL;
 
-                        OrderedSet *target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? search_domains : route_domains;
+                        OrderedSet *target_domains = (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) ? search_domains :
+                                                                                                                 route_domains;
                         r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                         if (r >= 0) {
                                 r = ordered_set_put_strdup(target_domains, domainname);
@@ -1176,7 +1189,8 @@ static int manager_save(Manager *m) {
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "OPER_STATE=%s\n", operstate_str);
+                "OPER_STATE=%s\n",
+                operstate_str);
 
         print_string_set(f, "DNS=", dns);
         print_string_set(f, "NTP=", ntp);
@@ -1225,8 +1239,8 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
                 manager_save(m);
 
         SET_FOREACH(link, m->dirty_links, i)
-                if (link_save(link) >= 0)
-                        link_clean(link);
+        if (link_save(link) >= 0)
+                link_clean(link);
 
         return 1;
 }
@@ -1270,8 +1284,7 @@ int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         assert_return(m, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64,
-                      0, 0, 0, &route);
+        r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64, 0, 0, 0, &route);
         if (r < 0)
                 return r;
 
@@ -1315,8 +1328,7 @@ static int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
                 return -EINVAL;
 
         (void) sd_radv_remove_prefix(l->radv, addr, 64);
-        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64,
-                      0, 0, 0, &route);
+        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64, 0, 0, 0, &route);
         if (r < 0)
                 return r;
 
@@ -1476,7 +1488,7 @@ int manager_start(Manager *m) {
         manager_save(m);
 
         HASHMAP_FOREACH(link, m->links, i)
-                link_save(link);
+        link_save(link);
 
         return 0;
 }
@@ -1668,7 +1680,7 @@ int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, uni
         return 0;
 }
 
-Link* manager_find_uplink(Manager *m, Link *exclude) {
+Link *manager_find_uplink(Manager *m, Link *exclude) {
         _cleanup_free_ struct local_address *gateways = NULL;
         int n, i;
 
@@ -1739,18 +1751,17 @@ int manager_set_hostname(Manager *m, const char *hostname) {
                 return 0;
         }
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
-                        "SetHostname",
-                        set_hostname_handler,
-                        m,
-                        "sb",
-                        hostname,
-                        false);
+        r = sd_bus_call_method_async(m->bus,
+                                     NULL,
+                                     "org.freedesktop.hostname1",
+                                     "/org/freedesktop/hostname1",
+                                     "org.freedesktop.hostname1",
+                                     "SetHostname",
+                                     set_hostname_handler,
+                                     m,
+                                     "sb",
+                                     hostname,
+                                     false);
 
         if (r < 0)
                 return log_error_errno(r, "Could not set transient hostname: %m");
@@ -1787,18 +1798,17 @@ int manager_set_timezone(Manager *m, const char *tz) {
                 return 0;
         }
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetTimezone",
-                        set_timezone_handler,
-                        m,
-                        "sb",
-                        tz,
-                        false);
+        r = sd_bus_call_method_async(m->bus,
+                                     NULL,
+                                     "org.freedesktop.timedate1",
+                                     "/org/freedesktop/timedate1",
+                                     "org.freedesktop.timedate1",
+                                     "SetTimezone",
+                                     set_timezone_handler,
+                                     m,
+                                     "sb",
+                                     tz,
+                                     false);
         if (r < 0)
                 return log_error_errno(r, "Could not set timezone: %m");
 
@@ -1842,17 +1852,16 @@ int manager_request_product_uuid(Manager *m, Link *link) {
                 return 0;
         }
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
-                        "GetProductUUID",
-                        get_product_uuid_handler,
-                        m,
-                        "b",
-                        false);
+        r = sd_bus_call_method_async(m->bus,
+                                     NULL,
+                                     "org.freedesktop.hostname1",
+                                     "/org/freedesktop/hostname1",
+                                     "org.freedesktop.hostname1",
+                                     "GetProductUUID",
+                                     get_product_uuid_handler,
+                                     m,
+                                     "b",
+                                     false);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get product UUID: %m");
 

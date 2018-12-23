@@ -18,11 +18,7 @@
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
 /* create a new FDB entry or get an existing one. */
-int fdb_entry_new_static(
-                Network *network,
-                const char *filename,
-                unsigned section_line,
-                FdbEntry **ret) {
+int fdb_entry_new_static(Network *network, const char *filename, unsigned section_line, FdbEntry **ret) {
 
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
@@ -56,12 +52,12 @@ int fdb_entry_new_static(
                 return -ENOMEM;
 
         /* allocate space for and FDB entry. */
-        fdb_entry = new(FdbEntry, 1);
+        fdb_entry = new (FdbEntry, 1);
         if (!fdb_entry)
                 return -ENOMEM;
 
         /* init FDB structure. */
-        *fdb_entry = (FdbEntry) {
+        *fdb_entry = (FdbEntry){
                 .network = network,
                 .mac_addr = TAKE_PTR(mac_addr),
         };
@@ -146,8 +142,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         }
 
         /* send message to the kernel to update its internal static MAC table. */
-        r = netlink_call_async(rtnl, NULL, req, set_fdb_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(rtnl, NULL, req, set_fdb_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -176,17 +171,16 @@ void fdb_entry_free(FdbEntry *fdb_entry) {
 }
 
 /* parse the HW address from config files. */
-int config_parse_fdb_hwaddr(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_fdb_hwaddr(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
         Network *network = userdata;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
@@ -203,7 +197,8 @@ int config_parse_fdb_hwaddr(
                 return log_oom();
 
         /* read in the MAC address for the FDB table. */
-        r = sscanf(rvalue, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+        r = sscanf(rvalue,
+                   "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
                    &fdb_entry->mac_addr->ether_addr_octet[0],
                    &fdb_entry->mac_addr->ether_addr_octet[1],
                    &fdb_entry->mac_addr->ether_addr_octet[2],
@@ -222,17 +217,16 @@ int config_parse_fdb_hwaddr(
 }
 
 /* parse the VLAN Id from config files. */
-int config_parse_fdb_vlan_id(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_fdb_vlan_id(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         Network *network = userdata;
         _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
@@ -248,9 +242,7 @@ int config_parse_fdb_vlan_id(
         if (r < 0)
                 return log_oom();
 
-        r = config_parse_vlanid(unit, filename, line, section,
-                                section_line, lvalue, ltype,
-                                rvalue, &fdb_entry->vlan_id, userdata);
+        r = config_parse_vlanid(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &fdb_entry->vlan_id, userdata);
         if (r < 0)
                 return r;
 

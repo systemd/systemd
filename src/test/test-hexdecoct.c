@@ -99,7 +99,7 @@ static void test_unhexmem(void) {
         test_unhexmem_one("", (size_t) -1, 0);
         test_unhexmem_one("   \n \t\r   \t\t \n\n\n", (size_t) -1, 0);
         test_unhexmem_one(hex_invalid, strlen(hex_invalid), -EINVAL);
-        test_unhexmem_one(hex_invalid, (size_t) - 1, -EINVAL);
+        test_unhexmem_one(hex_invalid, (size_t) -1, -EINVAL);
         test_unhexmem_one(hex, strlen(hex) - 1, -EPIPE);
         test_unhexmem_one(hex, strlen(hex), 0);
         test_unhexmem_one(hex, (size_t) -1, 0);
@@ -285,7 +285,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         if (ret >= 0) {
                 assert_se(size == strlen(output));
                 assert_se(memcmp(buffer, output, size) == 0);
-                assert_se(((char*) buffer)[size] == 0);
+                assert_se(((char *) buffer)[size] == 0);
         }
 }
 
@@ -329,7 +329,7 @@ static void test_hexdump(void) {
         hexdump(stdout, "xxxxxxxxxxxxxxxxxxxxyz", 23);
 
         for (i = 0; i < ELEMENTSOF(data); i++)
-                data[i] = i*2;
+                data[i] = i * 2;
 
         hexdump(stdout, data, sizeof(data));
 }

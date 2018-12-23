@@ -32,18 +32,18 @@ struct Prioq {
 Prioq *prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
-        q = new(Prioq, 1);
+        q = new (Prioq, 1);
         if (!q)
                 return q;
 
-        *q = (Prioq) {
+        *q = (Prioq){
                 .compare_func = compare_func,
         };
 
         return q;
 }
 
-Prioq* prioq_free(Prioq *q) {
+Prioq *prioq_free(Prioq *q) {
         if (!q)
                 return NULL;
 
@@ -89,7 +89,7 @@ static unsigned shuffle_up(Prioq *q, unsigned idx) {
         while (idx > 0) {
                 unsigned k;
 
-                k = (idx-1)/2;
+                k = (idx - 1) / 2;
 
                 if (q->compare_func(q->items[k].data, q->items[idx].data) <= 0)
                         break;
@@ -107,8 +107,8 @@ static unsigned shuffle_down(Prioq *q, unsigned idx) {
         for (;;) {
                 unsigned j, k, s;
 
-                k = (idx+1)*2; /* right child */
-                j = k-1;       /* left child */
+                k = (idx + 1) * 2; /* right child */
+                j = k - 1;         /* left child */
 
                 if (j >= q->n_items)
                         break;
@@ -121,8 +121,7 @@ static unsigned shuffle_down(Prioq *q, unsigned idx) {
                 else
                         s = idx;
 
-                if (k < q->n_items &&
-                    q->compare_func(q->items[k].data, q->items[s].data) < 0)
+                if (k < q->n_items && q->compare_func(q->items[k].data, q->items[s].data) < 0)
 
                         /* So our right child is smaller than we are, let's
                          * remember this fact */
@@ -151,7 +150,7 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
                 unsigned n;
                 struct prioq_item *j;
 
-                n = MAX((q->n_items+1) * 2, 16u);
+                n = MAX((q->n_items + 1) * 2, 16u);
                 j = reallocarray(q->items, n, sizeof(struct prioq_item));
                 if (!j)
                         return -ENOMEM;
@@ -203,7 +202,7 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
         }
 }
 
-_pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
+_pure_ static struct prioq_item *find_item(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
 
         assert(q);
@@ -212,8 +211,7 @@ _pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) 
                 return NULL;
 
         if (idx) {
-                if (*idx == PRIOQ_IDX_NULL ||
-                    *idx >= q->n_items)
+                if (*idx == PRIOQ_IDX_NULL || *idx >= q->n_items)
                         return NULL;
 
                 i = q->items + *idx;

@@ -55,10 +55,10 @@ int expose_port_parse(ExposePort **l, const char *s) {
                 return -EINVAL;
 
         LIST_FOREACH(ports, p, *l)
-                if (p->protocol == protocol && p->host_port == host_port)
-                        return -EEXIST;
+        if (p->protocol == protocol && p->host_port == host_port)
+                return -EEXIST;
 
-        p = new(ExposePort, 1);
+        p = new (ExposePort, 1);
         if (!p)
                 return -ENOMEM;
 
@@ -80,7 +80,7 @@ void expose_port_free_all(ExposePort *p) {
         }
 }
 
-int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
+int expose_port_flush(ExposePort *l, union in_addr_union *exposed) {
         ExposePort *p;
         int r, af = AF_INET;
 
@@ -95,16 +95,7 @@ int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
         log_debug("Lost IP address.");
 
         LIST_FOREACH(ports, p, l) {
-                r = fw_add_local_dnat(false,
-                                      af,
-                                      p->protocol,
-                                      NULL,
-                                      NULL, 0,
-                                      NULL, 0,
-                                      p->host_port,
-                                      exposed,
-                                      p->container_port,
-                                      NULL);
+                r = fw_add_local_dnat(false, af, p->protocol, NULL, NULL, 0, NULL, 0, p->host_port, exposed, p->container_port, NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify firewall: %m");
         }
@@ -133,9 +124,7 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate local addresses: %m");
 
-        add = r > 0 &&
-                addresses[0].family == af &&
-                addresses[0].scope < RT_SCOPE_LINK;
+        add = r > 0 && addresses[0].family == af && addresses[0].scope < RT_SCOPE_LINK;
 
         if (!add)
                 return expose_port_flush(l, exposed);
@@ -153,8 +142,10 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
                                       af,
                                       p->protocol,
                                       NULL,
-                                      NULL, 0,
-                                      NULL, 0,
+                                      NULL,
+                                      0,
+                                      NULL,
+                                      0,
                                       p->host_port,
                                       &new_exposed,
                                       p->container_port,
@@ -173,7 +164,7 @@ int expose_port_send_rtnl(int send_fd) {
 
         assert(send_fd >= 0);
 
-        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_ROUTE);
+        fd = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_ROUTE);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate container netlink: %m");
 
@@ -186,12 +177,7 @@ int expose_port_send_rtnl(int send_fd) {
         return 0;
 }
 
-int expose_port_watch_rtnl(
-                sd_event *event,
-                int recv_fd,
-                sd_netlink_message_handler_t handler,
-                union in_addr_union *exposed,
-                sd_netlink **ret) {
+int expose_port_watch_rtnl(sd_event *event, int recv_fd, sd_netlink_message_handler_t handler, union in_addr_union *exposed, sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
 

@@ -70,7 +70,7 @@ static int add_locales_from_archive(Set *locales) {
         size_t i;
         int r;
 
-        fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open("/usr/lib/locale/locale-archive", O_RDONLY | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -88,26 +88,23 @@ static int add_locales_from_archive(Set *locales) {
                 return -errno;
 
         h = (const struct locarhead *) p;
-        if (h->magic != 0xde020109 ||
-            h->namehash_offset + h->namehash_size > st.st_size ||
-            h->string_offset + h->string_size > st.st_size ||
-            h->locrectab_offset + h->locrectab_size > st.st_size ||
-            h->sumhash_offset + h->sumhash_size > st.st_size) {
+        if (h->magic != 0xde020109 || h->namehash_offset + h->namehash_size > st.st_size || h->string_offset + h->string_size > st.st_size ||
+            h->locrectab_offset + h->locrectab_size > st.st_size || h->sumhash_offset + h->sumhash_size > st.st_size) {
                 r = -EBADMSG;
                 goto finish;
         }
 
-        e = (const struct namehashent*) ((const uint8_t*) p + h->namehash_offset);
+        e = (const struct namehashent *) ((const uint8_t *) p + h->namehash_offset);
         for (i = 0; i < h->namehash_size; i++) {
                 char *z;
 
                 if (e[i].locrec_offset == 0)
                         continue;
 
-                if (!utf8_is_valid((char*) p + e[i].name_offset))
+                if (!utf8_is_valid((char *) p + e[i].name_offset))
                         continue;
 
-                z = strdup((char*) p + e[i].name_offset);
+                z = strdup((char *) p + e[i].name_offset);
                 if (!z) {
                         r = -ENOMEM;
                         goto finish;
@@ -120,14 +117,14 @@ static int add_locales_from_archive(Set *locales) {
 
         r = 0;
 
- finish:
+finish:
         if (p != MAP_FAILED)
-                munmap((void*) p, sz);
+                munmap((void *) p, sz);
 
         return r;
 }
 
-static int add_locales_from_libdir (Set *locales) {
+static int add_locales_from_libdir(Set *locales) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
         int r;
@@ -245,11 +242,7 @@ bool is_locale_utf8(void) {
 
         /* Check result, but ignore the result if C was set
          * explicitly. */
-        cached_answer =
-                STR_IN_SET(set, "C", "POSIX") &&
-                !getenv("LC_ALL") &&
-                !getenv("LC_CTYPE") &&
-                !getenv("LANG");
+        cached_answer = STR_IN_SET(set, "C", "POSIX") && !getenv("LC_ALL") && !getenv("LC_CTYPE") && !getenv("LANG");
 
 out:
         return (bool) cached_answer;
@@ -257,11 +250,7 @@ out:
 
 static thread_local Set *keymaps = NULL;
 
-static int nftw_cb(
-                const char *fpath,
-                const struct stat *sb,
-                int tflag,
-                struct FTW *ftwbuf) {
+static int nftw_cb(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf) {
 
         char *p, *e;
         int r;
@@ -269,8 +258,7 @@ static int nftw_cb(
         if (tflag != FTW_F)
                 return 0;
 
-        if (!endswith(fpath, ".map") &&
-            !endswith(fpath, ".map.gz"))
+        if (!endswith(fpath, ".map") && !endswith(fpath, ".map.gz"))
                 return 0;
 
         p = strdup(basename(fpath));
@@ -302,7 +290,7 @@ int get_keymaps(char ***ret) {
                 return -ENOMEM;
 
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
-                r = nftw(dir, nftw_cb, 20, FTW_PHYS|FTW_ACTIONRETVAL);
+                r = nftw(dir, nftw_cb, 20, FTW_PHYS | FTW_ACTIONRETVAL);
 
                 if (r == FTW_STOP)
                         log_debug("Directory not found %s", dir);
@@ -356,9 +344,7 @@ static bool emoji_enabled(void) {
 
                 val = getenv_bool("SYSTEMD_EMOJI");
                 if (val < 0)
-                        cached_emoji_enabled =
-                                is_locale_utf8() &&
-                                !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
+                        cached_emoji_enabled = is_locale_utf8() && !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
                 else
                         cached_emoji_enabled = val;
         }
@@ -375,54 +361,56 @@ const char *special_glyph(SpecialGlyph code) {
          * http://git.altlinux.org/people/legion/packages/kbd.git?p=kbd.git;a=blob;f=data/consolefonts/README.eurlatgr
          */
 
-        static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
+        static const char *const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
-                [false] = {
-                        [SPECIAL_GLYPH_TREE_VERTICAL]           = "| ",
-                        [SPECIAL_GLYPH_TREE_BRANCH]             = "|-",
-                        [SPECIAL_GLYPH_TREE_RIGHT]              = "`-",
-                        [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
-                        [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
-                        [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
-                        [SPECIAL_GLYPH_BULLET]                  = "*",
-                        [SPECIAL_GLYPH_ARROW]                   = "->",
-                        [SPECIAL_GLYPH_MDASH]                   = "-",
-                        [SPECIAL_GLYPH_ELLIPSIS]                = "...",
-                        [SPECIAL_GLYPH_MU]                      = "u",
-                        [SPECIAL_GLYPH_CHECK_MARK]              = "+",
-                        [SPECIAL_GLYPH_CROSS_MARK]              = "-",
-                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = ":-]",
-                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = ":-}",
-                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = ":-)",
-                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = ":-|",
-                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
-                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{️",
-                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
-                },
+                [false] =
+                        {
+                                [SPECIAL_GLYPH_TREE_VERTICAL] = "| ",
+                                [SPECIAL_GLYPH_TREE_BRANCH] = "|-",
+                                [SPECIAL_GLYPH_TREE_RIGHT] = "`-",
+                                [SPECIAL_GLYPH_TREE_SPACE] = "  ",
+                                [SPECIAL_GLYPH_TRIANGULAR_BULLET] = ">",
+                                [SPECIAL_GLYPH_BLACK_CIRCLE] = "*",
+                                [SPECIAL_GLYPH_BULLET] = "*",
+                                [SPECIAL_GLYPH_ARROW] = "->",
+                                [SPECIAL_GLYPH_MDASH] = "-",
+                                [SPECIAL_GLYPH_ELLIPSIS] = "...",
+                                [SPECIAL_GLYPH_MU] = "u",
+                                [SPECIAL_GLYPH_CHECK_MARK] = "+",
+                                [SPECIAL_GLYPH_CROSS_MARK] = "-",
+                                [SPECIAL_GLYPH_ECSTATIC_SMILEY] = ":-]",
+                                [SPECIAL_GLYPH_HAPPY_SMILEY] = ":-}",
+                                [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY] = ":-)",
+                                [SPECIAL_GLYPH_NEUTRAL_SMILEY] = ":-|",
+                                [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
+                                [SPECIAL_GLYPH_UNHAPPY_SMILEY] = ":-{️",
+                                [SPECIAL_GLYPH_DEPRESSED_SMILEY] = ":-[",
+                        },
 
                 /* UTF-8 */
-                [true] = {
-                        [SPECIAL_GLYPH_TREE_VERTICAL]           = "\342\224\202 ",            /* │  */
-                        [SPECIAL_GLYPH_TREE_BRANCH]             = "\342\224\234\342\224\200", /* ├─ */
-                        [SPECIAL_GLYPH_TREE_RIGHT]              = "\342\224\224\342\224\200", /* └─ */
-                        [SPECIAL_GLYPH_TREE_SPACE]              = "  ",                       /*    */
-                        [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
-                        [SPECIAL_GLYPH_BLACK_CIRCLE]            = "\342\227\217",             /* ● */
-                        [SPECIAL_GLYPH_BULLET]                  = "\342\200\242",             /* • */
-                        [SPECIAL_GLYPH_ARROW]                   = "\342\206\222",             /* → */
-                        [SPECIAL_GLYPH_MDASH]                   = "\342\200\223",             /* – */
-                        [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … */
-                        [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ */
-                        [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
-                        [SPECIAL_GLYPH_CROSS_MARK]              = "\342\234\227",             /* ✗ */
-                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 */
-                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = "\360\237\230\200",         /* 😀 */
-                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = "\360\237\231\202",         /* 🙂 */
-                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = "\360\237\230\220",         /* 😐 */
-                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 */
-                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨️️ */
-                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 */
-                },
+                [true] =
+                        {
+                                [SPECIAL_GLYPH_TREE_VERTICAL] = "\342\224\202 ",              /* │  */
+                                [SPECIAL_GLYPH_TREE_BRANCH] = "\342\224\234\342\224\200",     /* ├─ */
+                                [SPECIAL_GLYPH_TREE_RIGHT] = "\342\224\224\342\224\200",      /* └─ */
+                                [SPECIAL_GLYPH_TREE_SPACE] = "  ",                            /*    */
+                                [SPECIAL_GLYPH_TRIANGULAR_BULLET] = "\342\200\243",           /* ‣ */
+                                [SPECIAL_GLYPH_BLACK_CIRCLE] = "\342\227\217",                /* ● */
+                                [SPECIAL_GLYPH_BULLET] = "\342\200\242",                      /* • */
+                                [SPECIAL_GLYPH_ARROW] = "\342\206\222",                       /* → */
+                                [SPECIAL_GLYPH_MDASH] = "\342\200\223",                       /* – */
+                                [SPECIAL_GLYPH_ELLIPSIS] = "\342\200\246",                    /* … */
+                                [SPECIAL_GLYPH_MU] = "\316\274",                              /* μ */
+                                [SPECIAL_GLYPH_CHECK_MARK] = "\342\234\223",                  /* ✓ */
+                                [SPECIAL_GLYPH_CROSS_MARK] = "\342\234\227",                  /* ✗ */
+                                [SPECIAL_GLYPH_ECSTATIC_SMILEY] = "\360\237\230\207",         /* 😇 */
+                                [SPECIAL_GLYPH_HAPPY_SMILEY] = "\360\237\230\200",            /* 😀 */
+                                [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY] = "\360\237\231\202",   /* 🙂 */
+                                [SPECIAL_GLYPH_NEUTRAL_SMILEY] = "\360\237\230\220",          /* 😐 */
+                                [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201", /* 🙁 */
+                                [SPECIAL_GLYPH_UNHAPPY_SMILEY] = "\360\237\230\250",          /* 😨️️ */
+                                [SPECIAL_GLYPH_DEPRESSED_SMILEY] = "\360\237\244\242",        /* 🤢 */
+                        },
         };
 
         assert(code < _SPECIAL_GLYPH_MAX);
@@ -440,21 +428,19 @@ void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
                 l[i] = mfree(l[i]);
 }
 
-static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
-        [VARIABLE_LANG] = "LANG",
-        [VARIABLE_LANGUAGE] = "LANGUAGE",
-        [VARIABLE_LC_CTYPE] = "LC_CTYPE",
-        [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
-        [VARIABLE_LC_TIME] = "LC_TIME",
-        [VARIABLE_LC_COLLATE] = "LC_COLLATE",
-        [VARIABLE_LC_MONETARY] = "LC_MONETARY",
-        [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
-        [VARIABLE_LC_PAPER] = "LC_PAPER",
-        [VARIABLE_LC_NAME] = "LC_NAME",
-        [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
-        [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
-        [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
-        [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
-};
+static const char *const locale_variable_table[_VARIABLE_LC_MAX] = { [VARIABLE_LANG] = "LANG",
+                                                                     [VARIABLE_LANGUAGE] = "LANGUAGE",
+                                                                     [VARIABLE_LC_CTYPE] = "LC_CTYPE",
+                                                                     [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
+                                                                     [VARIABLE_LC_TIME] = "LC_TIME",
+                                                                     [VARIABLE_LC_COLLATE] = "LC_COLLATE",
+                                                                     [VARIABLE_LC_MONETARY] = "LC_MONETARY",
+                                                                     [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
+                                                                     [VARIABLE_LC_PAPER] = "LC_PAPER",
+                                                                     [VARIABLE_LC_NAME] = "LC_NAME",
+                                                                     [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
+                                                                     [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
+                                                                     [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
+                                                                     [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION" };
 
 DEFINE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable);

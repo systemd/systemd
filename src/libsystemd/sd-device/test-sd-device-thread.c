@@ -10,7 +10,7 @@
 #include "device-util.h"
 #include "macro.h"
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         sd_device **d = p;
 
         assert_se(!(*d = sd_device_unref(*d)));
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
 
         FOREACH_DEVICE_PROPERTY(loopback, key, value)
-                printf("%s=%s\n", key, value);
+        printf("%s=%s\n", key, value);
 
         assert_se(pthread_create(&t, NULL, thread, &loopback) == 0);
         assert_se(pthread_join(t, NULL) == 0);

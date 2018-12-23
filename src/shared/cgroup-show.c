@@ -24,14 +24,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 
-static void show_pid_array(
-                pid_t pids[],
-                unsigned n_pids,
-                const char *prefix,
-                unsigned n_columns,
-                bool extra,
-                bool more,
-                OutputFlags flags) {
+static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, OutputFlags flags) {
 
         unsigned i, j, pid_width;
 
@@ -52,8 +45,8 @@ static void show_pid_array(
         if (flags & OUTPUT_FULL_WIDTH)
                 n_columns = 0;
         else {
-                if (n_columns > pid_width+2)
-                        n_columns -= pid_width+2;
+                if (n_columns > pid_width + 2)
+                        n_columns -= pid_width + 2;
                 else
                         n_columns = 20;
         }
@@ -65,18 +58,15 @@ static void show_pid_array(
                 if (extra)
                         printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
                 else
-                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
+                        printf("%s%s",
+                               prefix,
+                               special_glyph(((more || i < n_pids - 1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
 
-                printf("%*"PID_PRI" %s\n", pid_width, pids[i], strna(t));
+                printf("%*" PID_PRI " %s\n", pid_width, pids[i], strna(t));
         }
 }
 
-static int show_cgroup_one_by_path(
-                const char *path,
-                const char *prefix,
-                unsigned n_columns,
-                bool more,
-                OutputFlags flags) {
+static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more, OutputFlags flags) {
 
         char *fn;
         _cleanup_fclose_ FILE *f = NULL;
@@ -115,11 +105,7 @@ static int show_cgroup_one_by_path(
         return 0;
 }
 
-int show_cgroup_by_path(
-                const char *path,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags) {
+int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns, OutputFlags flags) {
 
         _cleanup_free_ char *fn = NULL, *p1 = NULL, *last = NULL, *p2 = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -167,7 +153,7 @@ int show_cgroup_by_path(
                                         return -ENOMEM;
                         }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, flags);
+                        show_cgroup_by_path(last, p1, n_columns - 2, flags);
                         free(last);
                 }
 
@@ -189,17 +175,13 @@ int show_cgroup_by_path(
                                 return -ENOMEM;
                 }
 
-                show_cgroup_by_path(last, p2, n_columns-2, flags);
+                show_cgroup_by_path(last, p2, n_columns - 2, flags);
         }
 
         return 0;
 }
 
-int show_cgroup(const char *controller,
-                const char *path,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags) {
+int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns, OutputFlags flags) {
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -212,14 +194,13 @@ int show_cgroup(const char *controller,
         return show_cgroup_by_path(p, prefix, n_columns, flags);
 }
 
-static int show_extra_pids(
-                const char *controller,
-                const char *path,
-                const char *prefix,
-                unsigned n_columns,
-                const pid_t pids[],
-                unsigned n_pids,
-                OutputFlags flags) {
+static int show_extra_pids(const char *controller,
+                           const char *path,
+                           const char *prefix,
+                           unsigned n_columns,
+                           const pid_t pids[],
+                           unsigned n_pids,
+                           OutputFlags flags) {
 
         _cleanup_free_ pid_t *copy = NULL;
         unsigned i, j;
@@ -235,7 +216,7 @@ static int show_extra_pids(
 
         prefix = strempty(prefix);
 
-        copy = new(pid_t, n_pids);
+        copy = new (pid_t, n_pids);
         if (!copy)
                 return -ENOMEM;
 
@@ -257,14 +238,13 @@ static int show_extra_pids(
         return 0;
 }
 
-int show_cgroup_and_extra(
-                const char *controller,
-                const char *path,
-                const char *prefix,
-                unsigned n_columns,
-                const pid_t extra_pids[],
-                unsigned n_extra_pids,
-                OutputFlags flags) {
+int show_cgroup_and_extra(const char *controller,
+                          const char *path,
+                          const char *prefix,
+                          unsigned n_columns,
+                          const pid_t extra_pids[],
+                          unsigned n_extra_pids,
+                          OutputFlags flags) {
 
         int r;
 
@@ -277,10 +257,7 @@ int show_cgroup_and_extra(
         return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
-int show_cgroup_get_unit_path_and_warn(
-                sd_bus *bus,
-                const char *unit,
-                char **ret) {
+int show_cgroup_get_unit_path_and_warn(sd_bus *bus, const char *unit, char **ret) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
@@ -291,24 +268,14 @@ int show_cgroup_get_unit_path_and_warn(
                 return log_oom();
 
         r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        unit_dbus_interface_from_name(unit),
-                        "ControlGroup",
-                        &error,
-                        ret);
+                bus, "org.freedesktop.systemd1", path, unit_dbus_interface_from_name(unit), "ControlGroup", &error, ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %s",
-                                       bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
 
         return 0;
 }
 
-int show_cgroup_get_path_and_warn(
-                const char *machine,
-                const char *prefix,
-                char **ret) {
+int show_cgroup_get_path_and_warn(const char *machine, const char *prefix, char **ret) {
 
         int r;
         _cleanup_free_ char *root = NULL;
@@ -333,8 +300,9 @@ int show_cgroup_get_path_and_warn(
         } else {
                 r = cg_get_root_path(&root);
                 if (r == -ENOMEDIUM)
-                        return log_error_errno(r, "Failed to get root control group path.\n"
-                                                  "No cgroup filesystem mounted on /sys/fs/cgroup");
+                        return log_error_errno(r,
+                                               "Failed to get root control group path.\n"
+                                               "No cgroup filesystem mounted on /sys/fs/cgroup");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to get root control group path: %m");
         }

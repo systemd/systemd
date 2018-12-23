@@ -3,7 +3,7 @@
 #include "hostname-setup.h"
 #include "util.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         int r;
 
         r = hostname_setup();

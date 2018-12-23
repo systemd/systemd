@@ -79,27 +79,22 @@ struct DHCP6IA {
 
 typedef struct DHCP6IA DHCP6IA;
 
-#define log_dhcp6_client_errno(p, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
+#define log_dhcp6_client_errno(p, error, fmt, ...) \
+        log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCPv6 CLIENT: " fmt, ##__VA_ARGS__)
 #define log_dhcp6_client(p, fmt, ...) log_dhcp6_client_errno(p, 0, fmt, ##__VA_ARGS__)
 
-int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
-                        size_t optlen, const void *optval);
+int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code, size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia);
 int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
-int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
-                       size_t *optlen, uint8_t **optvalue);
+int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode, size_t *optlen, uint8_t **optvalue);
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
 int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia);
-int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
-                                struct in6_addr **addrs, size_t count,
-                                size_t *allocated);
-int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen,
-                                  char ***str_arr);
+int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen, struct in6_addr **addrs, size_t count, size_t *allocated);
+int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char ***str_arr);
 
 int dhcp6_network_bind_udp_socket(int index, struct in6_addr *address);
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
-                                  const void *packet, size_t len);
+int dhcp6_network_send_udp_socket(int s, struct in6_addr *address, const void *packet, size_t len);
 
 const char *dhcp6_message_type_to_string(int s) _const_;
 int dhcp6_message_type_from_string(const char *s) _pure_;

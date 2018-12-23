@@ -8,16 +8,18 @@ typedef enum KillWho KillWho;
 #include "login-util.h"
 #include "logind-user.h"
 
-typedef enum SessionState {
-        SESSION_OPENING,  /* Session scope is being created */
-        SESSION_ONLINE,   /* Logged in */
-        SESSION_ACTIVE,   /* Logged in and in the fg */
-        SESSION_CLOSING,  /* Logged out, but scope is still there */
+typedef enum SessionState
+{
+        SESSION_OPENING, /* Session scope is being created */
+        SESSION_ONLINE,  /* Logged in */
+        SESSION_ACTIVE,  /* Logged in and in the fg */
+        SESSION_CLOSING, /* Logged out, but scope is still there */
         _SESSION_STATE_MAX,
         _SESSION_STATE_INVALID = -1
 } SessionState;
 
-typedef enum SessionClass {
+typedef enum SessionClass
+{
         SESSION_USER,
         SESSION_GREETER,
         SESSION_LOCK_SCREEN,
@@ -26,7 +28,8 @@ typedef enum SessionClass {
         _SESSION_CLASS_INVALID = -1
 } SessionClass;
 
-typedef enum SessionType {
+typedef enum SessionType
+{
         SESSION_UNSPECIFIED,
         SESSION_TTY,
         SESSION_X11,
@@ -39,14 +42,16 @@ typedef enum SessionType {
 
 #define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
 
-enum KillWho {
+enum KillWho
+{
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
         _KILL_WHO_INVALID = -1
 };
 
-typedef enum TTYValidity {
+typedef enum TTYValidity
+{
         TTY_FROM_PAM,
         TTY_FROM_UTMP,
         TTY_UTMP_INCONSISTENT, /* may happen on ssh sessions with multiplexed TTYs */
@@ -98,11 +103,11 @@ struct Session {
 
         bool locked_hint;
 
-        bool in_gc_queue:1;
-        bool started:1;
-        bool stopping:1;
+        bool in_gc_queue : 1;
+        bool started : 1;
+        bool stopping : 1;
 
-        bool was_active:1;
+        bool was_active : 1;
 
         sd_bus_message *create_message;
 
@@ -120,7 +125,7 @@ struct Session {
 };
 
 int session_new(Session **ret, Manager *m, const char *id);
-Session* session_free(Session *s);
+Session *session_free(Session *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
 
@@ -146,7 +151,7 @@ int session_kill(Session *s, KillWho who, int signo);
 SessionState session_get_state(Session *u);
 
 extern const sd_bus_vtable session_vtable[];
-int session_node_enumerator(sd_bus *bus, const char *path,void *userdata, char ***nodes, sd_bus_error *error);
+int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 char *session_bus_path(Session *s);
 
@@ -157,19 +162,19 @@ int session_send_lock_all(Manager *m, bool lock);
 
 int session_send_create_reply(Session *s, sd_bus_error *error);
 
-const char* session_state_to_string(SessionState t) _const_;
+const char *session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
 
-const char* session_type_to_string(SessionType t) _const_;
+const char *session_type_to_string(SessionType t) _const_;
 SessionType session_type_from_string(const char *s) _pure_;
 
-const char* session_class_to_string(SessionClass t) _const_;
+const char *session_class_to_string(SessionClass t) _const_;
 SessionClass session_class_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
 
-const char* tty_validity_to_string(TTYValidity t) _const_;
+const char *tty_validity_to_string(TTYValidity t) _const_;
 TTYValidity tty_validity_from_string(const char *s) _pure_;
 
 int session_prepare_vt(Session *s);

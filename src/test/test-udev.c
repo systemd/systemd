@@ -30,18 +30,18 @@ static int fake_filesystems(void) {
                 const char *error;
                 bool ignore_mount_error;
         } fakefss[] = {
-                { "test/tmpfs/sys", "/sys",                    "Failed to mount test /sys",                        false },
-                { "test/tmpfs/dev", "/dev",                    "Failed to mount test /dev",                        false },
-                { "test/run",       "/run",                    "Failed to mount test /run",                        false },
-                { "test/run",       "/etc/udev/rules.d",       "Failed to mount empty /etc/udev/rules.d",          true },
-                { "test/run",       UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
+                { "test/tmpfs/sys", "/sys", "Failed to mount test /sys", false },
+                { "test/tmpfs/dev", "/dev", "Failed to mount test /dev", false },
+                { "test/run", "/run", "Failed to mount test /run", false },
+                { "test/run", "/etc/udev/rules.d", "Failed to mount empty /etc/udev/rules.d", true },
+                { "test/run", UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
         unsigned i;
 
         if (unshare(CLONE_NEWNS) < 0)
                 return log_error_errno(errno, "Failed to call unshare(): %m");
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount / as private: %m");
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++)

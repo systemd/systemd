@@ -36,7 +36,7 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
         int k;
 
         FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
-                k = chase_symlinks(p, root, CHASE_PREFIX_ROOT|(ret_fd ? CHASE_OPEN : 0), (ret_path ? &q : NULL));
+                k = chase_symlinks(p, root, CHASE_PREFIX_ROOT | (ret_fd ? CHASE_OPEN : 0), (ret_path ? &q : NULL));
                 if (k != -ENOENT)
                         break;
         }
@@ -47,7 +47,7 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
                 int real_fd;
 
                 /* Convert the O_PATH fd into a proper, readable one */
-                real_fd = fd_reopen(k, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                real_fd = fd_reopen(k, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 safe_close(k);
                 if (real_fd < 0)
                         return real_fd;

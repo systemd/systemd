@@ -34,9 +34,10 @@ int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias);
 int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value);
 
 /* the inverse condition avoids ambiguity of dangling 'else' after the macro */
-#define SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value)            \
-        if (sd_hwdb_seek(hwdb, modalias) < 0) { }                       \
-        else while (sd_hwdb_enumerate(hwdb, &(key), &(value)) > 0)
+#define SD_HWDB_FOREACH_PROPERTY(hwdb, modalias, key, value) \
+        if (sd_hwdb_seek(hwdb, modalias) < 0) {              \
+        } else                                               \
+                while (sd_hwdb_enumerate(hwdb, &(key), &(value)) > 0)
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_hwdb, sd_hwdb_unref);
 

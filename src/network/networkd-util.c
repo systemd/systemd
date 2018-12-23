@@ -41,17 +41,16 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean, address_family_boolean, AddressFamilyBoolean, "Failed to parse option");
 
-int config_parse_address_family_boolean_with_kernel(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_address_family_boolean_with_kernel(const char *unit,
+                                                    const char *filename,
+                                                    unsigned line,
+                                                    const char *section,
+                                                    unsigned section_line,
+                                                    const char *lvalue,
+                                                    int ltype,
+                                                    const char *rvalue,
+                                                    void *data,
+                                                    void *userdata) {
 
         AddressFamilyBoolean *fwd = data, s;
 
@@ -90,10 +89,7 @@ int kernel_route_expiration_supported(void) {
         int r;
 
         if (cached < 0) {
-                Condition c = {
-                        .type = CONDITION_KERNEL_VERSION,
-                        .parameter = (char *) ">= 4.5"
-                };
+                Condition c = { .type = CONDITION_KERNEL_VERSION, .parameter = (char *) ">= 4.5" };
                 r = condition_test(&c);
                 if (r < 0)
                         return r;

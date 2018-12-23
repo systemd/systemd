@@ -24,23 +24,21 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
-        [PATH_DEAD] = UNIT_INACTIVE,
-        [PATH_WAITING] = UNIT_ACTIVE,
-        [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_FAILED] = UNIT_FAILED
+        [PATH_DEAD] = UNIT_INACTIVE, [PATH_WAITING] = UNIT_ACTIVE, [PATH_RUNNING] = UNIT_ACTIVE, [PATH_FAILED] = UNIT_FAILED
 };
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
-        static const int flags_table[_PATH_TYPE_MAX] = {
-                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
-                [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
-                [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
-                [PATH_MODIFIED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
-                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
-        };
+        static const int flags_table[_PATH_TYPE_MAX] = { [PATH_EXISTS] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
+                                                         [PATH_EXISTS_GLOB] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
+                                                         [PATH_CHANGED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE |
+                                                                 IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO,
+                                                         [PATH_MODIFIED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE |
+                                                                 IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY,
+                                                         [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB |
+                                                                 IN_CREATE | IN_MOVED_TO };
 
         bool exists = false;
         char *slash, *oldslash = NULL;
@@ -52,7 +50,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
         path_spec_unwatch(s);
 
-        s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        s->inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
         if (s->inotify_fd < 0) {
                 r = -errno;
                 goto fail;
@@ -67,7 +65,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
         /* This function assumes the path was passed through path_simplify()! */
         assert(!strstr(s->path, "//"));
 
-        for (slash = strchr(s->path, '/'); ; slash = strchr(slash+1, '/')) {
+        for (slash = strchr(s->path, '/');; slash = strchr(slash + 1, '/')) {
                 char *cut = NULL;
                 int flags;
                 char tmp;
@@ -89,7 +87,8 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
+                        r = log_warning_errno(
+                                errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
                         if (cut)
                                 *cut = tmp;
                         goto fail;
@@ -148,8 +147,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         int r = 0;
 
         if (revents != EPOLLIN)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Got invalid poll event on inotify.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got invalid poll event on inotify.");
 
         l = read(s->inotify_fd, &buffer, sizeof(buffer));
         if (l < 0) {
@@ -160,8 +158,7 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED) &&
-                    s->primary_wd == e->wd)
+                if (IN_SET(s->type, PATH_CHANGED, PATH_MODIFIED) && s->primary_wd == e->wd)
                         r = 1;
         }
 
@@ -199,8 +196,7 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
                 break;
         }
 
-        default:
-                ;
+        default:;
         }
 
         return good;
@@ -218,11 +214,7 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
 }
 
 static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {
-        fprintf(f,
-                "%s%s: %s\n",
-                prefix,
-                path_type_to_string(s->type),
-                s->path);
+        fprintf(f, "%s%s: %s\n", prefix, path_type_to_string(s->type), s->path);
 }
 
 void path_spec_done(PathSpec *s) {
@@ -304,7 +296,8 @@ static int path_add_default_dependencies(Path *p) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(
+                        UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
@@ -373,14 +366,19 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sUnit: %s\n"
                 "%sMakeDirectory: %s\n"
                 "%sDirectoryMode: %04o\n",
-                prefix, path_state_to_string(p->state),
-                prefix, path_result_to_string(p->result),
-                prefix, trigger ? trigger->id : "n/a",
-                prefix, yes_no(p->make_directory),
-                prefix, p->directory_mode);
+                prefix,
+                path_state_to_string(p->state),
+                prefix,
+                path_result_to_string(p->result),
+                prefix,
+                trigger ? trigger->id : "n/a",
+                prefix,
+                yes_no(p->make_directory),
+                prefix,
+                p->directory_mode);
 
         LIST_FOREACH(spec, s, p->specs)
-                path_spec_dump(s, f, prefix);
+        path_spec_dump(s, f, prefix);
 }
 
 static void path_unwatch(Path *p) {
@@ -389,7 +387,7 @@ static void path_unwatch(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
-                path_spec_unwatch(s);
+        path_spec_unwatch(s);
 }
 
 static int path_watch(Path *p) {
@@ -417,8 +415,7 @@ static void path_set_state(Path *p, PathState state) {
         old_state = p->state;
         p->state = state;
 
-        if (state != PATH_WAITING &&
-            (state != PATH_RUNNING || p->inotify_triggered))
+        if (state != PATH_WAITING && (state != PATH_RUNNING || p->inotify_triggered))
                 path_unwatch(p);
 
         if (state != old_state)
@@ -550,7 +547,7 @@ static void path_mkdir(Path *p) {
                 return;
 
         LIST_FOREACH(spec, s, p->specs)
-                path_spec_mkdir(s, p->directory_mode);
+        path_spec_mkdir(s, p->directory_mode);
 }
 
 static int path_start(Unit *u) {
@@ -669,8 +666,8 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         /* log_debug("inotify wakeup on %s.", u->id); */
 
         LIST_FOREACH(spec, s, p->specs)
-                if (path_spec_owns_inotify_fd(s, fd))
-                        break;
+        if (path_spec_owns_inotify_fd(s, fd))
+                break;
 
         if (!s) {
                 log_error("Got event on unknown fd.");
@@ -710,8 +707,7 @@ static void path_trigger_notify(Unit *u, Unit *other) {
         if (other->load_state != UNIT_LOADED)
                 return;
 
-        if (p->state == PATH_RUNNING &&
-            UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+        if (p->state == PATH_RUNNING && UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
                 log_unit_debug(UNIT(p), "Got notified about unit deactivation.");
 
                 /* Hmm, so inotify was triggered since the
@@ -732,17 +728,14 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static const char* const path_type_table[_PATH_TYPE_MAX] = {
-        [PATH_EXISTS] = "PathExists",
-        [PATH_EXISTS_GLOB] = "PathExistsGlob",
-        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
-        [PATH_CHANGED] = "PathChanged",
-        [PATH_MODIFIED] = "PathModified",
+static const char *const path_type_table[_PATH_TYPE_MAX] = {
+        [PATH_EXISTS] = "PathExists",   [PATH_EXISTS_GLOB] = "PathExistsGlob", [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
+        [PATH_CHANGED] = "PathChanged", [PATH_MODIFIED] = "PathModified",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
-static const char* const path_result_table[_PATH_RESULT_MAX] = {
+static const char *const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS] = "success",
         [PATH_FAILURE_RESOURCES] = "resources",
         [PATH_FAILURE_START_LIMIT_HIT] = "start-limit-hit",

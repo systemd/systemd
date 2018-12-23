@@ -9,15 +9,16 @@
 #define SYSTEM_FONT_WIDTH 8
 #define SYSTEM_FONT_HEIGHT 19
 
-#define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \
-        { 0xdd9e7534, 0x7762, 0x4698, { 0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa } }
+#define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID                         \
+        {                                                              \
+                0xdd9e7534, 0x7762, 0x4698, {                          \
+                        0x8c, 0x14, 0xf5, 0x85, 0x17, 0xa6, 0x25, 0xaa \
+                }                                                      \
+        }
 
 struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL;
 
-typedef EFI_STATUS (EFIAPI *EFI_INPUT_RESET_EX)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
-        BOOLEAN ExtendedVerification
-);
+typedef EFI_STATUS(EFIAPI *EFI_INPUT_RESET_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, BOOLEAN ExtendedVerification);
 
 typedef UINT8 EFI_KEY_TOGGLE_STATE;
 
@@ -31,31 +32,18 @@ typedef struct {
         EFI_KEY_STATE KeyState;
 } EFI_KEY_DATA;
 
-typedef EFI_STATUS (EFIAPI *EFI_INPUT_READ_KEY_EX)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
-        EFI_KEY_DATA *KeyData
-);
+typedef EFI_STATUS(EFIAPI *EFI_INPUT_READ_KEY_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, EFI_KEY_DATA *KeyData);
 
-typedef EFI_STATUS (EFIAPI *EFI_SET_STATE)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
-        EFI_KEY_TOGGLE_STATE *KeyToggleState
-);
+typedef EFI_STATUS(EFIAPI *EFI_SET_STATE)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, EFI_KEY_TOGGLE_STATE *KeyToggleState);
 
-typedef EFI_STATUS (EFIAPI *EFI_KEY_NOTIFY_FUNCTION)(
-        EFI_KEY_DATA *KeyData
-);
+typedef EFI_STATUS(EFIAPI *EFI_KEY_NOTIFY_FUNCTION)(EFI_KEY_DATA *KeyData);
 
-typedef EFI_STATUS (EFIAPI *EFI_REGISTER_KEYSTROKE_NOTIFY)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
-        EFI_KEY_DATA KeyData,
-        EFI_KEY_NOTIFY_FUNCTION KeyNotificationFunction,
-        VOID **NotifyHandle
-);
+typedef EFI_STATUS(EFIAPI *EFI_REGISTER_KEYSTROKE_NOTIFY)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+                                                          EFI_KEY_DATA KeyData,
+                                                          EFI_KEY_NOTIFY_FUNCTION KeyNotificationFunction,
+                                                          VOID **NotifyHandle);
 
-typedef EFI_STATUS (EFIAPI *EFI_UNREGISTER_KEYSTROKE_NOTIFY)(
-        struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
-        VOID *NotificationHandle
-);
+typedef EFI_STATUS(EFIAPI *EFI_UNREGISTER_KEYSTROKE_NOTIFY)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, VOID *NotificationHandle);
 
 typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
         EFI_INPUT_RESET_EX Reset;
@@ -75,7 +63,7 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         EFI_STATUS err;
 
         if (!checked) {
-                err = LibLocateProtocol(&EfiSimpleTextInputExProtocolGuid, (VOID **)&TextInputEx);
+                err = LibLocateProtocol(&EfiSimpleTextInputExProtocolGuid, (VOID **) &TextInputEx);
                 if (EFI_ERROR(err))
                         TextInputEx = NULL;
 
@@ -96,9 +84,9 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
 
                         /* do not distinguish between left and right keys */
                         if (keydata.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) {
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED|EFI_LEFT_CONTROL_PRESSED))
+                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED | EFI_LEFT_CONTROL_PRESSED))
                                         shift |= EFI_CONTROL_PRESSED;
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED|EFI_LEFT_ALT_PRESSED))
+                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED | EFI_LEFT_ALT_PRESSED))
                                         shift |= EFI_ALT_PRESSED;
                         };
 
@@ -116,7 +104,7 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
          * This is also called in case ReadKeyStrokeEx did not return a key, because
          * some broken firmwares offer SimpleTextInputExProtocol, but never acually
          * handle any key. */
-        err  = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
+        err = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
         if (EFI_ERROR(err))
                 return err;
 
@@ -132,7 +120,7 @@ static EFI_STATUS change_mode(UINTN mode) {
         /* Special case mode 1: when using OVMF and qemu, setting it returns error
          * and breaks console output. */
         if (EFI_ERROR(err) && mode == 1)
-                uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, (UINTN)0);
+                uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, (UINTN) 0);
 
         return err;
 }
@@ -148,7 +136,7 @@ static UINT64 text_area_from_font_size(void) {
                 rows = 25;
         }
 
-        text_area = SYSTEM_FONT_WIDTH * SYSTEM_FONT_HEIGHT * (UINT64)rows * (UINT64)columns;
+        text_area = SYSTEM_FONT_WIDTH * SYSTEM_FONT_HEIGHT * (UINT64) rows * (UINT64) columns;
 
         return text_area;
 }
@@ -164,7 +152,7 @@ static EFI_STATUS mode_auto(UINTN *mode) {
         EFI_STATUS err;
         BOOLEAN keep = FALSE;
 
-        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **) &GraphicsOutput);
         if (!EFI_ERROR(err) && GraphicsOutput->Mode && GraphicsOutput->Mode->Info) {
                 Info = GraphicsOutput->Mode->Info;
 
@@ -177,10 +165,10 @@ static EFI_STATUS mode_auto(UINTN *mode) {
                  * area to the text viewport area. If it's less than 10 times bigger,
                  * then assume the text is readable and keep the text mode. */
                 else {
-                        screen_area = (UINT64)Info->HorizontalResolution * (UINT64)Info->VerticalResolution;
+                        screen_area = (UINT64) Info->HorizontalResolution * (UINT64) Info->VerticalResolution;
                         text_area = text_area_from_font_size();
 
-                        if (text_area != 0 && screen_area/text_area < VIEWPORT_RATIO)
+                        if (text_area != 0 && screen_area / text_area < VIEWPORT_RATIO)
                                 keep = TRUE;
                 }
         }
@@ -218,7 +206,7 @@ EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how) {
         if (how == CONSOLE_MODE_MAX) {
                 /* Note: MaxMode is the number of modes, not the last mode. */
                 if (ST->ConOut->Mode->MaxMode > 0)
-                        *mode = ST->ConOut->Mode->MaxMode-1;
+                        *mode = ST->ConOut->Mode->MaxMode - 1;
                 else
                         *mode = 0;
         }

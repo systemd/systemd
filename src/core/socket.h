@@ -9,7 +9,8 @@ typedef struct SocketPeer SocketPeer;
 #include "socket-util.h"
 #include "unit.h"
 
-typedef enum SocketExecCommand {
+typedef enum SocketExecCommand
+{
         SOCKET_EXEC_START_PRE,
         SOCKET_EXEC_START_CHOWN,
         SOCKET_EXEC_START_POST,
@@ -19,7 +20,8 @@ typedef enum SocketExecCommand {
         _SOCKET_EXEC_COMMAND_INVALID = -1
 } SocketExecCommand;
 
-typedef enum SocketType {
+typedef enum SocketType
+{
         SOCKET_SOCKET,
         SOCKET_FIFO,
         SOCKET_SPECIAL,
@@ -29,7 +31,8 @@ typedef enum SocketType {
         _SOCKET_TYPE_INVALID = -1
 } SocketType;
 
-typedef enum SocketResult {
+typedef enum SocketResult
+{
         SOCKET_SUCCESS,
         SOCKET_FAILURE_RESOURCES,
         SOCKET_FAILURE_TIMEOUT,
@@ -78,7 +81,7 @@ struct Socket {
         usec_t keep_alive_interval;
         usec_t defer_accept;
 
-        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
+        ExecCommand *exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -95,7 +98,7 @@ struct Socket {
 
         sd_event_source *timer_event_source;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         SocketExecCommand control_command_id;
         pid_t control_pid;
 
@@ -154,7 +157,7 @@ SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer *, socket_peer_unref);
 
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds);
@@ -170,13 +173,13 @@ char *socket_fdname(Socket *s);
 
 extern const UnitVTable socket_vtable;
 
-const char* socket_exec_command_to_string(SocketExecCommand i) _const_;
+const char *socket_exec_command_to_string(SocketExecCommand i) _const_;
 SocketExecCommand socket_exec_command_from_string(const char *s) _pure_;
 
-const char* socket_result_to_string(SocketResult i) _const_;
+const char *socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
-const char* socket_port_type_to_string(SocketPort *p) _pure_;
+const char *socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *p) _pure_;
 
 DEFINE_CAST(SOCKET, Socket);

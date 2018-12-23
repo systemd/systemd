@@ -5,7 +5,8 @@
 
 #include "macro.h"
 
-enum {
+enum
+{
         VIRTUALIZATION_NONE = 0,
 
         VIRTUALIZATION_VM_FIRST,

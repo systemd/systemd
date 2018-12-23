@@ -122,7 +122,7 @@ int specifier_machine_id(char specifier, const void *data, const void *userdata,
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new (char, 33);
         if (!n)
                 return -ENOMEM;
 
@@ -139,7 +139,7 @@ int specifier_boot_id(char specifier, const void *data, const void *userdata, ch
         if (r < 0)
                 return r;
 
-        n = new(char, 33);
+        n = new (char, 33);
         if (!n)
                 return -ENOMEM;
 
@@ -279,7 +279,7 @@ int specifier_escape_strv(char **l, char ***ret) {
                 return 0;
         }
 
-        z = new(char*, strv_length(l)+1);
+        z = new (char *, strv_length(l) + 1);
         if (!z)
                 return -ENOMEM;
 

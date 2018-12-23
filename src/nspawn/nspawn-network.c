@@ -21,11 +21,11 @@
 #include "strv.h"
 #include "util.h"
 
-#define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
-#define CONTAINER_HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
-#define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48,c7,f6,b7,ea,9d,4c,9e,b7,28,d4,de,91,d5,bf,66)
-#define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af,50,17,61,ce,f9,4d,35,84,0d,2b,20,54,be,ce,59)
-#define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
+#define HOST_HASH_KEY SD_ID128_MAKE(1a, 37, 6f, c7, 46, ec, 45, 0b, ad, a3, d5, 31, 06, 60, 5d, b1)
+#define CONTAINER_HASH_KEY SD_ID128_MAKE(c3, c4, f9, 19, b5, 57, b2, 1c, e6, cf, 14, 27, 03, 9c, ee, a2)
+#define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48, c7, f6, b7, ea, 9d, 4c, 9e, b7, 28, d4, de, 91, d5, bf, 66)
+#define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af, 50, 17, 61, ce, f9, 4d, 35, 84, 0d, 2b, 20, 54, be, ce, 59)
+#define MACVLAN_HASH_KEY SD_ID128_MAKE(00, 13, 6d, bc, 66, 83, 44, 81, bb, 0c, f9, 51, 1f, 24, a6, 6f)
 
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -51,11 +51,7 @@ static int remove_one_link(sd_netlink *rtnl, const char *name) {
         return 1;
 }
 
-static int generate_mac(
-                const char *machine_name,
-                struct ether_addr *mac,
-                sd_id128_t hash_key,
-                uint64_t idx) {
+static int generate_mac(const char *machine_name, struct ether_addr *mac, sd_id128_t hash_key, uint64_t idx) {
 
         uint64_t result;
         size_t l, sz;
@@ -70,7 +66,7 @@ static int generate_mac(
         v = alloca(sz);
 
         /* fetch some persistent data unique to the host */
-        r = sd_id128_get_machine((sd_id128_t*) v);
+        r = sd_id128_get_machine((sd_id128_t *) v);
         if (r < 0)
                 return r;
 
@@ -90,19 +86,18 @@ static int generate_mac(
         memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
 
         /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+        mac->ether_addr_octet[0] &= 0xfe; /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02; /* set local assignment bit (IEEE802) */
 
         return 0;
 }
 
-static int add_veth(
-                sd_netlink *rtnl,
-                pid_t pid,
-                const char *ifname_host,
-                const struct ether_addr *mac_host,
-                const char *ifname_container,
-                const struct ether_addr *mac_container) {
+static int add_veth(sd_netlink *rtnl,
+                    pid_t pid,
+                    const char *ifname_host,
+                    const struct ether_addr *mac_host,
+                    const char *ifname_container,
+                    const struct ether_addr *mac_container) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -168,10 +163,7 @@ static int add_veth(
         return 0;
 }
 
-int setup_veth(const char *machine_name,
-               pid_t pid,
-               char iface_name[IFNAMSIZ],
-               bool bridge) {
+int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
@@ -183,8 +175,7 @@ int setup_veth(const char *machine_name,
 
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
-        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
-                 bridge ? "vb" : "ve", machine_name);
+        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s", bridge ? "vb" : "ve", machine_name);
 
         r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
         if (r < 0)
@@ -209,10 +200,7 @@ int setup_veth(const char *machine_name,
         return i;
 }
 
-int setup_veth_extra(
-                const char *machine_name,
-                pid_t pid,
-                char **pairs) {
+int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         uint64_t idx = 0;
@@ -493,7 +481,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                strshorten(n, IFNAMSIZ - 1);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -568,7 +556,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                strshorten(n, IFNAMSIZ - 1);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -655,7 +643,7 @@ int remove_veth_links(const char *primary, char **pairs) {
         remove_one_link(rtnl, primary);
 
         STRV_FOREACH_PAIR(a, b, pairs)
-                remove_one_link(rtnl, *a);
+        remove_one_link(rtnl, *a);
 
         return 0;
 }

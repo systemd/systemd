@@ -48,8 +48,7 @@ static int update_timeout(void) {
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
                 if (r < 0) {
                         /* ENOTTY means the watchdog is always enabled so we're fine */
-                        log_full(errno == ENOTTY ? LOG_DEBUG : LOG_WARNING,
-                                 "Failed to enable hardware watchdog: %m");
+                        log_full(errno == ENOTTY ? LOG_DEBUG : LOG_WARNING, "Failed to enable hardware watchdog: %m");
                         if (errno != ENOTTY)
                                 return -errno;
                 }
@@ -68,15 +67,12 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        watchdog_fd = open(watchdog_device ?: "/dev/watchdog",
-                           O_WRONLY|O_CLOEXEC);
+        watchdog_fd = open(watchdog_device ?: "/dev/watchdog", O_WRONLY | O_CLOEXEC);
         if (watchdog_fd < 0)
                 return -errno;
 
         if (ioctl(watchdog_fd, WDIOC_GETSUPPORT, &ident) >= 0)
-                log_info("Hardware watchdog '%s', version %x",
-                         ident.identity,
-                         ident.firmware_version);
+                log_info("Hardware watchdog '%s', version %x", ident.identity, ident.firmware_version);
 
         return update_timeout();
 }

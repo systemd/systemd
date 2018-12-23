@@ -23,13 +23,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static int files_add(
-                Hashmap *h,
-                Set *masked,
-                const char *suffix,
-                const char *root,
-                unsigned flags,
-                const char *path) {
+static int files_add(Hashmap *h, Set *masked, const char *suffix, const char *root, unsigned flags, const char *path) {
 
         _cleanup_closedir_ DIR *dir = NULL;
         const char *dirpath;
@@ -71,7 +65,7 @@ static int files_add(
                 }
 
                 /* Read file metadata if we shall validate the check for file masks, for node types or whether the node is marked executable. */
-                if (flags & (CONF_FILES_FILTER_MASKED|CONF_FILES_REGULAR|CONF_FILES_DIRECTORY|CONF_FILES_EXECUTABLE))
+                if (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE))
                         if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
                                 log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m", dirpath, de->d_name);
                                 continue;
@@ -90,7 +84,7 @@ static int files_add(
                         }
 
                 /* Does this node have the right type? */
-                if (flags & (CONF_FILES_REGULAR|CONF_FILES_DIRECTORY))
+                if (flags & (CONF_FILES_REGULAR | CONF_FILES_DIRECTORY))
                         if (!((flags & CONF_FILES_DIRECTORY) && S_ISDIR(st.st_mode)) &&
                             !((flags & CONF_FILES_REGULAR) && S_ISREG(st.st_mode))) {
                                 log_debug("Ignoring '%s/%s', as it is not a of the right type.", dirpath, de->d_name);
@@ -134,7 +128,7 @@ static int files_add(
         return 0;
 }
 
-static int base_cmp(char * const *a, char * const *b) {
+static int base_cmp(char *const *a, char *const *b) {
         return strcmp(basename(*a), basename(*b));
 }
 
@@ -197,7 +191,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         for (i = 0; i < n; i++) {
                 int c;
 
-                c = base_cmp((char* const*) *strv + i, (char* const*) &path);
+                c = base_cmp((char *const *) *strv + i, (char *const *) &path);
                 if (c == 0) {
                         char **dir;
 
@@ -249,12 +243,12 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         return r;
 }
 
-int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
+int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char *const *dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(strv);
 
-        copy = strv_copy((char**) dirs);
+        copy = strv_copy((char **) dirs);
         if (!copy)
                 return -ENOMEM;
 
@@ -289,12 +283,7 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, u
         return conf_files_list_strv_internal(strv, suffix, root, flags, d);
 }
 
-int conf_files_list_with_replacement(
-                const char *root,
-                char **config_dirs,
-                const char *replacement,
-                char ***files,
-                char **replace_file) {
+int conf_files_list_with_replacement(const char *root, char **config_dirs, const char *replacement, char ***files, char **replace_file) {
 
         _cleanup_strv_free_ char **f = NULL;
         _cleanup_free_ char *p = NULL;
@@ -304,7 +293,7 @@ int conf_files_list_with_replacement(
         assert(files);
         assert(replace_file || !replacement);
 
-        r = conf_files_list_strv(&f, ".conf", root, 0, (const char* const*) config_dirs);
+        r = conf_files_list_strv(&f, ".conf", root, 0, (const char *const *) config_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate config files: %m");
 

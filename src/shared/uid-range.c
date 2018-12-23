@@ -13,8 +13,7 @@
 static bool uid_range_intersect(UidRange *range, uid_t start, uid_t nr) {
         assert(range);
 
-        return range->start <= start + nr &&
-                range->start + range->nr >= start;
+        return range->start <= start + nr && range->start + range->nr >= start;
 }
 
 static void uid_range_coalesce(UidRange **p, unsigned *n) {
@@ -25,7 +24,7 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
 
         for (i = 0; i < *n; i++) {
                 for (j = i + 1; j < *n; j++) {
-                        UidRange *x = (*p)+i, *y = (*p)+j;
+                        UidRange *x = (*p) + i, *y = (*p) + j;
 
                         if (uid_range_intersect(x, y->start, y->nr)) {
                                 uid_t begin, end;
@@ -36,8 +35,8 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
                                 x->start = begin;
                                 x->nr = end - begin;
 
-                                if (*n > j+1)
-                                        memmove(y, y+1, sizeof(UidRange) * (*n - j -1));
+                                if (*n > j + 1)
+                                        memmove(y, y + 1, sizeof(UidRange) * (*n - j - 1));
 
                                 (*n)--;
                                 j--;
@@ -91,7 +90,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
                         return -ENOMEM;
 
                 *p = t;
-                x = t + ((*n) ++);
+                x = t + ((*n)++);
 
                 x->start = start;
                 x->nr = nr;
@@ -122,7 +121,7 @@ int uid_range_add_str(UidRange **p, unsigned *n, const char *s) {
                 if (r < 0)
                         return r;
 
-                r = parse_uid(t+1, &end);
+                r = parse_uid(t + 1, &end);
                 if (r < 0)
                         return r;
 

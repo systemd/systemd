@@ -28,7 +28,7 @@ static int makefs(const char *type, const char *device) {
         if (access(mkfs, X_OK) != 0)
                 return log_error_errno(errno, "%s is not executable: %m", mkfs);
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -36,7 +36,7 @@ static int makefs(const char *type, const char *device) {
 
                 /* Child */
 
-                execv(cmdline[0], (char**) cmdline);
+                execv(cmdline[0], (char **) cmdline);
                 _exit(EXIT_FAILURE);
         }
 
@@ -52,8 +52,7 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program expects two arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects two arguments.");
 
         type = argv[1];
         device = argv[2];
@@ -67,9 +66,8 @@ static int run(int argc, char *argv[]) {
         r = probe_filesystem(device, &detected);
         if (r < 0)
                 return log_warning_errno(r,
-                                         r == -EUCLEAN ?
-                                         "Cannot reliably determine probe \"%s\", refusing to proceed." :
-                                         "Failed to probe \"%s\": %m",
+                                         r == -EUCLEAN ? "Cannot reliably determine probe \"%s\", refusing to proceed." :
+                                                         "Failed to probe \"%s\": %m",
                                          device);
 
         if (detected) {

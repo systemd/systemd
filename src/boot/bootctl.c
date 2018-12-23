@@ -52,12 +52,7 @@ static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 
-static int acquire_esp(
-                bool unprivileged_mode,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+static int acquire_esp(bool unprivileged_mode, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid) {
 
         char *np;
         int r;
@@ -155,7 +150,7 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (prefix && !startswith_no_case(de->d_name, prefix))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = openat(dirfd(d), de->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
@@ -163,7 +158,13 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        printf("         File: %s/%s/%s (%s%s%s)\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name, ansi_highlight(), v, ansi_normal());
+                        printf("         File: %s/%s/%s (%s%s%s)\n",
+                               special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                               path,
+                               de->d_name,
+                               ansi_highlight(),
+                               v,
+                               ansi_normal());
                 else
                         printf("         File: %s/%s/%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name);
                 c++;
@@ -184,7 +185,8 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("          ESP: %s", esp_path);
         if (!sd_id128_is_null(partition))
-                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(partition));
+                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)",
+                       SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
@@ -224,7 +226,8 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("        Title: %s%s%s\n", ansi_highlight(), strna(title), ansi_normal());
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
-        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
+        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+               SD_ID128_FORMAT_VAL(partition));
         printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
         printf("\n");
 
@@ -374,17 +377,13 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return r;
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Source file \"%s\" does not carry version information!",
-                                       from);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source file \"%s\" does not carry version information!", from);
 
         r = get_file_version(fd_to, &b);
         if (r < 0)
                 return r;
         if (r == 0 || compare_product(a, b) != 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST),
-                                        "Skipping \"%s\", since it's owned by another boot loader.",
-                                        to);
+                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST), "Skipping \"%s\", since it's owned by another boot loader.", to);
 
         if (compare_version(a, b) < 0) {
                 log_warning("Skipping \"%s\", since a newer boot loader version exists already.", to);
@@ -399,12 +398,12 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
         _cleanup_free_ char *t = NULL;
         int r;
 
-        fd_from = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd_from = open(from, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (fd_from < 0)
                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", from);
 
         if (!force) {
-                fd_to = open(to, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd_to = open(to, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (fd_to < 0) {
                         if (errno != -ENOENT)
                                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
@@ -425,7 +424,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                 return log_oom();
 
         RUN_WITH_UMASK(0000) {
-                fd_to = open(t, O_WRONLY|O_CREAT|O_CLOEXEC|O_EXCL|O_NOFOLLOW, 0644);
+                fd_to = open(t, O_WRONLY | O_CREAT | O_CLOEXEC | O_EXCL | O_NOFOLLOW, 0644);
                 if (fd_to < 0)
                         return log_error_errno(errno, "Failed to open \"%s\" for writing: %m", t);
         }
@@ -468,14 +467,7 @@ static int mkdir_one(const char *prefix, const char *suffix) {
         return 0;
 }
 
-static const char *efi_subdirs[] = {
-        "EFI",
-        "EFI/systemd",
-        "EFI/BOOT",
-        "loader",
-        "loader/entries",
-        NULL
-};
+static const char *efi_subdirs[] = { "EFI", "EFI/systemd", "EFI/BOOT", "loader", "loader/entries", NULL };
 
 static int create_dirs(const char *esp_path) {
         const char **i;
@@ -503,8 +495,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                v = strjoina(esp_path, "/EFI/BOOT/BOOT",
-                             name + STRLEN("systemd-boot"));
+                v = strjoina(esp_path, "/EFI/BOOT/BOOT", name + STRLEN("systemd-boot"));
                 ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file_with_version_check(p, v, force);
@@ -533,7 +524,7 @@ static int install_binaries(const char *esp_path, bool force) {
 
         d = opendir(BOOTLIBDIR);
         if (!d)
-                return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
+                return log_error_errno(errno, "Failed to open \"" BOOTLIBDIR "\": %m");
 
         FOREACH_DIRENT(de, d, break) {
                 int k;
@@ -652,17 +643,15 @@ static int remove_from_order(uint16_t slot) {
                         continue;
 
                 if (i + 1 < n)
-                        memmove(order + i, order + i+1, (n - i) * sizeof(uint16_t));
+                        memmove(order + i, order + i + 1, (n - i) * sizeof(uint16_t));
                 return efi_set_boot_order(order, n - 1);
         }
 
         return 0;
 }
 
-static int install_variables(const char *esp_path,
-                             uint32_t part, uint64_t pstart, uint64_t psize,
-                             sd_id128_t uuid, const char *path,
-                             bool first) {
+static int install_variables(
+        const char *esp_path, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t uuid, const char *path, bool first) {
         char *p;
         uint16_t slot;
         int r;
@@ -683,14 +672,11 @@ static int install_variables(const char *esp_path,
         r = find_slot(uuid, path, &slot);
         if (r < 0)
                 return log_error_errno(r,
-                                       r == -ENOENT ?
-                                       "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
-                                       "Failed to determine current boot order: %m");
+                                       r == -ENOENT ? "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
+                                                      "Failed to determine current boot order: %m");
 
         if (first || r == 0) {
-                r = efi_add_boot_option(slot, "Linux Boot Manager",
-                                        part, pstart, psize,
-                                        uuid, path);
+                r = efi_add_boot_option(slot, "Linux Boot Manager", part, pstart, psize, uuid, path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create EFI Boot variable entry: %m");
 
@@ -725,7 +711,7 @@ static int remove_boot_efi(const char *esp_path) {
                 if (!startswith_no_case(de->d_name, "boot"))
                         continue;
 
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                fd = openat(dirfd(d), de->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
@@ -765,14 +751,14 @@ static int remove_binaries(const char *esp_path) {
         unsigned i;
 
         p = strjoina(esp_path, "/EFI/systemd");
-        r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+        r = rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
         if (q < 0 && r == 0)
                 r = q;
 
-        for (i = ELEMENTSOF(efi_subdirs)-1; i > 0; i--) {
-                q = rmdir_one(esp_path, efi_subdirs[i-1]);
+        for (i = ELEMENTSOF(efi_subdirs) - 1; i > 0; i--) {
+                q = rmdir_one(esp_path, efi_subdirs[i - 1]);
                 if (q < 0 && r == 0)
                         r = q;
         }
@@ -819,7 +805,7 @@ static int install_loader_config(const char *esp_path) {
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
-        fd = open_tmpfile_linkable(p, O_WRONLY|O_CLOEXEC, &t);
+        fd = open_tmpfile_linkable(p, O_WRONLY | O_CLOEXEC, &t);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
 
@@ -829,9 +815,11 @@ static int install_loader_config(const char *esp_path) {
                 return log_oom();
         }
 
-        fprintf(f, "#timeout 3\n"
-                   "#console-mode keep\n"
-                   "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
+        fprintf(f,
+                "#timeout 3\n"
+                "#console-mode keep\n"
+                "default %s-*\n",
+                sd_id128_to_string(machine_id, machine_string));
 
         r = fflush_sync_and_check(f);
         if (r < 0)
@@ -873,30 +861,29 @@ static int help(int argc, char *argv[], void *userdata) {
                "     list            List boot loader entries\n"
                "     set-default ID  Set default boot loader entry\n"
                "     set-oneshot ID  Set default boot loader entry, for next boot only\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link);
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_PATH = 0x100,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
                 ARG_NO_PAGER,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "path",         required_argument, NULL, ARG_PATH         },
-                { "print-path",   no_argument,       NULL, 'p'              },
-                { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "path", required_argument, NULL, ARG_PATH },
+                                                 { "print-path", no_argument, NULL, 'p' },
+                                                 { "no-variables", no_argument, NULL, ARG_NO_VARIABLES },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 {} };
 
         int c, r;
 
@@ -977,11 +964,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } flags[] = {
-                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                 },
-                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"          },
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING, "Boot counting" },
+                        { EFI_LOADER_FEATURE_CONFIG_TIMEOUT, "Menu timeout control" },
                         { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control" },
-                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"         },
-                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"        },
+                        { EFI_LOADER_FEATURE_ENTRY_DEFAULT, "Default entry control" },
+                        { EFI_LOADER_FEATURE_ENTRY_ONESHOT, "One-shot entry control" },
                 };
 
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
@@ -1020,9 +1007,17 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                                 printf("               ");
 
                         if (FLAGS_SET(loader_features, flags[i].flag))
-                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(SPECIAL_GLYPH_CHECK_MARK), ansi_normal(), flags[i].name);
+                                printf("%s%s%s %s\n",
+                                       ansi_highlight_green(),
+                                       special_glyph(SPECIAL_GLYPH_CHECK_MARK),
+                                       ansi_normal(),
+                                       flags[i].name);
                         else
-                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(SPECIAL_GLYPH_CROSS_MARK), ansi_normal(), flags[i].name);
+                                printf("%s%s%s %s\n",
+                                       ansi_highlight_red(),
+                                       special_glyph(SPECIAL_GLYPH_CROSS_MARK),
+                                       ansi_normal(),
+                                       flags[i].name);
                 }
 
                 if (stub)
@@ -1108,7 +1103,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 printf("Automatic/Other Entries Found by Boot Loader:\n\n");
 
                 STRV_FOREACH(i, found_by_loader)
-                        puts(*i);
+                puts(*i);
         }
 
         return 0;
@@ -1120,7 +1115,7 @@ static int sync_esp(void) {
         if (!arg_path)
                 return 0;
 
-        fd = open(arg_path, O_CLOEXEC|O_DIRECTORY|O_RDONLY);
+        fd = open(arg_path, O_CLOEXEC | O_DIRECTORY | O_RDONLY);
         if (fd < 0)
                 return log_error_errno(errno, "Couldn't open ESP '%s' for synchronization: %m", arg_path);
 
@@ -1159,10 +1154,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         (void) sync_esp();
 
         if (arg_touch_variables)
-                r = install_variables(arg_path,
-                                      part, pstart, psize, uuid,
-                                      "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
-                                      install);
+                r = install_variables(arg_path, part, pstart, psize, uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", install);
 
         return r;
 }
@@ -1195,8 +1187,7 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
         int r;
 
         if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Not booted with UEFI.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not booted with UEFI.");
 
         if (access("/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
                 if (errno == ENOENT) {
@@ -1208,14 +1199,10 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
         }
 
         if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "'%s' operation not supported in a container.",
-                                       argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'%s' operation not supported in a container.", argv[0]);
 
         if (!arg_touch_variables)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "'%s' operation cannot be combined with --touch-variables=no.",
-                                       argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' operation cannot be combined with --touch-variables=no.", argv[0]);
 
         name = streq(argv[0], "set-default") ? "LoaderEntryDefault" : "LoaderEntryOneShot";
 
@@ -1240,17 +1227,15 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
 
 static int bootctl_main(int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,                 help             },
-                { "status",      VERB_ANY, 1,        VERB_DEFAULT,      verb_status      },
-                { "install",     VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "update",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
-                { "remove",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove      },
-                { "list",        VERB_ANY, 1,        0,                 verb_list        },
-                { "set-default", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
-                { "set-oneshot", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "status", VERB_ANY, 1, VERB_DEFAULT, verb_status },
+                                      { "install", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_install },
+                                      { "update", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_install },
+                                      { "remove", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_remove },
+                                      { "list", VERB_ANY, 1, 0, verb_list },
+                                      { "set-default", 2, 2, VERB_MUST_BE_ROOT, verb_set_default },
+                                      { "set-oneshot", 2, 2, VERB_MUST_BE_ROOT, verb_set_default },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

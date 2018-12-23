@@ -76,8 +76,7 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
          * Return true whenever option K is *not* set. */
         r = streq_ptr(line, "less") && !strchr(less_opts, 'K');
 
-        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s",
-                  strnull(line), less_opts, yes_no(!r));
+        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s", strnull(line), less_opts, yes_no(!r));
         return r;
 }
 
@@ -132,7 +131,7 @@ int pager_open(PagerFlags flags) {
         if (flags & PAGER_JUMP_TO_END)
                 less_opts = strjoina(less_opts, " +G");
 
-        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pager_pid);
+        r = safe_fork("(pager)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pager_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -158,8 +157,7 @@ int pager_open(PagerFlags flags) {
                 less_charset = getenv("SYSTEMD_LESSCHARSET");
                 if (!less_charset && is_locale_utf8())
                         less_charset = "utf-8";
-                if (less_charset &&
-                    setenv("LESSCHARSET", less_charset, 1) < 0) {
+                if (less_charset && setenv("LESSCHARSET", less_charset, 1) < 0) {
                         log_error_errno(errno, "Failed to set environment variable LESSCHARSET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -172,8 +170,10 @@ int pager_open(PagerFlags flags) {
                         }
 
                         execvp(pager_args[0], pager_args);
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using fallback pagers: %m", pager_args[0]);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                       errno,
+                                       "Failed execute %s, using fallback pagers: %m",
+                                       pager_args[0]);
                 }
 
                 /* Debian's alternatives command for pagers is
@@ -184,13 +184,13 @@ int pager_open(PagerFlags flags) {
                  * Debian-specific. */
                 FOREACH_STRING(exe, "pager", "less", "more") {
                         r = loop_write(exe_name_pipe[1], exe, strlen(exe) + 1, false);
-                        if (r  < 0) {
+                        if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
                         }
                         execlp(exe, exe, NULL);
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using next fallback pager: %m", exe);
+                        log_full_errno(
+                                errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed execute %s, using next fallback pager: %m", exe);
                 }
 
                 r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false);
@@ -264,7 +264,7 @@ int show_man_page(const char *desc, bool null_stdio) {
 
         k = strlen(desc);
 
-        if (desc[k-1] == ')')
+        if (desc[k - 1] == ')')
                 e = strrchr(desc, '(');
 
         if (e) {
@@ -278,12 +278,13 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0)|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork(
+                "(man)", FORK_RESET_SIGNALS | FORK_DEATHSIG | (null_stdio ? FORK_NULL_STDIO : 0) | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
-                execvp(args[0], (char**) args);
+                execvp(args[0], (char **) args);
                 log_error_errno(errno, "Failed to execute man: %m");
                 _exit(EXIT_FAILURE);
         }

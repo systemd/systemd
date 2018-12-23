@@ -83,11 +83,7 @@ int bus_forward_agent_released(Manager *m, const char *path) {
         /* If we are running a system instance we forward the agent message on the system bus, so that the user
          * instances get notified about this, too */
 
-        r = sd_bus_emit_signal(m->system_bus,
-                               "/org/freedesktop/systemd1/agent",
-                               "org.freedesktop.systemd1.Agent",
-                               "Released",
-                               "s", path);
+        r = sd_bus_emit_signal(m->system_bus, "/org/freedesktop/systemd1/agent", "org.freedesktop.systemd1.Agent", "Released", "s", path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to propagate agent release message: %m");
 
@@ -162,8 +158,7 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
                 return 0;
         }
 
-        if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
-            manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
+        if (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) || manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)) {
                 r = sd_bus_error_setf(&error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
                 goto failed;
         }
@@ -173,7 +168,11 @@ static int signal_activation_request(sd_bus_message *message, void *userdata, sd
                 goto failed;
 
         if (u->refuse_manual_start) {
-                r = sd_bus_error_setf(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
+                r = sd_bus_error_setf(
+                        &error,
+                        BUS_ERROR_ONLY_BY_DEPENDENCY,
+                        "Operation refused, %s may be requested by dependency only (it is configured to refuse manual start/stop).",
+                        u->id);
                 goto failed;
         }
 
@@ -190,7 +189,11 @@ failed:
 
         log_debug("D-Bus activation failed for %s: %s", name, bus_error_message(&error, r));
 
-        r = sd_bus_message_new_signal(sd_bus_message_get_bus(message), &reply, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure");
+        r = sd_bus_message_new_signal(sd_bus_message_get_bus(message),
+                                      &reply,
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Activator",
+                                      "ActivationFailure");
         if (r < 0) {
                 bus_log_create_error(r);
                 return 0;
@@ -294,7 +297,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 }
 
 static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *error) {
-        Unit *u = NULL;  /* just to appease gcc, initialization is not really necessary */
+        Unit *u = NULL; /* just to appease gcc, initialization is not really necessary */
         int r;
 
         assert(m);
@@ -341,7 +344,7 @@ static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, v
         assert(found);
         assert(m);
 
-        return find_unit(m, bus, path, (Unit**) found, error);
+        return find_unit(m, bus, path, (Unit **) found, error);
 }
 
 static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
@@ -479,7 +482,7 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char
         Iterator i;
         Job *j;
 
-        l = new0(char*, hashmap_size(m->jobs)+1);
+        l = new0(char *, hashmap_size(m->jobs) + 1);
         if (!l)
                 return -ENOMEM;
 
@@ -505,7 +508,7 @@ static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, cha
         Iterator i;
         Unit *u;
 
-        l = new0(char*, hashmap_size(m->units)+1);
+        l = new0(char *, hashmap_size(m->units) + 1);
         if (!l)
                 return -ENOMEM;
 
@@ -539,7 +542,8 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register Manager vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
+        r = sd_bus_add_fallback_vtable(
+                bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register Job vtable: %m");
 
@@ -547,7 +551,8 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add job enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
+        r = sd_bus_add_fallback_vtable(
+                bus, NULL, "/org/freedesktop/systemd1/unit", "org.freedesktop.systemd1.Unit", bus_unit_vtable, bus_unit_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register Unit vtable: %m");
 
@@ -560,28 +565,33 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
 
                 assert_se(interface = unit_dbus_interface_from_type(t));
 
-                r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
+                r = sd_bus_add_fallback_vtable(
+                        bus, NULL, "/org/freedesktop/systemd1/unit", interface, unit_vtable[t]->bus_vtable, bus_unit_interface_find, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to register type specific vtable for %s: %m", interface);
 
                 if (unit_vtable[t]->cgroup_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
+                        r = sd_bus_add_fallback_vtable(
+                                bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_unit_cgroup_vtable, bus_unit_cgroup_find, m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register control group unit vtable for %s: %m", interface);
 
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
+                        r = sd_bus_add_fallback_vtable(
+                                bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_cgroup_vtable, bus_cgroup_context_find, m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register control group vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->exec_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_exec_vtable, bus_exec_context_find, m);
+                        r = sd_bus_add_fallback_vtable(
+                                bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_exec_vtable, bus_exec_context_find, m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register execute vtable for %s: %m", interface);
                 }
 
                 if (unit_vtable[t]->kill_context_offset > 0) {
-                        r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_kill_vtable, bus_kill_context_find, m);
+                        r = sd_bus_add_fallback_vtable(
+                                bus, NULL, "/org/freedesktop/systemd1/unit", interface, bus_kill_vtable, bus_kill_context_find, m);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register kill vtable for %s: %m", interface);
                 }
@@ -596,14 +606,15 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
-        r = sd_bus_match_signal_async(
-                        bus,
-                        NULL,
-                        "org.freedesktop.DBus.Local",
-                        "/org/freedesktop/DBus/Local",
-                        "org.freedesktop.DBus.Local",
-                        "Disconnected",
-                        signal_disconnected, NULL, m);
+        r = sd_bus_match_signal_async(bus,
+                                      NULL,
+                                      "org.freedesktop.DBus.Local",
+                                      "/org/freedesktop/DBus/Local",
+                                      "org.freedesktop.DBus.Local",
+                                      "Disconnected",
+                                      signal_disconnected,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Disconnected message: %m");
 
@@ -620,7 +631,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         assert(s);
         assert(m);
 
-        nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (nfd < 0) {
                 log_warning_errno(errno, "Failed to accept private connection, ignoring: %m");
                 return 0;
@@ -667,10 +678,8 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = sd_bus_negotiate_creds(bus, 1,
-                                   SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
-                                   SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
-                                   SD_BUS_CREDS_SELINUX_CONTEXT);
+        r = sd_bus_negotiate_creds(
+                bus, 1, SD_BUS_CREDS_PID | SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0) {
                 log_warning_errno(r, "Failed to enable credentials for new connection: %m");
                 return 0;
@@ -835,10 +844,8 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         assert(bus);
 
         /* Let's make sure we have enough credential bits so that we can make security and selinux decisions */
-        r = sd_bus_negotiate_creds(bus, 1,
-                                   SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
-                                   SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
-                                   SD_BUS_CREDS_SELINUX_CONTEXT);
+        r = sd_bus_negotiate_creds(
+                bus, 1, SD_BUS_CREDS_PID | SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0)
                 log_warning_errno(r, "Failed to enable credential passing, ignoring: %m");
 
@@ -852,21 +859,23 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                         log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
-        r = sd_bus_match_signal_async(
-                        bus,
-                        NULL,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.systemd1.Activator",
-                        "ActivationRequest",
-                        signal_activation_request, NULL, m);
+        r = sd_bus_match_signal_async(bus,
+                                      NULL,
+                                      "org.freedesktop.DBus",
+                                      "/org/freedesktop/DBus",
+                                      "org.freedesktop.systemd1.Activator",
+                                      "ActivationRequest",
+                                      signal_activation_request,
+                                      NULL,
+                                      m);
         if (r < 0)
                 log_warning_errno(r, "Failed to subscribe to activation signal: %m");
 
         /* Allow replacing of our name, to ease implementation of reexecution, where we keep the old connection open
          * until after the new connection is set up and the name installed to allow clients to synchronously wait for
          * reexecution to finish */
-        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT, NULL, NULL);
+        r = sd_bus_request_name_async(
+                bus, NULL, "org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING | SD_BUS_NAME_ALLOW_REPLACEMENT, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
@@ -923,14 +932,15 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 
         /* if we are a user instance we get the Released message via the system bus */
         if (MANAGER_IS_USER(m)) {
-                r = sd_bus_match_signal_async(
-                                bus,
-                                NULL,
-                                NULL,
-                                "/org/freedesktop/systemd1/agent",
-                                "org.freedesktop.systemd1.Agent",
-                                "Released",
-                                signal_agent_released, NULL, m);
+                r = sd_bus_match_signal_async(bus,
+                                              NULL,
+                                              NULL,
+                                              "/org/freedesktop/systemd1/agent",
+                                              "org.freedesktop.systemd1.Agent",
+                                              "Released",
+                                              signal_agent_released,
+                                              NULL,
+                                              m);
                 if (r < 0)
                         log_warning_errno(r, "Failed to request Released match on system bus: %m");
         }
@@ -995,8 +1005,7 @@ int bus_init_private(Manager *m) {
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
-                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
-                                               "XDG_RUNTIME_DIR is not set, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "XDG_RUNTIME_DIR is not set, refusing.");
 
                 joined = strjoina(e, "/systemd/private");
                 salen = sockaddr_un_set_path(&sa.un, joined);
@@ -1007,7 +1016,7 @@ int bus_init_private(Manager *m) {
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
         (void) sockaddr_un_unlink(&sa.un);
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate private socket: %m");
 
@@ -1063,12 +1072,12 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
         HASHMAP_FOREACH(j, m->jobs, i)
-                if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
-                        j->bus_track = sd_bus_track_unref(j->bus_track);
+        if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
+                j->bus_track = sd_bus_track_unref(j->bus_track);
 
         HASHMAP_FOREACH(u, m->units, i)
-                if (u->bus_track && sd_bus_track_get_bus(u->bus_track) == *bus)
-                        u->bus_track = sd_bus_track_unref(u->bus_track);
+        if (u->bus_track && sd_bus_track_get_bus(u->bus_track) == *bus)
+                u->bus_track = sd_bus_track_unref(u->bus_track);
 
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)
@@ -1159,11 +1168,7 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
         return 0;
 }
 
-int bus_foreach_bus(
-                Manager *m,
-                sd_bus_track *subscribed2,
-                int (*send_message)(sd_bus *bus, void *userdata),
-                void *userdata) {
+int bus_foreach_bus(Manager *m, sd_bus_track *subscribed2, int (*send_message)(sd_bus *bus, void *userdata), void *userdata) {
 
         Iterator i;
         sd_bus *b;
@@ -1182,9 +1187,7 @@ int bus_foreach_bus(
         }
 
         /* Send to API bus, but only if somebody is subscribed */
-        if (m->api_bus &&
-            (sd_bus_track_count(m->subscribed) > 0 ||
-             sd_bus_track_count(subscribed2) > 0)) {
+        if (m->api_bus && (sd_bus_track_count(m->subscribed) > 0 || sd_bus_track_count(subscribed2) > 0)) {
                 r = send_message(m->api_bus, userdata);
                 if (r < 0)
                         ret = r;
@@ -1234,19 +1237,23 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
 
 uint64_t manager_bus_n_queued_write(Manager *m) {

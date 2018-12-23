@@ -21,8 +21,7 @@ static int make_volatile(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s is not a mount point.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a mount point.", path);
 
         r = path_is_temporary_fs(path);
         if (r < 0)
@@ -49,7 +48,7 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
         }
 
-        r = mount_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", NULL, MS_BIND|MS_REC, NULL);
+        r = mount_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", NULL, MS_BIND | MS_REC, NULL);
         if (r < 0)
                 goto finish_umount;
 
@@ -63,7 +62,7 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
         }
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                 log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC: %m", path);
 
         r = mount_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
@@ -85,8 +84,7 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         if (argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many arguments. Expected directory and mode.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments. Expected directory and mode.");
 
         r = query_volatile_mode(&m);
         if (r < 0)
@@ -106,14 +104,11 @@ static int run(int argc, char *argv[]) {
                 path = argv[2];
 
                 if (isempty(path))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Directory name cannot be empty.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Directory name cannot be empty.");
                 if (!path_is_absolute(path))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Directory must be specified as absolute path.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Directory must be specified as absolute path.");
                 if (path_equal(path, "/"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Directory cannot be the root directory.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Directory cannot be the root directory.");
         }
 
         if (m != VOLATILE_YES)

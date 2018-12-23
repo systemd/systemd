@@ -17,7 +17,7 @@
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
-#define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
+#define TRANSACTION_TCP_TIMEOUT_USEC (10U * USEC_PER_SEC)
 
 /* After how much time to repeat classic DNS requests */
 #define DNS_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
@@ -70,7 +70,7 @@ static void dns_transaction_stop_timeout(DnsTransaction *t) {
         t->timeout_event_source = sd_event_source_unref(t->timeout_event_source);
 }
 
-DnsTransaction* dns_transaction_free(DnsTransaction *t) {
+DnsTransaction *dns_transaction_free(DnsTransaction *t) {
         DnsQueryCandidate *c;
         DnsZoneItem *i;
         DnsTransaction *z;
@@ -129,7 +129,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         return mfree(t);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction *, dns_transaction_free);
 
 bool dns_transaction_gc(DnsTransaction *t) {
         assert(t);
@@ -137,12 +137,8 @@ bool dns_transaction_gc(DnsTransaction *t) {
         if (t->block_gc > 0)
                 return true;
 
-        if (set_isempty(t->notify_query_candidates) &&
-            set_isempty(t->notify_query_candidates_done) &&
-            set_isempty(t->notify_zone_items) &&
-            set_isempty(t->notify_zone_items_done) &&
-            set_isempty(t->notify_transactions) &&
-            set_isempty(t->notify_transactions_done)) {
+        if (set_isempty(t->notify_query_candidates) && set_isempty(t->notify_query_candidates_done) && set_isempty(t->notify_zone_items) &&
+            set_isempty(t->notify_zone_items_done) && set_isempty(t->notify_transactions) && set_isempty(t->notify_transactions_done)) {
                 dns_transaction_free(t);
                 return false;
         }
@@ -160,8 +156,7 @@ static uint16_t pick_new_id(Manager *m) {
 
         do
                 random_bytes(&new_id, sizeof(new_id));
-        while (new_id == 0 ||
-               hashmap_get(m->dns_transactions, UINT_TO_PTR(new_id)));
+        while (new_id == 0 || hashmap_get(m->dns_transactions, UINT_TO_PTR(new_id)));
 
         return new_id;
 }
@@ -311,12 +306,18 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
 
                 log_struct(LOG_NOTICE,
                            "MESSAGE_ID=" SD_MESSAGE_DNSSEC_FAILURE_STR,
-                           LOG_MESSAGE("DNSSEC validation failed for question %s: %s", key_str, dnssec_result_to_string(t->answer_dnssec_result)),
-                           "DNS_TRANSACTION=%" PRIu16, t->id,
-                           "DNS_QUESTION=%s", key_str,
-                           "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
-                           "DNS_SERVER=%s", dns_server_string(t->server),
-                           "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
+                           LOG_MESSAGE(
+                                   "DNSSEC validation failed for question %s: %s", key_str, dnssec_result_to_string(t->answer_dnssec_result)),
+                           "DNS_TRANSACTION=%" PRIu16,
+                           t->id,
+                           "DNS_QUESTION=%s",
+                           key_str,
+                           "DNSSEC_RESULT=%s",
+                           dnssec_result_to_string(t->answer_dnssec_result),
+                           "DNS_SERVER=%s",
+                           dns_server_string(t->server),
+                           "DNS_SERVER_FEATURE_LEVEL=%s",
+                           dns_server_feature_level_to_string(t->server->possible_feature_level));
         }
 
         /* Note that this call might invalidate the query. Callers
@@ -348,17 +349,17 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         t->block_gc++;
 
         SET_FOREACH_MOVE(c, t->notify_query_candidates_done, t->notify_query_candidates)
-                dns_query_candidate_notify(c);
+        dns_query_candidate_notify(c);
         SWAP_TWO(t->notify_query_candidates, t->notify_query_candidates_done);
 
         SET_FOREACH_MOVE(z, t->notify_zone_items_done, t->notify_zone_items)
-                dns_zone_item_notify(z);
+        dns_zone_item_notify(z);
         SWAP_TWO(t->notify_zone_items, t->notify_zone_items_done);
         if (t->probing && t->state == DNS_TRANSACTION_ATTEMPTS_MAX_REACHED)
                 (void) dns_scope_announce(t->scope, false);
 
         SET_FOREACH_MOVE(d, t->notify_transactions_done, t->notify_transactions)
-                dns_transaction_notify(d, t);
+        dns_transaction_notify(d, t);
         SWAP_TWO(t->notify_transactions, t->notify_transactions_done);
 
         t->block_gc--;
@@ -385,8 +386,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         t->current_feature_level = dns_server_possible_feature_level(server);
 
         /* Clamp the feature level if that is requested. */
-        if (t->clamp_feature_level != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
-            t->current_feature_level > t->clamp_feature_level)
+        if (t->clamp_feature_level != _DNS_SERVER_FEATURE_LEVEL_INVALID && t->current_feature_level > t->clamp_feature_level)
                 t->current_feature_level = t->clamp_feature_level;
 
         log_debug("Using feature level %s for transaction %u.", dns_server_feature_level_to_string(t->current_feature_level), t->id);
@@ -397,7 +397,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
 
-        t->n_picked_servers ++;
+        t->n_picked_servers++;
 
         log_debug("Using DNS server %s for transaction %u.", dns_server_string(t->server), t->id);
 
@@ -520,7 +520,7 @@ static int on_stream_complete(DnsStream *s, int error) {
                 DnsTransaction *t, *n;
 
                 LIST_FOREACH_SAFE(transactions_by_stream, t, n, s->transactions)
-                        on_transaction_stream_error(t, error);
+                on_transaction_stream_error(t, error);
         }
 
         return 0;
@@ -580,7 +580,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
+                        fd = dns_scope_socket_tcp(
+                                t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
 
                 break;
 
@@ -624,8 +625,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 fd = -1;
 
 #if ENABLE_DNS_OVER_TLS
-                if (t->scope->protocol == DNS_PROTOCOL_DNS &&
-                    DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+                if (t->scope->protocol == DNS_PROTOCOL_DNS && DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
 
                         assert(t->server);
                         r = dnstls_stream_connect_tls(s, t->server);
@@ -702,8 +702,8 @@ static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
         assert(t);
 
         SET_FOREACH(dt, t->dnssec_transactions, i)
-                if (DNS_TRANSACTION_IS_LIVE(dt->state))
-                        return true;
+        if (DNS_TRANSACTION_IS_LIVE(dt->state))
+                return true;
 
         return false;
 }
@@ -796,8 +796,7 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         if (r < 0)
                 goto fail;
 
-        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
-            t->scope->dnssec_mode == DNSSEC_YES) {
+        if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER && t->scope->dnssec_mode == DNSSEC_YES) {
 
                 /*  We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
                  *  that works. */
@@ -904,8 +903,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Processing incoming packet on transaction %" PRIu16" (rcode=%s).",
-                  t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
+        log_debug("Processing incoming packet on transaction %" PRIu16 " (rcode=%s).", t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
         switch (t->scope->protocol) {
 
@@ -1378,8 +1376,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                         return 0;
                 }
 
-                if (dns_name_is_root(dns_resource_key_name(t->key)) &&
-                    t->key->type == DNS_TYPE_DS) {
+                if (dns_name_is_root(dns_resource_key_name(t->key)) && t->key->type == DNS_TYPE_DS) {
 
                         /* Hmm, this is a request for the root DS? A
                          * DS RR doesn't exist in the root zone, and
@@ -1540,12 +1537,13 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
 
                 ts += transaction_get_resend_timeout(other);
 
-                r = sd_event_add_time(
-                                other->scope->manager->event,
-                                &other->timeout_event_source,
-                                clock_boottime_or_monotonic(),
-                                ts, 0,
-                                on_transaction_timeout, other);
+                r = sd_event_add_time(other->scope->manager->event,
+                                      &other->timeout_event_source,
+                                      clock_boottime_or_monotonic(),
+                                      ts,
+                                      0,
+                                      on_transaction_timeout,
+                                      other);
                 if (r < 0)
                         return r;
 
@@ -1651,8 +1649,7 @@ int dns_transaction_go(DnsTransaction *t) {
                   t->scope->link ? t->scope->link->name : "*",
                   af_to_name_short(t->scope->family));
 
-        if (!t->initial_jitter_scheduled &&
-            IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
+        if (!t->initial_jitter_scheduled && IN_SET(t->scope->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
                 usec_t jitter, accuracy;
 
                 /* RFC 4795 Section 2.7 suggests all queries should be
@@ -1678,12 +1675,13 @@ int dns_transaction_go(DnsTransaction *t) {
                         assert_not_reached("bad protocol");
                 }
 
-                r = sd_event_add_time(
-                                t->scope->manager->event,
-                                &t->timeout_event_source,
-                                clock_boottime_or_monotonic(),
-                                ts + jitter, accuracy,
-                                on_transaction_timeout, t);
+                r = sd_event_add_time(t->scope->manager->event,
+                                      &t->timeout_event_source,
+                                      clock_boottime_or_monotonic(),
+                                      ts + jitter,
+                                      accuracy,
+                                      on_transaction_timeout,
+                                      t);
                 if (r < 0)
                         return r;
 
@@ -1750,11 +1748,7 @@ int dns_transaction_go(DnsTransaction *t) {
         ts += transaction_get_resend_timeout(t);
 
         r = sd_event_add_time(
-                        t->scope->manager->event,
-                        &t->timeout_event_source,
-                        clock_boottime_or_monotonic(),
-                        ts, 0,
-                        on_transaction_timeout, t);
+                t->scope->manager->event, &t->timeout_event_source, clock_boottime_or_monotonic(), ts, 0, on_transaction_timeout, t);
         if (r < 0)
                 return r;
 
@@ -1814,7 +1808,8 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                         char s[DNS_RESOURCE_KEY_STRING_MAX], saux[DNS_RESOURCE_KEY_STRING_MAX];
 
                         return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
-                                               "Potential cyclic dependency, refusing to add transaction %" PRIu16 " (%s) as dependency for %" PRIu16 " (%s).",
+                                               "Potential cyclic dependency, refusing to add transaction %" PRIu16
+                                               " (%s) as dependency for %" PRIu16 " (%s).",
                                                aux->id,
                                                dns_resource_key_to_string(t->key, s, sizeof s),
                                                t->id,
@@ -1993,8 +1988,8 @@ static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
                 return false;
 
         SET_FOREACH(dt, t->dnssec_transactions, i)
-                if (!dns_transaction_dnssec_supported(dt))
-                        return false;
+        if (!dns_transaction_dnssec_supported(dt))
+                return false;
 
         return true;
 }
@@ -2079,8 +2074,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!dnskey)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").",
-                                  t->id, dns_resource_key_name(rr->key), rr->rrsig.key_tag);
+                        log_debug("Requesting DNSKEY to validate transaction %" PRIu16 " (%s, RRSIG with key tag: %" PRIu16 ").",
+                                  t->id,
+                                  dns_resource_key_name(rr->key),
+                                  rr->rrsig.key_tag);
                         r = dns_transaction_request_dnssec_rr(t, dnskey);
                         if (r < 0)
                                 return r;
@@ -2108,8 +2105,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").",
-                                  t->id, dns_resource_key_name(rr->key), dnssec_keytag(rr, false));
+                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, DNSKEY with key tag: %" PRIu16 ").",
+                                  t->id,
+                                  dns_resource_key_name(rr->key),
+                                  dnssec_keytag(rr, false));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -2163,7 +2162,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 return -ENOMEM;
 
                         log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned SOA/NS RRset).",
-                                  t->id, dns_resource_key_name(rr->key));
+                                  t->id,
+                                  dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
@@ -2217,7 +2217,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 return -ENOMEM;
 
                         log_debug("Requesting parent SOA to validate transaction %" PRIu16 " (%s, unsigned CNAME/DNAME/DS RRset).",
-                                  t->id, dns_resource_key_name(rr->key));
+                                  t->id,
+                                  dns_resource_key_name(rr->key));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
@@ -2252,12 +2253,15 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 return -ENOMEM;
 
                         log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).",
-                                  t->id, dns_resource_key_name(rr->key), dns_resource_record_to_string(rr));
+                                  t->id,
+                                  dns_resource_key_name(rr->key),
+                                  dns_resource_record_to_string(rr));
                         r = dns_transaction_request_dnssec_rr(t, soa);
                         if (r < 0)
                                 return r;
                         break;
-                }}
+                }
+                }
         }
 
         /* Above, we requested everything necessary to validate what
@@ -2284,8 +2288,11 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_name_parent(&name);
                         if (r > 0) {
                                 type = DNS_TYPE_SOA;
-                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty DS response).",
-                                          name, t->id, dns_resource_key_name(t->key));
+                                log_debug("Requesting parent SOA (→ %s) to validate transaction %" PRIu16
+                                          " (%s, unsigned empty DS response).",
+                                          name,
+                                          t->id,
+                                          dns_resource_key_name(t->key));
                         } else
                                 name = NULL;
 
@@ -2293,12 +2300,16 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                         type = DNS_TYPE_DS;
                         log_debug("Requesting DS (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty SOA/NS response).",
-                                  name, t->id, name);
+                                  name,
+                                  t->id,
+                                  name);
 
                 } else {
                         type = DNS_TYPE_SOA;
                         log_debug("Requesting SOA (→ %s) to validate transaction %" PRIu16 " (%s, unsigned empty non-SOA/NS/DS response).",
-                                  name, t->id, name);
+                                  name,
+                                  t->id,
+                                  name);
                 }
 
                 if (name) {
@@ -2450,7 +2461,8 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 
                                         /* A CNAME/DNAME without a parent? That's sooo weird. */
                                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                               "Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.", t->id);
+                                                               "Transaction %" PRIu16 " claims CNAME/DNAME at root. Refusing.",
+                                                               t->id);
                                 }
                         }
 
@@ -2494,7 +2506,8 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 }
 
                 return true;
-        }}
+        }
+        }
 }
 
 static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKey *key) {
@@ -2718,8 +2731,7 @@ static int dns_transaction_known_signed(DnsTransaction *t, DnsResourceRecord *rr
         /* We know that the root domain is signed, hence if it appears
          * not to be signed, there's a problem with the DNS server */
 
-        return rr->key->class == DNS_CLASS_IN &&
-                dns_name_is_root(dns_resource_key_name(rr->key));
+        return rr->key->class == DNS_CLASS_IN && dns_name_is_root(dns_resource_key_name(rr->key));
 }
 
 static int dns_transaction_check_revoked_trust_anchors(DnsTransaction *t) {
@@ -2800,17 +2812,14 @@ static int dns_transaction_copy_validated(DnsTransaction *t) {
         return 0;
 }
 
-typedef enum {
-        DNSSEC_PHASE_DNSKEY,   /* Phase #1, only validate DNSKEYs */
-        DNSSEC_PHASE_NSEC,     /* Phase #2, only validate NSEC+NSEC3 */
-        DNSSEC_PHASE_ALL,      /* Phase #3, validate everything else */
+typedef enum
+{
+        DNSSEC_PHASE_DNSKEY, /* Phase #1, only validate DNSKEYs */
+        DNSSEC_PHASE_NSEC,   /* Phase #2, only validate NSEC+NSEC3 */
+        DNSSEC_PHASE_ALL,    /* Phase #3, validate everything else */
 } Phase;
 
-static int dnssec_validate_records(
-                DnsTransaction *t,
-                Phase phase,
-                bool *have_nsec,
-                DnsAnswer **validated) {
+static int dnssec_validate_records(DnsTransaction *t, Phase phase, bool *have_nsec, DnsAnswer **validated) {
 
         DnsResourceRecord *rr;
         int r;
@@ -2872,7 +2881,7 @@ static int dnssec_validate_records(
                         /* Add the validated RRset to the new list of validated
                          * RRsets, and remove it from the unvalidated RRsets.
                          * We mark the RRset as authenticated and cacheable. */
-                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE);
+                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHEABLE);
                         if (r < 0)
                                 return r;
 
@@ -2900,18 +2909,15 @@ static int dnssec_validate_records(
                         if (r < 0)
                                 return r;
 
-                        r = dnssec_test_positive_wildcard(*validated,
-                                                          dns_resource_key_name(rr->key),
-                                                          source,
-                                                          rrsig->rrsig.signer,
-                                                          &authenticated);
+                        r = dnssec_test_positive_wildcard(
+                                *validated, dns_resource_key_name(rr->key), source, rrsig->rrsig.signer, &authenticated);
 
                         /* Unless the NSEC proof showed that the key really doesn't exist something is off. */
                         if (r == 0)
                                 result = DNSSEC_INVALID;
                         else {
-                                r = dns_answer_move_by_key(validated, &t->answer, rr->key,
-                                                           authenticated ? (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE) : 0);
+                                r = dns_answer_move_by_key(
+                                        validated, &t->answer, rr->key, authenticated ? (DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHEABLE) : 0);
                                 if (r < 0)
                                         return r;
 
@@ -2984,10 +2990,7 @@ static int dnssec_validate_records(
                         }
                 }
 
-                if (IN_SET(result,
-                           DNSSEC_MISSING_KEY,
-                           DNSSEC_SIGNATURE_EXPIRED,
-                           DNSSEC_UNSUPPORTED_ALGORITHM)) {
+                if (IN_SET(result, DNSSEC_MISSING_KEY, DNSSEC_SIGNATURE_EXPIRED, DNSSEC_UNSUPPORTED_ALGORITHM)) {
 
                         r = dns_transaction_dnskey_authenticated(t, rr);
                         if (r < 0 && r != -ENXIO)
@@ -3021,10 +3024,7 @@ static int dnssec_validate_records(
                         }
 
                         if (r == 0) {
-                                if (IN_SET(result,
-                                           DNSSEC_INVALID,
-                                           DNSSEC_SIGNATURE_EXPIRED,
-                                           DNSSEC_NO_SIGNATURE))
+                                if (IN_SET(result, DNSSEC_INVALID, DNSSEC_SIGNATURE_EXPIRED, DNSSEC_NO_SIGNATURE))
                                         manager_dnssec_verdict(t->scope->manager, DNSSEC_BOGUS, rr->key);
                                 else /* DNSSEC_MISSING_KEY or DNSSEC_UNSUPPORTED_ALGORITHM */
                                         manager_dnssec_verdict(t->scope->manager, DNSSEC_INDETERMINATE, rr->key);
@@ -3248,7 +3248,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         return 1;
 }
 
-static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
+static const char *const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
         [DNS_TRANSACTION_NULL] = "null",
         [DNS_TRANSACTION_PENDING] = "pending",
         [DNS_TRANSACTION_VALIDATING] = "validating",
@@ -3268,7 +3268,7 @@ static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX]
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 
-static const char* const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MAX] = {
+static const char *const dns_transaction_source_table[_DNS_TRANSACTION_SOURCE_MAX] = {
         [DNS_TRANSACTION_NETWORK] = "network",
         [DNS_TRANSACTION_CACHE] = "cache",
         [DNS_TRANSACTION_ZONE] = "zone",

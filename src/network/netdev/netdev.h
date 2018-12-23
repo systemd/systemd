@@ -17,7 +17,8 @@ struct netdev_join_callback {
         LIST_FIELDS(netdev_join_callback, callbacks);
 };
 
-typedef enum NetDevKind {
+typedef enum NetDevKind
+{
         NETDEV_KIND_BRIDGE,
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
@@ -50,7 +51,8 @@ typedef enum NetDevKind {
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
 
-typedef enum NetDevState {
+typedef enum NetDevState
+{
         NETDEV_STATE_LOADING,
         NETDEV_STATE_FAILED,
         NETDEV_STATE_CREATING,
@@ -60,7 +62,8 @@ typedef enum NetDevState {
         _NETDEV_STATE_INVALID = -1,
 } NetDevState;
 
-typedef enum NetDevCreateType {
+typedef enum NetDevCreateType
+{
         NETDEV_CREATE_INDEPENDENT,
         NETDEV_CREATE_MASTER,
         NETDEV_CREATE_STACKED,
@@ -129,19 +132,17 @@ typedef struct NetDevVTable {
         int (*config_verify)(NetDev *netdev, const char *filename);
 } NetDevVTable;
 
-extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
+extern const NetDevVTable *const netdev_vtable[_NETDEV_KIND_MAX];
 
 #define NETDEV_VTABLE(n) ((n)->kind != _NETDEV_KIND_INVALID ? netdev_vtable[(n)->kind] : NULL)
 
 /* For casting a netdev into the various netdev kinds */
-#define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
-        static inline MixedCase* UPPERCASE(NetDev *n) {                     \
-                if (_unlikely_(!n ||                                        \
-                               n->kind != NETDEV_KIND_##UPPERCASE) ||       \
-                               n->state == _NETDEV_STATE_INVALID)           \
-                        return NULL;                                        \
-                                                                            \
-                return (MixedCase*) n;                                      \
+#define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                                                               \
+        static inline MixedCase *UPPERCASE(NetDev *n) {                                                        \
+                if (_unlikely_(!n || n->kind != NETDEV_KIND_##UPPERCASE) || n->state == _NETDEV_STATE_INVALID) \
+                        return NULL;                                                                           \
+                                                                                                               \
+                return (MixedCase *) n;                                                                        \
         }
 
 /* For casting the various netdev kinds into a netdev */
@@ -154,7 +155,7 @@ void netdev_drop(NetDev *netdev);
 NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
 DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev *, netdev_unref);
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
@@ -167,28 +168,28 @@ NetDevKind netdev_kind_from_string(const char *d) _pure_;
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */
-const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem *network_netdev_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_netdev_full(netdev, level, error, ...)                      \
-        ({                                                              \
-                const NetDev *_n = (netdev);                            \
+#define log_netdev_full(netdev, level, error, ...)                                                                                          \
+        ({                                                                                                                                  \
+                const NetDev *_n = (netdev);                                                                                                \
                 _n ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _n->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                     log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__);                                               \
         })
 
-#define log_netdev_debug(netdev, ...)       log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_netdev_info(netdev, ...)        log_netdev_full(netdev, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_netdev_notice(netdev, ...)      log_netdev_full(netdev, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_netdev_warning(netdev, ...)     log_netdev_full(netdev, LOG_WARNING, 0, ## __VA_ARGS__)
-#define log_netdev_error(netdev, ...)       log_netdev_full(netdev, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_netdev_debug(netdev, ...) log_netdev_full(netdev, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_netdev_info(netdev, ...) log_netdev_full(netdev, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_netdev_notice(netdev, ...) log_netdev_full(netdev, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_netdev_warning(netdev, ...) log_netdev_full(netdev, LOG_WARNING, 0, ##__VA_ARGS__)
+#define log_netdev_error(netdev, ...) log_netdev_full(netdev, LOG_ERR, 0, ##__VA_ARGS__)
 
-#define log_netdev_debug_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_netdev_info_errno(netdev, error, ...)    log_netdev_full(netdev, LOG_INFO, error, ##__VA_ARGS__)
-#define log_netdev_notice_errno(netdev, error, ...)  log_netdev_full(netdev, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_netdev_debug_errno(netdev, error, ...) log_netdev_full(netdev, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_netdev_info_errno(netdev, error, ...) log_netdev_full(netdev, LOG_INFO, error, ##__VA_ARGS__)
+#define log_netdev_notice_errno(netdev, error, ...) log_netdev_full(netdev, LOG_NOTICE, error, ##__VA_ARGS__)
 #define log_netdev_warning_errno(netdev, error, ...) log_netdev_full(netdev, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_netdev_error_errno(netdev, error, ...)   log_netdev_full(netdev, LOG_ERR, error, ##__VA_ARGS__)
+#define log_netdev_error_errno(netdev, error, ...) log_netdev_full(netdev, LOG_ERR, error, ##__VA_ARGS__)
 
 #define LOG_NETDEV_MESSAGE(netdev, fmt, ...) "MESSAGE=%s: " fmt, (netdev)->ifname, ##__VA_ARGS__
 #define LOG_NETDEV_INTERFACE(netdev) "INTERFACE=%s", (netdev)->ifname

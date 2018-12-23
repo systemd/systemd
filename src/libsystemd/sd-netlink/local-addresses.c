@@ -92,7 +92,7 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
                 if (flags & IFA_F_DEPRECATED)
                         continue;
 
-                if (!GREEDY_REALLOC0(list, n_allocated, n_list+1))
+                if (!GREEDY_REALLOC0(list, n_allocated, n_list + 1))
                         return -ENOMEM;
 
                 a = list + n_list;

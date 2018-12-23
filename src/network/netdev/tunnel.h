@@ -7,7 +7,8 @@
 #include "netdev/netdev.h"
 #include "netdev/fou-tunnel.h"
 
-typedef enum Ip6TnlMode {
+typedef enum Ip6TnlMode
+{
         NETDEV_IP6_TNL_MODE_IP6IP6,
         NETDEV_IP6_TNL_MODE_IPIP6,
         NETDEV_IP6_TNL_MODE_ANYIP6,
@@ -15,7 +16,8 @@ typedef enum Ip6TnlMode {
         _NETDEV_IP6_TNL_MODE_INVALID = -1,
 } Ip6TnlMode;
 
-typedef enum IPv6FlowLabel {
+typedef enum IPv6FlowLabel
+{
         NETDEV_IPV6_FLOWLABEL_INHERIT = 0xFFFFF + 1,
         _NETDEV_IPV6_FLOWLABEL_MAX,
         _NETDEV_IPV6_FLOWLABEL_INVALID = -1,

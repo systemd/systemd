@@ -6,7 +6,8 @@ typedef struct Timer Timer;
 #include "calendarspec.h"
 #include "unit.h"
 
-typedef enum TimerBase {
+typedef enum TimerBase
+{
         TIMER_ACTIVE,
         TIMER_BOOT,
         TIMER_STARTUP,
@@ -21,14 +22,15 @@ typedef struct TimerValue {
         TimerBase base;
         bool disabled;
 
-        usec_t value; /* only for monotonic events */
+        usec_t value;                /* only for monotonic events */
         CalendarSpec *calendar_spec; /* only for calendar events */
         usec_t next_elapse;
 
         LIST_FIELDS(struct TimerValue, value);
 } TimerValue;
 
-typedef enum TimerResult {
+typedef enum TimerResult
+{
         TIMER_SUCCESS,
         TIMER_FAILURE_RESOURCES,
         TIMER_FAILURE_START_LIMIT_HIT,
@@ -70,7 +72,7 @@ extern const UnitVTable timer_vtable;
 const char *timer_base_to_string(TimerBase i) _const_;
 TimerBase timer_base_from_string(const char *s) _pure_;
 
-const char* timer_result_to_string(TimerResult i) _const_;
+const char *timer_result_to_string(TimerResult i) _const_;
 TimerResult timer_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(TIMER, Timer);

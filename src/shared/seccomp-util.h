@@ -7,7 +7,7 @@
 
 #include "set.h"
 
-const char* seccomp_arch_to_string(uint32_t c);
+const char *seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
 
 int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_action);
@@ -20,7 +20,8 @@ typedef struct SyscallFilterSet {
         const char *value;
 } SyscallFilterSet;
 
-enum {
+enum
+{
         /* Please leave DEFAULT first, but sort the rest alphabetically */
         SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_AIO,
@@ -61,18 +62,18 @@ int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
 int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint32_t action, char **exclude, bool log_missing);
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing);
-int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action, bool log_missing);
+int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap *set, uint32_t action, bool log_missing);
 
-typedef enum SeccompParseFlags {
-        SECCOMP_PARSE_INVERT     = 1 << 0,
-        SECCOMP_PARSE_WHITELIST  = 1 << 1,
-        SECCOMP_PARSE_LOG        = 1 << 2,
+typedef enum SeccompParseFlags
+{
+        SECCOMP_PARSE_INVERT = 1 << 0,
+        SECCOMP_PARSE_WHITELIST = 1 << 1,
+        SECCOMP_PARSE_LOG = 1 << 2,
         SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
 
 int seccomp_parse_syscall_filter_full(
-                const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags,
-                const char *unit, const char *filename, unsigned line);
+        const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags, const char *unit, const char *filename, unsigned line);
 
 static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
         return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
@@ -88,9 +89,12 @@ int seccomp_lock_personality(unsigned long personality);
 
 extern const uint32_t seccomp_local_archs[];
 
-#define SECCOMP_FOREACH_LOCAL_ARCH(arch) \
-        for (unsigned _i = ({ (arch) = seccomp_local_archs[0]; 0; });   \
-             seccomp_local_archs[_i] != (uint32_t) -1;                  \
+#define SECCOMP_FOREACH_LOCAL_ARCH(arch)               \
+        for (unsigned _i = ({                          \
+                     (arch) = seccomp_local_archs[0];  \
+                     0;                                \
+             });                                       \
+             seccomp_local_archs[_i] != (uint32_t) -1; \
              (arch) = seccomp_local_archs[++_i])
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);

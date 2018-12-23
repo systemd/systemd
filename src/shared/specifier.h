@@ -30,7 +30,7 @@ int specifier_user_shell(char specifier, const void *data, const void *userdata,
 int specifier_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
 
-static inline char* specifier_escape(const char *string) {
+static inline char *specifier_escape(const char *string) {
         return strreplace(string, "%", "%%");
 }
 

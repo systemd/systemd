@@ -45,18 +45,16 @@ int manager_check_resolv_conf(const Manager *m) {
                 return log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
         }
 
-        FOREACH_STRING(path,
-                       PRIVATE_STUB_RESOLV_CONF,
-                       PRIVATE_STATIC_RESOLV_CONF) {
+        FOREACH_STRING(path, PRIVATE_STUB_RESOLV_CONF, PRIVATE_STATIC_RESOLV_CONF) {
 
                 struct stat own;
 
                 /* Is it symlinked to our own uplink file? */
-                if (stat(path, &own) >= 0 &&
-                    st.st_dev == own.st_dev &&
-                    st.st_ino == own.st_ino) {
-                        log_warning("DNSStubListener= is disabled, but /etc/resolv.conf is a symlink to %s "
-                                    "which expects DNSStubListener= to be enabled.", path);
+                if (stat(path, &own) >= 0 && st.st_dev == own.st_dev && st.st_ino == own.st_ino) {
+                        log_warning(
+                                "DNSStubListener= is disabled, but /etc/resolv.conf is a symlink to %s "
+                                "which expects DNSStubListener= to be enabled.",
+                                path);
                         return -EOPNOTSUPP;
                 }
         }
@@ -69,17 +67,12 @@ static bool file_is_our_own(const struct stat *st) {
 
         assert(st);
 
-        FOREACH_STRING(path,
-                       PRIVATE_UPLINK_RESOLV_CONF,
-                       PRIVATE_STUB_RESOLV_CONF,
-                       PRIVATE_STATIC_RESOLV_CONF) {
+        FOREACH_STRING(path, PRIVATE_UPLINK_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, PRIVATE_STATIC_RESOLV_CONF) {
 
                 struct stat own;
 
                 /* Is it symlinked to our own uplink file? */
-                if (stat(path, &own) >= 0 &&
-                    st->st_dev == own.st_dev &&
-                    st->st_ino == own.st_ino)
+                if (stat(path, &own) >= 0 && st->st_dev == own.st_dev && st->st_ino == own.st_ino)
                         return true;
         }
 
@@ -244,9 +237,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         fprintf(f, "nameserver %s\n", dns_server_string(s));
 }
 
-static void write_resolv_conf_search(
-                OrderedSet *domains,
-                FILE *f) {
+static void write_resolv_conf_search(OrderedSet *domains, FILE *f) {
         unsigned length = 0, count = 0;
         Iterator i;
         char *domain;
@@ -287,7 +278,8 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
               "#\n"
               "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
               "# operation for /etc/resolv.conf.\n"
-              "\n", f);
+              "\n",
+              f);
 
         if (ordered_set_isempty(dns))
                 fputs("# No DNS servers known.\n", f);
@@ -296,7 +288,7 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
                 DnsServer *s;
 
                 ORDERED_SET_FOREACH(s, dns, i)
-                        write_resolv_conf_server(s, f, &count);
+                write_resolv_conf_server(s, f, &count);
         }
 
         if (!ordered_set_isempty(domains))
@@ -306,24 +298,26 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
 }
 
 static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
-        fputs_unlocked("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
-                       "#\n"
-                       "# This is a dynamic resolv.conf file for connecting local clients to the\n"
-                       "# internal DNS stub resolver of systemd-resolved. This file lists all\n"
-                       "# configured search domains.\n"
-                       "#\n"
-                       "# Run \"resolvectl status\" to see details about the uplink DNS servers\n"
-                       "# currently in use.\n"
-                       "#\n"
-                       "# Third party programs must not access this file directly, but only through the\n"
-                       "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
-                       "# replace this symlink by a static file or a different symlink.\n"
-                       "#\n"
-                       "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
-                       "# operation for /etc/resolv.conf.\n"
-                       "\n"
-                       "nameserver 127.0.0.53\n"
-                       "options edns0\n", f);
+        fputs_unlocked(
+                "# This file is managed by man:systemd-resolved(8). Do not edit.\n"
+                "#\n"
+                "# This is a dynamic resolv.conf file for connecting local clients to the\n"
+                "# internal DNS stub resolver of systemd-resolved. This file lists all\n"
+                "# configured search domains.\n"
+                "#\n"
+                "# Run \"resolvectl status\" to see details about the uplink DNS servers\n"
+                "# currently in use.\n"
+                "#\n"
+                "# Third party programs must not access this file directly, but only through the\n"
+                "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
+                "# replace this symlink by a static file or a different symlink.\n"
+                "#\n"
+                "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
+                "# operation for /etc/resolv.conf.\n"
+                "\n"
+                "nameserver 127.0.0.53\n"
+                "options edns0\n",
+                f);
 
         if (!ordered_set_isempty(domains))
                 write_resolv_conf_search(domains, f);

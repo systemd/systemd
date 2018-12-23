@@ -73,19 +73,16 @@ bool plymouth_running(void) {
 bool display_is_local(const char *display) {
         assert(display);
 
-        return
-                display[0] == ':' &&
-                display[1] >= '0' &&
-                display[1] <= '9';
+        return display[0] == ':' && display[1] >= '0' && display[1] <= '9';
 }
 
 bool kexec_loaded(void) {
-       _cleanup_free_ char *s = NULL;
+        _cleanup_free_ char *s = NULL;
 
-       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) < 0)
-               return false;
+        if (read_one_line_file("/sys/kernel/kexec_loaded", &s) < 0)
+                return false;
 
-       return s[0] == '1';
+        return s[0] == '1';
 }
 
 int prot_from_flags(int flags) {
@@ -99,7 +96,7 @@ int prot_from_flags(int flags) {
                 return PROT_WRITE;
 
         case O_RDWR:
-                return PROT_READ|PROT_WRITE;
+                return PROT_READ | PROT_WRITE;
 
         default:
                 return -EINVAL;
@@ -130,9 +127,7 @@ bool in_initrd(void) {
         if (r >= 0)
                 saved_in_initrd = r > 0;
         else
-                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 &&
-                                  statfs("/", &s) >= 0 &&
-                                  is_temporary_fs(&s);
+                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 && statfs("/", &s) >= 0 && is_temporary_fs(&s);
 
         return saved_in_initrd;
 }
@@ -142,8 +137,7 @@ void in_initrd_force(bool value) {
 }
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
-void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 __compar_d_fn_t compar, void *arg) {
+void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *arg) {
         size_t l, u, idx;
         const void *p;
         int comparison;
@@ -154,14 +148,14 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         u = nmemb;
         while (l < u) {
                 idx = (l + u) / 2;
-                p = (const uint8_t*) base + idx * size;
+                p = (const uint8_t *) base + idx * size;
                 comparison = compar(key, p, arg);
                 if (comparison < 0)
                         u = idx;
                 else if (comparison > 0)
                         l = idx + 1;
                 else
-                        return (void *)p;
+                        return (void *) p;
         }
         return NULL;
 }
@@ -202,7 +196,7 @@ int on_ac_power(void) {
                 char contents[6];
                 ssize_t n;
 
-                device = openat(dirfd(d), de->d_name, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                device = openat(dirfd(d), de->d_name, O_DIRECTORY | O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (device < 0) {
                         if (IN_SET(errno, ENOENT, ENOTDIR))
                                 continue;
@@ -210,7 +204,7 @@ int on_ac_power(void) {
                         return -errno;
                 }
 
-                fd = openat(device, "type", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = openat(device, "type", O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (fd < 0) {
                         if (errno == ENOENT)
                                 continue;
@@ -226,7 +220,7 @@ int on_ac_power(void) {
                         continue;
 
                 safe_close(fd);
-                fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = openat(device, "online", O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (fd < 0) {
                         if (errno == ENOENT)
                                 continue;
@@ -271,9 +265,7 @@ int container_get_leader(const char *machine, pid_t *pid) {
                 return -EINVAL;
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p,
-                           "LEADER", &s,
-                           "CLASS", &class);
+        r = parse_env_file(NULL, p, "LEADER", &s, "CLASS", &class);
         if (r == -ENOENT)
                 return -EHOSTDOWN;
         if (r < 0)
@@ -304,7 +296,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
                 const char *mntns;
 
                 mntns = procfs_file_alloca(pid, "ns/mnt");
-                mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                mntnsfd = open(mntns, O_RDONLY | O_NOCTTY | O_CLOEXEC);
                 if (mntnsfd < 0)
                         return -errno;
         }
@@ -313,7 +305,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
                 const char *pidns;
 
                 pidns = procfs_file_alloca(pid, "ns/pid");
-                pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                pidnsfd = open(pidns, O_RDONLY | O_NOCTTY | O_CLOEXEC);
                 if (pidnsfd < 0)
                         return -errno;
         }
@@ -322,7 +314,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
                 const char *netns;
 
                 netns = procfs_file_alloca(pid, "ns/net");
-                netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                netnsfd = open(netns, O_RDONLY | O_NOCTTY | O_CLOEXEC);
                 if (netnsfd < 0)
                         return -errno;
         }
@@ -331,7 +323,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
                 const char *userns;
 
                 userns = procfs_file_alloca(pid, "ns/user");
-                usernsfd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                usernsfd = open(userns, O_RDONLY | O_NOCTTY | O_CLOEXEC);
                 if (usernsfd < 0 && errno != ENOENT)
                         return -errno;
         }
@@ -340,7 +332,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
                 const char *root;
 
                 root = procfs_file_alloca(pid, "root");
-                rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                rfd = open(root, O_RDONLY | O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
                 if (rfd < 0)
                         return -errno;
         }
@@ -533,9 +525,7 @@ uint64_t system_tasks_max(void) {
                 }
         }
 
-        return MIN3(TASKS_MAX,
-                    a <= 0 ? TASKS_MAX : a,
-                    b <= 0 ? TASKS_MAX : b);
+        return MIN3(TASKS_MAX, a <= 0 ? TASKS_MAX : a, b <= 0 ? TASKS_MAX : b);
 }
 
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
@@ -557,8 +547,7 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
 }
 
 int version(void) {
-        puts(PACKAGE_STRING "\n"
-             SYSTEMD_FEATURES);
+        puts(PACKAGE_STRING "\n" SYSTEMD_FEATURES);
         return 0;
 }
 

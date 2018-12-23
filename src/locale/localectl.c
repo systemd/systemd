@@ -58,22 +58,35 @@ static void print_overridden_variables(void) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return;
 
-        r = proc_cmdline_get_key_many(
-                        PROC_CMDLINE_STRIP_RD_PREFIX,
-                        "locale.LANG",              &variables[VARIABLE_LANG],
-                        "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
-                        "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
-                        "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
-                        "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
-                        "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
-                        "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
-                        "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
-                        "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
-                        "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
-                        "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
-                        "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
-                        "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
-                        "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION]);
+        r = proc_cmdline_get_key_many(PROC_CMDLINE_STRIP_RD_PREFIX,
+                                      "locale.LANG",
+                                      &variables[VARIABLE_LANG],
+                                      "locale.LANGUAGE",
+                                      &variables[VARIABLE_LANGUAGE],
+                                      "locale.LC_CTYPE",
+                                      &variables[VARIABLE_LC_CTYPE],
+                                      "locale.LC_NUMERIC",
+                                      &variables[VARIABLE_LC_NUMERIC],
+                                      "locale.LC_TIME",
+                                      &variables[VARIABLE_LC_TIME],
+                                      "locale.LC_COLLATE",
+                                      &variables[VARIABLE_LC_COLLATE],
+                                      "locale.LC_MONETARY",
+                                      &variables[VARIABLE_LC_MONETARY],
+                                      "locale.LC_MESSAGES",
+                                      &variables[VARIABLE_LC_MESSAGES],
+                                      "locale.LC_PAPER",
+                                      &variables[VARIABLE_LC_PAPER],
+                                      "locale.LC_NAME",
+                                      &variables[VARIABLE_LC_NAME],
+                                      "locale.LC_ADDRESS",
+                                      &variables[VARIABLE_LC_ADDRESS],
+                                      "locale.LC_TELEPHONE",
+                                      &variables[VARIABLE_LC_TELEPHONE],
+                                      "locale.LC_MEASUREMENT",
+                                      &variables[VARIABLE_LC_MEASUREMENT],
+                                      "locale.LC_IDENTIFICATION",
+                                      &variables[VARIABLE_LC_IDENTIFICATION]);
         if (r < 0 && r != -ENOENT) {
                 log_warning_errno(r, "Failed to read /proc/cmdline: %m");
                 return;
@@ -82,8 +95,11 @@ static void print_overridden_variables(void) {
         for (j = 0; j < _VARIABLE_LC_MAX; j++)
                 if (variables[j]) {
                         if (print_warning) {
-                                log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
-                                            "    Command Line: %s=%s", locale_variable_to_string(j), variables[j]);
+                                log_warning(
+                                        "Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
+                                        "    Command Line: %s=%s",
+                                        locale_variable_to_string(j),
+                                        variables[j]);
 
                                 print_warning = false;
                         } else
@@ -101,7 +117,7 @@ static void print_status_info(StatusInfo *i) {
 
                 printf("   System Locale: %s\n", i->locale[0]);
                 STRV_FOREACH(j, i->locale + 1)
-                        printf("                  %s\n", *j);
+                printf("                  %s\n", *j);
         }
 
         printf("       VC Keymap: %s\n", strna(i->vconsole_keymap));
@@ -119,16 +135,14 @@ static void print_status_info(StatusInfo *i) {
 
 static int show_status(int argc, char **argv, void *userdata) {
         _cleanup_(status_info_clear) StatusInfo info = {};
-        static const struct bus_properties_map map[]  = {
-                { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
-                { "VConsoleKeymapToggle", "s",  NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
-                { "X11Layout",            "s",  NULL, offsetof(StatusInfo, x11_layout) },
-                { "X11Model",             "s",  NULL, offsetof(StatusInfo, x11_model) },
-                { "X11Variant",           "s",  NULL, offsetof(StatusInfo, x11_variant) },
-                { "X11Options",           "s",  NULL, offsetof(StatusInfo, x11_options) },
-                { "Locale",               "as", NULL, offsetof(StatusInfo, locale) },
-                {}
-        };
+        static const struct bus_properties_map map[] = { { "VConsoleKeymap", "s", NULL, offsetof(StatusInfo, vconsole_keymap) },
+                                                         { "VConsoleKeymapToggle", "s", NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
+                                                         { "X11Layout", "s", NULL, offsetof(StatusInfo, x11_layout) },
+                                                         { "X11Model", "s", NULL, offsetof(StatusInfo, x11_model) },
+                                                         { "X11Variant", "s", NULL, offsetof(StatusInfo, x11_variant) },
+                                                         { "X11Options", "s", NULL, offsetof(StatusInfo, x11_options) },
+                                                         { "Locale", "as", NULL, offsetof(StatusInfo, locale) },
+                                                         {} };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -137,14 +151,7 @@ static int show_status(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.locale1",
-                                   "/org/freedesktop/locale1",
-                                   map,
-                                   0,
-                                   &error,
-                                   &m,
-                                   &info);
+        r = bus_map_all_properties(bus, "org.freedesktop.locale1", "/org/freedesktop/locale1", map, 0, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -165,12 +172,7 @@ static int set_locale(int argc, char **argv, void *userdata) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
-                        "SetLocale");
+                bus, &m, "org.freedesktop.locale1", "/org/freedesktop/locale1", "org.freedesktop.locale1", "SetLocale");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -216,15 +218,18 @@ static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
         map = argv[1];
         toggle_map = argc > 2 ? argv[2] : "";
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
-                        "SetVConsoleKeyboard",
-                        &error,
-                        NULL,
-                        "ssbb", map, toggle_map, arg_convert, arg_ask_password);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.locale1",
+                               "/org/freedesktop/locale1",
+                               "org.freedesktop.locale1",
+                               "SetVConsoleKeyboard",
+                               &error,
+                               NULL,
+                               "ssbb",
+                               map,
+                               toggle_map,
+                               arg_convert,
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set keymap: %s", bus_error_message(&error, -r));
 
@@ -259,16 +264,20 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
         variant = argc > 3 ? argv[3] : "";
         options = argc > 4 ? argv[4] : "";
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
-                        "SetX11Keyboard",
-                        &error,
-                        NULL,
-                        "ssssbb", layout, model, variant, options,
-                                  arg_convert, arg_ask_password);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.locale1",
+                               "/org/freedesktop/locale1",
+                               "org.freedesktop.locale1",
+                               "SetX11Keyboard",
+                               &error,
+                               NULL,
+                               "ssssbb",
+                               layout,
+                               model,
+                               variant,
+                               options,
+                               arg_convert,
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set keymap: %s", bus_error_message(&error, -r));
 
@@ -278,13 +287,15 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
 static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **list = NULL;
-        enum {
+        enum
+        {
                 NONE,
                 MODELS,
                 LAYOUTS,
                 VARIANTS,
                 OPTIONS
-        } state = NONE, look_for;
+        } state = NONE,
+          look_for;
         int r;
 
         f = fopen("/usr/share/X11/xkb/rules/base.lst", "re");
@@ -364,8 +375,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         }
 
         if (strv_isempty(list))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Couldn't find any entries.");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Couldn't find any entries.");
 
         strv_sort(list);
         strv_uniq(list);
@@ -406,10 +416,9 @@ static int help(void) {
                "  list-x11-keymap-variants [LAYOUT]\n"
                "                           Show known X11 keyboard mapping variants\n"
                "  list-x11-keymap-options  Show known X11 keyboard mapping options\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -420,23 +429,22 @@ static int verb_help(int argc, char **argv, void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_CONVERT,
                 ARG_NO_ASK_PASSWORD
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "no-convert",      no_argument,       NULL, ARG_NO_CONVERT      },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "host", required_argument, NULL, 'H' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                                                 { "no-convert", no_argument, NULL, ARG_NO_CONVERT },
+                                                 {} };
 
         int c;
 
@@ -487,20 +495,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int localectl_main(sd_bus *bus, int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "status",                   VERB_ANY, 1,        VERB_DEFAULT, show_status           },
-                { "set-locale",               2,        VERB_ANY, 0,            set_locale            },
-                { "list-locales",             VERB_ANY, 1,        0,            list_locales          },
-                { "set-keymap",               2,        3,        0,            set_vconsole_keymap   },
-                { "list-keymaps",             VERB_ANY, 1,        0,            list_vconsole_keymaps },
-                { "set-x11-keymap",           2,        5,        0,            set_x11_keymap        },
-                { "list-x11-keymap-models",   VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-layouts",  VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-variants", VERB_ANY, 2,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-options",  VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "help",                     VERB_ANY, VERB_ANY, 0,            verb_help             }, /* Not documented, but supported since it is created. */
-                {}
-        };
+        static const Verb verbs[] = { { "status", VERB_ANY, 1, VERB_DEFAULT, show_status },
+                                      { "set-locale", 2, VERB_ANY, 0, set_locale },
+                                      { "list-locales", VERB_ANY, 1, 0, list_locales },
+                                      { "set-keymap", 2, 3, 0, set_vconsole_keymap },
+                                      { "list-keymaps", VERB_ANY, 1, 0, list_vconsole_keymaps },
+                                      { "set-x11-keymap", 2, 5, 0, set_x11_keymap },
+                                      { "list-x11-keymap-models", VERB_ANY, 1, 0, list_x11_keymaps },
+                                      { "list-x11-keymap-layouts", VERB_ANY, 1, 0, list_x11_keymaps },
+                                      { "list-x11-keymap-variants", VERB_ANY, 2, 0, list_x11_keymaps },
+                                      { "list-x11-keymap-options", VERB_ANY, 1, 0, list_x11_keymaps },
+                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help }, /* Not documented, but supported since it is created. */
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, bus);
 }

@@ -190,9 +190,7 @@ static int probe_superblocks(blkid_probe pr) {
 
         blkid_probe_enable_partitions(pr, 1);
 
-        if (!S_ISCHR(st.st_mode) &&
-            blkid_probe_get_size(pr) <= 1024 * 1440 &&
-            blkid_probe_is_wholedisk(pr)) {
+        if (!S_ISCHR(st.st_mode) && blkid_probe_get_size(pr) <= 1024 * 1440 && blkid_probe_is_wholedisk(pr)) {
                 /*
                  * check if the small disk is partitioned, if yes then
                  * don't probe for filesystems.
@@ -201,10 +199,10 @@ static int probe_superblocks(blkid_probe pr) {
 
                 rc = blkid_do_fullprobe(pr);
                 if (rc < 0)
-                        return rc;        /* -1 = error, 1 = nothing, 0 = success */
+                        return rc; /* -1 = error, 1 = nothing, 0 = success */
 
                 if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
-                        return 0;        /* partition table detected */
+                        return 0; /* partition table detected */
         }
 
         blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
@@ -221,11 +219,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         int64_t offset = 0;
         int nvals, i, r;
 
-        static const struct option options[] = {
-                { "offset", required_argument, NULL, 'o' },
-                { "noraid", no_argument, NULL, 'R' },
-                {}
-        };
+        static const struct option options[] = { { "offset", required_argument, NULL, 'o' }, { "noraid", no_argument, NULL, 'R' }, {} };
 
         for (;;) {
                 int option;
@@ -240,7 +234,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                         if (r < 0)
                                 return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
                         if (offset < 0)
-                                return log_device_error_errno(dev, -ERANGE, "Invalid offset %"PRIi64": %m", offset);
+                                return log_device_error_errno(dev, -ERANGE, "Invalid offset %" PRIi64 ": %m", offset);
                         break;
                 case 'R':
                         noraid = true;
@@ -254,9 +248,8 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to create blkid prober: %m");
 
         blkid_probe_set_superblocks_flags(pr,
-                BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
-                BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-                BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
+                                          BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID | BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
+                                                  BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
@@ -265,7 +258,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device name: %m");
 
-        fd = open(devnode, O_RDONLY|O_CLOEXEC);
+        fd = open(devnode, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return log_device_debug_errno(dev, errno, "Failed to open block device %s: %m", devnode);
 
@@ -274,7 +267,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to set device to blkid prober: %m");
 
-        log_device_debug(dev, "Probe %s with %sraid and offset=%"PRIi64, devnode, noraid ? "no" : "", offset);
+        log_device_debug(dev, "Probe %s with %sraid and offset=%" PRIi64, devnode, noraid ? "no" : "", offset);
 
         r = probe_superblocks(pr);
         if (r < 0)

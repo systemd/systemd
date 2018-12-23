@@ -74,18 +74,15 @@ static bool avoid_deadlock(void) {
                 return false;
 
         return streq_ptr(getenv("SYSTEMD_ACTIVATION_UNIT"), "systemd-machined.service") &&
-               streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
+                streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
 }
 
 enum nss_status _nss_mymachines_gethostbyname4_r(
-                const char *name,
-                struct gaih_addrtuple **pat,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) {
+        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+{
 
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ int *ifindices = NULL;
         _cleanup_free_ char *class = NULL;
@@ -133,7 +130,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                                "GetMachineAddresses",
                                NULL,
                                &reply,
-                               "s", name);
+                               "s",
+                               name);
         if (r < 0)
                 goto fail;
 
@@ -151,7 +149,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         }
 
         l = strlen(name);
-        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
+        ms = ALIGN(l + 1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
@@ -160,11 +158,11 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, name, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, name, l + 1);
+        idx = ALIGN(l + 1);
 
         /* Second, append addresses */
-        r_tuple_first = (struct gaih_addrtuple*) (buffer + idx);
+        r_tuple_first = (struct gaih_addrtuple *) (buffer + idx);
         while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
                 int family;
                 const void *a;
@@ -192,8 +190,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                         goto fail;
                 }
 
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
-                r_tuple->next = i == c-1 ? NULL : (struct gaih_addrtuple*) ((char*) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
+                r_tuple = (struct gaih_addrtuple *) (buffer + idx);
+                r_tuple->next = i == c - 1 ? NULL : (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
                 r_tuple->scopeid = n_ifindices == 1 ? ifindices[0] : 0;
@@ -233,15 +231,10 @@ fail:
 }
 
 enum nss_status _nss_mymachines_gethostbyname3_r(
-                const char *name,
-                int af,
-                struct hostent *result,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp,
-                char **canonp) {
+        const char *name, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+{
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *class = NULL;
         unsigned c = 0, i = 0;
@@ -290,7 +283,8 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                                "GetMachineAddresses",
                                NULL,
                                &reply,
-                               "s", name);
+                               "s",
+                               name);
         if (r < 0)
                 goto fail;
 
@@ -310,7 +304,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         alen = FAMILY_ADDRESS_SIZE(af);
         l = strlen(name);
 
-        ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
+        ms = ALIGN(l + 1) + c * ALIGN(alen) + (c + 2) * sizeof(char *);
 
         if (buflen < ms) {
                 *errnop = ERANGE;
@@ -320,13 +314,13 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
 
         /* First, append name */
         r_name = buffer;
-        memcpy(r_name, name, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, name, l + 1);
+        idx = ALIGN(l + 1);
 
         /* Second, create aliases array */
         r_aliases = buffer + idx;
-        ((char**) r_aliases)[0] = NULL;
-        idx += sizeof(char*);
+        ((char **) r_aliases)[0] = NULL;
+        idx += sizeof(char *);
 
         /* Third, append addresses */
         r_addr = buffer + idx;
@@ -355,7 +349,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                         goto fail;
                 }
 
-                memcpy(r_addr + i*ALIGN(alen), a, alen);
+                memcpy(r_addr + i * ALIGN(alen), a, alen);
                 i++;
         }
 
@@ -369,18 +363,18 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         /* Third, append address pointer array */
         r_addr_list = buffer + idx;
         for (i = 0; i < c; i++)
-                ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
+                ((char **) r_addr_list)[i] = r_addr + i * ALIGN(alen);
 
-        ((char**) r_addr_list)[i] = NULL;
-        idx += (c+1) * sizeof(char*);
+        ((char **) r_addr_list)[i] = NULL;
+        idx += (c + 1) * sizeof(char *);
 
         assert(idx == ms);
 
         result->h_name = r_name;
-        result->h_aliases = (char**) r_aliases;
+        result->h_aliases = (char **) r_aliases;
         result->h_addrtype = af;
         result->h_length = alen;
-        result->h_addr_list = (char**) r_addr_list;
+        result->h_addr_list = (char **) r_addr_list;
 
         if (ttlp)
                 *ttlp = 0;
@@ -403,14 +397,11 @@ fail:
 
 NSS_GETHOSTBYNAME_FALLBACKS(mymachines);
 
-enum nss_status _nss_mymachines_getpwnam_r(
-                const char *name,
-                struct passwd *pwd,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_mymachines_getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
@@ -466,7 +457,8 @@ enum nss_status _nss_mymachines_getpwnam_r(
                                &error,
                                &reply,
                                "su",
-                               machine, (uint32_t) uid);
+                               machine,
+                               (uint32_t) uid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
                         return NSS_STATUS_NOTFOUND;
@@ -483,20 +475,20 @@ enum nss_status _nss_mymachines_getpwnam_r(
                 return NSS_STATUS_NOTFOUND;
 
         l = strlen(name);
-        if (buflen < l+1) {
+        if (buflen < l + 1) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memcpy(buffer, name, l+1);
+        memcpy(buffer, name, l + 1);
 
         pwd->pw_name = buffer;
         pwd->pw_uid = mapped;
         pwd->pw_gid = GID_NOBODY;
         pwd->pw_gecos = buffer;
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) "/sbin/nologin";
+        pwd->pw_passwd = (char *) "*"; /* locked */
+        pwd->pw_dir = (char *) "/";
+        pwd->pw_shell = (char *) "/sbin/nologin";
 
         return NSS_STATUS_SUCCESS;
 
@@ -505,14 +497,11 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_mymachines_getpwuid_r(
-                uid_t uid,
-                struct passwd *pwd,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_mymachines_getpwuid_r(uid_t uid, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine;
         uint32_t mapped;
@@ -572,9 +561,9 @@ enum nss_status _nss_mymachines_getpwuid_r(
         pwd->pw_uid = uid;
         pwd->pw_gid = GID_NOBODY;
         pwd->pw_gecos = buffer;
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) "/sbin/nologin";
+        pwd->pw_passwd = (char *) "*"; /* locked */
+        pwd->pw_dir = (char *) "/";
+        pwd->pw_shell = (char *) "/sbin/nologin";
 
         return NSS_STATUS_SUCCESS;
 
@@ -585,14 +574,11 @@ fail:
 
 #pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
 
-enum nss_status _nss_mymachines_getgrnam_r(
-                const char *name,
-                struct group *gr,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_mymachines_getgrnam_r(const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *p, *e, *machine;
         uint32_t mapped;
@@ -614,7 +600,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (!e || e == p)
                 return NSS_STATUS_NOTFOUND;
 
-        if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
+        if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
                 return NSS_STATUS_NOTFOUND;
 
         r = parse_gid(e + 1, &gid);
@@ -645,7 +631,8 @@ enum nss_status _nss_mymachines_getgrnam_r(
                                &error,
                                &reply,
                                "su",
-                               machine, (uint32_t) gid);
+                               machine,
+                               (uint32_t) gid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
                         return NSS_STATUS_NOTFOUND;
@@ -660,19 +647,19 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (mapped < HOST_GID_LIMIT || mapped == gid)
                 return NSS_STATUS_NOTFOUND;
 
-        l = sizeof(char*) + strlen(name) + 1;
+        l = sizeof(char *) + strlen(name) + 1;
         if (buflen < l) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memzero(buffer, sizeof(char*));
-        strcpy(buffer + sizeof(char*), name);
+        memzero(buffer, sizeof(char *));
+        strcpy(buffer + sizeof(char *), name);
 
-        gr->gr_name = buffer + sizeof(char*);
+        gr->gr_name = buffer + sizeof(char *);
         gr->gr_gid = mapped;
-        gr->gr_passwd = (char*) "*"; /* locked */
-        gr->gr_mem = (char**) buffer;
+        gr->gr_passwd = (char *) "*"; /* locked */
+        gr->gr_mem = (char **) buffer;
 
         return NSS_STATUS_SUCCESS;
 
@@ -681,14 +668,11 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_mymachines_getgrgid_r(
-                gid_t gid,
-                struct group *gr,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_mymachines_getgrgid_r(gid_t gid, struct group *gr, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *machine;
         uint32_t mapped;
@@ -739,21 +723,21 @@ enum nss_status _nss_mymachines_getgrgid_r(
         if (mapped == gid)
                 return NSS_STATUS_NOTFOUND;
 
-        if (buflen < sizeof(char*) + 1) {
+        if (buflen < sizeof(char *) + 1) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memzero(buffer, sizeof(char*));
-        if (snprintf(buffer + sizeof(char*), buflen - sizeof(char*), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
+        memzero(buffer, sizeof(char *));
+        if (snprintf(buffer + sizeof(char *), buflen - sizeof(char *), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        gr->gr_name = buffer + sizeof(char*);
+        gr->gr_name = buffer + sizeof(char *);
         gr->gr_gid = gid;
-        gr->gr_passwd = (char*) "*"; /* locked */
-        gr->gr_mem = (char**) buffer;
+        gr->gr_passwd = (char *) "*"; /* locked */
+        gr->gr_mem = (char **) buffer;
 
         return NSS_STATUS_SUCCESS;
 

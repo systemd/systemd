@@ -8,7 +8,8 @@
 #include "string-util.h"
 #include "xml.h"
 
-enum {
+enum
+{
         STATE_NULL,
         STATE_TEXT,
         STATE_TAG,
@@ -194,13 +195,13 @@ int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
                                 if (IN_SET(*c, '\'', '\"')) {
                                         /* Tag with a quoted value */
 
-                                        e = strchr(c+1, *c);
+                                        e = strchr(c + 1, *c);
                                         if (!e)
                                                 return -EINVAL;
 
                                         inc_lines(line, c, e - c);
 
-                                        ret = strndup(c+1, e - c - 1);
+                                        ret = strndup(c + 1, e - c - 1);
                                         if (!ret)
                                                 return -ENOMEM;
 
@@ -209,7 +210,6 @@ int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
                                         *state = INT_TO_PTR(STATE_TAG);
 
                                         return XML_ATTRIBUTE_VALUE;
-
                                 }
 
                                 /* Tag with a value without quotes */
@@ -231,7 +231,6 @@ int xml_tokenize(const char **p, char **name, void **state, unsigned *line) {
                         t = STATE_TAG;
                         continue;
                 }
-
         }
 
         assert_not_reached("Bad state");

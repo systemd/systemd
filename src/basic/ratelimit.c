@@ -18,8 +18,7 @@ bool ratelimit_below(RateLimit *r) {
 
         ts = now(CLOCK_MONOTONIC);
 
-        if (r->begin <= 0 ||
-            r->begin + r->interval < ts) {
+        if (r->begin <= 0 || r->begin + r->interval < ts) {
                 r->begin = ts;
 
                 /* Reset counter */

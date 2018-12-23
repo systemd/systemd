@@ -35,7 +35,7 @@ static enum {
 static char **arg_names = NULL;
 
 static int arg_full = -1;
-static const char* arg_machine = NULL;
+static const char *arg_machine = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_names, freep); /* don't free the strings */
 
@@ -58,33 +58,31 @@ static int help(void) {
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_NO_PAGER = 0x100,
                 ARG_VERSION,
                 ARG_USER_UNIT,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "full",      no_argument,       NULL, 'l'           },
-                { "machine",   required_argument, NULL, 'M'           },
-                { "unit",      optional_argument, NULL, 'u'           },
-                { "user-unit", optional_argument, NULL, ARG_USER_UNIT },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "all", no_argument, NULL, 'a' },
+                                                 { "full", no_argument, NULL, 'l' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "unit", optional_argument, NULL, 'u' },
+                                                 { "user-unit", optional_argument, NULL, ARG_USER_UNIT },
+                                                 {} };
 
         int c;
 
@@ -147,8 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot combine --unit or --user-unit with --machine=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --unit or --user-unit with --machine=.");
 
         return 1;
 }
@@ -176,10 +173,7 @@ static int run(int argc, char *argv[]) {
         if (r > 0 && arg_full < 0)
                 arg_full = true;
 
-        output_flags =
-                arg_all * OUTPUT_SHOW_ALL |
-                (arg_full > 0) * OUTPUT_FULL_WIDTH |
-                arg_kernel_threads * OUTPUT_KERNEL_THREADS;
+        output_flags = arg_all * OUTPUT_SHOW_ALL | (arg_full > 0) * OUTPUT_FULL_WIDTH | arg_kernel_threads * OUTPUT_KERNEL_THREADS;
 
         if (arg_names) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -195,9 +189,7 @@ static int run(int argc, char *argv[]) {
 
                                 if (!bus) {
                                         /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL,
-                                                                          arg_show_unit == SHOW_UNIT_USER,
-                                                                          &bus);
+                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, arg_show_unit == SHOW_UNIT_USER, &bus);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to create bus connection: %m");
                                 }
@@ -264,7 +256,7 @@ static int run(int argc, char *argv[]) {
         } else {
                 bool done = false;
 
-                if (!arg_machine)  {
+                if (!arg_machine) {
                         _cleanup_free_ char *cwd = NULL;
 
                         r = safe_getcwd(&cwd);

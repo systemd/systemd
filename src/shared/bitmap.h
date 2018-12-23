@@ -23,9 +23,8 @@ bool bitmap_iterate(Bitmap *b, Iterator *i, unsigned *n);
 
 bool bitmap_equal(Bitmap *a, Bitmap *b);
 
-#define BITMAP_FOREACH(n, b, i) \
-        for ((i).idx = 0; bitmap_iterate((b), &(i), (unsigned*)&(n)); )
+#define BITMAP_FOREACH(n, b, i) for ((i).idx = 0; bitmap_iterate((b), &(i), (unsigned *) &(n));)
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Bitmap*, bitmap_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Bitmap *, bitmap_free);
 
 #define _cleanup_bitmap_free_ _cleanup_(bitmap_freep)

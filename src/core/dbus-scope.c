@@ -52,12 +52,7 @@ const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int bus_scope_set_transient_property(
-                Scope *s,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+static int bus_scope_set_transient_property(Scope *s, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         int r;
 
@@ -150,12 +145,7 @@ static int bus_scope_set_transient_property(
         return 0;
 }
 
-int bus_scope_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_scope_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Scope *s = SCOPE(u);
         int r;
@@ -206,12 +196,7 @@ int bus_scope_send_request_stop(Scope *s) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(
-                        UNIT(s)->manager->api_bus,
-                        &m,
-                        p,
-                        "org.freedesktop.systemd1.Scope",
-                        "RequestStop");
+        r = sd_bus_message_new_signal(UNIT(s)->manager->api_bus, &m, p, "org.freedesktop.systemd1.Scope", "RequestStop");
         if (r < 0)
                 return r;
 

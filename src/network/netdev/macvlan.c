@@ -6,7 +6,7 @@
 #include "netdev/macvlan.h"
 #include "string-table.h"
 
-static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
+static const char *const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
         [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
         [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
         [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",

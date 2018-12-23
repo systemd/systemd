@@ -30,11 +30,11 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         if (r < 0)
                 return r;
 
-        l = new(Link, 1);
+        l = new (Link, 1);
         if (!l)
                 return -ENOMEM;
 
-        *l = (Link) {
+        *l = (Link){
                 .ifindex = ifindex,
                 .default_route = -1,
                 .llmnr_support = RESOLVE_SUPPORT_YES,
@@ -139,9 +139,7 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET, true) &&
-            l->llmnr_support != RESOLVE_SUPPORT_NO &&
-            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET, true) && l->llmnr_support != RESOLVE_SUPPORT_NO && l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -150,9 +148,7 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6, true) &&
-            l->llmnr_support != RESOLVE_SUPPORT_NO &&
-            l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
+        if (link_relevant(l, AF_INET6, true) && l->llmnr_support != RESOLVE_SUPPORT_NO && l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
             socket_ipv6_is_supported()) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
@@ -162,9 +158,7 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 
-        if (link_relevant(l, AF_INET, true) &&
-            l->mdns_support != RESOLVE_SUPPORT_NO &&
-            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET, true) && l->mdns_support != RESOLVE_SUPPORT_NO && l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
@@ -173,9 +167,7 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6, true) &&
-            l->mdns_support != RESOLVE_SUPPORT_NO &&
-            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET6, true) && l->mdns_support != RESOLVE_SUPPORT_NO && l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
@@ -190,11 +182,9 @@ void link_add_rrs(Link *l, bool force_remove) {
         int r;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                link_address_add_rrs(a, force_remove);
+        link_address_add_rrs(a, force_remove);
 
-        if (!force_remove &&
-            l->mdns_support == RESOLVE_SUPPORT_YES &&
-            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+        if (!force_remove && l->mdns_support == RESOLVE_SUPPORT_YES && l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
@@ -239,7 +229,7 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
         if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
-                strncpy(l->name, n, sizeof(l->name)-1);
+                strncpy(l->name, n, sizeof(l->name) - 1);
                 char_array_0(l->name);
         }
 
@@ -380,9 +370,10 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 
         assert(l);
 
-#if ! ENABLE_DNS_OVER_TLS
+#if !ENABLE_DNS_OVER_TLS
         if (mode != DNS_OVER_TLS_NO)
-                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                log_warning(
+                        "DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
         return;
 #endif
 
@@ -420,17 +411,17 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
 
-#if ! HAVE_GCRYPT
+#if !HAVE_GCRYPT
         if (IN_SET(mode, DNSSEC_YES, DNSSEC_ALLOW_DOWNGRADE))
-                log_warning("DNSSEC option for the link cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+                log_warning(
+                        "DNSSEC option for the link cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
         return;
 #endif
 
         if (l->dnssec_mode == mode)
                 return;
 
-        if ((l->dnssec_mode == _DNSSEC_MODE_INVALID) ||
-            (l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
+        if ((l->dnssec_mode == _DNSSEC_MODE_INVALID) || (l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
             (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
 
                 /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
@@ -682,10 +673,10 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
          * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
          * least one routable address. */
 
-        if (l->flags & (IFF_LOOPBACK|IFF_DORMANT))
+        if (l->flags & (IFF_LOOPBACK | IFF_DORMANT))
                 return false;
 
-        if ((l->flags & (IFF_UP|IFF_LOWER_UP)) != (IFF_UP|IFF_LOWER_UP))
+        if ((l->flags & (IFF_UP | IFF_LOWER_UP)) != (IFF_UP | IFF_LOWER_UP))
                 return false;
 
         if (local_multicast) {
@@ -703,8 +694,8 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a, local_multicast))
-                        return true;
+        if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a, local_multicast))
+                return true;
 
         return false;
 }
@@ -715,13 +706,13 @@ LinkAddress *link_find_address(Link *l, int family, const union in_addr_union *i
         assert(l);
 
         LIST_FOREACH(addresses, a, l->addresses)
-                if (a->family == family && in_addr_equal(family, &a->in_addr, in_addr))
-                        return a;
+        if (a->family == family && in_addr_equal(family, &a->in_addr, in_addr))
+                return a;
 
         return NULL;
 }
 
-DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
+DnsServer *link_set_dns_server(Link *l, DnsServer *s) {
         assert(l);
 
         if (l->current_dns_server == s)
@@ -874,14 +865,12 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
         if (a->family == AF_INET) {
 
-                if (!force_remove &&
-                    link_address_relevant(a, true) &&
-                    a->link->llmnr_ipv4_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                if (!force_remove && link_address_relevant(a, true) && a->link->llmnr_ipv4_scope &&
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES && a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv4_key) {
-                                a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->llmnr_hostname);
+                                a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(
+                                        DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->llmnr_hostname);
                                 if (!a->link->manager->llmnr_host_ipv4_key) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -900,7 +889,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
+                                r = dns_resource_record_new_reverse(
+                                        &a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
@@ -928,13 +918,11 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
                 }
 
-                if (!force_remove &&
-                    link_address_relevant(a, true) &&
-                    a->link->mdns_ipv4_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                if (!force_remove && link_address_relevant(a, true) && a->link->mdns_ipv4_scope &&
+                    a->link->mdns_support == RESOLVE_SUPPORT_YES && a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
                         if (!a->link->manager->mdns_host_ipv4_key) {
-                                a->link->manager->mdns_host_ipv4_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->mdns_hostname);
+                                a->link->manager->mdns_host_ipv4_key = dns_resource_key_new(
+                                        DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->mdns_hostname);
                                 if (!a->link->manager->mdns_host_ipv4_key) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -984,14 +972,12 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
 
         if (a->family == AF_INET6) {
 
-                if (!force_remove &&
-                    link_address_relevant(a, true) &&
-                    a->link->llmnr_ipv6_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                if (!force_remove && link_address_relevant(a, true) && a->link->llmnr_ipv6_scope &&
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES && a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv6_key) {
-                                a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->llmnr_hostname);
+                                a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(
+                                        DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->llmnr_hostname);
                                 if (!a->link->manager->llmnr_host_ipv6_key) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -1010,7 +996,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
+                                r = dns_resource_record_new_reverse(
+                                        &a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
@@ -1038,14 +1025,12 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
                 }
 
-                if (!force_remove &&
-                    link_address_relevant(a, true) &&
-                    a->link->mdns_ipv6_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
-                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                if (!force_remove && link_address_relevant(a, true) && a->link->mdns_ipv6_scope &&
+                    a->link->mdns_support == RESOLVE_SUPPORT_YES && a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->mdns_host_ipv6_key) {
-                                a->link->manager->mdns_host_ipv6_key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->mdns_hostname);
+                                a->link->manager->mdns_host_ipv6_key = dns_resource_key_new(
+                                        DNS_CLASS_IN, DNS_TYPE_AAAA, a->link->manager->mdns_hostname);
                                 if (!a->link->manager->mdns_host_ipv6_key) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -1119,7 +1104,7 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
 bool link_address_relevant(LinkAddress *a, bool local_multicast) {
         assert(a);
 
-        if (a->flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE))
+        if (a->flags & (IFA_F_DEPRECATED | IFA_F_TENTATIVE))
                 return false;
 
         if (a->scope >= (local_multicast ? RT_SCOPE_HOST : RT_SCOPE_LINK))
@@ -1136,14 +1121,11 @@ static bool link_needs_save(Link *l) {
         if (l->is_managed)
                 return false;
 
-        if (l->llmnr_support != RESOLVE_SUPPORT_YES ||
-            l->mdns_support != RESOLVE_SUPPORT_NO ||
-            l->dnssec_mode != _DNSSEC_MODE_INVALID ||
+        if (l->llmnr_support != RESOLVE_SUPPORT_YES || l->mdns_support != RESOLVE_SUPPORT_NO || l->dnssec_mode != _DNSSEC_MODE_INVALID ||
             l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
-        if (l->dns_servers ||
-            l->search_domains)
+        if (l->dns_servers || l->search_domains)
                 return true;
 
         if (!set_isempty(l->dnssec_negative_trust_anchors))
@@ -1272,14 +1254,8 @@ fail:
 }
 
 int link_load_user(Link *l) {
-        _cleanup_free_ char
-                *llmnr = NULL,
-                *mdns = NULL,
-                *dnssec = NULL,
-                *servers = NULL,
-                *domains = NULL,
-                *ntas = NULL,
-                *default_route = NULL;
+        _cleanup_free_ char *llmnr = NULL, *mdns = NULL, *dnssec = NULL, *servers = NULL, *domains = NULL, *ntas = NULL,
+                            *default_route = NULL;
 
         ResolveSupport s;
         const char *p;
@@ -1296,14 +1272,22 @@ int link_load_user(Link *l) {
         if (l->is_managed)
                 return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
 
-        r = parse_env_file(NULL, l->state_file,
-                           "LLMNR", &llmnr,
-                           "MDNS", &mdns,
-                           "DNSSEC", &dnssec,
-                           "SERVERS", &servers,
-                           "DOMAINS", &domains,
-                           "NTAS", &ntas,
-                           "DEFAULT_ROUTE", &default_route);
+        r = parse_env_file(NULL,
+                           l->state_file,
+                           "LLMNR",
+                           &llmnr,
+                           "MDNS",
+                           &mdns,
+                           "DNSSEC",
+                           &dnssec,
+                           "SERVERS",
+                           &servers,
+                           "DOMAINS",
+                           &domains,
+                           "NTAS",
+                           &ntas,
+                           "DEFAULT_ROUTE",
+                           &default_route);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

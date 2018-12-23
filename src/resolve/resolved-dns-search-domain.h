@@ -5,7 +5,8 @@
 
 typedef struct DnsSearchDomain DnsSearchDomain;
 
-typedef enum DnsSearchDomainType {
+typedef enum DnsSearchDomainType
+{
         DNS_SEARCH_DOMAIN_SYSTEM,
         DNS_SEARCH_DOMAIN_LINK,
 } DnsSearchDomainType;
@@ -23,22 +24,17 @@ struct DnsSearchDomain {
 
         char *name;
 
-        bool marked:1;
-        bool route_only:1;
+        bool marked : 1;
+        bool route_only : 1;
 
-        bool linked:1;
+        bool linked : 1;
         LIST_FIELDS(DnsSearchDomain, domains);
 };
 
-int dns_search_domain_new(
-                Manager *m,
-                DnsSearchDomain **ret,
-                DnsSearchDomainType type,
-                Link *link,
-                const char *name);
+int dns_search_domain_new(Manager *m, DnsSearchDomain **ret, DnsSearchDomainType type, Link *link, const char *name);
 
-DnsSearchDomain* dns_search_domain_ref(DnsSearchDomain *d);
-DnsSearchDomain* dns_search_domain_unref(DnsSearchDomain *d);
+DnsSearchDomain *dns_search_domain_ref(DnsSearchDomain *d);
+DnsSearchDomain *dns_search_domain_unref(DnsSearchDomain *d);
 
 void dns_search_domain_unlink(DnsSearchDomain *d);
 void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d);
@@ -49,8 +45,8 @@ void dns_search_domain_mark_all(DnsSearchDomain *first);
 
 int dns_search_domain_find(DnsSearchDomain *first, const char *name, DnsSearchDomain **ret);
 
-static inline const char* DNS_SEARCH_DOMAIN_NAME(DnsSearchDomain *d) {
+static inline const char *DNS_SEARCH_DOMAIN_NAME(DnsSearchDomain *d) {
         return d ? d->name : NULL;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsSearchDomain*, dns_search_domain_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsSearchDomain *, dns_search_domain_unref);

@@ -103,42 +103,42 @@ static void test_parse_size(void) {
         assert_se(bytes == 112);
 
         assert_se(parse_size("3.5 K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024 + 512);
+        assert_se(bytes == 3 * 1024 + 512);
 
         assert_se(parse_size("3. K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024);
+        assert_se(bytes == 3 * 1024);
 
         assert_se(parse_size("3.0 K", 1024, &bytes) == 0);
-        assert_se(bytes == 3*1024);
+        assert_se(bytes == 3 * 1024);
 
         assert_se(parse_size("3. 0 K", 1024, &bytes) == -EINVAL);
 
         assert_se(parse_size(" 4 M 11.5K", 1024, &bytes) == 0);
-        assert_se(bytes == 4*1024*1024 + 11 * 1024 + 512);
+        assert_se(bytes == 4 * 1024 * 1024 + 11 * 1024 + 512);
 
         assert_se(parse_size("3B3.5G", 1024, &bytes) == -EINVAL);
 
         assert_se(parse_size("3.5G3B", 1024, &bytes) == 0);
-        assert_se(bytes == 3ULL*1024*1024*1024 + 512*1024*1024 + 3);
+        assert_se(bytes == 3ULL * 1024 * 1024 * 1024 + 512 * 1024 * 1024 + 3);
 
         assert_se(parse_size("3.5G 4B", 1024, &bytes) == 0);
-        assert_se(bytes == 3ULL*1024*1024*1024 + 512*1024*1024 + 4);
+        assert_se(bytes == 3ULL * 1024 * 1024 * 1024 + 512 * 1024 * 1024 + 4);
 
         assert_se(parse_size("3B3G4T", 1024, &bytes) == -EINVAL);
 
         assert_se(parse_size("4T3G3B", 1024, &bytes) == 0);
-        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
+        assert_se(bytes == (4ULL * 1024 + 3) * 1024 * 1024 * 1024 + 3);
 
         assert_se(parse_size(" 4 T 3 G 3 B", 1024, &bytes) == 0);
-        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
+        assert_se(bytes == (4ULL * 1024 + 3) * 1024 * 1024 * 1024 + 3);
 
         assert_se(parse_size("12P", 1024, &bytes) == 0);
-        assert_se(bytes == 12ULL * 1024*1024*1024*1024*1024);
+        assert_se(bytes == 12ULL * 1024 * 1024 * 1024 * 1024 * 1024);
 
         assert_se(parse_size("12P12P", 1024, &bytes) == -EINVAL);
 
         assert_se(parse_size("3E 2P", 1024, &bytes) == 0);
-        assert_se(bytes == (3 * 1024 + 2ULL) * 1024*1024*1024*1024*1024);
+        assert_se(bytes == (3 * 1024 + 2ULL) * 1024 * 1024 * 1024 * 1024 * 1024);
 
         assert_se(parse_size("12X", 1024, &bytes) == -EINVAL);
 

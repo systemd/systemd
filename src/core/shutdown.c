@@ -39,14 +39,15 @@
 #include "watchdog.h"
 
 #define SYNC_PROGRESS_ATTEMPTS 3
-#define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
+#define SYNC_TIMEOUT_USEC (10 * USEC_PER_SEC)
 
-static char* arg_verb;
+static char *arg_verb;
 static uint8_t arg_exit_code;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
                 ARG_LOG_COLOR,
@@ -55,15 +56,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TIMEOUT,
         };
 
-        static const struct option options[] = {
-                { "log-level",     required_argument, NULL, ARG_LOG_LEVEL    },
-                { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
-                { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
-                { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
-                { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
-                {}
-        };
+        static const struct option options[] = { { "log-level", required_argument, NULL, ARG_LOG_LEVEL },
+                                                 { "log-target", required_argument, NULL, ARG_LOG_TARGET },
+                                                 { "log-color", optional_argument, NULL, ARG_LOG_COLOR },
+                                                 { "log-location", optional_argument, NULL, ARG_LOG_LOCATION },
+                                                 { "exit-code", required_argument, NULL, ARG_EXIT_CODE },
+                                                 { "timeout", required_argument, NULL, ARG_TIMEOUT },
+                                                 {} };
 
         int c, r;
 
@@ -139,8 +138,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!arg_verb)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verb argument missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb argument missing.");
 
         return 0;
 }
@@ -253,7 +251,7 @@ static void sync_with_progress(void) {
 
         /* Only reached in the event of a timeout. We should issue a kill
          * to the stray process. */
-        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID "PID_FMT".", pid);
+        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID " PID_FMT ".", pid);
         (void) kill(pid, SIGKILL);
 }
 
@@ -263,7 +261,7 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
         int cmd, r, umount_log_level = LOG_INFO;
-        static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
+        static const char *const dirs[] = { SYSTEM_SHUTDOWN_PATH, NULL };
         char *watchdog_device;
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
@@ -312,12 +310,11 @@ int main(int argc, char *argv[]) {
         if (watchdog_device) {
                 r = watchdog_set_device(watchdog_device);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          watchdog_device);
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", watchdog_device);
         }
 
         /* Lock us into memory */
-        (void) mlockall(MCL_CURRENT|MCL_FUTURE);
+        (void) mlockall(MCL_CURRENT | MCL_FUTURE);
 
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes
@@ -449,19 +446,19 @@ int main(int argc, char *argv[]) {
         if (can_initrd) {
                 r = switch_root_initramfs();
                 if (r >= 0) {
-                        argv[0] = (char*) "/shutdown";
+                        argv[0] = (char *) "/shutdown";
 
                         (void) setsid();
                         (void) make_console_stdio();
 
-                        log_info("Successfully changed into root pivot.\n"
-                                 "Returning to initrd...");
+                        log_info(
+                                "Successfully changed into root pivot.\n"
+                                "Returning to initrd...");
 
                         execv("/shutdown", argv);
                         log_error_errno(errno, "Failed to execute shutdown binary: %m");
                 } else
                         log_error_errno(r, "Failed to switch root to \"/run/initramfs\": %m");
-
         }
 
         if (need_umount || need_swapoff || need_loop_detach || need_dm_detach)
@@ -493,15 +490,13 @@ int main(int argc, char *argv[]) {
                         /* We cheat and exec kexec to avoid doing all its work */
                         log_info("Rebooting with kexec.");
 
-                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_WAIT, NULL);
                         if (r == 0) {
-                                const char * const args[] = {
-                                        KEXEC, "-e", NULL
-                                };
+                                const char *const args[] = { KEXEC, "-e", NULL };
 
                                 /* Child */
 
-                                execv(args[0], (char * const *) args);
+                                execv(args[0], (char *const *) args);
                                 _exit(EXIT_FAILURE);
                         }
 
@@ -539,7 +534,7 @@ int main(int argc, char *argv[]) {
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
-  error:
+error:
         log_emergency_errno(r, "Critical error while doing system shutdown: %m");
         freeze();
 }

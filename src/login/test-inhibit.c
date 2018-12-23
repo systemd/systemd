@@ -17,13 +17,17 @@ static int inhibit(sd_bus *bus, const char *what) {
         int r;
 
         r = sd_bus_call_method(bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "Inhibit",
-                        &error,
-                        &reply,
-                        "ssss", what, who, reason, mode);
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "Inhibit",
+                               &error,
+                               &reply,
+                               "ssss",
+                               what,
+                               who,
+                               reason,
+                               mode);
         assert_se(r >= 0);
 
         r = sd_bus_message_read_basic(reply, SD_BUS_TYPE_UNIX_FD, &fd);
@@ -42,21 +46,20 @@ static void print_inhibitors(sd_bus *bus) {
         int r;
 
         r = sd_bus_call_method(bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ListInhibitors",
-                        &error,
-                        &reply,
-                        "");
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "ListInhibitors",
+                               &error,
+                               &reply,
+                               "");
         assert_se(r >= 0);
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
         assert_se(r >= 0);
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
-                printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%"PRIu32"> pid=<%"PRIu32">\n",
-                       what, who, why, mode, uid, pid);
+                printf("what=<%s> who=<%s> why=<%s> mode=<%s> uid=<%" PRIu32 "> pid=<%" PRIu32 ">\n", what, who, why, mode, uid, pid);
 
                 n++;
         }

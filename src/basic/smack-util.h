@@ -14,9 +14,10 @@
 #include "macro.h"
 
 #define SMACK_FLOOR_LABEL "_"
-#define SMACK_STAR_LABEL  "*"
+#define SMACK_STAR_LABEL "*"
 
-typedef enum SmackAttr {
+typedef enum SmackAttr
+{
         SMACK_ATTR_ACCESS,
         SMACK_ATTR_EXEC,
         SMACK_ATTR_MMAP,
@@ -32,7 +33,7 @@ bool mac_smack_use(void);
 int mac_smack_fix(const char *path, LabelFixFlags flags);
 int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags);
 
-const char* smack_attr_to_string(SmackAttr i) _const_;
+const char *smack_attr_to_string(SmackAttr i) _const_;
 SmackAttr smack_attr_from_string(const char *s) _pure_;
 int mac_smack_read(const char *path, SmackAttr attr, char **label);
 int mac_smack_read_fd(int fd, SmackAttr attr, char **label);

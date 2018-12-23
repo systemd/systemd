@@ -15,10 +15,7 @@
 #include "unit.h"
 
 int main(int argc, char *argv[]) {
-        struct bpf_insn exit_insn[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
-        };
+        struct bpf_insn exit_insn[] = { BPF_MOV64_IMM(BPF_REG_0, 1), BPF_EXIT_INSN() };
 
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
@@ -73,12 +70,18 @@ int main(int argc, char *argv[]) {
 
         cc->ip_accounting = true;
 
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_ip_address_access(
+                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
 
         assert(cc->ip_address_allow);
         assert(cc->ip_address_allow->items_next);
@@ -89,8 +92,26 @@ int main(int argc, char *argv[]) {
         assert(cc->ip_address_deny->items_next);
         assert(!cc->ip_address_deny->items_next->items_next);
 
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.2 -W 5", SERVICE(u)->exec_command, u) == 0);
-        assert_se(config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart", SERVICE_EXEC_START, "/bin/ping -c 1 127.0.0.3 -W 5", SERVICE(u)->exec_command, u) == 0);
+        assert_se(config_parse_exec(u->id,
+                                    "filename",
+                                    1,
+                                    "Service",
+                                    1,
+                                    "ExecStart",
+                                    SERVICE_EXEC_START,
+                                    "/bin/ping -c 1 127.0.0.2 -W 5",
+                                    SERVICE(u)->exec_command,
+                                    u) == 0);
+        assert_se(config_parse_exec(u->id,
+                                    "filename",
+                                    1,
+                                    "Service",
+                                    1,
+                                    "ExecStart",
+                                    SERVICE_EXEC_START,
+                                    "/bin/ping -c 1 127.0.0.3 -W 5",
+                                    SERVICE(u)->exec_command,
+                                    u) == 0);
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]);
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next);

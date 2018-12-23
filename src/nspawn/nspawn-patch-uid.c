@@ -35,7 +35,7 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
         if (name) {
                 _cleanup_close_ int child_fd = -1;
 
-                child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                child_fd = openat(fd, name, O_PATH | O_CLOEXEC | O_NOFOLLOW);
                 if (child_fd < 0)
                         return -errno;
 
@@ -64,7 +64,7 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
         if (name) {
                 _cleanup_close_ int child_fd = -1;
 
-                child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                child_fd = openat(fd, name, O_PATH | O_CLOEXEC | O_NOFOLLOW);
                 if (child_fd < 0)
                         return -errno;
 
@@ -233,7 +233,7 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
         assert(fd >= 0);
         assert(st);
 
-        new_uid =         shift | (st->st_uid & UINT32_C(0xFFFF));
+        new_uid = shift | (st->st_uid & UINT32_C(0xFFFF));
         new_gid = (gid_t) shift | (st->st_gid & UINT32_C(0xFFFF));
 
         if (!uid_is_valid(new_uid) || !gid_is_valid(new_gid))
@@ -278,22 +278,14 @@ static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
 
         assert(sfs);
 
-        return F_TYPE_EQUAL(sfs->f_type, BINFMTFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, CGROUP_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, CGROUP2_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, DEBUGFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, DEVPTS_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, EFIVARFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, HUGETLBFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, MQUEUE_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, PROC_SUPER_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, PSTOREFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, SELINUX_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, SMACK_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, SECURITYFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, BPF_FS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, TRACEFS_MAGIC) ||
-               F_TYPE_EQUAL(sfs->f_type, SYSFS_MAGIC);
+        return F_TYPE_EQUAL(sfs->f_type, BINFMTFS_MAGIC) || F_TYPE_EQUAL(sfs->f_type, CGROUP_SUPER_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, CGROUP2_SUPER_MAGIC) || F_TYPE_EQUAL(sfs->f_type, DEBUGFS_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, DEVPTS_SUPER_MAGIC) || F_TYPE_EQUAL(sfs->f_type, EFIVARFS_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, HUGETLBFS_MAGIC) || F_TYPE_EQUAL(sfs->f_type, MQUEUE_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, PROC_SUPER_MAGIC) || F_TYPE_EQUAL(sfs->f_type, PSTOREFS_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, SELINUX_MAGIC) || F_TYPE_EQUAL(sfs->f_type, SMACK_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, SECURITYFS_MAGIC) || F_TYPE_EQUAL(sfs->f_type, BPF_FS_MAGIC) ||
+                F_TYPE_EQUAL(sfs->f_type, TRACEFS_MAGIC) || F_TYPE_EQUAL(sfs->f_type, SYSFS_MAGIC);
 }
 
 static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift, bool is_toplevel) {
@@ -320,8 +312,7 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
         }
 
         /* Also, if we hit a read-only file system, then don't bother, skip the whole subtree */
-        if ((sfs.f_flags & ST_RDONLY) ||
-            access_fd(fd, W_OK) == -EROFS)
+        if ((sfs.f_flags & ST_RDONLY) || access_fd(fd, W_OK) == -EROFS)
                 goto read_only;
 
         if (S_ISDIR(st->st_mode)) {
@@ -361,11 +352,11 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                         if (S_ISDIR(fst.st_mode)) {
                                 int subdir_fd;
 
-                                subdir_fd = openat(dirfd(d), de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                                subdir_fd = openat(
+                                        dirfd(d), de->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NOATIME);
                                 if (subdir_fd < 0) {
                                         r = -errno;
                                         goto finish;
-
                                 }
 
                                 r = recurse_fd(subdir_fd, true, &fst, shift, false);
@@ -454,7 +445,7 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
 
         /* Try to detect if the range is already right. Of course, this a pretty drastic optimization, as we assume
          * that if the top-level dir has the right upper 16bit assigned, then everything below will have too... */
-        if (((uint32_t) (st.st_uid ^ shift) >> 16) == 0)
+        if (((uint32_t)(st.st_uid ^ shift) >> 16) == 0)
                 return 0;
 
         /* Before we start recursively chowning, mark the top-level dir as "busy" by chowning it to the "busy"
@@ -462,9 +453,8 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
          * chown()ing it again, unconditionally, as the busy UID is not a valid UID we'd everpick for ourselves. */
 
         if ((st.st_uid & UID_BUSY_MASK) != UID_BUSY_BASE) {
-                if (fchown(fd,
-                           UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
-                           (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0) {
+                if (fchown(fd, UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK), (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) <
+                    0) {
                         r = -errno;
                         goto finish;
                 }
@@ -482,7 +472,7 @@ finish:
 int path_patch_uid(const char *path, uid_t shift, uid_t range) {
         int fd;
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        fd = open(path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NOATIME);
         if (fd < 0)
                 return -errno;
 

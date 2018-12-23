@@ -76,11 +76,11 @@ _public_ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, c
         if (r < 0)
                 return_with_errno(NULL, r);
 
-        udev_monitor = new(struct udev_monitor, 1);
+        udev_monitor = new (struct udev_monitor, 1);
         if (!udev_monitor)
                 return_with_errno(NULL, ENOMEM);
 
-        *udev_monitor = (struct udev_monitor) {
+        *udev_monitor = (struct udev_monitor){
                 .udev = udev,
                 .n_ref = 1,
                 .monitor = TAKE_PTR(m),
@@ -197,7 +197,7 @@ static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_
         assert(udev_monitor);
         assert(ret);
 
-        pfd = (struct pollfd) {
+        pfd = (struct pollfd){
                 .fd = device_monitor_get_fd(udev_monitor->monitor),
                 .events = POLLIN,
         };

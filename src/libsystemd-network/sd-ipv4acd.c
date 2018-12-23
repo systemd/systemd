@@ -35,7 +35,8 @@
 #define RATE_LIMIT_INTERVAL_USEC (60U * USEC_PER_SEC)
 #define DEFEND_INTERVAL_USEC (10U * USEC_PER_SEC)
 
-typedef enum IPv4ACDState {
+typedef enum IPv4ACDState
+{
         IPV4ACD_STATE_INIT,
         IPV4ACD_STATE_STARTED,
         IPV4ACD_STATE_WAITING_PROBE,
@@ -69,7 +70,7 @@ struct sd_ipv4acd {
         sd_event *event;
         int event_priority;
         sd_ipv4acd_callback_t callback;
-        void* userdata;
+        void *userdata;
 };
 
 #define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
@@ -116,11 +117,11 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
 
         assert_return(ret, -EINVAL);
 
-        acd = new(sd_ipv4acd, 1);
+        acd = new (sd_ipv4acd, 1);
         if (!acd)
                 return -ENOMEM;
 
-        *acd = (sd_ipv4acd) {
+        *acd = (sd_ipv4acd){
                 .n_ref = 1,
                 .state = IPV4ACD_STATE_INIT,
                 .ifindex = -1,
@@ -167,11 +168,16 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
 
         assert_se(sd_event_now(acd->event, clock_boottime_or_monotonic(), &time_now) >= 0);
 
-        return event_reset_time(acd->event, &acd->timer_event_source,
+        return event_reset_time(acd->event,
+                                &acd->timer_event_source,
                                 clock_boottime_or_monotonic(),
-                                time_now + next_timeout, 0,
-                                ipv4acd_on_timeout, acd,
-                                acd->event_priority, "ipv4acd-timer", true);
+                                time_now + next_timeout,
+                                0,
+                                ipv4acd_on_timeout,
+                                acd,
+                                acd->event_priority,
+                                "ipv4acd-timer",
+                                true);
 }
 
 static bool ipv4acd_arp_conflict(sd_ipv4acd *acd, struct ether_arp *arp) {
@@ -199,7 +205,8 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
 
                 if (acd->n_conflict >= MAX_CONFLICTS) {
                         char ts[FORMAT_TIMESPAN_MAX];
-                        log_ipv4acd(acd, "Max conflicts reached, delaying by %s", format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
+                        log_ipv4acd(
+                                acd, "Max conflicts reached, delaying by %s", format_timespan(ts, sizeof(ts), RATE_LIMIT_INTERVAL_USEC, 0));
 
                         r = ipv4acd_set_next_wakeup(acd, RATE_LIMIT_INTERVAL_USEC, PROBE_WAIT_USEC);
                         if (r < 0)
@@ -230,7 +237,7 @@ static int ipv4acd_on_timeout(sd_event_source *s, uint64_t usec, void *userdata)
                 if (acd->n_iteration < PROBE_NUM - 2) {
                         ipv4acd_set_state(acd, IPV4ACD_STATE_PROBING, false);
 
-                        r = ipv4acd_set_next_wakeup(acd, PROBE_MIN_USEC, (PROBE_MAX_USEC-PROBE_MIN_USEC));
+                        r = ipv4acd_set_next_wakeup(acd, PROBE_MIN_USEC, (PROBE_MAX_USEC - PROBE_MIN_USEC));
                         if (r < 0)
                                 goto fail;
                 } else {
@@ -298,11 +305,7 @@ static void ipv4acd_on_conflict(sd_ipv4acd *acd) {
         ipv4acd_client_notify(acd, SD_IPV4ACD_EVENT_CONFLICT);
 }
 
-static int ipv4acd_on_packet(
-                sd_event_source *s,
-                int fd,
-                uint32_t revents,
-                void *userdata) {
+static int ipv4acd_on_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
 
         sd_ipv4acd *acd = userdata;
         struct ether_arp packet;

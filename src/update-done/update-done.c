@@ -19,10 +19,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
          * to support filesystems which cannot store nanosecond-precision timestamps.
          */
 
-        if (asprintf(&message,
-                     MESSAGE
-                     "TIMESTAMP_NSEC=" NSEC_FMT "\n",
-                     timespec_load_nsec(ts)) < 0)
+        if (asprintf(&message, MESSAGE "TIMESTAMP_NSEC=" NSEC_FMT "\n", timespec_load_nsec(ts)) < 0)
                 return log_oom();
 
         r = write_string_file_atomic_label_ts(path, message, ts);

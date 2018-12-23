@@ -27,7 +27,7 @@ int getxattr_malloc(const char *path, const char *name, char **value, bool allow
         assert(name);
         assert(value);
 
-        for (l = 100; ; l = (size_t) n + 1) {
+        for (l = 100;; l = (size_t) n + 1) {
                 v = new0(char, l);
                 if (!v)
                         return -ENOMEM;
@@ -65,7 +65,7 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
         assert(name);
         assert(value);
 
-        for (l = 100; ; l = (size_t) n + 1) {
+        for (l = 100;; l = (size_t) n + 1) {
                 v = new0(char, l);
                 if (!v)
                         return -ENOMEM;
@@ -88,13 +88,7 @@ int fgetxattr_malloc(int fd, const char *name, char **value) {
         }
 }
 
-int fgetxattrat_fake(
-                int dirfd,
-                const char *filename,
-                const char *attribute,
-                void *value, size_t size,
-                int flags,
-                size_t *ret_size) {
+int fgetxattrat_fake(int dirfd, const char *filename, const char *attribute, void *value, size_t size, int flags, size_t *ret_size) {
 
         char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
@@ -102,7 +96,7 @@ int fgetxattrat_fake(
 
         /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
 
-        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
+        if (flags & ~(AT_SYMLINK_NOFOLLOW | AT_EMPTY_PATH))
                 return -EINVAL;
 
         if (isempty(filename)) {
@@ -111,7 +105,7 @@ int fgetxattrat_fake(
 
                 xsprintf(fn, "/proc/self/fd/%i", dirfd);
         } else {
-                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+                fd = openat(dirfd, filename, O_CLOEXEC | O_PATH | (flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
                 if (fd < 0)
                         return -errno;
 
@@ -148,7 +142,7 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
 
         assert(ret);
 
-        if (flags & ~(AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW))
+        if (flags & ~(AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW))
                 return -EINVAL;
 
         /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
@@ -161,11 +155,9 @@ int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
          * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
          * most sense. */
 
-        if (statx(dirfd, strempty(name), flags|AT_STATX_DONT_SYNC, STATX_BTIME, &sx) >= 0 &&
-            (sx.stx_mask & STATX_BTIME) &&
+        if (statx(dirfd, strempty(name), flags | AT_STATX_DONT_SYNC, STATX_BTIME, &sx) >= 0 && (sx.stx_mask & STATX_BTIME) &&
             sx.stx_btime.tv_sec != 0)
-                a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC +
-                        (usec_t) sx.stx_btime.tv_nsec / NSEC_PER_USEC;
+                a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC + (usec_t) sx.stx_btime.tv_nsec / NSEC_PER_USEC;
         else
                 a = USEC_INFINITY;
 

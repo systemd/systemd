@@ -13,7 +13,7 @@ int write_string_file_atomic_label_ts(const char *fn, const char *line, struct t
         if (r < 0)
                 return r;
 
-        r = write_string_file_ts(fn, line, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC, ts);
+        r = write_string_file_ts(fn, line, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC, ts);
 
         mac_selinux_create_file_clear();
 

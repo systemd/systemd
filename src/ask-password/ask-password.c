@@ -44,17 +44,17 @@ static int help(void) {
                "     --accept-cached  Accept cached passwords\n"
                "     --multiple       List multiple passwords if available\n"
                "     --no-output      Do not print password to standard output\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_ICON = 0x100,
                 ARG_TIMEOUT,
                 ARG_ECHO,
@@ -67,20 +67,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION,
         };
 
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'               },
-                { "version",       no_argument,       NULL, ARG_VERSION       },
-                { "icon",          required_argument, NULL, ARG_ICON          },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
-                { "echo",          no_argument,       NULL, ARG_ECHO          },
-                { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
-                { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
-                { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
-                { "id",            required_argument, NULL, ARG_ID            },
-                { "keyname",       required_argument, NULL, ARG_KEYNAME       },
-                { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "icon", required_argument, NULL, ARG_ICON },
+                                                 { "timeout", required_argument, NULL, ARG_TIMEOUT },
+                                                 { "echo", no_argument, NULL, ARG_ECHO },
+                                                 { "no-tty", no_argument, NULL, ARG_NO_TTY },
+                                                 { "accept-cached", no_argument, NULL, ARG_ACCEPT_CACHED },
+                                                 { "multiple", no_argument, NULL, ARG_MULTIPLE },
+                                                 { "id", required_argument, NULL, ARG_ID },
+                                                 { "keyname", required_argument, NULL, ARG_KEYNAME },
+                                                 { "no-output", no_argument, NULL, ARG_NO_OUTPUT },
+                                                 {} };
 
         int c;
 
@@ -103,9 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TIMEOUT:
                         if (parse_sec(optarg, &arg_timeout) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --timeout parameter %s",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --timeout parameter %s", optarg);
                         break;
 
                 case ARG_ECHO:

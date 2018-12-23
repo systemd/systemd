@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-typedef enum EmergencyAction {
+typedef enum EmergencyAction
+{
         EMERGENCY_ACTION_NONE,
         EMERGENCY_ACTION_REBOOT,
         EMERGENCY_ACTION_REBOOT_FORCE,
@@ -16,19 +17,19 @@ typedef enum EmergencyAction {
         _EMERGENCY_ACTION_INVALID = -1
 } EmergencyAction;
 
-typedef enum EmergencyActionFlags {
+typedef enum EmergencyActionFlags
+{
         EMERGENCY_ACTION_IS_WATCHDOG = 1 << 0,
-        EMERGENCY_ACTION_WARN        = 1 << 1,
+        EMERGENCY_ACTION_WARN = 1 << 1,
 } EmergencyActionFlags;
 
 #include "macro.h"
 #include "manager.h"
 
-int emergency_action(Manager *m,
-                     EmergencyAction action, EmergencyActionFlags options,
-                     const char *reboot_arg, int exit_status, const char *reason);
+int emergency_action(
+        Manager *m, EmergencyAction action, EmergencyActionFlags options, const char *reboot_arg, int exit_status, const char *reason);
 
-const char* emergency_action_to_string(EmergencyAction i) _const_;
+const char *emergency_action_to_string(EmergencyAction i) _const_;
 EmergencyAction emergency_action_from_string(const char *s) _pure_;
 
 int parse_emergency_action(const char *value, bool system, EmergencyAction *ret);

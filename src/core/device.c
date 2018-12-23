@@ -157,9 +157,7 @@ static int device_coldplug(Unit *u) {
 
         /* First, let's put the deserialized state and found mask into effect, if we have it. */
 
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        if (d->deserialized_state < 0 || (d->deserialized_state == d->state && d->deserialized_found == d->found))
                 return 0;
 
         d->found = d->deserialized_found;
@@ -183,9 +181,9 @@ static const struct {
         DeviceFound flag;
         const char *name;
 } device_found_map[] = {
-        { DEVICE_FOUND_UDEV,  "found-udev"  },
+        { DEVICE_FOUND_UDEV, "found-udev" },
         { DEVICE_FOUND_MOUNT, "found-mount" },
-        { DEVICE_FOUND_SWAP,  "found-swap"  },
+        { DEVICE_FOUND_SWAP, "found-swap" },
 };
 
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
@@ -297,16 +295,18 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sDevice State: %s\n"
                 "%sSysfs Path: %s\n"
                 "%sFound: %s\n",
-                prefix, device_state_to_string(d->state),
-                prefix, strna(d->sysfs),
-                prefix, strna(s));
+                prefix,
+                device_state_to_string(d->state),
+                prefix,
+                strna(d->sysfs),
+                prefix,
+                strna(s));
 
         if (!strv_isempty(d->wants_property)) {
                 char **i;
 
                 STRV_FOREACH(i, d->wants_property)
-                        fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
-                                prefix, *i);
+                fprintf(f, "%sudev SYSTEMD_WANTS: %s\n", prefix, *i);
         }
 }
 
@@ -434,7 +434,8 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
 
                         r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, &error, NULL);
                         if (r < 0)
-                                log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
+                                log_unit_warning_errno(
+                                        u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
                 }
         }
 
@@ -454,7 +455,8 @@ static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
         if (sd_device_get_property_value(dev, "SYSTEMD_MOUNT_DEVICE_BOUND", &bound_by) >= 0) {
                 r = parse_boolean(bound_by);
                 if (r < 0)
-                        log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property, ignoring: %m", bound_by);
+                        log_device_warning_errno(
+                                dev, r, "Failed to parse SYSTEMD_MOUNT_DEVICE_BOUND='%s' udev property, ignoring: %m", bound_by);
 
                 d->bind_mounts = r > 0;
         } else
@@ -513,12 +515,12 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                  * might have the state valid, but not the sysfs path. Hence, let's filter out conflicting devices, but
                  * let's accept devices in any state with no sysfs path set. */
 
-                if (DEVICE(u)->state == DEVICE_PLUGGED &&
-                    DEVICE(u)->sysfs &&
-                    sysfs &&
-                    !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                        log_unit_debug(u, "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
-                                       e, DEVICE(u)->sysfs, sysfs);
+                if (DEVICE(u)->state == DEVICE_PLUGGED && DEVICE(u)->sysfs && sysfs && !path_equal(DEVICE(u)->sysfs, sysfs)) {
+                        log_unit_debug(u,
+                                       "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
+                                       e,
+                                       DEVICE(u)->sysfs,
+                                       sysfs);
                         return -EEXIST;
                 }
 
@@ -609,9 +611,7 @@ static int device_process_new(Manager *m, sd_device *dev) {
                          * the same label. We want to make sure that the same
                          * device that won the symlink wins in systemd, so we
                          * check the device node major/minor */
-                        if (stat(p, &st) >= 0 &&
-                            ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) ||
-                             st.st_rdev != devnum))
+                        if (stat(p, &st) >= 0 && ((!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) || st.st_rdev != devnum))
                                 continue;
 
                         (void) device_setup_unit(m, dev, p, false);
@@ -698,7 +698,7 @@ static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFo
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
         LIST_FOREACH_SAFE(same_sysfs, d, n, l)
-                device_update_found_one(d, found, mask);
+        device_update_found_one(d, found, mask);
 }
 
 static int device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
@@ -746,8 +746,8 @@ static Unit *device_following(Unit *u) {
 
         /* Make everybody follow the unit that's named after the sysfs path */
         LIST_FOREACH_AFTER(same_sysfs, other, d)
-                if (startswith(UNIT(other)->id, "sys-"))
-                        return UNIT(other);
+        if (startswith(UNIT(other)->id, "sys-"))
+                return UNIT(other);
 
         LIST_FOREACH_BEFORE(same_sysfs, other, d) {
                 if (startswith(UNIT(other)->id, "sys-"))
@@ -816,7 +816,7 @@ static void device_enumerate(Manager *m) {
                 /* This will fail if we are unprivileged, but that
                  * should not matter much, as user instances won't run
                  * during boot. */
-                (void) sd_device_monitor_set_receive_buffer_size(m->device_monitor, 128*1024*1024);
+                (void) sd_device_monitor_set_receive_buffer_size(m->device_monitor, 128 * 1024 * 1024);
 
                 r = sd_device_monitor_filter_add_match_tag(m->device_monitor, "systemd");
                 if (r < 0) {
@@ -913,7 +913,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
          * so we need to reach the else block of the follwing if, even for change events */
-        if (streq(action, "remove"))  {
+        if (streq(action, "remove")) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");
@@ -921,7 +921,7 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 /* If we get notified that a device was removed by
                  * udev, then it's completely gone, hence unset all
                  * found bits */
-                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
+                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV | DEVICE_FOUND_MOUNT | DEVICE_FOUND_SWAP);
 
         } else if (device_is_ready(dev)) {
 
@@ -1081,13 +1081,16 @@ const UnitVTable device_vtable = {
         .shutdown = device_shutdown,
         .supported = device_supported,
 
-        .status_message_formats = {
-                .starting_stopping = {
-                        [0] = "Expecting device %s...",
+        .status_message_formats =
+                {
+                        .starting_stopping =
+                                {
+                                        [0] = "Expecting device %s...",
+                                },
+                        .finished_start_job =
+                                {
+                                        [JOB_DONE] = "Found device %s.",
+                                        [JOB_TIMEOUT] = "Timed out waiting for device %s.",
+                                },
                 },
-                .finished_start_job = {
-                        [JOB_DONE]       = "Found device %s.",
-                        [JOB_TIMEOUT]    = "Timed out waiting for device %s.",
-                },
-        },
 };

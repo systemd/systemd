@@ -10,7 +10,7 @@
 #include "time-util.h"
 
 /* Recheck /etc/hosts at most once every 2s */
-#define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
+#define ETC_HOSTS_RECHECK_USEC (2 * USEC_PER_SEC)
 
 static inline void etc_hosts_item_free(EtcHostsItem *item) {
         strv_free(item->names);
@@ -192,7 +192,7 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
 
         etc_hosts_free(hosts);
         *hosts = t;
-        t = (EtcHosts) {}; /* prevent cleanup */
+        t = (EtcHosts){}; /* prevent cleanup */
         return 0;
 }
 
@@ -249,7 +249,7 @@ static int manager_etc_hosts_read(Manager *m) {
         return 1;
 }
 
-int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
+int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
         bool found_a = false, found_aaaa = false;
         struct in_addr_data k = {};
         EtcHostsItemByName *bn;
@@ -360,8 +360,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         for (i = 0; bn && i < bn->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                if ((!found_a && bn->addresses[i]->family == AF_INET) ||
-                    (!found_aaaa && bn->addresses[i]->family == AF_INET6))
+                if ((!found_a && bn->addresses[i]->family == AF_INET) || (!found_aaaa && bn->addresses[i]->family == AF_INET6))
                         continue;
 
                 r = dns_resource_record_new_address(&rr, bn->addresses[i]->family, &bn->addresses[i]->address, bn->name);

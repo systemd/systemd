@@ -28,7 +28,7 @@ int fdb_entry_new_static(Network *network, const char *filename, unsigned sectio
 void fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry*, fdb_entry_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry *, fdb_entry_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);

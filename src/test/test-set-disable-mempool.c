@@ -8,7 +8,7 @@
 
 #define NUM 100
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         Set **s = p;
 
         assert_se(s);

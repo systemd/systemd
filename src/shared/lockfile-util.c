@@ -41,7 +41,7 @@ int make_lock_file(const char *p, int operation, LockFile *ret) {
                 };
                 struct stat st;
 
-                fd = open(p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
+                fd = open(p, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NOCTTY, 0600);
                 if (fd < 0)
                         return -errno;
 
@@ -110,8 +110,7 @@ void release_lock_file(LockFile *f) {
                  * the lock file itself. If we are not the exclusive
                  * owner, we can try becoming it. */
 
-                if (f->fd >= 0 &&
-                    (f->operation & ~LOCK_NB) == LOCK_SH) {
+                if (f->fd >= 0 && (f->operation & ~LOCK_NB) == LOCK_SH) {
                         static const struct flock fl = {
                                 .l_type = F_WRLCK,
                                 .l_whence = SEEK_SET,
@@ -119,10 +118,10 @@ void release_lock_file(LockFile *f) {
 
                         r = fcntl(f->fd, F_OFD_SETLK, &fl);
                         if (r < 0 && errno == EINVAL)
-                                r = flock(f->fd, LOCK_EX|LOCK_NB);
+                                r = flock(f->fd, LOCK_EX | LOCK_NB);
 
                         if (r >= 0)
-                                f->operation = LOCK_EX|LOCK_NB;
+                                f->operation = LOCK_EX | LOCK_NB;
                 }
 
                 if ((f->operation & ~LOCK_NB) == LOCK_EX)

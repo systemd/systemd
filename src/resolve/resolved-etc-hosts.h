@@ -22,4 +22,4 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f);
 void etc_hosts_free(EtcHosts *hosts);
 
 void manager_etc_hosts_flush(Manager *m);
-int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);
+int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer);

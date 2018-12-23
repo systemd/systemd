@@ -170,7 +170,7 @@ typedef struct sd_network_monitor sd_network_monitor;
 int sd_network_monitor_new(sd_network_monitor **ret, const char *category);
 
 /* Destroys the passed monitor. Returns NULL. */
-sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m);
+sd_network_monitor *sd_network_monitor_unref(sd_network_monitor *m);
 
 /* Flushes the monitor */
 int sd_network_monitor_flush(sd_network_monitor *m);

@@ -11,33 +11,26 @@
 #include "util.h"
 
 EFI_STATUS graphics_mode(BOOLEAN on) {
-        #define EFI_CONSOLE_CONTROL_PROTOCOL_GUID \
-                { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } };
+#define EFI_CONSOLE_CONTROL_PROTOCOL_GUID { 0xf42f7782, 0x12e, 0x4c12, { 0x99, 0x56, 0x49, 0xf9, 0x43, 0x4, 0xf7, 0x21 } };
 
         struct _EFI_CONSOLE_CONTROL_PROTOCOL;
 
-        typedef enum {
+        typedef enum
+        {
                 EfiConsoleControlScreenText,
                 EfiConsoleControlScreenGraphics,
                 EfiConsoleControlScreenMaxValue,
         } EFI_CONSOLE_CONTROL_SCREEN_MODE;
 
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                EFI_CONSOLE_CONTROL_SCREEN_MODE *Mode,
-                BOOLEAN *UgaExists,
-                BOOLEAN *StdInLocked
-        );
+        typedef EFI_STATUS(EFIAPI * EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE)(struct _EFI_CONSOLE_CONTROL_PROTOCOL * This,
+                                                                           EFI_CONSOLE_CONTROL_SCREEN_MODE * Mode,
+                                                                           BOOLEAN * UgaExists,
+                                                                           BOOLEAN * StdInLocked);
 
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                EFI_CONSOLE_CONTROL_SCREEN_MODE Mode
-        );
+        typedef EFI_STATUS(EFIAPI * EFI_CONSOLE_CONTROL_PROTOCOL_SET_MODE)(struct _EFI_CONSOLE_CONTROL_PROTOCOL * This,
+                                                                           EFI_CONSOLE_CONTROL_SCREEN_MODE Mode);
 
-        typedef EFI_STATUS (EFIAPI *EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN)(
-                struct _EFI_CONSOLE_CONTROL_PROTOCOL *This,
-                CHAR16 *Password
-        );
+        typedef EFI_STATUS(EFIAPI * EFI_CONSOLE_CONTROL_PROTOCOL_LOCK_STD_IN)(struct _EFI_CONSOLE_CONTROL_PROTOCOL * This, CHAR16 * Password);
 
         typedef struct _EFI_CONSOLE_CONTROL_PROTOCOL {
                 EFI_CONSOLE_CONTROL_PROTOCOL_GET_MODE GetMode;
@@ -53,7 +46,7 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         BOOLEAN stdin_locked;
         EFI_STATUS err;
 
-        err = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **)&ConsoleControl);
+        err = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **) &ConsoleControl);
         if (EFI_ERROR(err))
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
@@ -64,7 +57,7 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
                 return err;
 
         /* do not touch the mode */
-        new  = on ? EfiConsoleControlScreenGraphics : EfiConsoleControlScreenText;
+        new = on ? EfiConsoleControlScreenGraphics : EfiConsoleControlScreenText;
         if (new == current)
                 return EFI_SUCCESS;
 

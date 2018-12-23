@@ -14,7 +14,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size == 0)
                 return 0;
 
-        f = fmemopen((char*) data, size, "re");
+        f = fmemopen((char *) data, size, "re");
         assert_se(f);
 
         if (json_parse_file(f, NULL, &v, NULL, NULL) < 0)
@@ -24,7 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(g);
 
         json_variant_dump(v, 0, g, NULL);
-        json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR|JSON_FORMAT_SOURCE, g, NULL);
+        json_variant_dump(v, JSON_FORMAT_PRETTY | JSON_FORMAT_COLOR | JSON_FORMAT_SOURCE, g, NULL);
 
         return 0;
 }

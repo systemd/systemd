@@ -5,7 +5,8 @@
 
 #include "hashmap.h"
 
-enum bus_match_node_type {
+enum bus_match_node_type
+{
         BUS_MATCH_ROOT,
         BUS_MATCH_VALUE,
         BUS_MATCH_LEAF,
@@ -55,7 +56,8 @@ struct bus_match_component {
         char *value_str;
 };
 
-enum bus_match_scope {
+enum bus_match_scope
+{
         BUS_MATCH_GENERIC,
         BUS_MATCH_LOCAL,
         BUS_MATCH_DRIVER,
@@ -70,7 +72,7 @@ void bus_match_free(struct bus_match_node *node);
 
 void bus_match_dump(struct bus_match_node *node, unsigned level);
 
-const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l);
+const char *bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l);
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n);
 
 int bus_match_parse(const char *match, struct bus_match_component **_components, unsigned *_n_components);

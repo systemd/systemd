@@ -18,7 +18,7 @@ char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
+bool utf8_is_printable_newline(const char *str, size_t length, bool newline) _pure_;
 #define utf8_is_printable(str, length) utf8_is_printable_newline(str, length, true)
 
 char *utf8_escape_invalid(const char *s);

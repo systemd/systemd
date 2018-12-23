@@ -21,14 +21,14 @@ struct Seat {
         Session **positions;
         size_t position_count;
 
-        bool in_gc_queue:1;
-        bool started:1;
+        bool in_gc_queue : 1;
+        bool started : 1;
 
         LIST_FIELDS(Seat, gc_queue);
 };
 
 int seat_new(Seat **ret, Manager *m, const char *id);
-Seat* seat_free(Seat *s);
+Seat *seat_free(Seat *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Seat *, seat_free);
 

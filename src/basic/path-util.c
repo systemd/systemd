@@ -192,7 +192,7 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
                 f += *f == '/';
         }
 
-        r = new(char, n_parents * 3 + strlen(t) + 1);
+        r = new (char, n_parents * 3 + strlen(t) + 1);
         if (!r)
                 return -ENOMEM;
 
@@ -384,7 +384,7 @@ char *path_simplify(char *path, bool kill_dots) {
         return path;
 }
 
-char* path_startswith(const char *path, const char *prefix) {
+char *path_startswith(const char *path, const char *prefix) {
         assert(path);
         assert(prefix);
 
@@ -408,7 +408,7 @@ char* path_startswith(const char *path, const char *prefix) {
                 prefix += strspn(prefix, "/");
 
                 if (*prefix == 0)
-                        return (char*) path;
+                        return (char *) path;
 
                 if (*path == 0)
                         return NULL;
@@ -464,7 +464,7 @@ int path_compare(const char *a, const char *b) {
                         return (d > 0) - (d < 0); /* sign of d */
 
                 /* Sort "/foo/a" before "/foo/aaa" */
-                d = (j > k) - (j < k);  /* sign of (j - k) */
+                d = (j > k) - (j < k); /* sign of (j - k) */
                 if (d != 0)
                         return d;
 
@@ -481,7 +481,7 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join_internal(const char *first, ...) {
+char *path_join_internal(const char *first, ...) {
         char *joined, *q;
         const char *p;
         va_list ap;
@@ -504,12 +504,12 @@ char* path_join_internal(const char *first, ...) {
 
         sz = strlen_ptr(first);
         va_start(ap, first);
-        while ((p = va_arg(ap, char*)) != (const char*) -1)
+        while ((p = va_arg(ap, char *)) != (const char *) -1)
                 if (!isempty(p))
                         sz += 1 + strlen(p);
         va_end(ap);
 
-        joined = new(char, sz + 1);
+        joined = new (char, sz + 1);
         if (!joined)
                 return NULL;
 
@@ -524,7 +524,7 @@ char* path_join_internal(const char *first, ...) {
         }
 
         va_start(ap, first);
-        while ((p = va_arg(ap, char*)) != (const char*) -1) {
+        while ((p = va_arg(ap, char *)) != (const char *) -1) {
                 if (isempty(p))
                         continue;
 
@@ -571,7 +571,7 @@ int find_binary(const char *name, char **ret) {
         for (;;) {
                 _cleanup_free_ char *j = NULL, *element = NULL;
 
-                r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
+                r = extract_first_word(&p, &element, ":", EXTRACT_RELAX | EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -601,9 +601,9 @@ int find_binary(const char *name, char **ret) {
         return last_error;
 }
 
-bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
+bool paths_check_timestamp(const char *const *paths, usec_t *timestamp, bool update) {
         bool changed = false;
-        const char* const* i;
+        const char *const *i;
 
         assert(timestamp);
 
@@ -655,10 +655,11 @@ static int binary_is_good(const char *binary) {
         if (r < 0)
                 return r;
 
-        return !PATH_IN_SET(d, "true"
-                               "/bin/true",
-                               "/usr/bin/true",
-                               "/dev/null");
+        return !PATH_IN_SET(d,
+                            "true"
+                            "/bin/true",
+                            "/usr/bin/true",
+                            "/dev/null");
 }
 
 int fsck_exists(const char *fstype) {
@@ -703,7 +704,7 @@ char *prefix_root(const char *root, const char *path) {
 
         l = strlen(root) + 1 + strlen(path) + 1;
 
-        n = new(char, l);
+        n = new (char, l);
         if (!n)
                 return NULL;
 
@@ -751,7 +752,7 @@ int parse_path_argument_and_warn(const char *path, bool suppress_root, char **ar
         return 0;
 }
 
-char* dirname_malloc(const char *path) {
+char *dirname_malloc(const char *path) {
         char *d, *dir, *dir2;
 
         assert(path);
@@ -801,13 +802,13 @@ const char *last_path_component(const char *path) {
         if (l == 0) /* special case — an empty string */
                 return path;
 
-        while (k > 0 && path[k-1] == '/')
+        while (k > 0 && path[k - 1] == '/')
                 k--;
 
         if (k == 0) /* the root directory */
                 return path + l - 1;
 
-        while (k > 0 && path[k-1] != '/')
+        while (k > 0 && path[k - 1] != '/')
                 k--;
 
         return path + k;
@@ -913,7 +914,7 @@ char *file_in_same_dir(const char *path, const char *filename) {
                 return strdup(filename);
 
         k = strlen(filename);
-        ret = new(char, (e + 1 - path) + k + 1);
+        ret = new (char, (e + 1 - path) + k + 1);
         if (!ret)
                 return NULL;
 
@@ -926,10 +927,7 @@ bool hidden_or_backup_file(const char *filename) {
 
         assert(filename);
 
-        if (filename[0] == '.' ||
-            streq(filename, "lost+found") ||
-            streq(filename, "aquota.user") ||
-            streq(filename, "aquota.group") ||
+        if (filename[0] == '.' || streq(filename, "lost+found") || streq(filename, "aquota.user") || streq(filename, "aquota.group") ||
             endswith(filename, "~"))
                 return true;
 
@@ -1061,7 +1059,8 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                         }
 
                         log_debug("Found libsystemd shared at \"%s.so\", version %u (%s).",
-                                  *name, version,
+                                  *name,
+                                  version,
                                   version >= minimal_version ? "OK" : "too old");
                         if (version >= minimal_version)
                                 return true;
@@ -1095,13 +1094,7 @@ bool empty_or_root(const char *root) {
         return root[strspn(root, "/")] == 0;
 }
 
-int path_simplify_and_warn(
-                char *path,
-                unsigned flag,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *lvalue) {
+int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue) {
 
         bool absolute, fatal = flag & PATH_CHECK_FATAL;
 
@@ -1116,16 +1109,13 @@ int path_simplify_and_warn(
                 absolute = path_is_absolute(path);
 
                 if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is not absolute%s: %s",
-                                   lvalue, fatal ? "" : ", ignoring", path);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "%s= path is not absolute%s: %s", lvalue, fatal ? "" : ", ignoring", path);
                         return -EINVAL;
                 }
 
                 if (absolute && (flag & PATH_CHECK_RELATIVE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is absolute%s: %s",
-                                   lvalue, fatal ? "" : ", ignoring", path);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "%s= path is absolute%s: %s", lvalue, fatal ? "" : ", ignoring", path);
                         return -EINVAL;
                 }
         }
@@ -1133,16 +1123,20 @@ int path_simplify_and_warn(
         path_simplify(path, true);
 
         if (!path_is_normalized(path)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "%s= path is not normalized%s: %s",
-                           lvalue, fatal ? "" : ", ignoring", path);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "%s= path is not normalized%s: %s", lvalue, fatal ? "" : ", ignoring", path);
                 return -EINVAL;
         }
 
         if (!path_is_valid(path)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
                            "%s= path has invalid length (%zu bytes)%s.",
-                           lvalue, strlen(path), fatal ? "" : ", ignoring");
+                           lvalue,
+                           strlen(path),
+                           fatal ? "" : ", ignoring");
                 return -EINVAL;
         }
 

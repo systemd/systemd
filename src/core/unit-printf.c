@@ -93,7 +93,10 @@ static int specifier_filename(char specifier, const void *data, const void *user
 }
 
 static void bad_specifier(const Unit *u, char specifier) {
-        log_unit_warning(u, "Specifier '%%%c' used in unit configuration, which is deprecated. Please update your unit file, as it does not work as intended.", specifier);
+        log_unit_warning(
+                u,
+                "Specifier '%%%c' used in unit configuration, which is deprecated. Please update your unit file, as it does not work as intended.",
+                specifier);
 }
 
 static int specifier_cgroup(char specifier, const void *data, const void *userdata, char **ret) {
@@ -171,7 +174,7 @@ static int specifier_special_directory(char specifier, const void *data, const v
         return 0;
 }
 
-int unit_name_printf(Unit *u, const char* format, char **ret) {
+int unit_name_printf(Unit *u, const char *format, char **ret) {
 
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
@@ -190,23 +193,15 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
          * %b: the boot ID of the running system
          */
 
-        const Specifier table[] = {
-                { 'n', specifier_string,              u->id },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_string,              u->instance },
-                { 'j', specifier_last_component,      NULL },
+        const Specifier table[] = { { 'n', specifier_string, u->id },        { 'N', specifier_prefix_and_instance, NULL },
+                                    { 'p', specifier_prefix, NULL },         { 'i', specifier_string, u->instance },
+                                    { 'j', specifier_last_component, NULL },
 
-                { 'g', specifier_group_name,          NULL },
-                { 'G', specifier_group_id,            NULL },
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
+                                    { 'g', specifier_group_name, NULL },     { 'G', specifier_group_id, NULL },
+                                    { 'U', specifier_user_id, NULL },        { 'u', specifier_user_name, NULL },
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'b', specifier_boot_id,             NULL },
-                {}
-        };
+                                    { 'm', specifier_machine_id, NULL },     { 'H', specifier_host_name, NULL },
+                                    { 'b', specifier_boot_id, NULL },        {} };
 
         assert(u);
         assert(format);
@@ -244,42 +239,40 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * before or after the relevant configuration setting. Hence: don't add them.
          */
 
-        const Specifier table[] = {
-                { 'n', specifier_string,                   u->id },
-                { 'N', specifier_prefix_and_instance,      NULL },
-                { 'p', specifier_prefix,                   NULL },
-                { 'P', specifier_prefix_unescaped,         NULL },
-                { 'i', specifier_string,                   u->instance },
-                { 'I', specifier_instance_unescaped,       NULL },
-                { 'j', specifier_last_component,           NULL },
-                { 'J', specifier_last_component_unescaped, NULL },
+        const Specifier table[] = { { 'n', specifier_string, u->id },
+                                    { 'N', specifier_prefix_and_instance, NULL },
+                                    { 'p', specifier_prefix, NULL },
+                                    { 'P', specifier_prefix_unescaped, NULL },
+                                    { 'i', specifier_string, u->instance },
+                                    { 'I', specifier_instance_unescaped, NULL },
+                                    { 'j', specifier_last_component, NULL },
+                                    { 'J', specifier_last_component_unescaped, NULL },
 
-                { 'f', specifier_filename,                 NULL },
-                { 'c', specifier_cgroup,                   NULL },
-                { 'r', specifier_cgroup_slice,             NULL },
-                { 'R', specifier_cgroup_root,              NULL },
+                                    { 'f', specifier_filename, NULL },
+                                    { 'c', specifier_cgroup, NULL },
+                                    { 'r', specifier_cgroup_slice, NULL },
+                                    { 'R', specifier_cgroup_root, NULL },
 
-                { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
-                { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
-                { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
-                { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
-                { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
-                { 'T', specifier_tmp_dir,                  NULL },
-                { 'V', specifier_var_tmp_dir,              NULL },
+                                    { 't', specifier_special_directory, UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
+                                    { 'S', specifier_special_directory, UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
+                                    { 'C', specifier_special_directory, UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
+                                    { 'L', specifier_special_directory, UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                                    { 'E', specifier_special_directory, UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
+                                    { 'T', specifier_tmp_dir, NULL },
+                                    { 'V', specifier_var_tmp_dir, NULL },
 
-                { 'g', specifier_group_name,               NULL },
-                { 'G', specifier_group_id,                 NULL },
-                { 'U', specifier_user_id,                  NULL },
-                { 'u', specifier_user_name,                NULL },
-                { 'h', specifier_user_home,                NULL },
-                { 's', specifier_user_shell,               NULL },
+                                    { 'g', specifier_group_name, NULL },
+                                    { 'G', specifier_group_id, NULL },
+                                    { 'U', specifier_user_id, NULL },
+                                    { 'u', specifier_user_name, NULL },
+                                    { 'h', specifier_user_home, NULL },
+                                    { 's', specifier_user_shell, NULL },
 
-                { 'm', specifier_machine_id,               NULL },
-                { 'H', specifier_host_name,                NULL },
-                { 'b', specifier_boot_id,                  NULL },
-                { 'v', specifier_kernel_release,           NULL },
-                {}
-        };
+                                    { 'm', specifier_machine_id, NULL },
+                                    { 'H', specifier_host_name, NULL },
+                                    { 'b', specifier_boot_id, NULL },
+                                    { 'v', specifier_kernel_release, NULL },
+                                    {} };
 
         assert(u);
         assert(format);

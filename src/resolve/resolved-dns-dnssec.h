@@ -8,7 +8,8 @@ typedef enum DnssecVerdict DnssecVerdict;
 #include "resolved-dns-answer.h"
 #include "resolved-dns-rr.h"
 
-enum DnssecResult {
+enum DnssecResult
+{
         /* These five are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
         DNSSEC_VALIDATED_WILDCARD, /* Validated via a wildcard RRSIG, further NSEC/NSEC3 checks necessary */
@@ -30,7 +31,8 @@ enum DnssecResult {
         _DNSSEC_RESULT_INVALID = -1
 };
 
-enum DnssecVerdict {
+enum DnssecVerdict
+{
         DNSSEC_SECURE,
         DNSSEC_INSECURE,
         DNSSEC_BOGUS,
@@ -48,8 +50,18 @@ enum DnssecVerdict {
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok);
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);
 
-int dnssec_verify_rrset(DnsAnswer *answer, const DnsResourceKey *key, DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, usec_t realtime, DnssecResult *result);
-int dnssec_verify_rrset_search(DnsAnswer *answer, const DnsResourceKey *key, DnsAnswer *validated_dnskeys, usec_t realtime, DnssecResult *result, DnsResourceRecord **rrsig);
+int dnssec_verify_rrset(DnsAnswer *answer,
+                        const DnsResourceKey *key,
+                        DnsResourceRecord *rrsig,
+                        DnsResourceRecord *dnskey,
+                        usec_t realtime,
+                        DnssecResult *result);
+int dnssec_verify_rrset_search(DnsAnswer *answer,
+                               const DnsResourceKey *key,
+                               DnsAnswer *validated_dnskeys,
+                               usec_t realtime,
+                               DnssecResult *result,
+                               DnsResourceRecord **rrsig);
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke);
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds);
@@ -62,9 +74,10 @@ int dnssec_canonicalize(const char *n, char *buffer, size_t buffer_max);
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret);
 
-typedef enum DnssecNsecResult {
-        DNSSEC_NSEC_NO_RR,     /* No suitable NSEC/NSEC3 RR found */
-        DNSSEC_NSEC_CNAME,     /* Didn't find what was asked for, but did find CNAME */
+typedef enum DnssecNsecResult
+{
+        DNSSEC_NSEC_NO_RR, /* No suitable NSEC/NSEC3 RR found */
+        DNSSEC_NSEC_CNAME, /* Didn't find what was asked for, but did find CNAME */
         DNSSEC_NSEC_UNSUPPORTED_ALGORITHM,
         DNSSEC_NSEC_NXDOMAIN,
         DNSSEC_NSEC_NODATA,
@@ -76,8 +89,8 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
 int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *source, const char *zone, bool *authenticated);
 
-const char* dnssec_result_to_string(DnssecResult m) _const_;
+const char *dnssec_result_to_string(DnssecResult m) _const_;
 DnssecResult dnssec_result_from_string(const char *s) _pure_;
 
-const char* dnssec_verdict_to_string(DnssecVerdict m) _const_;
+const char *dnssec_verdict_to_string(DnssecVerdict m) _const_;
 DnssecVerdict dnssec_verdict_from_string(const char *s) _pure_;

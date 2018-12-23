@@ -38,7 +38,7 @@ typedef struct Context {
         int rfkill_fd;
 } Context;
 
-static struct write_queue_item* write_queue_item_free(struct write_queue_item *item) {
+static struct write_queue_item *write_queue_item_free(struct write_queue_item *item) {
         if (!item)
                 return NULL;
 
@@ -46,23 +46,15 @@ static struct write_queue_item* write_queue_item_free(struct write_queue_item *i
         return mfree(item);
 }
 
-static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
-        [RFKILL_TYPE_ALL] = "all",
-        [RFKILL_TYPE_WLAN] = "wlan",
-        [RFKILL_TYPE_BLUETOOTH] = "bluetooth",
-        [RFKILL_TYPE_UWB] = "uwb",
-        [RFKILL_TYPE_WIMAX] = "wimax",
-        [RFKILL_TYPE_WWAN] = "wwan",
-        [RFKILL_TYPE_GPS] = "gps",
-        [RFKILL_TYPE_FM] = "fm",
-        [RFKILL_TYPE_NFC] = "nfc",
+static const char *const rfkill_type_table[NUM_RFKILL_TYPES] = {
+        [RFKILL_TYPE_ALL] = "all", [RFKILL_TYPE_WLAN] = "wlan",   [RFKILL_TYPE_BLUETOOTH] = "bluetooth",
+        [RFKILL_TYPE_UWB] = "uwb", [RFKILL_TYPE_WIMAX] = "wimax", [RFKILL_TYPE_WWAN] = "wwan",
+        [RFKILL_TYPE_GPS] = "gps", [RFKILL_TYPE_FM] = "fm",       [RFKILL_TYPE_NFC] = "nfc",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
 
-static int find_device(
-                const struct rfkill_event *event,
-                sd_device **ret) {
+static int find_device(const struct rfkill_event *event, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *sysname = NULL;
         const char *name;
@@ -76,8 +68,7 @@ static int find_device(
 
         r = sd_device_new_from_subsystem_sysname(&device, "rfkill", sysname);
         if (r < 0)
-                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r,
-                                      "Failed to open device '%s': %m", sysname);
+                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r, "Failed to open device '%s': %m", sysname);
 
         r = sd_device_get_sysattr_value(device, "name", &name);
         if (r < 0)
@@ -89,9 +80,7 @@ static int find_device(
         return 0;
 }
 
-static int determine_state_file(
-                const struct rfkill_event *event,
-                char **ret) {
+static int determine_state_file(const struct rfkill_event *event, char **ret) {
 
         _cleanup_(sd_device_unrefp) sd_device *d = NULL, *device = NULL;
         const char *path_id, *type;
@@ -150,7 +139,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (r == -ENOENT) {
                 /* No state file? Then save the current state */
 
-                r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write state file %s: %m", state_file);
 
@@ -164,7 +153,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse state file %s: %m", state_file);
 
-        we = (struct rfkill_event) {
+        we = (struct rfkill_event){
                 .op = RFKILL_OP_CHANGE,
                 .idx = event->idx,
                 .soft = b,
@@ -174,8 +163,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
         if (l != sizeof(we))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Couldn't write rfkill event structure, too short.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Couldn't write rfkill event structure, too short.");
 
         log_debug("Loaded state '%s' from %s.", one_zero(b), state_file);
         return 0;
@@ -242,7 +230,7 @@ static int save_state_cancel(Context *c, const struct rfkill_event *event) {
 static int save_state_write_one(struct write_queue_item *item) {
         int r;
 
-        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state file %s: %m", item->file);
 
@@ -287,7 +275,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got too many file descriptors.");
 
         if (n == 0) {
-                c.rfkill_fd = open("/dev/rfkill", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                c.rfkill_fd = open("/dev/rfkill", O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (c.rfkill_fd < 0) {
                         if (errno == ENOENT) {
                                 log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");

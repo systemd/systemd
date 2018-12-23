@@ -20,43 +20,43 @@
 #include "user-util.h"
 #include "util.h"
 
-#define DYNAMIC_USER_GECOS       "Dynamic User"
-#define DYNAMIC_USER_PASSWD      "*" /* locked */
-#define DYNAMIC_USER_DIR         "/"
-#define DYNAMIC_USER_SHELL       "/sbin/nologin"
+#define DYNAMIC_USER_GECOS "Dynamic User"
+#define DYNAMIC_USER_PASSWD "*" /* locked */
+#define DYNAMIC_USER_DIR "/"
+#define DYNAMIC_USER_SHELL "/sbin/nologin"
 
 static const struct passwd root_passwd = {
-        .pw_name = (char*) "root",
-        .pw_passwd = (char*) "x", /* see shadow file */
+        .pw_name = (char *) "root",
+        .pw_passwd = (char *) "x", /* see shadow file */
         .pw_uid = 0,
         .pw_gid = 0,
-        .pw_gecos = (char*) "Super User",
-        .pw_dir = (char*) "/root",
-        .pw_shell = (char*) "/bin/sh",
+        .pw_gecos = (char *) "Super User",
+        .pw_dir = (char *) "/root",
+        .pw_shell = (char *) "/bin/sh",
 };
 
 static const struct passwd nobody_passwd = {
-        .pw_name = (char*) NOBODY_USER_NAME,
-        .pw_passwd = (char*) "*", /* locked */
+        .pw_name = (char *) NOBODY_USER_NAME,
+        .pw_passwd = (char *) "*", /* locked */
         .pw_uid = UID_NOBODY,
         .pw_gid = GID_NOBODY,
-        .pw_gecos = (char*) "User Nobody",
-        .pw_dir = (char*) "/",
-        .pw_shell = (char*) "/sbin/nologin",
+        .pw_gecos = (char *) "User Nobody",
+        .pw_dir = (char *) "/",
+        .pw_shell = (char *) "/sbin/nologin",
 };
 
 static const struct group root_group = {
-        .gr_name = (char*) "root",
+        .gr_name = (char *) "root",
         .gr_gid = 0,
-        .gr_passwd = (char*) "x", /* see shadow file */
-        .gr_mem = (char*[]) { NULL },
+        .gr_passwd = (char *) "x", /* see shadow file */
+        .gr_mem = (char *[]){ NULL },
 };
 
 static const struct group nobody_group = {
-        .gr_name = (char*) NOBODY_GROUP_NAME,
+        .gr_name = (char *) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
-        .gr_passwd = (char*) "*", /* locked */
-        .gr_mem = (char*[]) { NULL },
+        .gr_passwd = (char *) "*", /* locked */
+        .gr_mem = (char *[]){ NULL },
 };
 
 typedef struct UserEntry UserEntry;
@@ -132,14 +132,11 @@ static int direct_lookup_uid(uid_t uid, char **ret) {
         return 0;
 }
 
-enum nss_status _nss_systemd_getpwnam_r(
-                const char *name,
-                struct passwd *pwd,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_systemd_getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint32_t translated;
         size_t l;
@@ -162,8 +159,7 @@ enum nss_status _nss_systemd_getpwnam_r(
                         *pwd = root_passwd;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (synthesize_nobody() &&
-                    streq(name, nobody_passwd.pw_name)) {
+                if (synthesize_nobody() && streq(name, nobody_passwd.pw_name)) {
                         *pwd = nobody_passwd;
                         return NSS_STATUS_SUCCESS;
                 }
@@ -181,7 +177,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         }
 
         if (bypass > 0) {
-                r = direct_lookup_name(name, (uid_t*) &translated);
+                r = direct_lookup_name(name, (uid_t *) &translated);
                 if (r == -ENOENT)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0)
@@ -209,20 +205,20 @@ enum nss_status _nss_systemd_getpwnam_r(
         }
 
         l = strlen(name);
-        if (buflen < l+1) {
+        if (buflen < l + 1) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memcpy(buffer, name, l+1);
+        memcpy(buffer, name, l + 1);
 
         pwd->pw_name = buffer;
         pwd->pw_uid = (uid_t) translated;
         pwd->pw_gid = (uid_t) translated;
-        pwd->pw_gecos = (char*) DYNAMIC_USER_GECOS;
-        pwd->pw_passwd = (char*) DYNAMIC_USER_PASSWD;
-        pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
-        pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
+        pwd->pw_gecos = (char *) DYNAMIC_USER_GECOS;
+        pwd->pw_passwd = (char *) DYNAMIC_USER_PASSWD;
+        pwd->pw_dir = (char *) DYNAMIC_USER_DIR;
+        pwd->pw_shell = (char *) DYNAMIC_USER_SHELL;
 
         return NSS_STATUS_SUCCESS;
 
@@ -231,14 +227,11 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_systemd_getpwuid_r(
-                uid_t uid,
-                struct passwd *pwd,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_systemd_getpwuid_r(uid_t uid, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *direct = NULL;
         const char *translated;
@@ -257,8 +250,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                         *pwd = root_passwd;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (synthesize_nobody() &&
-                    uid == nobody_passwd.pw_uid) {
+                if (synthesize_nobody() && uid == nobody_passwd.pw_uid) {
                         *pwd = nobody_passwd;
                         return NSS_STATUS_SUCCESS;
                 }
@@ -319,10 +311,10 @@ enum nss_status _nss_systemd_getpwuid_r(
         pwd->pw_name = buffer;
         pwd->pw_uid = uid;
         pwd->pw_gid = uid;
-        pwd->pw_gecos = (char*) DYNAMIC_USER_GECOS;
-        pwd->pw_passwd = (char*) DYNAMIC_USER_PASSWD;
-        pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
-        pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
+        pwd->pw_gecos = (char *) DYNAMIC_USER_GECOS;
+        pwd->pw_passwd = (char *) DYNAMIC_USER_PASSWD;
+        pwd->pw_dir = (char *) DYNAMIC_USER_DIR;
+        pwd->pw_shell = (char *) DYNAMIC_USER_SHELL;
 
         return NSS_STATUS_SUCCESS;
 
@@ -333,14 +325,11 @@ fail:
 
 #pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
 
-enum nss_status _nss_systemd_getgrnam_r(
-                const char *name,
-                struct group *gr,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_systemd_getgrnam_r(const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint32_t translated;
         size_t l;
@@ -361,8 +350,7 @@ enum nss_status _nss_systemd_getgrnam_r(
                         *gr = root_group;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (synthesize_nobody() &&
-                    streq(name, nobody_group.gr_name)) {
+                if (synthesize_nobody() && streq(name, nobody_group.gr_name)) {
                         *gr = nobody_group;
                         return NSS_STATUS_SUCCESS;
                 }
@@ -379,7 +367,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         }
 
         if (bypass > 0) {
-                r = direct_lookup_name(name, (uid_t*) &translated);
+                r = direct_lookup_name(name, (uid_t *) &translated);
                 if (r == -ENOENT)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0)
@@ -406,19 +394,19 @@ enum nss_status _nss_systemd_getgrnam_r(
                         goto fail;
         }
 
-        l = sizeof(char*) + strlen(name) + 1;
+        l = sizeof(char *) + strlen(name) + 1;
         if (buflen < l) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memzero(buffer, sizeof(char*));
-        strcpy(buffer + sizeof(char*), name);
+        memzero(buffer, sizeof(char *));
+        strcpy(buffer + sizeof(char *), name);
 
-        gr->gr_name = buffer + sizeof(char*);
+        gr->gr_name = buffer + sizeof(char *);
         gr->gr_gid = (gid_t) translated;
-        gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
-        gr->gr_mem = (char**) buffer;
+        gr->gr_passwd = (char *) DYNAMIC_USER_PASSWD;
+        gr->gr_mem = (char **) buffer;
 
         return NSS_STATUS_SUCCESS;
 
@@ -427,14 +415,11 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_systemd_getgrgid_r(
-                gid_t gid,
-                struct group *gr,
-                char *buffer, size_t buflen,
-                int *errnop) {
+enum nss_status _nss_systemd_getgrgid_r(gid_t gid, struct group *gr, char *buffer, size_t buflen, int *errnop)
+{
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *direct = NULL;
         const char *translated;
@@ -453,8 +438,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                         *gr = root_group;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (synthesize_nobody() &&
-                    gid == nobody_group.gr_gid) {
+                if (synthesize_nobody() && gid == nobody_group.gr_gid) {
                         *gr = nobody_group;
                         return NSS_STATUS_SUCCESS;
                 }
@@ -504,19 +488,19 @@ enum nss_status _nss_systemd_getgrgid_r(
                         goto fail;
         }
 
-        l = sizeof(char*) + strlen(translated) + 1;
+        l = sizeof(char *) + strlen(translated) + 1;
         if (buflen < l) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
-        memzero(buffer, sizeof(char*));
-        strcpy(buffer + sizeof(char*), translated);
+        memzero(buffer, sizeof(char *));
+        strcpy(buffer + sizeof(char *), translated);
 
-        gr->gr_name = buffer + sizeof(char*);
+        gr->gr_name = buffer + sizeof(char *);
         gr->gr_gid = gid;
-        gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
-        gr->gr_mem = (char**) buffer;
+        gr->gr_passwd = (char *) DYNAMIC_USER_PASSWD;
+        gr->gr_mem = (char **) buffer;
 
         return NSS_STATUS_SUCCESS;
 
@@ -584,11 +568,13 @@ static enum nss_status nss_systemd_endent(GetentData *p) {
         return NSS_STATUS_SUCCESS;
 }
 
-enum nss_status _nss_systemd_endpwent(void) {
+enum nss_status _nss_systemd_endpwent(void)
+{
         return nss_systemd_endent(&getpwent_data);
 }
 
-enum nss_status _nss_systemd_endgrent(void) {
+enum nss_status _nss_systemd_endgrent(void)
+{
         return nss_systemd_endent(&getgrent_data);
 }
 
@@ -639,7 +625,7 @@ static int direct_enumeration(GetentData *p) {
 
 static enum nss_status systemd_setent(GetentData *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *name;
         uid_t id;
@@ -715,15 +701,18 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_systemd_setpwent(int stayopen) {
+enum nss_status _nss_systemd_setpwent(int stayopen)
+{
         return systemd_setent(&getpwent_data);
 }
 
-enum nss_status _nss_systemd_setgrent(int stayopen) {
+enum nss_status _nss_systemd_setgrent(int stayopen)
+{
         return systemd_setent(&getgrent_data);
 }
 
-enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, size_t buflen, int *errnop) {
+enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, size_t buflen, int *errnop)
+{
         enum nss_status ret;
         UserEntry *p;
         size_t len;
@@ -750,10 +739,10 @@ enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, siz
                 result->pw_name = buffer;
                 result->pw_uid = p->id;
                 result->pw_gid = p->id;
-                result->pw_gecos = (char*) DYNAMIC_USER_GECOS;
-                result->pw_passwd = (char*) DYNAMIC_USER_PASSWD;
-                result->pw_dir = (char*) DYNAMIC_USER_DIR;
-                result->pw_shell = (char*) DYNAMIC_USER_SHELL;
+                result->pw_gecos = (char *) DYNAMIC_USER_GECOS;
+                result->pw_passwd = (char *) DYNAMIC_USER_PASSWD;
+                result->pw_dir = (char *) DYNAMIC_USER_DIR;
+                result->pw_shell = (char *) DYNAMIC_USER_SHELL;
                 break;
         }
         if (!p) {
@@ -774,7 +763,8 @@ finalize:
         return ret;
 }
 
-enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size_t buflen, int *errnop) {
+enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size_t buflen, int *errnop)
+{
         enum nss_status ret;
         UserEntry *p;
         size_t len;
@@ -789,20 +779,20 @@ enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size
         assert_se(pthread_mutex_lock(&getgrent_data.mutex) == 0);
 
         LIST_FOREACH(entries, p, getgrent_data.position) {
-                len = sizeof(char*) + strlen(p->name) + 1;
+                len = sizeof(char *) + strlen(p->name) + 1;
                 if (buflen < len) {
                         *errnop = ERANGE;
                         ret = NSS_STATUS_TRYAGAIN;
                         goto finalize;
                 }
 
-                memzero(buffer, sizeof(char*));
-                strcpy(buffer + sizeof(char*), p->name);
+                memzero(buffer, sizeof(char *));
+                strcpy(buffer + sizeof(char *), p->name);
 
-                result->gr_name = buffer + sizeof(char*);
+                result->gr_name = buffer + sizeof(char *);
                 result->gr_gid = p->id;
-                result->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
-                result->gr_mem = (char**) buffer;
+                result->gr_passwd = (char *) DYNAMIC_USER_PASSWD;
+                result->gr_mem = (char **) buffer;
                 break;
         }
         if (!p) {

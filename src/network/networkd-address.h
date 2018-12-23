@@ -36,7 +36,7 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
-        bool ip_masquerade_done:1;
+        bool ip_masquerade_done : 1;
         bool duplicate_address_detection;
         bool manage_temporary_address;
         bool home_address;
@@ -59,7 +59,7 @@ int address_remove(Address *address, Link *link, link_netlink_message_handler_t 
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Address *, address_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);

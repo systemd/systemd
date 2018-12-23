@@ -4,18 +4,16 @@
 
 #include "journald-server.h"
 
-#define _COMPRESS_PARSE_CHECK(str, enab, thresh, varname)               \
-        do {                                                            \
-                JournalCompressOptions varname = {true, 111};           \
-                config_parse_compress("", "", 0, "", 0, "", 0, str,     \
-                                      &varname, NULL);                  \
-                assert_se((enab) == varname.enabled);                   \
-                if (varname.enabled)                                    \
-                        assert_se((thresh) == varname.threshold_bytes); \
+#define _COMPRESS_PARSE_CHECK(str, enab, thresh, varname)                            \
+        do {                                                                         \
+                JournalCompressOptions varname = { true, 111 };                      \
+                config_parse_compress("", "", 0, "", 0, "", 0, str, &varname, NULL); \
+                assert_se((enab) == varname.enabled);                                \
+                if (varname.enabled)                                                 \
+                        assert_se((thresh) == varname.threshold_bytes);              \
         } while (0)
 
-#define COMPRESS_PARSE_CHECK(str, enabled, threshold)                   \
-        _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
+#define COMPRESS_PARSE_CHECK(str, enabled, threshold) _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
 
 static void test_config_compress(void) {
         COMPRESS_PARSE_CHECK("yes", true, 111);
@@ -43,7 +41,7 @@ static void test_config_compress(void) {
         /* Invalid Case */
         COMPRESS_PARSE_CHECK("-1", true, 111);
         COMPRESS_PARSE_CHECK("blah blah", true, 111);
-        COMPRESS_PARSE_CHECK("", true, (uint64_t)-1);
+        COMPRESS_PARSE_CHECK("", true, (uint64_t) -1);
 }
 
 int main(int argc, char *argv[]) {

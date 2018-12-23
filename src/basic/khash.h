@@ -21,7 +21,7 @@ int khash_new(khash **ret, const char *algorithm);
 int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size_t key_size);
 
 int khash_dup(khash *h, khash **ret);
-khash* khash_unref(khash *h);
+khash *khash_unref(khash *h);
 
 const char *khash_get_algorithm(khash *h);
 size_t khash_get_size(khash *h);
@@ -34,4 +34,4 @@ int khash_put_iovec(khash *h, const struct iovec *iovec, size_t n);
 int khash_digest_data(khash *h, const void **ret);
 int khash_digest_string(khash *h, char **ret);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(khash*, khash_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(khash *, khash_unref);

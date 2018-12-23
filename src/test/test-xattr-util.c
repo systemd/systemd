@@ -32,7 +32,7 @@ static void test_fgetxattrat_fake(void) {
                 goto cleanup;
         assert_se(r >= 0);
 
-        fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        fd = open(t, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
 
         assert_se(fgetxattrat_fake(fd, "test", "user.foo", v, 3, 0, &size) >= 0);
@@ -40,7 +40,7 @@ static void test_fgetxattrat_fake(void) {
         assert_se(memcmp(v, "bar", 3) == 0);
 
         safe_close(fd);
-        fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
+        fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
         assert_se(fd >= 0);
         assert_se(fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size) == -ENODATA);
 
@@ -73,8 +73,7 @@ static void test_getcrtime(void) {
         r = fd_setcrtime(fd, 1519126446UL * USEC_PER_SEC);
         if (!IN_SET(r, -EOPNOTSUPP, -ENOTTY)) {
                 assert_se(fd_getcrtime(fd, &usec) >= 0);
-                assert_se(k < 1519126446UL * USEC_PER_SEC ||
-                          usec == 1519126446UL * USEC_PER_SEC);
+                assert_se(k < 1519126446UL * USEC_PER_SEC || usec == 1519126446UL * USEC_PER_SEC);
         }
 }
 

@@ -7,6 +7,6 @@
 #ifndef CAP_AUDIT_READ
 #define CAP_AUDIT_READ 37
 
-#undef  CAP_LAST_CAP
-#define CAP_LAST_CAP   CAP_AUDIT_READ
+#undef CAP_LAST_CAP
+#define CAP_LAST_CAP CAP_AUDIT_READ
 #endif

@@ -22,11 +22,11 @@
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 
-        address = new(Address, 1);
+        address = new (Address, 1);
         if (!address)
                 return -ENOMEM;
 
-        *address = (Address) {
+        *address = (Address){
                 .family = AF_UNSPEC,
                 .scope = RT_SCOPE_UNIVERSE,
                 .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
@@ -210,10 +210,7 @@ static int address_establish(Address *address, Link *link) {
         assert(address);
         assert(link);
 
-        masq = link->network &&
-               link->network->ip_masquerade &&
-               address->family == AF_INET &&
-               address->scope < RT_SCOPE_LINK;
+        masq = link->network && link->network->ip_masquerade && address->family == AF_INET && address->scope < RT_SCOPE_LINK;
 
         /* Add firewall entry if this is requested */
         if (address->ip_masquerade_done != masq) {
@@ -230,11 +227,8 @@ static int address_establish(Address *address, Link *link) {
         return 0;
 }
 
-static int address_add_internal(Link *link, Set **addresses,
-                                int family,
-                                const union in_addr_union *in_addr,
-                                unsigned char prefixlen,
-                                Address **ret) {
+static int address_add_internal(
+        Link *link, Set **addresses, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
         int r;
 
@@ -328,11 +322,7 @@ static int address_release(Address *address) {
         return 0;
 }
 
-int address_update(
-                Address *address,
-                unsigned char flags,
-                unsigned char scope,
-                const struct ifa_cacheinfo *cinfo) {
+int address_update(Address *address, unsigned char flags, unsigned char scope, const struct ifa_cacheinfo *cinfo) {
 
         bool ready;
         int r;
@@ -355,9 +345,8 @@ int address_update(
         if (!ready && address_is_ready(address)) {
                 link_check_ready(address->link);
 
-                if (address->family == AF_INET6 &&
-                    in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &address->link->ipv6ll_address) > 0) {
+                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
+                    in_addr_is_null(AF_INET6, (const union in_addr_union *) &address->link->ipv6ll_address) > 0) {
 
                         r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
                         if (r < 0)
@@ -388,18 +377,14 @@ int address_drop(Address *address) {
         return 0;
 }
 
-int address_get(Link *link,
-                int family,
-                const union in_addr_union *in_addr,
-                unsigned char prefixlen,
-                Address **ret) {
+int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
 
         Address address, *existing;
 
         assert(link);
         assert(in_addr);
 
-        address = (Address) {
+        address = (Address){
                 .family = family,
                 .in_addr = *in_addr,
                 .prefixlen = prefixlen,
@@ -439,10 +424,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-int address_remove(
-                Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback) {
+int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ char *b = NULL;
@@ -460,8 +442,7 @@ int address_remove(
                         log_link_debug(link, "Removing address %s", b);
         }
 
-        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
-                                     link->ifindex, address->family);
+        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR, link->ifindex, address->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_DELADDR message: %m");
 
@@ -476,9 +457,7 @@ int address_remove(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: address_remove_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -548,11 +527,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         return 0;
 }
 
-int address_configure(
-                Address *address,
-                Link *link,
-                link_netlink_message_handler_t callback,
-                bool update) {
+int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -575,11 +550,9 @@ int address_configure(
                 return r;
 
         if (update)
-                r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
-                                                    link->ifindex, address->family);
+                r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req, link->ifindex, address->family);
         else
-                r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
-                                             link->ifindex, address->family);
+                r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR, link->ifindex, address->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
 
@@ -648,8 +621,7 @@ int address_configure(
                         return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
         }
 
-        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO,
-                                              &address->cinfo);
+        r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
 
@@ -657,8 +629,7 @@ int address_configure(
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
         if (r < 0) {
                 address_release(address);
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
@@ -675,17 +646,16 @@ int address_configure(
         return 0;
 }
 
-int config_parse_broadcast(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_broadcast(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
 
         Network *network = userdata;
         _cleanup_(address_freep) Address *n = NULL;
@@ -706,7 +676,7 @@ int config_parse_broadcast(
                 return 0;
         }
 
-        r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
+        r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union *) &n->broadcast);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
@@ -719,15 +689,15 @@ int config_parse_broadcast(
 }
 
 int config_parse_address(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
 
         Network *network = userdata;
         _cleanup_(address_freep) Address *n = NULL;
@@ -779,17 +749,16 @@ int config_parse_address(const char *unit,
         return 0;
 }
 
-int config_parse_label(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_label(const char *unit,
+                       const char *filename,
+                       unsigned line,
+                       const char *section,
+                       unsigned section_line,
+                       const char *lvalue,
+                       int ltype,
+                       const char *rvalue,
+                       void *data,
+                       void *userdata) {
 
         _cleanup_(address_freep) Address *n = NULL;
         Network *network = userdata;
@@ -942,7 +911,7 @@ int config_parse_address_scope(const char *unit,
         else if (streq(rvalue, "global"))
                 n->scope = RT_SCOPE_UNIVERSE;
         else {
-                r = safe_atou8(rvalue , &n->scope);
+                r = safe_atou8(rvalue, &n->scope);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
                         return 0;

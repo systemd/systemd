@@ -18,11 +18,11 @@
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
-        rule = new(RoutingPolicyRule, 1);
+        rule = new (RoutingPolicyRule, 1);
         if (!rule)
                 return -ENOMEM;
 
-        *rule = (RoutingPolicyRule) {
+        *rule = (RoutingPolicyRule){
                 .family = AF_INET,
                 .table = RT_TABLE_MAIN,
         };
@@ -176,7 +176,7 @@ int routing_policy_rule_get(Manager *m,
 
         assert_return(m, -1);
 
-        rule = (RoutingPolicyRule) {
+        rule = (RoutingPolicyRule){
                 .family = family,
                 .from = *from,
                 .from_prefixlen = from_prefixlen,
@@ -185,8 +185,8 @@ int routing_policy_rule_get(Manager *m,
                 .tos = tos,
                 .fwmark = fwmark,
                 .table = table,
-                .iif = (char*) iif,
-                .oif = (char*) oif,
+                .iif = (char *) iif,
+                .oif = (char *) oif,
                 .protocol = protocol,
                 .sport = *sport,
                 .dport = *dport,
@@ -314,7 +314,8 @@ int routing_policy_rule_add(Manager *m,
                             const struct fib_rule_port_range *dport,
                             RoutingPolicyRule **ret) {
 
-        return routing_policy_rule_add_internal(m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
+        return routing_policy_rule_add_internal(
+                m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
 }
 
 int routing_policy_rule_add_foreign(Manager *m,
@@ -332,7 +333,8 @@ int routing_policy_rule_add_foreign(Manager *m,
                                     const struct fib_rule_port_range *sport,
                                     const struct fib_rule_port_range *dport,
                                     RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
+        return routing_policy_rule_add_internal(
+                m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, protocol, sport, dport, ret);
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -397,9 +399,8 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
                         return log_error_errno(r, "Could not set destination prefix length: %m");
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               callback ?: routing_policy_rule_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(
+                link->manager->rtnl, NULL, m, callback ?: routing_policy_rule_remove_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -596,16 +597,27 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
 
         rule->link = link;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               callback ?: routing_policy_rule_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, m, callback ?: routing_policy_rule_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
-        r = routing_policy_rule_add(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
-                                    rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif, rule->protocol, &rule->sport, &rule->dport, NULL);
+        r = routing_policy_rule_add(link->manager,
+                                    rule->family,
+                                    &rule->from,
+                                    rule->from_prefixlen,
+                                    &rule->to,
+                                    rule->to_prefixlen,
+                                    rule->tos,
+                                    rule->fwmark,
+                                    rule->table,
+                                    rule->iif,
+                                    rule->oif,
+                                    rule->protocol,
+                                    &rule->sport,
+                                    &rule->dport,
+                                    NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add rule: %m");
 
@@ -640,17 +652,16 @@ static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask
         return 0;
 }
 
-int config_parse_routing_policy_rule_tos(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_tos(const char *unit,
+                                         const char *filename,
+                                         unsigned line,
+                                         const char *section,
+                                         unsigned section_line,
+                                         const char *lvalue,
+                                         int ltype,
+                                         const char *rvalue,
+                                         void *data,
+                                         void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -677,17 +688,16 @@ int config_parse_routing_policy_rule_tos(
         return 0;
 }
 
-int config_parse_routing_policy_rule_priority(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_priority(const char *unit,
+                                              const char *filename,
+                                              unsigned line,
+                                              const char *section,
+                                              unsigned section_line,
+                                              const char *lvalue,
+                                              int ltype,
+                                              const char *rvalue,
+                                              void *data,
+                                              void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -714,17 +724,16 @@ int config_parse_routing_policy_rule_priority(
         return 0;
 }
 
-int config_parse_routing_policy_rule_table(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_table(const char *unit,
+                                           const char *filename,
+                                           unsigned line,
+                                           const char *section,
+                                           unsigned section_line,
+                                           const char *lvalue,
+                                           int ltype,
+                                           const char *rvalue,
+                                           void *data,
+                                           void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -751,17 +760,16 @@ int config_parse_routing_policy_rule_table(
         return 0;
 }
 
-int config_parse_routing_policy_rule_fwmark_mask(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_fwmark_mask(const char *unit,
+                                                 const char *filename,
+                                                 unsigned line,
+                                                 const char *section,
+                                                 unsigned section_line,
+                                                 const char *lvalue,
+                                                 int ltype,
+                                                 const char *rvalue,
+                                                 void *data,
+                                                 void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -788,17 +796,16 @@ int config_parse_routing_policy_rule_fwmark_mask(
         return 0;
 }
 
-int config_parse_routing_policy_rule_prefix(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_prefix(const char *unit,
+                                            const char *filename,
+                                            unsigned line,
+                                            const char *section,
+                                            unsigned section_line,
+                                            const char *lvalue,
+                                            int ltype,
+                                            const char *rvalue,
+                                            void *data,
+                                            void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -835,17 +842,16 @@ int config_parse_routing_policy_rule_prefix(
         return 0;
 }
 
-int config_parse_routing_policy_rule_device(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_device(const char *unit,
+                                            const char *filename,
+                                            unsigned line,
+                                            const char *section,
+                                            unsigned section_line,
+                                            const char *lvalue,
+                                            int ltype,
+                                            const char *rvalue,
+                                            void *data,
+                                            void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -881,17 +887,16 @@ int config_parse_routing_policy_rule_device(
         return 0;
 }
 
-int config_parse_routing_policy_rule_port_range(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_port_range(const char *unit,
+                                                const char *filename,
+                                                unsigned line,
+                                                const char *section,
+                                                unsigned section_line,
+                                                const char *lvalue,
+                                                int ltype,
+                                                const char *rvalue,
+                                                void *data,
+                                                void *userdata) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         uint16_t low, high;
@@ -926,17 +931,16 @@ int config_parse_routing_policy_rule_port_range(
         return 0;
 }
 
-int config_parse_routing_policy_rule_ip_protocol(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_ip_protocol(const char *unit,
+                                                 const char *filename,
+                                                 unsigned line,
+                                                 const char *section,
+                                                 unsigned section_line,
+                                                 const char *lvalue,
+                                                 int ltype,
+                                                 const char *rvalue,
+                                                 void *data,
+                                                 void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -965,17 +969,16 @@ int config_parse_routing_policy_rule_ip_protocol(
         return 0;
 }
 
-int config_parse_routing_policy_rule_invert(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_routing_policy_rule_invert(const char *unit,
+                                            const char *filename,
+                                            unsigned line,
+                                            const char *section,
+                                            unsigned section_line,
+                                            const char *lvalue,
+                                            int ltype,
+                                            const char *rvalue,
+                                            void *data,
+                                            void *userdata) {
 
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
@@ -1042,8 +1045,7 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        fprintf(f, "from=%s/%hhu",
-                                from_str, rule->from_prefixlen);
+                        fprintf(f, "from=%s/%hhu", from_str, rule->from_prefixlen);
                         space = true;
                 }
 
@@ -1052,64 +1054,46 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         if (r < 0)
                                 return r;
 
-                        fprintf(f, "%sto=%s/%hhu",
-                                space ? " " : "",
-                                to_str, rule->to_prefixlen);
+                        fprintf(f, "%sto=%s/%hhu", space ? " " : "", to_str, rule->to_prefixlen);
                         space = true;
                 }
 
                 if (rule->tos != 0) {
-                        fprintf(f, "%stos=%hhu",
-                                space ? " " : "",
-                                rule->tos);
+                        fprintf(f, "%stos=%hhu", space ? " " : "", rule->tos);
                         space = true;
                 }
 
                 if (rule->fwmark != 0) {
-                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
-                                space ? " " : "",
-                                rule->fwmark, rule->fwmask);
+                        fprintf(f, "%sfwmark=%" PRIu32 "/%" PRIu32, space ? " " : "", rule->fwmark, rule->fwmask);
                         space = true;
                 }
 
                 if (rule->iif) {
-                        fprintf(f, "%siif=%s",
-                                space ? " " : "",
-                                rule->iif);
+                        fprintf(f, "%siif=%s", space ? " " : "", rule->iif);
                         space = true;
                 }
 
                 if (rule->oif) {
-                        fprintf(f, "%soif=%s",
-                                space ? " " : "",
-                                rule->oif);
+                        fprintf(f, "%soif=%s", space ? " " : "", rule->oif);
                         space = true;
                 }
 
                 if (rule->protocol != 0) {
-                        fprintf(f, "%sprotocol=%hhu",
-                                space ? " " : "",
-                                rule->protocol);
+                        fprintf(f, "%sprotocol=%hhu", space ? " " : "", rule->protocol);
                         space = true;
                 }
 
                 if (rule->sport.start != 0 || rule->sport.end != 0) {
-                        fprintf(f, "%ssourcesport=%"PRIu16"-%"PRIu16,
-                                space ? " " : "",
-                                rule->sport.start, rule->sport.end);
+                        fprintf(f, "%ssourcesport=%" PRIu16 "-%" PRIu16, space ? " " : "", rule->sport.start, rule->sport.end);
                         space = true;
                 }
 
                 if (rule->dport.start != 0 || rule->dport.end != 0) {
-                        fprintf(f, "%sdestinationport=%"PRIu16"-%"PRIu16,
-                                space ? " " : "",
-                                rule->dport.start, rule->dport.end);
+                        fprintf(f, "%sdestinationport=%" PRIu16 "-%" PRIu16, space ? " " : "", rule->dport.start, rule->dport.end);
                         space = true;
                 }
 
-                fprintf(f, "%stable=%"PRIu32 "\n",
-                        space ? " " : "",
-                        rule->table);
+                fprintf(f, "%stable=%" PRIu32 "\n", space ? " " : "", rule->table);
         }
 
         return 0;

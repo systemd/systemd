@@ -35,7 +35,7 @@ finish:
         return r;
 }
 
-static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
+static const char *const volatile_mode_table[_VOLATILE_MODE_MAX] = {
         [VOLATILE_NO] = "no",
         [VOLATILE_YES] = "yes",
         [VOLATILE_STATE] = "state",

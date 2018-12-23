@@ -56,8 +56,7 @@ static bool unichar_is_control(char32_t ch) {
           '\t' is in C0 range, but more or less harmless and commonly used.
         */
 
-        return (ch < ' ' && !IN_SET(ch, '\t', '\n')) ||
-                (0x7F <= ch && ch <= 0x9F);
+        return (ch < ' ' && !IN_SET(ch, '\t', '\n')) || (0x7F <= ch && ch <= 0x9F);
 }
 
 /* count of characters used to encode one unicode char */
@@ -94,33 +93,33 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
 
         switch (len) {
         case 1:
-                *ret_unichar = (char32_t)str[0];
+                *ret_unichar = (char32_t) str[0];
                 return 0;
         case 2:
                 unichar = str[0] & 0x1f;
                 break;
         case 3:
-                unichar = (char32_t)str[0] & 0x0f;
+                unichar = (char32_t) str[0] & 0x0f;
                 break;
         case 4:
-                unichar = (char32_t)str[0] & 0x07;
+                unichar = (char32_t) str[0] & 0x07;
                 break;
         case 5:
-                unichar = (char32_t)str[0] & 0x03;
+                unichar = (char32_t) str[0] & 0x03;
                 break;
         case 6:
-                unichar = (char32_t)str[0] & 0x01;
+                unichar = (char32_t) str[0] & 0x01;
                 break;
         default:
                 return -EINVAL;
         }
 
         for (i = 1; i < len; i++) {
-                if (((char32_t)str[i] & 0xc0) != 0x80)
+                if (((char32_t) str[i] & 0xc0) != 0x80)
                         return -EINVAL;
 
                 unichar <<= 6;
-                unichar |= (char32_t)str[i] & 0x3f;
+                unichar |= (char32_t) str[i] & 0x3f;
         }
 
         *ret_unichar = unichar;
@@ -128,7 +127,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         return 0;
 }
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
+bool utf8_is_printable_newline(const char *str, size_t length, bool newline) {
         const char *p;
 
         assert(str);
@@ -138,14 +137,11 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
                 char32_t val;
 
                 encoded_len = utf8_encoded_valid_unichar(p);
-                if (encoded_len < 0 ||
-                    (size_t) encoded_len > length)
+                if (encoded_len < 0 || (size_t) encoded_len > length)
                         return false;
 
                 r = utf8_encoded_to_unichar(p, &val);
-                if (r < 0 ||
-                    unichar_is_control(val) ||
-                    (!newline && val == '\n'))
+                if (r < 0 || unichar_is_control(val) || (!newline && val == '\n'))
                         return false;
 
                 length -= encoded_len;
@@ -171,7 +167,7 @@ char *utf8_is_valid(const char *str) {
                 p += len;
         }
 
-        return (char*) str;
+        return (char *) str;
 }
 
 char *utf8_escape_invalid(const char *str) {
@@ -252,7 +248,7 @@ char *ascii_is_valid(const char *str) {
                 if ((unsigned char) *p >= 128)
                         return NULL;
 
-        return (char*) str;
+        return (char *) str;
 }
 
 char *ascii_is_valid_n(const char *str, size_t len) {
@@ -267,7 +263,7 @@ char *ascii_is_valid_n(const char *str, size_t len) {
                 if ((unsigned char) str[i] >= 128 || str[i] == 0)
                         return NULL;
 
-        return (char*) str;
+        return (char *) str;
 }
 
 /**
@@ -325,14 +321,14 @@ char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         if (length * 2 < length)
                 return NULL; /* overflow */
 
-        r = new(char, length * 2 + 1);
+        r = new (char, length * 2 + 1);
         if (!r)
                 return NULL;
 
-        f = (const uint8_t*) s;
+        f = (const uint8_t *) s;
         t = r;
 
-        while (f + 1 < (const uint8_t*) s + length) {
+        while (f + 1 < (const uint8_t *) s + length) {
                 char16_t w1, w2;
 
                 /* see RFC 2781 section 2.2 */
@@ -348,7 +344,7 @@ char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
                 if (utf16_is_trailing_surrogate(w1))
                         continue; /* spurious trailing surrogate, ignore */
 
-                if (f + 1 >= (const uint8_t*) s + length)
+                if (f + 1 >= (const uint8_t *) s + length)
                         break;
 
                 w2 = f[1] << 8 | f[0];
@@ -395,7 +391,7 @@ char16_t *utf8_to_utf16(const char *s, size_t length) {
 
         assert(s);
 
-        n = new(char16_t, length + 1);
+        n = new (char16_t, length + 1);
         if (!n)
                 return NULL;
 

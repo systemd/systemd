@@ -24,8 +24,7 @@ int find_device(const char *id, const char *prefix, sd_device **ret) {
         } else {
                 /* In cases where the argument is generic (no prefix specified),
                  * check if the argument looks like a device unit name. */
-                if (unit_name_is_valid(id, UNIT_NAME_PLAIN) &&
-                    unit_name_to_type(id) == UNIT_DEVICE) {
+                if (unit_name_is_valid(id, UNIT_NAME_PLAIN) && unit_name_to_type(id) == UNIT_DEVICE) {
                         r = unit_name_to_path(id, &path);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to convert \"%s\" to a device path: %m", id);

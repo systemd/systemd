@@ -21,10 +21,8 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
         m = s->manager;
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.unregister-service",
-                                    NULL, false, s->originator,
-                                    &m->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                message, CAP_SYS_ADMIN, "org.freedesktop.resolve1.unregister-service", NULL, false, s->originator, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -39,7 +37,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->srv_rr);
                         LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
+                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
                 }
 
                 if (l->mdns_ipv6_scope) {
@@ -50,7 +48,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->srv_rr);
                         LIST_FOREACH(items, txt_data, s->txt_data_items)
-                                dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);
+                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);
                 }
         }
 
@@ -61,14 +59,12 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable dnssd_vtable[] = {
-        SD_BUS_VTABLE_START(0),
+const sd_bus_vtable dnssd_vtable[] = { SD_BUS_VTABLE_START(0),
 
-        SD_BUS_METHOD("Unregister", NULL, NULL, bus_dnssd_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_SIGNAL("Conflicted", NULL, 0),
+                                       SD_BUS_METHOD("Unregister", NULL, NULL, bus_dnssd_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
+                                       SD_BUS_SIGNAL("Conflicted", NULL, 0),
 
-        SD_BUS_VTABLE_END
-};
+                                       SD_BUS_VTABLE_END };
 
 int dnssd_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
@@ -107,7 +103,7 @@ int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
         assert(m);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->dnssd_services) + 1);
+        l = new0(char *, hashmap_size(m->dnssd_services) + 1);
         if (!l)
                 return -ENOMEM;
 

@@ -45,11 +45,11 @@ struct udev_queue {
 _public_ struct udev_queue *udev_queue_new(struct udev *udev) {
         struct udev_queue *udev_queue;
 
-        udev_queue = new(struct udev_queue, 1);
+        udev_queue = new (struct udev_queue, 1);
         if (!udev_queue)
                 return_with_errno(NULL, ENOMEM);
 
-        *udev_queue = (struct udev_queue) {
+        *udev_queue = (struct udev_queue){
                 .udev = udev,
                 .n_ref = 1,
                 .fd = -1,
@@ -159,7 +159,8 @@ _public_ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue) {
  * Returns: a flag indicating if udev is currently handling events.
  **/
 _public_ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
-                                                        unsigned long long int start, unsigned long long int end) {
+                                                        unsigned long long int start,
+                                                        unsigned long long int end) {
         return udev_queue_get_queue_is_empty(udev_queue);
 }
 
@@ -207,7 +208,7 @@ _public_ int udev_queue_get_fd(struct udev_queue *udev_queue) {
         if (fd < 0)
                 return -errno;
 
-        if (inotify_add_watch(fd, "/run/udev" , IN_DELETE) < 0)
+        if (inotify_add_watch(fd, "/run/udev", IN_DELETE) < 0)
                 return -errno;
 
         udev_queue->fd = TAKE_FD(fd);

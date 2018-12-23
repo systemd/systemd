@@ -7,15 +7,13 @@
 #include "specifier.h"
 #include "strv.h"
 
-const char* const dnssd_service_dirs[] = {
-        "/etc/systemd/dnssd",
-        "/run/systemd/dnssd",
-        "/usr/lib/systemd/dnssd",
+const char *const dnssd_service_dirs[] = { "/etc/systemd/dnssd",
+                                           "/run/systemd/dnssd",
+                                           "/usr/lib/systemd/dnssd",
 #if HAVE_SPLIT_USR
-        "/lib/systemd/dnssd",
+                                           "/lib/systemd/dnssd",
 #endif
-    NULL
-};
+                                           NULL };
 
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
         if (!txt_data)
@@ -92,10 +90,8 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
-        r = config_parse_many(filename, dnssd_service_dirs, dropin_dirname,
-                              "Service\0",
-                              config_item_perf_lookup, resolved_dnssd_gperf_lookup,
-                              false, service);
+        r = config_parse_many(
+                filename, dnssd_service_dirs, dropin_dirname, "Service\0", config_item_perf_lookup, resolved_dnssd_gperf_lookup, false, service);
         if (r < 0)
                 return r;
 
@@ -142,7 +138,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 }
 
 static int specifier_dnssd_host_name(char specifier, const void *data, const void *userdata, char **ret) {
-        DnssdService *s  = (DnssdService *) userdata;
+        DnssdService *s = (DnssdService *) userdata;
         char *n;
 
         assert(s);
@@ -158,13 +154,11 @@ static int specifier_dnssd_host_name(char specifier, const void *data, const voi
 }
 
 int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
-        static const Specifier specifier_table[] = {
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_dnssd_host_name, NULL },
-                { 'm', specifier_machine_id,      NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                {}
-        };
+        static const Specifier specifier_table[] = { { 'b', specifier_boot_id, NULL },
+                                                     { 'H', specifier_dnssd_host_name, NULL },
+                                                     { 'm', specifier_machine_id, NULL },
+                                                     { 'v', specifier_kernel_release, NULL },
+                                                     {} };
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -176,9 +170,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
         if (!dns_service_name_is_valid(name))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Service instance name '%s' is invalid.",
-                                       name);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Service instance name '%s' is invalid.", name);
 
         *ret_name = TAKE_PTR(name);
 
@@ -202,7 +194,8 @@ int dnssd_load(Manager *manager) {
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = dnssd_service_load(manager, *f);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to load '%s': %m", *f);;
+                        log_warning_errno(r, "Failed to load '%s': %m", *f);
+                ;
         }
 
         return 0;
@@ -222,7 +215,7 @@ int dnssd_update_rrs(DnssdService *s) {
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         LIST_FOREACH(items, txt_data, s->txt_data_items)
-                txt_data->rr = dns_resource_record_unref(txt_data->rr);
+        txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
         r = dnssd_render_instance_name(s, &n);
         if (r < 0)
@@ -236,8 +229,7 @@ int dnssd_update_rrs(DnssdService *s) {
                 return r;
 
         LIST_FOREACH(items, txt_data, s->txt_data_items) {
-                txt_data->rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
-                                                            full_name);
+                txt_data->rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT, full_name);
                 if (!txt_data->rr)
                         goto oom;
 
@@ -247,8 +239,7 @@ int dnssd_update_rrs(DnssdService *s) {
                         goto oom;
         }
 
-        s->ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
-                                                 service_name);
+        s->ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, service_name);
         if (!s->ptr_rr)
                 goto oom;
 
@@ -257,8 +248,7 @@ int dnssd_update_rrs(DnssdService *s) {
         if (!s->ptr_rr->ptr.name)
                 goto oom;
 
-        s->srv_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV,
-                                                 full_name);
+        s->srv_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV, full_name);
         if (!s->srv_rr)
                 goto oom;
 
@@ -274,7 +264,7 @@ int dnssd_update_rrs(DnssdService *s) {
 
 oom:
         LIST_FOREACH(items, txt_data, s->txt_data_items)
-                txt_data->rr = dns_resource_record_unref(txt_data->rr);
+        txt_data->rr = dns_resource_record_unref(txt_data->rr);
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         return -ENOMEM;
@@ -350,11 +340,7 @@ void dnssd_signal_conflict(Manager *manager, const char *name) {
                                 return;
                         }
 
-                        r = sd_bus_emit_signal(manager->bus,
-                                               path,
-                                               "org.freedesktop.resolve1.DnssdService",
-                                               "Conflicted",
-                                               NULL);
+                        r = sd_bus_emit_signal(manager->bus, path, "org.freedesktop.resolve1.DnssdService", "Conflicted", NULL);
                         if (r < 0) {
                                 log_error_errno(r, "Cannot emit signal: %m");
                                 return;

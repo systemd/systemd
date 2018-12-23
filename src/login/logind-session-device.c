@@ -17,7 +17,8 @@
 #include "sd-daemon.h"
 #include "util.h"
 
-enum SessionDeviceNotifications {
+enum SessionDeviceNotifications
+{
         SESSION_DEVICE_RESUME,
         SESSION_DEVICE_TRY_PAUSE,
         SESSION_DEVICE_PAUSE,
@@ -43,11 +44,11 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
         if (!path)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(
-                        sd->session->manager->bus,
-                        &m, path,
-                        "org.freedesktop.login1.Session",
-                        (type == SESSION_DEVICE_RESUME) ? "ResumeDevice" : "PauseDevice");
+        r = sd_bus_message_new_signal(sd->session->manager->bus,
+                                      &m,
+                                      path,
+                                      "org.freedesktop.login1.Session",
+                                      (type == SESSION_DEVICE_RESUME) ? "ResumeDevice" : "PauseDevice");
         if (!m)
                 return r;
 
@@ -128,7 +129,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->node);
 
         /* open device and try to get an udev_device from it */
-        fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        fd = open(sd->node, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
         if (fd < 0)
                 return -errno;
 
@@ -250,8 +251,7 @@ static DeviceType detect_device_type(sd_device *dev) {
         const char *sysname, *subsystem;
         DeviceType type = DEVICE_TYPE_UNKNOWN;
 
-        if (sd_device_get_sysname(dev, &sysname) < 0 ||
-            sd_device_get_subsystem(dev, &subsystem) < 0)
+        if (sd_device_get_sysname(dev, &sysname) < 0 || sd_device_get_subsystem(dev, &subsystem) < 0)
                 return type;
 
         if (streq(subsystem, "drm")) {
@@ -277,8 +277,7 @@ static int session_device_verify(SessionDevice *sd) {
 
         dev = p;
 
-        if (sd_device_get_syspath(dev, &sp) < 0 ||
-            sd_device_get_devname(dev, &node) < 0)
+        if (sd_device_get_syspath(dev, &sp) < 0 || sd_device_get_devname(dev, &node) < 0)
                 return -EINVAL;
 
         /* detect device type so we can find the correct sysfs parent */
@@ -396,9 +395,12 @@ void session_device_free(SessionDevice *sd) {
                 id = sd->session->id;
                 assert(*(id + strcspn(id, "-\n")) == '\0');
 
-                r = asprintf(&m, "FDSTOREREMOVE=1\n"
-                                 "FDNAME=session-%s-device-%u-%u\n",
-                                 id, major(sd->dev), minor(sd->dev));
+                r = asprintf(&m,
+                             "FDSTOREREMOVE=1\n"
+                             "FDNAME=session-%s-device-%u-%u\n",
+                             id,
+                             major(sd->dev),
+                             minor(sd->dev));
                 if (r >= 0)
                         (void) sd_notify(false, m);
         }
@@ -426,8 +428,8 @@ void session_device_complete_pause(SessionDevice *sd) {
 
         /* if not all devices are paused, wait for further completion events */
         HASHMAP_FOREACH(iter, sd->session->devices, i)
-                if (iter->active)
-                        return;
+        if (iter->active)
+                return;
 
         /* complete any pending session switch */
         seat_complete_switch(sd->session->seat);
@@ -506,9 +508,12 @@ int session_device_save(SessionDevice *sd) {
         id = sd->session->id;
         assert(*(id + strcspn(id, "-\n")) == '\0');
 
-        r = asprintf(&m, "FDSTORE=1\n"
-                         "FDNAME=session-%s-device-%u-%u\n",
-                         id, major(sd->dev), minor(sd->dev));
+        r = asprintf(&m,
+                     "FDSTORE=1\n"
+                     "FDNAME=session-%s-device-%u-%u\n",
+                     id,
+                     major(sd->dev),
+                     minor(sd->dev));
         if (r < 0)
                 return r;
 

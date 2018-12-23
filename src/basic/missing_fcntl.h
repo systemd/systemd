@@ -19,16 +19,16 @@
 #define F_ADD_SEALS (F_LINUX_SPECIFIC_BASE + 9)
 #define F_GET_SEALS (F_LINUX_SPECIFIC_BASE + 10)
 
-#define F_SEAL_SEAL     0x0001  /* prevent further seals from being set */
-#define F_SEAL_SHRINK   0x0002  /* prevent file from shrinking */
-#define F_SEAL_GROW     0x0004  /* prevent file from growing */
-#define F_SEAL_WRITE    0x0008  /* prevent writes */
+#define F_SEAL_SEAL 0x0001   /* prevent further seals from being set */
+#define F_SEAL_SHRINK 0x0002 /* prevent file from shrinking */
+#define F_SEAL_GROW 0x0004   /* prevent file from growing */
+#define F_SEAL_WRITE 0x0008  /* prevent writes */
 #endif
 
 #ifndef F_OFD_GETLK
-#define F_OFD_GETLK     36
-#define F_OFD_SETLK     37
-#define F_OFD_SETLKW    38
+#define F_OFD_GETLK 36
+#define F_OFD_SETLK 37
+#define F_OFD_SETLKW 38
 #endif
 
 #ifndef MAX_HANDLE_SZ
@@ -44,13 +44,13 @@
 
 #ifndef __O_TMPFILE
 #if defined(__alpha__)
-#define __O_TMPFILE     0100000000
+#define __O_TMPFILE 0100000000
 #elif defined(__parisc__) || defined(__hppa__)
-#define __O_TMPFILE     0400000000
+#define __O_TMPFILE 0400000000
 #elif defined(__sparc__) || defined(__sparc64__)
-#define __O_TMPFILE     0x2000000
+#define __O_TMPFILE 0x2000000
 #else
-#define __O_TMPFILE     020000000
+#define __O_TMPFILE 020000000
 #endif
 #endif
 

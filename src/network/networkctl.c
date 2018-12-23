@@ -44,9 +44,7 @@ static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
         char *p;
 
-        if (d &&
-            sd_device_get_devtype(d, &devtype) >= 0 &&
-            !isempty(devtype))
+        if (d && sd_device_get_devtype(d, &devtype) >= 0 && !isempty(devtype))
                 return strdup(devtype);
 
         t = arphrd_to_name(iftype);
@@ -93,14 +91,14 @@ static void setup_state_to_color(const char *state, const char **on, const char 
 }
 
 typedef struct LinkInfo {
-        char name[IFNAMSIZ+1];
+        char name[IFNAMSIZ + 1];
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
         uint32_t mtu;
 
-        bool has_mac_address:1;
-        bool has_mtu:1;
+        bool has_mac_address : 1;
+        bool has_mtu : 1;
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {
@@ -136,13 +134,10 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info) {
 
         strscpy(info->name, sizeof info->name, name);
 
-        info->has_mac_address =
-                sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
+        info->has_mac_address = sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
-        info->has_mtu =
-                sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) &&
-                info->mtu > 0;
+        info->has_mtu = sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu) && info->mtu > 0;
 
         return 1;
 }
@@ -156,7 +151,7 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
         assert(rtnl);
         assert(ret);
 
-        links = new(LinkInfo, strv_length(l));
+        links = new (LinkInfo, strv_length(l));
         if (!links)
                 return log_oom();
 
@@ -217,7 +212,7 @@ static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         for (i = reply; i; i = sd_netlink_message_next(i)) {
-                if (!GREEDY_REALLOC(links, allocated, c+1))
+                if (!GREEDY_REALLOC(links, allocated, c + 1))
                         return -ENOMEM;
 
                 r = decode_link(i, links + c);
@@ -253,18 +248,12 @@ static int list_links(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
-                printf("%3s %-16s %-18s %-11s %-10s\n",
-                       "IDX",
-                       "LINK",
-                       "TYPE",
-                       "OPERATIONAL",
-                       "SETUP");
+                printf("%3s %-16s %-18s %-11s %-10s\n", "IDX", "LINK", "TYPE", "OPERATIONAL", "SETUP");
 
         for (i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
                 _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-                const char *on_color_operational, *off_color_operational,
-                           *on_color_setup, *off_color_setup;
+                const char *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
                 char devid[2 + DECIMAL_STR_MAX(int)];
                 _cleanup_free_ char *t = NULL;
 
@@ -282,9 +271,15 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 t = link_get_type_string(links[i].iftype, d);
 
                 printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
-                       links[i].ifindex, links[i].name, strna(t),
-                       on_color_operational, strna(operational_state), off_color_operational,
-                       on_color_setup, strna(setup_state), off_color_setup);
+                       links[i].ifindex,
+                       links[i].name,
+                       strna(t),
+                       on_color_operational,
+                       strna(operational_state),
+                       off_color_operational,
+                       on_color_setup,
+                       strna(setup_state),
+                       off_color_setup);
         }
 
         if (arg_legend)
@@ -311,8 +306,7 @@ static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        xsprintf(modalias, "OUI:" ETHER_ADDR_FORMAT_STR,
-                 ETHER_ADDR_FORMAT_VAL(*mac));
+        xsprintf(modalias, "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
 
         r = sd_hwdb_get(hwdb, modalias, "ID_OUI_FROM_DATABASE", &description);
         if (r < 0)
@@ -328,12 +322,7 @@ static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
 }
 
 static int get_gateway_description(
-                sd_netlink *rtnl,
-                sd_hwdb *hwdb,
-                int ifindex,
-                int family,
-                union in_addr_union *gateway,
-                char **gateway_description) {
+        sd_netlink *rtnl, sd_hwdb *hwdb, int ifindex, int family, union in_addr_union *gateway, char **gateway_description) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
         int r;
@@ -433,11 +422,7 @@ static int get_gateway_description(
         return -ENODATA;
 }
 
-static int dump_gateways(
-                sd_netlink *rtnl,
-                sd_hwdb *hwdb,
-                const char *prefix,
-                int ifindex) {
+static int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, const char *prefix, int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
 
@@ -459,10 +444,7 @@ static int dump_gateways(
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
-                printf("%*s%s",
-                       (int) strlen(prefix),
-                       i == 0 ? prefix : "",
-                       gateway);
+                printf("%*s%s", (int) strlen(prefix), i == 0 ? prefix : "", gateway);
 
                 if (description)
                         printf(" (%s)", description);
@@ -470,7 +452,7 @@ static int dump_gateways(
                 /* Show interface name for the entry if we show
                  * entries for all interfaces */
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
+                        char name[IF_NAMESIZE + 1];
 
                         if (if_indextoname(local[i].ifindex, name)) {
                                 fputs(" on ", stdout);
@@ -485,10 +467,7 @@ static int dump_gateways(
         return 0;
 }
 
-static int dump_addresses(
-                sd_netlink *rtnl,
-                const char *prefix,
-                int ifindex) {
+static int dump_addresses(sd_netlink *rtnl, const char *prefix, int ifindex) {
 
         _cleanup_free_ struct local_address *local = NULL;
         int r, n, i;
@@ -507,13 +486,10 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                printf("%*s%s",
-                       (int) strlen(prefix),
-                       i == 0 ? prefix : "",
-                       pretty);
+                printf("%*s%s", (int) strlen(prefix), i == 0 ? prefix : "", pretty);
 
                 if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
+                        char name[IF_NAMESIZE + 1];
 
                         if (if_indextoname(local[i].ifindex, name)) {
                                 fputs(" on ", stdout);
@@ -632,7 +608,7 @@ static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
         if (le64toh(u) >= 4096)
                 return -EBADMSG;
 
-        raw = new(uint8_t, le64toh(u));
+        raw = new (uint8_t, le64toh(u));
         if (!raw)
                 return -ENOMEM;
 
@@ -667,9 +643,7 @@ static int dump_lldp_neighbors(const char *prefix, int ifindex) {
                 if (r == 0)
                         break;
 
-                printf("%*s",
-                       (int) strlen(prefix),
-                       c == 0 ? prefix : "");
+                printf("%*s", (int) strlen(prefix), c == 0 ? prefix : "");
 
                 (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                 (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
@@ -697,11 +671,9 @@ static void dump_ifindexes(const char *prefix, const int *ifindexes) {
                 return;
 
         for (c = 0; ifindexes[c] > 0; c++) {
-                char name[IF_NAMESIZE+1];
+                char name[IF_NAMESIZE + 1];
 
-                printf("%*s",
-                       (int) strlen(prefix),
-                       c == 0 ? prefix : "");
+                printf("%*s", (int) strlen(prefix), c == 0 ? prefix : "");
 
                 if (if_indextoname(ifindexes[c], name))
                         fputs(name, stdout);
@@ -719,17 +691,11 @@ static void dump_list(const char *prefix, char **l) {
                 return;
 
         STRV_FOREACH(i, l) {
-                printf("%*s%s\n",
-                       (int) strlen(prefix),
-                       i == l ? prefix : "",
-                       *i);
+                printf("%*s%s\n", (int) strlen(prefix), i == l ? prefix : "", *i);
         }
 }
 
-static int link_status_one(
-                sd_netlink *rtnl,
-                sd_hwdb *hwdb,
-                const LinkInfo *info) {
+static int link_status_one(sd_netlink *rtnl, sd_hwdb *hwdb, const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
@@ -737,8 +703,7 @@ static int link_status_one(
         char devid[2 + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
-        const char *on_color_operational, *off_color_operational,
-                   *on_color_setup, *off_color_setup;
+        const char *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         int r;
 
@@ -781,7 +746,12 @@ static int link_status_one(
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
 
-        printf("%s%s%s %i: %s\n", on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational, info->ifindex, info->name);
+        printf("%s%s%s %i: %s\n",
+               on_color_operational,
+               special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
+               off_color_operational,
+               info->ifindex,
+               info->name);
 
         printf("       Link File: %s\n"
                "    Network File: %s\n"
@@ -790,8 +760,12 @@ static int link_status_one(
                strna(link),
                strna(network),
                strna(t),
-               on_color_operational, strna(operational_state), off_color_operational,
-               on_color_setup, strna(setup_state), off_color_setup);
+               on_color_operational,
+               strna(operational_state),
+               off_color_operational,
+               on_color_setup,
+               strna(setup_state),
+               off_color_setup);
 
         if (path)
                 printf("            Path: %s\n", path);
@@ -849,8 +823,12 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
         printf("%s%s%s        State: %s%s%s\n",
-               on_color_operational, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off_color_operational,
-               on_color_operational, strna(operational_state), off_color_operational);
+               on_color_operational,
+               special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
+               off_color_operational,
+               on_color_operational,
+               strna(operational_state),
+               off_color_operational);
 
         (void) dump_addresses(rtnl, "       Address: ", 0);
         (void) dump_gateways(rtnl, hwdb, "       Gateway: ", 0);
@@ -912,7 +890,7 @@ static char *lldp_capabilities_to_string(uint16_t x) {
         char *ret;
         unsigned i;
 
-        ret = new(char, ELEMENTSOF(characters) + 1);
+        ret = new (char, ELEMENTSOF(characters) + 1);
         if (!ret)
                 return NULL;
 
@@ -925,7 +903,7 @@ static char *lldp_capabilities_to_string(uint16_t x) {
 
 static void lldp_capabilities_legend(uint16_t x) {
         unsigned w, i, cols = columns();
-        static const char* const table[] = {
+        static const char *const table[] = {
                 "o - Other",
                 "p - Repeater",
                 "b - Bridge",
@@ -975,13 +953,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
-                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
-                       "LINK",
-                       "CHASSIS ID",
-                       "SYSTEM NAME",
-                       "CAPS",
-                       "PORT ID",
-                       "PORT DESCRIPTION");
+                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n", "LINK", "CHASSIS ID", "SYSTEM NAME", "CAPS", "PORT ID", "PORT DESCRIPTION");
 
         for (i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -1082,30 +1054,28 @@ static int help(void) {
                "  status [LINK...]      Show link status\n"
                "  lldp [LINK...]        Show LLDP neighbors\n"
                "  label                 Show current address label entries in the kernel\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
-                { "all",       no_argument,       NULL, 'a'           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "no-legend", no_argument, NULL, ARG_NO_LEGEND },
+                                                 { "all", no_argument, NULL, 'a' },
+                                                 {} };
 
         int c;
 
@@ -1146,13 +1116,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int networkctl_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status", VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
-                {}
-        };
+        static const Verb verbs[] = { { "list", VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links },
+                                      { "status", VERB_ANY, VERB_ANY, 0, link_status },
+                                      { "lldp", VERB_ANY, VERB_ANY, 0, link_lldp_status },
+                                      { "label", VERB_ANY, VERB_ANY, 0, list_address_labels },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }
@@ -1165,7 +1133,7 @@ static void warn_networkd_missing(void) {
         fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
 }
 
-static int run(int argc, char* argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();

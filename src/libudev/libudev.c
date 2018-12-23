@@ -71,11 +71,11 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 _public_ struct udev *udev_new(void) {
         struct udev *udev;
 
-        udev = new(struct udev, 1);
+        udev = new (struct udev, 1);
         if (!udev)
                 return_with_errno(NULL, ENOMEM);
 
-        *udev = (struct udev) {
+        *udev = (struct udev){
                 .n_ref = 1,
         };
 
@@ -125,10 +125,8 @@ _public_ struct udev *udev_unref(struct udev *udev) {
  *
  **/
 _public_ void udev_set_log_fn(
-                        struct udev *udev,
-                        void (*log_fn)(struct udev *udev,
-                                       int priority, const char *file, int line, const char *fn,
-                                       const char *format, va_list args)) {
+        struct udev *udev,
+        void (*log_fn)(struct udev *udev, int priority, const char *file, int line, const char *fn, const char *format, va_list args)) {
         return;
 }
 

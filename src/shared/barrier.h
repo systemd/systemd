@@ -11,18 +11,20 @@
 
 typedef struct Barrier Barrier;
 
-enum {
-        BARRIER_SINGLE                  = 1LL,
-        BARRIER_ABORTION                = INT64_MAX,
+enum
+{
+        BARRIER_SINGLE = 1LL,
+        BARRIER_ABORTION = INT64_MAX,
 
         /* bias values to store state; keep @WE < @THEY < @I */
-        BARRIER_BIAS                    = INT64_MIN,
-        BARRIER_WE_ABORTED              = BARRIER_BIAS + 1LL,
-        BARRIER_THEY_ABORTED            = BARRIER_BIAS + 2LL,
-        BARRIER_I_ABORTED               = BARRIER_BIAS + 3LL,
+        BARRIER_BIAS = INT64_MIN,
+        BARRIER_WE_ABORTED = BARRIER_BIAS + 1LL,
+        BARRIER_THEY_ABORTED = BARRIER_BIAS + 2LL,
+        BARRIER_I_ABORTED = BARRIER_BIAS + 3LL,
 };
 
-enum {
+enum
+{
         BARRIER_PARENT,
         BARRIER_CHILD,
 };
@@ -34,12 +36,13 @@ struct Barrier {
         int64_t barriers;
 };
 
-#define BARRIER_NULL {-1, -1, {-1, -1}, 0}
+#define BARRIER_NULL \
+        { -1, -1, { -1, -1 }, 0 }
 
 int barrier_create(Barrier *obj);
 void barrier_destroy(Barrier *b);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier*, barrier_destroy);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Barrier *, barrier_destroy);
 
 void barrier_set_role(Barrier *b, unsigned role);
 
@@ -64,8 +67,7 @@ static inline bool barrier_we_aborted(Barrier *b) {
 }
 
 static inline bool barrier_is_aborted(Barrier *b) {
-        return IN_SET(b->barriers,
-                      BARRIER_I_ABORTED, BARRIER_THEY_ABORTED, BARRIER_WE_ABORTED);
+        return IN_SET(b->barriers, BARRIER_I_ABORTED, BARRIER_THEY_ABORTED, BARRIER_WE_ABORTED);
 }
 
 static inline bool barrier_place_and_sync(Barrier *b) {

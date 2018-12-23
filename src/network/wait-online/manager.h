@@ -29,7 +29,7 @@ struct Manager {
 void manager_free(Manager *m);
 int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 bool manager_all_configured(Manager *m);
 bool manager_ignore_link(Manager *m, Link *link);

@@ -86,7 +86,7 @@ struct DnsQuery {
         DnsPacket *reply_dns_packet;
 
         /* Completion callback */
-        void (*complete)(DnsQuery* q);
+        void (*complete)(DnsQuery *q);
         unsigned block_ready;
 
         sd_bus_track *bus_track;
@@ -95,13 +95,14 @@ struct DnsQuery {
         LIST_FIELDS(DnsQuery, auxiliary_queries);
 };
 
-enum {
+enum
+{
         DNS_QUERY_MATCH,
         DNS_QUERY_NOMATCH,
         DNS_QUERY_RESTARTED,
 };
 
-DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
+DnsQueryCandidate *dns_query_candidate_free(DnsQueryCandidate *c);
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, int family, uint64_t flags);
@@ -116,10 +117,10 @@ int dns_query_process_cname(DnsQuery *q);
 
 int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
 
-DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
+DnsQuestion *dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
 
 const char *dns_query_string(DnsQuery *q);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery *, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);

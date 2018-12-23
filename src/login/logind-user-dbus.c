@@ -16,13 +16,7 @@
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", User, user_get_state, user_state_to_string);
 
 static int property_get_display(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         User *u = userdata;
@@ -39,13 +33,7 @@ static int property_get_display(
 }
 
 static int property_get_sessions(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         User *u = userdata;
         Session *session;
@@ -69,20 +57,13 @@ static int property_get_sessions(
                 r = sd_bus_message_append(reply, "(so)", session->id, p);
                 if (r < 0)
                         return r;
-
         }
 
         return sd_bus_message_close_container(reply);
 }
 
 static int property_get_idle_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         User *u = userdata;
 
@@ -94,13 +75,7 @@ static int property_get_idle_hint(
 }
 
 static int property_get_idle_since_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         User *u = userdata;
         dual_timestamp t = DUAL_TIMESTAMP_NULL;
@@ -117,13 +92,7 @@ static int property_get_idle_since_hint(
 }
 
 static int property_get_linger(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         User *u = userdata;
         int r;
@@ -145,14 +114,7 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(u);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_KILL,
-                        "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        u->uid,
-                        &u->manager->polkit_registry,
-                        error);
+                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, u->uid, &u->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -174,14 +136,7 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(u);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_KILL,
-                        "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        u->uid,
-                        &u->manager->polkit_registry,
-                        error);
+                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, u->uid, &u->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -272,7 +227,7 @@ char *user_bus_path(User *u) {
 
         assert(u);
 
-        if (asprintf(&s, "/org/freedesktop/login1/user/_"UID_FMT, u->uid) < 0)
+        if (asprintf(&s, "/org/freedesktop/login1/user/_" UID_FMT, u->uid) < 0)
                 return NULL;
 
         return s;
@@ -307,7 +262,7 @@ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 uid_t uid;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID | SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
                         r = sd_bus_creds_get_owner_uid(creds, &uid);
                         if (r >= 0) {
@@ -335,12 +290,13 @@ int user_send_signal(User *u, bool new_user) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_emit_signal(
-                        u->manager->bus,
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        new_user ? "UserNew" : "UserRemoved",
-                        "uo", (uint32_t) u->uid, p);
+        return sd_bus_emit_signal(u->manager->bus,
+                                  "/org/freedesktop/login1",
+                                  "org.freedesktop.login1.Manager",
+                                  new_user ? "UserNew" : "UserRemoved",
+                                  "uo",
+                                  (uint32_t) u->uid,
+                                  p);
 }
 
 int user_send_changed(User *u, const char *properties, ...) {

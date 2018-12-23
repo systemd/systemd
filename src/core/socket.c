@@ -54,21 +54,19 @@ struct SocketPeer {
         socklen_t peer_salen;
 };
 
-static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = UNIT_INACTIVE,
-        [SOCKET_START_PRE] = UNIT_ACTIVATING,
-        [SOCKET_START_CHOWN] = UNIT_ACTIVATING,
-        [SOCKET_START_POST] = UNIT_ACTIVATING,
-        [SOCKET_LISTENING] = UNIT_ACTIVE,
-        [SOCKET_RUNNING] = UNIT_ACTIVE,
-        [SOCKET_STOP_PRE] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_FAILED] = UNIT_FAILED
-};
+static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = { [SOCKET_DEAD] = UNIT_INACTIVE,
+                                                                            [SOCKET_START_PRE] = UNIT_ACTIVATING,
+                                                                            [SOCKET_START_CHOWN] = UNIT_ACTIVATING,
+                                                                            [SOCKET_START_POST] = UNIT_ACTIVATING,
+                                                                            [SOCKET_LISTENING] = UNIT_ACTIVE,
+                                                                            [SOCKET_RUNNING] = UNIT_ACTIVE,
+                                                                            [SOCKET_STOP_PRE] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
+                                                                            [SOCKET_FAILED] = UNIT_FAILED };
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -191,12 +189,7 @@ static int socket_arm_timer(Socket *s, usec_t usec) {
         if (usec == USEC_INFINITY)
                 return 0;
 
-        r = sd_event_add_time(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        socket_dispatch_timer, s);
+        r = sd_event_add_time(UNIT(s)->manager->event, &s->timer_event_source, CLOCK_MONOTONIC, usec, 0, socket_dispatch_timer, s);
         if (r < 0)
                 return r;
 
@@ -308,7 +301,8 @@ static int socket_add_default_dependencies(Socket *s) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(
+                        UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
@@ -489,7 +483,7 @@ static int peer_address_compare_func(const SocketPeer *x, const SocketPeer *y) {
         if (r != 0)
                 return r;
 
-        switch(x->peer.sa.sa_family) {
+        switch (x->peer.sa.sa_family) {
         case AF_INET:
                 return memcmp(&x->peer.in.sin_addr, &y->peer.in.sin_addr, sizeof(x->peer.in.sin_addr));
         case AF_INET6:
@@ -592,7 +586,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         return 1;
 }
 
-_const_ static const char* listen_lookup(int family, int type) {
+_const_ static const char *listen_lookup(int family, int type) {
 
         if (family == AF_NETLINK)
                 return "ListenNetlink";
@@ -640,34 +634,48 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWritable: %s\n"
                 "%sFileDescriptorName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
-                prefix, socket_state_to_string(s->state),
-                prefix, socket_result_to_string(s->result),
-                prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
-                prefix, s->backlog,
-                prefix, s->socket_mode,
-                prefix, s->directory_mode,
-                prefix, yes_no(s->keep_alive),
-                prefix, yes_no(s->no_delay),
-                prefix, yes_no(s->free_bind),
-                prefix, yes_no(s->transparent),
-                prefix, yes_no(s->broadcast),
-                prefix, yes_no(s->pass_cred),
-                prefix, yes_no(s->pass_sec),
-                prefix, strna(s->tcp_congestion),
-                prefix, yes_no(s->remove_on_stop),
-                prefix, yes_no(s->writable),
-                prefix, socket_fdname(s),
-                prefix, yes_no(s->selinux_context_from_net));
+                prefix,
+                socket_state_to_string(s->state),
+                prefix,
+                socket_result_to_string(s->result),
+                prefix,
+                socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
+                prefix,
+                s->backlog,
+                prefix,
+                s->socket_mode,
+                prefix,
+                s->directory_mode,
+                prefix,
+                yes_no(s->keep_alive),
+                prefix,
+                yes_no(s->no_delay),
+                prefix,
+                yes_no(s->free_bind),
+                prefix,
+                yes_no(s->transparent),
+                prefix,
+                yes_no(s->broadcast),
+                prefix,
+                yes_no(s->pass_cred),
+                prefix,
+                yes_no(s->pass_sec),
+                prefix,
+                strna(s->tcp_congestion),
+                prefix,
+                yes_no(s->remove_on_stop),
+                prefix,
+                yes_no(s->writable),
+                prefix,
+                socket_fdname(s),
+                prefix,
+                yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
-                fprintf(f,
-                        "%sControl PID: "PID_FMT"\n",
-                        prefix, s->control_pid);
+                fprintf(f, "%sControl PID: " PID_FMT "\n", prefix, s->control_pid);
 
         if (s->bind_to_device)
-                fprintf(f,
-                        "%sBindToDevice: %s\n",
-                        prefix, s->bind_to_device);
+                fprintf(f, "%sBindToDevice: %s\n", prefix, s->bind_to_device);
 
         if (s->accept)
                 fprintf(f,
@@ -675,102 +683,80 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sNConnections: %u\n"
                         "%sMaxConnections: %u\n"
                         "%sMaxConnectionsPerSource: %u\n",
-                        prefix, s->n_accepted,
-                        prefix, s->n_connections,
-                        prefix, s->max_connections,
-                        prefix, s->max_connections_per_source);
+                        prefix,
+                        s->n_accepted,
+                        prefix,
+                        s->n_connections,
+                        prefix,
+                        s->max_connections,
+                        prefix,
+                        s->max_connections_per_source);
 
         if (s->priority >= 0)
-                fprintf(f,
-                        "%sPriority: %i\n",
-                        prefix, s->priority);
+                fprintf(f, "%sPriority: %i\n", prefix, s->priority);
 
         if (s->receive_buffer > 0)
-                fprintf(f,
-                        "%sReceiveBuffer: %zu\n",
-                        prefix, s->receive_buffer);
+                fprintf(f, "%sReceiveBuffer: %zu\n", prefix, s->receive_buffer);
 
         if (s->send_buffer > 0)
-                fprintf(f,
-                        "%sSendBuffer: %zu\n",
-                        prefix, s->send_buffer);
+                fprintf(f, "%sSendBuffer: %zu\n", prefix, s->send_buffer);
 
         if (s->ip_tos >= 0)
-                fprintf(f,
-                        "%sIPTOS: %i\n",
-                        prefix, s->ip_tos);
+                fprintf(f, "%sIPTOS: %i\n", prefix, s->ip_tos);
 
         if (s->ip_ttl >= 0)
-                fprintf(f,
-                        "%sIPTTL: %i\n",
-                        prefix, s->ip_ttl);
+                fprintf(f, "%sIPTTL: %i\n", prefix, s->ip_ttl);
 
         if (s->pipe_size > 0)
-                fprintf(f,
-                        "%sPipeSize: %zu\n",
-                        prefix, s->pipe_size);
+                fprintf(f, "%sPipeSize: %zu\n", prefix, s->pipe_size);
 
         if (s->mark >= 0)
-                fprintf(f,
-                        "%sMark: %i\n",
-                        prefix, s->mark);
+                fprintf(f, "%sMark: %i\n", prefix, s->mark);
 
         if (s->mq_maxmsg > 0)
-                fprintf(f,
-                        "%sMessageQueueMaxMessages: %li\n",
-                        prefix, s->mq_maxmsg);
+                fprintf(f, "%sMessageQueueMaxMessages: %li\n", prefix, s->mq_maxmsg);
 
         if (s->mq_msgsize > 0)
-                fprintf(f,
-                        "%sMessageQueueMessageSize: %li\n",
-                        prefix, s->mq_msgsize);
+                fprintf(f, "%sMessageQueueMessageSize: %li\n", prefix, s->mq_msgsize);
 
         if (s->reuse_port)
-                fprintf(f,
-                        "%sReusePort: %s\n",
-                         prefix, yes_no(s->reuse_port));
+                fprintf(f, "%sReusePort: %s\n", prefix, yes_no(s->reuse_port));
 
         if (s->smack)
-                fprintf(f,
-                        "%sSmackLabel: %s\n",
-                        prefix, s->smack);
+                fprintf(f, "%sSmackLabel: %s\n", prefix, s->smack);
 
         if (s->smack_ip_in)
-                fprintf(f,
-                        "%sSmackLabelIPIn: %s\n",
-                        prefix, s->smack_ip_in);
+                fprintf(f, "%sSmackLabelIPIn: %s\n", prefix, s->smack_ip_in);
 
         if (s->smack_ip_out)
-                fprintf(f,
-                        "%sSmackLabelIPOut: %s\n",
-                        prefix, s->smack_ip_out);
+                fprintf(f, "%sSmackLabelIPOut: %s\n", prefix, s->smack_ip_out);
 
         if (!isempty(s->user) || !isempty(s->group))
                 fprintf(f,
                         "%sSocketUser: %s\n"
                         "%sSocketGroup: %s\n",
-                        prefix, strna(s->user),
-                        prefix, strna(s->group));
+                        prefix,
+                        strna(s->user),
+                        prefix,
+                        strna(s->group));
 
         if (s->keep_alive_time > 0)
                 fprintf(f,
                         "%sKeepAliveTimeSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
+                        prefix,
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
 
         if (s->keep_alive_interval > 0)
                 fprintf(f,
                         "%sKeepAliveIntervalSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
+                        prefix,
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
 
         if (s->keep_alive_cnt > 0)
-                fprintf(f,
-                        "%sKeepAliveProbes: %u\n",
-                        prefix, s->keep_alive_cnt);
+                fprintf(f, "%sKeepAliveProbes: %u\n", prefix, s->keep_alive_cnt);
 
         if (s->defer_accept > 0)
-                fprintf(f,
-                        "%sDeferAcceptSec: %s\n",
-                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
+                fprintf(f, "%sDeferAcceptSec: %s\n", prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -806,8 +792,10 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sTriggerLimitIntervalSec: %s\n"
                 "%sTriggerLimitBurst: %u\n",
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
-                prefix, s->trigger_limit.burst);
+                prefix,
+                format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
+                prefix,
+                s->trigger_limit.burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
         if (str)
@@ -818,14 +806,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
                 fprintf(f, "%sSymlinks:", prefix);
                 STRV_FOREACH(q, s->symlinks)
-                        fprintf(f, " %s", *q);
+                fprintf(f, " %s", *q);
 
                 fprintf(f, "\n");
         }
 
-        fprintf(f,
-                "%sTimeoutSec: %s\n",
-                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->timeout_usec, USEC_PER_SEC));
+        fprintf(f, "%sTimeoutSec: %s\n", prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->timeout_usec, USEC_PER_SEC));
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -834,8 +820,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (!s->exec_command[c])
                         continue;
 
-                fprintf(f, "%s-> %s:\n",
-                        prefix, socket_exec_command_to_string(c));
+                fprintf(f, "%s-> %s:\n", prefix, socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
@@ -862,16 +847,20 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         switch (local.sa.sa_family) {
 
         case AF_INET: {
-                uint32_t
-                        a = be32toh(local.in.sin_addr.s_addr),
-                        b = be32toh(remote.in.sin_addr.s_addr);
+                uint32_t a = be32toh(local.in.sin_addr.s_addr), b = be32toh(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&r,
                              "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                              nr,
-                             a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                             a >> 24,
+                             (a >> 16) & 0xFF,
+                             (a >> 8) & 0xFF,
+                             a & 0xFF,
                              be16toh(local.in.sin_port),
-                             b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
+                             b >> 24,
+                             (b >> 16) & 0xFF,
+                             (b >> 8) & 0xFF,
+                             b & 0xFF,
                              be16toh(remote.in.sin_port)) < 0)
                         return -ENOMEM;
 
@@ -879,22 +868,24 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         }
 
         case AF_INET6: {
-                static const unsigned char ipv4_prefix[] = {
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF
-                };
+                static const unsigned char ipv4_prefix[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF };
 
                 if (memcmp(&local.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0 &&
                     memcmp(&remote.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
-                        const uint8_t
-                                *a = local.in6.sin6_addr.s6_addr+12,
-                                *b = remote.in6.sin6_addr.s6_addr+12;
+                        const uint8_t *a = local.in6.sin6_addr.s6_addr + 12, *b = remote.in6.sin6_addr.s6_addr + 12;
 
                         if (asprintf(&r,
                                      "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
                                      nr,
-                                     a[0], a[1], a[2], a[3],
+                                     a[0],
+                                     a[1],
+                                     a[2],
+                                     a[3],
                                      be16toh(local.in6.sin6_port),
-                                     b[0], b[1], b[2], b[3],
+                                     b[0],
+                                     b[1],
+                                     b[2],
+                                     b[3],
                                      be16toh(remote.in6.sin6_port)) < 0)
                                 return -ENOMEM;
                 } else {
@@ -919,17 +910,13 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
 
                 k = getpeercred(fd, &ucred);
                 if (k >= 0) {
-                        if (asprintf(&r,
-                                     "%u-"PID_FMT"-"UID_FMT,
-                                     nr, ucred.pid, ucred.uid) < 0)
+                        if (asprintf(&r, "%u-" PID_FMT "-" UID_FMT, nr, ucred.pid, ucred.uid) < 0)
                                 return -ENOMEM;
                 } else if (k == -ENODATA) {
                         /* This handles the case where somebody is
                          * connecting from another pid/uid namespace
                          * (e.g. from outside of our container). */
-                        if (asprintf(&r,
-                                     "%u-unknown",
-                                     nr) < 0)
+                        if (asprintf(&r, "%u-unknown", nr) < 0)
                                 return -ENOMEM;
                 } else
                         return k;
@@ -938,11 +925,7 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         }
 
         case AF_VSOCK:
-                if (asprintf(&r,
-                             "%u-%u:%u-%u:%u",
-                             nr,
-                             local.vm.svm_cid, local.vm.svm_port,
-                             remote.vm.svm_cid, remote.vm.svm_port) < 0)
+                if (asprintf(&r, "%u-%u:%u-%u:%u", nr, local.vm.svm_cid, local.vm.svm_port, remote.vm.svm_cid, remote.vm.svm_port) < 0)
                         return -ENOMEM;
 
                 break;
@@ -1000,7 +983,7 @@ static void socket_close_fds(Socket *s) {
 
         if (s->remove_on_stop)
                 STRV_FOREACH(i, s->symlinks)
-                        (void) unlink(*i);
+        (void) unlink(*i);
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
@@ -1119,7 +1102,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->tcp_congestion)
-                if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
+                if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion) + 1) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_CONGESTION failed: %m");
 
         if (s->smack_ip_in) {
@@ -1152,10 +1135,7 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
         }
 }
 
-static int fifo_address_create(
-                const char *path,
-                mode_t directory_mode,
-                mode_t socket_mode) {
+static int fifo_address_create(const char *path, mode_t directory_mode, mode_t socket_mode) {
 
         _cleanup_close_ int fd = -1;
         mode_t old_mask;
@@ -1197,10 +1177,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        if (!S_ISFIFO(st.st_mode) ||
-            (st.st_mode & 0777) != (socket_mode & ~old_mask) ||
-            st.st_uid != getuid() ||
-            st.st_gid != getgid()) {
+        if (!S_ISFIFO(st.st_mode) || (st.st_mode & 0777) != (socket_mode & ~old_mask) || st.st_uid != getuid() || st.st_gid != getgid()) {
                 r = -EEXIST;
                 goto fail;
         }
@@ -1218,7 +1195,7 @@ static int special_address_create(const char *path, bool writable) {
 
         assert(path);
 
-        fd = open(path, (writable ? O_RDWR : O_RDONLY)|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = open(path, (writable ? O_RDWR : O_RDONLY) | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -1238,7 +1215,7 @@ static int usbffs_address_create(const char *path) {
 
         assert(path);
 
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW);
+        fd = open(path, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK | O_NOFOLLOW);
         if (fd < 0)
                 return -errno;
 
@@ -1252,11 +1229,7 @@ static int usbffs_address_create(const char *path) {
         return TAKE_FD(fd);
 }
 
-static int mq_address_create(
-                const char *path,
-                mode_t mq_mode,
-                long maxmsg,
-                long msgsize) {
+static int mq_address_create(const char *path, mode_t mq_mode, long maxmsg, long msgsize) {
 
         _cleanup_close_ int fd = -1;
         struct stat st;
@@ -1266,7 +1239,7 @@ static int mq_address_create(
         assert(path);
 
         if (maxmsg > 0 && msgsize > 0) {
-                _attr = (struct mq_attr) {
+                _attr = (struct mq_attr){
                         .mq_flags = O_NONBLOCK,
                         .mq_maxmsg = maxmsg,
                         .mq_msgsize = msgsize,
@@ -1279,7 +1252,7 @@ static int mq_address_create(
 
         /* Include the original umask in our mask */
         (void) umask(~mq_mode | old_mask);
-        fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
+        fd = mq_open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_CREAT, mq_mode, attr);
         (void) umask(old_mask);
 
         if (fd < 0)
@@ -1288,9 +1261,7 @@ static int mq_address_create(
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if ((st.st_mode & 0777) != (mq_mode & ~old_mask) ||
-            st.st_uid != getuid() ||
-            st.st_gid != getgid())
+        if ((st.st_mode & 0777) != (mq_mode & ~old_mask) || st.st_uid != getuid() || st.st_gid != getgid())
                 return -EEXIST;
 
         return TAKE_FD(fd);
@@ -1355,7 +1326,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 return -errno;
 
         n = (size_t) r;
-        p->auxiliary_fds = new(int, n);
+        p->auxiliary_fds = new (int, n);
         if (!p->auxiliary_fds) {
                 r = -ENOMEM;
                 goto clear;
@@ -1443,32 +1414,25 @@ no_label:
         return 0;
 }
 
-static int socket_address_listen_do(
-                Socket *s,
-                const SocketAddress *address,
-                const char *label) {
+static int socket_address_listen_do(Socket *s, const SocketAddress *address, const char *label) {
 
         assert(s);
         assert(address);
 
-        return socket_address_listen(
-                        address,
-                        SOCK_CLOEXEC|SOCK_NONBLOCK,
-                        s->backlog,
-                        s->bind_ipv6_only,
-                        s->bind_to_device,
-                        s->reuse_port,
-                        s->free_bind,
-                        s->transparent,
-                        s->directory_mode,
-                        s->socket_mode,
-                        label);
+        return socket_address_listen(address,
+                                     SOCK_CLOEXEC | SOCK_NONBLOCK,
+                                     s->backlog,
+                                     s->bind_ipv6_only,
+                                     s->bind_to_device,
+                                     s->reuse_port,
+                                     s->free_bind,
+                                     s->transparent,
+                                     s->directory_mode,
+                                     s->socket_mode,
+                                     label);
 }
 
-static int socket_address_listen_in_cgroup(
-                Socket *s,
-                const SocketAddress *address,
-                const char *label) {
+static int socket_address_listen_in_cgroup(Socket *s, const SocketAddress *address, const char *label) {
 
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         int fd, r;
@@ -1490,7 +1454,7 @@ static int socket_address_listen_in_cgroup(
         if (r == BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
                 goto shortcut;
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
         r = unit_fork_helper_process(UNIT(s), "(sd-listen)", &pid);
@@ -1602,10 +1566,7 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_FIFO:
 
-                        p->fd = fifo_address_create(
-                                        p->path,
-                                        s->directory_mode,
-                                        s->socket_mode);
+                        p->fd = fifo_address_create(p->path, s->directory_mode, s->socket_mode);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;
@@ -1617,11 +1578,7 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_MQUEUE:
 
-                        p->fd = mq_address_create(
-                                        p->path,
-                                        s->socket_mode,
-                                        s->mq_maxmsg,
-                                        s->mq_msgsize);
+                        p->fd = mq_address_create(p->path, s->socket_mode, s->mq_maxmsg, s->mq_msgsize);
                         if (p->fd < 0) {
                                 r = p->fd;
                                 goto rollback;
@@ -1711,7 +1668,8 @@ fail:
         return r;
 }
 
-enum {
+enum
+{
         SOCKET_OPEN_NONE,
         SOCKET_OPEN_SOME,
         SOCKET_OPEN_ALL,
@@ -1795,8 +1753,7 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (s->control_pid > 0 &&
-            pid_is_unwaited(s->control_pid) &&
+        if (s->control_pid > 0 && pid_is_unwaited(s->control_pid) &&
             IN_SET(s->deserialized_state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
@@ -1817,11 +1774,7 @@ static int socket_coldplug(Unit *u) {
                         return r;
         }
 
-        if (IN_SET(s->deserialized_state,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST,
-                   SOCKET_LISTENING,
-                   SOCKET_RUNNING)) {
+        if (IN_SET(s->deserialized_state, SOCKET_START_CHOWN, SOCKET_START_POST, SOCKET_LISTENING, SOCKET_RUNNING)) {
 
                 /* Originally, we used to simply reopen all sockets here that we didn't have file descriptors
                  * for. However, this is problematic, as we won't traverse throught the SOCKET_START_CHOWN state for
@@ -1859,11 +1812,11 @@ static int socket_coldplug(Unit *u) {
 static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -1,
+                .flags = EXEC_APPLY_SANDBOXING | EXEC_APPLY_CHROOT | EXEC_APPLY_TTY_STDIN,
+                .stdin_fd = -1,
                 .stdout_fd = -1,
                 .stderr_fd = -1,
-                .exec_fd   = -1,
+                .exec_fd = -1,
         };
         pid_t pid;
         int r;
@@ -1884,13 +1837,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = exec_spawn(UNIT(s),
-                       c,
-                       &s->exec_context,
-                       &exec_params,
-                       s->exec_runtime,
-                       &s->dynamic_creds,
-                       &pid);
+        r = exec_spawn(UNIT(s), c, &s->exec_context, &exec_params, s->exec_runtime, &s->dynamic_creds, &pid);
         if (r < 0)
                 return r;
 
@@ -2036,14 +1983,12 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        !IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_FINAL_SIGTERM) ?
-                        KILL_KILL : KILL_TERMINATE,
-                        -1,
-                        s->control_pid,
-                        false);
+        r = unit_kill_context(UNIT(s),
+                              &s->kill_context,
+                              !IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_FINAL_SIGTERM) ? KILL_KILL : KILL_TERMINATE,
+                              -1,
+                              s->control_pid,
+                              false);
         if (r < 0)
                 goto fail;
 
@@ -2255,10 +2200,10 @@ static void socket_enter_running(Socket *s, int cfd) {
                 /* If there's already a start pending don't bother to
                  * do anything */
                 HASHMAP_FOREACH_KEY(v, other, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
-                        if (unit_active_or_pending(other)) {
-                                pending = true;
-                                break;
-                        }
+                if (unit_active_or_pending(other)) {
+                        pending = true;
+                        break;
+                }
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
@@ -2279,8 +2224,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
-                                         s->n_connections);
+                        log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.", s->n_connections);
                         goto refuse;
                 }
 
@@ -2295,7 +2239,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
-                                                 p->n_ref, strnull(t));
+                                                 p->n_ref,
+                                                 strnull(t));
                                 goto refuse;
                         }
                 }
@@ -2362,7 +2307,8 @@ refuse:
         return;
 
 fail:
-        log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
+        log_unit_warning(UNIT(s),
+                         "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
                          cfd >= 0 ? "template" : "non-template",
                          bus_error_message(&error, r));
 
@@ -2416,10 +2362,7 @@ static int socket_start(Unit *u) {
                 return -EAGAIN;
 
         /* Already on it! */
-        if (IN_SET(s->state,
-                   SOCKET_START_PRE,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST))
+        if (IN_SET(s->state, SOCKET_START_PRE, SOCKET_START_CHOWN, SOCKET_START_POST))
                 return 0;
 
         /* Cannot run this without the service being around */
@@ -2479,10 +2422,7 @@ static int socket_stop(Unit *u) {
 
         /* If there's already something running we go directly into
          * kill mode. */
-        if (IN_SET(s->state,
-                   SOCKET_START_PRE,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST)) {
+        if (IN_SET(s->state, SOCKET_START_PRE, SOCKET_START_CHOWN, SOCKET_START_POST)) {
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, SOCKET_SUCCESS);
                 return -EAGAIN;
         }
@@ -2619,11 +2559,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse fifo value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (p->type == SOCKET_FIFO &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (p->type == SOCKET_FIFO && path_equal_or_files_same(p->path, value + skip, 0)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else if (streq(key, "special")) {
                 int fd, skip = 0;
@@ -2633,11 +2572,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse special value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (p->type == SOCKET_SPECIAL &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (p->type == SOCKET_SPECIAL && path_equal_or_files_same(p->path, value + skip, 0)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else if (streq(key, "mqueue")) {
                 int fd, skip = 0;
@@ -2647,11 +2585,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse mqueue value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (p->type == SOCKET_MQUEUE &&
-                                    streq(p->path, value+skip)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (p->type == SOCKET_MQUEUE && streq(p->path, value + skip)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else if (streq(key, "socket")) {
                 int fd, type, skip = 0;
@@ -2661,10 +2598,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (socket_address_is(&p->address, value+skip, type)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (socket_address_is(&p->address, value + skip, type)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else if (streq(key, "netlink")) {
                 int fd, skip = 0;
@@ -2674,10 +2611,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (socket_address_is_netlink(&p->address, value+skip)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (socket_address_is_netlink(&p->address, value + skip)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else if (streq(key, "ffs")) {
                 int fd, skip = 0;
@@ -2687,11 +2624,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse ffs value: %s", value);
                 else
                         LIST_FOREACH(port, p, s->ports)
-                                if (p->type == SOCKET_USB_FUNCTION &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        socket_port_take_fd(p, fds, fd);
-                                        break;
-                                }
+                if (p->type == SOCKET_USB_FUNCTION && path_equal_or_files_same(p->path, value + skip, 0)) {
+                        socket_port_take_fd(p, fds, fd);
+                        break;
+                }
 
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
@@ -2737,7 +2673,7 @@ _pure_ static const char *socket_sub_state_to_string(Unit *u) {
         return socket_state_to_string(SOCKET(u)->state);
 }
 
-const char* socket_port_type_to_string(SocketPort *p) {
+const char *socket_port_type_to_string(SocketPort *p) {
 
         assert(p);
 
@@ -2849,7 +2785,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (r == BPF_FIREWALL_UNSUPPORTED)
                 goto shortcut;
 
-        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
+        if (socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
         r = unit_fork_helper_process(UNIT(s), "(sd-accept)", &pid);
@@ -2913,15 +2849,15 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (revents != EPOLLIN) {
 
                 if (revents & EPOLLHUP)
-                        log_unit_error(UNIT(p->socket), "Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.");
+                        log_unit_error(
+                                UNIT(p->socket),
+                                "Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.");
                 else
                         log_unit_error(UNIT(p->socket), "Got unexpected poll event (0x%x) on socket.", revents);
                 goto fail;
         }
 
-        if (p->socket->accept &&
-            p->type == SOCKET_SOCKET &&
-            socket_address_can_accept(&p->address)) {
+        if (p->socket->accept && p->type == SOCKET_SOCKET && socket_address_can_accept(&p->address)) {
 
                 cfd = socket_accept_in_cgroup(p->socket, p, fd);
                 if (cfd < 0)
@@ -2968,18 +2904,17 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         f = SOCKET_SUCCESS;
         }
 
-        unit_log_process_exit(
-                        u, f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
-                        "Control process",
-                        socket_exec_command_to_string(s->control_command_id),
-                        code, status);
+        unit_log_process_exit(u,
+                              f == SOCKET_SUCCESS ? LOG_DEBUG : LOG_NOTICE,
+                              "Control process",
+                              socket_exec_command_to_string(s->control_command_id),
+                              code,
+                              status);
 
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        if (s->control_command &&
-            s->control_command->command_next &&
-            f == SOCKET_SUCCESS) {
+        if (s->control_command && s->control_command->command_next && f == SOCKET_SUCCESS) {
 
                 log_unit_debug(u, "Running next command for state %s", socket_state_to_string(s->state));
                 socket_run_next(s);
@@ -3123,7 +3058,7 @@ int socket_collect_fds(Socket *s, int **fds) {
                 return 0;
         }
 
-        rfds = new(int, n);
+        rfds = new (int, n);
         if (!rfds)
                 return -ENOMEM;
 
@@ -3195,11 +3130,8 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         if (other->job)
                 return;
 
-        if (IN_SET(SERVICE(other)->state,
-                   SERVICE_DEAD, SERVICE_FAILED,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                   SERVICE_AUTO_RESTART))
-               socket_enter_listening(s);
+        if (IN_SET(SERVICE(other)->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL, SERVICE_AUTO_RESTART))
+                socket_enter_listening(s);
 
         if (SERVICE(other)->state == SERVICE_RUNNING)
                 socket_set_state(s, SOCKET_RUNNING);
@@ -3245,27 +3177,23 @@ static int socket_control_pid(Unit *u) {
         return s->control_pid;
 }
 
-static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
-        [SOCKET_EXEC_START_PRE] = "ExecStartPre",
-        [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
-        [SOCKET_EXEC_START_POST] = "ExecStartPost",
-        [SOCKET_EXEC_STOP_PRE] = "ExecStopPre",
-        [SOCKET_EXEC_STOP_POST] = "ExecStopPost"
-};
+static const char *const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = { [SOCKET_EXEC_START_PRE] = "ExecStartPre",
+                                                                                 [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
+                                                                                 [SOCKET_EXEC_START_POST] = "ExecStartPost",
+                                                                                 [SOCKET_EXEC_STOP_PRE] = "ExecStopPre",
+                                                                                 [SOCKET_EXEC_STOP_POST] = "ExecStopPost" };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
-static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
-        [SOCKET_SUCCESS] = "success",
-        [SOCKET_FAILURE_RESOURCES] = "resources",
-        [SOCKET_FAILURE_TIMEOUT] = "timeout",
-        [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
-        [SOCKET_FAILURE_SIGNAL] = "signal",
-        [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
-        [SOCKET_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
-        [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
-        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
-};
+static const char *const socket_result_table[_SOCKET_RESULT_MAX] = { [SOCKET_SUCCESS] = "success",
+                                                                     [SOCKET_FAILURE_RESOURCES] = "resources",
+                                                                     [SOCKET_FAILURE_TIMEOUT] = "timeout",
+                                                                     [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
+                                                                     [SOCKET_FAILURE_SIGNAL] = "signal",
+                                                                     [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+                                                                     [SOCKET_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+                                                                     [SOCKET_FAILURE_TRIGGER_LIMIT_HIT] = "trigger-limit-hit",
+                                                                     [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit" };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
 
@@ -3321,20 +3249,23 @@ const UnitVTable socket_vtable = {
         .bus_set_property = bus_socket_set_property,
         .bus_commit_properties = bus_socket_commit_properties,
 
-        .status_message_formats = {
-                /*.starting_stopping = {
-                        [0] = "Starting socket %s...",
-                        [1] = "Stopping socket %s...",
-                },*/
-                .finished_start_job = {
-                        [JOB_DONE]       = "Listening on %s.",
-                        [JOB_FAILED]     = "Failed to listen on %s.",
-                        [JOB_TIMEOUT]    = "Timed out starting %s.",
+        .status_message_formats =
+                {
+                        /*.starting_stopping = {
+                                [0] = "Starting socket %s...",
+                                [1] = "Stopping socket %s...",
+                        },*/
+                        .finished_start_job =
+                                {
+                                        [JOB_DONE] = "Listening on %s.",
+                                        [JOB_FAILED] = "Failed to listen on %s.",
+                                        [JOB_TIMEOUT] = "Timed out starting %s.",
+                                },
+                        .finished_stop_job =
+                                {
+                                        [JOB_DONE] = "Closed %s.",
+                                        [JOB_FAILED] = "Failed stopping %s.",
+                                        [JOB_TIMEOUT] = "Timed out stopping %s.",
+                                },
                 },
-                .finished_stop_job = {
-                        [JOB_DONE]       = "Closed %s.",
-                        [JOB_FAILED]     = "Failed stopping %s.",
-                        [JOB_TIMEOUT]    = "Timed out stopping %s.",
-                },
-        },
 };

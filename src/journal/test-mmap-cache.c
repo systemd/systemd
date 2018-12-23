@@ -40,20 +40,20 @@ int main(int argc, char *argv[]) {
         r = mmap_cache_get(m, fx, PROT_READ, 0, false, 2, 2, NULL, &q, NULL);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 1 == (uint8_t *) q);
 
         r = mmap_cache_get(m, fx, PROT_READ, 1, false, 3, 2, NULL, &q, NULL);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 2 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 2 == (uint8_t *) q);
 
-        r = mmap_cache_get(m, fx, PROT_READ, 0, false, 16ULL*1024ULL*1024ULL, 2, NULL, &p, NULL);
+        r = mmap_cache_get(m, fx, PROT_READ, 0, false, 16ULL * 1024ULL * 1024ULL, 2, NULL, &p, NULL);
         assert_se(r >= 0);
 
-        r = mmap_cache_get(m, fx, PROT_READ, 1, false, 16ULL*1024ULL*1024ULL+1, 2, NULL, &q, NULL);
+        r = mmap_cache_get(m, fx, PROT_READ, 1, false, 16ULL * 1024ULL * 1024ULL + 1, 2, NULL, &q, NULL);
         assert_se(r >= 0);
 
-        assert_se((uint8_t*) p + 1 == (uint8_t*) q);
+        assert_se((uint8_t *) p + 1 == (uint8_t *) q);
 
         mmap_cache_free_fd(m, fx);
         mmap_cache_unref(m);

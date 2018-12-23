@@ -35,10 +35,10 @@
 typedef struct Group {
         char *path;
 
-        bool n_tasks_valid:1;
-        bool cpu_valid:1;
-        bool memory_valid:1;
-        bool io_valid:1;
+        bool n_tasks_valid : 1;
+        bool cpu_valid : 1;
+        bool memory_valid : 1;
+        bool io_valid : 1;
 
         uint64_t n_tasks;
 
@@ -59,9 +59,9 @@ static unsigned arg_depth = 3;
 static unsigned arg_iterations = (unsigned) -1;
 static bool arg_batch = false;
 static bool arg_raw = false;
-static usec_t arg_delay = 1*USEC_PER_SEC;
-static char* arg_machine = NULL;
-static char* arg_root = NULL;
+static usec_t arg_delay = 1 * USEC_PER_SEC;
+static char *arg_machine = NULL;
+static char *arg_root = NULL;
 static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 
@@ -126,13 +126,7 @@ static bool is_root_cgroup(const char *path) {
         return empty_or_root(path);
 }
 
-static int process(
-                const char *controller,
-                const char *path,
-                Hashmap *a,
-                Hashmap *b,
-                unsigned iteration,
-                Group **ret) {
+static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration, Group **ret) {
 
         Group *g;
         int r, all_unified;
@@ -173,8 +167,7 @@ static int process(
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) &&
-            IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
@@ -270,8 +263,7 @@ static int process(
 
                 timestamp = now_nsec(CLOCK_MONOTONIC);
 
-                if (g->cpu_iteration == iteration - 1 &&
-                    (nsec_t) new_usage > g->cpu_usage) {
+                if (g->cpu_iteration == iteration - 1 && (nsec_t) new_usage > g->cpu_usage) {
 
                         nsec_t x, y;
 
@@ -318,8 +310,7 @@ static int process(
                 if (g->memory > 0)
                         g->memory_valid = true;
 
-        } else if ((streq(controller, "io") && all_unified) ||
-                   (streq(controller, "blkio") && !all_unified)) {
+        } else if ((streq(controller, "io") && all_unified) || (streq(controller, "blkio") && !all_unified)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *p = NULL;
                 uint64_t wr = 0, rd = 0;
@@ -386,7 +377,7 @@ static int process(
                 if (g->io_iteration == iteration - 1) {
                         uint64_t x, yr, yw;
 
-                        x = (uint64_t) (timestamp - g->io_timestamp);
+                        x = (uint64_t)(timestamp - g->io_timestamp);
                         if (x < 1)
                                 x = 1;
 
@@ -419,14 +410,7 @@ static int process(
         return 0;
 }
 
-static int refresh_one(
-                const char *controller,
-                const char *path,
-                Hashmap *a,
-                Hashmap *b,
-                unsigned iteration,
-                unsigned depth,
-                Group **ret) {
+static int refresh_one(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration, unsigned depth, Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
         Group *ours = NULL;
@@ -469,10 +453,7 @@ static int refresh_one(
                 if (r < 0)
                         return r;
 
-                if (arg_recursive &&
-                    IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) &&
-                    child &&
-                    child->n_tasks_valid &&
+                if (arg_recursive && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) && child && child->n_tasks_valid &&
                     streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
 
                         /* Recursively sum up processes */
@@ -505,7 +486,7 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
         return 0;
 }
 
-static int group_compare(Group * const *a, Group * const *b) {
+static int group_compare(Group *const *a, Group *const *b) {
         const Group *x = *a, *y = *b;
         int r;
 
@@ -595,11 +576,11 @@ static void display(Hashmap *a) {
         if (!terminal_is_dumb())
                 fputs(ANSI_HOME_CLEAR, stdout);
 
-        array = newa(Group*, hashmap_size(a));
+        array = newa(Group *, hashmap_size(a));
 
         HASHMAP_FOREACH(g, a, i)
-                if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
-                        array[n++] = g;
+        if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
+                array[n++] = g;
 
         typesafe_qsort(array, n, group_compare);
 
@@ -607,7 +588,7 @@ static void display(Hashmap *a) {
         for (j = 0; j < n; j++) {
                 unsigned cputlen, pathtlen;
 
-                format_timespan(buffer, sizeof(buffer), (usec_t) (array[j]->cpu_usage / NSEC_PER_USEC), 0);
+                format_timespan(buffer, sizeof(buffer), (usec_t)(array[j]->cpu_usage / NSEC_PER_USEC), 0);
                 cputlen = strlen(buffer);
                 maxtcpu = MAX(maxtcpu, cputlen);
 
@@ -636,17 +617,24 @@ static void display(Hashmap *a) {
 
                 printf("%s%s%-*s%s %s%7s%s %s%s%s %s%8s%s %s%8s%s %s%8s%s%s\n",
                        ansi_underline(),
-                       arg_order == ORDER_PATH ? on : "", path_columns, "Control Group",
+                       arg_order == ORDER_PATH ? on : "",
+                       path_columns,
+                       "Control Group",
                        arg_order == ORDER_PATH ? off : "",
-                       arg_order == ORDER_TASKS ? on : "", arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
+                       arg_order == ORDER_TASKS ? on : "",
+                       arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
                        arg_order == ORDER_TASKS ? off : "",
-                       arg_order == ORDER_CPU ? on : "", buffer,
+                       arg_order == ORDER_CPU ? on : "",
+                       buffer,
                        arg_order == ORDER_CPU ? off : "",
-                       arg_order == ORDER_MEMORY ? on : "", "Memory",
+                       arg_order == ORDER_MEMORY ? on : "",
+                       "Memory",
                        arg_order == ORDER_MEMORY ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Input/s",
+                       arg_order == ORDER_IO ? on : "",
+                       "Input/s",
                        arg_order == ORDER_IO ? off : "",
-                       arg_order == ORDER_IO ? on : "", "Output/s",
+                       arg_order == ORDER_IO ? on : "",
+                       "Output/s",
                        arg_order == ORDER_IO ? off : "",
                        ansi_normal());
         } else
@@ -672,11 +660,11 @@ static void display(Hashmap *a) {
 
                 if (arg_cpu_type == CPU_PERCENT) {
                         if (g->cpu_valid)
-                                printf(" %6.1f", g->cpu_fraction*100);
+                                printf(" %6.1f", g->cpu_fraction * 100);
                         else
                                 fputs("      -", stdout);
                 } else
-                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (usec_t) (g->cpu_usage / NSEC_PER_USEC), 0));
+                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (usec_t)(g->cpu_usage / NSEC_PER_USEC), 0));
 
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->memory_valid, g->memory));
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_input_bps));
@@ -715,17 +703,17 @@ static int help(void) {
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
                "  -M --machine=       Show container\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , arg_depth
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               arg_depth,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_DEPTH,
                 ARG_CPU_TYPE,
@@ -733,20 +721,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECURSIVE,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                { "delay",        required_argument, NULL, 'd'           },
-                { "iterations",   required_argument, NULL, 'n'           },
-                { "batch",        no_argument,       NULL, 'b'           },
-                { "raw",          no_argument,       NULL, 'r'           },
-                { "depth",        required_argument, NULL, ARG_DEPTH     },
-                { "cpu",          optional_argument, NULL, ARG_CPU_TYPE  },
-                { "order",        required_argument, NULL, ARG_ORDER     },
-                { "recursive",    required_argument, NULL, ARG_RECURSIVE },
-                { "machine",      required_argument, NULL, 'M'           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "delay", required_argument, NULL, 'd' },
+                                                 { "iterations", required_argument, NULL, 'n' },
+                                                 { "batch", no_argument, NULL, 'b' },
+                                                 { "raw", no_argument, NULL, 'r' },
+                                                 { "depth", required_argument, NULL, ARG_DEPTH },
+                                                 { "cpu", optional_argument, NULL, ARG_CPU_TYPE },
+                                                 { "order", required_argument, NULL, ARG_ORDER },
+                                                 { "recursive", required_argument, NULL, ARG_RECURSIVE },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 {} };
 
         int c, r;
 
@@ -770,9 +756,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 else if (streq(optarg, "percentage"))
                                         arg_cpu_type = CPU_PERCENT;
                                 else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown argument to --cpu=: %s",
-                                                               optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --cpu=: %s", optarg);
                         } else
                                 arg_cpu_type = CPU_TIME;
 
@@ -790,9 +774,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse delay parameter '%s': %m", optarg);
                         if (arg_delay <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid delay parameter '%s'",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid delay parameter '%s'", optarg);
 
                         break;
 
@@ -847,9 +829,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "io"))
                                 arg_order = ORDER_IO;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid argument to --order=: %s",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid argument to --order=: %s", optarg);
                         break;
 
                 case 'k':
@@ -883,13 +863,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (optind == argc - 1)
                 arg_root = argv[optind];
         else if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
         return 1;
 }
 
-static const char* counting_what(void) {
+static const char *counting_what(void) {
         if (arg_count == COUNT_PIDS)
                 return "tasks";
         else if (arg_count == COUNT_ALL_PROCESSES)
@@ -1050,7 +1029,7 @@ static int run(int argc, char *argv[]) {
 
                 case '+':
                         if (arg_delay < USEC_PER_SEC)
-                                arg_delay += USEC_PER_MSEC*250;
+                                arg_delay += USEC_PER_MSEC * 250;
                         else
                                 arg_delay += USEC_PER_SEC;
 
@@ -1060,10 +1039,10 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 case '-':
-                        if (arg_delay <= USEC_PER_MSEC*500)
-                                arg_delay = USEC_PER_MSEC*250;
-                        else if (arg_delay < USEC_PER_MSEC*1250)
-                                arg_delay -= USEC_PER_MSEC*250;
+                        if (arg_delay <= USEC_PER_MSEC * 500)
+                                arg_delay = USEC_PER_MSEC * 250;
+                        else if (arg_delay < USEC_PER_MSEC * 1250)
+                                arg_delay -= USEC_PER_MSEC * 250;
                         else
                                 arg_delay -= USEC_PER_SEC;
 
@@ -1079,9 +1058,13 @@ static int run(int argc, char *argv[]) {
 #define OFF ANSI_NORMAL
 
                         fprintf(stdout,
-                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF "> By I/O\n"
-                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF "> Refresh\n"
-                                "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF "> Toggle count all processes\n"
+                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF
+                                "> By memory; <" ON "i" OFF
+                                "> By I/O\n"
+                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF
+                                "> Refresh\n"
+                                "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF
+                                "> Toggle count all processes\n"
                                 "\t<" ON "r" OFF "> Count processes recursively; <" ON "q" OFF "> Quit");
                         fflush(stdout);
                         sleep(3);

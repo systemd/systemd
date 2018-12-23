@@ -42,19 +42,19 @@
 #define SHORT_BUS_CALL_TIMEOUT_USEC (3 * USEC_PER_SEC)
 
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
-static const char* arg_field = NULL;
+static const char *arg_field = NULL;
 static const char *arg_debugger = NULL;
 static const char *arg_directory = NULL;
 static PagerFlags arg_pager_flags = 0;
 static int arg_no_legend = false;
 static int arg_one = false;
-static const char* arg_output = NULL;
+static const char *arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
-        const char* prefix, *pattern;
+        const char *prefix, *pattern;
         pid_t pid;
         int r;
 
@@ -167,16 +167,16 @@ static int help(void) {
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
@@ -185,27 +185,25 @@ static int parse_argv(int argc, char *argv[]) {
 
         int c, r;
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version" ,     no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
-                { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
-                { "output",       required_argument, NULL, 'o'           },
-                { "field",        required_argument, NULL, 'F'           },
-                { "directory",    required_argument, NULL, 'D'           },
-                { "reverse",      no_argument,       NULL, 'r'           },
-                { "since",        required_argument, NULL, 'S'           },
-                { "until",        required_argument, NULL, 'U'           },
-                { "quiet",        no_argument,       NULL, 'q'           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "no-legend", no_argument, NULL, ARG_NO_LEGEND },
+                                                 { "debugger", required_argument, NULL, ARG_DEBUGGER },
+                                                 { "output", required_argument, NULL, 'o' },
+                                                 { "field", required_argument, NULL, 'F' },
+                                                 { "directory", required_argument, NULL, 'D' },
+                                                 { "reverse", no_argument, NULL, 'r' },
+                                                 { "since", required_argument, NULL, 'S' },
+                                                 { "until", required_argument, NULL, 'U' },
+                                                 { "quiet", no_argument, NULL, 'q' },
+                                                 {} };
 
         assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
                         return help();
 
@@ -226,8 +224,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'o':
                         if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot set output more than once.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot set output more than once.");
 
                         arg_output = optarg;
                         break;
@@ -246,8 +243,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         if (arg_field)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --field/-F more than once.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --field/-F more than once.");
                         arg_field = optarg;
                         break;
 
@@ -274,18 +270,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY &&
-            arg_since > arg_until)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--since= must be before --until=.");
+        if (arg_since != USEC_INFINITY && arg_until != USEC_INFINITY && arg_since > arg_until)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--since= must be before --until=.");
 
         return 1;
 }
 
-static int retrieve(const void *data,
-                    size_t len,
-                    const char *name,
-                    char **var) {
+static int retrieve(const void *data, size_t len, const char *name, char **var) {
 
         size_t ident;
         char *v;
@@ -298,10 +289,10 @@ static int retrieve(const void *data,
         if (memcmp(data, name, ident - 1) != 0)
                 return 0;
 
-        if (((const char*) data)[ident - 1] != '=')
+        if (((const char *) data)[ident - 1] != '=')
                 return 0;
 
-        v = strndup((const char*)data + ident, len - ident);
+        v = strndup((const char *) data + ident, len - ident);
         if (!v)
                 return log_oom();
 
@@ -311,7 +302,7 @@ static int retrieve(const void *data,
         return 1;
 }
 
-static int print_field(FILE* file, sd_journal *j) {
+static int print_field(FILE *file, sd_journal *j) {
         const void *d;
         size_t l;
 
@@ -348,11 +339,9 @@ static int print_field(FILE* file, sd_journal *j) {
                         continue;                    \
         }
 
-static int print_list(FILE* file, sd_journal *j, int had_legend) {
-        _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *filename = NULL, *truncated = NULL, *coredump = NULL;
+static int print_list(FILE *file, sd_journal *j, int had_legend) {
+        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                            *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         usec_t t;
@@ -390,14 +379,21 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         format_timestamp(buf, sizeof(buf), t);
 
         if (!had_legend && !arg_no_legend)
-                fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                        FORMAT_TIMESTAMP_WIDTH, "TIME",
-                        6, "PID",
-                        5, "UID",
-                        5, "GID",
-                        3, "SIG",
-                        9, "COREFILE",
-                           "EXE");
+                fprintf(file,
+                        "%-*s %*s %*s %*s %*s %-*s %s\n",
+                        FORMAT_TIMESTAMP_WIDTH,
+                        "TIME",
+                        6,
+                        "PID",
+                        5,
+                        "UID",
+                        5,
+                        "GID",
+                        3,
+                        "SIG",
+                        9,
+                        "COREFILE",
+                        "EXE");
 
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
@@ -418,27 +414,30 @@ static int print_list(FILE* file, sd_journal *j, int had_legend) {
         if (STR_IN_SET(present, "present", "journal") && truncated && parse_boolean(truncated) > 0)
                 present = "truncated";
 
-        fprintf(file, "%-*s %*s %*s %*s %*s %-*s %s\n",
-                FORMAT_TIMESTAMP_WIDTH, buf,
-                6, strna(pid),
-                5, strna(uid),
-                5, strna(gid),
-                3, normal_coredump ? strna(sgnl) : "-",
-                9, present,
+        fprintf(file,
+                "%-*s %*s %*s %*s %*s %-*s %s\n",
+                FORMAT_TIMESTAMP_WIDTH,
+                buf,
+                6,
+                strna(pid),
+                5,
+                strna(uid),
+                5,
+                strna(gid),
+                3,
+                normal_coredump ? strna(sgnl) : "-",
+                9,
+                present,
                 strna(exe ?: (comm ?: cmdline)));
 
         return 0;
 }
 
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
-        _cleanup_free_ char
-                *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                *unit = NULL, *user_unit = NULL, *session = NULL,
-                *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
-                *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
-                *message = NULL, *timestamp = NULL, *filename = NULL,
-                *truncated = NULL, *coredump = NULL;
+        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                            *unit = NULL, *user_unit = NULL, *session = NULL, *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
+                            *slice = NULL, *cgroup = NULL, *owner_uid = NULL, *message = NULL, *timestamp = NULL, *filename = NULL,
+                            *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -478,13 +477,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         normal_coredump = streq_ptr(mid, SD_MESSAGE_COREDUMP_STR);
 
         if (comm)
-                fprintf(file,
-                        "           PID: %s%s%s (%s)\n",
-                        ansi_highlight(), strna(pid), ansi_normal(), comm);
+                fprintf(file, "           PID: %s%s%s (%s)\n", ansi_highlight(), strna(pid), ansi_normal(), comm);
         else
-                fprintf(file,
-                        "           PID: %s%s%s\n",
-                        ansi_highlight(), strna(pid), ansi_normal());
+                fprintf(file, "           PID: %s%s%s\n", ansi_highlight(), strna(pid), ansi_normal());
 
         if (uid) {
                 uid_t n;
@@ -493,13 +488,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         _cleanup_free_ char *u = NULL;
 
                         u = uid_to_name(n);
-                        fprintf(file,
-                                "           UID: %s (%s)\n",
-                                uid, u);
+                        fprintf(file, "           UID: %s (%s)\n", uid, u);
                 } else {
-                        fprintf(file,
-                                "           UID: %s\n",
-                                uid);
+                        fprintf(file, "           UID: %s\n", uid);
                 }
         }
 
@@ -510,13 +501,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         _cleanup_free_ char *g = NULL;
 
                         g = gid_to_name(n);
-                        fprintf(file,
-                                "           GID: %s (%s)\n",
-                                gid, g);
+                        fprintf(file, "           GID: %s (%s)\n", gid, g);
                 } else {
-                        fprintf(file,
-                                "           GID: %s\n",
-                                gid);
+                        fprintf(file, "           GID: %s\n", gid);
                 }
         }
 
@@ -567,13 +554,9 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                         _cleanup_free_ char *u = NULL;
 
                         u = uid_to_name(n);
-                        fprintf(file,
-                                "     Owner UID: %s (%s)\n",
-                                owner_uid, u);
+                        fprintf(file, "     Owner UID: %s (%s)\n", owner_uid, u);
                 } else {
-                        fprintf(file,
-                                "     Owner UID: %s\n",
-                                owner_uid);
+                        fprintf(file, "     Owner UID: %s\n", owner_uid);
                 }
         }
         if (boot_id)
@@ -590,7 +573,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 trunc = truncated && parse_boolean(truncated) > 0;
 
                 if (inacc || trunc)
-                        fprintf(file, "       Storage: %s%s (%s%s%s)%s\n",
+                        fprintf(file,
+                                "       Storage: %s%s (%s%s%s)%s\n",
                                 ansi_highlight_red(),
                                 filename,
                                 inacc ? "inaccessible" : "",
@@ -626,8 +610,7 @@ static int focus(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to search journal: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "No match found.");
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No match found.");
         return r;
 }
 
@@ -739,7 +722,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
         assert(!!path == !!unlink_temp); /* Those must be specified together */
 
         /* Look for a coredump on disk first. */
-        r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
+        r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void **) &data, &len);
         if (r == 0)
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
         else {
@@ -749,9 +732,10 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                  * data threshold, so we'll get a few kilobytes at most.
                  */
 
-                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+                r = sd_journal_get_data(j, "COREDUMP", (const void **) &data, &len);
                 if (r == -ENOENT)
-                        return log_error_errno(r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
+                        return log_error_errno(
+                                r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
                 if (r < 0)
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
         }
@@ -831,7 +815,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 /* We want full data, nothing truncated. */
                 sd_journal_set_data_threshold(j, 0);
 
-                r = sd_journal_get_data(j, "COREDUMP", (const void**) &data, &len);
+                r = sd_journal_get_data(j, "COREDUMP", (const void **) &data, &len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
 
@@ -937,7 +921,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
         print_info(stdout, j, false);
         fputs("\n", stdout);
 
-        r = sd_journal_get_data(j, "COREDUMP_EXE", (const void**) &data, &len);
+        r = sd_journal_get_data(j, "COREDUMP_EXE", (const void **) &data, &len);
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
@@ -968,7 +952,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         fork_name = strjoina("(", arg_debugger, ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -1007,12 +991,7 @@ static int check_units_active(void) {
                 return log_error_errno(r, "Failed to acquire bus: %m");
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnitsByPatterns");
+                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "ListUnitsByPatterns");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1026,17 +1005,14 @@ static int check_units_active(void) {
 
         r = sd_bus_call(bus, m, SHORT_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to check if any systemd-coredump@.service units are running: %s",
-                                       bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to check if any systemd-coredump@.service units are running: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(
-                                reply, "(ssssssouso)",
-                                &id,  NULL,  NULL,  &state,  &substate,
-                                NULL,  NULL,  NULL,  NULL,  NULL)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(ssssssouso)", &id, NULL, NULL, &state, &substate, NULL, NULL, NULL, NULL, NULL)) > 0) {
                 bool found = !STR_IN_SET(state, "inactive", "dead", "failed");
                 log_debug("Unit %s is %s/%s, %scounting it.", id, state, substate, found ? "" : "not ");
                 c += found;
@@ -1053,14 +1029,12 @@ static int check_units_active(void) {
 
 static int coredumpctl_main(int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
-                { "info",  VERB_ANY, VERB_ANY, 0,            dump_list },
-                { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
-                { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
-                { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
-                {}
-        };
+        static const Verb verbs[] = { { "list", VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
+                                      { "info", VERB_ANY, VERB_ANY, 0, dump_list },
+                                      { "dump", VERB_ANY, VERB_ANY, 0, dump_core },
+                                      { "debug", VERB_ANY, VERB_ANY, 0, run_debug },
+                                      { "gdb", VERB_ANY, VERB_ANY, 0, run_debug },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }
@@ -1088,7 +1062,8 @@ static int run(int argc, char *argv[]) {
         if (units_active > 0)
                 printf("%s-- Notice: %d systemd-coredump@.service %s, output may be incomplete.%s\n",
                        ansi_highlight_red(),
-                       units_active, units_active == 1 ? "unit is running" : "units are running",
+                       units_active,
+                       units_active == 1 ? "unit is running" : "units are running",
                        ansi_normal());
         return r;
 }

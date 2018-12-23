@@ -36,6 +36,6 @@ int udev_ctrl_get_exit(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_children_max(struct udev_ctrl_msg *ctrl_msg);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection*, udev_ctrl_connection_unref);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg*, udev_ctrl_msg_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl *, udev_ctrl_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_connection *, udev_ctrl_connection_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl_msg *, udev_ctrl_msg_unref);

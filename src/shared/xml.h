@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-enum {
+enum
+{
         XML_END,
         XML_TEXT,
         XML_TAG_OPEN,

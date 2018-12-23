@@ -49,15 +49,15 @@ struct scsi_id_device {
 };
 
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
-int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
-                    int page_code, int len);
+int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname, int page_code, int len);
 
 /*
  * Page code values.
  */
-enum page_code {
+enum page_code
+{
         PAGE_83_PRE_SPC3 = -0x83,
         PAGE_UNSPECIFIED = 0x00,
-        PAGE_80          = 0x80,
-        PAGE_83          = 0x83,
+        PAGE_80 = 0x80,
+        PAGE_83 = 0x83,
 };

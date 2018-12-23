@@ -8,15 +8,17 @@ typedef enum KillWho KillWho;
 #include "machined.h"
 #include "operation.h"
 
-typedef enum MachineState {
-        MACHINE_OPENING,    /* Machine is being registered */
-        MACHINE_RUNNING,    /* Machine is running */
-        MACHINE_CLOSING,    /* Machine is terminating */
+typedef enum MachineState
+{
+        MACHINE_OPENING, /* Machine is being registered */
+        MACHINE_RUNNING, /* Machine is running */
+        MACHINE_CLOSING, /* Machine is terminating */
         _MACHINE_STATE_MAX,
         _MACHINE_STATE_INVALID = -1
 } MachineState;
 
-typedef enum MachineClass {
+typedef enum MachineClass
+{
         MACHINE_CONTAINER,
         MACHINE_VM,
         MACHINE_HOST,
@@ -24,7 +26,8 @@ typedef enum MachineClass {
         _MACHINE_CLASS_INVALID = -1
 } MachineClass;
 
-enum KillWho {
+enum KillWho
+{
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
@@ -50,9 +53,9 @@ struct Machine {
 
         dual_timestamp timestamp;
 
-        bool in_gc_queue:1;
-        bool started:1;
-        bool stopping:1;
+        bool in_gc_queue : 1;
+        bool started : 1;
+        bool stopping : 1;
 
         sd_bus_message *create_message;
 
@@ -64,8 +67,8 @@ struct Machine {
         LIST_FIELDS(Machine, gc_queue);
 };
 
-Machine* machine_new(Manager *manager, MachineClass class, const char *name);
-Machine* machine_free(Machine *m);
+Machine *machine_new(Manager *manager, MachineClass class, const char *name);
+Machine *machine_free(Machine *m);
 bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
@@ -79,10 +82,10 @@ void machine_release_unit(Machine *m);
 
 MachineState machine_get_state(Machine *u);
 
-const char* machine_class_to_string(MachineClass t) _const_;
+const char *machine_class_to_string(MachineClass t) _const_;
 MachineClass machine_class_from_string(const char *s) _pure_;
 
-const char* machine_state_to_string(MachineState t) _const_;
+const char *machine_state_to_string(MachineState t) _const_;
 MachineState machine_state_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;

@@ -107,7 +107,7 @@ int fclose_nointr(FILE *f) {
         return -errno;
 }
 
-FILE* safe_fclose(FILE *f) {
+FILE *safe_fclose(FILE *f) {
 
         /* Same as safe_close(), but for fclose() */
 
@@ -120,7 +120,7 @@ FILE* safe_fclose(FILE *f) {
         return NULL;
 }
 
-DIR* safe_closedir(DIR *d) {
+DIR *safe_closedir(DIR *d) {
 
         if (d) {
                 PROTECT_ERRNO;
@@ -321,9 +321,9 @@ void cmsg_close_all(struct msghdr *mh) {
 
         assert(mh);
 
-        CMSG_FOREACH(cmsg, mh)
+        CMSG_FOREACH (cmsg, mh)
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
-                        close_many((int*) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                        close_many((int *) CMSG_DATA(cmsg), (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
 }
 
 bool fdname_is_valid(const char *s) {
@@ -450,7 +450,7 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
 
         if (size == 0 && ((flags & ACQUIRE_NO_DEV_NULL) == 0)) {
                 /* As a special case, return /dev/null if we have been called for an empty data block */
-                r = open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                r = open("/dev/null", O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (r < 0)
                         return -errno;
 
@@ -481,7 +481,7 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
 
 try_pipe:
         if ((flags & ACQUIRE_NO_PIPE) == 0) {
-                if (pipe2(pipefds, O_CLOEXEC|O_NONBLOCK) < 0)
+                if (pipe2(pipefds, O_CLOEXEC | O_NONBLOCK) < 0)
                         return -errno;
 
                 isz = fcntl(pipefds[1], F_GETPIPE_SZ, 0);
@@ -518,7 +518,7 @@ try_pipe:
 
 try_dev_shm:
         if ((flags & ACQUIRE_NO_TMPFILE) == 0) {
-                fd = open("/dev/shm", O_RDWR|O_TMPFILE|O_CLOEXEC, 0500);
+                fd = open("/dev/shm", O_RDWR | O_TMPFILE | O_CLOEXEC, 0500);
                 if (fd < 0)
                         goto try_dev_shm_without_o_tmpfile;
 
@@ -529,7 +529,7 @@ try_dev_shm:
                         return -EIO;
 
                 /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
-                return fd_reopen(fd, O_RDONLY|O_CLOEXEC);
+                return fd_reopen(fd, O_RDONLY | O_CLOEXEC);
         }
 
 try_dev_shm_without_o_tmpfile:
@@ -549,7 +549,7 @@ try_dev_shm_without_o_tmpfile:
                 }
 
                 /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
-                r = open(pattern, O_RDONLY|O_CLOEXEC);
+                r = open(pattern, O_RDONLY | O_CLOEXEC);
                 if (r < 0)
                         r = -errno;
 
@@ -562,10 +562,10 @@ try_dev_shm_without_o_tmpfile:
 }
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd/pipe */
-#define DATA_FD_MEMORY_LIMIT (64U*1024U)
+#define DATA_FD_MEMORY_LIMIT (64U * 1024U)
 
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
-#define DATA_FD_TMP_LIMIT (1024U*1024U)
+#define DATA_FD_TMP_LIMIT (1024U * 1024U)
 
 int fd_duplicate_data_fd(int fd) {
 
@@ -630,7 +630,7 @@ int fd_duplicate_data_fd(int fd) {
                         /* If memfds aren't available, use a pipe. Set O_NONBLOCK so that we will get EAGAIN rather
                          * then block indefinitely when we hit the pipe size limit */
 
-                        if (pipe2(pipefds, O_CLOEXEC|O_NONBLOCK) < 0)
+                        if (pipe2(pipefds, O_CLOEXEC | O_NONBLOCK) < 0)
                                 return -errno;
 
                         isz = fcntl(pipefds[1], F_GETPIPE_SZ, 0);
@@ -670,11 +670,10 @@ int fd_duplicate_data_fd(int fd) {
         }
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
-        if ((!S_ISREG(st.st_mode) || st.st_size < DATA_FD_TMP_LIMIT) &&
-            (DATA_FD_MEMORY_LIMIT + remains_size) < DATA_FD_TMP_LIMIT) {
+        if ((!S_ISREG(st.st_mode) || st.st_size < DATA_FD_TMP_LIMIT) && (DATA_FD_MEMORY_LIMIT + remains_size) < DATA_FD_TMP_LIMIT) {
                 off_t f;
 
-                tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR|O_CLOEXEC);
+                tmp_fd = open_tmpfile_unlinkable(NULL /* NULL as directory means /tmp */, O_RDWR | O_CLOEXEC);
                 if (tmp_fd < 0)
                         return tmp_fd;
 
@@ -702,7 +701,7 @@ int fd_duplicate_data_fd(int fd) {
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        goto finish;  /* Yay, it fit in */
+                        goto finish; /* Yay, it fit in */
 
                 /* It didn't fit in. Let's not forget to use what we already used */
                 f = lseek(tmp_fd, 0, SEEK_SET);
@@ -721,7 +720,7 @@ int fd_duplicate_data_fd(int fd) {
         if (r < 0)
                 return r;
 
-        tmp_fd = open_tmpfile_unlinkable(td, O_RDWR|O_CLOEXEC);
+        tmp_fd = open_tmpfile_unlinkable(td, O_RDWR | O_CLOEXEC);
         if (tmp_fd < 0)
                 return tmp_fd;
 
@@ -753,7 +752,7 @@ finish:
         /* Now convert the O_RDWR file descriptor into an O_RDONLY one (and as side effect seek to the beginning of the
          * file again */
 
-        return fd_reopen(tmp_fd, O_RDONLY|O_CLOEXEC);
+        return fd_reopen(tmp_fd, O_RDONLY | O_CLOEXEC);
 }
 
 int fd_move_above_stdio(int fd) {
@@ -796,13 +795,12 @@ int fd_move_above_stdio(int fd) {
 int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd) {
 
         int fd[3] = { /* Put together an array of fds we work on */
-                original_input_fd,
-                original_output_fd,
-                original_error_fd
+                      original_input_fd,
+                      original_output_fd,
+                      original_error_fd
         };
 
-        int r, i,
-                null_fd = -1,                /* if we open /dev/null, we store the fd to it here */
+        int r, i, null_fd = -1,              /* if we open /dev/null, we store the fd to it here */
                 copy_fd[3] = { -1, -1, -1 }; /* This contains all fds we duplicate here temporarily, and hence need to close at the end */
         bool null_readable, null_writable;
 
@@ -826,8 +824,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         if (null_readable || null_writable) {
 
                 /* Let's open this with O_CLOEXEC first, and convert it to non-O_CLOEXEC when we move the fd to the final position. */
-                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR :
-                                             null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
+                null_fd = open("/dev/null", (null_readable && null_writable ? O_RDWR : null_readable ? O_RDONLY : O_WRONLY) | O_CLOEXEC);
                 if (null_fd < 0) {
                         r = -errno;
                         goto finish;
@@ -852,7 +849,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
         for (i = 0; i < 3; i++) {
 
                 if (fd[i] < 0)
-                        fd[i] = null_fd;        /* A negative parameter means: connect this one to /dev/null */
+                        fd[i] = null_fd; /* A negative parameter means: connect this one to /dev/null */
                 else if (fd[i] != i && fd[i] < 3) {
                         /* This fd is in the 0…2 territory, but not at its intended place, move it out of there, so that we can work there. */
                         copy_fd[i] = fcntl(fd[i], F_DUPFD_CLOEXEC, 3); /* Duplicate this with O_CLOEXEC set */

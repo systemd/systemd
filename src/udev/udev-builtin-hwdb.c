@@ -17,9 +17,7 @@
 
 static sd_hwdb *hwdb;
 
-int udev_builtin_hwdb_lookup(sd_device *dev,
-                             const char *prefix, const char *modalias,
-                             const char *filter, bool test) {
+int udev_builtin_hwdb_lookup(sd_device *dev, const char *prefix, const char *modalias, const char *filter, bool test) {
         _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
         int n = 0, r;
@@ -62,9 +60,7 @@ static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
         return s;
 }
 
-static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
-                                    const char *subsystem, const char *prefix,
-                                    const char *filter, bool test) {
+static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev, const char *subsystem, const char *prefix, const char *filter, bool test) {
         sd_device *d;
         char s[16];
         bool last = false;
@@ -75,7 +71,7 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
         if (!srcdev)
                 srcdev = dev;
 
-        for (d = srcdev; d; ) {
+        for (d = srcdev; d;) {
                 const char *dsubsys, *devtype, *modalias = NULL;
 
                 if (sd_device_get_subsystem(d, &dsubsys) < 0)
@@ -87,9 +83,7 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
 
                 (void) sd_device_get_property_value(d, "MODALIAS", &modalias);
 
-                if (streq(dsubsys, "usb") &&
-                    sd_device_get_devtype(d, &devtype) >= 0 &&
-                    streq(devtype, "usb_device")) {
+                if (streq(dsubsys, "usb") && sd_device_get_devtype(d, &devtype) >= 0 && streq(devtype, "usb_device")) {
                         /* if the usb_device does not have a modalias, compose one */
                         if (!modalias)
                                 modalias = modalias_usb(d, s, sizeof(s));
@@ -107,7 +101,7 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
 
                 if (last)
                         break;
-next:
+        next:
                 if (sd_device_get_parent(d, &d) < 0)
                         break;
         }
@@ -116,13 +110,11 @@ next:
 }
 
 static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
-        static const struct option options[] = {
-                { "filter", required_argument, NULL, 'f' },
-                { "device", required_argument, NULL, 'd' },
-                { "subsystem", required_argument, NULL, 's' },
-                { "lookup-prefix", required_argument, NULL, 'p' },
-                {}
-        };
+        static const struct option options[] = { { "filter", required_argument, NULL, 'f' },
+                                                 { "device", required_argument, NULL, 'd' },
+                                                 { "subsystem", required_argument, NULL, 's' },
+                                                 { "lookup-prefix", required_argument, NULL, 'p' },
+                                                 {} };
         const char *filter = NULL;
         const char *device = NULL;
         const char *subsystem = NULL;

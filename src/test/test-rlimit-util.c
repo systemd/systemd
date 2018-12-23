@@ -12,13 +12,12 @@
 
 static void test_rlimit_parse_format(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;
-        struct rlimit rl = {
-                .rlim_cur = 4711,
-                .rlim_max = 4712,
-        }, rl2 = {
-                .rlim_cur = 4713,
-                .rlim_max = 4714
-        };
+        struct rlimit rl =
+                              {
+                                      .rlim_cur = 4711,
+                                      .rlim_max = 4712,
+                              },
+                      rl2 = { .rlim_cur = 4713, .rlim_max = 4714 };
 
         assert_se(rlimit_parse(resource, string, &rl) == ret);
         if (ret < 0)
@@ -113,7 +112,8 @@ int main(int argc, char *argv[]) {
         test_rlimit_parse_format(RLIMIT_NOFILE, "infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
         test_rlimit_parse_format(RLIMIT_NOFILE, "infinity:infinity", RLIM_INFINITY, RLIM_INFINITY, 0, "infinity");
         test_rlimit_parse_format(RLIMIT_NOFILE, "8:infinity", 8, RLIM_INFINITY, 0, "8:infinity");
-        test_rlimit_parse_format(RLIMIT_CPU, "25min:13h", (25*USEC_PER_MINUTE) / USEC_PER_SEC, (13*USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
+        test_rlimit_parse_format(
+                RLIMIT_CPU, "25min:13h", (25 * USEC_PER_MINUTE) / USEC_PER_SEC, (13 * USEC_PER_HOUR) / USEC_PER_SEC, 0, "1500:46800");
         test_rlimit_parse_format(RLIMIT_NOFILE, "", 0, 0, -EINVAL, NULL);
         test_rlimit_parse_format(RLIMIT_NOFILE, "5:4", 0, 0, -EILSEQ, NULL);
         test_rlimit_parse_format(RLIMIT_NOFILE, "5:4:3", 0, 0, -EINVAL, NULL);

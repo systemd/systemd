@@ -37,7 +37,7 @@ static int mhd_respond_internal(struct MHD_Connection *connection,
 
         assert(connection);
 
-        response = MHD_create_response_from_buffer(size, (char*) buffer, mode);
+        response = MHD_create_response_from_buffer(size, (char *) buffer, mode);
         if (!response)
                 return MHD_NO;
 
@@ -49,27 +49,20 @@ static int mhd_respond_internal(struct MHD_Connection *connection,
         return r;
 }
 
-int mhd_respond(struct MHD_Connection *connection,
-                enum MHD_RequestTerminationCode code,
-                const char *message) {
+int mhd_respond(struct MHD_Connection *connection, enum MHD_RequestTerminationCode code, const char *message) {
 
         const char *fmt;
 
         fmt = strjoina(message, "\n");
 
-        return mhd_respond_internal(connection, code,
-                                    fmt, strlen(message) + 1,
-                                    MHD_RESPMEM_PERSISTENT);
+        return mhd_respond_internal(connection, code, fmt, strlen(message) + 1, MHD_RESPMEM_PERSISTENT);
 }
 
 int mhd_respond_oom(struct MHD_Connection *connection) {
-        return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE,  "Out of memory.");
+        return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE, "Out of memory.");
 }
 
-int mhd_respondf(struct MHD_Connection *connection,
-                 int error,
-                 enum MHD_RequestTerminationCode code,
-                 const char *format, ...) {
+int mhd_respondf(struct MHD_Connection *connection, int error, enum MHD_RequestTerminationCode code, const char *format, ...) {
 
         const char *fmt;
         char *m;
@@ -103,16 +96,16 @@ static struct {
         int level;
         bool enabled;
 } gnutls_log_map[] = {
-        { {"0"},                  LOG_DEBUG },
-        { {"1", "audit"},         LOG_WARNING, true}, /* gnutls session audit */
-        { {"2", "assert"},        LOG_DEBUG },        /* gnutls assert log */
-        { {"3", "hsk", "ext"},    LOG_DEBUG },        /* gnutls handshake log */
-        { {"4", "rec"},           LOG_DEBUG },        /* gnutls record log */
-        { {"5", "dtls"},          LOG_DEBUG },        /* gnutls DTLS log */
-        { {"6", "buf"},           LOG_DEBUG },
-        { {"7", "write", "read"}, LOG_DEBUG },
-        { {"8"},                  LOG_DEBUG },
-        { {"9", "enc", "int"},    LOG_DEBUG },
+        { { "0" }, LOG_DEBUG },
+        { { "1", "audit" }, LOG_WARNING, true }, /* gnutls session audit */
+        { { "2", "assert" }, LOG_DEBUG },        /* gnutls assert log */
+        { { "3", "hsk", "ext" }, LOG_DEBUG },    /* gnutls handshake log */
+        { { "4", "rec" }, LOG_DEBUG },           /* gnutls record log */
+        { { "5", "dtls" }, LOG_DEBUG },          /* gnutls DTLS log */
+        { { "6", "buf" }, LOG_DEBUG },
+        { { "7", "write", "read" }, LOG_DEBUG },
+        { { "8" }, LOG_DEBUG },
+        { { "9", "enc", "int" }, LOG_DEBUG },
 };
 
 static void log_func_gnutls(int level, const char *message) {
@@ -120,7 +113,8 @@ static void log_func_gnutls(int level, const char *message) {
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
                 if (gnutls_log_map[level].enabled)
-                        log_internal(gnutls_log_map[level].level, 0, NULL, 0, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
+                        log_internal(
+                                gnutls_log_map[level].level, 0, NULL, 0, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
         } else {
                 log_debug("Received GNUTLS message with unknown level %d.", level);
                 log_internal(LOG_DEBUG, 0, NULL, 0, NULL, "gnutls: %s", message);
@@ -148,7 +142,7 @@ static int log_enable_gnutls_category(const char *cat) {
                 return 0;
         } else
                 for (i = 0; i < ELEMENTSOF(gnutls_log_map); i++)
-                        if (strv_contains((char**)gnutls_log_map[i].names, cat)) {
+                        if (strv_contains((char **) gnutls_log_map[i].names, cat)) {
                                 gnutls_log_map[i].enabled = true;
                                 log_reset_gnutls_level();
                                 return 0;
@@ -206,8 +200,7 @@ static int get_client_cert(gnutls_session_t session, gnutls_x509_crt_t *client_c
 
         pcert = gnutls_certificate_get_peers(session, &listsize);
         if (!pcert || !listsize)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to retrieve certificate chain");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to retrieve certificate chain");
 
         r = gnutls_x509_crt_init(&cert);
         if (r < 0) {
@@ -265,12 +258,10 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
         *code = 0;
 
-        ci = MHD_get_connection_info(connection,
-                                     MHD_CONNECTION_INFO_GNUTLS_SESSION);
+        ci = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_GNUTLS_SESSION);
         if (!ci) {
                 log_error("MHD_get_connection_info failed: session is unencrypted");
-                *code = mhd_respond(connection, MHD_HTTP_FORBIDDEN,
-                                    "Encrypted connection is required");
+                *code = mhd_respond(connection, MHD_HTTP_FORBIDDEN, "Encrypted connection is required");
                 return -EPERM;
         }
         session = ci->tls_session;
@@ -278,15 +269,13 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
         r = get_client_cert(session, &client_cert);
         if (r < 0) {
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
-                                    "Authorization through certificate is required");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Authorization through certificate is required");
                 return -EPERM;
         }
 
         r = get_auth_dn(client_cert, &buf);
         if (r < 0) {
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
-                                    "Failed to determine distinguished name from certificate");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Failed to determine distinguished name from certificate");
                 return -EPERM;
         }
 
@@ -298,8 +287,7 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
         r = verify_cert_authorized(session);
         if (r < 0) {
                 log_warning("Client is not authorized");
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED,
-                                    "Client certificate not signed by recognized authority");
+                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Client certificate not signed by recognized authority");
         }
         return r;
 }

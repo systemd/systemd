@@ -17,7 +17,8 @@ typedef struct DnsPacket DnsPacket;
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
 
-typedef enum DnsProtocol {
+typedef enum DnsProtocol
+{
         DNS_PROTOCOL_DNS,
         DNS_PROTOCOL_MDNS,
         DNS_PROTOCOL_LLMNR,
@@ -56,7 +57,7 @@ struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
         size_t size, allocated, rindex, max_size;
-        void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
+        void *_data;    /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
         size_t opt_start, opt_size;
 
@@ -75,23 +76,23 @@ struct DnsPacket {
         /* For support of truncated packets */
         DnsPacket *more;
 
-        bool on_stack:1;
-        bool extracted:1;
-        bool refuse_compression:1;
-        bool canonical_form:1;
+        bool on_stack : 1;
+        bool extracted : 1;
+        bool refuse_compression : 1;
+        bool canonical_form : 1;
 };
 
-static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
+static inline uint8_t *DNS_PACKET_DATA(DnsPacket *p) {
         if (_unlikely_(!p))
                 return NULL;
 
         if (p->_data)
                 return p->_data;
 
-        return ((uint8_t*) p) + ALIGN(sizeof(DnsPacket));
+        return ((uint8_t *) p) + ALIGN(sizeof(DnsPacket));
 }
 
-#define DNS_PACKET_HEADER(p) ((DnsPacketHeader*) DNS_PACKET_DATA(p))
+#define DNS_PACKET_HEADER(p) ((DnsPacketHeader *) DNS_PACKET_DATA(p))
 #define DNS_PACKET_ID(p) DNS_PACKET_HEADER(p)->id
 #define DNS_PACKET_QR(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 15) & 1)
 #define DNS_PACKET_OPCODE(p) ((be16toh(DNS_PACKET_HEADER(p)->flags) >> 11) & 15)
@@ -108,7 +109,7 @@ static inline uint16_t DNS_PACKET_RCODE(DnsPacket *p) {
         uint16_t rcode;
 
         if (p->opt)
-                rcode = (uint16_t) (p->opt->ttl >> 24);
+                rcode = (uint16_t)(p->opt->ttl >> 24);
         else
                 rcode = 0;
 
@@ -154,22 +155,13 @@ static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
 #define DNS_PACKET_NSCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->nscount)
 #define DNS_PACKET_ARCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->arcount)
 
-#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode) \
-        (((uint16_t) !!(qr) << 15) |                                    \
-         ((uint16_t) ((opcode) & 15) << 11) |                           \
-         ((uint16_t) !!(aa) << 10) |                /* on LLMNR: c */   \
-         ((uint16_t) !!(tc) << 9) |                                     \
-         ((uint16_t) !!(rd) << 8) |                 /* on LLMNR: t */   \
-         ((uint16_t) !!(ra) << 7) |                                     \
-         ((uint16_t) !!(ad) << 5) |                                     \
-         ((uint16_t) !!(cd) << 4) |                                     \
-         ((uint16_t) ((rcode) & 15)))
+#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode)                                              \
+        (((uint16_t) !!(qr) << 15) | ((uint16_t)((opcode) &15) << 11) | ((uint16_t) !!(aa) << 10) | /* on LLMNR: c */ \
+         ((uint16_t) !!(tc) << 9) | ((uint16_t) !!(rd) << 8) |                                      /* on LLMNR: t */ \
+         ((uint16_t) !!(ra) << 7) | ((uint16_t) !!(ad) << 5) | ((uint16_t) !!(cd) << 4) | ((uint16_t)((rcode) &15)))
 
 static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
-        return
-                (unsigned) DNS_PACKET_ANCOUNT(p) +
-                (unsigned) DNS_PACKET_NSCOUNT(p) +
-                (unsigned) DNS_PACKET_ARCOUNT(p);
+        return (unsigned) DNS_PACKET_ANCOUNT(p) + (unsigned) DNS_PACKET_NSCOUNT(p) + (unsigned) DNS_PACKET_ARCOUNT(p);
 }
 
 int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
@@ -180,7 +172,7 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
 DnsPacket *dns_packet_ref(DnsPacket *p);
 DnsPacket *dns_packet_unref(DnsPacket *p);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket*, dns_packet_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsPacket *, dns_packet_unref);
 
 int dns_packet_validate(DnsPacket *p);
 int dns_packet_validate_reply(DnsPacket *p);
@@ -230,7 +222,8 @@ static inline bool DNS_PACKET_SHALL_CACHE(DnsPacket *p) {
 }
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
-enum {
+enum
+{
         DNS_RCODE_SUCCESS = 0,
         DNS_RCODE_FORMERR = 1,
         DNS_RCODE_SERVFAIL = 2,
@@ -255,17 +248,19 @@ enum {
         _DNS_RCODE_MAX = 4095 /* 4 bit rcode in the header plus 8 bit rcode in OPT, makes 12 bit */
 };
 
-const char* dns_rcode_to_string(int i) _const_;
+const char *dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
 
-const char* dns_protocol_to_string(DnsProtocol p) _const_;
+const char *dns_protocol_to_string(DnsProtocol p) _const_;
 DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
-#define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr) { .s_addr = htobe32(224U << 24 | 252U) })
-#define LLMNR_MULTICAST_IPV6_ADDRESS ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
+#define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr){ .s_addr = htobe32(224U << 24 | 252U) })
+#define LLMNR_MULTICAST_IPV6_ADDRESS \
+        ((struct in6_addr){ .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
-#define MDNS_MULTICAST_IPV4_ADDRESS  ((struct in_addr) { .s_addr = htobe32(224U << 24 | 251U) })
-#define MDNS_MULTICAST_IPV6_ADDRESS  ((struct in6_addr) { .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
+#define MDNS_MULTICAST_IPV4_ADDRESS ((struct in_addr){ .s_addr = htobe32(224U << 24 | 251U) })
+#define MDNS_MULTICAST_IPV6_ADDRESS \
+        ((struct in6_addr){ .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
 
 extern const struct hash_ops dns_packet_hash_ops;
 
@@ -278,13 +273,13 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, 
 
         switch (protocol) {
         case DNS_PROTOCOL_DNS:
-                return f|SD_RESOLVED_DNS;
+                return f | SD_RESOLVED_DNS;
 
         case DNS_PROTOCOL_LLMNR:
-                return f|(family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4);
+                return f | (family == AF_INET6 ? SD_RESOLVED_LLMNR_IPV6 : SD_RESOLVED_LLMNR_IPV4);
 
         case DNS_PROTOCOL_MDNS:
-                return f|(family == AF_INET6 ? SD_RESOLVED_MDNS_IPV6 : SD_RESOLVED_MDNS_IPV4);
+                return f | (family == AF_INET6 ? SD_RESOLVED_MDNS_IPV6 : SD_RESOLVED_MDNS_IPV4);
 
         default:
                 return f;

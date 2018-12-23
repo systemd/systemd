@@ -39,21 +39,22 @@
 #include "strv.h"
 #include "util.h"
 
-#define log_debug_bus_message(m)                                         \
-        do {                                                             \
-                sd_bus_message *_mm = (m);                               \
-                log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s", \
-                          bus_message_type_to_string(_mm->header->type), \
-                          strna(sd_bus_message_get_sender(_mm)),         \
-                          strna(sd_bus_message_get_destination(_mm)),    \
-                          strna(sd_bus_message_get_path(_mm)),           \
-                          strna(sd_bus_message_get_interface(_mm)),      \
-                          strna(sd_bus_message_get_member(_mm)),         \
-                          BUS_MESSAGE_COOKIE(_mm),                       \
-                          _mm->reply_cookie,                             \
-                          strna(_mm->root_container.signature),          \
-                          strna(_mm->error.name),                        \
-                          strna(_mm->error.message));                    \
+#define log_debug_bus_message(m)                                                                                        \
+        do {                                                                                                            \
+                sd_bus_message *_mm = (m);                                                                              \
+                log_debug("Got message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 \
+                          " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s",                      \
+                          bus_message_type_to_string(_mm->header->type),                                                \
+                          strna(sd_bus_message_get_sender(_mm)),                                                        \
+                          strna(sd_bus_message_get_destination(_mm)),                                                   \
+                          strna(sd_bus_message_get_path(_mm)),                                                          \
+                          strna(sd_bus_message_get_interface(_mm)),                                                     \
+                          strna(sd_bus_message_get_member(_mm)),                                                        \
+                          BUS_MESSAGE_COOKIE(_mm),                                                                      \
+                          _mm->reply_cookie,                                                                            \
+                          strna(_mm->root_container.signature),                                                         \
+                          strna(_mm->error.name),                                                                       \
+                          strna(_mm->error.message));                                                                   \
         } while (false)
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
@@ -158,7 +159,7 @@ static void bus_reset_queues(sd_bus *b) {
         b->wqueue_allocated = 0;
 }
 
-static sd_bus* bus_free(sd_bus *b) {
+static sd_bus *bus_free(sd_bus *b) {
         sd_bus_slot *s;
 
         assert(b);
@@ -224,24 +225,24 @@ static sd_bus* bus_free(sd_bus *b) {
         return mfree(b);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, bus_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus *, bus_free);
 
 _public_ int sd_bus_new(sd_bus **ret) {
         _cleanup_free_ sd_bus *b = NULL;
 
         assert_return(ret, -EINVAL);
 
-        b = new(sd_bus, 1);
+        b = new (sd_bus, 1);
         if (!b)
                 return -ENOMEM;
 
-        *b = (sd_bus) {
+        *b = (sd_bus){
                 .n_ref = REFCNT_INIT,
                 .input_fd = -1,
                 .output_fd = -1,
                 .inotify_fd = -1,
                 .message_version = 1,
-                .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
+                .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES | SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
                 .original_pid = getpid_cached(),
                 .n_groups = (size_t) -1,
@@ -357,7 +358,7 @@ _public_ int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t mask) {
         SET_FLAG(bus->creds_mask, mask, b);
 
         /* The well knowns we need unconditionally, so that matches can work */
-        bus->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
+        bus->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES | SD_BUS_CREDS_UNIQUE_NAME;
 
         return 0;
 }
@@ -472,12 +473,7 @@ static int synthesize_connected_signal(sd_bus *bus) {
         if (!bus->connected_signal)
                 return 0;
 
-        r = sd_bus_message_new_signal(
-                        bus,
-                        &m,
-                        "/org/freedesktop/DBus/Local",
-                        "org.freedesktop.DBus.Local",
-                        "Connected");
+        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/DBus/Local", "org.freedesktop.DBus.Local", "Connected");
         if (r < 0)
                 return r;
 
@@ -492,7 +488,7 @@ static int synthesize_connected_signal(sd_bus *bus) {
                 return r;
 
         /* Insert at the very front */
-        memmove(bus->rqueue + 1, bus->rqueue, sizeof(sd_bus_message*) * bus->rqueue_size);
+        memmove(bus->rqueue + 1, bus->rqueue, sizeof(sd_bus_message *) * bus->rqueue_size);
         bus->rqueue[0] = TAKE_PTR(m);
         bus->rqueue_size++;
 
@@ -501,15 +497,9 @@ static int synthesize_connected_signal(sd_bus *bus) {
 
 void bus_set_state(sd_bus *bus, enum bus_state state) {
 
-        static const char * const table[_BUS_STATE_MAX] = {
-                [BUS_UNSET] = "UNSET",
-                [BUS_WATCH_BIND] = "WATCH_BIND",
-                [BUS_OPENING] = "OPENING",
-                [BUS_AUTHENTICATING] = "AUTHENTICATING",
-                [BUS_HELLO] = "HELLO",
-                [BUS_RUNNING] = "RUNNING",
-                [BUS_CLOSING] = "CLOSING",
-                [BUS_CLOSED] = "CLOSED",
+        static const char *const table[_BUS_STATE_MAX] = {
+                [BUS_UNSET] = "UNSET", [BUS_WATCH_BIND] = "WATCH_BIND", [BUS_OPENING] = "OPENING", [BUS_AUTHENTICATING] = "AUTHENTICATING",
+                [BUS_HELLO] = "HELLO", [BUS_RUNNING] = "RUNNING",       [BUS_CLOSING] = "CLOSING", [BUS_CLOSED] = "CLOSED",
         };
 
         assert(bus);
@@ -567,13 +557,7 @@ static int bus_send_hello(sd_bus *bus) {
         if (!bus->bus_client)
                 return 0;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "Hello");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "Hello");
         if (r < 0)
                 return r;
 
@@ -736,7 +720,7 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                 if (l >= sizeof(b->sockaddr.un.sun_path)) /* We insist on NUL termination */
                         return -E2BIG;
 
-                b->sockaddr.un = (struct sockaddr_un) {
+                b->sockaddr.un = (struct sockaddr_un){
                         .sun_family = AF_UNIX,
                 };
 
@@ -750,11 +734,11 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                 if (l >= sizeof(b->sockaddr.un.sun_path) - 1) /* We insist on NUL termination */
                         return -E2BIG;
 
-                b->sockaddr.un = (struct sockaddr_un) {
+                b->sockaddr.un = (struct sockaddr_un){
                         .sun_family = AF_UNIX,
                 };
 
-                memcpy(b->sockaddr.un.sun_path+1, abstract, l);
+                memcpy(b->sockaddr.un.sun_path + 1, abstract, l);
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
         }
 
@@ -766,10 +750,11 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         _cleanup_free_ char *host = NULL, *port = NULL, *family = NULL;
         int r;
-        struct addrinfo *result, hints = {
-                .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_ADDRCONFIG,
-        };
+        struct addrinfo *result,
+                hints = {
+                        .ai_socktype = SOCK_STREAM,
+                        .ai_flags = AI_ADDRCONFIG,
+                };
 
         assert(b);
         assert(p);
@@ -861,7 +846,7 @@ static int parse_exec_address(sd_bus *b, const char **p, char **guid) {
                         unsigned ul;
 
                         errno = 0;
-                        ul = strtoul(*p + 4, (char**) p, 10);
+                        ul = strtoul(*p + 4, (char **) p, 10);
                         if (errno > 0 || **p != '=' || ul > 256) {
                                 r = -EINVAL;
                                 goto fail;
@@ -975,7 +960,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
         } else
                 b->nspid = 0;
 
-        b->sockaddr.un = (struct sockaddr_un) {
+        b->sockaddr.un = (struct sockaddr_un){
                 .sun_family = AF_UNIX,
                 /* Note that we use the old /var/run prefix here, to increase compatibility with really old containers */
                 .sun_path = "/var/run/dbus/system_bus_socket",
@@ -1432,7 +1417,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
         m = strchr(rbracket ? rbracket + 1 : host, '/');
         if (m) {
                 m++;
-interpret_port_as_machine_old_syntax:
+        interpret_port_as_machine_old_syntax:
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
                 if (!in_charset(m, "0123456789") && machine_name_is_valid(m))
@@ -1449,9 +1434,19 @@ interpret_port_as_machine_old_syntax:
                         return -ENOMEM;
         }
 
-        a = strjoin("unixexec:path=ssh,argv1=-xT", p ? ",argv2=-p,argv3=" : "", strempty(p),
-                                ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
-                                ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
+        a = strjoin("unixexec:path=ssh,argv1=-xT",
+                    p ? ",argv2=-p,argv3=" : "",
+                    strempty(p),
+                    ",argv",
+                    p ? "4" : "2",
+                    "=--,argv",
+                    p ? "5" : "3",
+                    "=",
+                    e,
+                    ",argv",
+                    p ? "6" : "4",
+                    "=systemd-stdio-bridge",
+                    c);
         if (!a)
                 return -ENOMEM;
 
@@ -1556,7 +1551,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
         bus_close_inotify_fd(bus);
 }
 
-_public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
+_public_ sd_bus *sd_bus_flush_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
@@ -1717,7 +1712,8 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 return r;
 
         if (*idx >= BUS_MESSAGE_SIZE(m))
-                log_debug("Sent message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s",
+                log_debug("Sent message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64
+                          " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s",
                           bus_message_type_to_string(m->header->type),
                           strna(sd_bus_message_get_sender(m)),
                           strna(sd_bus_message_get_destination(m)),
@@ -1760,7 +1756,7 @@ static int dispatch_wqueue(sd_bus *bus) {
 
                         bus->wqueue_size--;
                         sd_bus_message_unref(bus->wqueue[0]);
-                        memmove(bus->wqueue, bus->wqueue + 1, sizeof(sd_bus_message*) * bus->wqueue_size);
+                        memmove(bus->wqueue, bus->wqueue + 1, sizeof(sd_bus_message *) * bus->wqueue_size);
                         bus->windex = 0;
 
                         ret = 1;
@@ -1805,7 +1801,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
 
                         *m = bus->rqueue[0];
                         bus->rqueue_size--;
-                        memmove(bus->rqueue, bus->rqueue + 1, sizeof(sd_bus_message*) * bus->rqueue_size);
+                        memmove(bus->rqueue, bus->rqueue + 1, sizeof(sd_bus_message *) * bus->rqueue_size);
                         return 1;
                 }
 
@@ -1875,7 +1871,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
                         return r;
                 }
 
-                if (idx < BUS_MESSAGE_SIZE(m))  {
+                if (idx < BUS_MESSAGE_SIZE(m)) {
                         /* Wasn't fully written. So let's remember how
                          * much was written. Note that the first entry
                          * of the wqueue array is always allocated so
@@ -1960,12 +1956,7 @@ static int timeout_compare(const void *a, const void *b) {
 }
 
 _public_ int sd_bus_call_async(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                sd_bus_message *_m,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                uint64_t usec) {
+        sd_bus *bus, sd_bus_slot **slot, sd_bus_message *_m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
@@ -2063,12 +2054,7 @@ int bus_ensure_running(sd_bus *bus) {
         }
 }
 
-_public_ int sd_bus_call(
-                sd_bus *bus,
-                sd_bus_message *_m,
-                uint64_t usec,
-                sd_bus_error *error,
-                sd_bus_message **reply) {
+_public_ int sd_bus_call(sd_bus *bus, sd_bus_message *_m, uint64_t usec, sd_bus_error *error, sd_bus_message **reply) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
@@ -2122,7 +2108,7 @@ _public_ int sd_bus_call(
                         if (incoming->reply_cookie == cookie) {
                                 /* Found a match! */
 
-                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
+                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message *) * (bus->rqueue_size - i - 1));
                                 bus->rqueue_size--;
                                 log_debug_bus_message(incoming);
 
@@ -2137,7 +2123,9 @@ _public_ int sd_bus_call(
                                                 return 1;
                                         }
 
-                                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptors which I couldn't accept. Sorry.");
+                                        r = sd_bus_error_setf(error,
+                                                              SD_BUS_ERROR_INCONSISTENT_MESSAGE,
+                                                              "Reply message contained file descriptors which I couldn't accept. Sorry.");
                                         sd_bus_message_unref(incoming);
                                         return r;
 
@@ -2150,12 +2138,10 @@ _public_ int sd_bus_call(
                                         goto fail;
                                 }
 
-                        } else if (BUS_MESSAGE_COOKIE(incoming) == cookie &&
-                                   bus->unique_name &&
-                                   incoming->sender &&
+                        } else if (BUS_MESSAGE_COOKIE(incoming) == cookie && bus->unique_name && incoming->sender &&
                                    streq(bus->unique_name, incoming->sender)) {
 
-                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
+                                memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message *) * (bus->rqueue_size - i - 1));
                                 bus->rqueue_size--;
 
                                 /* Our own message? Somebody is trying
@@ -2344,7 +2330,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 
 static int process_timeout(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message* m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         struct reply_callback *c;
         sd_bus_slot *slot;
         bool is_hello;
@@ -2362,11 +2348,7 @@ static int process_timeout(sd_bus *bus) {
         if (c->timeout_usec > n)
                 return 0;
 
-        r = bus_message_new_synthetic_error(
-                        bus,
-                        c->cookie,
-                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call timed out"),
-                        &m);
+        r = bus_message_new_synthetic_error(bus, c->cookie, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Method call timed out"), &m);
         if (r < 0)
                 return r;
 
@@ -2461,10 +2443,10 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                  * didn't want we pass an error instead. */
 
                 r = bus_message_new_synthetic_error(
-                                bus,
-                                m->reply_cookie,
-                                &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptor"),
-                                &synthetic_reply);
+                        bus,
+                        m->reply_cookie,
+                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Reply message contained file descriptor"),
+                        &synthetic_reply);
                 if (r < 0)
                         return r;
 
@@ -2552,7 +2534,6 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         r = bus_maybe_reply_error(m, r, &error_buffer);
                         if (r != 0)
                                 return r;
-
                 }
 
         } while (bus->filter_callbacks_modified);
@@ -2617,9 +2598,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 r = sd_bus_message_append(reply, "s", sd_id128_to_string(id, sid));
         } else {
                 r = sd_bus_message_new_method_errorf(
-                                m, &reply,
-                                SD_BUS_ERROR_UNKNOWN_METHOD,
-                                 "Unknown method '%s' on interface '%s'.", m->member, m->interface);
+                        m, &reply, SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method '%s' on interface '%s'.", m->member, m->interface);
         }
 
         if (r < 0)
@@ -2655,7 +2634,8 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 1; /* just eat it up */
 
-        return sd_bus_reply_method_errorf(m, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Message contains file descriptors, which I cannot accept. Sorry.");
+        return sd_bus_reply_method_errorf(
+                m, SD_BUS_ERROR_INCONSISTENT_MESSAGE, "Message contains file descriptors, which I cannot accept. Sorry.");
 }
 
 static int process_message(sd_bus *bus, sd_bus_message *m) {
@@ -2757,10 +2737,7 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
                           strna(sd_bus_message_get_interface(m)),
                           strna(sd_bus_message_get_member(m)));
 
-                r = sd_bus_reply_method_errorf(
-                                m,
-                                SD_BUS_ERROR_UNKNOWN_OBJECT,
-                                "Unknown object '%s'.", m->path);
+                r = sd_bus_reply_method_errorf(m, SD_BUS_ERROR_UNKNOWN_OBJECT, "Unknown object '%s'.", m->path);
                 if (r < 0)
                         return r;
         }
@@ -2808,11 +2785,7 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
         assert(bus);
         assert(c);
 
-        r = bus_message_new_synthetic_error(
-                        bus,
-                        c->cookie,
-                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
-                        &m);
+        r = bus_message_new_synthetic_error(bus, c->cookie, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"), &m);
         if (r < 0)
                 return r;
 
@@ -2870,12 +2843,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         }
 
         /* Then, synthesize a Disconnected message */
-        r = sd_bus_message_new_signal(
-                        bus,
-                        &m,
-                        "/org/freedesktop/DBus/Local",
-                        "org.freedesktop.DBus.Local",
-                        "Disconnected");
+        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/DBus/Local", "org.freedesktop.DBus.Local", "Disconnected");
         if (r < 0)
                 return r;
 
@@ -3115,11 +3083,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
         }
 }
 
-_public_ int sd_bus_add_filter(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+_public_ int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata) {
 
         sd_bus_slot *s;
 
@@ -3143,10 +3107,7 @@ _public_ int sd_bus_add_filter(
         return 0;
 }
 
-static int add_match_callback(
-                sd_bus_message *m,
-                void *userdata,
-                sd_bus_error *ret_error) {
+static int add_match_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
 
         sd_bus_slot *match_slot = userdata;
         bool failed = false;
@@ -3206,14 +3167,13 @@ static int add_match_callback(
         return r;
 }
 
-static int bus_add_match_full(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                bool asynchronous,
-                const char *match,
-                sd_bus_message_handler_t callback,
-                sd_bus_message_handler_t install_callback,
-                void *userdata) {
+static int bus_add_match_full(sd_bus *bus,
+                              sd_bus_slot **slot,
+                              bool asynchronous,
+                              const char *match,
+                              sd_bus_message_handler_t callback,
+                              sd_bus_message_handler_t install_callback,
+                              void *userdata) {
 
         struct bus_match_component *components = NULL;
         unsigned n_components = 0;
@@ -3255,11 +3215,8 @@ static int bus_add_match_full(
                         }
 
                         if (asynchronous) {
-                                r = bus_add_match_internal_async(bus,
-                                                                 &s->match_callback.install_slot,
-                                                                 s->match_callback.match_string,
-                                                                 add_match_callback,
-                                                                 s);
+                                r = bus_add_match_internal_async(
+                                        bus, &s->match_callback.install_slot, s->match_callback.match_string, add_match_callback, s);
 
                                 if (r < 0)
                                         return r;
@@ -3293,23 +3250,17 @@ finish:
         return r;
 }
 
-_public_ int sd_bus_add_match(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *match,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+_public_ int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata) {
 
         return bus_add_match_full(bus, slot, false, match, callback, NULL, userdata);
 }
 
-_public_ int sd_bus_add_match_async(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *match,
-                sd_bus_message_handler_t callback,
-                sd_bus_message_handler_t install_callback,
-                void *userdata) {
+_public_ int sd_bus_add_match_async(sd_bus *bus,
+                                    sd_bus_slot **slot,
+                                    const char *match,
+                                    sd_bus_message_handler_t callback,
+                                    sd_bus_message_handler_t install_callback,
+                                    void *userdata) {
 
         return bus_add_match_full(bus, slot, true, match, callback, install_callback, userdata);
 }
@@ -3539,7 +3490,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
 
         if (event)
                 bus->event = sd_event_ref(event);
-        else  {
+        else {
                 r = sd_event_default(&bus->event);
                 if (r < 0)
                         return r;
@@ -3606,19 +3557,19 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
         return 1;
 }
 
-_public_ sd_event* sd_bus_get_event(sd_bus *bus) {
+_public_ sd_event *sd_bus_get_event(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->event;
 }
 
-_public_ sd_bus_message* sd_bus_get_current_message(sd_bus *bus) {
+_public_ sd_bus_message *sd_bus_get_current_message(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current_message;
 }
 
-_public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
+_public_ sd_bus_slot *sd_bus_get_current_slot(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current_slot;
@@ -3630,7 +3581,7 @@ _public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
         return bus->current_handler;
 }
 
-_public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
+_public_ void *sd_bus_get_current_userdata(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current_userdata;
@@ -3785,7 +3736,7 @@ _public_ int sd_bus_path_encode_many(char **out, const char *path_template, ...)
         path_pos = path;
         label_pos = labels;
 
-        for (template_pos = path_template; *template_pos; ) {
+        for (template_pos = path_template; *template_pos;) {
                 sep = strchrnul(template_pos, '%');
                 path_pos = mempcpy(path_pos, template_pos, sep - template_pos);
                 if (!*sep)
@@ -3832,7 +3783,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
         path_pos = path;
 
-        for (template_pos = path_template; *template_pos; ) {
+        for (template_pos = path_template; *template_pos;) {
                 const char *sep;
                 size_t length;
                 char *label;
@@ -3861,11 +3812,10 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
                 /* verify the suffixes match */
                 sep = strchrnul(path_pos, '/');
-                if (sep - path_pos < (ssize_t)length ||
-                    strncmp(sep - length, template_pos, length))
+                if (sep - path_pos < (ssize_t) length || strncmp(sep - length, template_pos, length))
                         return 0;
 
-                template_pos += length; /* skip over matched label */
+                template_pos += length;           /* skip over matched label */
                 length = sep - path_pos - length; /* length of sub-label to decode */
 
                 /* store unescaped label for later use */

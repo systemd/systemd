@@ -57,11 +57,11 @@ int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **re
         assert(ret);
 
         /* allocate space for IPv6ProxyNDPAddress entry */
-        ipv6_proxy_ndp_address = new(IPv6ProxyNDPAddress, 1);
+        ipv6_proxy_ndp_address = new (IPv6ProxyNDPAddress, 1);
         if (!ipv6_proxy_ndp_address)
                 return -ENOMEM;
 
-        *ipv6_proxy_ndp_address = (IPv6ProxyNDPAddress) {
+        *ipv6_proxy_ndp_address = (IPv6ProxyNDPAddress){
                 .network = network,
         };
 
@@ -78,8 +78,7 @@ void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
                 return;
 
         if (ipv6_proxy_ndp_address->network) {
-                LIST_REMOVE(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address->network->ipv6_proxy_ndp_addresses,
-                            ipv6_proxy_ndp_address);
+                LIST_REMOVE(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address->network->ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address);
 
                 assert(ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses > 0);
                 ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses--;
@@ -88,17 +87,16 @@ void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
         free(ipv6_proxy_ndp_address);
 }
 
-int config_parse_ipv6_proxy_ndp_address(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ipv6_proxy_ndp_address(const char *unit,
+                                        const char *filename,
+                                        unsigned line,
+                                        const char *section,
+                                        unsigned section_line,
+                                        const char *lvalue,
+                                        int ltype,
+                                        const char *rvalue,
+                                        void *data,
+                                        void *userdata) {
 
         Network *network = userdata;
         _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
@@ -117,15 +115,13 @@ int config_parse_ipv6_proxy_ndp_address(
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 proxy NDP address, ignoring: %s",
-                           rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 proxy NDP address, ignoring: %s", rvalue);
                 return 0;
         }
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -173,8 +169,7 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
         if (r < 0)
                 return rtnl_log_create_error(r);
 
-        r = netlink_call_async(rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 

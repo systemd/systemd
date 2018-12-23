@@ -92,7 +92,6 @@ static int netdev_geneve_create(NetDev *netdev) {
 
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
-
         }
 
         if (v->ttl) {
@@ -137,8 +136,7 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler,
-                               netdev_destroy_callback, netdev);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler, netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -151,15 +149,15 @@ static int netdev_geneve_create(NetDev *netdev) {
 }
 
 int config_parse_geneve_vni(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           unsigned section_line,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
         Geneve *v = userdata;
         uint32_t f;
         int r;
@@ -175,7 +173,7 @@ int config_parse_geneve_vni(const char *unit,
                 return 0;
         }
 
-        if (f > GENEVE_VID_MAX){
+        if (f > GENEVE_VID_MAX) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Geneve VNI out is of range '%s'.", rvalue);
                 return 0;
         }
@@ -248,8 +246,8 @@ int config_parse_geneve_flow_label(const char *unit,
         }
 
         if (f & ~GENEVE_FLOW_LABEL_MAX_MASK) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Geneve flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Geneve flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
                 return 0;
         }
 

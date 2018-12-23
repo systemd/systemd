@@ -65,7 +65,7 @@ int parse_uid(const char *s, uid_t *ret) {
         return 0;
 }
 
-char* getlogname_malloc(void) {
+char *getlogname_malloc(void) {
         uid_t uid;
         struct stat st;
 
@@ -106,12 +106,7 @@ static inline bool is_nologin_shell(const char *shell) {
                            "/usr/bin/true");
 }
 
-static int synthesize_user_creds(
-                const char **username,
-                uid_t *uid, gid_t *gid,
-                const char **home,
-                const char **shell,
-                UserCredsFlags flags) {
+static int synthesize_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags) {
 
         /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
          * their user record data. */
@@ -133,8 +128,7 @@ static int synthesize_user_creds(
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+        if (synthesize_nobody() && STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
                 *username = NOBODY_USER_NAME;
 
                 if (uid)
@@ -154,12 +148,7 @@ static int synthesize_user_creds(
         return -ENOMEDIUM;
 }
 
-int get_user_creds(
-                const char **username,
-                uid_t *uid, gid_t *gid,
-                const char **home,
-                const char **shell,
-                UserCredsFlags flags) {
+int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags) {
 
         uid_t u = UID_INVALID;
         struct passwd *p;
@@ -168,8 +157,7 @@ int get_user_creds(
         assert(username);
         assert(*username);
 
-        if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) ||
-            (!home && !shell)) {
+        if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) || (!home && !shell)) {
 
                 /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and override
                  * the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS then the
@@ -271,8 +259,7 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
                 return 0;
         }
 
-        if (synthesize_nobody() &&
-            STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+        if (synthesize_nobody() && STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
                 *groupname = NOBODY_GROUP_NAME;
 
                 if (gid)
@@ -311,15 +298,14 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         return 0;
 }
 
-char* uid_to_name(uid_t uid) {
+char *uid_to_name(uid_t uid) {
         char *ret;
         int r;
 
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            uid == UID_NOBODY)
+        if (synthesize_nobody() && uid == UID_NOBODY)
                 return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
@@ -353,14 +339,13 @@ char* uid_to_name(uid_t uid) {
         return ret;
 }
 
-char* gid_to_name(gid_t gid) {
+char *gid_to_name(gid_t gid) {
         char *ret;
         int r;
 
         if (gid == 0)
                 return strdup("root");
-        if (synthesize_nobody() &&
-            gid == GID_NOBODY)
+        if (synthesize_nobody() && gid == GID_NOBODY)
                 return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
@@ -464,8 +449,7 @@ int get_home_dir(char **_h) {
                 *_h = h;
                 return 0;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
+        if (synthesize_nobody() && u == UID_NOBODY) {
                 h = strdup("/");
                 if (!h)
                         return -ENOMEM;
@@ -520,8 +504,7 @@ int get_shell(char **_s) {
                 *_s = s;
                 return 0;
         }
-        if (synthesize_nobody() &&
-            u == UID_NOBODY) {
+        if (synthesize_nobody() && u == UID_NOBODY) {
                 s = strdup("/sbin/nologin");
                 if (!s)
                         return -ENOMEM;
@@ -590,7 +573,7 @@ int take_etc_passwd_lock(const char *root) {
         else
                 path = ETC_PASSWD_LOCK_PATH;
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        fd = open(path, O_WRONLY | O_CREAT | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW, 0600);
         if (fd < 0)
                 return log_debug_errno(errno, "Cannot open %s: %m", path);
 
@@ -620,26 +603,21 @@ bool valid_user_group_name(const char *u) {
         if (isempty(u))
                 return false;
 
-        if (!(u[0] >= 'a' && u[0] <= 'z') &&
-            !(u[0] >= 'A' && u[0] <= 'Z') &&
-            u[0] != '_')
+        if (!(u[0] >= 'a' && u[0] <= 'z') && !(u[0] >= 'A' && u[0] <= 'Z') && u[0] != '_')
                 return false;
 
-        for (i = u+1; *i; i++) {
-                if (!(*i >= 'a' && *i <= 'z') &&
-                    !(*i >= 'A' && *i <= 'Z') &&
-                    !(*i >= '0' && *i <= '9') &&
-                    !IN_SET(*i, '_', '-'))
+        for (i = u + 1; *i; i++) {
+                if (!(*i >= 'a' && *i <= 'z') && !(*i >= 'A' && *i <= 'Z') && !(*i >= '0' && *i <= '9') && !IN_SET(*i, '_', '-'))
                         return false;
         }
 
         sz = sysconf(_SC_LOGIN_NAME_MAX);
         assert_se(sz > 0);
 
-        if ((size_t) (i-u) > (size_t) sz)
+        if ((size_t)(i - u) > (size_t) sz)
                 return false;
 
-        if ((size_t) (i-u) > UT_NAMESIZE - 1)
+        if ((size_t)(i - u) > UT_NAMESIZE - 1)
                 return false;
 
         return true;

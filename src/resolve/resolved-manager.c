@@ -61,7 +61,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 
         switch (type) {
 
-        case RTM_NEWLINK:{
+        case RTM_NEWLINK: {
                 bool is_new = !l;
 
                 if (!l) {
@@ -303,7 +303,7 @@ static int manager_network_monitor_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT+5);
+        r = sd_event_source_set_priority(m->network_event_source, SD_EVENT_PRIORITY_IMPORTANT + 5);
         if (r < 0)
                 return r;
 
@@ -338,8 +338,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (r < 0)
                 return log_error_errno(r, "Failed to unescape host name: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Couldn't find a single label in hostname.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Couldn't find a single label in hostname.");
 
 #if HAVE_LIBIDN2
         r = idn2_to_unicode_8z8z(label, &utf8, 0);
@@ -357,8 +356,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 r = k;
 
         if (!utf8_is_valid(label))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "System hostname is not UTF-8 clean.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "System hostname is not UTF-8 clean.");
         decoded = label;
 #else
         decoded = label; /* no decoding */
@@ -369,8 +367,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_error_errno(r, "Failed to escape host name: %m");
 
         if (is_localhost(n))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "System hostname is 'localhost', ignoring.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "System hostname is 'localhost', ignoring.");
 
         r = dns_name_concat(n, "local", 0, mdns_hostname);
         if (r < 0)
@@ -441,9 +438,7 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
-        if (streq(full_hostname, m->full_hostname) &&
-            streq(llmnr_hostname, m->llmnr_hostname) &&
-            streq(mdns_hostname, m->mdns_hostname))
+        if (streq(full_hostname, m->full_hostname) && streq(llmnr_hostname, m->llmnr_hostname) && streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
         log_info("System hostname changed to '%s'.", full_hostname);
@@ -462,8 +457,7 @@ static int manager_watch_hostname(Manager *m) {
 
         assert(m);
 
-        m->hostname_fd = open("/proc/sys/kernel/hostname",
-                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        m->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (m->hostname_fd < 0) {
                 log_warning_errno(errno, "Failed to watch hostname: %m");
                 return 0;
@@ -514,15 +508,15 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
-                dns_scope_dump(scope, f);
+        dns_scope_dump(scope, f);
 
         LIST_FOREACH(servers, server, m->dns_servers)
-                dns_server_dump(server, f);
+        dns_server_dump(server, f);
         LIST_FOREACH(servers, server, m->fallback_dns_servers)
-                dns_server_dump(server, f);
+        dns_server_dump(server, f);
         HASHMAP_FOREACH(l, m->links, i)
-                LIST_FOREACH(servers, server, l->dns_servers)
-                        dns_server_dump(server, f);
+        LIST_FOREACH(servers, server, l->dns_servers)
+        dns_server_dump(server, f);
 
         if (fflush_and_check(f) < 0)
                 return log_oom();
@@ -560,11 +554,11 @@ int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new(Manager, 1);
+        m = new (Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        *m = (Manager) {
+        *m = (Manager){
                 .llmnr_ipv4_udp_fd = -1,
                 .llmnr_ipv6_udp_fd = -1,
                 .llmnr_ipv4_tcp_fd = -1,
@@ -600,7 +594,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         (void) sd_event_set_watchdog(m->event, true);
@@ -631,7 +625,7 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
         (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
-        (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
+        (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN + 1, manager_sigrtmin1, m);
 
         manager_cleanup_saved_user(m);
 
@@ -664,7 +658,7 @@ Manager *manager_free(Manager *m) {
         dns_search_domain_unlink_all(m->search_domains);
 
         while ((l = hashmap_first(m->links)))
-               link_free(l);
+                link_free(l);
 
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
@@ -710,7 +704,7 @@ Manager *manager_free(Manager *m) {
         free(m->mdns_hostname);
 
         while ((s = hashmap_first(m->dnssd_services)))
-               dnssd_service_free(s);
+                dnssd_service_free(s);
         hashmap_free(m->dnssd_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
@@ -722,9 +716,8 @@ Manager *manager_free(Manager *m) {
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
-                               + CMSG_SPACE(int) /* ttl/hoplimit */
+                struct cmsghdr header;                                                                      /* For alignment */
+                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo)) + CMSG_SPACE(int) /* ttl/hoplimit */
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
         union sockaddr_union sa;
@@ -782,7 +775,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         } else
                 return -EAFNOSUPPORT;
 
-        CMSG_FOREACH(cmsg, &mh) {
+        CMSG_FOREACH (cmsg, &mh) {
 
                 if (cmsg->cmsg_level == IPPROTO_IPV6) {
                         assert(p->family == AF_INET6);
@@ -790,7 +783,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         switch (cmsg->cmsg_type) {
 
                         case IPV6_PKTINFO: {
-                                struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                                struct in6_pktinfo *i = (struct in6_pktinfo *) CMSG_DATA(cmsg);
 
                                 if (p->ifindex <= 0)
                                         p->ifindex = i->ipi6_ifindex;
@@ -802,7 +795,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         case IPV6_HOPLIMIT:
                                 p->ttl = *(int *) CMSG_DATA(cmsg);
                                 break;
-
                         }
                 } else if (cmsg->cmsg_level == IPPROTO_IP) {
                         assert(p->family == AF_INET);
@@ -810,7 +802,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         switch (cmsg->cmsg_type) {
 
                         case IP_PKTINFO: {
-                                struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                                struct in_pktinfo *i = (struct in_pktinfo *) CMSG_DATA(cmsg);
 
                                 if (p->ifindex <= 0)
                                         p->ifindex = i->ipi_ifindex;
@@ -906,13 +898,7 @@ int manager_write(Manager *m, int fd, DnsPacket *p) {
 }
 
 static int manager_ipv4_send(
-                Manager *m,
-                int fd,
-                int ifindex,
-                const struct in_addr *destination,
-                uint16_t port,
-                const struct in_addr *source,
-                DnsPacket *p) {
+        Manager *m, int fd, int ifindex, const struct in_addr *destination, uint16_t port, const struct in_addr *source, DnsPacket *p) {
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
@@ -934,7 +920,7 @@ static int manager_ipv4_send(
 
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
-        sa = (union sockaddr_union) {
+        sa = (union sockaddr_union){
                 .in.sin_family = AF_INET,
                 .in.sin_addr = *destination,
                 .in.sin_port = htobe16(port),
@@ -952,7 +938,7 @@ static int manager_ipv4_send(
                 cmsg->cmsg_level = IPPROTO_IP;
                 cmsg->cmsg_type = IP_PKTINFO;
 
-                pi = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                pi = (struct in_pktinfo *) CMSG_DATA(cmsg);
                 pi->ipi_ifindex = ifindex;
 
                 if (source)
@@ -963,13 +949,7 @@ static int manager_ipv4_send(
 }
 
 static int manager_ipv6_send(
-                Manager *m,
-                int fd,
-                int ifindex,
-                const struct in6_addr *destination,
-                uint16_t port,
-                const struct in6_addr *source,
-                DnsPacket *p) {
+        Manager *m, int fd, int ifindex, const struct in6_addr *destination, uint16_t port, const struct in6_addr *source, DnsPacket *p) {
 
         union {
                 struct cmsghdr header; /* For alignment */
@@ -992,7 +972,7 @@ static int manager_ipv6_send(
 
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->size);
 
-        sa = (union sockaddr_union) {
+        sa = (union sockaddr_union){
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_addr = *destination,
                 .in6.sin6_port = htobe16(port),
@@ -1011,7 +991,7 @@ static int manager_ipv6_send(
                 cmsg->cmsg_level = IPPROTO_IPV6;
                 cmsg->cmsg_type = IPV6_PKTINFO;
 
-                pi = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                pi = (struct in6_pktinfo *) CMSG_DATA(cmsg);
                 pi->ipi6_ifindex = ifindex;
 
                 if (source)
@@ -1021,15 +1001,14 @@ static int manager_ipv6_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-int manager_send(
-                Manager *m,
-                int fd,
-                int ifindex,
-                int family,
-                const union in_addr_union *destination,
-                uint16_t port,
-                const union in_addr_union *source,
-                DnsPacket *p) {
+int manager_send(Manager *m,
+                 int fd,
+                 int ifindex,
+                 int family,
+                 const union in_addr_union *destination,
+                 uint16_t port,
+                 const union in_addr_union *source,
+                 DnsPacket *p) {
 
         assert(m);
         assert(fd >= 0);
@@ -1037,7 +1016,11 @@ int manager_send(
         assert(port > 0);
         assert(p);
 
-        log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p), ifindex, af_to_name(family));
+        log_debug("Sending %s packet with id %" PRIu16 " on interface %i/%s.",
+                  DNS_PACKET_QR(p) ? "response" : "query",
+                  DNS_PACKET_ID(p),
+                  ifindex,
+                  af_to_name(family));
 
         if (family == AF_INET)
                 return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
@@ -1093,8 +1076,8 @@ void manager_refresh_rrs(Manager *m) {
 
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
                 HASHMAP_FOREACH(s, m->dnssd_services, i)
-                        if (dnssd_update_rrs(s) < 0)
-                                log_warning("Failed to refresh DNS-SD service '%s'", s->name);
+        if (dnssd_update_rrs(s) < 0)
+                log_warning("Failed to refresh DNS-SD service '%s'", s->name);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);
@@ -1162,7 +1145,7 @@ int manager_next_hostname(Manager *m) {
         return 0;
 }
 
-LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr) {
+LinkAddress *manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr) {
         Iterator i;
         Link *l;
 
@@ -1186,7 +1169,7 @@ bool manager_our_packet(Manager *m, DnsPacket *p) {
         return !!manager_find_link_address(m, p->family, &p->sender);
 }
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+DnsScope *manager_find_scope(Manager *m, DnsPacket *p) {
         Link *l;
 
         assert(m);
@@ -1226,7 +1209,7 @@ void manager_verify_all(Manager *m) {
         assert(m);
 
         LIST_FOREACH(scopes, s, m->dns_scopes)
-                dns_zone_verify_all(&s->zone);
+        dns_zone_verify_all(&s->zone);
 }
 
 int manager_is_own_hostname(Manager *m, const char *name) {
@@ -1320,8 +1303,7 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
 
         LIST_FOREACH(domains, d, m->search_domains) {
 
-                if (filter_route >= 0 &&
-                    d->route_only != !!filter_route)
+                if (filter_route >= 0 && d->route_only != !!filter_route)
                         continue;
 
                 r = ordered_set_put(*domains, d->name);
@@ -1335,8 +1317,7 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
 
                 LIST_FOREACH(domains, d, l->search_domains) {
 
-                        if (filter_route >= 0 &&
-                            d->route_only != !!filter_route)
+                        if (filter_route >= 0 && d->route_only != !!filter_route)
                                 continue;
 
                         r = ordered_set_put(*domains, d->name);
@@ -1374,8 +1355,8 @@ bool manager_dnssec_supported(Manager *m) {
                 return false;
 
         HASHMAP_FOREACH(l, m->links, i)
-                if (!link_dnssec_supported(l))
-                        return false;
+        if (!link_dnssec_supported(l))
+                return false;
 
         return true;
 }
@@ -1397,9 +1378,7 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         if (DEBUG_LOGGING) {
                 char s[DNS_RESOURCE_KEY_STRING_MAX];
 
-                log_debug("Found verdict for lookup %s: %s",
-                          dns_resource_key_to_string(key, s, sizeof s),
-                          dnssec_verdict_to_string(verdict));
+                log_debug("Found verdict for lookup %s: %s", dns_resource_key_to_string(key, s, sizeof s), dnssec_verdict_to_string(verdict));
         }
 
         m->n_dnssec_verdict[verdict]++;
@@ -1414,8 +1393,8 @@ bool manager_routable(Manager *m, int family) {
         /* Returns true if the host has at least one interface with a routable address of the specified type */
 
         HASHMAP_FOREACH(l, m->links, i)
-                if (link_relevant(l, family, false))
-                        return true;
+        if (link_relevant(l, family, false))
+                return true;
 
         return false;
 }
@@ -1426,7 +1405,7 @@ void manager_flush_caches(Manager *m) {
         assert(m);
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
-                dns_cache_flush(&scope->cache);
+        dns_cache_flush(&scope->cache);
 
         log_info("Flushed all caches.");
 }
@@ -1439,7 +1418,7 @@ void manager_reset_server_features(Manager *m) {
         dns_server_reset_features_all(m->fallback_dns_servers);
 
         HASHMAP_FOREACH(l, m->links, i)
-                dns_server_reset_features_all(l->dns_servers);
+        dns_server_reset_features_all(l->dns_servers);
 
         log_info("Resetting learnt feature levels on all servers.");
 }
@@ -1508,7 +1487,7 @@ bool manager_next_dnssd_names(Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH(s, m->dnssd_services, i) {
-                _cleanup_free_ char * new_name = NULL;
+                _cleanup_free_ char *new_name = NULL;
 
                 if (!s->withdrawn)
                         continue;

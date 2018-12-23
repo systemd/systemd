@@ -7,7 +7,8 @@ typedef struct Scope Scope;
 #include "kill.h"
 #include "unit.h"
 
-typedef enum ScopeResult {
+typedef enum ScopeResult
+{
         SCOPE_SUCCESS,
         SCOPE_FAILURE_RESOURCES,
         SCOPE_FAILURE_TIMEOUT,
@@ -38,7 +39,7 @@ extern const UnitVTable scope_vtable;
 
 int scope_abandon(Scope *s);
 
-const char* scope_result_to_string(ScopeResult i) _const_;
+const char *scope_result_to_string(ScopeResult i) _const_;
 ScopeResult scope_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SCOPE, Scope);

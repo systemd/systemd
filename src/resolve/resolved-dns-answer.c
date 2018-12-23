@@ -26,7 +26,7 @@ static void dns_answer_flush(DnsAnswer *a) {
                 return;
 
         DNS_ANSWER_FOREACH(rr, a)
-                dns_resource_record_unref(rr);
+        dns_resource_record_unref(rr);
 
         a->n_rrs = 0;
 }
@@ -49,7 +49,7 @@ static int dns_answer_add_raw(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, 
         if (a->n_rrs >= a->n_allocated)
                 return -ENOSPC;
 
-        a->items[a->n_rrs++] = (DnsAnswerItem) {
+        a->items[a->n_rrs++] = (DnsAnswerItem){
                 .rr = dns_resource_record_ref(rr),
                 .ifindex = ifindex,
                 .flags = flags,
@@ -559,7 +559,7 @@ int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKe
                 if (r < 0)
                         return r;
 
-                r = dns_answer_add(*a, rr_source, ifindex_source, flags_source|or_flags);
+                r = dns_answer_add(*a, rr_source, ifindex_source, flags_source | or_flags);
                 if (r < 0)
                         return r;
         }
@@ -592,7 +592,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
                 return;
 
         start = 0;
-        end = a->n_rrs-1;
+        end = a->n_rrs - 1;
 
         /* RFC 4795, Section 2.6 suggests we should order entries
          * depending on whether the sender is a link-local address. */
@@ -601,8 +601,10 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
         for (i = 0; i < a->n_rrs; i++) {
 
                 if (a->items[i].rr->key->class == DNS_CLASS_IN &&
-                    ((a->items[i].rr->key->type == DNS_TYPE_A && in_addr_is_link_local(AF_INET, (union in_addr_union*) &a->items[i].rr->a.in_addr) != prefer_link_local) ||
-                     (a->items[i].rr->key->type == DNS_TYPE_AAAA && in_addr_is_link_local(AF_INET6, (union in_addr_union*) &a->items[i].rr->aaaa.in6_addr) != prefer_link_local)))
+                    ((a->items[i].rr->key->type == DNS_TYPE_A &&
+                      in_addr_is_link_local(AF_INET, (union in_addr_union *) &a->items[i].rr->a.in_addr) != prefer_link_local) ||
+                     (a->items[i].rr->key->type == DNS_TYPE_AAAA &&
+                      in_addr_is_link_local(AF_INET6, (union in_addr_union *) &a->items[i].rr->aaaa.in6_addr) != prefer_link_local)))
                         /* Order address records that are not preferred to the end of the array */
                         items[end--] = a->items[i];
                 else
@@ -610,7 +612,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
                         items[start++] = a->items[i];
         }
 
-        assert(start == end+1);
+        assert(start == end + 1);
         memcpy(a->items, items, sizeof(DnsAnswerItem) * a->n_rrs);
 }
 
@@ -704,7 +706,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
 
                 fputs(t, f);
 
-                if (ifindex != 0 || flags & (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE|DNS_ANSWER_SHARED_OWNER))
+                if (ifindex != 0 || flags & (DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER))
                         fputs("\t;", f);
 
                 if (ifindex != 0)

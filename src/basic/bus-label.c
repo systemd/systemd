@@ -20,7 +20,7 @@ char *bus_label_escape(const char *s) {
         if (*s == 0)
                 return strdup("_");
 
-        r = new(char, strlen(s)*3 + 1);
+        r = new (char, strlen(s) * 3 + 1);
         if (!r)
                 return NULL;
 
@@ -29,9 +29,7 @@ char *bus_label_escape(const char *s) {
                 /* Escape everything that is not a-zA-Z0-9. We also
                  * escape 0-9 if it's the first character */
 
-                if (!(*f >= 'A' && *f <= 'Z') &&
-                    !(*f >= 'a' && *f <= 'z') &&
-                    !(f > s && *f >= '0' && *f <= '9')) {
+                if (!(*f >= 'A' && *f <= 'Z') && !(*f >= 'a' && *f <= 'z') && !(f > s && *f >= '0' && *f <= '9')) {
                         *(t++) = '_';
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
@@ -54,7 +52,7 @@ char *bus_label_unescape_n(const char *f, size_t l) {
         if (l == 1 && *f == '_')
                 return strdup("");
 
-        r = new(char, l + 1);
+        r = new (char, l + 1);
         if (!r)
                 return NULL;
 
@@ -62,9 +60,7 @@ char *bus_label_unescape_n(const char *f, size_t l) {
                 if (f[i] == '_') {
                         int a, b;
 
-                        if (l - i < 3 ||
-                            (a = unhexchar(f[i + 1])) < 0 ||
-                            (b = unhexchar(f[i + 2])) < 0) {
+                        if (l - i < 3 || (a = unhexchar(f[i + 1])) < 0 || (b = unhexchar(f[i + 2])) < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '_';
                         } else {

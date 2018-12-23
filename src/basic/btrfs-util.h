@@ -27,16 +27,18 @@ typedef struct BtrfsQuotaInfo {
         uint64_t exclusive_max;
 } BtrfsQuotaInfo;
 
-typedef enum BtrfsSnapshotFlags {
-        BTRFS_SNAPSHOT_FALLBACK_COPY = 1,        /* If the source isn't a subvolume, reflink everything */
+typedef enum BtrfsSnapshotFlags
+{
+        BTRFS_SNAPSHOT_FALLBACK_COPY = 1, /* If the source isn't a subvolume, reflink everything */
         BTRFS_SNAPSHOT_READ_ONLY = 2,
         BTRFS_SNAPSHOT_RECURSIVE = 4,
         BTRFS_SNAPSHOT_QUOTA = 8,
-        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 16,  /* If the destination doesn't support subvolumes, reflink/copy instead */
-        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32,  /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
+        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 16, /* If the destination doesn't support subvolumes, reflink/copy instead */
+        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32, /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
 } BtrfsSnapshotFlags;
 
-typedef enum BtrfsRemoveFlags {
+typedef enum BtrfsRemoveFlags
+{
         BTRFS_REMOVE_RECURSIVE = 1,
         BTRFS_REMOVE_QUOTA = 2,
 } BtrfsRemoveFlags;
@@ -65,12 +67,22 @@ int btrfs_quota_scan_ongoing(int fd);
 int btrfs_subvol_make(const char *path);
 int btrfs_subvol_make_fd(int fd, const char *subvolume);
 
-int btrfs_subvol_snapshot_fd_full(int old_fd, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+int btrfs_subvol_snapshot_fd_full(int old_fd,
+                                  const char *new_path,
+                                  BtrfsSnapshotFlags flags,
+                                  copy_progress_path_t progress_path,
+                                  copy_progress_bytes_t progress_bytes,
+                                  void *userdata);
 static inline int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
         return btrfs_subvol_snapshot_fd_full(old_fd, new_path, flags, NULL, NULL, NULL);
 }
 
-int btrfs_subvol_snapshot_full(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+int btrfs_subvol_snapshot_full(const char *old_path,
+                               const char *new_path,
+                               BtrfsSnapshotFlags flags,
+                               copy_progress_path_t progress_path,
+                               copy_progress_bytes_t progress_bytes,
+                               void *userdata);
 static inline int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
         return btrfs_subvol_snapshot_full(old_path, new_path, flags, NULL, NULL, NULL);
 }

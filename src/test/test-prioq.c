@@ -8,7 +8,7 @@
 #include "siphash24.h"
 #include "util.h"
 
-#define SET_SIZE 1024*4
+#define SET_SIZE 1024 * 4
 
 static int unsigned_compare(const unsigned *a, const unsigned *b) {
         return CMP(*a, *b);
@@ -103,7 +103,7 @@ static void test_struct(void) {
         assert_se(set_isempty(s));
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
 
         test_unsigned();
         test_struct();

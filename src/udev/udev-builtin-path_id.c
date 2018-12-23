@@ -24,8 +24,7 @@
 #include "sysexits.h"
 #include "udev-builtin.h"
 
-_printf_(2,3)
-static void path_prepend(char **path, const char *fmt, ...) {
+_printf_(2, 3) static void path_prepend(char **path, const char *fmt, ...) {
         va_list va;
         _cleanup_free_ char *pre = NULL;
         int r;
@@ -84,7 +83,7 @@ static sd_device *skip_subsystem(sd_device *dev, const char *subsys) {
         assert(dev);
         assert(subsys);
 
-        for (parent = dev; ; ) {
+        for (parent = dev;;) {
                 const char *subsystem;
 
                 if (sd_device_get_subsystem(parent, &subsystem) < 0)
@@ -204,9 +203,9 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
 
         format_lun_number(parent, &lun);
         if (sas_address)
-                 path_prepend(path, "sas-exp%s-phy%s-%s", sas_address, phy_id, lun);
+                path_prepend(path, "sas-exp%s-phy%s-%s", sas_address, phy_id, lun);
         else
-                 path_prepend(path, "sas-phy%s-%s", phy_id, lun);
+                path_prepend(path, "sas-phy%s-%s", phy_id, lun);
 
         return parent;
 }
@@ -222,7 +221,7 @@ static sd_device *handle_scsi_iscsi(sd_device *parent, char **path) {
         assert(path);
 
         /* find iscsi session */
-        for (transportdev = parent; ; ) {
+        for (transportdev = parent;;) {
 
                 if (sd_device_get_parent(transportdev, &transportdev) < 0)
                         return NULL;
@@ -379,10 +378,10 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         if (sd_device_get_sysattr_value(vmbusdev, "device_id", &guid_str) < 0)
                 return NULL;
 
-        if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
+        if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len - 1] != '}')
                 return NULL;
 
-        for (i = 1, k = 0; i < guid_str_len-1; i++) {
+        for (i = 1, k = 0; i < guid_str_len - 1; i++) {
                 if (guid_str[i] == '-')
                         continue;
                 guid[k++] = guid_str[i];
@@ -397,8 +396,7 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
 static sd_device *handle_scsi(sd_device *parent, char **path, bool *supported_parent) {
         const char *devtype, *id, *name;
 
-        if (sd_device_get_devtype(parent, &devtype) < 0 ||
-            !streq(devtype, "scsi_device"))
+        if (sd_device_get_devtype(parent, &devtype) < 0 || !streq(devtype, "scsi_device"))
                 return parent;
 
         /* firewire */
@@ -506,8 +504,7 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
         assert(parent);
         assert(path);
 
-        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 &&
-            sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
+        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 && sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
                 path_prepend(path, "ap-%s-%s", type, func);
         else {
                 const char *sysname;
@@ -533,8 +530,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         while (parent) {
                 const char *subsys, *sysname;
 
-                if (sd_device_get_subsystem(parent, &subsys) < 0 ||
-                    sd_device_get_sysname(parent, &sysname) < 0) {
+                if (sd_device_get_subsystem(parent, &subsys) < 0 || sd_device_get_sysname(parent, &sysname) < 0) {
                         ;
                 } else if (streq(subsys, "scsi_tape")) {
                         handle_scsi_tape(parent, &path);
@@ -634,9 +630,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
          * devices do not expose their buses and do not provide a unique
          * and predictable name that way.
          */
-        if (sd_device_get_subsystem(dev, &subsystem) >= 0 &&
-            streq(subsystem, "block") &&
-            !supported_transport)
+        if (sd_device_get_subsystem(dev, &subsystem) >= 0 && streq(subsystem, "block") && !supported_transport)
                 return -ENOENT;
 
         {
@@ -646,10 +640,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 /* compose valid udev tag name */
                 for (p = path, i = 0; *p; p++) {
-                        if ((*p >= '0' && *p <= '9') ||
-                            (*p >= 'A' && *p <= 'Z') ||
-                            (*p >= 'a' && *p <= 'z') ||
-                            *p == '-') {
+                        if ((*p >= '0' && *p <= '9') || (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || *p == '-') {
                                 tag[i++] = *p;
                                 continue;
                         }
@@ -659,13 +650,13 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                                 continue;
 
                         /* avoid second '_' */
-                        if (tag[i-1] == '_')
+                        if (tag[i - 1] == '_')
                                 continue;
 
                         tag[i++] = '_';
                 }
                 /* strip trailing '_' */
-                while (i > 0 && tag[i-1] == '_')
+                while (i > 0 && tag[i - 1] == '_')
                         i--;
                 tag[i] = '\0';
 

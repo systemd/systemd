@@ -48,14 +48,14 @@ static usec_t get_startup_time(Context *c) {
 
         assert(c);
 
-        r = sd_bus_get_property_trivial(
-                        c->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UserspaceTimestamp",
-                        &error,
-                        't', &t);
+        r = sd_bus_get_property_trivial(c->bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "UserspaceTimestamp",
+                                        &error,
+                                        't',
+                                        &t);
         if (r < 0) {
                 log_error_errno(r, "Failed to get timestamp: %s", bus_error_message(&error, r));
                 return 0;
@@ -74,9 +74,9 @@ static int get_current_runlevel(Context *c) {
                  * here over the others, since these are the main
                  * runlevels used on Fedora. It might make sense to
                  * change the order on some distributions. */
-                { '5', SPECIAL_GRAPHICAL_TARGET  },
+                { '5', SPECIAL_GRAPHICAL_TARGET },
                 { '3', SPECIAL_MULTI_USER_TARGET },
-                { '1', SPECIAL_RESCUE_TARGET     },
+                { '1', SPECIAL_RESCUE_TARGET },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -93,13 +93,7 @@ static int get_current_runlevel(Context *c) {
                         return log_oom();
 
                 r = sd_bus_get_property_string(
-                                c->bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "ActiveState",
-                                &error,
-                                &state);
+                        c->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "ActiveState", &error, &state);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
 
@@ -196,12 +190,11 @@ static int on_runlevel(Context *c) {
         if (c->audit_fd >= 0) {
                 _cleanup_free_ char *s = NULL;
 
-                if (asprintf(&s, "old-level=%c new-level=%c",
-                             previous > 0 ? previous : 'N',
-                             runlevel > 0 ? runlevel : 'N') < 0)
+                if (asprintf(&s, "old-level=%c new-level=%c", previous > 0 ? previous : 'N', runlevel > 0 ? runlevel : 'N') < 0)
                         return log_oom();
 
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
+                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                    errno != EPERM)
                         r = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
@@ -250,7 +243,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-update-utmp running as pid " PID_FMT, getpid_cached());
 
         if (streq(argv[1], "reboot"))
                 r = on_reboot(&c);
@@ -263,7 +256,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-update-utmp stopped as pid " PID_FMT, getpid_cached());
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

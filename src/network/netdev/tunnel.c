@@ -21,11 +21,11 @@
 #include "string-util.h"
 #include "util.h"
 
-#define DEFAULT_TNL_HOP_LIMIT   64
-#define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
+#define DEFAULT_TNL_HOP_LIMIT 64
+#define IP6_FLOWINFO_FLOWLABEL htobe32(0x000FFFFF)
 #define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
-static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
+static const char *const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
         [NETDEV_IP6_TNL_MODE_IPIP6] = "ipip6",
         [NETDEV_IP6_TNL_MODE_ANYIP6] = "any",
@@ -507,29 +507,26 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         assert(t);
 
         if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC)) {
-                log_netdev_error(netdev,
-                                 "Tunnel with invalid address family configured in %s. Ignoring", filename);
+                log_netdev_error(netdev, "Tunnel with invalid address family configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
-                log_netdev_error(netdev,
-                                 "vti/ipip/sit/gre/gretap/erspan tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                log_netdev_error(
+                        netdev, "vti/ipip/sit/gre/gretap/erspan tunnel without a local IPv4 address configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP) &&
             (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local))) {
-                log_netdev_error(netdev,
-                                 "vti6/ip6tnl/ip6gre/ip6gretap tunnel without a local IPv6 address configured in %s. Ignoring", filename);
+                log_netdev_error(
+                        netdev, "vti6/ip6tnl/ip6gre/ip6gretap tunnel without a local IPv6 address configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_IP6TNL &&
-            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
-                log_netdev_error(netdev,
-                                 "ip6tnl without mode configured in %s. Ignoring", filename);
+        if (netdev->kind == NETDEV_KIND_IP6TNL && t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
+                log_netdev_error(netdev, "ip6tnl without mode configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
@@ -577,23 +574,19 @@ int config_parse_tunnel_address(const char *unit,
                 /* As a special case, if both the local and remote addresses are
                  * unspecified, also clear the address family.
                  */
-                if (t->family != AF_UNSPEC &&
-                    in_addr_is_null(t->family, &t->local) &&
-                    in_addr_is_null(t->family, &t->remote))
+                if (t->family != AF_UNSPEC && in_addr_is_null(t->family, &t->local) && in_addr_is_null(t->family, &t->remote))
                         t->family = AF_UNSPEC;
                 return 0;
         }
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel address \"%s\" invalid, ignoring assignment: %m", rvalue);
                 return 0;
         }
 
         if (t->family != AF_UNSPEC && t->family != f) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Tunnel addresses incompatible, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -642,7 +635,7 @@ int config_parse_tunnel_key(const char *unit,
         return 0;
 }
 
-int config_parse_ipv6_flowlabel(const char* unit,
+int config_parse_ipv6_flowlabel(const char *unit,
                                 const char *filename,
                                 unsigned line,
                                 const char *section,
@@ -681,7 +674,7 @@ int config_parse_ipv6_flowlabel(const char* unit,
         return 0;
 }
 
-int config_parse_encap_limit(const char* unit,
+int config_parse_encap_limit(const char *unit,
                              const char *filename,
                              unsigned line,
                              const char *section,
@@ -704,7 +697,8 @@ int config_parse_encap_limit(const char* unit,
         else {
                 r = safe_atoi(rvalue, &k);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, r, "Failed to parse Tunnel Encapsulation Limit option, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -719,7 +713,7 @@ int config_parse_encap_limit(const char* unit,
         return 0;
 }
 
-int config_parse_6rd_prefix(const char* unit,
+int config_parse_6rd_prefix(const char *unit,
                             const char *filename,
                             unsigned line,
                             const char *section,

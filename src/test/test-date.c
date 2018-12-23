@@ -20,8 +20,7 @@ static void test_should_pass(const char *p) {
         if (q != t) {
                 char tmp[FORMAT_TIMESTAMP_MAX];
 
-                log_error("round-trip failed: \"%s\" → \"%s\"",
-                          buf, format_timestamp_us(tmp, sizeof(tmp), q));
+                log_error("round-trip failed: \"%s\" → \"%s\"", buf, format_timestamp_us(tmp, sizeof(tmp), q));
         }
         assert_se(q == t);
 

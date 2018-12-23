@@ -14,11 +14,12 @@
 #include "time-util.h"
 #include "util.h"
 
-#define MAX_SIZE (2*1024*1024)
+#define MAX_SIZE (2 * 1024 * 1024)
 
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
-typedef enum Type {
+typedef enum Type
+{
         TYPE_LEGACY,
         TYPE_DIRECT,
 } Type;
@@ -65,7 +66,7 @@ static void transaction(sd_bus *b, size_t sz, const char *server_name) {
         uint8_t *p;
 
         assert_se(sd_bus_message_new_method_call(b, &m, server_name, "/", "benchmark.server", "Work") >= 0);
-        assert_se(sd_bus_message_append_array_space(m, 'y', sz, (void**) &p) >= 0);
+        assert_se(sd_bus_message_append_array_space(m, 'y', sz, (void **) &p) >= 0);
 
         memset(p, 0x80, sz);
 
@@ -206,7 +207,8 @@ static void client_chart(Type type, const char *address, const char *server_name
 }
 
 int main(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 MODE_BISECT,
                 MODE_CHART,
         } mode = MODE_BISECT;

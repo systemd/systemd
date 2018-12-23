@@ -26,8 +26,7 @@
 #define IPV4LL_NETWORK UINT32_C(0xA9FE0000)
 #define IPV4LL_NETMASK UINT32_C(0xFFFF0000)
 
-#define IPV4LL_DONT_DESTROY(ll) \
-        _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+#define IPV4LL_DONT_DESTROY(ll) _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
 struct sd_ipv4ll {
         unsigned n_ref;
@@ -47,7 +46,7 @@ struct sd_ipv4ll {
         be32_t claimed_address;
 
         sd_ipv4ll_callback_t callback;
-        void* userdata;
+        void *userdata;
 };
 
 #define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
@@ -192,7 +191,7 @@ int sd_ipv4ll_set_address(sd_ipv4ll *ll, const struct in_addr *address) {
         return 0;
 }
 
-#define PICK_HASH_KEY SD_ID128_MAKE(15,ac,82,a6,d6,3f,49,78,98,77,5d,0c,69,02,94,0b)
+#define PICK_HASH_KEY SD_ID128_MAKE(15, ac, 82, a6, d6, 3f, 49, 78, 98, 77, 5d, 0c, 69, 02, 94, 0b)
 
 static int ipv4ll_pick_address(sd_ipv4ll *ll) {
         _cleanup_free_ char *address = NULL;
@@ -209,13 +208,12 @@ static int ipv4ll_pick_address(sd_ipv4ll *ll) {
                 ll->seed.generation = htole64(le64toh(ll->seed.generation) + 1);
 
                 addr = htobe32((h & UINT32_C(0x0000FFFF)) | IPV4LL_NETWORK);
-        } while (addr == ll->address ||
-                 IN_SET(be32toh(addr) & 0x0000FF00U, 0x0000U, 0xFF00U));
+        } while (addr == ll->address || IN_SET(be32toh(addr) & 0x0000FF00U, 0x0000U, 0xFF00U));
 
-        (void) in_addr_to_string(AF_INET, &(union in_addr_union) { .in.s_addr = addr }, &address);
+        (void) in_addr_to_string(AF_INET, &(union in_addr_union){ .in.s_addr = addr }, &address);
         log_ipv4ll(ll, "Picked new IP address %s.", strna(address));
 
-        return sd_ipv4ll_set_address(ll, &(struct in_addr) { addr });
+        return sd_ipv4ll_set_address(ll, &(struct in_addr){ addr });
 }
 
 int sd_ipv4ll_restart(sd_ipv4ll *ll) {
@@ -224,7 +222,7 @@ int sd_ipv4ll_restart(sd_ipv4ll *ll) {
         return sd_ipv4ll_start(ll);
 }
 
-#define MAC_HASH_KEY SD_ID128_MAKE(df,04,22,98,3f,ad,14,52,f9,87,2e,d1,9c,70,e2,f2)
+#define MAC_HASH_KEY SD_ID128_MAKE(df, 04, 22, 98, 3f, ad, 14, 52, f9, 87, 2e, d1, 9c, 70, e2, f2)
 
 int sd_ipv4ll_start(sd_ipv4ll *ll) {
         int r;

@@ -13,18 +13,18 @@
 #include "strv.h"
 #include "util.h"
 
-static char* format_uids(char **buf, uid_t* uids, int count) {
+static char *format_uids(char **buf, uid_t *uids, int count) {
         int pos = 0, k, inc;
         size_t size = (DECIMAL_STR_MAX(uid_t) + 1) * count + 1;
 
         assert_se(*buf = malloc(size));
 
         for (k = 0; k < count; k++) {
-                sprintf(*buf + pos, "%s"UID_FMT"%n", k > 0 ? " " : "", uids[k], &inc);
+                sprintf(*buf + pos, "%s" UID_FMT "%n", k > 0 ? " " : "", uids[k], &inc);
                 pos += inc;
         }
 
-        assert_se(pos < (ssize_t)size);
+        assert_se(pos < (ssize_t) size);
         (*buf)[pos] = '\0';
 
         return *buf;
@@ -32,12 +32,9 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
 
 static void test_login(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        _cleanup_free_ char *pp = NULL, *qq = NULL,
-                *display_session = NULL, *cgroup = NULL,
-                *display = NULL, *remote_user = NULL, *remote_host = NULL,
-                *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
-                *seat = NULL, *session = NULL,
-                *unit = NULL, *user_unit = NULL, *slice = NULL;
+        _cleanup_free_ char *pp = NULL, *qq = NULL, *display_session = NULL, *cgroup = NULL, *display = NULL, *remote_user = NULL,
+                            *remote_host = NULL, *type = NULL, *class = NULL, *state = NULL, *state2 = NULL, *seat = NULL, *session = NULL,
+                            *unit = NULL, *user_unit = NULL, *slice = NULL;
         int r;
         uid_t u, u2;
         char *t, **seats, **sessions;
@@ -63,15 +60,14 @@ static void test_login(void) {
                 log_info("sd_pid_get_session(0, …) → \"%s\"", session);
 
                 assert_se(sd_pid_get_owner_uid(0, &u2) == 0);
-                log_info("sd_pid_get_owner_uid(0, …) → "UID_FMT, u2);
+                log_info("sd_pid_get_owner_uid(0, …) → " UID_FMT, u2);
 
                 assert_se(sd_pid_get_cgroup(0, &cgroup) == 0);
                 log_info("sd_pid_get_cgroup(0, …) → \"%s\"", cgroup);
 
                 r = sd_uid_get_display(u2, &display_session);
                 assert_se(r >= 0 || r == -ENODATA);
-                log_info("sd_uid_get_display("UID_FMT", …) → \"%s\"",
-                         u2, strnull(display_session));
+                log_info("sd_uid_get_display(" UID_FMT ", …) → \"%s\"", u2, strnull(display_session));
 
                 assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0);
                 sd_peer_get_session(pair[0], &pp);
@@ -83,7 +79,7 @@ static void test_login(void) {
                 assert_se(r == (int) strv_length(sessions));
                 assert_se(t = strv_join(sessions, " "));
                 strv_free(sessions);
-                log_info("sd_uid_get_sessions("UID_FMT", …) → [%i] \"%s\"", u2, r, t);
+                log_info("sd_uid_get_sessions(" UID_FMT ", …) → [%i] \"%s\"", u2, r, t);
                 free(t);
 
                 assert_se(r == sd_uid_get_sessions(u2, false, NULL));
@@ -93,7 +89,7 @@ static void test_login(void) {
                 assert_se(r == (int) strv_length(seats));
                 assert_se(t = strv_join(seats, " "));
                 strv_free(seats);
-                log_info("sd_uid_get_seats("UID_FMT", …) → [%i] \"%s\"", u2, r, t);
+                log_info("sd_uid_get_seats(" UID_FMT ", …) → [%i] \"%s\"", u2, r, t);
                 free(t);
 
                 assert_se(r == sd_uid_get_seats(u2, false, NULL));
@@ -113,7 +109,7 @@ static void test_login(void) {
                 log_info("sd_session_get_state(\"%s\") → \"%s\"", session, state);
 
                 assert_se(sd_session_get_uid(session, &u) >= 0);
-                log_info("sd_session_get_uid(\"%s\") → "UID_FMT, session, u);
+                log_info("sd_session_get_uid(\"%s\") → " UID_FMT, session, u);
                 assert_se(u == u2);
 
                 assert_se(sd_session_get_type(session, &type) >= 0);
@@ -128,13 +124,11 @@ static void test_login(void) {
 
                 r = sd_session_get_remote_user(session, &remote_user);
                 assert_se(r >= 0 || r == -ENODATA);
-                log_info("sd_session_get_remote_user(\"%s\") → \"%s\"",
-                         session, strna(remote_user));
+                log_info("sd_session_get_remote_user(\"%s\") → \"%s\"", session, strna(remote_user));
 
                 r = sd_session_get_remote_host(session, &remote_host);
                 assert_se(r >= 0 || r == -ENODATA);
-                log_info("sd_session_get_remote_host(\"%s\") → \"%s\"",
-                         session, strna(remote_host));
+                log_info("sd_session_get_remote_host(\"%s\") → \"%s\"", session, strna(remote_host));
 
                 r = sd_session_get_seat(session, &seat);
                 if (r >= 0) {
@@ -159,7 +153,7 @@ static void test_login(void) {
                 }
 
                 assert_se(sd_uid_get_state(u, &state2) >= 0);
-                log_info("sd_uid_get_state("UID_FMT", …) → %s", u, state2);
+                log_info("sd_uid_get_state(" UID_FMT ", …) → %s", u, state2);
         }
 
         if (seat) {
@@ -171,7 +165,7 @@ static void test_login(void) {
 
                 r = sd_seat_get_active(seat, &session2, &u2);
                 assert_se(r >= 0);
-                log_info("sd_seat_get_active(\"%s\", …) → \"%s\", "UID_FMT, seat, session2, u2);
+                log_info("sd_seat_get_active(\"%s\", …) → \"%s\", " UID_FMT, seat, session2, u2);
 
                 r = sd_uid_is_on_seat(u, 1, seat);
                 assert_se(r >= 0);
@@ -182,8 +176,7 @@ static void test_login(void) {
                 assert_se(r == (int) strv_length(sessions));
                 assert_se(t = strv_join(sessions, " "));
                 strv_free(sessions);
-                log_info("sd_seat_get_sessions(\"%s\", …) → %i, \"%s\", [%i] {%s}",
-                         seat, r, t, n, format_uids(&buf, uids, n));
+                log_info("sd_seat_get_sessions(\"%s\", …) → %i, \"%s\", [%i] {%s}", seat, r, t, n, format_uids(&buf, uids, n));
                 free(t);
 
                 assert_se(sd_seat_get_sessions(seat, NULL, NULL, NULL) == r);
@@ -258,10 +251,7 @@ static void test_monitor(void) {
 
                 nw = now(CLOCK_MONOTONIC);
 
-                r = poll(&pollfd, 1,
-                         timeout == (uint64_t) -1 ? -1 :
-                         timeout > nw ? (int) ((timeout - nw) / 1000) :
-                         0);
+                r = poll(&pollfd, 1, timeout == (uint64_t) -1 ? -1 : timeout > nw ? (int) ((timeout - nw) / 1000) : 0);
 
                 assert_se(r >= 0);
 
@@ -272,7 +262,7 @@ static void test_monitor(void) {
         sd_login_monitor_unref(m);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 

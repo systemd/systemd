@@ -15,7 +15,7 @@ static int do_rotate(JournalFile **f, bool compress, bool seal) {
         return r;
 }
 
-Writer* writer_new(RemoteServer *server) {
+Writer *writer_new(RemoteServer *server) {
         Writer *w;
 
         w = new0(Writer, 1);
@@ -34,7 +34,7 @@ Writer* writer_new(RemoteServer *server) {
         return w;
 }
 
-static Writer* writer_free(Writer *w) {
+static Writer *writer_free(Writer *w) {
         if (!w)
                 return NULL;
 
@@ -56,11 +56,7 @@ static Writer* writer_free(Writer *w) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 
-int writer_write(Writer *w,
-                 struct iovec_wrapper *iovw,
-                 dual_timestamp *ts,
-                 bool compress,
-                 bool seal) {
+int writer_write(Writer *w, struct iovec_wrapper *iovw, dual_timestamp *ts, bool compress, bool seal) {
         int r;
 
         assert(w);
@@ -68,16 +64,13 @@ int writer_write(Writer *w,
         assert(iovw->count > 0);
 
         if (journal_file_rotate_suggested(w->journal, 0)) {
-                log_info("%s: Journal header limits reached or header out-of-date, rotating",
-                         w->journal->path);
+                log_info("%s: Journal header limits reached or header out-of-date, rotating", w->journal->path);
                 r = do_rotate(&w->journal, compress, seal);
                 if (r < 0)
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal, ts, NULL,
-                                      iovw->iovec, iovw->count,
-                                      &w->seqnum, NULL, NULL);
+        r = journal_file_append_entry(w->journal, ts, NULL, iovw->iovec, iovw->count, &w->seqnum, NULL, NULL);
         if (r >= 0) {
                 if (w->server)
                         w->server->event_count += 1;
@@ -93,9 +86,7 @@ int writer_write(Writer *w,
                 log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal, ts, NULL,
-                                      iovw->iovec, iovw->count,
-                                      &w->seqnum, NULL, NULL);
+        r = journal_file_append_entry(w->journal, ts, NULL, iovw->iovec, iovw->count, &w->seqnum, NULL, NULL);
         if (r < 0)
                 return r;
 

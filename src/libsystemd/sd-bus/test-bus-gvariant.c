@@ -135,18 +135,38 @@ static int test_marshal(void) {
 
         bus->message_version = 2; /* dirty hack to enable gvariant */
 
-        r = sd_bus_message_new_method_call(bus, &m, "a.service.name",
-                                           "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works",
-                                           "an.interface.name", "AMethodName");
+        r = sd_bus_message_new_method_call(
+                bus,
+                &m,
+                "a.service.name",
+                "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works",
+                "an.interface.name",
+                "AMethodName");
         assert_se(r >= 0);
 
         assert_cc(sizeof(struct bus_header) == 16);
 
         assert_se(sd_bus_message_append(m,
-                                        "a(usv)", 3,
-                                        4711, "first-string-parameter", "(st)", "X", (uint64_t) 1111,
-                                        4712, "second-string-parameter", "(a(si))", 2, "Y", 5, "Z", 6,
-                                        4713, "third-string-parameter", "(uu)", 1, 2) >= 0);
+                                        "a(usv)",
+                                        3,
+                                        4711,
+                                        "first-string-parameter",
+                                        "(st)",
+                                        "X",
+                                        (uint64_t) 1111,
+                                        4712,
+                                        "second-string-parameter",
+                                        "(a(si))",
+                                        2,
+                                        "Y",
+                                        5,
+                                        "Z",
+                                        6,
+                                        4713,
+                                        "third-string-parameter",
+                                        "(uu)",
+                                        1,
+                                        2) >= 0);
 
         assert_se(sd_bus_message_seal(m, 4711, 0) >= 0);
 
@@ -159,7 +179,8 @@ static int test_marshal(void) {
                 g_type_init();
 #endif
 
-                v = g_variant_new_from_data(G_VARIANT_TYPE("(yyyyuta{tv})"), m->header, sizeof(struct bus_header) + m->fields_size, false, NULL, NULL);
+                v = g_variant_new_from_data(
+                        G_VARIANT_TYPE("(yyyyuta{tv})"), m->header, sizeof(struct bus_header) + m->fields_size, false, NULL, NULL);
                 assert_se(g_variant_is_normal_form(v));
                 t = g_variant_print(v, TRUE);
                 printf("%s\n", t);

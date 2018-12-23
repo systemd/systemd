@@ -27,9 +27,10 @@
 #include "util.h"
 
 /* wire protocol magic must match */
-#define UDEV_CTRL_MAGIC                                0xdead1dea
+#define UDEV_CTRL_MAGIC 0xdead1dea
 
-enum udev_ctrl_msg_type {
+enum udev_ctrl_msg_type
+{
         UDEV_CTRL_UNKNOWN,
         UDEV_CTRL_SET_LOG_LEVEL,
         UDEV_CTRL_STOP_EXEC_QUEUE,
@@ -83,7 +84,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         uctrl->n_ref = 1;
 
         if (fd < 0) {
-                uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+                uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
                 if (uctrl->sock < 0) {
                         log_error_errno(errno, "Failed to create socket: %m");
                         udev_ctrl_unref(uctrl);
@@ -102,7 +103,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set SO_PASSCRED: %m");
 
-        uctrl->saddr.un = (struct sockaddr_un) {
+        uctrl->saddr.un = (struct sockaddr_un){
                 .sun_family = AF_UNIX,
                 .sun_path = "/run/udev/control",
         };
@@ -167,13 +168,13 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
         struct ucred ucred = {};
         int r;
 
-        conn = new(struct udev_ctrl_connection, 1);
+        conn = new (struct udev_ctrl_connection, 1);
         if (!conn)
                 return NULL;
         conn->n_ref = 1;
         conn->uctrl = uctrl;
 
-        conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
+        conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
         if (conn->sock < 0) {
                 if (errno != EINTR)
                         log_error_errno(errno, "Failed to receive ctrl connection: %m");
@@ -187,7 +188,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl) {
                 goto err;
         }
         if (ucred.uid > 0) {
-                log_error("Sender uid="UID_FMT", message ignored", ucred.uid);
+                log_error("Sender uid=" UID_FMT ", message ignored", ucred.uid);
                 goto err;
         }
 
@@ -366,7 +367,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn) {
         cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cred->uid != 0) {
-                log_error("Sender uid="UID_FMT", ignoring message", cred->uid);
+                log_error("Sender uid=" UID_FMT ", ignoring message", cred->uid);
                 goto err;
         }
 

@@ -17,9 +17,7 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
         assert(acl);
         assert(entry);
 
-        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
 
                 acl_tag_t tag;
                 uid_t *u;
@@ -56,9 +54,7 @@ int calc_acl_mask_if_needed(acl_t *acl_p) {
 
         assert(acl_p);
 
-        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
 
                 if (acl_get_tag_type(i, &tag) < 0)
@@ -88,9 +84,7 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
 
         assert(acl_p);
 
-        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
 
                 if (acl_get_tag_type(i, &tag) < 0)
@@ -116,18 +110,14 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
         if (!basic)
                 return -errno;
 
-        for (r = acl_get_entry(basic, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(basic, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(basic, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(basic, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
                 acl_entry_t dst;
 
                 if (acl_get_tag_type(i, &tag) < 0)
                         return -errno;
 
-                if ((tag == ACL_USER_OBJ && have_user_obj) ||
-                    (tag == ACL_GROUP_OBJ && have_group_obj) ||
-                    (tag == ACL_OTHER && have_other))
+                if ((tag == ACL_USER_OBJ && have_user_obj) || (tag == ACL_GROUP_OBJ && have_group_obj) || (tag == ACL_OTHER && have_other))
                         continue;
 
                 r = acl_create_entry(acl_p, &dst);
@@ -324,9 +314,7 @@ static int find_acl_entry(acl_t acl, acl_entry_t entry, acl_entry_t *out) {
         acl_entry_t i;
         int r;
 
-        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
 
                 r = acl_entry_equal(i, entry);
                 if (r < 0)
@@ -350,9 +338,7 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         if (!old)
                 return -errno;
 
-        for (r = acl_get_entry(new, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(new, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(new, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(new, ACL_NEXT_ENTRY, &i)) {
 
                 acl_entry_t j;
 
@@ -386,16 +372,13 @@ int add_acls_for_user(int fd, uid_t uid) {
 
         r = acl_find_uid(acl, uid, &entry);
         if (r <= 0) {
-                if (acl_create_entry(&acl, &entry) < 0 ||
-                    acl_set_tag_type(entry, ACL_USER) < 0 ||
-                    acl_set_qualifier(entry, &uid) < 0)
+                if (acl_create_entry(&acl, &entry) < 0 || acl_set_tag_type(entry, ACL_USER) < 0 || acl_set_qualifier(entry, &uid) < 0)
                         return -errno;
         }
 
         /* We do not recalculate the mask unconditionally here,
          * so that the fchmod() mask above stays intact. */
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0)
+        if (acl_get_permset(entry, &permset) < 0 || acl_add_perm(permset, ACL_READ) < 0)
                 return -errno;
 
         r = calc_acl_mask_if_needed(&acl);

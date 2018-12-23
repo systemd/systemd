@@ -5,8 +5,12 @@
 
 #include "sd-daemon.h"
 
-#define NOTIFY_READY "READY=1\n" "STATUS=Processing requests..."
-#define NOTIFY_STOPPING "STOPPING=1\n" "STATUS=Shutting down..."
+#define NOTIFY_READY \
+        "READY=1\n"  \
+        "STATUS=Processing requests..."
+#define NOTIFY_STOPPING \
+        "STOPPING=1\n"  \
+        "STATUS=Shutting down..."
 
 static inline const char *notify_start(const char *start, const char *stop) {
         if (start)

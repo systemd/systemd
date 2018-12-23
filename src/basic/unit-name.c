@@ -16,25 +16,23 @@
 #include "unit-name.h"
 
 /* Characters valid in a unit name. */
-#define VALID_CHARS                             \
-        DIGITS                                  \
-        LETTERS                                 \
+#define VALID_CHARS \
+        DIGITS      \
+        LETTERS     \
         ":-_.\\"
 
 /* The same, but also permits the single @ character that may appear */
-#define VALID_CHARS_WITH_AT                     \
-        "@"                                     \
-        VALID_CHARS
+#define VALID_CHARS_WITH_AT "@" VALID_CHARS
 
 /* All chars valid in a unit name glob */
-#define VALID_CHARS_GLOB                        \
-        VALID_CHARS_WITH_AT                     \
+#define VALID_CHARS_GLOB    \
+        VALID_CHARS_WITH_AT \
         "[]!-*?"
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         const char *e, *i, *at;
 
-        assert((flags & ~(UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) == 0);
+        assert((flags & ~(UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE)) == 0);
 
         if (_unlikely_(flags == 0))
                 return false;
@@ -163,7 +161,7 @@ int unit_name_to_instance(const char *n, char **instance) {
         if (!d)
                 return -EINVAL;
 
-        i = strndup(p, d-p);
+        i = strndup(p, d - p);
         if (!i)
                 return -ENOMEM;
 
@@ -225,7 +223,7 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
         a = e - n;
         b = strlen(suffix);
 
-        s = new(char, a + b + 1);
+        s = new (char, a + b + 1);
         if (!s)
                 return -ENOMEM;
 
@@ -318,7 +316,7 @@ char *unit_name_escape(const char *f) {
 
         assert(f);
 
-        r = new(char, strlen(f)*4+1);
+        r = new (char, strlen(f) * 4 + 1);
         if (!r)
                 return NULL;
 
@@ -456,7 +454,7 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret) {
         assert(i);
         assert(ret);
 
-        if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
+        if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE))
                 return -EINVAL;
         if (!unit_instance_is_valid(i))
                 return -EINVAL;
@@ -467,7 +465,7 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret) {
         a = p - f;
         b = strlen(i);
 
-        s = new(char, a + 1 + b + strlen(e) + 1);
+        s = new (char, a + 1 + b + strlen(e) + 1);
         if (!s)
                 return -ENOMEM;
 
@@ -485,7 +483,7 @@ int unit_name_template(const char *f, char **ret) {
         assert(f);
         assert(ret);
 
-        if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
+        if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE))
                 return -EINVAL;
 
         assert_se(p = strchr(f, '@'));
@@ -493,7 +491,7 @@ int unit_name_template(const char *f, char **ret) {
 
         a = p - f;
 
-        s = new(char, a + 1 + strlen(e) + 1);
+        s = new (char, a + 1 + strlen(e) + 1);
         if (!s)
                 return -ENOMEM;
 
@@ -623,9 +621,7 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
                 goto good;
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
-        if ((flags & UNIT_NAME_MANGLE_GLOB) &&
-            string_is_glob(name) &&
-            in_charset(name, VALID_CHARS_GLOB))
+        if ((flags & UNIT_NAME_MANGLE_GLOB) && string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB))
                 goto good;
 
         if (is_device_path(name)) {
@@ -644,7 +640,7 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
                         return r;
         }
 
-        s = new(char, strlen(name) * 4 + strlen(suffix) + 1);
+        s = new (char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!s)
                 return -ENOMEM;
 
@@ -652,7 +648,8 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
         if (mangled)
                 log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
                          "Invalid unit name \"%s\" was escaped as \"%s\" (maybe you should use systemd-escape?)",
-                         name, s);
+                         name,
+                         s);
 
         /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow "foo.*" as a
          * valid glob. */
@@ -725,7 +722,7 @@ int slice_build_subslice(const char *slice, const char *name, char **ret) {
 
                 assert_se(e = endswith(slice, ".slice"));
 
-                subslice = new(char, (e - slice) + 1 + strlen(name) + 6 + 1);
+                subslice = new (char, (e - slice) + 1 + strlen(name) + 6 + 1);
                 if (!subslice)
                         return -ENOMEM;
 

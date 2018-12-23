@@ -17,59 +17,59 @@ int cescape_char(char c, char *buf) {
 
         switch (c) {
 
-                case '\a':
-                        *(buf++) = '\\';
-                        *(buf++) = 'a';
-                        break;
-                case '\b':
-                        *(buf++) = '\\';
-                        *(buf++) = 'b';
-                        break;
-                case '\f':
-                        *(buf++) = '\\';
-                        *(buf++) = 'f';
-                        break;
-                case '\n':
-                        *(buf++) = '\\';
-                        *(buf++) = 'n';
-                        break;
-                case '\r':
-                        *(buf++) = '\\';
-                        *(buf++) = 'r';
-                        break;
-                case '\t':
-                        *(buf++) = '\\';
-                        *(buf++) = 't';
-                        break;
-                case '\v':
-                        *(buf++) = '\\';
-                        *(buf++) = 'v';
-                        break;
-                case '\\':
-                        *(buf++) = '\\';
-                        *(buf++) = '\\';
-                        break;
-                case '"':
-                        *(buf++) = '\\';
-                        *(buf++) = '"';
-                        break;
-                case '\'':
-                        *(buf++) = '\\';
-                        *(buf++) = '\'';
-                        break;
+        case '\a':
+                *(buf++) = '\\';
+                *(buf++) = 'a';
+                break;
+        case '\b':
+                *(buf++) = '\\';
+                *(buf++) = 'b';
+                break;
+        case '\f':
+                *(buf++) = '\\';
+                *(buf++) = 'f';
+                break;
+        case '\n':
+                *(buf++) = '\\';
+                *(buf++) = 'n';
+                break;
+        case '\r':
+                *(buf++) = '\\';
+                *(buf++) = 'r';
+                break;
+        case '\t':
+                *(buf++) = '\\';
+                *(buf++) = 't';
+                break;
+        case '\v':
+                *(buf++) = '\\';
+                *(buf++) = 'v';
+                break;
+        case '\\':
+                *(buf++) = '\\';
+                *(buf++) = '\\';
+                break;
+        case '"':
+                *(buf++) = '\\';
+                *(buf++) = '"';
+                break;
+        case '\'':
+                *(buf++) = '\\';
+                *(buf++) = '\'';
+                break;
 
-                default:
-                        /* For special chars we prefer octal over
-                         * hexadecimal encoding, simply because glib's
-                         * g_strescape() does the same */
-                        if ((c < ' ') || (c >= 127)) {
-                                *(buf++) = '\\';
-                                *(buf++) = octchar((unsigned char) c >> 6);
-                                *(buf++) = octchar((unsigned char) c >> 3);
-                                *(buf++) = octchar((unsigned char) c);
-                        } else
-                                *(buf++) = c;
-                        break;
+        default:
+                /* For special chars we prefer octal over
+                 * hexadecimal encoding, simply because glib's
+                 * g_strescape() does the same */
+                if ((c < ' ') || (c >= 127)) {
+                        *(buf++) = '\\';
+                        *(buf++) = octchar((unsigned char) c >> 6);
+                        *(buf++) = octchar((unsigned char) c >> 3);
+                        *(buf++) = octchar((unsigned char) c);
+                } else
+                        *(buf++) = c;
+                break;
         }
 
         return buf - buf_old;
@@ -84,7 +84,7 @@ char *cescape_length(const char *s, size_t n) {
         /* Does C style string escaping. May be reversed with
          * cunescape(). */
 
-        r = new(char, n*4 + 1);
+        r = new (char, n * 4 + 1);
         if (!r)
                 return NULL;
 
@@ -224,7 +224,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                 }
 
                 c = ((uint32_t) a[0] << 28U) | ((uint32_t) a[1] << 24U) | ((uint32_t) a[2] << 20U) | ((uint32_t) a[3] << 16U) |
-                    ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] <<  8U) | ((uint32_t) a[6] <<  4U) |  (uint32_t) a[7];
+                        ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] << 8U) | ((uint32_t) a[6] << 4U) | (uint32_t) a[7];
 
                 /* Don't allow 0 chars */
                 if (c == 0)
@@ -300,7 +300,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         pl = strlen_ptr(prefix);
 
-        r = new(char, pl+length+1);
+        r = new (char, pl + length + 1);
         if (!r)
                 return -ENOMEM;
 
@@ -376,14 +376,13 @@ char *xescape(const char *s, const char *bad) {
          * chars, in \xFF style escaping. May be reversed with
          * cunescape(). */
 
-        r = new(char, strlen(s) * 4 + 1);
+        r = new (char, strlen(s) * 4 + 1);
         if (!r)
                 return NULL;
 
         for (f = s, t = r; *f; f++) {
 
-                if ((*f < ' ') || (*f >= 127) ||
-                    (*f == '\\') || strchr(bad, *f)) {
+                if ((*f < ' ') || (*f >= 127) || (*f == '\\') || strchr(bad, *f)) {
                         *(t++) = '\\';
                         *(t++) = 'x';
                         *(t++) = hexchar(*f >> 4);
@@ -404,7 +403,7 @@ char *octescape(const char *s, size_t len) {
         /* Escapes all chars in bad, in addition to \ and " chars,
          * in \nnn style escaping. */
 
-        r = new(char, len * 4 + 1);
+        r = new (char, len * 4 + 1);
         if (!r)
                 return NULL;
 
@@ -422,7 +421,6 @@ char *octescape(const char *s, size_t len) {
         *t = 0;
 
         return r;
-
 }
 
 static char *strcpy_backslash_escaped(char *t, const char *s, const char *bad, bool escape_tab_nl) {
@@ -447,7 +445,7 @@ static char *strcpy_backslash_escaped(char *t, const char *s, const char *bad, b
 char *shell_escape(const char *s, const char *bad) {
         char *r, *t;
 
-        r = new(char, strlen(s)*2+1);
+        r = new (char, strlen(s) * 2 + 1);
         if (!r)
                 return NULL;
 
@@ -457,7 +455,7 @@ char *shell_escape(const char *s, const char *bad) {
         return r;
 }
 
-char* shell_maybe_quote(const char *s, EscapeStyle style) {
+char *shell_maybe_quote(const char *s, EscapeStyle style) {
         const char *p;
         char *r, *t;
 
@@ -468,15 +466,13 @@ char* shell_maybe_quote(const char *s, EscapeStyle style) {
          * escaping too, but that should be OK. */
 
         for (p = s; *p; p++)
-                if (*p <= ' ' ||
-                    *p >= 127 ||
-                    strchr(SHELL_NEED_QUOTES, *p))
+                if (*p <= ' ' || *p >= 127 || strchr(SHELL_NEED_QUOTES, *p))
                         break;
 
         if (!*p)
                 return strdup(s);
 
-        r = new(char, (style == ESCAPE_POSIX) + 1 + strlen(s)*2 + 1 + 1);
+        r = new (char, (style == ESCAPE_POSIX) + 1 + strlen(s) * 2 + 1 + 1);
         if (!r)
                 return NULL;
 

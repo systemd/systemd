@@ -17,7 +17,8 @@
 #include "list.h"
 #include "set.h"
 
-typedef enum LinkState {
+typedef enum LinkState
+{
         LINK_STATE_PENDING,
         LINK_STATE_CONFIGURING,
         LINK_STATE_CONFIGURED,
@@ -28,7 +29,8 @@ typedef enum LinkState {
         _LINK_STATE_INVALID = -1
 } LinkState;
 
-typedef enum LinkOperationalState {
+typedef enum LinkOperationalState
+{
         LINK_OPERSTATE_OFF,
         LINK_OPERSTATE_NO_CARRIER,
         LINK_OPERSTATE_DORMANT,
@@ -95,8 +97,8 @@ typedef struct Link {
         bool ndisc_configured;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address:1;
-        bool ipv4ll_route:1;
+        bool ipv4ll_address : 1;
+        bool ipv4ll_route : 1;
 
         bool neighbors_configured;
 
@@ -129,7 +131,7 @@ typedef struct Link {
         Hashmap *bound_to_links;
 } Link;
 
-typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
+typedef int (*link_netlink_message_handler_t)(sd_netlink *, sd_netlink_message *, Link *);
 
 DUID *link_get_duid(Link *link);
 int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
@@ -171,12 +173,12 @@ int dhcp4_set_promote_secondaries(Link *link);
 int dhcp6_request_prefix_delegation(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
-int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
+int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link *link);
 
-const char* link_state_to_string(LinkState s) _const_;
+const char *link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-const char* link_operstate_to_string(LinkOperationalState s) _const_;
+const char *link_operstate_to_string(LinkOperationalState s) _const_;
 LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 extern const sd_bus_vtable link_vtable[];
@@ -187,30 +189,28 @@ int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_link_full(link, level, error, ...)                          \
-        ({                                                              \
-                const Link *_l = (link);                                \
+#define log_link_full(link, level, error, ...)                                                                                              \
+        ({                                                                                                                                  \
+                const Link *_l = (link);                                                                                                    \
                 _l ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        })                                                              \
+                     log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__);                                               \
+        })
 
-#define log_link_debug(link, ...)   log_link_full(link, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_link_info(link, ...)    log_link_full(link, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_link_notice(link, ...)  log_link_full(link, LOG_NOTICE, 0, ##__VA_ARGS__)
+#define log_link_debug(link, ...) log_link_full(link, LOG_DEBUG, 0, ##__VA_ARGS__)
+#define log_link_info(link, ...) log_link_full(link, LOG_INFO, 0, ##__VA_ARGS__)
+#define log_link_notice(link, ...) log_link_full(link, LOG_NOTICE, 0, ##__VA_ARGS__)
 #define log_link_warning(link, ...) log_link_full(link, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_link_error(link, ...)   log_link_full(link, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_link_error(link, ...) log_link_full(link, LOG_ERR, 0, ##__VA_ARGS__)
 
-#define log_link_debug_errno(link, error, ...)   log_link_full(link, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_link_info_errno(link, error, ...)    log_link_full(link, LOG_INFO, error, ##__VA_ARGS__)
-#define log_link_notice_errno(link, error, ...)  log_link_full(link, LOG_NOTICE, error, ##__VA_ARGS__)
+#define log_link_debug_errno(link, error, ...) log_link_full(link, LOG_DEBUG, error, ##__VA_ARGS__)
+#define log_link_info_errno(link, error, ...) log_link_full(link, LOG_INFO, error, ##__VA_ARGS__)
+#define log_link_notice_errno(link, error, ...) log_link_full(link, LOG_NOTICE, error, ##__VA_ARGS__)
 #define log_link_warning_errno(link, error, ...) log_link_full(link, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_link_error_errno(link, error, ...)   log_link_full(link, LOG_ERR, error, ##__VA_ARGS__)
+#define log_link_error_errno(link, error, ...) log_link_full(link, LOG_ERR, error, ##__VA_ARGS__)
 
 #define LOG_LINK_MESSAGE(link, fmt, ...) "MESSAGE=%s: " fmt, (link)->ifname, ##__VA_ARGS__
 #define LOG_LINK_INTERFACE(link) "INTERFACE=%s", (link)->ifname
 
-#define ADDRESS_FMT_VAL(address)                   \
-        be32toh((address).s_addr) >> 24,           \
-        (be32toh((address).s_addr) >> 16) & 0xFFu, \
-        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
-        be32toh((address).s_addr) & 0xFFu
+#define ADDRESS_FMT_VAL(address)                                                                                              \
+        be32toh((address).s_addr) >> 24, (be32toh((address).s_addr) >> 16) & 0xFFu, (be32toh((address).s_addr) >> 8) & 0xFFu, \
+                be32toh((address).s_addr) & 0xFFu

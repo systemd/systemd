@@ -13,8 +13,8 @@
 #include "process-util.h"
 #include "signal-util.h"
 
-static Manager* manager_unref(Manager *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+static Manager *manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_unref);
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
@@ -44,7 +44,7 @@ static int manager_new(Manager **ret) {
         return 0;
 }
 
-static Manager* manager_unref(Manager *m) {
+static Manager *manager_unref(Manager *m) {
         assert(m);
 
         hashmap_free(m->image_cache);
@@ -73,7 +73,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/portable1/image", "org.freedesktop.portable1.Image", image_vtable, bus_image_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/portable1/image", "org.freedesktop.portable1.Image", image_vtable, bus_image_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image object vtable: %m");
 
@@ -115,12 +116,7 @@ static bool check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.portable1",
-                        DEFAULT_EXIT_USEC,
-                        check_idle, m);
+        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.portable1", DEFAULT_EXIT_USEC, check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {

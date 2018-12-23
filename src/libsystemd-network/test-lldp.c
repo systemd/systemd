@@ -81,19 +81,60 @@ static void test_receive_basic_packet(sd_event *e) {
 
         static const uint8_t frame[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x07, 0x04, 0x00, 0x01, 0x02,     /* Chassis: MAC, 00:01:02:03:04:05 */
-                0x03, 0x04, 0x05,
-                0x04, 0x04, 0x05, 0x31, 0x2f, 0x33,     /* Port: interface name, "1/3" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
+                0x02,
+                0x07,
+                0x04,
+                0x00,
+                0x01,
+                0x02, /* Chassis: MAC, 00:01:02:03:04:05 */
+                0x03,
+                0x04,
+                0x05,
+                0x04,
+                0x04,
+                0x05,
+                0x31,
+                0x2f,
+                0x33, /* Port: interface name, "1/3" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
                 /* LLDP optional TLVs */
-                0x08, 0x04, 0x50, 0x6f, 0x72, 0x74,     /* Port Description: "Port" */
-                0x0a, 0x03, 0x53, 0x59, 0x53,           /* System Name: "SYS" */
-                0x0c, 0x04, 0x66, 0x6f, 0x6f, 0x00,     /* System Description: "foo" (NULL-terminated) */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x08,
+                0x04,
+                0x50,
+                0x6f,
+                0x72,
+                0x74, /* Port Description: "Port" */
+                0x0a,
+                0x03,
+                0x53,
+                0x59,
+                0x53, /* System Name: "SYS" */
+                0x0c,
+                0x04,
+                0x66,
+                0x6f,
+                0x6f,
+                0x00, /* System Description: "foo" (NULL-terminated) */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
 
         sd_lldp *lldp;
@@ -145,15 +186,39 @@ static void test_receive_incomplete_packet(sd_event *e) {
         sd_lldp_neighbor **neighbors;
         uint8_t frame[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x07, 0x04, 0x00, 0x01, 0x02,     /* Chassis: MAC, 00:01:02:03:04:05 */
-                0x03, 0x04, 0x05,
-                0x04, 0x04, 0x05, 0x31, 0x2f, 0x33,     /* Port: interface name, "1/3" */
-                                                        /* Missing TTL */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x07,
+                0x04,
+                0x00,
+                0x01,
+                0x02, /* Chassis: MAC, 00:01:02:03:04:05 */
+                0x03,
+                0x04,
+                0x05,
+                0x04,
+                0x04,
+                0x05,
+                0x31,
+                0x2f,
+                0x33, /* Port: interface name, "1/3" */
+                      /* Missing TTL */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
 
         lldp_handler_calls = 0;
@@ -172,27 +237,94 @@ static void test_receive_oui_packet(sd_event *e) {
         sd_lldp_neighbor **neighbors;
         uint8_t frame[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x07, 0x04, 0x00, 0x01, 0x02,     /* Chassis: MAC, 00:01:02:03:04:05 */
-                0x03, 0x04, 0x05,
-                0x04, 0x04, 0x05, 0x31, 0x2f, 0x33,     /* Port TLV: interface name, "1/3" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
+                0x02,
+                0x07,
+                0x04,
+                0x00,
+                0x01,
+                0x02, /* Chassis: MAC, 00:01:02:03:04:05 */
+                0x03,
+                0x04,
+                0x05,
+                0x04,
+                0x04,
+                0x05,
+                0x31,
+                0x2f,
+                0x33, /* Port TLV: interface name, "1/3" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
                 /* LLDP optional TLVs */
-                0xfe, 0x06, 0x00, 0x80, 0xc2, 0x01,     /* Port VLAN ID: 0x1234 */
-                0x12, 0x34,
-                0xfe, 0x07, 0x00, 0x80, 0xc2, 0x02,     /* Port and protocol: flag 1, PPVID 0x7788 */
-                0x01, 0x77, 0x88,
-                0xfe, 0x0d, 0x00, 0x80, 0xc2, 0x03,     /* VLAN Name: ID 0x1234, name "Vlan51" */
-                0x12, 0x34, 0x06, 0x56, 0x6c, 0x61,
-                0x6e, 0x35, 0x31,
-                0xfe, 0x06, 0x00, 0x80, 0xc2, 0x06,     /* Management VID: 0x0102 */
-                0x01, 0x02,
-                0xfe, 0x09, 0x00, 0x80, 0xc2, 0x07,     /* Link aggregation: status 1, ID 0x00140012 */
-                0x01, 0x00, 0x14, 0x00, 0x12,
-                0x00, 0x00                              /* End of LLDPDU */
+                0xfe,
+                0x06,
+                0x00,
+                0x80,
+                0xc2,
+                0x01, /* Port VLAN ID: 0x1234 */
+                0x12,
+                0x34,
+                0xfe,
+                0x07,
+                0x00,
+                0x80,
+                0xc2,
+                0x02, /* Port and protocol: flag 1, PPVID 0x7788 */
+                0x01,
+                0x77,
+                0x88,
+                0xfe,
+                0x0d,
+                0x00,
+                0x80,
+                0xc2,
+                0x03, /* VLAN Name: ID 0x1234, name "Vlan51" */
+                0x12,
+                0x34,
+                0x06,
+                0x56,
+                0x6c,
+                0x61,
+                0x6e,
+                0x35,
+                0x31,
+                0xfe,
+                0x06,
+                0x00,
+                0x80,
+                0xc2,
+                0x06, /* Management VID: 0x0102 */
+                0x01,
+                0x02,
+                0xfe,
+                0x09,
+                0x00,
+                0x80,
+                0xc2,
+                0x07, /* Link aggregation: status 1, ID 0x00140012 */
+                0x01,
+                0x00,
+                0x14,
+                0x00,
+                0x12,
+                0x00,
+                0x00 /* End of LLDPDU */
         };
 
         lldp_handler_calls = 0;
@@ -233,78 +365,227 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
 
         static const uint8_t frame1[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x04, 0x01, '1', '/', '2',        /* Chassis component: "1/2" */
-                0x04, 0x04, 0x02, '2', '/', '3',        /* Port component: "2/3" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x04,
+                0x01,
+                '1',
+                '/',
+                '2', /* Chassis component: "1/2" */
+                0x04,
+                0x04,
+                0x02,
+                '2',
+                '/',
+                '3', /* Port component: "2/3" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
         static const uint8_t frame2[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x04, 0x01, '2', '/', '1',        /* Chassis component: "2/1" */
-                0x04, 0x04, 0x02, '1', '/', '3',        /* Port component: "1/3" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x04,
+                0x01,
+                '2',
+                '/',
+                '1', /* Chassis component: "2/1" */
+                0x04,
+                0x04,
+                0x02,
+                '1',
+                '/',
+                '3', /* Port component: "1/3" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
         static const uint8_t frame3[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x05, 0x01, '2', '/', '1', '0',   /* Chassis component: "2/10" */
-                0x04, 0x04, 0x02, '1', '/', '0',        /* Port component: "1/0" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x05,
+                0x01,
+                '2',
+                '/',
+                '1',
+                '0', /* Chassis component: "2/10" */
+                0x04,
+                0x04,
+                0x02,
+                '1',
+                '/',
+                '0', /* Port component: "1/0" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
         static const uint8_t frame4[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x05, 0x01, '2', '/', '1', '9',   /* Chassis component: "2/19" */
-                0x04, 0x04, 0x02, '1', '/', '0',        /* Port component: "1/0" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x05,
+                0x01,
+                '2',
+                '/',
+                '1',
+                '9', /* Chassis component: "2/19" */
+                0x04,
+                0x04,
+                0x02,
+                '1',
+                '/',
+                '0', /* Port component: "1/0" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
         static const uint8_t frame5[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x04, 0x01, '1', '/', '2',        /* Chassis component: "1/2" */
-                0x04, 0x05, 0x02, '2', '/', '1', '0',   /* Port component: "2/10" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x04,
+                0x01,
+                '1',
+                '/',
+                '2', /* Chassis component: "1/2" */
+                0x04,
+                0x05,
+                0x02,
+                '2',
+                '/',
+                '1',
+                '0', /* Port component: "2/10" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
         static const uint8_t frame6[] = {
                 /* Ethernet header */
-                0x01, 0x80, 0xc2, 0x00, 0x00, 0x03,     /* Destination MAC */
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06,     /* Source MAC */
-                0x88, 0xcc,                             /* Ethertype */
+                0x01,
+                0x80,
+                0xc2,
+                0x00,
+                0x00,
+                0x03, /* Destination MAC */
+                0x01,
+                0x02,
+                0x03,
+                0x04,
+                0x05,
+                0x06, /* Source MAC */
+                0x88,
+                0xcc, /* Ethertype */
                 /* LLDP mandatory TLVs */
-                0x02, 0x04, 0x01, '1', '/', '2',        /* Chassis component: "1/2" */
-                0x04, 0x05, 0x02, '2', '/', '3', '9',   /* Port component: "2/10" */
-                0x06, 0x02, 0x00, 0x78,                 /* TTL: 120 seconds */
-                0x00, 0x00                              /* End Of LLDPDU */
+                0x02,
+                0x04,
+                0x01,
+                '1',
+                '/',
+                '2', /* Chassis component: "1/2" */
+                0x04,
+                0x05,
+                0x02,
+                '2',
+                '/',
+                '3',
+                '9', /* Port component: "2/10" */
+                0x06,
+                0x02,
+                0x00,
+                0x78, /* TTL: 120 seconds */
+                0x00,
+                0x00 /* End Of LLDPDU */
         };
-        static const char* expected[] = {
+        static const char *expected[] = {
                 /* ordered pairs of Chassis+Port */
-                "1/2", "2/10",
-                "1/2", "2/3",
-                "1/2", "2/39",
-                "2/1", "1/3",
-                "2/10", "1/0",
-                "2/19", "1/0",
+                "1/2", "2/10", "1/2", "2/3", "1/2", "2/39", "2/1", "1/3", "2/10", "1/0", "2/19", "1/0",
         };
 
         sd_lldp *lldp;

@@ -20,7 +20,7 @@
 #include "user-util.h"
 #include "util.h"
 
-Inhibitor* inhibitor_new(Manager *m, const char* id) {
+Inhibitor *inhibitor_new(Manager *m, const char *id) {
         Inhibitor *i;
 
         assert(m);
@@ -85,8 +85,9 @@ int inhibitor_save(Inhibitor *i) {
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
                 "MODE=%s\n"
-                "UID="UID_FMT"\n"
-                "PID="PID_FMT"\n",
+                "UID=" UID_FMT
+                "\n"
+                "PID=" PID_FMT "\n",
                 inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
                 i->uid,
@@ -147,9 +148,11 @@ int inhibitor_start(Inhibitor *i) {
 
         dual_timestamp_get(&i->since);
 
-        log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s started.",
-                  strna(i->who), strna(i->why),
-                  i->pid, i->uid,
+        log_debug("Inhibitor %s (%s) pid=" PID_FMT " uid=" UID_FMT " mode=%s started.",
+                  strna(i->who),
+                  strna(i->why),
+                  i->pid,
+                  i->uid,
                   inhibit_mode_to_string(i->mode));
 
         inhibitor_save(i);
@@ -165,9 +168,11 @@ int inhibitor_stop(Inhibitor *i) {
         assert(i);
 
         if (i->started)
-                log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s stopped.",
-                          strna(i->who), strna(i->why),
-                          i->pid, i->uid,
+                log_debug("Inhibitor %s (%s) pid=" PID_FMT " uid=" UID_FMT " mode=%s stopped.",
+                          strna(i->who),
+                          strna(i->why),
+                          i->pid,
+                          i->uid,
                           inhibit_mode_to_string(i->mode));
 
         if (i->state_file)
@@ -182,27 +187,15 @@ int inhibitor_stop(Inhibitor *i) {
 
 int inhibitor_load(Inhibitor *i) {
 
-        _cleanup_free_ char
-                *what = NULL,
-                *uid = NULL,
-                *pid = NULL,
-                *who = NULL,
-                *why = NULL,
-                *mode = NULL;
+        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
 
         InhibitWhat w;
         InhibitMode mm;
         char *cc;
         int r;
 
-        r = parse_env_file(NULL, i->state_file,
-                           "WHAT", &what,
-                           "UID", &uid,
-                           "PID", &pid,
-                           "WHO", &who,
-                           "WHY", &why,
-                           "MODE", &mode,
-                           "FIFO", &i->fifo_path);
+        r = parse_env_file(
+                NULL, i->state_file, "WHAT", &what, "UID", &uid, "PID", &pid, "WHO", &who, "WHY", &why, "MODE", &mode, "FIFO", &i->fifo_path);
         if (r < 0)
                 return r;
 
@@ -211,7 +204,7 @@ int inhibitor_load(Inhibitor *i) {
                 i->what = w;
 
         mm = mode ? inhibit_mode_from_string(mode) : INHIBIT_BLOCK;
-        if  (mm >= 0)
+        if (mm >= 0)
                 i->mode = mm;
 
         if (uid) {
@@ -288,7 +281,7 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Open reading side */
         if (i->fifo_fd < 0) {
-                i->fifo_fd = open(i->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                i->fifo_fd = open(i->fifo_path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
                 if (i->fifo_fd < 0)
                         return -errno;
         }
@@ -298,13 +291,13 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_priority(i->event_source, SD_EVENT_PRIORITY_IDLE-10);
+                r = sd_event_source_set_priority(i->event_source, SD_EVENT_PRIORITY_IDLE - 10);
                 if (r < 0)
                         return r;
         }
 
         /* Open writing side */
-        r = open(i->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+        r = open(i->fifo_path, O_WRONLY | O_CLOEXEC | O_NONBLOCK);
         if (r < 0)
                 return -errno;
 
@@ -331,8 +324,8 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         assert(m);
 
         HASHMAP_FOREACH(i, m->inhibitors, j)
-                if (i->mode == mm && i->started)
-                        what |= i->what;
+        if (i->mode == mm && i->started)
+                what |= i->what;
 
         return what;
 }
@@ -355,15 +348,14 @@ static int pid_is_active(Manager *m, pid_t pid) {
         return session_is_active(s);
 }
 
-bool manager_is_inhibited(
-                Manager *m,
-                InhibitWhat w,
-                InhibitMode mm,
-                dual_timestamp *since,
-                bool ignore_inactive,
-                bool ignore_uid,
-                uid_t uid,
-                Inhibitor **offending) {
+bool manager_is_inhibited(Manager *m,
+                          InhibitWhat w,
+                          InhibitMode mm,
+                          dual_timestamp *since,
+                          bool ignore_inactive,
+                          bool ignore_uid,
+                          uid_t uid,
+                          Inhibitor **offending) {
 
         Inhibitor *i;
         Iterator j;
@@ -389,8 +381,7 @@ bool manager_is_inhibited(
                 if (ignore_uid && i->uid == uid)
                         continue;
 
-                if (!inhibited ||
-                    i->since.monotonic < ts.monotonic)
+                if (!inhibited || i->since.monotonic < ts.monotonic)
                         ts = i->since;
 
                 inhibited = true;
@@ -429,7 +420,7 @@ const char *inhibit_what_to_string(InhibitWhat w) {
                 p = stpcpy(p, "handle-lid-switch:");
 
         if (p > buffer)
-                *(p-1) = 0;
+                *(p - 1) = 0;
         else
                 *p = 0;
 
@@ -463,9 +454,6 @@ InhibitWhat inhibit_what_from_string(const char *s) {
         return what;
 }
 
-static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {
-        [INHIBIT_BLOCK] = "block",
-        [INHIBIT_DELAY] = "delay"
-};
+static const char *const inhibit_mode_table[_INHIBIT_MODE_MAX] = { [INHIBIT_BLOCK] = "block", [INHIBIT_DELAY] = "delay" };
 
 DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);

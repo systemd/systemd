@@ -10,14 +10,16 @@
 
 typedef struct Swap Swap;
 
-typedef enum SwapExecCommand {
+typedef enum SwapExecCommand
+{
         SWAP_EXEC_ACTIVATE,
         SWAP_EXEC_DEACTIVATE,
         _SWAP_EXEC_COMMAND_MAX,
         _SWAP_EXEC_COMMAND_INVALID = -1
 } SwapExecCommand;
 
-typedef enum SwapResult {
+typedef enum SwapResult
+{
         SWAP_SUCCESS,
         SWAP_FAILURE_RESOURCES,
         SWAP_FAILURE_TIMEOUT,
@@ -48,13 +50,13 @@ struct Swap {
         SwapParameters parameters_proc_swaps;
         SwapParameters parameters_fragment;
 
-        bool from_proc_swaps:1;
-        bool from_fragment:1;
+        bool from_proc_swaps : 1;
+        bool from_fragment : 1;
 
         /* Used while looking for swaps that vanished or got added
          * from/to /proc/swaps */
-        bool is_active:1;
-        bool just_activated:1;
+        bool is_active : 1;
+        bool just_activated : 1;
 
         SwapResult result;
 
@@ -70,7 +72,7 @@ struct Swap {
 
         SwapState state, deserialized_state;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         SwapExecCommand control_command_id;
         pid_t control_pid;
 
@@ -88,10 +90,10 @@ extern const UnitVTable swap_vtable;
 int swap_process_device_new(Manager *m, sd_device *dev);
 int swap_process_device_remove(Manager *m, sd_device *dev);
 
-const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
+const char *swap_exec_command_to_string(SwapExecCommand i) _const_;
 SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
-const char* swap_result_to_string(SwapResult i) _const_;
+const char *swap_result_to_string(SwapResult i) _const_;
 SwapResult swap_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SWAP, Swap);

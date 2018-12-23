@@ -10,7 +10,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static const char* const show_status_table[_SHOW_STATUS_MAX] = {
+static const char *const show_status_table[_SHOW_STATUS_MAX] = {
         [SHOW_STATUS_NO] = "no",
         [SHOW_STATUS_AUTO] = "auto",
         [SHOW_STATUS_TEMPORARY] = "temporary",
@@ -53,7 +53,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
          * but minimizes the time window the kernel might end up killing PID 1 due to SAK). It also makes things easier
          * for us so that we don't have to recover from hangups and suchlike triggered on the console. */
 
-        fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -66,7 +66,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
                 if (c <= 0)
                         c = 80;
 
-                sl = status ? sizeof(status_indent)-1 : 0;
+                sl = status ? sizeof(status_indent) - 1 : 0;
 
                 emax = c - sl - 1;
                 if (emax < 3)
@@ -94,7 +94,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
 
         if (prev_ephemeral && !FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL))
                 iovec[n++] = IOVEC_MAKE_STRING(ANSI_ERASE_TO_END_OF_LINE);
-        prev_ephemeral = FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL) ;
+        prev_ephemeral = FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL);
 
         if (writev(fd, iovec, n) < 0)
                 return -errno;

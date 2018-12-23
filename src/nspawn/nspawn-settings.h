@@ -12,7 +12,8 @@
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 
-typedef enum StartMode {
+typedef enum StartMode
+{
         START_PID1, /* Run parameters as command line as process 1 */
         START_PID2, /* Use stub init process as PID 1, run parameters as command line as process 2 */
         START_BOOT, /* Search for init system, pass arguments as parameters */
@@ -20,7 +21,8 @@ typedef enum StartMode {
         _START_MODE_INVALID = -1
 } StartMode;
 
-typedef enum UserNamespaceMode {
+typedef enum UserNamespaceMode
+{
         USER_NAMESPACE_NO,
         USER_NAMESPACE_FIXED,
         USER_NAMESPACE_PICK,
@@ -28,7 +30,8 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
-typedef enum ResolvConfMode {
+typedef enum ResolvConfMode
+{
         RESOLV_CONF_OFF,
         RESOLV_CONF_COPY_HOST,
         RESOLV_CONF_COPY_STATIC,
@@ -40,7 +43,8 @@ typedef enum ResolvConfMode {
         _RESOLV_CONF_MODE_INVALID = -1
 } ResolvConfMode;
 
-typedef enum LinkJournal {
+typedef enum LinkJournal
+{
         LINK_NO,
         LINK_AUTO,
         LINK_HOST,
@@ -49,7 +53,8 @@ typedef enum LinkJournal {
         _LINK_JOURNAL_INVALID = -1
 } LinkJournal;
 
-typedef enum TimezoneMode {
+typedef enum TimezoneMode
+{
         TIMEZONE_OFF,
         TIMEZONE_COPY,
         TIMEZONE_BIND,
@@ -60,35 +65,36 @@ typedef enum TimezoneMode {
         _TIMEZONE_MODE_INVALID = -1
 } TimezoneMode;
 
-typedef enum SettingsMask {
-        SETTING_START_MODE        = UINT64_C(1) << 0,
-        SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
-        SETTING_USER              = UINT64_C(1) << 2,
-        SETTING_CAPABILITY        = UINT64_C(1) << 3,
-        SETTING_KILL_SIGNAL       = UINT64_C(1) << 4,
-        SETTING_PERSONALITY       = UINT64_C(1) << 5,
-        SETTING_MACHINE_ID        = UINT64_C(1) << 6,
-        SETTING_NETWORK           = UINT64_C(1) << 7,
-        SETTING_EXPOSE_PORTS      = UINT64_C(1) << 8,
-        SETTING_READ_ONLY         = UINT64_C(1) << 9,
-        SETTING_VOLATILE_MODE     = UINT64_C(1) << 10,
-        SETTING_CUSTOM_MOUNTS     = UINT64_C(1) << 11,
+typedef enum SettingsMask
+{
+        SETTING_START_MODE = UINT64_C(1) << 0,
+        SETTING_ENVIRONMENT = UINT64_C(1) << 1,
+        SETTING_USER = UINT64_C(1) << 2,
+        SETTING_CAPABILITY = UINT64_C(1) << 3,
+        SETTING_KILL_SIGNAL = UINT64_C(1) << 4,
+        SETTING_PERSONALITY = UINT64_C(1) << 5,
+        SETTING_MACHINE_ID = UINT64_C(1) << 6,
+        SETTING_NETWORK = UINT64_C(1) << 7,
+        SETTING_EXPOSE_PORTS = UINT64_C(1) << 8,
+        SETTING_READ_ONLY = UINT64_C(1) << 9,
+        SETTING_VOLATILE_MODE = UINT64_C(1) << 10,
+        SETTING_CUSTOM_MOUNTS = UINT64_C(1) << 11,
         SETTING_WORKING_DIRECTORY = UINT64_C(1) << 12,
-        SETTING_USERNS            = UINT64_C(1) << 13,
-        SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
-        SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
-        SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
-        SETTING_HOSTNAME          = UINT64_C(1) << 17,
+        SETTING_USERNS = UINT64_C(1) << 13,
+        SETTING_NOTIFY_READY = UINT64_C(1) << 14,
+        SETTING_PIVOT_ROOT = UINT64_C(1) << 15,
+        SETTING_SYSCALL_FILTER = UINT64_C(1) << 16,
+        SETTING_HOSTNAME = UINT64_C(1) << 17,
         SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
-        SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
-        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
-        SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
-        SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
-        SETTING_TIMEZONE          = UINT64_C(1) << 23,
-        SETTING_EPHEMERAL         = UINT64_C(1) << 24,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 25, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (25 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (25 + _RLIMIT_MAX)) -1,
+        SETTING_OOM_SCORE_ADJUST = UINT64_C(1) << 19,
+        SETTING_CPU_AFFINITY = UINT64_C(1) << 20,
+        SETTING_RESOLV_CONF = UINT64_C(1) << 21,
+        SETTING_LINK_JOURNAL = UINT64_C(1) << 22,
+        SETTING_TIMEZONE = UINT64_C(1) << 23,
+        SETTING_EPHEMERAL = UINT64_C(1) << 24,
+        SETTING_RLIMIT_FIRST = UINT64_C(1) << 25, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST = UINT64_C(1) << (25 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL = (UINT64_C(1) << (25 + _RLIMIT_MAX)) - 1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -153,14 +159,14 @@ typedef struct Settings {
 } Settings;
 
 int settings_load(FILE *f, const char *path, Settings **ret);
-Settings* settings_free(Settings *s);
+Settings *settings_free(Settings *s);
 
 bool settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Settings *, settings_free);
 
-const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem *nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_capability);
 CONFIG_PARSER_PROTOTYPE(config_parse_id128);

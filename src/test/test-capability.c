@@ -45,15 +45,15 @@ static void test_last_cap_file(void) {
 
 /* verify cap_last_cap() against syscall probing */
 static void test_last_cap_probe(void) {
-        unsigned long p = (unsigned long)CAP_LAST_CAP;
+        unsigned long p = (unsigned long) CAP_LAST_CAP;
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
-                for (p--; p > 0; p --)
+                for (p--; p > 0; p--)
                         if (prctl(PR_CAPBSET_READ, p) >= 0)
                                 break;
         } else {
                 for (;; p++)
-                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                        if (prctl(PR_CAPBSET_READ, p + 1) < 0)
                                 break;
         }
 

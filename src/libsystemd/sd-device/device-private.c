@@ -279,21 +279,15 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
         return 0;
 }
 
-static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
-        [DEVICE_ACTION_ADD] = "add",
-        [DEVICE_ACTION_REMOVE] = "remove",
-        [DEVICE_ACTION_CHANGE] = "change",
-        [DEVICE_ACTION_MOVE] = "move",
-        [DEVICE_ACTION_ONLINE] = "online",
-        [DEVICE_ACTION_OFFLINE] = "offline",
-        [DEVICE_ACTION_BIND] = "bind",
-        [DEVICE_ACTION_UNBIND] = "unbind",
+static const char *const device_action_table[_DEVICE_ACTION_MAX] = {
+        [DEVICE_ACTION_ADD] = "add",   [DEVICE_ACTION_REMOVE] = "remove", [DEVICE_ACTION_CHANGE] = "change",
+        [DEVICE_ACTION_MOVE] = "move", [DEVICE_ACTION_ONLINE] = "online", [DEVICE_ACTION_OFFLINE] = "offline",
+        [DEVICE_ACTION_BIND] = "bind", [DEVICE_ACTION_UNBIND] = "unbind",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
 
-static int device_append(sd_device *device, char *key, const char **_major, const char **_minor, uint64_t *_seqnum,
-                         DeviceAction *_action) {
+static int device_append(sd_device *device, char *key, const char **_major, const char **_minor, uint64_t *_seqnum, DeviceAction *_action) {
         DeviceAction action = _DEVICE_ACTION_INVALID;
         uint64_t seqnum = 0;
         const char *major = NULL, *minor = NULL;
@@ -340,7 +334,7 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
                         if (r < 0)
                                 return r;
                         else if (seqnum == 0)
-                                 /* kernel only sends seqnum > 0 */
+                                /* kernel only sends seqnum > 0 */
                                 return -EINVAL;
                 }
 
@@ -439,7 +433,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
                 char *key;
                 const char *end;
 
-                key = (char*)&nulstr[i];
+                key = (char *) &nulstr[i];
                 end = memchr(key, '\0', len - i);
                 if (!end) {
                         log_device_debug(device, "sd-device: Failed to parse nulstr");
@@ -488,7 +482,7 @@ static int device_update_properties_bufs(sd_device *device) {
                 if (!buf_nulstr)
                         return -ENOMEM;
 
-                strscpyl((char *)buf_nulstr + nulstr_len, len + 1, prop, "=", val, NULL);
+                strscpyl((char *) buf_nulstr + nulstr_len, len + 1, prop, "=", val, NULL);
                 nulstr_len += len + 1;
                 ++num;
         }
@@ -498,7 +492,7 @@ static int device_update_properties_bufs(sd_device *device) {
         if (!buf_strv)
                 return -ENOMEM;
 
-        NULSTR_FOREACH(val, (char*) buf_nulstr) {
+        NULSTR_FOREACH(val, (char *) buf_nulstr) {
                 buf_strv[i] = (char *) val;
                 assert(i < num);
                 i++;
@@ -892,7 +886,7 @@ int device_update_db(sd_device *device) {
                         const char *devlink;
 
                         FOREACH_DEVICE_DEVLINK(device, devlink)
-                                fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
+                        fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
 
                         if (device->devlink_priority != 0)
                                 fprintf(f, "L:%i\n", device->devlink_priority);
@@ -902,13 +896,13 @@ int device_update_db(sd_device *device) {
                 }
 
                 if (device->usec_initialized > 0)
-                        fprintf(f, "I:"USEC_FMT"\n", device->usec_initialized);
+                        fprintf(f, "I:" USEC_FMT "\n", device->usec_initialized);
 
                 ORDERED_HASHMAP_FOREACH_KEY(value, property, device->properties_db, i)
-                        fprintf(f, "E:%s=%s\n", property, value);
+                fprintf(f, "E:%s=%s\n", property, value);
 
                 FOREACH_DEVICE_TAG(device, tag)
-                        fprintf(f, "G:%s\n", tag);
+                fprintf(f, "G:%s\n", tag);
         }
 
         r = fflush_and_check(f);
@@ -921,8 +915,7 @@ int device_update_db(sd_device *device) {
                 goto fail;
         }
 
-        log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
-                         path, device->devpath);
+        log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
 
         return 0;
 
@@ -930,7 +923,8 @@ fail:
         (void) unlink(path);
         (void) unlink(path_tmp);
 
-        return log_device_debug_errno(device, r, "sd-device: Failed to create %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
+        return log_device_debug_errno(
+                device, r, "sd-device: Failed to create %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
 }
 
 int device_delete_db(sd_device *device) {

@@ -52,11 +52,11 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
                 }
         }
 
-        neighbor = new(Neighbor, 1);
+        neighbor = new (Neighbor, 1);
         if (!neighbor)
                 return -ENOMEM;
 
-        *neighbor = (Neighbor) {
+        *neighbor = (Neighbor){
                 .network = network,
                 .family = AF_UNSPEC,
         };
@@ -120,8 +120,7 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         if (!neighbor->mac_configured)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor without MACAddress= configured");
 
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
-                                          link->ifindex, neighbor->family);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, neighbor->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWNEIGH message: %m");
 
@@ -152,8 +151,7 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor with invalid address family");
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 

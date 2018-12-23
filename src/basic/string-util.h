@@ -9,21 +9,21 @@
 #include "macro.h"
 
 /* What is interpreted as whitespace? */
-#define WHITESPACE        " \t\n\r"
-#define NEWLINE           "\n\r"
-#define QUOTES            "\"\'"
-#define COMMENTS          "#;"
-#define GLOB_CHARS        "*?["
-#define DIGITS            "0123456789"
+#define WHITESPACE " \t\n\r"
+#define NEWLINE "\n\r"
+#define QUOTES "\"\'"
+#define COMMENTS "#;"
+#define GLOB_CHARS "*?["
+#define DIGITS "0123456789"
 #define LOWERCASE_LETTERS "abcdefghijklmnopqrstuvwxyz"
 #define UPPERCASE_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define LETTERS           LOWERCASE_LETTERS UPPERCASE_LETTERS
-#define ALPHANUMERICAL    LETTERS DIGITS
-#define HEXDIGITS         DIGITS "abcdefABCDEF"
+#define LETTERS LOWERCASE_LETTERS UPPERCASE_LETTERS
+#define ALPHANUMERICAL LETTERS DIGITS
+#define HEXDIGITS DIGITS "abcdefABCDEF"
 
-#define streq(a,b) (strcmp((a),(b)) == 0)
+#define streq(a, b) (strcmp((a), (b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
-#define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
+#define strcaseeq(a, b) (strcasecmp((a), (b)) == 0)
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
 int strcmp_ptr(const char *a, const char *b) _pure_;
@@ -32,11 +32,11 @@ static inline bool streq_ptr(const char *a, const char *b) {
         return strcmp_ptr(a, b) == 0;
 }
 
-static inline const char* strempty(const char *s) {
+static inline const char *strempty(const char *s) {
         return s ?: "";
 }
 
-static inline const char* strnull(const char *s) {
+static inline const char *strnull(const char *s) {
         return s ?: "(null)";
 }
 
@@ -61,7 +61,7 @@ static inline char *startswith(const char *s, const char *prefix) {
 
         l = strlen(prefix);
         if (strncmp(s, prefix, l) == 0)
-                return (char*) s + l;
+                return (char *) s + l;
 
         return NULL;
 }
@@ -71,7 +71,7 @@ static inline char *startswith_no_case(const char *s, const char *prefix) {
 
         l = strlen(prefix);
         if (strncasecmp(s, prefix, l) == 0)
-                return (char*) s + l;
+                return (char *) s + l;
 
         return NULL;
 }
@@ -81,21 +81,21 @@ char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
-typedef enum SplitFlags {
-        SPLIT_QUOTES                     = 0x01 << 0,
-        SPLIT_RELAX                      = 0x01 << 1,
+typedef enum SplitFlags
+{
+        SPLIT_QUOTES = 0x01 << 0,
+        SPLIT_RELAX = 0x01 << 1,
 } SplitFlags;
 
-const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags);
+const char *split(const char **state, size_t *l, const char *separator, SplitFlags flags);
 
-#define FOREACH_WORD(word, length, s, state)                            \
-        _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
+#define FOREACH_WORD(word, length, s, state) _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
 
-#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, 0, state)
+#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state) _FOREACH_WORD(word, length, s, separator, 0, state)
 
-#define _FOREACH_WORD(word, length, s, separator, flags, state)         \
-        for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); (word) = split(&(state), &(length), (separator), (flags)))
+#define _FOREACH_WORD(word, length, s, separator, flags, state)                                \
+        for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); \
+             (word) = split(&(state), &(length), (separator), (flags)))
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
@@ -103,19 +103,19 @@ char *strnappend(const char *s, const char *suffix, size_t length);
 char *strjoin_real(const char *x, ...) _sentinel_;
 #define strjoin(a, ...) strjoin_real((a), __VA_ARGS__, NULL)
 
-#define strjoina(a, ...)                                                \
-        ({                                                              \
-                const char *_appendees_[] = { a, __VA_ARGS__ };         \
-                char *_d_, *_p_;                                        \
-                size_t _len_ = 0;                                          \
-                size_t _i_;                                           \
+#define strjoina(a, ...)                                                                \
+        ({                                                                              \
+                const char *_appendees_[] = { a, __VA_ARGS__ };                         \
+                char *_d_, *_p_;                                                        \
+                size_t _len_ = 0;                                                       \
+                size_t _i_;                                                             \
                 for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _len_ += strlen(_appendees_[_i_]);              \
-                _p_ = _d_ = alloca(_len_ + 1);                          \
+                        _len_ += strlen(_appendees_[_i_]);                              \
+                _p_ = _d_ = alloca(_len_ + 1);                                          \
                 for (_i_ = 0; _i_ < ELEMENTSOF(_appendees_) && _appendees_[_i_]; _i_++) \
-                        _p_ = stpcpy(_p_, _appendees_[_i_]);            \
-                *_p_ = 0;                                               \
-                _d_;                                                    \
+                        _p_ = stpcpy(_p_, _appendees_[_i_]);                            \
+                *_p_ = 0;                                                               \
+                _d_;                                                                    \
         })
 
 char *strstrip(char *s);
@@ -131,7 +131,7 @@ static inline char *skip_leading_chars(const char *s, const char *bad) {
         if (!bad)
                 bad = WHITESPACE;
 
-        return (char*) s + strspn(s, bad);
+        return (char *) s + strspn(s, bad);
 }
 
 char ascii_tolower(char x);
@@ -146,7 +146,7 @@ int ascii_strcasecmp_nn(const char *a, size_t n, const char *b, size_t m);
 
 bool chars_intersect(const char *a, const char *b) _pure_;
 
-static inline bool _pure_ in_charset(const char *s, const char* charset) {
+static inline bool _pure_ in_charset(const char *s, const char *charset) {
         assert(s);
         assert(charset);
         return s[strspn(s, charset)] == '\0';
@@ -166,7 +166,7 @@ char *cellescape(char *buf, size_t len, const char *s);
 
 bool nulstr_contains(const char *nulstr, const char *needle);
 
-char* strshorten(char *s, size_t l);
+char *strshorten(char *s, size_t l);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
 
@@ -187,7 +187,7 @@ int free_and_strndup(char **p, const char *s, size_t l);
 static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
 
         if (needlelen <= 0)
-                return (void*) haystack;
+                return (void *) haystack;
 
         if (haystacklen < needlelen)
                 return NULL;
@@ -199,7 +199,7 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
 }
 
 #if HAVE_EXPLICIT_BZERO
-static inline void* explicit_bzero_safe(void *p, size_t l) {
+static inline void *explicit_bzero_safe(void *p, size_t l) {
         if (l > 0)
                 explicit_bzero(p, l);
 
@@ -239,7 +239,7 @@ static inline void *memory_startswith(const void *p, size_t sz, const char *toke
         if (memcmp(p, token, n) != 0)
                 return NULL;
 
-        return (uint8_t*) p + n;
+        return (uint8_t *) p + n;
 }
 
 /* Like startswith_no_case(), but operates on arbitrary memory blocks.
@@ -257,9 +257,9 @@ static inline void *memory_startswith_no_case(const void *p, size_t sz, const ch
         assert(p);
 
         for (i = 0; i < n; i++) {
-                if (ascii_tolower(((char *)p)[i]) != ascii_tolower(token[i]))
+                if (ascii_tolower(((char *) p)[i]) != ascii_tolower(token[i]))
                         return NULL;
         }
 
-        return (uint8_t*) p + n;
+        return (uint8_t *) p + n;
 }

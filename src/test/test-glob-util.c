@@ -31,7 +31,7 @@ static void test_glob_exists(void) {
         assert_se(r == 0);
 }
 
-static void closedir_wrapper(void* v) {
+static void closedir_wrapper(void *v) {
         (void) closedir(v);
 }
 
@@ -41,8 +41,8 @@ static void test_glob_no_dot(void) {
 
         _cleanup_globfree_ glob_t g = {
                 .gl_closedir = closedir_wrapper,
-                .gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot,
-                .gl_opendir = (void *(*)(const char *)) opendir,
+                .gl_readdir = (struct dirent * (*) (void *) ) readdir_no_dot,
+                .gl_opendir = (void *(*) (const char *) ) opendir,
                 .gl_lstat = lstat,
                 .gl_stat = stat,
         };
@@ -52,14 +52,14 @@ static void test_glob_no_dot(void) {
         assert_se(mkdtemp(template));
 
         fn = strjoina(template, "/*");
-        r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
+        r = glob(fn, GLOB_NOSORT | GLOB_BRACE | GLOB_ALTDIRFUNC, NULL, &g);
         assert_se(r == GLOB_NOMATCH);
 
         fn = strjoina(template, "/.*");
-        r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
+        r = glob(fn, GLOB_NOSORT | GLOB_BRACE | GLOB_ALTDIRFUNC, NULL, &g);
         assert_se(r == GLOB_NOMATCH);
 
-        (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_safe_glob(void) {
@@ -76,7 +76,7 @@ static void test_safe_glob(void) {
         assert_se(r == -ENOENT);
 
         fn2 = strjoina(template, "/.*");
-        r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob(fn2, GLOB_NOSORT | GLOB_BRACE, &g);
         assert_se(r == -ENOENT);
 
         fname = strjoina(template, "/.foobar");
@@ -85,13 +85,13 @@ static void test_safe_glob(void) {
         r = safe_glob(fn, 0, &g);
         assert_se(r == -ENOENT);
 
-        r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
+        r = safe_glob(fn2, GLOB_NOSORT | GLOB_BRACE, &g);
         assert_se(r == 0);
         assert_se(g.gl_pathc == 1);
         assert_se(streq(g.gl_pathv[0], fname));
         assert_se(g.gl_pathv[1] == NULL);
 
-        (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 int main(void) {

@@ -43,14 +43,14 @@ _SD_BEGIN_DECLARATIONS;
 
   This is similar to printk() usage in the kernel.
 */
-#define SD_EMERG   "<0>"  /* system is unusable */
-#define SD_ALERT   "<1>"  /* action must be taken immediately */
-#define SD_CRIT    "<2>"  /* critical conditions */
-#define SD_ERR     "<3>"  /* error conditions */
-#define SD_WARNING "<4>"  /* warning conditions */
-#define SD_NOTICE  "<5>"  /* normal but significant condition */
-#define SD_INFO    "<6>"  /* informational */
-#define SD_DEBUG   "<7>"  /* debug-level messages */
+#define SD_EMERG "<0>"   /* system is unusable */
+#define SD_ALERT "<1>"   /* action must be taken immediately */
+#define SD_CRIT "<2>"    /* critical conditions */
+#define SD_ERR "<3>"     /* error conditions */
+#define SD_WARNING "<4>" /* warning conditions */
+#define SD_NOTICE "<5>"  /* normal but significant condition */
+#define SD_INFO "<6>"    /* informational */
+#define SD_DEBUG "<7>"   /* debug-level messages */
 
 /* The first passed file descriptor is fd 3 */
 #define SD_LISTEN_FDS_START 3
@@ -138,7 +138,7 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
 
   See sd_is_socket_sockaddr(3) for more information.
 */
-int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr, unsigned addr_len, int listening);
+int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr *addr, unsigned addr_len, int listening);
 
 /*
   Helper call for identifying a passed file descriptor. Returns 1 if
@@ -265,7 +265,7 @@ int sd_notify(int unset_environment, const char *state);
 
   See sd_notifyf(3) for more information.
 */
-int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_(2,3);
+int sd_notifyf(int unset_environment, const char *format, ...) _sd_printf_(2, 3);
 
 /*
   Similar to sd_notify(), but send the message on behalf of another
@@ -277,7 +277,7 @@ int sd_pid_notify(pid_t pid, int unset_environment, const char *state);
   Similar to sd_notifyf(), but send the message on behalf of another
   process, if the appropriate permissions are available.
 */
-int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) _sd_printf_(3,4);
+int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) _sd_printf_(3, 4);
 
 /*
   Similar to sd_pid_notify(), but also passes the specified fd array

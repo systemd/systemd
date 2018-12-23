@@ -52,15 +52,15 @@
  */
 
 /* We refresh every 1s */
-#define REFRESH_USEC (1*USEC_PER_SEC)
+#define REFRESH_USEC (1 * USEC_PER_SEC)
 
 /* Data older than 5s we flush out */
-#define MAX_USEC (5*USEC_PER_SEC)
+#define MAX_USEC (5 * USEC_PER_SEC)
 
 /* Keep at most 16K entries in the cache. (Note though that this limit may be violated if enough streams pin entries in
  * the cache, in which case we *do* permit this limit to be breached. That's safe however, as the number of stream
  * clients itself is limited.) */
-#define CACHE_MAX (16*1024)
+#define CACHE_MAX (16 * 1024)
 
 static int client_context_compare(const void *a, const void *b) {
         const ClientContext *x = a, *y = b;
@@ -158,7 +158,7 @@ static void client_context_reset(Server *s, ClientContext *c) {
         c->log_rate_limit_burst = s->rate_limit_burst;
 }
 
-static ClientContext* client_context_free(Server *s, ClientContext *c) {
+static ClientContext *client_context_free(Server *s, ClientContext *c) {
         assert(s);
 
         if (!c)
@@ -209,9 +209,7 @@ static void client_context_read_basic(ClientContext *c) {
                 free_and_replace(c->capeff, t);
 }
 
-static int client_context_read_label(
-                ClientContext *c,
-                const char *label, size_t label_size) {
+static int client_context_read_label(ClientContext *c, const char *label, size_t label_size) {
 
         assert(c);
         assert(pid_is_valid(c->pid));
@@ -296,9 +294,7 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
         return 0;
 }
 
-static int client_context_read_invocation_id(
-                Server *s,
-                ClientContext *c) {
+static int client_context_read_invocation_id(Server *s, ClientContext *c) {
 
         _cleanup_free_ char *value = NULL;
         const char *p;
@@ -320,9 +316,7 @@ static int client_context_read_invocation_id(
         return sd_id128_from_string(value, &c->invocation_id);
 }
 
-static int client_context_read_log_level_max(
-                Server *s,
-                ClientContext *c) {
+static int client_context_read_log_level_max(Server *s, ClientContext *c) {
 
         _cleanup_free_ char *value = NULL;
         const char *p;
@@ -344,9 +338,7 @@ static int client_context_read_log_level_max(
         return 0;
 }
 
-static int client_context_read_extra_fields(
-                Server *s,
-                ClientContext *c) {
+static int client_context_read_extra_fields(Server *s, ClientContext *c) {
 
         size_t size = 0, n_iovec = 0, n_allocated = 0, left;
         _cleanup_free_ struct iovec *iovec = NULL;
@@ -386,7 +378,7 @@ static int client_context_read_extra_fields(
                                         * one, that matches the stuff we are reading */
                 return -errno;
 
-        r = read_full_stream(f, (char**) &data, &size);
+        r = read_full_stream(f, (char **) &data, &size);
         if (r < 0)
                 return r;
 
@@ -415,7 +407,7 @@ static int client_context_read_extra_fields(
                 if (!journal_field_valid((const char *) field, eq - field, false))
                         return -EBADMSG;
 
-                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec+1))
+                if (!GREEDY_REALLOC(iovec, n_allocated, n_iovec + 1))
                         return -ENOMEM;
 
                 iovec[n_iovec++] = IOVEC_MAKE(field, v);
@@ -471,12 +463,7 @@ static int client_context_read_log_rate_limit_burst(ClientContext *c) {
 }
 
 static void client_context_really_refresh(
-                Server *s,
-                ClientContext *c,
-                const struct ucred *ucred,
-                const char *label, size_t label_size,
-                const char *unit_id,
-                usec_t timestamp) {
+        Server *s, ClientContext *c, const struct ucred *ucred, const char *label, size_t label_size, const char *unit_id, usec_t timestamp) {
 
         assert(s);
         assert(c);
@@ -508,12 +495,7 @@ static void client_context_really_refresh(
 }
 
 void client_context_maybe_refresh(
-                Server *s,
-                ClientContext *c,
-                const struct ucred *ucred,
-                const char *label, size_t label_size,
-                const char *unit_id,
-                usec_t timestamp) {
+        Server *s, ClientContext *c, const struct ucred *ucred, const char *label, size_t label_size, const char *unit_id, usec_t timestamp) {
 
         assert(s);
         assert(c);
@@ -592,14 +574,14 @@ void client_context_flush_all(Server *s) {
         s->client_contexts = hashmap_free(s->client_contexts);
 }
 
-static int client_context_get_internal(
-                Server *s,
-                pid_t pid,
-                const struct ucred *ucred,
-                const char *label, size_t label_len,
-                const char *unit_id,
-                bool add_ref,
-                ClientContext **ret) {
+static int client_context_get_internal(Server *s,
+                                       pid_t pid,
+                                       const struct ucred *ucred,
+                                       const char *label,
+                                       size_t label_len,
+                                       const char *unit_id,
+                                       bool add_ref,
+                                       ClientContext **ret) {
 
         ClientContext *c;
         int r;
@@ -630,7 +612,7 @@ static int client_context_get_internal(
                 return 0;
         }
 
-        client_context_try_shrink_to(s, CACHE_MAX-1);
+        client_context_try_shrink_to(s, CACHE_MAX - 1);
 
         r = client_context_new(s, pid, &c);
         if (r < 0)
@@ -655,23 +637,13 @@ static int client_context_get_internal(
 }
 
 int client_context_get(
-                Server *s,
-                pid_t pid,
-                const struct ucred *ucred,
-                const char *label, size_t label_len,
-                const char *unit_id,
-                ClientContext **ret) {
+        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret) {
 
         return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, false, ret);
 }
 
 int client_context_acquire(
-                Server *s,
-                pid_t pid,
-                const struct ucred *ucred,
-                const char *label, size_t label_len,
-                const char *unit_id,
-                ClientContext **ret) {
+        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret) {
 
         return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, true, ret);
 };
@@ -725,6 +697,5 @@ void client_context_acquire_default(Server *s) {
                 r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
                 if (r < 0)
                         log_warning_errno(r, "Failed to acquire PID1's context, ignoring: %m");
-
         }
 }

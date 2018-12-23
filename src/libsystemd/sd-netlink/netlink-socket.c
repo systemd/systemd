@@ -21,7 +21,7 @@
 int socket_open(int family) {
         int fd;
 
-        fd = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, family);
+        fd = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, family);
         if (fd < 0)
                 return -errno;
 
@@ -232,8 +232,7 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         assert(m);
         assert(m->hdr);
 
-        k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len,
-                        0, &addr.sa, sizeof(addr));
+        k = sendto(nl->fd, m->hdr, m->hdr->nlmsg_len, 0, &addr.sa, sizeof(addr));
         if (k < 0)
                 return -errno;
 
@@ -271,7 +270,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
 
         if (sender.nl.nl_pid != 0) {
                 /* not from the kernel, ignore */
-                log_debug("rtnl: ignoring message from portid %"PRIu32, sender.nl.nl_pid);
+                log_debug("rtnl: ignoring message from portid %" PRIu32, sender.nl.nl_pid);
 
                 if (peek) {
                         /* drop the message */
@@ -283,11 +282,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 return 0;
         }
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_NETLINK &&
-                    cmsg->cmsg_type == NETLINK_PKTINFO &&
+        CMSG_FOREACH (cmsg, &msg) {
+                if (cmsg->cmsg_level == SOL_NETLINK && cmsg->cmsg_type == NETLINK_PKTINFO &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
-                        struct nl_pktinfo *pktinfo = (void *)CMSG_DATA(cmsg);
+                        struct nl_pktinfo *pktinfo = (void *) CMSG_DATA(cmsg);
 
                         /* multi-cast group */
                         group = pktinfo->group;
@@ -330,9 +328,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 len = (size_t) r;
 
         /* make room for the pending message */
-        if (!greedy_realloc((void **)&rtnl->rbuffer,
-                            &rtnl->rbuffer_allocated,
-                            len, sizeof(uint8_t)))
+        if (!greedy_realloc((void **) &rtnl->rbuffer, &rtnl->rbuffer_allocated, len, sizeof(uint8_t)))
                 return -ENOMEM;
 
         iov = IOVEC_MAKE(rtnl->rbuffer, rtnl->rbuffer_allocated);
@@ -352,8 +348,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 multi_part = true;
 
                 for (i = 0; i < rtnl->rqueue_partial_size; i++) {
-                        if (rtnl_message_get_serial(rtnl->rqueue_partial[i]) ==
-                            rtnl->rbuffer->nlmsg_seq) {
+                        if (rtnl_message_get_serial(rtnl->rqueue_partial[i]) == rtnl->rbuffer->nlmsg_seq) {
                                 first = rtnl->rqueue_partial[i];
                                 break;
                         }
@@ -385,8 +380,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 r = type_system_get_type(type_system_root, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
-                                log_debug("sd-netlink: ignored message with unknown type: %i",
-                                          new_msg->nlmsg_type);
+                                log_debug("sd-netlink: ignored message with unknown type: %i", new_msg->nlmsg_type);
 
                         continue;
                 }
@@ -434,8 +428,9 @@ int socket_read_message(sd_netlink *rtnl) {
 
                 if (multi_part && (i < rtnl->rqueue_partial_size)) {
                         /* remove the message form the partial read queue */
-                        memmove(rtnl->rqueue_partial + i,rtnl->rqueue_partial + i + 1,
-                                sizeof(sd_netlink_message*) * (rtnl->rqueue_partial_size - i - 1));
+                        memmove(rtnl->rqueue_partial + i,
+                                rtnl->rqueue_partial + i + 1,
+                                sizeof(sd_netlink_message *) * (rtnl->rqueue_partial_size - i - 1));
                         rtnl->rqueue_partial_size--;
                 }
 

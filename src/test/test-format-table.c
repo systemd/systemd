@@ -12,12 +12,18 @@ static void test_issue_9549(void) {
         assert_se(table = table_new("name", "type", "ro", "usage", "created", "modified"));
         assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
         assert_se(table_add_many(table,
-                                 TABLE_STRING, "foooo",
-                                 TABLE_STRING, "raw",
-                                 TABLE_BOOLEAN, false,
-                                 TABLE_SIZE, (uint64_t) (673.7*1024*1024),
-                                 TABLE_STRING, "Wed 2018-07-11 00:10:33 JST",
-                                 TABLE_STRING, "Wed 2018-07-11 00:16:00 JST") >= 0);
+                                 TABLE_STRING,
+                                 "foooo",
+                                 TABLE_STRING,
+                                 "raw",
+                                 TABLE_BOOLEAN,
+                                 false,
+                                 TABLE_SIZE,
+                                 (uint64_t)(673.7 * 1024 * 1024),
+                                 TABLE_STRING,
+                                 "Wed 2018-07-11 00:10:33 JST",
+                                 TABLE_STRING,
+                                 "Wed 2018-07-11 00:16:00 JST") >= 0);
 
         table_set_width(table, 75);
         assert_se(table_format(table, &formatted) >= 0);
@@ -25,8 +31,7 @@ static void test_issue_9549(void) {
         printf("%s\n", formatted);
         assert_se(streq(formatted,
                         "NAME  TYPE RO  USAGE CREATED                    MODIFIED                   \n"
-                        "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n"
-                        ));
+                        "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n"));
 }
 
 int main(int argc, char *argv[]) {
@@ -40,15 +45,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(table_set_align_percent(t, TABLE_HEADER_CELL(2), 100) >= 0);
 
-        assert_se(table_add_many(t,
-                                 TABLE_STRING, "xxx",
-                                 TABLE_STRING, "yyy",
-                                 TABLE_BOOLEAN, true) >= 0);
+        assert_se(table_add_many(t, TABLE_STRING, "xxx", TABLE_STRING, "yyy", TABLE_BOOLEAN, true) >= 0);
 
-        assert_se(table_add_many(t,
-                                 TABLE_STRING, "a long field",
-                                 TABLE_STRING, "yyy",
-                                 TABLE_BOOLEAN, false) >= 0);
+        assert_se(table_add_many(t, TABLE_STRING, "a long field", TABLE_STRING, "yyy", TABLE_BOOLEAN, false) >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -120,20 +119,11 @@ int main(int argc, char *argv[]) {
 
         table_set_header(t, false);
 
-        assert_se(table_add_many(t,
-                                 TABLE_STRING, "fäää",
-                                 TABLE_STRING, "uuu",
-                                 TABLE_BOOLEAN, true) >= 0);
+        assert_se(table_add_many(t, TABLE_STRING, "fäää", TABLE_STRING, "uuu", TABLE_BOOLEAN, true) >= 0);
 
-        assert_se(table_add_many(t,
-                                 TABLE_STRING, "fäää",
-                                 TABLE_STRING, "zzz",
-                                 TABLE_BOOLEAN, false) >= 0);
+        assert_se(table_add_many(t, TABLE_STRING, "fäää", TABLE_STRING, "zzz", TABLE_BOOLEAN, false) >= 0);
 
-        assert_se(table_add_many(t,
-                                 TABLE_EMPTY,
-                                 TABLE_SIZE, (uint64_t) 4711,
-                                 TABLE_TIMESPAN, (usec_t) 5*USEC_PER_MINUTE) >= 0);
+        assert_se(table_add_many(t, TABLE_EMPTY, TABLE_SIZE, (uint64_t) 4711, TABLE_TIMESPAN, (usec_t) 5 * USEC_PER_MINUTE) >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);

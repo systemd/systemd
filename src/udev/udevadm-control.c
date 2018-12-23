@@ -39,8 +39,8 @@ static int help(void) {
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
-               , program_invocation_short_name);
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -50,21 +50,19 @@ int control_main(int argc, char *argv[], void *userdata) {
         int timeout = 60;
         int c, r;
 
-        static const struct option options[] = {
-                { "exit",             no_argument,       NULL, 'e' },
-                { "log-priority",     required_argument, NULL, 'l' },
-                { "stop-exec-queue",  no_argument,       NULL, 's' },
-                { "start-exec-queue", no_argument,       NULL, 'S' },
-                { "reload",           no_argument,       NULL, 'R' },
-                { "reload-rules",     no_argument,       NULL, 'R' }, /* alias for -R */
-                { "property",         required_argument, NULL, 'p' },
-                { "env",              required_argument, NULL, 'p' }, /* alias for -p */
-                { "children-max",     required_argument, NULL, 'm' },
-                { "timeout",          required_argument, NULL, 't' },
-                { "version",          no_argument,       NULL, 'V' },
-                { "help",             no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "exit", no_argument, NULL, 'e' },
+                                                 { "log-priority", required_argument, NULL, 'l' },
+                                                 { "stop-exec-queue", no_argument, NULL, 's' },
+                                                 { "start-exec-queue", no_argument, NULL, 'S' },
+                                                 { "reload", no_argument, NULL, 'R' },
+                                                 { "reload-rules", no_argument, NULL, 'R' }, /* alias for -R */
+                                                 { "property", required_argument, NULL, 'p' },
+                                                 { "env", required_argument, NULL, 'p' }, /* alias for -p */
+                                                 { "children-max", required_argument, NULL, 'm' },
+                                                 { "timeout", required_argument, NULL, 't' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         r = must_be_root();
         if (r < 0)

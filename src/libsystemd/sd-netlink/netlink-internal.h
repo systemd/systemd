@@ -10,10 +10,10 @@
 #include "prioq.h"
 #include "refcnt.h"
 
-#define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+#define RTNL_DEFAULT_TIMEOUT ((usec_t)(25 * USEC_PER_SEC))
 
 #define RTNL_WQUEUE_MAX 1024
-#define RTNL_RQUEUE_MAX 64*1024
+#define RTNL_RQUEUE_MAX 64 * 1024
 
 #define RTNL_CONTAINER_DEPTH 32
 
@@ -31,7 +31,8 @@ struct match_callback {
         LIST_FIELDS(struct match_callback, match_callbacks);
 };
 
-typedef enum NetlinkSlotType {
+typedef enum NetlinkSlotType
+{
         NETLINK_REPLY_CALLBACK,
         NETLINK_MATCH_CALLBACK,
         _NETLINK_SLOT_INVALID = -1,
@@ -42,9 +43,9 @@ struct sd_netlink_slot {
         sd_netlink *netlink;
         void *userdata;
         sd_netlink_destroy_t destroy_callback;
-        NetlinkSlotType type:2;
+        NetlinkSlotType type : 2;
 
-        bool floating:1;
+        bool floating : 1;
         char *description;
 
         LIST_FIELDS(sd_netlink_slot, slots);
@@ -68,7 +69,7 @@ struct sd_netlink {
         int protocol;
 
         Hashmap *broadcast_group_refs;
-        bool broadcast_group_dont_leave:1; /* until we can rely on 4.2 */
+        bool broadcast_group_dont_leave : 1; /* until we can rely on 4.2 */
 
         sd_netlink_message **rqueue;
         unsigned rqueue_size;
@@ -81,7 +82,7 @@ struct sd_netlink {
         struct nlmsghdr *rbuffer;
         size_t rbuffer_allocated;
 
-        bool processing:1;
+        bool processing : 1;
 
         uint32_t serial;
 
@@ -102,13 +103,13 @@ struct sd_netlink {
 
 struct netlink_attribute {
         size_t offset; /* offset from hdr to attribute */
-        bool nested:1;
-        bool net_byteorder:1;
+        bool nested : 1;
+        bool net_byteorder : 1;
 };
 
 struct netlink_container {
         const struct NLTypeSystem *type_system; /* the type system of the container */
-        size_t offset; /* offset from hdr to the start of the container */
+        size_t offset;                          /* offset from hdr to the start of the container */
         struct netlink_attribute *attributes;
         unsigned short n_attributes; /* number of attributes in container */
 };
@@ -123,8 +124,8 @@ struct sd_netlink_message {
         struct nlmsghdr *hdr;
         struct netlink_container containers[RTNL_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
-        bool sealed:1;
-        bool broadcast:1;
+        bool sealed : 1;
+        bool broadcast : 1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
 };
@@ -145,5 +146,4 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl);
 int rtnl_rqueue_partial_make_room(sd_netlink *rtnl);
 
 /* Make sure callbacks don't destroy the rtnl connection */
-#define NETLINK_DONT_DESTROY(rtnl) \
-        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)
+#define NETLINK_DONT_DESTROY(rtnl) _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##rtnl = sd_netlink_ref(rtnl)

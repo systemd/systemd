@@ -23,8 +23,7 @@
 #include "strv.h"
 #include "unit-name.h"
 
-int drop_in_file(const char *dir, const char *unit, unsigned level,
-                 const char *name, char **_p, char **_q) {
+int drop_in_file(const char *dir, const char *unit, unsigned level, const char *name, char **_p, char **_q) {
 
         char prefix[DECIMAL_STR_MAX(unsigned)];
         _cleanup_free_ char *b = NULL;
@@ -59,8 +58,7 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
         return 0;
 }
 
-int write_drop_in(const char *dir, const char *unit, unsigned level,
-                  const char *name, const char *data) {
+int write_drop_in(const char *dir, const char *unit, unsigned level, const char *name, const char *data) {
 
         _cleanup_free_ char *p = NULL, *q = NULL;
         int r;
@@ -78,8 +76,7 @@ int write_drop_in(const char *dir, const char *unit, unsigned level,
         return write_string_file_atomic_label(q, data);
 }
 
-int write_drop_in_format(const char *dir, const char *unit, unsigned level,
-                         const char *name, const char *format, ...) {
+int write_drop_in_format(const char *dir, const char *unit, unsigned level, const char *name, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
         va_list ap;
         int r;
@@ -99,10 +96,7 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
         return write_drop_in(dir, unit, level, name, p);
 }
 
-static int unit_file_find_dir(
-                const char *original_root,
-                const char *path,
-                char ***dirs) {
+static int unit_file_find_dir(const char *original_root, const char *path, char ***dirs) {
 
         _cleanup_free_ char *chased = NULL;
         int r;
@@ -130,12 +124,7 @@ static int unit_file_find_dir(
 }
 
 static int unit_file_find_dirs(
-                const char *original_root,
-                Set *unit_path_cache,
-                const char *unit_path,
-                const char *name,
-                const char *suffix,
-                char ***dirs) {
+        const char *original_root, Set *unit_path_cache, const char *unit_path, const char *name, const char *suffix, char ***dirs) {
 
         _cleanup_free_ char *prefix = NULL, *instance = NULL, *built = NULL;
         bool is_instance, chopped;
@@ -186,12 +175,12 @@ static int unit_file_find_dirs(
                 if (!dash) /* No dash? if so we are done */
                         return 0;
 
-                n = (size_t) (dash - prefix);
+                n = (size_t)(dash - prefix);
                 if (n == 0) /* Leading dash? If so, we are done */
                         return 0;
 
-                if (prefix[n+1] != 0 || chopped) {
-                        prefix[n+1] = 0;
+                if (prefix[n + 1] != 0 || chopped) {
+                        prefix[n + 1] = 0;
                         break;
                 }
 
@@ -205,9 +194,7 @@ static int unit_file_find_dirs(
 
         type = unit_name_to_type(name);
         if (type < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to to derive unit type from unit name: %s",
-                                       name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to to derive unit type from unit name: %s", name);
 
         if (is_instance) {
                 r = unit_name_to_instance(name, &instance);
@@ -222,14 +209,13 @@ static int unit_file_find_dirs(
         return unit_file_find_dirs(original_root, unit_path_cache, unit_path, built, suffix, dirs);
 }
 
-int unit_file_find_dropin_paths(
-                const char *original_root,
-                char **lookup_path,
-                Set *unit_path_cache,
-                const char *dir_suffix,
-                const char *file_suffix,
-                Set *names,
-                char ***ret) {
+int unit_file_find_dropin_paths(const char *original_root,
+                                char **lookup_path,
+                                Set *unit_path_cache,
+                                const char *dir_suffix,
+                                const char *file_suffix,
+                                Set *names,
+                                char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
         char *t, **p;
@@ -239,15 +225,15 @@ int unit_file_find_dropin_paths(
         assert(ret);
 
         SET_FOREACH(t, names, i)
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+        STRV_FOREACH(p, lookup_path)
+        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;
                 return 0;
         }
 
-        r = conf_files_list_strv(ret, file_suffix, NULL, 0, (const char**) dirs);
+        r = conf_files_list_strv(ret, file_suffix, NULL, 0, (const char **) dirs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to create the list of configuration files: %m");
 

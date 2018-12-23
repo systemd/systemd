@@ -10,13 +10,7 @@
 #include "string-util.h"
 
 int netlink_slot_allocate(
-                sd_netlink *nl,
-                bool floating,
-                NetlinkSlotType type,
-                size_t extra,
-                void *userdata,
-                const char *description,
-                sd_netlink_slot **ret) {
+        sd_netlink *nl, bool floating, NetlinkSlotType type, size_t extra, void *userdata, const char *description, sd_netlink_slot **ret) {
 
         _cleanup_free_ sd_netlink_slot *slot = NULL;
 
@@ -105,7 +99,7 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
                 sd_netlink_slot_unref(slot);
 }
 
-static sd_netlink_slot* netlink_slot_free(sd_netlink_slot *slot) {
+static sd_netlink_slot *netlink_slot_free(sd_netlink_slot *slot) {
         assert(slot);
 
         netlink_slot_disconnect(slot, false);

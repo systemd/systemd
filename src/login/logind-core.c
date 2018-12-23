@@ -51,7 +51,7 @@ void manager_reset_config(Manager *m) {
         m->idle_action_usec = 30 * USEC_PER_MINUTE;
         m->idle_action = HANDLE_IGNORE;
 
-        m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
+        m->runtime_dir_size = physical_memory_scale(10U, 100U);                              /* 10% */
         m->user_tasks_max = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U); /* 33% */
         m->sessions_max = 8192;
         m->inhibitors_max = 8192;
@@ -68,8 +68,10 @@ int manager_parse_config_file(Manager *m) {
         return config_parse_many_nulstr(PKGSYSCONFDIR "/logind.conf",
                                         CONF_PATHS_NULSTR("systemd/logind.conf.d"),
                                         "Login\0",
-                                        config_item_perf_lookup, logind_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+                                        config_item_perf_lookup,
+                                        logind_gperf_lookup,
+                                        CONFIG_PARSE_WARN,
+                                        m);
 }
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
@@ -134,13 +136,7 @@ int manager_add_session(Manager *m, const char *id, Session **_session) {
         return 0;
 }
 
-int manager_add_user(
-                Manager *m,
-                uid_t uid,
-                gid_t gid,
-                const char *name,
-                const char *home,
-                User **_user) {
+int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **_user) {
 
         User *u;
         int r;
@@ -161,10 +157,7 @@ int manager_add_user(
         return 0;
 }
 
-int manager_add_user_by_name(
-                Manager *m,
-                const char *name,
-                User **_user) {
+int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
 
         const char *home = NULL;
         uid_t uid;
@@ -194,7 +187,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
         return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, _user);
 }
 
-int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
+int manager_add_inhibitor(Manager *m, const char *id, Inhibitor **_inhibitor) {
         Inhibitor *i;
 
         assert(m);
@@ -244,8 +237,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
 
         assert(m);
 
-        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
-            streq(action, "remove")) {
+        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 && streq(action, "remove")) {
                 const char *syspath;
 
                 r = sd_device_get_syspath(d, &syspath);
@@ -315,8 +307,7 @@ int manager_process_button_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return r;
 
-        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 &&
-            streq(action, "remove")) {
+        if (sd_device_get_property_value(d, "ACTION", &action) >= 0 && streq(action, "remove")) {
 
                 b = hashmap_get(m->buttons, sysname);
                 if (!b)
@@ -462,17 +453,16 @@ bool manager_shall_kill(Manager *m, const char *user) {
         return m->kill_user_processes;
 }
 
-int config_parse_n_autovts(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_n_autovts(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
 
         unsigned *n = data;
         unsigned o;
@@ -514,7 +504,7 @@ static int vt_is_busy(unsigned vtnr) {
          * we avoid this. Since tty1 is special and needs to be an
          * explicitly loaded getty or DM this is safe. */
 
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal("/dev/tty1", O_RDWR | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -534,8 +524,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         assert(m);
         assert(vtnr >= 1);
 
-        if (vtnr > m->n_autovts &&
-            vtnr != m->reserve_vt)
+        if (vtnr > m->n_autovts && vtnr != m->reserve_vt)
                 return 0;
 
         if (vtnr != m->reserve_vt) {
@@ -551,15 +540,16 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
         }
 
         snprintf(name, sizeof(name), "autovt@tty%u.service", vtnr);
-        r = sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        &error,
-                        NULL,
-                        "ss", name, "fail");
+        r = sd_bus_call_method(m->bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnit",
+                               &error,
+                               NULL,
+                               "ss",
+                               name,
+                               "fail");
         if (r < 0)
                 return log_error_errno(r, "Failed to start %s: %s", name, bus_error_message(&error, r));
 
@@ -571,8 +561,8 @@ bool manager_is_lid_closed(Manager *m) {
         Button *b;
 
         HASHMAP_FOREACH(b, m->buttons, i)
-                if (b->lid_closed)
-                        return true;
+        if (b->lid_closed)
+                return true;
 
         return false;
 }
@@ -582,8 +572,8 @@ static bool manager_is_docked(Manager *m) {
         Button *b;
 
         HASHMAP_FOREACH(b, m->buttons, i)
-                if (b->docked)
-                        return true;
+        if (b->docked)
+                return true;
 
         return false;
 }
@@ -631,9 +621,18 @@ static int manager_count_external_displays(Manager *m) {
 
                 dash++;
                 if (!STARTSWITH_SET(dash,
-                                    "VGA-", "DVI-I-", "DVI-D-", "DVI-A-"
-                                    "Composite-", "SVIDEO-", "Component-",
-                                    "DIN-", "DP-", "HDMI-A-", "HDMI-B-", "TV-"))
+                                    "VGA-",
+                                    "DVI-I-",
+                                    "DVI-D-",
+                                    "DVI-A-"
+                                    "Composite-",
+                                    "SVIDEO-",
+                                    "Component-",
+                                    "DIN-",
+                                    "DP-",
+                                    "HDMI-A-",
+                                    "HDMI-B-",
+                                    "TV-"))
                         continue;
 
                 /* Ignore ports that are not enabled */
@@ -694,8 +693,7 @@ bool manager_all_buttons_ignored(Manager *m) {
                 return false;
         if (m->handle_lid_switch != HANDLE_IGNORE)
                 return false;
-        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
-            m->handle_lid_switch_ep != HANDLE_IGNORE)
+        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID && m->handle_lid_switch_ep != HANDLE_IGNORE)
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
                 return false;
@@ -792,7 +790,7 @@ static int manager_dispatch_utmp(sd_event_source *s, const struct inotify_event 
 
         /* If there's indication the file itself might have been removed or became otherwise unavailable, then let's
          * reestablish the watch on whatever there's now. */
-        if ((event->mask & (IN_ATTRIB|IN_DELETE_SELF|IN_MOVE_SELF|IN_Q_OVERFLOW|IN_UNMOUNT)) != 0)
+        if ((event->mask & (IN_ATTRIB | IN_DELETE_SELF | IN_MOVE_SELF | IN_Q_OVERFLOW | IN_UNMOUNT)) != 0)
                 manager_connect_utmp(m);
 
         (void) manager_read_utmp(m);
@@ -815,9 +813,9 @@ void manager_connect_utmp(Manager *m) {
          * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as idle
          * detection (which, for tty sessions, relies on the TTY used) */
 
-        r = sd_event_add_inotify(m->event, &s, _PATH_UTMPX, IN_MODIFY|IN_MOVE_SELF|IN_DELETE_SELF|IN_ATTRIB, manager_dispatch_utmp, m);
+        r = sd_event_add_inotify(m->event, &s, _PATH_UTMPX, IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB, manager_dispatch_utmp, m);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG: LOG_WARNING, r, "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
         else {
                 r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)

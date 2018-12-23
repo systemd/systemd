@@ -12,7 +12,7 @@ static void test_session_id_valid(void) {
         assert_se(!session_id_valid("\tid"));
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 

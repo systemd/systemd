@@ -12,7 +12,5 @@
 
 int arp_network_bind_raw_socket(int index, be32_t address, const struct ether_addr *eth_mac);
 
-int arp_send_probe(int fd, int ifindex,
-                   be32_t pa, const struct ether_addr *ha);
-int arp_send_announcement(int fd, int ifindex,
-                          be32_t pa, const struct ether_addr *ha);
+int arp_send_probe(int fd, int ifindex, be32_t pa, const struct ether_addr *ha);
+int arp_send_announcement(int fd, int ifindex, be32_t pa, const struct ether_addr *ha);

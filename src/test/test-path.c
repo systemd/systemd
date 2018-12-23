@@ -24,8 +24,7 @@
 typedef void (*test_function_t)(Manager *m);
 
 static int setup_test(Manager **m) {
-        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
-                                      "directorynotempty", "makedirectory");
+        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit", "directorynotempty", "makedirectory");
         char **test_path;
         Manager *tmp = NULL;
         int r;
@@ -48,7 +47,7 @@ static int setup_test(Manager **m) {
                 p = strjoin("/tmp/test-path_", *test_path);
                 assert_se(p);
 
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL);
         }
 
         *m = tmp;
@@ -91,9 +90,9 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
                 assert_se(r >= 0);
 
                 printf("%s: state = %s; result = %s \n",
-                                service_unit->id,
-                                service_state_to_string(service->state),
-                                service_result_to_string(service->result));
+                       service_unit->id,
+                       service_state_to_string(service->state),
+                       service_result_to_string(service->result));
 
                 /* But we timeout if the service has not been started in the allocated time */
                 n = now(CLOCK_MONOTONIC);
@@ -104,7 +103,7 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
         }
 
         assert_se(unit_stop(unit) >= 0);
-        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_path_exists(Manager *m) {
@@ -228,7 +227,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         assert_se((s.st_mode & S_IRWXO) == 0004);
 
         assert_se(unit_stop(unit) >= 0);
-        (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(test_path, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 int main(int argc, char *argv[]) {

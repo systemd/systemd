@@ -61,17 +61,19 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (c != '@')
                 return false;
 
-        if (warn_rootfs &&
-            pid_from_same_root_fs(pid) == 0) {
+        if (warn_rootfs && pid_from_same_root_fs(pid) == 0) {
 
                 _cleanup_free_ char *comm = NULL;
 
                 (void) get_process_comm(pid, &comm);
 
-                log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
+                log_notice("Process " PID_FMT
+                           " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
                            "root file system to read-only. Please consider moving it into an initrd file "
-                           "system instead.", pid, strna(comm));
+                           "system instead.",
+                           pid,
+                           strna(comm));
         }
 
         return true;
@@ -176,7 +178,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                         _cleanup_free_ char *s = NULL;
 
                         get_process_comm(pid, &s);
-                        log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));
+                        log_notice("Sending SIGKILL to PID " PID_FMT " (%s).", pid, strna(s));
                 }
 
                 if (kill(pid, sig) >= 0) {

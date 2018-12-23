@@ -146,11 +146,11 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cmd;
 
-                cmd = strv_join((char**) args, " ");
+                cmd = strv_join((char **) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -189,11 +189,11 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cmd;
 
-                cmd = strv_join((char**) args, " ");
+                cmd = strv_join((char **) args, " ");
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(setfont)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -216,17 +216,18 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
 static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct console_font_op cfo = {
                 .op = KD_FONT_OP_GET,
-                .width = UINT_MAX, .height = UINT_MAX,
+                .width = UINT_MAX,
+                .height = UINT_MAX,
                 .charcount = UINT_MAX,
         };
         struct unimapinit adv = {};
         struct unimapdesc unimapd;
-        _cleanup_free_ struct unipair* unipairs = NULL;
+        _cleanup_free_ struct unipair *unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
         unsigned i;
         int r;
 
-        unipairs = new(struct unipair, USHRT_MAX);
+        unipairs = new (struct unipair, USHRT_MAX);
         if (!unipairs) {
                 log_oom();
                 return;
@@ -240,7 +241,9 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                 /* verify parameter sanity first */
                 if (cfo.width > 32 || cfo.height > 32 || cfo.charcount > 512)
                         log_warning("Invalid font metadata - width: %u (max 32), height: %u (max 32), count: %u (max 512)",
-                                    cfo.width, cfo.height, cfo.charcount);
+                                    cfo.width,
+                                    cfo.height,
+                                    cfo.charcount);
                 else {
                         /*
                          * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum 512
@@ -259,7 +262,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         if (r < 0)
                                 log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to read the font data: %m");
                         else {
-                                unimapd.entries  = unipairs;
+                                unimapd.entries = unipairs;
                                 unimapd.entry_ct = USHRT_MAX;
                                 r = ioctl(src_fd, GIO_UNIMAP, &unimapd);
                                 if (r < 0)
@@ -282,7 +285,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
                 /* try to open terminal */
                 xsprintf(ttyname, "/dev/tty%u", i);
-                fd_d = open_terminal(ttyname, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                fd_d = open_terminal(ttyname, O_RDWR | O_CLOEXEC | O_NOCTTY);
                 if (fd_d < 0) {
                         log_warning_errno(fd_d, "Unable to open tty%u, fonts will not be copied: %m", i);
                         continue;
@@ -342,7 +345,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         int r, err = 0;
         unsigned i;
 
-        path = new(char, sizeof("/dev/tty63"));
+        path = new (char, sizeof("/dev/tty63"));
         if (!path)
                 return log_oom();
 
@@ -357,7 +360,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 }
 
                 sprintf(path, "/dev/tty%u", i);
-                fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                fd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NOCTTY);
                 if (fd < 0) {
                         if (!err)
                                 err = -fd;
@@ -384,7 +387,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         char *path;
         int r;
 
-        fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        fd = open_terminal(src_vc, O_RDWR | O_CLOEXEC | O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", src_vc);
 
@@ -409,10 +412,8 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_free_ char
-                *vc = NULL,
-                *vc_keymap = NULL, *vc_keymap_toggle = NULL,
-                *vc_font = NULL, *vc_font_map = NULL, *vc_font_unimap = NULL;
+        _cleanup_free_ char *vc = NULL, *vc_keymap = NULL, *vc_keymap_toggle = NULL, *vc_font = NULL, *vc_font_map = NULL,
+                            *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
@@ -431,27 +432,40 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf",
-                           "KEYMAP", &vc_keymap,
-                           "KEYMAP_TOGGLE", &vc_keymap_toggle,
-                           "FONT", &vc_font,
-                           "FONT_MAP", &vc_font_map,
-                           "FONT_UNIMAP", &vc_font_unimap);
+        r = parse_env_file(NULL,
+                           "/etc/vconsole.conf",
+                           "KEYMAP",
+                           &vc_keymap,
+                           "KEYMAP_TOGGLE",
+                           &vc_keymap_toggle,
+                           "FONT",
+                           &vc_font,
+                           "FONT_MAP",
+                           &vc_font_map,
+                           "FONT_UNIMAP",
+                           &vc_font_unimap);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /etc/vconsole.conf: %m");
 
         /* Let the kernel command line override /etc/vconsole.conf */
-        r = proc_cmdline_get_key_many(
-                        PROC_CMDLINE_STRIP_RD_PREFIX,
-                        "vconsole.keymap", &vc_keymap,
-                        "vconsole.keymap_toggle", &vc_keymap_toggle,
-                        "vconsole.font", &vc_font,
-                        "vconsole.font_map", &vc_font_map,
-                        "vconsole.font_unimap", &vc_font_unimap,
-                        /* compatibility with obsolete multiple-dot scheme */
-                        "vconsole.keymap.toggle", &vc_keymap_toggle,
-                        "vconsole.font.map", &vc_font_map,
-                        "vconsole.font.unimap", &vc_font_unimap);
+        r = proc_cmdline_get_key_many(PROC_CMDLINE_STRIP_RD_PREFIX,
+                                      "vconsole.keymap",
+                                      &vc_keymap,
+                                      "vconsole.keymap_toggle",
+                                      &vc_keymap_toggle,
+                                      "vconsole.font",
+                                      &vc_font,
+                                      "vconsole.font_map",
+                                      &vc_font_map,
+                                      "vconsole.font_unimap",
+                                      &vc_font_unimap,
+                                      /* compatibility with obsolete multiple-dot scheme */
+                                      "vconsole.keymap.toggle",
+                                      &vc_keymap_toggle,
+                                      "vconsole.font.map",
+                                      &vc_font_map,
+                                      "vconsole.font.unimap",
+                                      &vc_font_unimap);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to read /proc/cmdline: %m");
 

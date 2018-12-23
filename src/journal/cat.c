@@ -37,29 +37,27 @@ static int help(void) {
                "  -t --identifier=STRING  Set syslog identifier\n"
                "  -p --priority=PRIORITY  Set priority value (0..7)\n"
                "     --level-prefix=BOOL  Control whether level prefix shall be parsed\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_LEVEL_PREFIX
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "identifier",   required_argument, NULL, 't'              },
-                { "priority",     required_argument, NULL, 'p'              },
-                { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "identifier", required_argument, NULL, 't' },
+                                                 { "priority", required_argument, NULL, 'p' },
+                                                 { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
+                                                 {} };
 
         int c;
 
@@ -87,8 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'p':
                         arg_priority = log_level_from_string(optarg);
                         if (arg_priority < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse priority value.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse priority value.");
                         break;
 
                 case ARG_LEVEL_PREFIX: {
@@ -113,7 +110,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_ int  fd = -1, saved_stderr = -1;
+        _cleanup_close_ int fd = -1, saved_stderr = -1;
         int r;
 
         log_parse_environment();

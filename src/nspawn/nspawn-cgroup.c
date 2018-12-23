@@ -22,7 +22,7 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
         _cleanup_close_ int fd = -1;
         const char *fn;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open(path, O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd < 0)
                 return -errno;
 
@@ -37,9 +37,8 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
                        "cgroup.threads",
                        "notify_on_release",
                        "tasks")
-                if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
-                        log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
-                                       "Failed to chown \"%s/%s\", ignoring: %m", path, fn);
+        if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to chown \"%s/%s\", ignoring: %m", path, fn);
 
         return 0;
 }
@@ -60,7 +59,8 @@ int chown_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         if (r < 0)
                 return log_error_errno(r, "Failed to chown() cgroup %s: %m", fs);
 
-        if (unified_requested == CGROUP_UNIFIED_SYSTEMD || (unified_requested == CGROUP_UNIFIED_NONE && cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)) {
+        if (unified_requested == CGROUP_UNIFIED_SYSTEMD ||
+            (unified_requested == CGROUP_UNIFIED_NONE && cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)) {
                 _cleanup_free_ char *lfs = NULL;
                 /* Always propagate access rights from unified to legacy controller */
 
@@ -103,11 +103,9 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
                 return log_error_errno(errno, "Failed to generate temporary mount point for unified hierarchy: %m");
 
         if (unified_controller > 0)
-                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, "none,name=systemd,xattr");
+                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup", MS_NOSUID | MS_NOEXEC | MS_NODEV, "none,name=systemd,xattr");
         else
-                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup2",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                r = mount_verbose(LOG_ERR, "cgroup", tree, "cgroup2", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
         if (r < 0)
                 goto finish;
 
@@ -117,7 +115,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
          * its unit isn't cleaned up. So, let's remove it
          * https://github.com/systemd/systemd/pull/4223#issuecomment-252519810 */
         fn = strjoina(tree, cgroup);
-        (void) rm_rf(fn, REMOVE_ROOT|REMOVE_ONLY_DIRECTORIES);
+        (void) rm_rf(fn, REMOVE_ROOT | REMOVE_ONLY_DIRECTORIES);
 
         fn = strjoina(tree, cgroup, "/cgroup.procs");
         (void) mkdir_parents(fn, 0755);
@@ -246,11 +244,7 @@ static int get_process_controllers(Set **ret) {
         return 0;
 }
 
-static int mount_legacy_cgroup_hierarchy(
-                const char *dest,
-                const char *controller,
-                const char *hierarchy,
-                bool read_only) {
+static int mount_legacy_cgroup_hierarchy(const char *dest, const char *controller, const char *hierarchy, bool read_only) {
 
         const char *to, *fstype, *opts;
         int r;
@@ -278,14 +272,13 @@ static int mount_legacy_cgroup_hierarchy(
                 opts = controller;
         }
 
-        r = mount_verbose(LOG_ERR, "cgroup", to, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        r = mount_verbose(LOG_ERR, "cgroup", to, fstype, MS_NOSUID | MS_NOEXEC | MS_NODEV, opts);
         if (r < 0)
                 return r;
 
         /* ... hence let's only make the bind mount read-only, not the superblock. */
         if (read_only) {
-                r = mount_verbose(LOG_ERR, NULL, to, NULL,
-                                  MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+                r = mount_verbose(LOG_ERR, NULL, to, NULL, MS_BIND | MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY, NULL);
                 if (r < 0)
                         return r;
         }
@@ -295,12 +288,7 @@ static int mount_legacy_cgroup_hierarchy(
 
 /* Mount a legacy cgroup hierarchy when cgroup namespaces are supported. */
 static int mount_legacy_cgns_supported(
-                const char *dest,
-                CGroupUnified unified_requested,
-                bool userns,
-                uid_t uid_shift,
-                uid_t uid_range,
-                const char *selinux_apifs_context) {
+        const char *dest, CGroupUnified unified_requested, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
 
         _cleanup_set_free_free_ Set *controllers = NULL;
         const char *cgroup_root = "/sys/fs/cgroup", *c;
@@ -326,8 +314,7 @@ static int mount_legacy_cgns_supported(
                 if (r < 0)
                         return log_oom();
 
-                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs", MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME, options);
                 if (r < 0)
                         return r;
         }
@@ -394,20 +381,19 @@ skip_controllers:
                 return r;
 
         if (!userns)
-                return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
-                                     MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+                return mount_verbose(LOG_ERR,
+                                     NULL,
+                                     cgroup_root,
+                                     NULL,
+                                     MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME | MS_RDONLY,
+                                     "mode=755");
 
         return 0;
 }
 
 /* Mount legacy cgroup hierarchy when cgroup namespaces are unsupported. */
 static int mount_legacy_cgns_unsupported(
-                const char *dest,
-                CGroupUnified unified_requested,
-                bool userns,
-                uid_t uid_shift,
-                uid_t uid_range,
-                const char *selinux_apifs_context) {
+        const char *dest, CGroupUnified unified_requested, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
 
         _cleanup_set_free_free_ Set *controllers = NULL;
         const char *cgroup_root;
@@ -428,8 +414,7 @@ static int mount_legacy_cgns_unsupported(
                 if (r < 0)
                         return log_oom();
 
-                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs",
-                                  MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, options);
+                r = mount_verbose(LOG_ERR, "tmpfs", cgroup_root, "tmpfs", MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME, options);
                 if (r < 0)
                         return r;
         }
@@ -502,8 +487,8 @@ skip_controllers:
         if (r < 0)
                 return r;
 
-        return mount_verbose(LOG_ERR, NULL, cgroup_root, NULL,
-                             MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755");
+        return mount_verbose(
+                LOG_ERR, NULL, cgroup_root, NULL, MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME | MS_RDONLY, "mode=755");
 }
 
 static int mount_unified_cgroups(const char *dest) {
@@ -526,21 +511,19 @@ static int mount_unified_cgroups(const char *dest) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine if mount point %s contains the unified cgroup hierarchy: %m", p);
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is already mounted but not a unified cgroup hierarchy. Refusing.", p);
         }
 
-        return mount_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        return mount_verbose(LOG_ERR, "cgroup", p, "cgroup2", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL);
 }
 
-int mount_cgroups(
-                const char *dest,
-                CGroupUnified unified_requested,
-                bool userns,
-                uid_t uid_shift,
-                uid_t uid_range,
-                const char *selinux_apifs_context,
-                bool use_cgns) {
+int mount_cgroups(const char *dest,
+                  CGroupUnified unified_requested,
+                  bool userns,
+                  uid_t uid_shift,
+                  uid_t uid_range,
+                  const char *selinux_apifs_context,
+                  bool use_cgns) {
 
         if (unified_requested >= CGROUP_UNIFIED_ALL)
                 return mount_unified_cgroups(dest);
@@ -562,13 +545,10 @@ static int mount_systemd_cgroup_writable_one(const char *root, const char *own) 
                 return r;
 
         /* And then remount the systemd cgroup root read-only */
-        return mount_verbose(LOG_ERR, NULL, root, NULL,
-                             MS_BIND|MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+        return mount_verbose(LOG_ERR, NULL, root, NULL, MS_BIND | MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_RDONLY, NULL);
 }
 
-int mount_systemd_cgroup_writable(
-                const char *dest,
-                CGroupUnified unified_requested) {
+int mount_systemd_cgroup_writable(const char *dest, CGroupUnified unified_requested) {
 
         _cleanup_free_ char *own_cgroup_path = NULL;
         const char *root, *own;

@@ -35,7 +35,7 @@ int files_same(const char *filea, const char *fileb, int flags);
 
 /* The .f_type field of struct statfs is really weird defined on
  * different archs. Let's give its type a name. */
-typedef typeof(((struct statfs*)NULL)->f_type) statfs_f_type_t;
+typedef typeof(((struct statfs *) NULL)->f_type) statfs_f_type_t;
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) _pure_;
 int fd_is_fs_type(int fd, statfs_f_type_t magic_value);
@@ -69,17 +69,16 @@ int fd_verify_directory(int fd);
  * comparing directly >= 0: it's to trick out -Wtype-limits, which would otherwise complain if the type is unsigned, as
  * such a test would be pointless in such a case.) */
 
-#define DEVICE_MAJOR_VALID(x)                                           \
-        ({                                                              \
-                typeof(x) _x = (x), _y = 0;                             \
-                _x >= _y && _x < (UINT32_C(1) << 12);                   \
-                                                                        \
+#define DEVICE_MAJOR_VALID(x)                        \
+        ({                                           \
+                typeof(x) _x = (x), _y = 0;          \
+                _x >= _y &&_x < (UINT32_C(1) << 12); \
         })
 
-#define DEVICE_MINOR_VALID(x)                                           \
-        ({                                                              \
-                typeof(x) _x = (x), _y = 0;                             \
-                _x >= _y && _x < (UINT32_C(1) << 20);                   \
+#define DEVICE_MINOR_VALID(x)                        \
+        ({                                           \
+                typeof(x) _x = (x), _y = 0;          \
+                _x >= _y &&_x < (UINT32_C(1) << 20); \
         })
 
 int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret);

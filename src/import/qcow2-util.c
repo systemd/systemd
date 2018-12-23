@@ -15,32 +15,32 @@
 #define QCOW2_ZERO (1ULL << 0)
 
 typedef struct _packed_ Header {
-      be32_t magic;
-      be32_t version;
+        be32_t magic;
+        be32_t version;
 
-      be64_t backing_file_offset;
-      be32_t backing_file_size;
+        be64_t backing_file_offset;
+        be32_t backing_file_size;
 
-      be32_t cluster_bits;
-      be64_t size;
-      be32_t crypt_method;
+        be32_t cluster_bits;
+        be64_t size;
+        be32_t crypt_method;
 
-      be32_t l1_size;
-      be64_t l1_table_offset;
+        be32_t l1_size;
+        be64_t l1_table_offset;
 
-      be64_t refcount_table_offset;
-      be32_t refcount_table_clusters;
+        be64_t refcount_table_offset;
+        be32_t refcount_table_clusters;
 
-      be32_t nb_snapshots;
-      be64_t snapshots_offset;
+        be32_t nb_snapshots;
+        be64_t snapshots_offset;
 
-      /* The remainder is only present on QCOW3 */
-      be64_t incompatible_features;
-      be64_t compatible_features;
-      be64_t autoclear_features;
+        /* The remainder is only present on QCOW3 */
+        be64_t incompatible_features;
+        be64_t compatible_features;
+        be64_t autoclear_features;
 
-      be32_t refcount_order;
-      be32_t header_length;
+        be32_t refcount_order;
+        be32_t header_length;
 } Header;
 
 #define HEADER_MAGIC(header) be32toh((header)->magic)
@@ -51,7 +51,7 @@ typedef struct _packed_ Header {
 #define HEADER_SIZE(header) be64toh((header)->size)
 #define HEADER_CRYPT_METHOD(header) be32toh((header)->crypt_method)
 #define HEADER_L1_SIZE(header) be32toh((header)->l1_size)
-#define HEADER_L2_SIZE(header) (HEADER_CLUSTER_SIZE(header)/sizeof(uint64_t))
+#define HEADER_L2_SIZE(header) (HEADER_CLUSTER_SIZE(header) / sizeof(uint64_t))
 #define HEADER_L1_TABLE_OFFSET(header) be64toh((header)->l1_table_offset)
 
 static uint32_t HEADER_HEADER_LENGTH(const Header *h) {
@@ -61,11 +61,7 @@ static uint32_t HEADER_HEADER_LENGTH(const Header *h) {
         return be32toh(h->header_length);
 }
 
-static int copy_cluster(
-                int sfd, uint64_t soffset,
-                int dfd, uint64_t doffset,
-                uint64_t cluster_size,
-                void *buffer) {
+static int copy_cluster(int sfd, uint64_t soffset, int dfd, uint64_t doffset, uint64_t cluster_size, void *buffer) {
 
         ssize_t l;
         int r;
@@ -90,12 +86,7 @@ static int copy_cluster(
 }
 
 static int decompress_cluster(
-                int sfd, uint64_t soffset,
-                int dfd, uint64_t doffset,
-                uint64_t compressed_size,
-                uint64_t cluster_size,
-                void *buffer1,
-                void *buffer2) {
+        int sfd, uint64_t soffset, int dfd, uint64_t doffset, uint64_t compressed_size, uint64_t cluster_size, void *buffer1, void *buffer2) {
 
         _cleanup_free_ void *large_buffer = NULL;
         z_stream s = {};
@@ -130,7 +121,7 @@ static int decompress_cluster(
                 return -EIO;
 
         r = inflate(&s, Z_FINISH);
-        sz = (uint8_t*) s.next_out - (uint8_t*) buffer2;
+        sz = (uint8_t *) s.next_out - (uint8_t *) buffer2;
         inflateEnd(&s);
         if (r != Z_STREAM_END || sz != cluster_size)
                 return -EIO;
@@ -144,12 +135,7 @@ static int decompress_cluster(
         return 0;
 }
 
-static int normalize_offset(
-                const Header *header,
-                uint64_t p,
-                uint64_t *ret,
-                bool *compressed,
-                uint64_t *compressed_size) {
+static int normalize_offset(const Header *header, uint64_t p, uint64_t *ret, bool *compressed, uint64_t *compressed_size) {
 
         uint64_t q;
 
@@ -172,7 +158,7 @@ static int normalize_offset(
                 *compressed = true;
 
         } else {
-                if (compressed)  {
+                if (compressed) {
                         *compressed = false;
                         *compressed_size = 0;
                 }
@@ -187,7 +173,7 @@ static int normalize_offset(
         }
 
         *ret = q;
-        return q > 0;  /* returns positive if not a hole */
+        return q > 0; /* returns positive if not a hole */
 }
 
 static int verify_header(const Header *header) {
@@ -211,7 +197,7 @@ static int verify_header(const Header *header) {
         if (HEADER_SIZE(header) % HEADER_CLUSTER_SIZE(header) != 0)
                 return -EBADMSG;
 
-        if (HEADER_L1_SIZE(header) > 32*1024*1024) /* 32MB */
+        if (HEADER_L1_SIZE(header) > 32 * 1024 * 1024) /* 32MB */
                 return -EBADMSG;
 
         if (HEADER_VERSION(header) == 3) {
@@ -244,7 +230,7 @@ int qcow2_convert(int qcow2_fd, int raw_fd) {
         if (r < 0)
                 return r;
 
-        l1_table = new(be64_t, HEADER_L1_SIZE(&header));
+        l1_table = new (be64_t, HEADER_L1_SIZE(&header));
         if (!l1_table)
                 return -ENOMEM;
 
@@ -274,7 +260,7 @@ int qcow2_convert(int qcow2_fd, int raw_fd) {
         if ((uint64_t) l != sz)
                 return -EIO;
 
-        for (i = 0; i < HEADER_L1_SIZE(&header); i ++) {
+        for (i = 0; i < HEADER_L1_SIZE(&header); i++) {
                 uint64_t l2_begin, j;
 
                 r = normalize_offset(&header, l1_table[i], &l2_begin, NULL, NULL);
@@ -303,15 +289,9 @@ int qcow2_convert(int qcow2_fd, int raw_fd) {
 
                         if (compressed)
                                 r = decompress_cluster(
-                                                qcow2_fd, data_begin,
-                                                raw_fd, p,
-                                                compressed_size, HEADER_CLUSTER_SIZE(&header),
-                                                buffer1, buffer2);
+                                        qcow2_fd, data_begin, raw_fd, p, compressed_size, HEADER_CLUSTER_SIZE(&header), buffer1, buffer2);
                         else
-                                r = copy_cluster(
-                                                qcow2_fd, data_begin,
-                                                raw_fd, p,
-                                                HEADER_CLUSTER_SIZE(&header), buffer1);
+                                r = copy_cluster(qcow2_fd, data_begin, raw_fd, p, HEADER_CLUSTER_SIZE(&header), buffer1);
                         if (r < 0)
                                 return r;
                 }

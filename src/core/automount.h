@@ -5,7 +5,8 @@ typedef struct Automount Automount;
 
 #include "unit.h"
 
-typedef enum AutomountResult {
+typedef enum AutomountResult
+{
         AUTOMOUNT_SUCCESS,
         AUTOMOUNT_FAILURE_RESOURCES,
         AUTOMOUNT_FAILURE_START_LIMIT_HIT,
@@ -37,7 +38,7 @@ struct Automount {
 
 extern const UnitVTable automount_vtable;
 
-const char* automount_result_to_string(AutomountResult i) _const_;
+const char *automount_result_to_string(AutomountResult i) _const_;
 AutomountResult automount_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(AUTOMOUNT, Automount);

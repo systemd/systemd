@@ -8,12 +8,7 @@
 #include "bus-slot.h"
 #include "string-util.h"
 
-sd_bus_slot *bus_slot_allocate(
-                sd_bus *bus,
-                bool floating,
-                BusSlotType type,
-                size_t extra,
-                void *userdata) {
+sd_bus_slot *bus_slot_allocate(sd_bus *bus, bool floating, BusSlotType type, size_t extra, void *userdata) {
 
         sd_bus_slot *slot;
 
@@ -143,7 +138,8 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
 
                                         x = hashmap_remove(slot->bus->vtable_properties, &key);
                                         break;
-                                }}
+                                }
+                                }
 
                                 free(x);
                         }
@@ -176,7 +172,7 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                 sd_bus_slot_unref(slot);
 }
 
-static sd_bus_slot* bus_slot_free(sd_bus_slot *slot) {
+static sd_bus_slot *bus_slot_free(sd_bus_slot *slot) {
         assert(slot);
 
         bus_slot_disconnect(slot, false);
@@ -190,7 +186,7 @@ static sd_bus_slot* bus_slot_free(sd_bus_slot *slot) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_slot, sd_bus_slot, bus_slot_free);
 
-_public_ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot) {
+_public_ sd_bus *sd_bus_slot_get_bus(sd_bus_slot *slot) {
         assert_return(slot, NULL);
 
         return slot->bus;
@@ -249,7 +245,7 @@ _public_ sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *s
         return slot->bus->current_handler;
 }
 
-_public_ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
+_public_ void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
         assert_return(slot, NULL);
         assert_return(slot->type >= 0, NULL);
 

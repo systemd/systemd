@@ -27,7 +27,7 @@
 #include "strv.h"
 #include "util.h"
 
-#define SNDBUF_SIZE (8*1024*1024)
+#define SNDBUF_SIZE (8 * 1024 * 1024)
 
 static void unsetenv_all(bool unset_environment) {
 
@@ -76,7 +76,7 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;
@@ -151,9 +151,7 @@ _public_ int sd_is_fifo(int fd, const char *path) {
                         return -errno;
                 }
 
-                return
-                        st_path.st_dev == st_fd.st_dev &&
-                        st_path.st_ino == st_fd.st_ino;
+                return st_path.st_dev == st_fd.st_dev && st_path.st_ino == st_fd.st_ino;
         }
 
         return 1;
@@ -182,9 +180,7 @@ _public_ int sd_is_special(int fd, const char *path) {
                 }
 
                 if (S_ISREG(st_fd.st_mode) && S_ISREG(st_path.st_mode))
-                        return
-                                st_path.st_dev == st_fd.st_dev &&
-                                st_path.st_ino == st_fd.st_ino;
+                        return st_path.st_dev == st_fd.st_dev && st_path.st_ino == st_fd.st_ino;
                 else if (S_ISCHR(st_fd.st_mode) && S_ISCHR(st_path.st_mode))
                         return st_path.st_rdev == st_fd.st_rdev;
                 else
@@ -301,7 +297,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         return 1;
 }
 
-_public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr, unsigned addr_len, int listening) {
+_public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr *addr, unsigned addr_len, int listening) {
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
         int r;
@@ -330,8 +326,7 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
                 if (l < sizeof(struct sockaddr_in) || addr_len < sizeof(struct sockaddr_in))
                         return -EINVAL;
 
-                if (in->sin_port != 0 &&
-                    sockaddr.in.sin_port != in->sin_port)
+                if (in->sin_port != 0 && sockaddr.in.sin_port != in->sin_port)
                         return false;
 
                 return sockaddr.in.sin_addr.s_addr == in->sin_addr.s_addr;
@@ -342,20 +337,16 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr* addr
                 if (l < sizeof(struct sockaddr_in6) || addr_len < sizeof(struct sockaddr_in6))
                         return -EINVAL;
 
-                if (in->sin6_port != 0 &&
-                    sockaddr.in6.sin6_port != in->sin6_port)
+                if (in->sin6_port != 0 && sockaddr.in6.sin6_port != in->sin6_port)
                         return false;
 
-                if (in->sin6_flowinfo != 0 &&
-                    sockaddr.in6.sin6_flowinfo != in->sin6_flowinfo)
+                if (in->sin6_flowinfo != 0 && sockaddr.in6.sin6_flowinfo != in->sin6_flowinfo)
                         return false;
 
-                if (in->sin6_scope_id != 0 &&
-                    sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
+                if (in->sin6_scope_id != 0 && sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
                         return false;
 
-                return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr,
-                              sizeof(in->sin6_addr.s6_addr)) == 0;
+                return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr, sizeof(in->sin6_addr.s6_addr)) == 0;
         }
 }
 
@@ -389,14 +380,11 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
 
                 if (path[0])
                         /* Normal path socket */
-                        return
-                                (l >= offsetof(struct sockaddr_un, sun_path) + length + 1) &&
-                                memcmp(path, sockaddr.un.sun_path, length+1) == 0;
+                        return (l >= offsetof(struct sockaddr_un, sun_path) + length + 1) &&
+                                memcmp(path, sockaddr.un.sun_path, length + 1) == 0;
                 else
                         /* Abstract namespace socket */
-                        return
-                                (l == offsetof(struct sockaddr_un, sun_path) + length) &&
-                                memcmp(path, sockaddr.un.sun_path, length) == 0;
+                        return (l == offsetof(struct sockaddr_un, sun_path) + length) && memcmp(path, sockaddr.un.sun_path, length) == 0;
         }
 
         return 1;
@@ -425,25 +413,19 @@ _public_ int sd_is_mq(int fd, const char *path) {
                         return -errno;
 
                 strncpy(stpcpy(fpath, "/dev/mqueue"), path, sizeof(fpath) - 12);
-                fpath[sizeof(fpath)-1] = 0;
+                fpath[sizeof(fpath) - 1] = 0;
 
                 if (stat(fpath, &b) < 0)
                         return -errno;
 
-                if (a.st_dev != b.st_dev ||
-                    a.st_ino != b.st_ino)
+                if (a.st_dev != b.st_dev || a.st_ino != b.st_ino)
                         return 0;
         }
 
         return 1;
 }
 
-_public_ int sd_pid_notify_with_fds(
-                pid_t pid,
-                int unset_environment,
-                const char *state,
-                const int *fds,
-                unsigned n_fds) {
+_public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds) {
 
         union sockaddr_union sockaddr = {};
         struct iovec iovec;
@@ -478,7 +460,7 @@ _public_ int sd_pid_notify_with_fds(
                 goto finish;
         }
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 r = -errno;
                 goto finish;
@@ -489,15 +471,11 @@ _public_ int sd_pid_notify_with_fds(
         iovec = IOVEC_MAKE_STRING(state);
         msghdr.msg_namelen = salen;
 
-        send_ucred =
-                (pid != 0 && pid != getpid_cached()) ||
-                getuid() != geteuid() ||
-                getgid() != getegid();
+        send_ucred = (pid != 0 && pid != getpid_cached()) || getuid() != geteuid() || getgid() != getegid();
 
         if (n_fds > 0 || send_ucred) {
                 /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
-                msghdr.msg_controllen =
-                        (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
+                msghdr.msg_controllen = (n_fds > 0 ? CMSG_SPACE(sizeof(int) * n_fds) : 0) +
                         (send_ucred ? CMSG_SPACE(sizeof(struct ucred)) : 0);
 
                 msghdr.msg_control = alloca0(msghdr.msg_controllen);
@@ -521,7 +499,7 @@ _public_ int sd_pid_notify_with_fds(
                         cmsg->cmsg_type = SCM_CREDENTIALS;
                         cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
 
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        ucred = (struct ucred *) CMSG_DATA(cmsg);
                         ucred->pid = pid != 0 ? pid : getpid_cached();
                         ucred->uid = getuid();
                         ucred->gid = getgid();

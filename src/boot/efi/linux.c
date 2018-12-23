@@ -6,7 +6,7 @@
 #include "linux.h"
 #include "util.h"
 
-#define SETUP_MAGIC             0x53726448      /* "HdrS" */
+#define SETUP_MAGIC 0x53726448 /* "HdrS" */
 struct SetupHeader {
         UINT8 boot_sector[0x01f1];
         UINT8 setup_secs;
@@ -51,34 +51,32 @@ struct SetupHeader {
 } __attribute__((packed));
 
 #ifdef __x86_64__
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup);
+typedef VOID (*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup);
 static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
         handover_f handover;
 
-        asm volatile ("cli");
-        handover = (handover_f)((UINTN)setup->code32_start + 512 + setup->handover_offset);
+        asm volatile("cli");
+        handover = (handover_f)((UINTN) setup->code32_start + 512 + setup->handover_offset);
         handover(image, ST, setup);
 }
 #else
-typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup) __attribute__((regparm(0)));
+typedef VOID (*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup) __attribute__((regparm(0)));
 static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
         handover_f handover;
 
-        handover = (handover_f)((UINTN)setup->code32_start + setup->handover_offset);
+        handover = (handover_f)((UINTN) setup->code32_start + setup->handover_offset);
         handover(image, ST, setup);
 }
 #endif
 
-EFI_STATUS linux_exec(EFI_HANDLE *image,
-                      CHAR8 *cmdline, UINTN cmdline_len,
-                      UINTN linux_addr,
-                      UINTN initrd_addr, UINTN initrd_size, BOOLEAN secure) {
+EFI_STATUS linux_exec(
+        EFI_HANDLE *image, CHAR8 *cmdline, UINTN cmdline_len, UINTN linux_addr, UINTN initrd_addr, UINTN initrd_size, BOOLEAN secure) {
         struct SetupHeader *image_setup;
         struct SetupHeader *boot_setup;
         EFI_PHYSICAL_ADDRESS addr;
         EFI_STATUS err;
 
-        image_setup = (struct SetupHeader *)(linux_addr);
+        image_setup = (struct SetupHeader *) (linux_addr);
         if (image_setup->signature != 0xAA55 || image_setup->header != SETUP_MAGIC)
                 return EFI_LOAD_ERROR;
 
@@ -86,11 +84,10 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
                 return EFI_LOAD_ERROR;
 
         addr = 0x3fffffff;
-        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
-                                EFI_SIZE_TO_PAGES(0x4000), &addr);
+        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(0x4000), &addr);
         if (EFI_ERROR(err))
                 return err;
-        boot_setup = (struct SetupHeader *)(UINTN)addr;
+        boot_setup = (struct SetupHeader *) (UINTN) addr;
         ZeroMem(boot_setup, 0x4000);
         CopyMem(boot_setup, image_setup, sizeof(struct SetupHeader));
         boot_setup->loader_id = 0xff;
@@ -106,21 +103,20 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
                 boot_setup->boot_sector[0x1ec] = 3;
         }
 
-        boot_setup->code32_start = (UINT32)linux_addr + (image_setup->setup_secs+1) * 512;
+        boot_setup->code32_start = (UINT32) linux_addr + (image_setup->setup_secs + 1) * 512;
 
         if (cmdline) {
                 addr = 0xA0000;
-                err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
-                                        EFI_SIZE_TO_PAGES(cmdline_len + 1), &addr);
+                err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(cmdline_len + 1), &addr);
                 if (EFI_ERROR(err))
                         return err;
-                CopyMem((VOID *)(UINTN)addr, cmdline, cmdline_len);
-                ((CHAR8 *)(UINTN)addr)[cmdline_len] = 0;
-                boot_setup->cmd_line_ptr = (UINT32)addr;
+                CopyMem((VOID *) (UINTN) addr, cmdline, cmdline_len);
+                ((CHAR8 *) (UINTN) addr)[cmdline_len] = 0;
+                boot_setup->cmd_line_ptr = (UINT32) addr;
         }
 
-        boot_setup->ramdisk_start = (UINT32)initrd_addr;
-        boot_setup->ramdisk_len = (UINT32)initrd_size;
+        boot_setup->ramdisk_start = (UINT32) initrd_addr;
+        boot_setup->ramdisk_len = (UINT32) initrd_size;
 
         linux_efi_handover(image, boot_setup);
         return EFI_LOAD_ERROR;

@@ -9,7 +9,7 @@
 
 #include "macro.h"
 
-static void* thread(void *p) {
+static void *thread(void *p) {
         struct udev_device **d = p;
 
         assert_se(!(*d = udev_device_unref(*d)));

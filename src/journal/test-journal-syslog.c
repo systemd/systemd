@@ -6,8 +6,7 @@
 #include "string-util.h"
 #include "syslog-util.h"
 
-static void test_syslog_parse_identifier(const char *str,
-                                         const char *ident, const char *pid, const char *rest, int ret) {
+static void test_syslog_parse_identifier(const char *str, const char *ident, const char *pid, const char *rest, int ret) {
         const char *buf = str;
         _cleanup_free_ char *ident2 = NULL, *pid2 = NULL;
         int ret2;

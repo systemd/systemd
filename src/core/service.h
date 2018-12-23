@@ -11,7 +11,8 @@ typedef struct ServiceFDStore ServiceFDStore;
 #include "socket.h"
 #include "unit.h"
 
-typedef enum ServiceRestart {
+typedef enum ServiceRestart
+{
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
         SERVICE_RESTART_ON_FAILURE,
@@ -23,19 +24,21 @@ typedef enum ServiceRestart {
         _SERVICE_RESTART_INVALID = -1
 } ServiceRestart;
 
-typedef enum ServiceType {
-        SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons) */
-        SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
-        SERVICE_ONESHOT,  /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
-        SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
-        SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
-        SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
-        SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
+typedef enum ServiceType
+{
+        SERVICE_SIMPLE,  /* we fork and go on right-away (i.e. modern socket activated daemons) */
+        SERVICE_FORKING, /* forks by itself (i.e. traditional daemons) */
+        SERVICE_ONESHOT, /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
+        SERVICE_DBUS,   /* we fork and wait until a specific D-Bus name appears on the bus */
+        SERVICE_NOTIFY, /* we fork and wait until a daemon sends us a ready message with sd_notify() */
+        SERVICE_IDLE,   /* much like simple, but delay exec() until all jobs are dispatched. */
+        SERVICE_EXEC,   /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
 
-typedef enum ServiceExecCommand {
+typedef enum ServiceExecCommand
+{
         SERVICE_EXEC_START_PRE,
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
@@ -46,7 +49,8 @@ typedef enum ServiceExecCommand {
         _SERVICE_EXEC_COMMAND_INVALID = -1
 } ServiceExecCommand;
 
-typedef enum NotifyState {
+typedef enum NotifyState
+{
         NOTIFY_UNKNOWN,
         NOTIFY_READY,
         NOTIFY_RELOADING,
@@ -57,7 +61,8 @@ typedef enum NotifyState {
 
 /* The values of this enum are referenced in man/systemd.exec.xml and src/shared/bus-unit-util.c.
  * Update those sources for each change to this enum. */
-typedef enum ServiceResult {
+typedef enum ServiceResult
+{
         SERVICE_SUCCESS,
         SERVICE_FAILURE_RESOURCES, /* a bit of a misnomer, just our catch-all error for errnos we didn't expect */
         SERVICE_FAILURE_PROTOCOL,
@@ -99,13 +104,13 @@ struct Service {
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
-        usec_t watchdog_usec;            /* the requested watchdog timeout in the unit file */
-        usec_t watchdog_original_usec;   /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
-        usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
+        usec_t watchdog_usec; /* the requested watchdog timeout in the unit file */
+        usec_t watchdog_original_usec; /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
+        usec_t watchdog_override_usec; /* the watchdog timeout requested by the service itself through sd_notify() */
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
-        ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
+        ExecCommand *exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
         ExecContext exec_context;
         KillContext kill_context;
@@ -145,13 +150,13 @@ struct Service {
         ServiceResult result;
         ServiceResult reload_result;
 
-        bool main_pid_known:1;
-        bool main_pid_alien:1;
-        bool bus_name_good:1;
-        bool forbid_restart:1;
+        bool main_pid_known : 1;
+        bool main_pid_alien : 1;
+        bool bus_name_good : 1;
+        bool forbid_restart : 1;
         /* Keep restart intention between UNIT_FAILED and UNIT_ACTIVATING */
-        bool will_auto_restart:1;
-        bool start_timeout_defined:1;
+        bool will_auto_restart : 1;
+        bool start_timeout_defined : 1;
 
         char *bus_name;
         char *bus_name_owner; /* unique name of the current owner */
@@ -191,21 +196,21 @@ extern const UnitVTable service_vtable;
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
 void service_close_socket_fd(Service *s);
 
-const char* service_restart_to_string(ServiceRestart i) _const_;
+const char *service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
 
-const char* service_type_to_string(ServiceType i) _const_;
+const char *service_type_to_string(ServiceType i) _const_;
 ServiceType service_type_from_string(const char *s) _pure_;
 
-const char* service_exec_command_to_string(ServiceExecCommand i) _const_;
+const char *service_exec_command_to_string(ServiceExecCommand i) _const_;
 ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 
-const char* notify_state_to_string(NotifyState i) _const_;
+const char *notify_state_to_string(NotifyState i) _const_;
 NotifyState notify_state_from_string(const char *s) _pure_;
 
-const char* service_result_to_string(ServiceResult i) _const_;
+const char *service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SERVICE, Service);
 
-#define STATUS_TEXT_MAX (16U*1024U)
+#define STATUS_TEXT_MAX (16U * 1024U)

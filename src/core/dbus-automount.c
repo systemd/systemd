@@ -18,11 +18,7 @@ const sd_bus_vtable bus_automount_vtable[] = {
 };
 
 static int bus_automount_set_transient_property(
-                Automount *a,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Automount *a, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(a);
 
@@ -44,12 +40,7 @@ static int bus_automount_set_transient_property(
         return 0;
 }
 
-int bus_automount_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_automount_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Automount *a = AUTOMOUNT(u);
 

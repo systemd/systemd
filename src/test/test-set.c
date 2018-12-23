@@ -10,9 +10,9 @@ static void test_set_steal_first(void) {
         m = set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(set_put(m, (void*) "1") == 1);
-        assert_se(set_put(m, (void*) "22") == 1);
-        assert_se(set_put(m, (void*) "333") == 1);
+        assert_se(set_put(m, (void *) "1") == 1);
+        assert_se(set_put(m, (void *) "22") == 1);
+        assert_se(set_put(m, (void *) "333") == 1);
 
         while ((val = set_steal_first(m)))
                 seen[strlen(val) - 1]++;
@@ -69,14 +69,14 @@ static void test_set_put(void) {
         m = set_new(&string_hash_ops);
         assert_se(m);
 
-        assert_se(set_put(m, (void*) "1") == 1);
-        assert_se(set_put(m, (void*) "22") == 1);
-        assert_se(set_put(m, (void*) "333") == 1);
-        assert_se(set_put(m, (void*) "333") == 0);
-        assert_se(set_remove(m, (void*) "333"));
-        assert_se(set_put(m, (void*) "333") == 1);
-        assert_se(set_put(m, (void*) "333") == 0);
-        assert_se(set_put(m, (void*) "22") == 0);
+        assert_se(set_put(m, (void *) "1") == 1);
+        assert_se(set_put(m, (void *) "22") == 1);
+        assert_se(set_put(m, (void *) "333") == 1);
+        assert_se(set_put(m, (void *) "333") == 0);
+        assert_se(set_remove(m, (void *) "333"));
+        assert_se(set_put(m, (void *) "333") == 1);
+        assert_se(set_put(m, (void *) "333") == 0);
+        assert_se(set_put(m, (void *) "22") == 0);
 }
 
 int main(int argc, const char *argv[]) {

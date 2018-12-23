@@ -38,16 +38,19 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 
         assert_se(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
 
-        printf("%-6s[%"PRI_TIME".%06"PRI_NSEC"] %-8s %s (%s)\n",
+        printf("%-6s[%" PRI_TIME ".%06" PRI_NSEC "] %-8s %s (%s)\n",
                group == MONITOR_GROUP_UDEV ? "UDEV" : "KERNEL",
-               ts.tv_sec, (nsec_t)ts.tv_nsec/1000,
-               action, devpath, subsystem);
+               ts.tv_sec,
+               (nsec_t) ts.tv_nsec / 1000,
+               action,
+               devpath,
+               subsystem);
 
         if (arg_show_property) {
                 const char *key, *value;
 
                 FOREACH_DEVICE_PROPERTY(device, key, value)
-                        printf("%s=%s\n", key, value);
+                printf("%s=%s\n", key, value);
 
                 printf("\n");
         }
@@ -65,7 +68,7 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
+        (void) sd_device_monitor_set_receive_buffer_size(monitor, 128 * 1024 * 1024);
 
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
@@ -74,8 +77,8 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter, i) {
                 r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to apply subsystem filter '%s%s%s': %m",
-                                               subsystem, devtype ? "/" : "", strempty(devtype));
+                        return log_error_errno(
+                                r, "Failed to apply subsystem filter '%s%s%s': %m", subsystem, devtype ? "/" : "", strempty(devtype));
         }
 
         SET_FOREACH(tag, arg_tag_filter, i) {
@@ -104,24 +107,22 @@ static int help(void) {
                "  -k --kernel                              Print kernel uevents\n"
                "  -u --udev                                Print udev events\n"
                "  -s --subsystem-match=SUBSYSTEM[/DEVTYPE] Filter events by subsystem\n"
-               "  -t --tag-match=TAG                       Filter events by tag\n"
-               , program_invocation_short_name);
+               "  -t --tag-match=TAG                       Filter events by tag\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "property",        no_argument,       NULL, 'p' },
-                { "environment",     no_argument,       NULL, 'e' }, /* alias for -p */
-                { "kernel",          no_argument,       NULL, 'k' },
-                { "udev",            no_argument,       NULL, 'u' },
-                { "subsystem-match", required_argument, NULL, 's' },
-                { "tag-match",       required_argument, NULL, 't' },
-                { "version",         no_argument,       NULL, 'V' },
-                { "help",            no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "property", no_argument, NULL, 'p' },
+                                                 { "environment", no_argument, NULL, 'e' }, /* alias for -p */
+                                                 { "kernel", no_argument, NULL, 'k' },
+                                                 { "udev", no_argument, NULL, 'u' },
+                                                 { "subsystem-match", required_argument, NULL, 's' },
+                                                 { "tag-match", required_argument, NULL, 't' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         int r, c;
 

@@ -32,29 +32,32 @@ _SD_BEGIN_DECLARATIONS;
 
 /* Neightbor Discovery Options, RFC 4861, Section 4.6 and
  * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-5 */
-enum {
-        SD_NDISC_OPTION_SOURCE_LL_ADDRESS  = 1,
-        SD_NDISC_OPTION_TARGET_LL_ADDRESS  = 2,
+enum
+{
+        SD_NDISC_OPTION_SOURCE_LL_ADDRESS = 1,
+        SD_NDISC_OPTION_TARGET_LL_ADDRESS = 2,
         SD_NDISC_OPTION_PREFIX_INFORMATION = 3,
-        SD_NDISC_OPTION_MTU                = 5,
-        SD_NDISC_OPTION_ROUTE_INFORMATION  = 24,
-        SD_NDISC_OPTION_RDNSS              = 25,
-        SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
-        SD_NDISC_OPTION_DNSSL              = 31,
-        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
+        SD_NDISC_OPTION_MTU = 5,
+        SD_NDISC_OPTION_ROUTE_INFORMATION = 24,
+        SD_NDISC_OPTION_RDNSS = 25,
+        SD_NDISC_OPTION_FLAGS_EXTENSION = 26,
+        SD_NDISC_OPTION_DNSSL = 31,
+        SD_NDISC_OPTION_CAPTIVE_PORTAL = 37,
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
-enum {
-        SD_NDISC_PREFERENCE_LOW    = 3U,
+enum
+{
+        SD_NDISC_PREFERENCE_LOW = 3U,
         SD_NDISC_PREFERENCE_MEDIUM = 0U,
-        SD_NDISC_PREFERENCE_HIGH   = 1U,
+        SD_NDISC_PREFERENCE_HIGH = 1U,
 };
 
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_ndisc_router sd_ndisc_router;
 
-typedef enum sd_ndisc_event {
+typedef enum sd_ndisc_event
+{
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
         _SD_NDISC_EVENT_MAX,

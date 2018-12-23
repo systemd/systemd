@@ -8,7 +8,7 @@
 
 int serialize_item(FILE *f, const char *key, const char *value);
 int serialize_item_escaped(FILE *f, const char *key, const char *value);
-int serialize_item_format(FILE *f, const char *key, const char *value, ...) _printf_(3,4);
+int serialize_item_format(FILE *f, const char *key, const char *value, ...) _printf_(3, 4);
 int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd);
 int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);

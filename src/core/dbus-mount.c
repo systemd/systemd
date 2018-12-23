@@ -43,7 +43,7 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Mount, where), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("What", "s", property_get_what, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Options","s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Options", "s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Type", "s", property_get_type, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Mount, timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Mount, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -60,12 +60,7 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int bus_mount_set_transient_property(
-                Mount *m,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+static int bus_mount_set_transient_property(Mount *m, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(m);
 
@@ -105,12 +100,7 @@ static int bus_mount_set_transient_property(
         return 0;
 }
 
-int bus_mount_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_mount_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Mount *m = MOUNT(u);
         int r;

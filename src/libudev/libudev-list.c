@@ -40,9 +40,7 @@ static int udev_list_node_is_empty(struct udev_list_node *list) {
         return list->next == list;
 }
 
-static void udev_list_node_insert_between(struct udev_list_node *new,
-                                          struct udev_list_node *prev,
-                                          struct udev_list_node *next) {
+static void udev_list_node_insert_between(struct udev_list_node *new, struct udev_list_node *prev, struct udev_list_node *next) {
         next->prev = new;
         new->next = next;
         new->prev = prev;
@@ -94,18 +92,18 @@ static int list_search(struct udev_list *list, const char *name) {
                 unsigned i;
                 int cmp;
 
-                i = (first + last)/2;
+                i = (first + last) / 2;
                 cmp = strcmp(name, list->entries[i]->name);
                 if (cmp < 0)
                         last = i;
                 else if (cmp > 0)
-                        first = i+1;
+                        first = i + 1;
                 else
                         return i;
         }
 
         /* not found, return negative insertion-index+1 */
-        return -(first+1);
+        return -(first + 1);
 }
 
 struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value) {
@@ -167,17 +165,16 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                 }
 
                 /* the negative i returned the insertion index */
-                i = (-i)-1;
+                i = (-i) - 1;
 
                 /* insert into sorted list */
-                if ((unsigned)i < list->entries_cur)
+                if ((unsigned) i < list->entries_cur)
                         udev_list_entry_insert_before(entry, list->entries[i]);
                 else
                         udev_list_entry_append(entry, list);
 
                 /* insert into sorted array */
-                memmove(&list->entries[i+1], &list->entries[i],
-                        (list->entries_cur - i) * sizeof(struct udev_list_entry *));
+                memmove(&list->entries[i + 1], &list->entries[i], (list->entries_cur - i) * sizeof(struct udev_list_entry *));
                 list->entries[i] = entry;
                 list->entries_cur++;
         } else
@@ -194,8 +191,7 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
                 /* remove entry from sorted array */
                 i = list_search(list, entry->name);
                 if (i >= 0) {
-                        memmove(&list->entries[i], &list->entries[i+1],
-                                ((list->entries_cur-1) - i) * sizeof(struct udev_list_entry *));
+                        memmove(&list->entries[i], &list->entries[i + 1], ((list->entries_cur - 1) - i) * sizeof(struct udev_list_entry *));
                         list->entries_cur--;
                 }
         }
@@ -207,9 +203,7 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
 }
 
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
-        for (entry = first, tmp = udev_list_entry_get_next(entry); \
-             entry; \
-             entry = tmp, tmp = udev_list_entry_get_next(tmp))
+        for (entry = first, tmp = udev_list_entry_get_next(entry); entry; entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 void udev_list_cleanup(struct udev_list *list) {
         struct udev_list_entry *entry_loop;
@@ -218,8 +212,7 @@ void udev_list_cleanup(struct udev_list *list) {
         list->entries = mfree(list->entries);
         list->entries_cur = 0;
         list->entries_max = 0;
-        udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
-                udev_list_entry_delete(entry_loop);
+        udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list)) udev_list_entry_delete(entry_loop);
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {

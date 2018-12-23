@@ -63,8 +63,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         assert_se(c1 == c_masked);
 
         free(t1);
-        assert_se(t1 = strjoin("'cap_chown cap_dac_override' \"cap_setgid cap_setuid\"", t,
-                               " hogehoge foobar 12345 3.14 -3 ", t));
+        assert_se(t1 = strjoin("'cap_chown cap_dac_override' \"cap_setgid cap_setuid\"", t, " hogehoge foobar 12345 3.14 -3 ", t));
         assert_se(capability_set_from_string(t1, &c1) == 0);
         assert_se(c1 == c_masked);
 }
@@ -88,31 +87,17 @@ static void test_capability_set(void) {
         assert_se(c == (UINT64_C(1) << 4) - 1);
 
         test_capability_set_one(0, "");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_DAC_OVERRIDE,
-                "cap_dac_override");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_DAC_OVERRIDE |
-                UINT64_C(1) << capability_list_length(),
-                "cap_dac_override");
-        test_capability_set_one(
-                UINT64_C(1) << capability_list_length(), "");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_CHOWN |
-                UINT64_C(1) << CAP_DAC_OVERRIDE |
-                UINT64_C(1) << CAP_DAC_READ_SEARCH |
-                UINT64_C(1) << CAP_FOWNER |
-                UINT64_C(1) << CAP_SETGID |
-                UINT64_C(1) << CAP_SETUID |
-                UINT64_C(1) << CAP_SYS_PTRACE |
-                UINT64_C(1) << CAP_SYS_ADMIN |
-                UINT64_C(1) << CAP_AUDIT_CONTROL |
-                UINT64_C(1) << CAP_MAC_OVERRIDE |
-                UINT64_C(1) << CAP_SYSLOG |
-                UINT64_C(1) << (capability_list_length() + 1),
-                "cap_chown cap_dac_override cap_dac_read_search cap_fowner "
-                "cap_setgid cap_setuid cap_sys_ptrace cap_sys_admin "
-                "cap_audit_control cap_mac_override cap_syslog");
+        test_capability_set_one(UINT64_C(1) << CAP_DAC_OVERRIDE, "cap_dac_override");
+        test_capability_set_one(UINT64_C(1) << CAP_DAC_OVERRIDE | UINT64_C(1) << capability_list_length(), "cap_dac_override");
+        test_capability_set_one(UINT64_C(1) << capability_list_length(), "");
+        test_capability_set_one(UINT64_C(1) << CAP_CHOWN | UINT64_C(1) << CAP_DAC_OVERRIDE | UINT64_C(1) << CAP_DAC_READ_SEARCH |
+                                        UINT64_C(1) << CAP_FOWNER | UINT64_C(1) << CAP_SETGID | UINT64_C(1) << CAP_SETUID |
+                                        UINT64_C(1) << CAP_SYS_PTRACE | UINT64_C(1) << CAP_SYS_ADMIN | UINT64_C(1) << CAP_AUDIT_CONTROL |
+                                        UINT64_C(1) << CAP_MAC_OVERRIDE | UINT64_C(1) << CAP_SYSLOG |
+                                        UINT64_C(1) << (capability_list_length() + 1),
+                                "cap_chown cap_dac_override cap_dac_read_search cap_fowner "
+                                "cap_setgid cap_setuid cap_sys_ptrace cap_sys_admin "
+                                "cap_audit_control cap_mac_override cap_syslog");
 }
 
 int main(int argc, char *argv[]) {

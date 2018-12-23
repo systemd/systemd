@@ -11,7 +11,7 @@ typedef struct DnsQuestion DnsQuestion;
 struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
-        DnsResourceKey* keys[0];
+        DnsResourceKey *keys[0];
 };
 
 DnsQuestion *dns_question_new(size_t n);
@@ -25,7 +25,7 @@ int dns_question_new_service(DnsQuestion **ret, const char *service, const char 
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key);
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain);
-int dns_question_matches_cname_or_dname(DnsQuestion *q, DnsResourceRecord *rr, const char* search_domain);
+int dns_question_matches_cname_or_dname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain);
 int dns_question_is_valid_for_query(DnsQuestion *q);
 int dns_question_contains(DnsQuestion *a, const DnsResourceKey *k);
 int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b);
@@ -42,14 +42,14 @@ static inline bool dns_question_isempty(DnsQuestion *q) {
         return dns_question_size(q) <= 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion *, dns_question_unref);
 
-#define _DNS_QUESTION_FOREACH(u, key, q)                                \
-        for (size_t UNIQ_T(i, u) = ({                                 \
-                                (key) = ((q) && (q)->n_keys > 0) ? (q)->keys[0] : NULL; \
-                                0;                                      \
-                        });                                             \
-             (q) && (UNIQ_T(i, u) < (q)->n_keys);                       \
+#define _DNS_QUESTION_FOREACH(u, key, q)                                     \
+        for (size_t UNIQ_T(i, u) = ({                                        \
+                     (key) = ((q) && (q)->n_keys > 0) ? (q)->keys[0] : NULL; \
+                     0;                                                      \
+             });                                                             \
+             (q) && (UNIQ_T(i, u) < (q)->n_keys);                            \
              UNIQ_T(i, u)++, (key) = (UNIQ_T(i, u) < (q)->n_keys ? (q)->keys[UNIQ_T(i, u)] : NULL))
 
 #define DNS_QUESTION_FOREACH(key, q) _DNS_QUESTION_FOREACH(UNIQ, key, q)

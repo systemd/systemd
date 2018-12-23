@@ -16,14 +16,11 @@
 #include "util.h"
 
 static int help(void) {
-        static const char * short_descriptions[][2] = {
-                { "info",         "Query sysfs or the udev database" },
-                { "trigger",      "Request events from the kernel"   },
-                { "settle",       "Wait for pending udev events"     },
-                { "control",      "Control the udev daemon"          },
-                { "monitor",      "Listen to kernel and udev events" },
-                { "test",         "Test an event run"                },
-                { "test-builtin", "Test a built-in command"          },
+        static const char *short_descriptions[][2] = {
+                { "info", "Query sysfs or the udev database" },    { "trigger", "Request events from the kernel" },
+                { "settle", "Wait for pending udev events" },      { "control", "Control the udev daemon" },
+                { "monitor", "Listen to kernel and udev events" }, { "test", "Test an event run" },
+                { "test-builtin", "Test a built-in command" },
         };
 
         _cleanup_free_ char *link = NULL;
@@ -36,8 +33,8 @@ static int help(void) {
 
         printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
                "Send control commands or test the device manager.\n\n"
-               "Commands:\n"
-               , program_invocation_short_name);
+               "Commands:\n",
+               program_invocation_short_name);
 
         for (i = 0; i < ELEMENTSOF(short_descriptions); i++)
                 printf("  %-12s  %s\n", short_descriptions[i][0], short_descriptions[i][1]);
@@ -48,10 +45,7 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "debug",   no_argument, NULL, 'd' },
-                { "help",    no_argument, NULL, 'h' },
-                { "version", no_argument, NULL, 'V' },
-                {}
+                { "debug", no_argument, NULL, 'd' }, { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, 'V' }, {}
         };
         int c;
 
@@ -90,19 +84,17 @@ static int help_main(int argc, char *argv[], void *userdata) {
 }
 
 static int udevadm_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "info",         VERB_ANY, VERB_ANY, 0, info_main    },
-                { "trigger",      VERB_ANY, VERB_ANY, 0, trigger_main },
-                { "settle",       VERB_ANY, VERB_ANY, 0, settle_main  },
-                { "control",      VERB_ANY, VERB_ANY, 0, control_main },
-                { "monitor",      VERB_ANY, VERB_ANY, 0, monitor_main },
-                { "hwdb",         VERB_ANY, VERB_ANY, 0, hwdb_main    },
-                { "test",         VERB_ANY, VERB_ANY, 0, test_main    },
-                { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
-                { "version",      VERB_ANY, VERB_ANY, 0, version_main },
-                { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
-                {}
-        };
+        static const Verb verbs[] = { { "info", VERB_ANY, VERB_ANY, 0, info_main },
+                                      { "trigger", VERB_ANY, VERB_ANY, 0, trigger_main },
+                                      { "settle", VERB_ANY, VERB_ANY, 0, settle_main },
+                                      { "control", VERB_ANY, VERB_ANY, 0, control_main },
+                                      { "monitor", VERB_ANY, VERB_ANY, 0, monitor_main },
+                                      { "hwdb", VERB_ANY, VERB_ANY, 0, hwdb_main },
+                                      { "test", VERB_ANY, VERB_ANY, 0, test_main },
+                                      { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
+                                      { "version", VERB_ANY, VERB_ANY, 0, version_main },
+                                      { "help", VERB_ANY, VERB_ANY, 0, help_main },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

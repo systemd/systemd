@@ -17,8 +17,8 @@
 #include <unistd.h>
 
 #if HAVE_PCRE2
-#  define PCRE2_CODE_UNIT_WIDTH 8
-#  include <pcre2.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #endif
 
 #include "sd-bus.h"
@@ -66,29 +66,26 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-#define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
+#define DEFAULT_FSS_INTERVAL_USEC (15 * USEC_PER_MINUTE)
 
-#define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1,024 messages processed */
+#define PROCESS_INOTIFY_INTERVAL 1024 /* Every 1,024 messages processed */
 
 #if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data *, pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code *, pcre2_code_free);
 
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
         PCRE2_SIZE erroroffset;
         pcre2_code *p;
 
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        p = pcre2_compile((PCRE2_SPTR8) pattern, PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
         if (!p) {
                 unsigned char buf[LINE_MAX];
 
                 r = pcre2_get_error_message(errorcode, buf, sizeof buf);
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bad pattern \"%s\": %s", pattern, r < 0 ? "unknown error" : (char *) buf);
         }
 
         *out = p;
@@ -97,7 +94,8 @@ static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out
 
 #endif
 
-enum {
+enum
+{
         /* Special values for arg_lines */
         ARG_LINES_DEFAULT = -2,
         ARG_LINES_ALL = -1,
@@ -200,7 +198,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
-        for (d = device; d; ) {
+        for (d = device; d;) {
                 _cleanup_free_ char *match = NULL;
                 const char *subsys, *sysname, *devnode;
                 sd_device *parent;
@@ -237,7 +235,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                                 return log_error_errno(r, "Failed to add match: %m");
                 }
 
-get_parent:
+        get_parent:
                 if (sd_device_get_parent(d, &parent) < 0)
                         break;
 
@@ -367,17 +365,17 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_FULL,
@@ -414,67 +412,65 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OUTPUT_FIELDS,
         };
 
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version" ,       no_argument,       NULL, ARG_VERSION        },
-                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
-                { "pager-end",      no_argument,       NULL, 'e'                },
-                { "follow",         no_argument,       NULL, 'f'                },
-                { "force",          no_argument,       NULL, ARG_FORCE          },
-                { "output",         required_argument, NULL, 'o'                },
-                { "all",            no_argument,       NULL, 'a'                },
-                { "full",           no_argument,       NULL, 'l'                },
-                { "no-full",        no_argument,       NULL, ARG_NO_FULL        },
-                { "lines",          optional_argument, NULL, 'n'                },
-                { "no-tail",        no_argument,       NULL, ARG_NO_TAIL        },
-                { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      }, /* deprecated */
-                { "quiet",          no_argument,       NULL, 'q'                },
-                { "merge",          no_argument,       NULL, 'm'                },
-                { "this-boot",      no_argument,       NULL, ARG_THIS_BOOT      }, /* deprecated */
-                { "boot",           optional_argument, NULL, 'b'                },
-                { "list-boots",     no_argument,       NULL, ARG_LIST_BOOTS     },
-                { "dmesg",          no_argument,       NULL, 'k'                },
-                { "system",         no_argument,       NULL, ARG_SYSTEM         },
-                { "user",           no_argument,       NULL, ARG_USER           },
-                { "directory",      required_argument, NULL, 'D'                },
-                { "file",           required_argument, NULL, ARG_FILE           },
-                { "root",           required_argument, NULL, ARG_ROOT           },
-                { "header",         no_argument,       NULL, ARG_HEADER         },
-                { "identifier",     required_argument, NULL, 't'                },
-                { "priority",       required_argument, NULL, 'p'                },
-                { "grep",           required_argument, NULL, 'g'                },
-                { "case-sensitive", optional_argument, NULL, ARG_CASE_SENSITIVE },
-                { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
-                { "interval",       required_argument, NULL, ARG_INTERVAL       },
-                { "verify",         no_argument,       NULL, ARG_VERIFY         },
-                { "verify-key",     required_argument, NULL, ARG_VERIFY_KEY     },
-                { "disk-usage",     no_argument,       NULL, ARG_DISK_USAGE     },
-                { "cursor",         required_argument, NULL, 'c'                },
-                { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
-                { "since",          required_argument, NULL, 'S'                },
-                { "until",          required_argument, NULL, 'U'                },
-                { "unit",           required_argument, NULL, 'u'                },
-                { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
-                { "field",          required_argument, NULL, 'F'                },
-                { "fields",         no_argument,       NULL, 'N'                },
-                { "catalog",        no_argument,       NULL, 'x'                },
-                { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
-                { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
-                { "update-catalog", no_argument,       NULL, ARG_UPDATE_CATALOG },
-                { "reverse",        no_argument,       NULL, 'r'                },
-                { "machine",        required_argument, NULL, 'M'                },
-                { "utc",            no_argument,       NULL, ARG_UTC            },
-                { "flush",          no_argument,       NULL, ARG_FLUSH          },
-                { "sync",           no_argument,       NULL, ARG_SYNC           },
-                { "rotate",         no_argument,       NULL, ARG_ROTATE         },
-                { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
-                { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
-                { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
-                { "no-hostname",    no_argument,       NULL, ARG_NO_HOSTNAME    },
-                { "output-fields",  required_argument, NULL, ARG_OUTPUT_FIELDS  },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "pager-end", no_argument, NULL, 'e' },
+                                                 { "follow", no_argument, NULL, 'f' },
+                                                 { "force", no_argument, NULL, ARG_FORCE },
+                                                 { "output", required_argument, NULL, 'o' },
+                                                 { "all", no_argument, NULL, 'a' },
+                                                 { "full", no_argument, NULL, 'l' },
+                                                 { "no-full", no_argument, NULL, ARG_NO_FULL },
+                                                 { "lines", optional_argument, NULL, 'n' },
+                                                 { "no-tail", no_argument, NULL, ARG_NO_TAIL },
+                                                 { "new-id128", no_argument, NULL, ARG_NEW_ID128 }, /* deprecated */
+                                                 { "quiet", no_argument, NULL, 'q' },
+                                                 { "merge", no_argument, NULL, 'm' },
+                                                 { "this-boot", no_argument, NULL, ARG_THIS_BOOT }, /* deprecated */
+                                                 { "boot", optional_argument, NULL, 'b' },
+                                                 { "list-boots", no_argument, NULL, ARG_LIST_BOOTS },
+                                                 { "dmesg", no_argument, NULL, 'k' },
+                                                 { "system", no_argument, NULL, ARG_SYSTEM },
+                                                 { "user", no_argument, NULL, ARG_USER },
+                                                 { "directory", required_argument, NULL, 'D' },
+                                                 { "file", required_argument, NULL, ARG_FILE },
+                                                 { "root", required_argument, NULL, ARG_ROOT },
+                                                 { "header", no_argument, NULL, ARG_HEADER },
+                                                 { "identifier", required_argument, NULL, 't' },
+                                                 { "priority", required_argument, NULL, 'p' },
+                                                 { "grep", required_argument, NULL, 'g' },
+                                                 { "case-sensitive", optional_argument, NULL, ARG_CASE_SENSITIVE },
+                                                 { "setup-keys", no_argument, NULL, ARG_SETUP_KEYS },
+                                                 { "interval", required_argument, NULL, ARG_INTERVAL },
+                                                 { "verify", no_argument, NULL, ARG_VERIFY },
+                                                 { "verify-key", required_argument, NULL, ARG_VERIFY_KEY },
+                                                 { "disk-usage", no_argument, NULL, ARG_DISK_USAGE },
+                                                 { "cursor", required_argument, NULL, 'c' },
+                                                 { "after-cursor", required_argument, NULL, ARG_AFTER_CURSOR },
+                                                 { "show-cursor", no_argument, NULL, ARG_SHOW_CURSOR },
+                                                 { "since", required_argument, NULL, 'S' },
+                                                 { "until", required_argument, NULL, 'U' },
+                                                 { "unit", required_argument, NULL, 'u' },
+                                                 { "user-unit", required_argument, NULL, ARG_USER_UNIT },
+                                                 { "field", required_argument, NULL, 'F' },
+                                                 { "fields", no_argument, NULL, 'N' },
+                                                 { "catalog", no_argument, NULL, 'x' },
+                                                 { "list-catalog", no_argument, NULL, ARG_LIST_CATALOG },
+                                                 { "dump-catalog", no_argument, NULL, ARG_DUMP_CATALOG },
+                                                 { "update-catalog", no_argument, NULL, ARG_UPDATE_CATALOG },
+                                                 { "reverse", no_argument, NULL, 'r' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "utc", no_argument, NULL, ARG_UTC },
+                                                 { "flush", no_argument, NULL, ARG_FLUSH },
+                                                 { "sync", no_argument, NULL, ARG_SYNC },
+                                                 { "rotate", no_argument, NULL, ARG_ROTATE },
+                                                 { "vacuum-size", required_argument, NULL, ARG_VACUUM_SIZE },
+                                                 { "vacuum-files", required_argument, NULL, ARG_VACUUM_FILES },
+                                                 { "vacuum-time", required_argument, NULL, ARG_VACUUM_TIME },
+                                                 { "no-hostname", no_argument, NULL, ARG_NO_HOSTNAME },
+                                                 { "output-fields", required_argument, NULL, ARG_OUTPUT_FIELDS },
+                                                 {} };
 
         int c, r;
 
@@ -606,8 +602,7 @@ static int parse_argv(int argc, char *argv[]) {
                                  * see if there is one and is parsable
                                  * as a boot descriptor... */
 
-                                if (optind < argc &&
-                                    parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset) >= 0)
+                                if (optind < argc && parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset) >= 0)
                                         optind++;
                         }
 
@@ -1063,7 +1058,7 @@ static int add_matches(sd_journal *j, char **args) {
 
                                 r = sd_journal_add_match(j, t, 0);
 
-                                if (r >=0 && t2)
+                                if (r >= 0 && t2)
                                         r = sd_journal_add_match(j, t2, 0);
 
                         } else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
@@ -1071,9 +1066,8 @@ static int add_matches(sd_journal *j, char **args) {
                                 if (r < 0)
                                         return r;
                         } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "File is neither a device node, nor regular file, nor executable: %s",
-                                                       *i);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "File is neither a device node, nor regular file, nor executable: %s", *i);
 
                         have_term = true;
                 } else {
@@ -1086,8 +1080,7 @@ static int add_matches(sd_journal *j, char **args) {
         }
 
         if (!strv_isempty(args) && !have_term)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "\"+\" can only be used between terms");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"+\" can only be used between terms");
 
         return 0;
 }
@@ -1101,13 +1094,10 @@ static void boot_id_free_all(BootId *l) {
         }
 }
 
-static int discover_next_boot(sd_journal *j,
-                sd_id128_t previous_boot_id,
-                bool advance_older,
-                BootId **ret) {
+static int discover_next_boot(sd_journal *j, sd_id128_t previous_boot_id, bool advance_older, BootId **ret) {
 
         _cleanup_free_ BootId *next_boot = NULL;
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[9 + 32 + 1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1179,8 +1169,9 @@ static int discover_next_boot(sd_journal *j,
         if (r < 0)
                 return r;
         else if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
-                                       "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
+                return log_debug_errno(
+                        SYNTHETIC_ERRNO(ENODATA),
+                        "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
 
         r = sd_journal_get_realtime_usec(j, &next_boot->last);
         if (r < 0)
@@ -1191,11 +1182,7 @@ static int discover_next_boot(sd_journal *j,
         return 0;
 }
 
-static int get_boots(
-                sd_journal *j,
-                BootId **boots,
-                sd_id128_t *boot_id,
-                int offset) {
+static int get_boots(sd_journal *j, BootId **boots, sd_id128_t *boot_id, int offset) {
 
         bool skip_once;
         int r, count = 0;
@@ -1216,7 +1203,7 @@ static int get_boots(
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
         if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[9+32+1] = "_BOOT_ID=";
+                char match[9 + 32 + 1] = "_BOOT_ID=";
 
                 sd_journal_flush_matches(j);
 
@@ -1233,7 +1220,7 @@ static int get_boots(
                         return r;
 
                 if (advance_older)
-                        r = sd_journal_next(j);     /* read the oldest entry */
+                        r = sd_journal_next(j); /* read the oldest entry */
                 else
                         r = sd_journal_previous(j); /* read the most recently added entry */
                 if (r < 0)
@@ -1334,7 +1321,8 @@ static int list_boots(sd_journal *j) {
                 char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
 
                 printf("% *i " SD_ID128_FORMAT_STR " %s—%s\n",
-                       w, i - count + 1,
+                       w,
+                       i - count + 1,
                        SD_ID128_FORMAT_VAL(id->id),
                        format_timestamp_maybe_utc(a, sizeof(a), id->first),
                        format_timestamp_maybe_utc(b, sizeof(b), id->last));
@@ -1347,7 +1335,7 @@ static int list_boots(sd_journal *j) {
 }
 
 static int add_boot(sd_journal *j) {
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[9 + 32 + 1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1359,8 +1347,7 @@ static int add_boot(sd_journal *j) {
         /* Take a shortcut and use the current boot_id, which we can do very quickly.
          * We can do this only when we logs are coming from the current machine,
          * so take the slow path if log location is specified. */
-        if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
-            !arg_directory && !arg_file && !arg_root)
+        if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) && !arg_directory && !arg_file && !arg_root)
 
                 return add_match_this_boot(j, arg_machine);
 
@@ -1371,11 +1358,11 @@ static int add_boot(sd_journal *j) {
                 const char *reason = (r == 0) ? "No such boot ID in journal" : strerror(-r);
 
                 if (sd_id128_is_null(arg_boot_id))
-                        log_error("Data from the specified boot (%+i) is not available: %s",
-                                  arg_boot_offset, reason);
+                        log_error("Data from the specified boot (%+i) is not available: %s", arg_boot_offset, reason);
                 else
-                        log_error("Data from the specified boot ("SD_ID128_FORMAT_STR") is not available: %s",
-                                  SD_ID128_FORMAT_VAL(arg_boot_id), reason);
+                        log_error("Data from the specified boot (" SD_ID128_FORMAT_STR ") is not available: %s",
+                                  SD_ID128_FORMAT_VAL(arg_boot_id),
+                                  reason);
 
                 return r == 0 ? -ENODATA : r;
         }
@@ -1400,8 +1387,7 @@ static int add_dmesg(sd_journal *j) {
         if (!arg_dmesg)
                 return 0;
 
-        r = sd_journal_add_match(j, "_TRANSPORT=kernel",
-                                 STRLEN("_TRANSPORT=kernel"));
+        r = sd_journal_add_match(j, "_TRANSPORT=kernel", STRLEN("_TRANSPORT=kernel"));
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
@@ -1412,11 +1398,7 @@ static int add_dmesg(sd_journal *j) {
         return 0;
 }
 
-static int get_possible_units(
-                sd_journal *j,
-                const char *fields,
-                char **patterns,
-                Set **units) {
+static int get_possible_units(sd_journal *j, const char *fields, char **patterns, Set **units) {
 
         _cleanup_set_free_free_ Set *found;
         const char *field;
@@ -1441,25 +1423,25 @@ static int get_possible_units(
 
                         eq = memchr(data, '=', size);
                         if (eq)
-                                prefix = eq - (char*) data + 1;
+                                prefix = eq - (char *) data + 1;
                         else
                                 prefix = 0;
 
-                        u = strndup((char*) data + prefix, size - prefix);
+                        u = strndup((char *) data + prefix, size - prefix);
                         if (!u)
                                 return -ENOMEM;
 
                         STRV_FOREACH(pattern, patterns)
-                                if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
-                                        log_debug("Matched %s with pattern %s=%s", u, field, *pattern);
+                        if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
+                                log_debug("Matched %s with pattern %s=%s", u, field, *pattern);
 
-                                        r = set_consume(found, u);
-                                        u = NULL;
-                                        if (r < 0 && r != -EEXIST)
-                                                return r;
+                                r = set_consume(found, u);
+                                u = NULL;
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
 
-                                        break;
-                                }
+                                break;
+                        }
                 }
         }
 
@@ -1470,18 +1452,18 @@ static int get_possible_units(
 
 /* This list is supposed to return the superset of unit names
  * possibly matched by rules added with add_matches_for_unit... */
-#define SYSTEM_UNITS                 \
-        "_SYSTEMD_UNIT\0"            \
-        "COREDUMP_UNIT\0"            \
-        "UNIT\0"                     \
-        "OBJECT_SYSTEMD_UNIT\0"      \
+#define SYSTEM_UNITS            \
+        "_SYSTEMD_UNIT\0"       \
+        "COREDUMP_UNIT\0"       \
+        "UNIT\0"                \
+        "OBJECT_SYSTEMD_UNIT\0" \
         "_SYSTEMD_SLICE\0"
 
 /* ... and add_matches_for_user_unit */
-#define USER_UNITS                   \
-        "_SYSTEMD_USER_UNIT\0"       \
-        "USER_UNIT\0"                \
-        "COREDUMP_USER_UNIT\0"       \
+#define USER_UNITS             \
+        "_SYSTEMD_USER_UNIT\0" \
+        "USER_UNIT\0"          \
+        "COREDUMP_USER_UNIT\0" \
         "OBJECT_SYSTEMD_USER_UNIT\0"
 
 static int add_units(sd_journal *j) {
@@ -1601,7 +1583,7 @@ static int add_priorities(sd_journal *j) {
 
         for (i = LOG_EMERG; i <= LOG_DEBUG; i++)
                 if (arg_priorities & (1 << i)) {
-                        match[sizeof(match)-2] = '0' + i;
+                        match[sizeof(match) - 2] = '0' + i;
 
                         r = sd_journal_add_match(j, match, strlen(match));
                         if (r < 0)
@@ -1656,8 +1638,7 @@ static int setup_keys(void) {
                 return log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
 
         if (r < 0 || !S_ISDIR(st.st_mode)) {
-                log_error("%s is not a directory, must be using persistent logging for FSS.",
-                          "/var/log/journal");
+                log_error("%s is not a directory, must be using persistent logging for FSS.", "/var/log/journal");
                 return r < 0 ? -errno : -ENOTDIR;
         }
 
@@ -1669,8 +1650,7 @@ static int setup_keys(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get boot ID: %m");
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
-                     SD_ID128_FORMAT_VAL(machine)) < 0)
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss", SD_ID128_FORMAT_VAL(machine)) < 0)
                 return log_oom();
 
         if (arg_force) {
@@ -1685,8 +1665,7 @@ static int setup_keys(void) {
                 goto finish;
         }
 
-        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
-                     SD_ID128_FORMAT_VAL(machine)) < 0) {
+        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX", SD_ID128_FORMAT_VAL(machine)) < 0) {
                 r = log_oom();
                 goto finish;
         }
@@ -1700,7 +1679,7 @@ static int setup_keys(void) {
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
         state = alloca(state_size);
 
-        fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open("/dev/random", O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (fd < 0) {
                 r = log_error_errno(errno, "Failed to open /dev/random: %m");
                 goto finish;
@@ -1733,7 +1712,7 @@ static int setup_keys(void) {
 
         /* Enable secure remove, exclusion from dump, synchronous
          * writing and in-place updating */
-        r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, NULL);
+        r = chattr_fd(fd, FS_SECRM_FL | FS_NODUMP_FL | FS_SYNC_FL | FS_NOCOW_FL, FS_SECRM_FL | FS_NODUMP_FL | FS_SYNC_FL | FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes: %m");
 
@@ -1776,16 +1755,18 @@ static int setup_keys(void) {
                         "Please write down the following %ssecret verification key%s. It should be stored\n"
                         "at a safe location and should not be saved locally on disk.\n"
                         "\n\t%s",
-                        ansi_highlight(), ansi_normal(),
+                        ansi_highlight(),
+                        ansi_normal(),
                         p,
-                        ansi_highlight(), ansi_normal(),
+                        ansi_highlight(),
+                        ansi_normal(),
                         ansi_highlight_red());
                 fflush(stderr);
         }
         for (i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
                         putchar('-');
-                printf("%02x", ((uint8_t*) seed)[i]);
+                printf("%02x", ((uint8_t *) seed)[i]);
         }
 
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
@@ -1803,7 +1784,10 @@ static int setup_keys(void) {
 
                 if (hn) {
                         hostname_cleanup(hn);
-                        fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
+                        fprintf(stderr,
+                                "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n",
+                                hn,
+                                SD_ID128_FORMAT_VAL(machine));
                 } else
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
 
@@ -1831,8 +1815,7 @@ finish:
 
         return r;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Forward-secure sealing not available.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Forward-secure sealing not available.");
 #endif
 }
 
@@ -1851,7 +1834,8 @@ static int verify(sd_journal *j) {
 
 #if HAVE_GCRYPT
                 if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
+                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.",
+                                   f->path);
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
@@ -1904,25 +1888,27 @@ static int flush_to_var(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi", "systemd-journald.service", "main", SIGUSR1);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "KillUnit",
+                               &error,
+                               NULL,
+                               "ssi",
+                               "systemd-journald.service",
+                               "main",
+                               SIGUSR1);
         if (r < 0)
                 return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
         mkdir_p("/run/systemd/journal", 0755);
 
-        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
         if (watch_fd < 0)
                 return log_error_errno(errno, "Failed to create inotify watch: %m");
 
-        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
+        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE | IN_DONT_FOLLOW | IN_ONLYDIR);
         if (r < 0)
                 return log_error_errno(errno, "Failed to watch journal directory: %m");
 
@@ -1981,15 +1967,17 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "KillUnit",
-                                        &error,
-                                        NULL,
-                                        "ssi", "systemd-journald.service", "main", sig);
+                        r = sd_bus_call_method(bus,
+                                               "org.freedesktop.systemd1",
+                                               "/org/freedesktop/systemd1",
+                                               "org.freedesktop.systemd1.Manager",
+                                               "KillUnit",
+                                               &error,
+                                               NULL,
+                                               "ssi",
+                                               "systemd-journald.service",
+                                               "main",
+                                               sig);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
@@ -2001,11 +1989,11 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
 
                         mkdir_p("/run/systemd/journal", 0755);
 
-                        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                        watch_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
                         if (watch_fd < 0)
                                 return log_error_errno(errno, "Failed to create inotify watch: %m");
 
-                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
+                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_MOVED_TO | IN_DONT_FOLLOW | IN_ONLYDIR);
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to watch journal directory: %m");
 
@@ -2033,7 +2021,7 @@ static int rotate(void) {
 }
 
 static int sync_journal(void) {
-        return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
+        return send_signal_and_wait(SIGRTMIN + 1, "/run/systemd/journal/synced");
 }
 
 static int wait_for_change(sd_journal *j, int poll_fd) {
@@ -2056,17 +2044,15 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine journal waiting time: %m");
 
-        if (ppoll(pollfds, ELEMENTSOF(pollfds),
-                  timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0) {
+        if (ppoll(pollfds, ELEMENTSOF(pollfds), timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL) < 0) {
                 if (errno == EINTR)
                         return 0;
 
                 return log_error_errno(errno, "Couldn't wait for journal event: %m");
         }
 
-        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
-                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
-                                       "Standard output has been closed.");
+        if (pollfds[1].revents & (POLLHUP | POLLERR)) /* STDOUT has been closed? */
+                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "Standard output has been closed.");
 
         r = sd_journal_process(j);
         if (r < 0)
@@ -2173,7 +2159,7 @@ int main(int argc, char *argv[]) {
                 int ifd = STDIN_FILENO;
                 r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
         } else if (arg_file)
-                r = sd_journal_open_files(&j, (const char**) arg_file, 0);
+                r = sd_journal_open_files(&j, (const char **) arg_file, 0);
         else if (arg_machine) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -2194,15 +2180,15 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "OpenMachineRootDirectory",
-                                &error,
-                                &reply,
-                                "s", arg_machine);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.machine1",
+                                       "/org/freedesktop/machine1",
+                                       "org.freedesktop.machine1.Manager",
+                                       "OpenMachineRootDirectory",
+                                       &error,
+                                       &reply,
+                                       "s",
+                                       arg_machine);
                 if (r < 0) {
                         log_error_errno(r, "Failed to open root directory: %s", bus_error_message(&error, r));
                         goto finish;
@@ -2224,14 +2210,13 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         safe_close(fd);
         } else
-                r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open(&j, !arg_merge * SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0) {
                 log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
                 goto finish;
         }
 
-        r = journal_access_check_and_warn(j, arg_quiet,
-                                          !(arg_journal_type == SD_JOURNAL_CURRENT_USER || arg_user_units));
+        r = journal_access_check_and_warn(j, arg_quiet, !(arg_journal_type == SD_JOURNAL_CURRENT_USER || arg_user_units));
         if (r < 0)
                 goto finish;
 
@@ -2264,8 +2249,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                printf("Archived and active journals take up %s in the file system.\n",
-                       format_bytes(sbytes, sizeof(sbytes), bytes));
+                printf("Archived and active journals take up %s in the file system.\n", format_bytes(sbytes, sizeof(sbytes), bytes));
                 goto finish;
         }
 
@@ -2321,9 +2305,7 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown action");
         }
 
-        if (arg_boot_offset != 0 &&
-            sd_journal_has_runtime_files(j) > 0 &&
-            sd_journal_has_persistent_files(j) == 0) {
+        if (arg_boot_offset != 0 && sd_journal_has_runtime_files(j) > 0 && sd_journal_has_persistent_files(j) == 0) {
                 log_info("Specifying boot ID or boot offset has no effect, no persistent journal was found.");
                 r = 0;
                 goto finish;
@@ -2394,9 +2376,9 @@ int main(int argc, char *argv[]) {
 
                         eq = memchr(data, '=', size);
                         if (eq)
-                                printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
+                                printf("%.*s\n", (int) (size - ((const uint8_t *) eq - (const uint8_t *) data + 1)), (const char *) eq + 1);
                         else
-                                printf("%.*s\n", (int) size, (const char*) data);
+                                printf("%.*s\n", (int) size, (const char *) data);
 
                         n_shown++;
                 }
@@ -2506,8 +2488,7 @@ int main(int argc, char *argv[]) {
 
                 if (r > 0) {
                         if (arg_follow)
-                                printf("-- Logs begin at %s. --\n",
-                                       format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start));
+                                printf("-- Logs begin at %s. --\n", format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start));
                         else
                                 printf("-- Logs begin at %s, end at %s. --\n",
                                        format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start),
@@ -2562,10 +2543,8 @@ int main(int argc, char *argv[]) {
 
                                 r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
                                 if (r >= 0) {
-                                        if (previous_boot_id_valid &&
-                                            !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Reboot --%s\n",
-                                                       ansi_highlight(), ansi_normal());
+                                        if (previous_boot_id_valid && !sd_id128_equal(boot_id, previous_boot_id))
+                                                printf("%s-- Reboot --%s\n", ansi_highlight(), ansi_normal());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
@@ -2599,8 +2578,8 @@ int main(int argc, char *argv[]) {
                                 r = pcre2_match(arg_compiled_pattern,
                                                 message,
                                                 len - strlen("MESSAGE="),
-                                                0,      /* start at offset 0 in the subject */
-                                                0,      /* default options */
+                                                0, /* start at offset 0 in the subject */
+                                                0, /* default options */
                                                 md,
                                                 NULL);
                                 if (r == PCRE2_ERROR_NOMATCH) {
@@ -2612,8 +2591,7 @@ int main(int argc, char *argv[]) {
                                         int r2;
 
                                         r2 = pcre2_get_error_message(r, buf, sizeof buf);
-                                        log_error("Pattern matching failed: %s",
-                                                  r2 < 0 ? "unknown error" : (char*) buf);
+                                        log_error("Pattern matching failed: %s", r2 < 0 ? "unknown error" : (char *) buf);
                                         r = -EINVAL;
                                         goto finish;
                                 }
@@ -2624,16 +2602,10 @@ int main(int argc, char *argv[]) {
                         }
 #endif
 
-                        flags =
-                                arg_all * OUTPUT_SHOW_ALL |
-                                arg_full * OUTPUT_FULL_WIDTH |
-                                colors_enabled() * OUTPUT_COLOR |
-                                arg_catalog * OUTPUT_CATALOG |
-                                arg_utc * OUTPUT_UTC |
-                                arg_no_hostname * OUTPUT_NO_HOSTNAME;
+                        flags = arg_all * OUTPUT_SHOW_ALL | arg_full * OUTPUT_FULL_WIDTH | colors_enabled() * OUTPUT_COLOR |
+                                arg_catalog * OUTPUT_CATALOG | arg_utc * OUTPUT_UTC | arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
-                        r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized);
+                        r = show_journal_entry(stdout, j, arg_output, 0, flags, arg_output_fields, highlight, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;

@@ -34,20 +34,18 @@ static int help(void) {
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
                "  -a --action=ACTION                   Set action string\n"
-               "  -N --resolve-names=early|late|never  When to resolve names\n"
-               , program_invocation_short_name);
+               "  -N --resolve-names=early|late|never  When to resolve names\n",
+               program_invocation_short_name);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "action",        required_argument, NULL, 'a' },
-                { "resolve-names", required_argument, NULL, 'N' },
-                { "version",       no_argument,       NULL, 'V' },
-                { "help",          no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "action", required_argument, NULL, 'a' },
+                                                 { "resolve-names", required_argument, NULL, 'N' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         int c;
 
@@ -59,8 +57,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--resolve-names= must be early, late or never");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--resolve-names= must be early, late or never");
                         break;
                 case 'V':
                         return print_version();
@@ -73,8 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!argv[optind])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "syspath parameter missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "syspath parameter missing.");
 
         /* add /sys if needed */
         if (!startswith(argv[optind], "/sys"))
@@ -133,7 +129,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         udev_event_execute_rules(event, 60 * USEC_PER_SEC, NULL, rules);
 
         FOREACH_DEVICE_PROPERTY(dev, key, value)
-                printf("%s=%s\n", key, value);
+        printf("%s=%s\n", key, value);
 
         HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
                 char program[UTIL_PATH_SIZE];

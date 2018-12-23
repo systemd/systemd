@@ -18,10 +18,10 @@
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U
 
-static const char * const lldp_event_table[_SD_LLDP_EVENT_MAX] = {
-        [SD_LLDP_EVENT_ADDED]   = "added",
+static const char *const lldp_event_table[_SD_LLDP_EVENT_MAX] = {
+        [SD_LLDP_EVENT_ADDED] = "added",
         [SD_LLDP_EVENT_REMOVED] = "removed",
-        [SD_LLDP_EVENT_UPDATED]   = "updated",
+        [SD_LLDP_EVENT_UPDATED] = "updated",
         [SD_LLDP_EVENT_REFRESHED] = "refreshed",
 };
 
@@ -91,14 +91,12 @@ static bool lldp_keep_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
                 return false;
 
         /* Filter out data from the filter address */
-        if (!ether_addr_is_null(&lldp->filter_address) &&
-            ether_addr_equal(&lldp->filter_address, &n->source_address))
+        if (!ether_addr_is_null(&lldp->filter_address) && ether_addr_equal(&lldp->filter_address, &n->source_address))
                 return false;
 
         /* Only add if the neighbor has a capability we are interested in. Note that we also store all neighbors with
          * no caps field set. */
-        if (n->has_capabilities &&
-            (n->enabled_capabilities & lldp->capability_mask) == 0)
+        if (n->has_capabilities && (n->enabled_capabilities & lldp->capability_mask) == 0)
                 return false;
 
         /* Keep everything else */
@@ -316,7 +314,7 @@ _public_ int sd_lldp_detach_event(sd_lldp *lldp) {
         return 0;
 }
 
-_public_ sd_event* sd_lldp_get_event(sd_lldp *lldp) {
+_public_ sd_event *sd_lldp_get_event(sd_lldp *lldp) {
         assert_return(lldp, NULL);
 
         return lldp->event;
@@ -340,7 +338,7 @@ _public_ int sd_lldp_set_ifindex(sd_lldp *lldp, int ifindex) {
         return 0;
 }
 
-static sd_lldp* lldp_free(sd_lldp *lldp) {
+static sd_lldp *lldp_free(sd_lldp *lldp) {
         assert(lldp);
 
         lldp->timer_event_source = sd_event_source_unref(lldp->timer_event_source);
@@ -362,11 +360,11 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
 
         assert_return(ret, -EINVAL);
 
-        lldp = new(sd_lldp, 1);
+        lldp = new (sd_lldp, 1);
         if (!lldp)
                 return -ENOMEM;
 
-        *lldp = (sd_lldp) {
+        *lldp = (sd_lldp){
                 .n_ref = 1,
                 .fd = -1,
                 .neighbors_max = LLDP_DEFAULT_NEIGHBORS_MAX,
@@ -386,7 +384,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
         return 0;
 }
 
-static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+static int neighbor_compare_func(sd_lldp_neighbor *const *a, sd_lldp_neighbor *const *b) {
         return lldp_neighbor_id_compare_func(&(*a)->id, &(*b)->id);
 }
 
@@ -420,11 +418,16 @@ static int lldp_start_timer(sd_lldp *lldp, sd_lldp_neighbor *neighbor) {
         if (!lldp->event)
                 return 0;
 
-        return event_reset_time(lldp->event, &lldp->timer_event_source,
+        return event_reset_time(lldp->event,
+                                &lldp->timer_event_source,
                                 clock_boottime_or_monotonic(),
-                                n->until, 0,
-                                on_timer_event, lldp,
-                                lldp->event_priority, "lldp-timer", true);
+                                n->until,
+                                0,
+                                on_timer_event,
+                                lldp,
+                                lldp->event_priority,
+                                "lldp-timer",
+                                true);
 }
 
 _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
@@ -440,7 +443,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
                 return 0;
         }
 
-        l = new0(sd_lldp_neighbor*, hashmap_size(lldp->neighbor_by_id));
+        l = new0(sd_lldp_neighbor *, hashmap_size(lldp->neighbor_by_id));
         if (!l)
                 return -ENOMEM;
 
@@ -451,7 +454,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
         }
 
         HASHMAP_FOREACH(n, lldp->neighbor_by_id, i)
-                l[k++] = sd_lldp_neighbor_ref(n);
+        l[k++] = sd_lldp_neighbor_ref(n);
 
         assert((size_t) k == hashmap_size(lldp->neighbor_by_id));
 

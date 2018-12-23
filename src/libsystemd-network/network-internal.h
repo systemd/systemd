@@ -14,10 +14,10 @@
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63
 
 bool net_match_config(Set *match_mac,
-                      char * const *match_path,
-                      char * const *match_driver,
-                      char * const *match_type,
-                      char * const *match_name,
+                      char *const *match_path,
+                      char *const *match_driver,
+                      char *const *match_type,
+                      char *const *match_name,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel_cmdline,
@@ -42,8 +42,7 @@ const char *net_get_name(sd_device *device);
 
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size);
 int deserialize_in_addrs(struct in_addr **addresses, const char *string);
-void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
-                         size_t size);
+void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size);
 int deserialize_in6_addrs(struct in6_addr **addresses, const char *string);
 
 /* don't include "dhcp-lease-internal.h" as it causes conflicts between netinet/ip.h and linux/ip.h */

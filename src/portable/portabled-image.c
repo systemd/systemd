@@ -98,7 +98,7 @@ int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *erro
                 return r;
 
         HASHMAP_FOREACH(image, images, i)
-                (void) manager_image_cache_add(m, image);
+        (void) manager_image_cache_add(m, image);
 
         return 0;
 }

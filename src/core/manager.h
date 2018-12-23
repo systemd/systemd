@@ -25,7 +25,8 @@ typedef struct Manager Manager;
 
 /* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
  * when requested */
-typedef enum ManagerState {
+typedef enum ManagerState
+{
         MANAGER_INITIALIZING,
         MANAGER_STARTING,
         MANAGER_RUNNING,
@@ -36,7 +37,8 @@ typedef enum ManagerState {
         _MANAGER_STATE_INVALID = -1
 } ManagerState;
 
-typedef enum ManagerObjective {
+typedef enum ManagerObjective
+{
         MANAGER_OK,
         MANAGER_EXIT,
         MANAGER_RELOAD,
@@ -50,7 +52,8 @@ typedef enum ManagerObjective {
         _MANAGER_OBJECTIVE_INVALID = -1
 } ManagerObjective;
 
-typedef enum StatusType {
+typedef enum StatusType
+{
         STATUS_TYPE_EPHEMERAL,
         STATUS_TYPE_NORMAL,
         STATUS_TYPE_EMERGENCY,
@@ -77,7 +80,8 @@ typedef enum StatusType {
  * 7. TIMESTAMP_INITRD_* are set only when the system is booted with an initrd.
  */
 
-typedef enum ManagerTimestamp {
+typedef enum ManagerTimestamp
+{
         MANAGER_TIMESTAMP_FIRMWARE,
         MANAGER_TIMESTAMP_LOADER,
         MANAGER_TIMESTAMP_KERNEL,
@@ -108,12 +112,13 @@ typedef enum ManagerTimestamp {
 #include "show-status.h"
 #include "unit-name.h"
 
-typedef enum ManagerTestRunFlags {
-        MANAGER_TEST_NORMAL             = 0,       /* run normally */
-        MANAGER_TEST_RUN_MINIMAL        = 1 << 0,  /* create basic data structures */
-        MANAGER_TEST_RUN_BASIC          = 1 << 1,  /* interact with the environment */
-        MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2,  /* also run env generators  */
-        MANAGER_TEST_RUN_GENERATORS     = 1 << 3,  /* also run unit generators */
+typedef enum ManagerTestRunFlags
+{
+        MANAGER_TEST_NORMAL = 0,                  /* run normally */
+        MANAGER_TEST_RUN_MINIMAL = 1 << 0,        /* create basic data structures */
+        MANAGER_TEST_RUN_BASIC = 1 << 1,          /* interact with the environment */
+        MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2, /* also run env generators  */
+        MANAGER_TEST_RUN_GENERATORS = 1 << 3,     /* also run unit generators */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
@@ -125,9 +130,9 @@ struct Manager {
          * not, and the list of jobs may neither. */
 
         /* Active jobs and units */
-        Hashmap *units;  /* name string => Unit object n:1 */
+        Hashmap *units; /* name string => Unit object n:1 */
         Hashmap *units_by_invocation_id;
-        Hashmap *jobs;   /* job id => Job object 1:1 */
+        Hashmap *jobs; /* job id => Job object 1:1 */
 
         /* To make it easy to iterate through the units of a specific
          * type we maintain a per type linked list */
@@ -137,7 +142,7 @@ struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        LIST_HEAD(Job, run_queue);   /* more a stack than a queue, too */
+        LIST_HEAD(Job, run_queue); /* more a stack than a queue, too */
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -174,7 +179,7 @@ struct Manager {
          * be stored in a NULL-terminated array, and keyed by the negative PID. This is safe as pid_t is signed and
          * negative PIDs are not used for regular processes but process groups, which we don't care about in this
          * context, but this allows us to use the negative range for our own purposes. */
-        Hashmap *watch_pids;  /* pid => unit as well as -pid => array of units */
+        Hashmap *watch_pids; /* pid => unit as well as -pid => array of units */
 
         /* A set contains all units which cgroup should be refreshed after startup */
         Set *startup_units;
@@ -212,8 +217,8 @@ struct Manager {
         LookupPaths lookup_paths;
         Set *unit_path_cache;
 
-        char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
-        char **client_environment;     /* Environment variables created by clients through the bus API */
+        char **transient_environment; /* The environment, as determined from config files, kernel cmdline and environment generators */
+        char **client_environment;    /* Environment variables created by clients through the bus API */
 
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
@@ -250,7 +255,7 @@ struct Manager {
          * the reply message here, and afterwards we send it */
         sd_bus_message *pending_reload_message;
 
-        Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
+        Hashmap *watch_bus; /* D-Bus names => Unit object n:1 */
 
         bool send_reloading_done;
 
@@ -281,25 +286,25 @@ struct Manager {
 
         /* The stat() data the last time we saw /etc/localtime */
         usec_t etc_localtime_mtime;
-        bool etc_localtime_accessible:1;
+        bool etc_localtime_accessible : 1;
 
-        ManagerObjective objective:5;
+        ManagerObjective objective : 5;
 
         /* Flags */
-        bool dispatching_load_queue:1;
+        bool dispatching_load_queue : 1;
 
-        bool taint_usr:1;
+        bool taint_usr : 1;
 
         /* Have we already sent out the READY=1 notification? */
-        bool ready_sent:1;
+        bool ready_sent : 1;
 
         /* Have we already printed the taint line if necessary? */
-        bool taint_logged:1;
+        bool taint_logged : 1;
 
         /* Have we ever changed the "kernel.pid_max" sysctl? */
-        bool sysctl_pid_max_changed:1;
+        bool sysctl_pid_max_changed : 1;
 
-        ManagerTestRunFlags test_run_flags:8;
+        ManagerTestRunFlags test_run_flags : 8;
 
         /* If non-zero, exit with the following value when the systemd
          * process terminate. Useful for containers: systemd-nspawn could get
@@ -330,8 +335,8 @@ struct Manager {
 
         int original_log_level;
         LogTarget original_log_target;
-        bool log_level_overridden:1;
-        bool log_target_overridden:1;
+        bool log_level_overridden : 1;
+        bool log_target_overridden : 1;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
 
@@ -410,8 +415,8 @@ struct Manager {
 #define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
 
 int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
-Manager* manager_free(Manager *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+Manager *manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
@@ -470,7 +475,7 @@ void manager_recheck_journal(Manager *m);
 void manager_set_show_status(Manager *m, ShowStatus mode);
 void manager_set_first_boot(Manager *m, bool b);
 
-void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
+void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4, 5);
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);

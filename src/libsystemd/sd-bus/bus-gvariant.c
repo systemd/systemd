@@ -23,7 +23,7 @@ int bus_gvariant_get_size(const char *signature) {
                 if (r < 0)
                         return r;
                 else {
-                        char t[n+1];
+                        char t[n + 1];
 
                         memcpy(t, p, n);
                         t[n] = 0;
@@ -65,7 +65,7 @@ int bus_gvariant_get_size(const char *signature) {
                                 /* unary type () has fixed size of 1 */
                                 r = 1;
                         } else {
-                                char t[n-1];
+                                char t[n - 1];
 
                                 memcpy(t, p + 1, n - 2);
                                 t[n - 2] = 0;
@@ -154,7 +154,7 @@ int bus_gvariant_get_alignment(const char *signature) {
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
+                        char t[n - 1];
 
                         memcpy(t, p + 1, n - 2);
                         t[n - 2] = 0;
@@ -217,7 +217,7 @@ int bus_gvariant_is_fixed_size(const char *signature) {
 
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
-                        char t[n-1];
+                        char t[n - 1];
 
                         memcpy(t, p + 1, n - 2);
                         t[n - 2] = 0;
@@ -241,9 +241,9 @@ int bus_gvariant_is_fixed_size(const char *signature) {
 size_t bus_gvariant_determine_word_size(size_t sz, size_t extra) {
         if (sz + extra <= 0xFF)
                 return 1;
-        else if (sz + extra*2 <= 0xFFFF)
+        else if (sz + extra * 2 <= 0xFFFF)
                 return 2;
-        else if (sz + extra*4 <= 0xFFFFFFFF)
+        else if (sz + extra * 4 <= 0xFFFFFFFF)
                 return 4;
         else
                 return 8;
@@ -259,7 +259,7 @@ size_t bus_gvariant_read_word_le(void *p, size_t sz) {
         assert(p);
 
         if (sz == 1)
-                return *(uint8_t*) p;
+                return *(uint8_t *) p;
 
         memcpy(&x, p, sz);
 
@@ -281,10 +281,10 @@ void bus_gvariant_write_word_le(void *p, size_t sz, size_t value) {
         } x;
 
         assert(p);
-        assert(sz == 8 || (value < (1ULL << (sz*8))));
+        assert(sz == 8 || (value < (1ULL << (sz * 8))));
 
         if (sz == 1) {
-                *(uint8_t*) p = value;
+                *(uint8_t *) p = value;
                 return;
         } else if (sz == 2)
                 x.u16 = htole16((uint16_t) value);

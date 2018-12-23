@@ -47,9 +47,7 @@ bool id128_is_valid(const char *s) {
                 for (i = 0; i < l; i++) {
                         char c = s[i];
 
-                        if (!(c >= '0' && c <= '9') &&
-                            !(c >= 'a' && c <= 'z') &&
-                            !(c >= 'A' && c <= 'Z'))
+                        if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z'))
                                 return false;
                 }
 
@@ -64,9 +62,7 @@ bool id128_is_valid(const char *s) {
                                 if (c != '-')
                                         return false;
                         } else {
-                                if (!(c >= '0' && c <= '9') &&
-                                    !(c >= 'a' && c <= 'z') &&
-                                    !(c >= 'A' && c <= 'Z'))
+                                if (!(c >= '0' && c <= '9') && !(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z'))
                                         return false;
                         }
                 }
@@ -131,7 +127,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(p, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (fd < 0)
                 return -errno;
 
@@ -175,7 +171,7 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
 int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        fd = open(p, O_WRONLY | O_CREAT | O_CLOEXEC | O_NOCTTY | O_TRUNC, 0444);
         if (fd < 0)
                 return -errno;
 

@@ -288,10 +288,7 @@ static void test_config_parse(unsigned i, const char *s) {
         _cleanup_free_ char *setting1 = NULL;
         int r;
 
-        const ConfigTableItem items[] = {
-                { "Section", "setting1",  config_parse_string,   0, &setting1},
-                {}
-        };
+        const ConfigTableItem items[] = { { "Section", "setting1", config_parse_string, 0, &setting1 }, {} };
 
         log_info("== %s[%i] ==", __func__, i);
 
@@ -312,10 +309,7 @@ static void test_config_parse(unsigned i, const char *s) {
                          void *userdata)
         */
 
-        r = config_parse(NULL, name, f,
-                         "Section\0",
-                         config_item_table_lookup, items,
-                         CONFIG_PARSE_WARN, NULL);
+        r = config_parse(NULL, name, f, "Section\0", config_item_table_lookup, items, CONFIG_PARSE_WARN, NULL);
 
         switch (i) {
         case 0 ... 3:

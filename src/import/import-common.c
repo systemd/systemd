@@ -53,7 +53,7 @@ int import_make_read_only_fd(int fd) {
 int import_make_read_only(const char *path) {
         _cleanup_close_ int fd = 1;
 
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        fd = open(path, O_RDONLY | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", path);
 
@@ -71,17 +71,12 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                uint64_t retain =
-                        (1ULL << CAP_CHOWN) |
-                        (1ULL << CAP_FOWNER) |
-                        (1ULL << CAP_FSETID) |
-                        (1ULL << CAP_MKNOD) |
-                        (1ULL << CAP_SETFCAP) |
-                        (1ULL << CAP_DAC_OVERRIDE);
+                uint64_t retain = (1ULL << CAP_CHOWN) | (1ULL << CAP_FOWNER) | (1ULL << CAP_FSETID) | (1ULL << CAP_MKNOD) |
+                        (1ULL << CAP_SETFCAP) | (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
@@ -121,7 +116,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -207,7 +202,8 @@ int import_mangle_os_tree(const char *path) {
         joined = strjoina(path, "/", child);
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.", path);
+                log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.",
+                          path);
                 return 0;
         }
         if (r < 0)

@@ -65,9 +65,9 @@ struct Manager {
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
 
-        bool need_builtin_fallbacks:1;
+        bool need_builtin_fallbacks : 1;
 
-        bool read_resolv_conf:1;
+        bool read_resolv_conf : 1;
         usec_t resolv_conf_mtime;
 
         DnsTrustAnchor trust_anchor;
@@ -137,28 +137,35 @@ struct Manager {
 /* Manager */
 
 int manager_new(Manager **ret);
-Manager* manager_free(Manager *m);
+Manager *manager_free(Manager *m);
 
 int manager_start(Manager *m);
 
 uint32_t manager_find_mtu(Manager *m);
 
 int manager_write(Manager *m, int fd, DnsPacket *p);
-int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination, uint16_t port, const union in_addr_union *source, DnsPacket *p);
+int manager_send(Manager *m,
+                 int fd,
+                 int ifindex,
+                 int family,
+                 const union in_addr_union *destination,
+                 uint16_t port,
+                 const union in_addr_union *source,
+                 DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
 
 int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_addr);
-LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);
+LinkAddress *manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr);
 
 void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
 bool manager_our_packet(Manager *m, DnsPacket *p);
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
+DnsScope *manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_free);
 
 #define EXTRA_CMSG_SPACE 1024
 

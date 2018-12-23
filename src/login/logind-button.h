@@ -19,7 +19,7 @@ struct Button {
         bool docked;
 };
 
-Button* button_new(Manager *m, const char *name);
+Button *button_new(Manager *m, const char *name);
 void button_free(Button *b);
 int button_open(Button *b);
 int button_set_seat(Button *b, const char *sn);

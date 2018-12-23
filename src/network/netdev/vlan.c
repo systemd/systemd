@@ -62,7 +62,7 @@ static int netdev_vlan_verify(NetDev *netdev, const char *filename) {
         assert(v);
 
         if (v->id == VLANID_INVALID) {
-                log_warning("VLAN without valid Id (%"PRIu16") configured in %s.", v->id, filename);
+                log_warning("VLAN without valid Id (%" PRIu16 ") configured in %s.", v->id, filename);
                 return -EINVAL;
         }
 

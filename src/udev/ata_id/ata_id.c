@@ -31,15 +31,12 @@
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
-static int disk_scsi_inquiry_command(
-                int fd,
-                void *buf,
-                size_t buf_len) {
+static int disk_scsi_inquiry_command(int fd, void *buf, size_t buf_len) {
 
         uint8_t cdb[6] = {
                 /* INQUIRY, see SPC-4 section 6.4 */
-                [0] = 0x12,                /* OPERATION CODE: INQUIRY */
-                [3] = (buf_len >> 8),      /* ALLOCATION LENGTH */
+                [0] = 0x12,           /* OPERATION CODE: INQUIRY */
+                [3] = (buf_len >> 8), /* ALLOCATION LENGTH */
                 [4] = (buf_len & 0xff),
         };
         uint8_t sense[32] = {};
@@ -63,8 +60,8 @@ static int disk_scsi_inquiry_command(
                 if (errno == EINVAL) {
                         struct sg_io_hdr io_hdr = {
                                 .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
+                                .cmdp = (unsigned char *) cdb,
+                                .cmd_len = sizeof(cdb),
                                 .dxferp = buf,
                                 .dxfer_len = buf_len,
                                 .sbp = sense,
@@ -78,9 +75,7 @@ static int disk_scsi_inquiry_command(
                                 return ret;
 
                         /* even if the ioctl succeeds, we need to check the return value */
-                        if (!(io_hdr.status == 0 &&
-                              io_hdr.host_status == 0 &&
-                              io_hdr.driver_status == 0)) {
+                        if (!(io_hdr.status == 0 && io_hdr.host_status == 0 && io_hdr.driver_status == 0)) {
                                 errno = EIO;
                                 return -1;
                         }
@@ -89,9 +84,7 @@ static int disk_scsi_inquiry_command(
         }
 
         /* even if the ioctl succeeds, we need to check the return value */
-        if (!(io_v4.device_status == 0 &&
-              io_v4.transport_status == 0 &&
-              io_v4.driver_status == 0)) {
+        if (!(io_v4.device_status == 0 && io_v4.transport_status == 0 && io_v4.driver_status == 0)) {
                 errno = EIO;
                 return -1;
         }
@@ -99,10 +92,7 @@ static int disk_scsi_inquiry_command(
         return 0;
 }
 
-static int disk_identify_command(
-                int fd,
-                void *buf,
-                size_t buf_len) {
+static int disk_identify_command(int fd, void *buf, size_t buf_len) {
 
         uint8_t cdb[12] = {
                 /*
@@ -145,12 +135,12 @@ static int disk_identify_command(
                 if (errno == EINVAL) {
                         struct sg_io_hdr io_hdr = {
                                 .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
+                                .cmdp = (unsigned char *) cdb,
+                                .cmd_len = sizeof(cdb),
                                 .dxferp = buf,
                                 .dxfer_len = buf_len,
                                 .sbp = sense,
-                                .mx_sb_len = sizeof (sense),
+                                .mx_sb_len = sizeof(sense),
                                 .dxfer_direction = SG_DXFER_FROM_DEV,
                                 .timeout = COMMAND_TIMEOUT_MSEC,
                         };
@@ -170,10 +160,7 @@ static int disk_identify_command(
         return 0;
 }
 
-static int disk_identify_packet_device_command(
-                int fd,
-                void *buf,
-                size_t buf_len) {
+static int disk_identify_packet_device_command(int fd, void *buf, size_t buf_len) {
 
         uint8_t cdb[16] = {
                 /*
@@ -206,9 +193,9 @@ static int disk_identify_packet_device_command(
                 .guard = 'Q',
                 .protocol = BSG_PROTOCOL_SCSI,
                 .subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD,
-                .request_len = sizeof (cdb),
+                .request_len = sizeof(cdb),
                 .request = (uintptr_t) cdb,
-                .max_response_len = sizeof (sense),
+                .max_response_len = sizeof(sense),
                 .response = (uintptr_t) sense,
                 .din_xfer_len = buf_len,
                 .din_xferp = (uintptr_t) buf,
@@ -222,12 +209,12 @@ static int disk_identify_packet_device_command(
                 if (errno == EINVAL) {
                         struct sg_io_hdr io_hdr = {
                                 .interface_id = 'S',
-                                .cmdp = (unsigned char*) cdb,
-                                .cmd_len = sizeof (cdb),
+                                .cmdp = (unsigned char *) cdb,
+                                .cmd_len = sizeof(cdb),
                                 .dxferp = buf,
                                 .dxfer_len = buf_len,
                                 .sbp = sense,
-                                .mx_sb_len = sizeof (sense),
+                                .mx_sb_len = sizeof(sense),
                                 .dxfer_direction = SG_DXFER_FROM_DEV,
                                 .timeout = COMMAND_TIMEOUT_MSEC,
                         };
@@ -256,11 +243,7 @@ static int disk_identify_packet_device_command(
  *
  * Copies the ATA string from @identify located at @offset_words into @dest.
  */
-static void disk_identify_get_string(
-                uint8_t identify[512],
-                unsigned offset_words,
-                char *dest,
-                size_t dest_len) {
+static void disk_identify_get_string(uint8_t identify[512], unsigned offset_words, char *dest, size_t dest_len) {
 
         unsigned c1;
         unsigned c2;
@@ -277,19 +260,15 @@ static void disk_identify_get_string(
         }
 }
 
-static void disk_identify_fixup_string(
-                uint8_t identify[512],
-                unsigned offset_words,
-                size_t len) {
-        disk_identify_get_string(identify, offset_words,
-                                 (char *) identify + offset_words * 2, len);
+static void disk_identify_fixup_string(uint8_t identify[512], unsigned offset_words, size_t len) {
+        disk_identify_get_string(identify, offset_words, (char *) identify + offset_words * 2, len);
 }
 
-static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_words) {
+static void disk_identify_fixup_uint16(uint8_t identify[512], unsigned offset_words) {
         uint16_t *p;
 
         p = (uint16_t *) identify;
-        p[offset_words] = le16toh (p[offset_words]);
+        p[offset_words] = le16toh(p[offset_words]);
 }
 
 /**
@@ -307,9 +286,7 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_w
  * Returns: 0 if the data was successfully obtained, otherwise
  * non-zero with errno set.
  */
-static int disk_identify(int fd,
-                         uint8_t out_identify[512],
-                         int *out_is_packet_device) {
+static int disk_identify(int fd, uint8_t out_identify[512], int *out_is_packet_device) {
         int ret;
         uint8_t inquiry_buf[36];
         int peripheral_device_type;
@@ -341,18 +318,17 @@ static int disk_identify(int fd,
          * the original bug-fix and see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=556635
          * for the original bug-report.)
          */
-        ret = disk_scsi_inquiry_command (fd, inquiry_buf, sizeof (inquiry_buf));
+        ret = disk_scsi_inquiry_command(fd, inquiry_buf, sizeof(inquiry_buf));
         if (ret != 0)
                 goto out;
 
         /* SPC-4, section 6.4.2: Standard INQUIRY data */
         peripheral_device_type = inquiry_buf[0] & 0x1f;
-        if (peripheral_device_type == 0x05)
-          {
-            is_packet_device = 1;
-            ret = disk_identify_packet_device_command(fd, out_identify, 512);
-            goto check_nul_bytes;
-          }
+        if (peripheral_device_type == 0x05) {
+                is_packet_device = 1;
+                ret = disk_identify_packet_device_command(fd, out_identify, 512);
+                goto check_nul_bytes;
+        }
         if (peripheral_device_type != 0x00) {
                 ret = -1;
                 errno = EIO;
@@ -364,8 +340,8 @@ static int disk_identify(int fd,
         if (ret != 0)
                 goto out;
 
- check_nul_bytes:
-         /* Check if IDENTIFY data is all NUL bytes - if so, bail */
+check_nul_bytes:
+        /* Check if IDENTIFY data is all NUL bytes - if so, bail */
         all_nul_bytes = 1;
         for (n = 0; n < 512; n++) {
                 if (out_identify[n] != '\0') {
@@ -389,7 +365,7 @@ out:
 int main(int argc, char *argv[]) {
         struct hd_driveid id;
         union {
-                uint8_t  byte[512];
+                uint8_t byte[512];
                 uint16_t wyde[256];
         } identify;
         char model[41];
@@ -401,11 +377,7 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;
         uint16_t word;
         int is_packet_device = 0;
-        static const struct option options[] = {
-                { "export", no_argument, NULL, 'x' },
-                { "help", no_argument, NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "export", no_argument, NULL, 'x' }, { "help", no_argument, NULL, 'h' }, {} };
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -437,7 +409,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+        fd = open(node, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
         if (fd < 0) {
                 log_error("unable to open '%s'", node);
                 return 1;
@@ -448,28 +420,28 @@ int main(int argc, char *argv[]) {
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
                  */
-                disk_identify_fixup_string(identify.byte,  10, 20); /* serial */
-                disk_identify_fixup_string(identify.byte,  23,  8); /* fwrev */
-                disk_identify_fixup_string(identify.byte,  27, 40); /* model */
-                disk_identify_fixup_uint16(identify.byte,  0);      /* configuration */
-                disk_identify_fixup_uint16(identify.byte,  75);     /* queue depth */
-                disk_identify_fixup_uint16(identify.byte,  76);     /* SATA capabilities */
-                disk_identify_fixup_uint16(identify.byte,  82);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  83);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  84);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  85);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  86);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  87);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte,  89);     /* time required for SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16(identify.byte,  90);     /* time required for enhanced SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16(identify.byte,  91);     /* current APM values */
-                disk_identify_fixup_uint16(identify.byte,  94);     /* current AAM value */
-                disk_identify_fixup_uint16(identify.byte, 108);     /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 109);     /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 110);     /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 111);     /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 128);     /* device lock function */
-                disk_identify_fixup_uint16(identify.byte, 217);     /* nominal media rotation rate */
+                disk_identify_fixup_string(identify.byte, 10, 20); /* serial */
+                disk_identify_fixup_string(identify.byte, 23, 8);  /* fwrev */
+                disk_identify_fixup_string(identify.byte, 27, 40); /* model */
+                disk_identify_fixup_uint16(identify.byte, 0);      /* configuration */
+                disk_identify_fixup_uint16(identify.byte, 75);     /* queue depth */
+                disk_identify_fixup_uint16(identify.byte, 76);     /* SATA capabilities */
+                disk_identify_fixup_uint16(identify.byte, 82);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 83);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 84);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 85);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 86);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 87);     /* command set supported */
+                disk_identify_fixup_uint16(identify.byte, 89);     /* time required for SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16(identify.byte, 90);     /* time required for enhanced SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16(identify.byte, 91);     /* current APM values */
+                disk_identify_fixup_uint16(identify.byte, 94);     /* current AAM value */
+                disk_identify_fixup_uint16(identify.byte, 108);    /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 109);    /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 110);    /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 111);    /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 128);    /* device lock function */
+                disk_identify_fixup_uint16(identify.byte, 217);    /* nominal media rotation rate */
                 memcpy(&id, identify.byte, sizeof id);
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
@@ -526,63 +498,63 @@ int main(int argc, char *argv[]) {
                         printf("ID_SERIAL=%s\n", model);
                 }
 
-                if (id.command_set_1 & (1<<5)) {
+                if (id.command_set_1 & (1 << 5)) {
                         printf("ID_ATA_WRITE_CACHE=1\n");
-                        printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1<<5)) ? 1 : 0);
+                        printf("ID_ATA_WRITE_CACHE_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 5)) ? 1 : 0);
                 }
-                if (id.command_set_1 & (1<<10)) {
+                if (id.command_set_1 & (1 << 10)) {
                         printf("ID_ATA_FEATURE_SET_HPA=1\n");
-                        printf("ID_ATA_FEATURE_SET_HPA_ENABLED=%d\n", (id.cfs_enable_1 & (1<<10)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_HPA_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 10)) ? 1 : 0);
 
                         /*
                          * TODO: use the READ NATIVE MAX ADDRESS command to get the native max address
                          * so it is easy to check whether the protected area is in use.
                          */
                 }
-                if (id.command_set_1 & (1<<3)) {
+                if (id.command_set_1 & (1 << 3)) {
                         printf("ID_ATA_FEATURE_SET_PM=1\n");
-                        printf("ID_ATA_FEATURE_SET_PM_ENABLED=%d\n", (id.cfs_enable_1 & (1<<3)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_PM_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 3)) ? 1 : 0);
                 }
-                if (id.command_set_1 & (1<<1)) {
+                if (id.command_set_1 & (1 << 1)) {
                         printf("ID_ATA_FEATURE_SET_SECURITY=1\n");
-                        printf("ID_ATA_FEATURE_SET_SECURITY_ENABLED=%d\n", (id.cfs_enable_1 & (1<<1)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_SECURITY_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 1)) ? 1 : 0);
                         printf("ID_ATA_FEATURE_SET_SECURITY_ERASE_UNIT_MIN=%d\n", id.trseuc * 2);
-                        if ((id.cfs_enable_1 & (1<<1))) /* enabled */ {
-                                if (id.dlf & (1<<8))
+                        if ((id.cfs_enable_1 & (1 << 1))) /* enabled */ {
+                                if (id.dlf & (1 << 8))
                                         printf("ID_ATA_FEATURE_SET_SECURITY_LEVEL=maximum\n");
                                 else
                                         printf("ID_ATA_FEATURE_SET_SECURITY_LEVEL=high\n");
                         }
-                        if (id.dlf & (1<<5))
+                        if (id.dlf & (1 << 5))
                                 printf("ID_ATA_FEATURE_SET_SECURITY_ENHANCED_ERASE_UNIT_MIN=%d\n", id.trsEuc * 2);
-                        if (id.dlf & (1<<4))
+                        if (id.dlf & (1 << 4))
                                 printf("ID_ATA_FEATURE_SET_SECURITY_EXPIRE=1\n");
-                        if (id.dlf & (1<<3))
+                        if (id.dlf & (1 << 3))
                                 printf("ID_ATA_FEATURE_SET_SECURITY_FROZEN=1\n");
-                        if (id.dlf & (1<<2))
+                        if (id.dlf & (1 << 2))
                                 printf("ID_ATA_FEATURE_SET_SECURITY_LOCKED=1\n");
                 }
-                if (id.command_set_1 & (1<<0)) {
+                if (id.command_set_1 & (1 << 0)) {
                         printf("ID_ATA_FEATURE_SET_SMART=1\n");
-                        printf("ID_ATA_FEATURE_SET_SMART_ENABLED=%d\n", (id.cfs_enable_1 & (1<<0)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_SMART_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 0)) ? 1 : 0);
                 }
-                if (id.command_set_2 & (1<<9)) {
+                if (id.command_set_2 & (1 << 9)) {
                         printf("ID_ATA_FEATURE_SET_AAM=1\n");
-                        printf("ID_ATA_FEATURE_SET_AAM_ENABLED=%d\n", (id.cfs_enable_2 & (1<<9)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_AAM_ENABLED=%d\n", (id.cfs_enable_2 & (1 << 9)) ? 1 : 0);
                         printf("ID_ATA_FEATURE_SET_AAM_VENDOR_RECOMMENDED_VALUE=%d\n", id.acoustic >> 8);
                         printf("ID_ATA_FEATURE_SET_AAM_CURRENT_VALUE=%d\n", id.acoustic & 0xff);
                 }
-                if (id.command_set_2 & (1<<5)) {
+                if (id.command_set_2 & (1 << 5)) {
                         printf("ID_ATA_FEATURE_SET_PUIS=1\n");
-                        printf("ID_ATA_FEATURE_SET_PUIS_ENABLED=%d\n", (id.cfs_enable_2 & (1<<5)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_PUIS_ENABLED=%d\n", (id.cfs_enable_2 & (1 << 5)) ? 1 : 0);
                 }
-                if (id.command_set_2 & (1<<3)) {
+                if (id.command_set_2 & (1 << 3)) {
                         printf("ID_ATA_FEATURE_SET_APM=1\n");
-                        printf("ID_ATA_FEATURE_SET_APM_ENABLED=%d\n", (id.cfs_enable_2 & (1<<3)) ? 1 : 0);
-                        if ((id.cfs_enable_2 & (1<<3)))
+                        printf("ID_ATA_FEATURE_SET_APM_ENABLED=%d\n", (id.cfs_enable_2 & (1 << 3)) ? 1 : 0);
+                        if ((id.cfs_enable_2 & (1 << 3)))
                                 printf("ID_ATA_FEATURE_SET_APM_CURRENT_VALUE=%d\n", id.CurAPMvalues & 0xff);
                 }
-                if (id.command_set_2 & (1<<0))
+                if (id.command_set_2 & (1 << 0))
                         printf("ID_ATA_DOWNLOAD_MICROCODE=1\n");
 
                 /*
@@ -602,18 +574,18 @@ int main(int argc, char *argv[]) {
                          * If bit 1 of word 76 is set to one, then the device supports the Gen1
                          * signaling rate of 1.5 Gb/s (see SATA 2.6).
                          */
-                        if (word & (1<<2))
+                        if (word & (1 << 2))
                                 printf("ID_ATA_SATA_SIGNAL_RATE_GEN2=1\n");
-                        if (word & (1<<1))
+                        if (word & (1 << 1))
                                 printf("ID_ATA_SATA_SIGNAL_RATE_GEN1=1\n");
                 }
 
                 /* Word 217 indicates the nominal media rotation rate of the device */
                 word = identify.wyde[217];
                 if (word == 0x0001)
-                        printf ("ID_ATA_ROTATION_RATE_RPM=0\n"); /* non-rotating e.g. SSD */
+                        printf("ID_ATA_ROTATION_RATE_RPM=0\n"); /* non-rotating e.g. SSD */
                 else if (word >= 0x0401 && word <= 0xfffe)
-                        printf ("ID_ATA_ROTATION_RATE_RPM=%d\n", word);
+                        printf("ID_ATA_ROTATION_RATE_RPM=%d\n", word);
 
                 /*
                  * Words 108-111 contain a mandatory World Wide Name (WWN) in the NAA IEEE Registered identifier
@@ -624,21 +596,21 @@ int main(int argc, char *argv[]) {
                 if ((word & 0xf000) == 0x5000) {
                         uint64_t wwwn;
 
-                        wwwn   = identify.wyde[108];
+                        wwwn = identify.wyde[108];
                         wwwn <<= 16;
-                        wwwn  |= identify.wyde[109];
+                        wwwn |= identify.wyde[109];
                         wwwn <<= 16;
-                        wwwn  |= identify.wyde[110];
+                        wwwn |= identify.wyde[110];
                         wwwn <<= 16;
-                        wwwn  |= identify.wyde[111];
-                        printf("ID_WWN=0x%1$" PRIx64 "\n"
+                        wwwn |= identify.wyde[111];
+                        printf("ID_WWN=0x%1$" PRIx64
+                               "\n"
                                "ID_WWN_WITH_EXTENSION=0x%1$" PRIx64 "\n",
                                wwwn);
                 }
 
                 /* from Linux's include/linux/ata.h */
-                if (IN_SET(identify.wyde[0], 0x848a, 0x844a) ||
-                    (identify.wyde[83] & 0xc004) == 0x4004)
+                if (IN_SET(identify.wyde[0], 0x848a, 0x844a) || (identify.wyde[83] & 0xc004) == 0x4004)
                         printf("ID_ATA_CFA=1\n");
         } else {
                 if (serial[0] != '\0')

@@ -12,7 +12,8 @@
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;
 
-typedef enum MACPolicy {
+typedef enum MACPolicy
+{
         MACPOLICY_PERSISTENT,
         MACPOLICY_RANDOM,
         MACPOLICY_NONE,
@@ -20,7 +21,8 @@ typedef enum MACPolicy {
         _MACPOLICY_INVALID = -1
 } MACPolicy;
 
-typedef enum NamePolicy {
+typedef enum NamePolicy
+{
         NAMEPOLICY_KERNEL,
         NAMEPOLICY_DATABASE,
         NAMEPOLICY_ONBOARD,
@@ -81,7 +83,7 @@ const char *mac_policy_to_string(MACPolicy p) _const_;
 MACPolicy mac_policy_from_string(const char *p) _pure_;
 
 /* gperf lookup function */
-const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem *link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_mac_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);

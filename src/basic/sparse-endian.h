@@ -70,21 +70,45 @@ typedef uint64_t __sd_bitwise be64_t;
 #define bswap_64_on_be(x) __bswap_64(x)
 #endif
 
-static inline le16_t htole16(uint16_t value) { return (le16_t __sd_force) bswap_16_on_be(value); }
-static inline le32_t htole32(uint32_t value) { return (le32_t __sd_force) bswap_32_on_be(value); }
-static inline le64_t htole64(uint64_t value) { return (le64_t __sd_force) bswap_64_on_be(value); }
+static inline le16_t htole16(uint16_t value) {
+        return (le16_t __sd_force) bswap_16_on_be(value);
+}
+static inline le32_t htole32(uint32_t value) {
+        return (le32_t __sd_force) bswap_32_on_be(value);
+}
+static inline le64_t htole64(uint64_t value) {
+        return (le64_t __sd_force) bswap_64_on_be(value);
+}
 
-static inline be16_t htobe16(uint16_t value) { return (be16_t __sd_force) bswap_16_on_le(value); }
-static inline be32_t htobe32(uint32_t value) { return (be32_t __sd_force) bswap_32_on_le(value); }
-static inline be64_t htobe64(uint64_t value) { return (be64_t __sd_force) bswap_64_on_le(value); }
+static inline be16_t htobe16(uint16_t value) {
+        return (be16_t __sd_force) bswap_16_on_le(value);
+}
+static inline be32_t htobe32(uint32_t value) {
+        return (be32_t __sd_force) bswap_32_on_le(value);
+}
+static inline be64_t htobe64(uint64_t value) {
+        return (be64_t __sd_force) bswap_64_on_le(value);
+}
 
-static inline uint16_t le16toh(le16_t value) { return bswap_16_on_be((uint16_t __sd_force)value); }
-static inline uint32_t le32toh(le32_t value) { return bswap_32_on_be((uint32_t __sd_force)value); }
-static inline uint64_t le64toh(le64_t value) { return bswap_64_on_be((uint64_t __sd_force)value); }
+static inline uint16_t le16toh(le16_t value) {
+        return bswap_16_on_be((uint16_t __sd_force) value);
+}
+static inline uint32_t le32toh(le32_t value) {
+        return bswap_32_on_be((uint32_t __sd_force) value);
+}
+static inline uint64_t le64toh(le64_t value) {
+        return bswap_64_on_be((uint64_t __sd_force) value);
+}
 
-static inline uint16_t be16toh(be16_t value) { return bswap_16_on_le((uint16_t __sd_force)value); }
-static inline uint32_t be32toh(be32_t value) { return bswap_32_on_le((uint32_t __sd_force)value); }
-static inline uint64_t be64toh(be64_t value) { return bswap_64_on_le((uint64_t __sd_force)value); }
+static inline uint16_t be16toh(be16_t value) {
+        return bswap_16_on_le((uint16_t __sd_force) value);
+}
+static inline uint32_t be32toh(be32_t value) {
+        return bswap_32_on_le((uint32_t __sd_force) value);
+}
+static inline uint64_t be64toh(be64_t value) {
+        return bswap_64_on_le((uint64_t __sd_force) value);
+}
 
 #undef __sd_bitwise
 #undef __sd_force

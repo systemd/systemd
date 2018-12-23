@@ -59,14 +59,14 @@ typedef struct TableData {
         unsigned ellipsize_percent; /* 0 … 100, where to place the ellipsis when compression is needed */
         unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
 
-        bool uppercase;             /* Uppercase string on display */
+        bool uppercase; /* Uppercase string on display */
 
-        const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
-        char *url;                  /* A URL to use for a clickable hyperlink */
-        char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
+        const char *color; /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
+        char *url;       /* A URL to use for a clickable hyperlink */
+        char *formatted; /* A cached textual representation of the cell data, before ellipsation/alignment */
 
         union {
-                uint8_t data[0];    /* data is generic array */
+                uint8_t data[0]; /* data is generic array */
                 bool boolean;
                 usec_t timestamp;
                 usec_t timespan;
@@ -74,7 +74,7 @@ typedef struct TableData {
                 char string[0];
                 uint32_t uint32;
                 uint64_t uint64;
-                int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
+                int percent; /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -87,10 +87,10 @@ static size_t TABLE_CELL_TO_INDEX(TableCell *cell) {
         i = PTR_TO_SIZE(cell);
         assert(i > 0);
 
-        return i-1;
+        return i - 1;
 }
 
-static TableCell* TABLE_INDEX_TO_CELL(size_t index) {
+static TableCell *TABLE_INDEX_TO_CELL(size_t index) {
         assert(index != (size_t) -1);
         return SIZE_TO_PTR(index + 1);
 }
@@ -99,16 +99,16 @@ struct Table {
         size_t n_columns;
         size_t n_cells;
 
-        bool header;   /* Whether to show the header row? */
-        size_t width;  /* If != (size_t) -1 the width to format this table in */
+        bool header;  /* Whether to show the header row? */
+        size_t width; /* If != (size_t) -1 the width to format this table in */
 
         TableData **data;
         size_t n_allocated;
 
-        size_t *display_map;  /* List of columns to show (by their index). It's fine if columns are listed multiple times or not at all */
+        size_t *display_map; /* List of columns to show (by their index). It's fine if columns are listed multiple times or not at all */
         size_t n_display_map;
 
-        size_t *sort_map;     /* The columns to order rows by, in order of preference. */
+        size_t *sort_map; /* The columns to order rows by, in order of preference. */
         size_t n_sort_map;
 
         bool *reverse_map;
@@ -119,11 +119,11 @@ Table *table_new_raw(size_t n_columns) {
 
         assert(n_columns > 0);
 
-        t = new(Table, 1);
+        t = new (Table, 1);
         if (!t)
                 return NULL;
 
-        *t = (struct Table) {
+        *t = (struct Table){
                 .n_columns = n_columns,
                 .header = true,
                 .width = (size_t) -1,
@@ -143,7 +143,7 @@ Table *table_new_internal(const char *first_header, ...) {
 
         va_start(ap, first_header);
         for (;;) {
-                h = va_arg(ap, const char*);
+                h = va_arg(ap, const char *);
                 if (!h)
                         break;
 
@@ -156,7 +156,7 @@ Table *table_new_internal(const char *first_header, ...) {
                 return NULL;
 
         va_start(ap, first_header);
-        for (h = first_header; h; h = va_arg(ap, const char*)) {
+        for (h = first_header; h; h = va_arg(ap, const char *)) {
                 TableCell *cell;
 
                 r = table_add_cell(t, &cell, TABLE_STRING, h);
@@ -188,7 +188,7 @@ static TableData *table_data_free(TableData *d) {
 }
 
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(TableData *, table_data_unref);
 
 Table *table_unref(Table *t) {
         size_t i;
@@ -239,15 +239,14 @@ static size_t table_data_size(TableDataType type, const void *data) {
         }
 }
 
-static bool table_data_matches(
-                TableData *d,
-                TableDataType type,
-                const void *data,
-                size_t minimum_width,
-                size_t maximum_width,
-                unsigned weight,
-                unsigned align_percent,
-                unsigned ellipsize_percent) {
+static bool table_data_matches(TableData *d,
+                               TableDataType type,
+                               const void *data,
+                               size_t minimum_width,
+                               size_t maximum_width,
+                               unsigned weight,
+                               unsigned align_percent,
+                               unsigned ellipsize_percent) {
 
         size_t k, l;
         assert(d);
@@ -287,14 +286,13 @@ static bool table_data_matches(
         return memcmp_safe(data, d->data, l) == 0;
 }
 
-static TableData *table_data_new(
-                TableDataType type,
-                const void *data,
-                size_t minimum_width,
-                size_t maximum_width,
-                unsigned weight,
-                unsigned align_percent,
-                unsigned ellipsize_percent) {
+static TableData *table_data_new(TableDataType type,
+                                 const void *data,
+                                 size_t minimum_width,
+                                 size_t maximum_width,
+                                 unsigned weight,
+                                 unsigned align_percent,
+                                 unsigned ellipsize_percent) {
 
         size_t data_size;
         TableData *d;
@@ -317,16 +315,15 @@ static TableData *table_data_new(
         return d;
 }
 
-int table_add_cell_full(
-                Table *t,
-                TableCell **ret_cell,
-                TableDataType type,
-                const void *data,
-                size_t minimum_width,
-                size_t maximum_width,
-                unsigned weight,
-                unsigned align_percent,
-                unsigned ellipsize_percent) {
+int table_add_cell_full(Table *t,
+                        TableCell **ret_cell,
+                        TableDataType type,
+                        const void *data,
+                        size_t minimum_width,
+                        size_t maximum_width,
+                        unsigned weight,
+                        unsigned align_percent,
+                        unsigned ellipsize_percent) {
 
         _cleanup_(table_data_unrefp) TableData *d = NULL;
         TableData *p;
@@ -423,14 +420,7 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
                         return -ENOMEM;
         }
 
-        nd = table_data_new(
-                        od->type,
-                        od->data,
-                        od->minimum_width,
-                        od->maximum_width,
-                        od->weight,
-                        od->align_percent,
-                        od->ellipsize_percent);
+        nd = table_data_new(od->type, od->data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
 
@@ -625,14 +615,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
                         return -ENOMEM;
         }
 
-        nd = table_data_new(
-                        type,
-                        data,
-                        od->minimum_width,
-                        od->maximum_width,
-                        od->weight,
-                        od->align_percent,
-                        od->ellipsize_percent);
+        nd = table_data_new(type, data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
 
@@ -754,7 +737,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, t->n_display_map+1))) {
+                if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, t->n_display_map + 1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }
@@ -764,7 +747,6 @@ int table_set_display(Table *t, size_t first_column, ...) {
                 column = va_arg(ap, size_t);
                 if (column == (size_t) -1)
                         break;
-
         }
         va_end(ap);
 
@@ -784,7 +766,7 @@ int table_set_sort(Table *t, size_t first_column, ...) {
         for (;;) {
                 assert(column < t->n_columns);
 
-                if (!GREEDY_REALLOC(t->sort_map, allocated, MAX(t->n_columns, t->n_sort_map+1))) {
+                if (!GREEDY_REALLOC(t->sort_map, allocated, MAX(t->n_columns, t->n_sort_map + 1))) {
                         va_end(ap);
                         return -ENOMEM;
                 }
@@ -839,8 +821,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_PERCENT:
                         return CMP(a->percent, b->percent);
 
-                default:
-                        ;
+                default:;
                 }
         }
 
@@ -893,7 +874,7 @@ static const char *table_data_format(TableData *d) {
                 if (d->uppercase) {
                         char *p, *q;
 
-                        d->formatted = new(char, strlen(d->string) + 1);
+                        d->formatted = new (char, strlen(d->string) + 1);
                         if (!d->formatted)
                                 return NULL;
 
@@ -912,7 +893,7 @@ static const char *table_data_format(TableData *d) {
         case TABLE_TIMESTAMP: {
                 _cleanup_free_ char *p;
 
-                p = new(char, FORMAT_TIMESTAMP_MAX);
+                p = new (char, FORMAT_TIMESTAMP_MAX);
                 if (!p)
                         return NULL;
 
@@ -926,7 +907,7 @@ static const char *table_data_format(TableData *d) {
         case TABLE_TIMESPAN: {
                 _cleanup_free_ char *p;
 
-                p = new(char, FORMAT_TIMESPAN_MAX);
+                p = new (char, FORMAT_TIMESPAN_MAX);
                 if (!p)
                         return NULL;
 
@@ -940,7 +921,7 @@ static const char *table_data_format(TableData *d) {
         case TABLE_SIZE: {
                 _cleanup_free_ char *p;
 
-                p = new(char, FORMAT_BYTES_MAX);
+                p = new (char, FORMAT_BYTES_MAX);
                 if (!p)
                         return NULL;
 
@@ -954,7 +935,7 @@ static const char *table_data_format(TableData *d) {
         case TABLE_UINT32: {
                 _cleanup_free_ char *p;
 
-                p = new(char, DECIMAL_STR_WIDTH(d->uint32) + 1);
+                p = new (char, DECIMAL_STR_WIDTH(d->uint32) + 1);
                 if (!p)
                         return NULL;
 
@@ -966,7 +947,7 @@ static const char *table_data_format(TableData *d) {
         case TABLE_UINT64: {
                 _cleanup_free_ char *p;
 
-                p = new(char, DECIMAL_STR_WIDTH(d->uint64) + 1);
+                p = new (char, DECIMAL_STR_WIDTH(d->uint64) + 1);
                 if (!p)
                         return NULL;
 
@@ -978,11 +959,11 @@ static const char *table_data_format(TableData *d) {
         case TABLE_PERCENT: {
                 _cleanup_free_ char *p;
 
-                p = new(char, DECIMAL_STR_WIDTH(d->percent) + 2);
+                p = new (char, DECIMAL_STR_WIDTH(d->percent) + 2);
                 if (!p)
                         return NULL;
 
-                sprintf(p, "%i%%" , d->percent);
+                sprintf(p, "%i%%", d->percent);
                 d->formatted = TAKE_PTR(p);
                 break;
         }
@@ -1062,7 +1043,7 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         space = new_length - w;
         lspace = space * percent / 100U;
 
-        ret = new(char, space + clickable_length + 1);
+        ret = new (char, space + clickable_length + 1);
         if (!ret)
                 return NULL;
 
@@ -1077,9 +1058,8 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
 }
 
 int table_print(Table *t, FILE *f) {
-        size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
-                i, j, table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
-                *width;
+        size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width, i, j, table_minimum_width, table_maximum_width,
+                table_requested_width, table_effective_width, *width;
         _cleanup_free_ size_t *sorted = NULL;
         uint64_t *column_weight, weight_sum;
         int r;
@@ -1098,7 +1078,7 @@ int table_print(Table *t, FILE *f) {
         if (t->sort_map) {
                 /* If sorting is requested, let's calculate an index table we use to lookup the actual index to display with. */
 
-                sorted = new(size_t, n_rows);
+                sorted = new (size_t, n_rows);
                 if (!sorted)
                         return -ENOMEM;
 
@@ -1146,8 +1126,7 @@ int table_print(Table *t, FILE *f) {
                                 return r;
 
                         /* Determine the biggest width that any cell in this column would like to have */
-                        if (requested_width[j] == (size_t) -1 ||
-                            requested_width[j] < req)
+                        if (requested_width[j] == (size_t) -1 || requested_width[j] < req)
                                 requested_width[j] = req;
 
                         /* Determine the minimum width any cell in this column needs */
@@ -1155,9 +1134,7 @@ int table_print(Table *t, FILE *f) {
                                 minimum_width[j] = d->minimum_width;
 
                         /* Determine the maximum width any cell in this column needs */
-                        if (d->maximum_width != (size_t) -1 &&
-                            (maximum_width[j] == (size_t) -1 ||
-                             maximum_width[j] > d->maximum_width))
+                        if (d->maximum_width != (size_t) -1 && (maximum_width[j] == (size_t) -1 || maximum_width[j] > d->maximum_width))
                                 maximum_width[j] = d->maximum_width;
 
                         /* Determine the full columns weight */
@@ -1451,7 +1428,7 @@ const void *table_get(Table *t, TableCell *cell) {
         return d->data;
 }
 
-const void* table_get_at(Table *t, size_t row, size_t column) {
+const void *table_get_at(Table *t, size_t row, size_t column) {
         TableCell *cell;
 
         cell = table_get_cell(t, row, column);
@@ -1523,7 +1500,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
         if (t->sort_map) {
                 /* If sorting is requested, let's calculate an index table we use to lookup the actual index to display with. */
 
-                sorted = new(size_t, n_rows);
+                sorted = new (size_t, n_rows);
                 if (!sorted) {
                         r = -ENOMEM;
                         goto finish;
@@ -1541,7 +1518,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 display_columns = t->n_columns;
         assert(display_columns > 0);
 
-        elements = new0(JsonVariant*, display_columns * 2);
+        elements = new0(JsonVariant *, display_columns * 2);
         if (!elements) {
                 r = -ENOMEM;
                 goto finish;
@@ -1552,12 +1529,12 @@ int table_to_json(Table *t, JsonVariant **ret) {
 
                 assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
 
-                r = table_data_to_json(d, elements + j*2);
+                r = table_data_to_json(d, elements + j * 2);
                 if (r < 0)
                         goto finish;
         }
 
-        rows = new0(JsonVariant*, n_rows-1);
+        rows = new0(JsonVariant *, n_rows - 1);
         if (!rows) {
                 r = -ENOMEM;
                 goto finish;
@@ -1577,7 +1554,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        k = j*2+1;
+                        k = j * 2 + 1;
                         elements[k] = json_variant_unref(elements[k]);
 
                         r = table_data_to_json(d, elements + k);
@@ -1594,12 +1571,12 @@ int table_to_json(Table *t, JsonVariant **ret) {
 
 finish:
         if (rows) {
-                json_variant_unref_many(rows, n_rows-1);
+                json_variant_unref_many(rows, n_rows - 1);
                 free(rows);
         }
 
         if (elements) {
-                json_variant_unref_many(elements, display_columns*2);
+                json_variant_unref_many(elements, display_columns * 2);
                 free(elements);
         }
 

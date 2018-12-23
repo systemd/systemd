@@ -74,7 +74,7 @@ bool use_audit(void) {
         if (cached_use < 0) {
                 int fd;
 
-                fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
+                fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_AUDIT);
                 if (fd < 0) {
                         cached_use = !IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT, EPERM);
                         if (!cached_use)

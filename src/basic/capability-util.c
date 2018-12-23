@@ -59,7 +59,7 @@ unsigned long cap_last_cap(void) {
 
                 /* Hmm, look downwards, until we find one that
                  * works */
-                for (p--; p > 0; p --)
+                for (p--; p > 0; p--)
                         if (prctl(PR_CAPBSET_READ, p) >= 0)
                                 break;
 
@@ -68,7 +68,7 @@ unsigned long cap_last_cap(void) {
                 /* Hmm, look upwards, until we find one that doesn't
                  * work */
                 for (;; p++)
-                        if (prctl(PR_CAPBSET_READ, p+1) < 0)
+                        if (prctl(PR_CAPBSET_READ, p + 1) < 0)
                                 break;
         }
 
@@ -316,8 +316,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 /* don't use too many bits */
                 assert(keep_capabilities & (1ULL << (i - 1)));
 
-                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
+                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 || cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
                         return log_error_errno(errno, "Failed to enable capabilities bits: %m");
 
                 if (cap_set_proc(d) < 0)
@@ -335,8 +334,7 @@ int drop_capability(cap_value_t cv) {
                 return -errno;
 
         if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, CAP_CLEAR) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, CAP_CLEAR) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, CAP_CLEAR) < 0))
+            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, CAP_CLEAR) < 0) || (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, CAP_CLEAR) < 0))
                 return -errno;
 
         if (cap_set_proc(tmp_cap) < 0)
@@ -354,8 +352,7 @@ bool ambient_capabilities_supported(void) {
         /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps are
          * available. */
 
-        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 ||
-                !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
+        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 || !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
 
         return cache;
 }

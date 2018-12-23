@@ -25,7 +25,7 @@
 #include "strv.h"
 #include "util.h"
 
-static char* arg_verb = NULL;
+static char *arg_verb = NULL;
 
 static int write_hibernate_location_info(void) {
         _cleanup_free_ char *device = NULL, *type = NULL;
@@ -50,8 +50,7 @@ static int write_hibernate_location_info(void) {
                 return r;
         }
         if (!streq(type, "file"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid hibernate type: %s", type);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hibernate type: %s", type);
 
         /* Only available in 4.17+ */
         if (access("/sys/power/resume_offset", W_OK) < 0) {
@@ -74,8 +73,7 @@ static int write_hibernate_location_info(void) {
         if (r < 0)
                 return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
         if (fiemap->fm_mapped_extents == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No extents found in '%s'", device);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No extents found in '%s'", device);
 
         offset = fiemap->fm_extents[0].fe_physical / page_size();
         xsprintf(offset_str, "%" PRIu64, offset);
@@ -83,7 +81,7 @@ static int write_hibernate_location_info(void) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to write offset '%s': %m", offset_str);
 
-        xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
+        xsprintf(device_str, "%lx", (unsigned long) stb.st_dev);
         r = write_string_file("/sys/power/resume", device_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write device '%s': %m", device_str);
@@ -134,16 +132,8 @@ static int write_state(FILE **f, char **states) {
 }
 
 static int execute(char **modes, char **states) {
-        char *arguments[] = {
-                NULL,
-                (char*) "pre",
-                arg_verb,
-                NULL
-        };
-        static const char* const dirs[] = {
-                SYSTEM_SLEEP_PATH,
-                NULL
-        };
+        char *arguments[] = { NULL, (char *) "pre", arg_verb, NULL };
+        static const char *const dirs[] = { SYSTEM_SLEEP_PATH, NULL };
 
         int r;
         _cleanup_fclose_ FILE *f = NULL;
@@ -163,29 +153,26 @@ static int execute(char **modes, char **states) {
                         return log_error_errno(r, "Failed to write hibernation disk offset: %m");
                 r = write_mode(modes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");;
+                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
+                ;
         }
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
-                   LOG_MESSAGE("Suspending system..."),
-                   "SLEEP=%s", arg_verb);
+        log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR, LOG_MESSAGE("Suspending system..."), "SLEEP=%s", arg_verb);
 
         r = write_state(&f, states);
         if (r < 0)
-                log_struct_errno(LOG_ERR, r,
+                log_struct_errno(LOG_ERR,
+                                 r,
                                  "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
                                  LOG_MESSAGE("Failed to suspend system. System resumed again: %m"),
-                                 "SLEEP=%s", arg_verb);
+                                 "SLEEP=%s",
+                                 arg_verb);
         else
-                log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
-                           LOG_MESSAGE("System resumed."),
-                           "SLEEP=%s", arg_verb);
+                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR, LOG_MESSAGE("System resumed."), "SLEEP=%s", arg_verb);
 
-        arguments[1] = (char*) "post";
+        arguments[1] = (char *) "post";
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
 
         return r;
@@ -221,8 +208,7 @@ static int rtc_write_wake_alarm(uint64_t sec) {
 
 static int execute_s2h(usec_t hibernate_delay_sec) {
 
-        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL,
-                                 **suspend_modes = NULL, **suspend_states = NULL;
+        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL, **suspend_modes = NULL, **suspend_states = NULL;
         usec_t original_time, wake_time, cmp_time;
         int r;
 
@@ -258,7 +244,7 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         if (r < 0)
                 return r;
 
-        log_debug("Woke up at %"PRIu64, cmp_time);
+        log_debug("Woke up at %" PRIu64, cmp_time);
 
         if (cmp_time < wake_time) /* We woke up before the alarm time, we are done. */
                 return 0;
@@ -295,24 +281,20 @@ static int help(void) {
                "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
                "                         the system after a fixed period of time\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, {} };
 
         int c;
 
@@ -320,7 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
                 case 'h':
                         return help();
 
@@ -335,15 +317,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc - optind != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Usage: %s COMMAND",
-                                       program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s COMMAND", program_invocation_short_name);
 
         arg_verb = argv[optind];
 
         if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown command '%s'.", arg_verb);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'.", arg_verb);
 
         return 1 /* work to do */;
 }
@@ -365,9 +344,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (!allow)
-                return log_error_errno(SYNTHETIC_ERRNO(EACCES),
-                                       "Sleep mode \"%s\" is disabled by configuration, refusing.",
-                                       arg_verb);
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Sleep mode \"%s\" is disabled by configuration, refusing.", arg_verb);
 
         if (streq(arg_verb, "suspend-then-hibernate"))
                 return execute_s2h(delay);

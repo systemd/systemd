@@ -15,17 +15,18 @@ typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
 
 /* DNSKEY RR flags */
-#define DNSKEY_FLAG_SEP      (UINT16_C(1) << 0)
-#define DNSKEY_FLAG_REVOKE   (UINT16_C(1) << 7)
+#define DNSKEY_FLAG_SEP (UINT16_C(1) << 0)
+#define DNSKEY_FLAG_REVOKE (UINT16_C(1) << 7)
 #define DNSKEY_FLAG_ZONE_KEY (UINT16_C(1) << 8)
 
 /* mDNS RR flags */
-#define MDNS_RR_CACHE_FLUSH  (UINT16_C(1) << 15)
+#define MDNS_RR_CACHE_FLUSH (UINT16_C(1) << 15)
 
 /* DNSSEC algorithm identifiers, see
  * http://tools.ietf.org/html/rfc4034#appendix-A.1 and
  * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
-enum {
+enum
+{
         DNSSEC_ALGORITHM_RSAMD5 = 1,
         DNSSEC_ALGORITHM_DH,
         DNSSEC_ALGORITHM_DSA,
@@ -48,17 +49,19 @@ enum {
 
 /* DNSSEC digest identifiers, see
  * https://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml */
-enum {
+enum
+{
         DNSSEC_DIGEST_SHA1 = 1,
-        DNSSEC_DIGEST_SHA256 = 2,              /* RFC 4509 */
-        DNSSEC_DIGEST_GOST_R_34_11_94 = 3,     /* RFC 5933 */
-        DNSSEC_DIGEST_SHA384 = 4,              /* RFC 6605 */
+        DNSSEC_DIGEST_SHA256 = 2,          /* RFC 4509 */
+        DNSSEC_DIGEST_GOST_R_34_11_94 = 3, /* RFC 5933 */
+        DNSSEC_DIGEST_SHA384 = 4,          /* RFC 6605 */
         _DNSSEC_DIGEST_MAX_DEFINED
 };
 
 /* DNSSEC NSEC3 hash algorithms, see
  * https://www.iana.org/assignments/dnssec-nsec3-parameters/dnssec-nsec3-parameters.xhtml */
-enum {
+enum
+{
         NSEC3_ALGORITHM_SHA1 = 1,
         _NSEC3_ALGORITHM_MAX_DEFINED
 };
@@ -73,12 +76,12 @@ struct DnsResourceKey {
  * look up something, without allocating a full DnsResourceKey object
  * for it. Note that it is not OK to take references to this kind of
  * resource key object. */
-#define DNS_RESOURCE_KEY_CONST(c, t, n)                 \
-        ((DnsResourceKey) {                             \
-                .n_ref = (unsigned) -1,                 \
-                .class = c,                             \
-                .type = t,                              \
-                ._name = (char*) n,                     \
+#define DNS_RESOURCE_KEY_CONST(c, t, n) \
+        ((DnsResourceKey){              \
+                .n_ref = (unsigned) -1, \
+                .class = c,             \
+                .type = t,              \
+                ._name = (char *) n,    \
         })
 
 struct DnsTxtItem {
@@ -101,9 +104,9 @@ struct DnsResourceRecord {
         /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
         unsigned n_skip_labels_source;
 
-        bool unparseable:1;
+        bool unparseable : 1;
 
-        bool wire_format_canonical:1;
+        bool wire_format_canonical : 1;
         void *wire_format;
         size_t wire_format_size;
         size_t wire_format_rdata_offset;
@@ -181,7 +184,7 @@ struct DnsResourceRecord {
                         uint16_t flags;
                         uint8_t protocol;
                         uint8_t algorithm;
-                        void* key;
+                        void *key;
                         size_t key_size;
                 } dnskey;
 
@@ -244,7 +247,7 @@ struct DnsResourceRecord {
         };
 };
 
-static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
+static inline const void *DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr) {
         if (!rr)
                 return NULL;
 
@@ -252,7 +255,7 @@ static inline const void* DNS_RESOURCE_RECORD_RDATA(const DnsResourceRecord *rr)
                 return NULL;
 
         assert(rr->wire_format_rdata_offset <= rr->wire_format_size);
-        return (uint8_t*) rr->wire_format + rr->wire_format_rdata_offset;
+        return (uint8_t *) rr->wire_format + rr->wire_format_rdata_offset;
 }
 
 static inline size_t DNS_RESOURCE_RECORD_RDATA_SIZE(const DnsResourceRecord *rr) {
@@ -272,13 +275,13 @@ static inline uint8_t DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(const DnsResourc
         return ((rr->ttl >> 16) & 0xFF) == 0;
 }
 
-DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
-DnsResourceKey* dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
+DnsResourceKey *dns_resource_key_new(uint16_t class, uint16_t type, const char *name);
+DnsResourceKey *dns_resource_key_new_redirect(const DnsResourceKey *key, const DnsResourceRecord *cname);
 int dns_resource_key_new_append_suffix(DnsResourceKey **ret, DnsResourceKey *key, char *name);
-DnsResourceKey* dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
-DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
-DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
-const char* dns_resource_key_name(const DnsResourceKey *key);
+DnsResourceKey *dns_resource_key_new_consume(uint16_t class, uint16_t type, char *name);
+DnsResourceKey *dns_resource_key_ref(DnsResourceKey *key);
+DnsResourceKey *dns_resource_key_unref(DnsResourceKey *key);
+const char *dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
@@ -290,10 +293,10 @@ int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *
  * DNS_HOSTNAME_MAX does not include the NUL byte, so we need to add 1. */
 #define DNS_RESOURCE_KEY_STRING_MAX (_DNS_CLASS_STRING_MAX + _DNS_TYPE_STRING_MAX + DNS_HOSTNAME_MAX + 1)
 
-char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
+char *dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t buf_size);
 ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey*, dns_resource_key_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceKey *, dns_resource_key_unref);
 
 static inline bool dns_key_is_shared(const DnsResourceKey *key) {
         return IN_SET(key->type, DNS_TYPE_PTR);
@@ -301,16 +304,16 @@ static inline bool dns_key_is_shared(const DnsResourceKey *key) {
 
 bool dns_resource_key_reduce(DnsResourceKey **a, DnsResourceKey **b);
 
-DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key);
-DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
-DnsResourceRecord* dns_resource_record_ref(DnsResourceRecord *rr);
-DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
+DnsResourceRecord *dns_resource_record_new(DnsResourceKey *key);
+DnsResourceRecord *dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
+DnsResourceRecord *dns_resource_record_ref(DnsResourceRecord *rr);
+DnsResourceRecord *dns_resource_record_unref(DnsResourceRecord *rr);
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
-const char* dns_resource_record_to_string(DnsResourceRecord *rr);
+const char *dns_resource_record_to_string(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord *, dns_resource_record_unref);
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical);
 

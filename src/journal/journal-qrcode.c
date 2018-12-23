@@ -27,19 +27,12 @@ static void print_border(FILE *output, unsigned width) {
         }
 }
 
-int print_qr_code(
-                FILE *output,
-                const void *seed,
-                size_t seed_size,
-                uint64_t start,
-                uint64_t interval,
-                const char *hn,
-                sd_id128_t machine) {
+int print_qr_code(FILE *output, const void *seed, size_t seed_size, uint64_t start, uint64_t interval, const char *hn, sd_id128_t machine) {
 
         FILE *f;
         char *url = NULL;
         size_t url_size = 0, i;
-        QRcode* qr;
+        QRcode *qr;
         unsigned x, y;
 
         assert(seed);
@@ -56,13 +49,10 @@ int print_qr_code(
         for (i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
                         fputc('-', f);
-                fprintf(f, "%02x", ((uint8_t*) seed)[i]);
+                fprintf(f, "%02x", ((uint8_t *) seed)[i]);
         }
 
-        fprintf(f, "/%"PRIx64"-%"PRIx64"?machine=" SD_ID128_FORMAT_STR,
-                start,
-                interval,
-                SD_ID128_FORMAT_VAL(machine));
+        fprintf(f, "/%" PRIx64 "-%" PRIx64 "?machine=" SD_ID128_FORMAT_STR, start, interval, SD_ID128_FORMAT_VAL(machine));
 
         if (hn)
                 fprintf(f, ";hostname=%s", hn);
@@ -93,11 +83,11 @@ int print_qr_code(
                 for (x = 0; x < 4; x++)
                         fputs("\342\226\210", output);
 
-                for (x = 0; x < (unsigned) qr->width; x ++) {
+                for (x = 0; x < (unsigned) qr->width; x++) {
                         bool a, b;
 
                         a = row1[x] & 1;
-                        b = (y+1) < (unsigned) qr->width ? (row2[x] & 1) : false;
+                        b = (y + 1) < (unsigned) qr->width ? (row2[x] & 1) : false;
 
                         if (a && b)
                                 fputc(' ', output);

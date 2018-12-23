@@ -106,7 +106,8 @@ struct vtable_member {
         const sd_bus_vtable *vtable;
 };
 
-typedef enum BusSlotType {
+typedef enum BusSlotType
+{
         BUS_REPLY_CALLBACK,
         BUS_FILTER_CALLBACK,
         BUS_MATCH_CALLBACK,
@@ -122,7 +123,7 @@ struct sd_bus_slot {
         sd_bus *bus;
         void *userdata;
         sd_bus_destroy_t destroy_callback;
-        BusSlotType type:5;
+        BusSlotType type : 5;
 
         /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
          * they are associated with. This means the bus object stays allocated at least as long as there is a slot
@@ -130,9 +131,9 @@ struct sd_bus_slot {
          * bus: it will be disconnected from the bus when the bus is destroyed, and it keeping the slot reffed hence
          * won't mean the bus stays reffed too. Internally this means the reference direction is reversed: floating
          * slots objects are referenced by the bus object, and not vice versa. */
-        bool floating:1;
+        bool floating : 1;
 
-        bool match_added:1;
+        bool match_added : 1;
         char *description;
 
         LIST_FIELDS(sd_bus_slot, slots);
@@ -148,12 +149,13 @@ struct sd_bus_slot {
         };
 };
 
-enum bus_state {
+enum bus_state
+{
         BUS_UNSET,
-        BUS_WATCH_BIND,      /* waiting for the socket to appear via inotify */
-        BUS_OPENING,         /* the kernel's connect() is still not ready */
-        BUS_AUTHENTICATING,  /* we are currently in the "SASL" authorization phase of dbus */
-        BUS_HELLO,           /* we are waiting for the Hello() response */
+        BUS_WATCH_BIND,     /* waiting for the socket to appear via inotify */
+        BUS_OPENING,        /* the kernel's connect() is still not ready */
+        BUS_AUTHENTICATING, /* we are currently in the "SASL" authorization phase of dbus */
+        BUS_HELLO,          /* we are waiting for the Hello() response */
         BUS_RUNNING,
         BUS_CLOSING,
         BUS_CLOSED,
@@ -164,7 +166,8 @@ static inline bool BUS_IS_OPEN(enum bus_state state) {
         return state > BUS_UNSET && state < BUS_CLOSING;
 }
 
-enum bus_auth {
+enum bus_auth
+{
         _BUS_AUTH_INVALID,
         BUS_AUTH_EXTERNAL,
         BUS_AUTH_ANONYMOUS
@@ -187,31 +190,31 @@ struct sd_bus {
         int message_version;
         int message_endian;
 
-        bool can_fds:1;
-        bool bus_client:1;
-        bool ucred_valid:1;
-        bool is_server:1;
-        bool anonymous_auth:1;
-        bool prefer_readv:1;
-        bool prefer_writev:1;
-        bool match_callbacks_modified:1;
-        bool filter_callbacks_modified:1;
-        bool nodes_modified:1;
-        bool trusted:1;
-        bool manual_peer_interface:1;
-        bool is_system:1;
-        bool is_user:1;
-        bool allow_interactive_authorization:1;
-        bool exit_on_disconnect:1;
-        bool exited:1;
-        bool exit_triggered:1;
-        bool is_local:1;
-        bool watch_bind:1;
-        bool is_monitor:1;
-        bool accept_fd:1;
-        bool attach_timestamp:1;
-        bool connected_signal:1;
-        bool close_on_exit:1;
+        bool can_fds : 1;
+        bool bus_client : 1;
+        bool ucred_valid : 1;
+        bool is_server : 1;
+        bool anonymous_auth : 1;
+        bool prefer_readv : 1;
+        bool prefer_writev : 1;
+        bool match_callbacks_modified : 1;
+        bool filter_callbacks_modified : 1;
+        bool nodes_modified : 1;
+        bool trusted : 1;
+        bool manual_peer_interface : 1;
+        bool is_system : 1;
+        bool is_user : 1;
+        bool allow_interactive_authorization : 1;
+        bool exit_on_disconnect : 1;
+        bool exited : 1;
+        bool exit_triggered : 1;
+        bool is_local : 1;
+        bool watch_bind : 1;
+        bool is_monitor : 1;
+        bool accept_fd : 1;
+        bool attach_timestamp : 1;
+        bool connected_signal : 1;
+        bool close_on_exit : 1;
 
         int use_memfd;
 
@@ -321,17 +324,17 @@ struct sd_bus {
 };
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
-#define BUS_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
+#define BUS_DEFAULT_TIMEOUT ((usec_t)(25 * USEC_PER_SEC))
 
 /* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not filled up
  * with enough entropy yet and might delay the boot */
 #define BUS_AUTH_TIMEOUT ((usec_t) DEFAULT_TIMEOUT_USEC)
 
-#define BUS_WQUEUE_MAX (192*1024)
-#define BUS_RQUEUE_MAX (192*1024)
+#define BUS_WQUEUE_MAX (192 * 1024)
+#define BUS_RQUEUE_MAX (192 * 1024)
 
-#define BUS_MESSAGE_SIZE_MAX (128*1024*1024)
-#define BUS_AUTH_SIZE_MAX (64*1024)
+#define BUS_MESSAGE_SIZE_MAX (128 * 1024 * 1024)
+#define BUS_AUTH_SIZE_MAX (64 * 1024)
 
 #define BUS_CONTAINER_DEPTH 128
 
@@ -379,15 +382,17 @@ int bus_attach_inotify_event(sd_bus *b);
 void bus_close_inotify_fd(sd_bus *b);
 void bus_close_io_fds(sd_bus *b);
 
-#define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
-        for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
-             _slash && ((_slash[(_slash) == (prefix)] = 0), true);       \
+#define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                           \
+        for (char *_slash = ({                                             \
+                     strcpy((prefix), (path));                             \
+                     streq((prefix), "/") ? NULL : strrchr((prefix), '/'); \
+             });                                                           \
+             _slash && ((_slash[(_slash) == (prefix)] = 0), true);         \
              _slash = streq((prefix), "/") ? NULL : strrchr((prefix), '/'))
 
 /* If we are invoking callbacks of a bus object, ensure unreffing the
  * bus from the callback doesn't destroy the object we are working on */
-#define BUS_DONT_DESTROY(bus) \
-        _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
+#define BUS_DONT_DESTROY(bus) _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 
 int bus_set_address_system(sd_bus *bus);
 int bus_set_address_user(sd_bus *bus);
@@ -396,10 +401,10 @@ int bus_set_address_system_machine(sd_bus *b, const char *machine);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
 
-#define bus_assert_return(expr, r, error)                               \
-        do {                                                            \
-                if (!assert_log(expr, #expr))                           \
-                        return sd_bus_error_set_errno(error, r);        \
+#define bus_assert_return(expr, r, error)                        \
+        do {                                                     \
+                if (!assert_log(expr, #expr))                    \
+                        return sd_bus_error_set_errno(error, r); \
         } while (false)
 
 void bus_enter_closing(sd_bus *bus);

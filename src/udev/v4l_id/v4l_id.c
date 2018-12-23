@@ -30,10 +30,7 @@
 #include "util.h"
 
 int main(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "help", no_argument, NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, {} };
         _cleanup_close_ int fd = -1;
         char *device;
         struct v4l2_capability v2cap;
@@ -45,8 +42,8 @@ int main(int argc, char *argv[]) {
                 case 'h':
                         printf("%s [-h,--help] <device file>\n\n"
                                "Video4Linux device identification.\n\n"
-                               "  -h  Print this message\n"
-                               , program_invocation_short_name);
+                               "  -h  Print this message\n",
+                               program_invocation_short_name);
                         return 0;
                 case '?':
                         return -EINVAL;
@@ -67,11 +64,9 @@ int main(int argc, char *argv[]) {
                 printf("ID_V4L_VERSION=2\n");
                 printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
                 printf("ID_V4L_CAPABILITIES=:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 ||
-                    (v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 || (v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
                         printf("capture:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 ||
-                    (v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
+                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 || (v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
                         printf("video_output:");
                 if ((v2cap.capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
                         printf("video_overlay:");

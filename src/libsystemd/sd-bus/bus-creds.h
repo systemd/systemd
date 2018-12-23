@@ -55,15 +55,15 @@ struct sd_bus_creds {
         char *unique_name;
 
         char **well_known_names;
-        bool well_known_names_driver:1;
-        bool well_known_names_local:1;
+        bool well_known_names_driver : 1;
+        bool well_known_names_local : 1;
 
         char *cgroup_root;
 
         char *description, *unescaped_description;
 };
 
-sd_bus_creds* bus_creds_new(void);
+sd_bus_creds *bus_creds_new(void);
 
 void bus_creds_done(sd_bus_creds *c);
 

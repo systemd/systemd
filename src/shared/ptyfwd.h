@@ -9,7 +9,8 @@
 
 typedef struct PTYForward PTYForward;
 
-typedef enum PTYForwardFlags {
+typedef enum PTYForwardFlags
+{
         PTY_FORWARD_READ_ONLY = 1,
 
         /* Continue reading after hangup? */
@@ -39,4 +40,4 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority);
 
 int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward *, pty_forward_free);

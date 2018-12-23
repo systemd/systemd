@@ -23,7 +23,7 @@
 #include "tests.h"
 
 static int here = 0, here2 = 0, here3 = 0;
-void *ignore_stdout_args[] = {&here, &here2, &here3};
+void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
@@ -57,12 +57,9 @@ static const gather_stdout_callback_t ignore_stdout[] = {
 static void test_execute_directory(bool gather_stdout) {
         char template_lo[] = "/tmp/test-exec-util.lo.XXXXXXX";
         char template_hi[] = "/tmp/test-exec-util.hi.XXXXXXX";
-        const char * dirs[] = {template_hi, template_lo, NULL};
-        const char *name, *name2, *name3,
-                *overridden, *override,
-                *masked, *mask,
-                *masked2, *mask2,   /* the mask is non-executable */
-                *masked2e, *mask2e; /* the mask is executable */
+        const char *dirs[] = { template_hi, template_lo, NULL };
+        const char *name, *name2, *name3, *overridden, *override, *masked, *mask, *masked2, *mask2, /* the mask is non-executable */
+                *masked2e, *mask2e;                                                                 /* the mask is executable */
 
         log_info("/* %s (%s) */", __func__, gather_stdout ? "gathering stdout" : "asynchronous");
 
@@ -81,27 +78,13 @@ static void test_execute_directory(bool gather_stdout) {
         masked2e = strjoina(template_lo, "/masked2e");
         mask2e = strjoina(template_hi, "/masked2e");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(overridden,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(override,
-                                    "#!/bin/sh\necho 'Executing '$0",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2e,
-                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
-                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked2e, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(symlink("/dev/null", mask) == 0);
         assert_se(touch(mask2) == 0);
         assert_se(touch(mask2e) == 0);
@@ -129,14 +112,14 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template_lo, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(template_hi, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_execution_order(void) {
         char template_lo[] = "/tmp/test-exec-util-lo.XXXXXXX";
         char template_hi[] = "/tmp/test-exec-util-hi.XXXXXXX";
-        const char *dirs[] = {template_hi, template_lo, NULL};
+        const char *dirs[] = { template_hi, template_lo, NULL };
         const char *name, *name2, *name3, *overridden, *override, *masked, *mask;
         const char *output, *t;
         _cleanup_free_ char *contents = NULL;
@@ -189,8 +172,8 @@ static void test_execution_order(void) {
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
 
-        (void) rm_rf(template_lo, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(template_hi, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(template_lo, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(template_hi, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static int gather_stdout_one(int fd, void *arg) {
@@ -210,7 +193,7 @@ static int gather_stdout_two(int fd, void *arg) {
         char ***s = arg, **t;
 
         STRV_FOREACH(t, *s)
-                assert_se(write(fd, *t, strlen(*t)) == (ssize_t) strlen(*t));
+        assert_se(write(fd, *t, strlen(*t)) == (ssize_t) strlen(*t));
         safe_close(fd);
 
         return 0;
@@ -234,14 +217,14 @@ const gather_stdout_callback_t gather_stdout[] = {
 
 static void test_stdout_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX";
-        const char *dirs[] = {template, NULL};
+        const char *dirs[] = { template, NULL };
         const char *name, *name2, *name3;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         _cleanup_free_ char *output = NULL;
 
-        void* args[] = {&tmp, &tmp, &output};
+        void *args[] = { &tmp, &tmp, &output };
 
         assert_se(mkdtemp(template));
 
@@ -252,15 +235,9 @@ static void test_stdout_gathering(void) {
         name2 = strjoina(template, "/20-bar");
         name3 = strjoina(template, "/30-last");
 
-        assert_se(write_string_file(name,
-                                    "#!/bin/sh\necho a\necho b\necho c\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2,
-                                    "#!/bin/sh\necho d\n",
-                                    WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name3,
-                                    "#!/bin/sh\nsleep 1",
-                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho a\necho b\necho c\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2, "#!/bin/sh\necho d\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name3, "#!/bin/sh\nsleep 1", WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
@@ -276,14 +253,14 @@ static void test_stdout_gathering(void) {
 
 static void test_environment_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX", **p;
-        const char *dirs[] = {template, NULL};
+        const char *dirs[] = { template, NULL };
         const char *name, *name2, *name3, *old;
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
         _cleanup_strv_free_ char **env = NULL;
 
-        void* const args[] = { &tmp, &tmp, &env };
+        void *const args[] = { &tmp, &tmp, &env };
 
         assert_se(mkdtemp(template));
 
@@ -300,15 +277,15 @@ static void test_environment_gathering(void) {
                                     WRITE_STRING_FILE_CREATE) == 0);
         assert_se(write_string_file(name2,
                                     "#!/bin/sh\n"
-                                    "echo A=22:$A\n\n\n",            /* substitution from previous generator */
+                                    "echo A=22:$A\n\n\n", /* substitution from previous generator */
                                     WRITE_STRING_FILE_CREATE) == 0);
         assert_se(write_string_file(name3,
                                     "#!/bin/sh\n"
                                     "echo A=$A:24\n"
                                     "echo B=12\n"
                                     "echo C=000\n"
-                                    "echo C=001\n"                    /* variable overwriting */
-                                     /* various invalid entries */
+                                    "echo C=001\n" /* variable overwriting */
+                                                   /* various invalid entries */
                                     "echo unset A\n"
                                     "echo unset A=\n"
                                     "echo unset A=B\n"
@@ -316,7 +293,7 @@ static void test_environment_gathering(void) {
                                     "echo A B=C\n"
                                     "echo A\n"
                                     /* test variable assignment without newline */
-                                    "echo PATH=$PATH:/no/such/file",   /* no newline */
+                                    "echo PATH=$PATH:/no/such/file", /* no newline */
                                     WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(chmod(name, 0755) == 0);
@@ -336,7 +313,7 @@ static void test_environment_gathering(void) {
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
-                log_info("got env: \"%s\"", *p);
+        log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));
@@ -353,7 +330,7 @@ static void test_environment_gathering(void) {
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
-                log_info("got env: \"%s\"", *p);
+        log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
         assert_se(streq(strv_env_get(env, "B"), "12"));

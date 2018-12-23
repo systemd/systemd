@@ -23,7 +23,7 @@ int clock_get_hwclock(struct tm *tm) {
 
         assert(tm);
 
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
+        fd = open("/dev/rtc", O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -44,7 +44,7 @@ int clock_set_hwclock(const struct tm *tm) {
 
         assert(tm);
 
-        fd = open("/dev/rtc", O_RDONLY|O_CLOEXEC);
+        fd = open("/dev/rtc", O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -54,7 +54,7 @@ int clock_set_hwclock(const struct tm *tm) {
         return 0;
 }
 
-int clock_is_localtime(const char* adjtime_path) {
+int clock_is_localtime(const char *adjtime_path) {
         _cleanup_fclose_ FILE *f;
         int r;
 

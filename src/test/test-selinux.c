@@ -40,7 +40,7 @@ static void test_loading(void) {
         n1 = now(CLOCK_MONOTONIC);
         r = mac_selinux_init();
         n2 = now(CLOCK_MONOTONIC);
-        log_info_errno(r, "mac_selinux_init → %d %.2fs (%m)", r, (n2 - n1)/1e6);
+        log_info_errno(r, "mac_selinux_init → %d %.2fs (%m)", r, (n2 - n1) / 1e6);
 }
 
 static void test_cleanup(void) {
@@ -51,10 +51,10 @@ static void test_cleanup(void) {
         n1 = now(CLOCK_MONOTONIC);
         mac_selinux_finish();
         n2 = now(CLOCK_MONOTONIC);
-        log_info("mac_selinux_finish → %.2fs", (n2 - n1)/1e6);
+        log_info("mac_selinux_finish → %.2fs", (n2 - n1) / 1e6);
 }
 
-static void test_misc(const char* fname) {
+static void test_misc(const char *fname) {
         _cleanup_(mac_selinux_freep) char *label = NULL, *label2 = NULL, *label3 = NULL;
         int r;
         _cleanup_close_ int fd = -1;
@@ -62,22 +62,19 @@ static void test_misc(const char* fname) {
         log_info("============ %s ==========", __func__);
 
         r = mac_selinux_get_our_label(&label);
-        log_info_errno(r, "mac_selinux_get_our_label → %d, \"%s\" (%m)",
-                       r, strnull(label));
+        log_info_errno(r, "mac_selinux_get_our_label → %d, \"%s\" (%m)", r, strnull(label));
 
         r = mac_selinux_get_create_label_from_exe(fname, &label2);
-        log_info_errno(r, "mac_selinux_create_label_from_exe → %d, \"%s\" (%m)",
-                       r, strnull(label2));
+        log_info_errno(r, "mac_selinux_create_label_from_exe → %d, \"%s\" (%m)", r, strnull(label2));
 
         fd = socket(AF_INET, SOCK_DGRAM, 0);
         assert_se(fd >= 0);
 
         r = mac_selinux_get_child_mls_label(fd, fname, label2, &label3);
-        log_info_errno(r, "mac_selinux_get_child_mls_label → %d, \"%s\" (%m)",
-                       r, strnull(label3));
+        log_info_errno(r, "mac_selinux_get_child_mls_label → %d, \"%s\" (%m)", r, strnull(label3));
 }
 
-static void test_create_file_prepare(const char* fname) {
+static void test_create_file_prepare(const char *fname) {
         int r;
 
         log_info("============ %s ==========", __func__);

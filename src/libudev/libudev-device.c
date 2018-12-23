@@ -181,11 +181,11 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
 
         assert(device);
 
-        udev_device = new(struct udev_device, 1);
+        udev_device = new (struct udev_device, 1);
         if (!udev_device)
                 return_with_errno(NULL, ENOMEM);
 
-        *udev_device = (struct udev_device) {
+        *udev_device = (struct udev_device){
                 .n_ref = 1,
                 .udev = udev,
                 .device = sd_device_ref(device),
@@ -395,7 +395,9 @@ _public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_dev
  *
  * Returns: a new udev device, or #NULL if no matching parent exists.
  **/
-_public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype) {
+_public_ struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device,
+                                                                           const char *subsystem,
+                                                                           const char *devtype) {
         sd_device *parent;
         int r;
 
@@ -592,15 +594,14 @@ _public_ const char *udev_device_get_devnode(struct udev_device *udev_device) {
 _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation ||
-            !udev_device->devlinks_read) {
+        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation || !udev_device->devlinks_read) {
                 const char *devlink;
 
                 udev_list_cleanup(&udev_device->devlinks);
 
                 FOREACH_DEVICE_DEVLINK(udev_device->device, devlink)
-                        if (!udev_list_entry_add(&udev_device->devlinks, devlink, NULL))
-                                return_with_errno(NULL, ENOMEM);
+                if (!udev_list_entry_add(&udev_device->devlinks, devlink, NULL))
+                        return_with_errno(NULL, ENOMEM);
 
                 udev_device->devlinks_read = true;
                 udev_device->devlinks_generation = device_get_devlinks_generation(udev_device->device);
@@ -624,15 +625,14 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
 _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation ||
-            !udev_device->properties_read) {
+        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation || !udev_device->properties_read) {
                 const char *key, *value;
 
                 udev_list_cleanup(&udev_device->properties);
 
                 FOREACH_DEVICE_PROPERTY(udev_device->device, key, value)
-                        if (!udev_list_entry_add(&udev_device->properties, key, value))
-                                return_with_errno(NULL, ENOMEM);
+                if (!udev_list_entry_add(&udev_device->properties, key, value))
+                        return_with_errno(NULL, ENOMEM);
 
                 udev_device->properties_read = true;
                 udev_device->properties_generation = device_get_properties_generation(udev_device->device);
@@ -755,8 +755,8 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
                 udev_list_cleanup(&udev_device->sysattrs);
 
                 FOREACH_DEVICE_SYSATTR(udev_device->device, sysattr)
-                        if (!udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL))
-                                return_with_errno(NULL, ENOMEM);
+                if (!udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL))
+                        return_with_errno(NULL, ENOMEM);
 
                 udev_device->sysattrs_read = true;
         }
@@ -803,15 +803,14 @@ _public_ int udev_device_get_is_initialized(struct udev_device *udev_device) {
 _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation ||
-            !udev_device->tags_read) {
+        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation || !udev_device->tags_read) {
                 const char *tag;
 
                 udev_list_cleanup(&udev_device->tags);
 
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
-                        if (!udev_list_entry_add(&udev_device->tags, tag, NULL))
-                                return_with_errno(NULL, ENOMEM);
+                if (!udev_list_entry_add(&udev_device->tags, tag, NULL))
+                        return_with_errno(NULL, ENOMEM);
 
                 udev_device->tags_read = true;
                 udev_device->tags_generation = device_get_tags_generation(udev_device->device);

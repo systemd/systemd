@@ -44,17 +44,17 @@ static int help(void) {
                "     --uid=USER        Set user to send from\n"
                "     --status=TEXT     Set status text\n"
                "     --booted          Check if the system was booted up with systemd\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_READY = 0x100,
                 ARG_VERSION,
                 ARG_PID,
@@ -63,16 +63,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UID,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "ready",     no_argument,       NULL, ARG_READY     },
-                { "pid",       optional_argument, NULL, ARG_PID       },
-                { "status",    required_argument, NULL, ARG_STATUS    },
-                { "booted",    no_argument,       NULL, ARG_BOOTED    },
-                { "uid",       required_argument, NULL, ARG_UID       },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "ready", no_argument, NULL, ARG_READY },
+                                                 { "pid", optional_argument, NULL, ARG_PID },
+                                                 { "status", required_argument, NULL, ARG_STATUS },
+                                                 { "booted", no_argument, NULL, ARG_BOOTED },
+                                                 { "uid", required_argument, NULL, ARG_UID },
+                                                 {} };
 
         int c, r;
 
@@ -97,8 +95,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (optarg) {
                                 if (parse_pid(optarg, &arg_pid) < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse PID %s.", optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PID %s.", optarg);
                         } else
                                 arg_pid = getppid();
 
@@ -132,11 +129,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (optind >= argc &&
-            !arg_ready &&
-            !arg_status &&
-            !arg_pid &&
-            !arg_booted) {
+        if (optind >= argc && !arg_ready && !arg_status && !arg_pid && !arg_booted) {
                 help();
                 return -EINVAL;
         }
@@ -144,10 +137,10 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int run(int argc, char* argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        char* our_env[4];
+        char *our_env[4];
         unsigned i = 0;
         int r;
 
@@ -162,7 +155,7 @@ static int run(int argc, char* argv[]) {
                 return sd_booted() <= 0;
 
         if (arg_ready)
-                our_env[i++] = (char*) "READY=1";
+                our_env[i++] = (char *) "READY=1";
 
         if (arg_status) {
                 status = strappend("STATUS=", arg_status);
@@ -173,7 +166,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_pid > 0) {
-                if (asprintf(&cpid, "MAINPID="PID_FMT, arg_pid) < 0)
+                if (asprintf(&cpid, "MAINPID=" PID_FMT, arg_pid) < 0)
                         return log_oom();
 
                 our_env[i++] = cpid;
@@ -196,20 +189,17 @@ static int run(int argc, char* argv[]) {
            the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
            ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 
-        if (arg_gid != GID_INVALID &&
-            setregid(arg_gid, (gid_t) -1) < 0)
+        if (arg_gid != GID_INVALID && setregid(arg_gid, (gid_t) -1) < 0)
                 return log_error_errno(errno, "Failed to change GID: %m");
 
-        if (arg_uid != UID_INVALID &&
-            setreuid(arg_uid, (uid_t) -1) < 0)
+        if (arg_uid != UID_INVALID && setreuid(arg_uid, (uid_t) -1) < 0)
                 return log_error_errno(errno, "Failed to change UID: %m");
 
         r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "No status data could be sent: $NOTIFY_SOCKET was not set");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No status data could be sent: $NOTIFY_SOCKET was not set");
         return 0;
 }
 

@@ -28,7 +28,7 @@ static void test_non_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
 
         assert_se(dual_timestamp_get(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
@@ -101,7 +101,7 @@ static void test_non_empty(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");
@@ -116,13 +116,18 @@ static void test_empty(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f1) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR | O_CREAT, 0666, false, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f1) ==
+                  0);
 
-        assert_se(journal_file_open(-1, "test-compress.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f2) == 0);
+        assert_se(journal_file_open(
+                          -1, "test-compress.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f2) == 0);
 
-        assert_se(journal_file_open(-1, "test-seal.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f3) == 0);
+        assert_se(journal_file_open(
+                          -1, "test-seal.journal", O_RDWR | O_CREAT, 0666, false, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f3) == 0);
 
-        assert_se(journal_file_open(-1, "test-seal-compress.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f4) == 0);
+        assert_se(journal_file_open(
+                          -1, "test-seal-compress.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f4) ==
+                  0);
 
         journal_file_print_header(f1);
         puts("");
@@ -140,7 +145,7 @@ static void test_empty(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 
         (void) journal_file_close(f1);
@@ -157,7 +162,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         Object *o;
         uint64_t p;
         char t[] = "/tmp/journal-XXXXXX";
-        char data[2048] = {0};
+        char data[2048] = { 0 };
         bool is_compressed;
         int r;
 
@@ -168,7 +173,8 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR | O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) ==
+                  0);
 
         dual_timestamp_get(&ts);
 
@@ -204,7 +210,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");

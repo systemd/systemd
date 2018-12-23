@@ -157,7 +157,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 int pipe_eof(int fd) {
         struct pollfd pollfd = {
                 .fd = fd,
-                .events = POLLIN|POLLHUP,
+                .events = POLLIN | POLLHUP,
         };
 
         int r;
@@ -220,14 +220,12 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                 /* If there are more than the specified run length of
                  * NUL bytes, or if this is the beginning or the end
                  * of the buffer, then seek instead of write */
-                if ((n > run_length) ||
-                    (n > 0 && q == p) ||
-                    (n > 0 && q + n >= e)) {
+                if ((n > run_length) || (n > 0 && q == p) || (n > 0 && q + n >= e)) {
                         if (q > w) {
                                 l = write(fd, w, q - w);
                                 if (l < 0)
                                         return -errno;
-                                if (l != q -w)
+                                if (l != q - w)
                                         return -EIO;
                         }
 
@@ -250,5 +248,5 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                         return -EIO;
         }
 
-        return q - (const uint8_t*) p;
+        return q - (const uint8_t *) p;
 }

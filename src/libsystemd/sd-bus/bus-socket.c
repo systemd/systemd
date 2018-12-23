@@ -30,7 +30,7 @@
 #include "utf8.h"
 #include "util.h"
 
-#define SNDBUF_SIZE (8*1024*1024)
+#define SNDBUF_SIZE (8 * 1024 * 1024)
 
 static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
 
@@ -38,7 +38,7 @@ static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
                 struct iovec *i = iov + *idx;
 
                 if (i->iov_len > size) {
-                        i->iov_base = (uint8_t*) i->iov_base + size;
+                        i->iov_base = (uint8_t *) i->iov_base + size;
                         i->iov_len -= size;
                         return;
                 }
@@ -56,7 +56,7 @@ static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
         assert(p);
         assert(sz > 0);
 
-        m->iovec[m->n_iovec++] = IOVEC_MAKE((void*) p, sz);
+        m->iovec[m->n_iovec++] = IOVEC_MAKE((void *) p, sz);
 
         return 0;
 }
@@ -78,7 +78,7 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
         if (n < ELEMENTSOF(m->iovec_fixed))
                 m->iovec = m->iovec_fixed;
         else {
-                m->iovec = new(struct iovec, n);
+                m->iovec = new (struct iovec, n);
                 if (!m->iovec) {
                         r = -ENOMEM;
                         goto fail;
@@ -89,7 +89,7 @@ static int bus_message_setup_iovec(sd_bus_message *m) {
         if (r < 0)
                 goto fail;
 
-        MESSAGE_FOREACH_PART(part, i, m)  {
+        MESSAGE_FOREACH_PART(part, i, m) {
                 r = bus_body_part_map(part);
                 if (r < 0)
                         goto fail;
@@ -143,7 +143,7 @@ static int bus_socket_write_auth(sd_bus *b) {
                 mh.msg_iov = b->auth_iovec + b->auth_index;
                 mh.msg_iovlen = ELEMENTSOF(b->auth_iovec) - b->auth_index;
 
-                k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+                k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT | MSG_NOSIGNAL);
                 if (k < 0 && errno == ENOTSOCK) {
                         b->prefer_writev = true;
                         k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
@@ -173,7 +173,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                 return 0;
 
         if (b->accept_fd) {
-                f = memmem(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
+                f = memmem(e + 2, b->rbuffer_size - (e - (char *) b->rbuffer) - 2, "\r\n", 2);
                 if (!f)
                         return 0;
 
@@ -186,7 +186,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* Nice! We got all the lines we need. First check the OK
          * line */
 
-        if (e - (char*) b->rbuffer != 3 + 32)
+        if (e - (char *) b->rbuffer != 3 + 32)
                 return -EPERM;
 
         if (memcmp(b->rbuffer, "OK ", 3))
@@ -197,17 +197,16 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         for (i = 0; i < 32; i += 2) {
                 int x, y;
 
-                x = unhexchar(((char*) b->rbuffer)[3 + i]);
-                y = unhexchar(((char*) b->rbuffer)[3 + i + 1]);
+                x = unhexchar(((char *) b->rbuffer)[3 + i]);
+                y = unhexchar(((char *) b->rbuffer)[3 + i + 1]);
 
                 if (x < 0 || y < 0)
                         return -EINVAL;
 
-                peer.bytes[i/2] = ((uint8_t) x << 4 | (uint8_t) y);
+                peer.bytes[i / 2] = ((uint8_t) x << 4 | (uint8_t) y);
         }
 
-        if (!sd_id128_is_null(b->server_id) &&
-            !sd_id128_equal(b->server_id, peer))
+        if (!sd_id128_is_null(b->server_id) && !sd_id128_equal(b->server_id, peer))
                 return -EPERM;
 
         b->server_id = peer;
@@ -215,12 +214,9 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* And possibly check the second line, too */
 
         if (f)
-                b->can_fds =
-                        (f - e == STRLEN("\r\nAGREE_UNIX_FD")) &&
-                        memcmp(e + 2, "AGREE_UNIX_FD",
-                               STRLEN("AGREE_UNIX_FD")) == 0;
+                b->can_fds = (f - e == STRLEN("\r\nAGREE_UNIX_FD")) && memcmp(e + 2, "AGREE_UNIX_FD", STRLEN("AGREE_UNIX_FD")) == 0;
 
-        b->rbuffer_size -= (start - (char*) b->rbuffer);
+        b->rbuffer_size -= (start - (char *) b->rbuffer);
         memmove(b->rbuffer, start, b->rbuffer_size);
 
         r = bus_start_running(b);
@@ -259,7 +255,8 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
                 return 1;
 
         assert(p[0] == ' ');
-        p++; l--;
+        p++;
+        l--;
 
         if (l % 2 != 0)
                 return 0;
@@ -291,12 +288,13 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
                 return 1;
 
         assert(p[0] == ' ');
-        p++; l--;
+        p++;
+        l--;
 
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void**) &token, &len);
+        r = unhexmem(p, l, (void **) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -365,7 +363,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                 return 0;
 
         /* First char must be a NUL byte */
-        if (*(char*) b->rbuffer != 0)
+        if (*(char *) b->rbuffer != 0)
                 return -EIO;
 
         if (b->rbuffer_size < 3)
@@ -377,7 +375,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
 
         for (;;) {
                 /* Check if line is complete */
-                line = (char*) b->rbuffer + b->auth_rbegin;
+                line = (char *) b->rbuffer + b->auth_rbegin;
                 e = memmem(line, b->rbuffer_size - b->auth_rbegin, "\r\n", 2);
                 if (!e)
                         return processed;
@@ -410,8 +408,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
 
                 } else if (line_begins(line, l, "AUTH"))
                         r = bus_socket_auth_write(b, "REJECTED EXTERNAL ANONYMOUS\r\n");
-                else if (line_equals(line, l, "CANCEL") ||
-                         line_begins(line, l, "ERROR")) {
+                else if (line_equals(line, l, "CANCEL") || line_begins(line, l, "ERROR")) {
 
                         b->auth = _BUS_AUTH_INVALID;
                         r = bus_socket_auth_write(b, "REJECTED\r\n");
@@ -429,7 +426,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                                 if (bus_socket_auth_needs_write(b))
                                         return 1;
 
-                                b->rbuffer_size -= (e + 2 - (char*) b->rbuffer);
+                                b->rbuffer_size -= (e + 2 - (char *) b->rbuffer);
                                 memmove(b->rbuffer, e + 2, b->rbuffer_size);
                                 return bus_start_running(b);
                         }
@@ -465,7 +462,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                 if (r < 0)
                         return r;
 
-                b->auth_rbegin = e + 2 - (char*) b->rbuffer;
+                b->auth_rbegin = e + 2 - (char *) b->rbuffer;
 
                 processed = true;
         }
@@ -514,7 +511,7 @@ static int bus_socket_read_auth(sd_bus *b) {
 
         b->rbuffer = p;
 
-        iov = IOVEC_MAKE((uint8_t *)b->rbuffer + b->rbuffer_size, n - b->rbuffer_size);
+        iov = IOVEC_MAKE((uint8_t *) b->rbuffer + b->rbuffer_size, n - b->rbuffer_size);
 
         if (b->prefer_readv)
                 k = readv(b->input_fd, &iov, 1);
@@ -525,7 +522,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                 mh.msg_control = &control;
                 mh.msg_controllen = sizeof(control);
 
-                k = recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                k = recvmsg(b->input_fd, &mh, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
                 if (k < 0 && errno == ENOTSOCK) {
                         b->prefer_readv = true;
                         k = readv(b->input_fd, &iov, 1);
@@ -542,20 +539,18 @@ static int bus_socket_read_auth(sd_bus *b) {
         if (handle_cmsg) {
                 struct cmsghdr *cmsg;
 
-                CMSG_FOREACH(cmsg, &mh)
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_RIGHTS) {
+                CMSG_FOREACH (cmsg, &mh)
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                                 int j;
 
                                 /* Whut? We received fds during the auth
                                  * protocol? Somebody is playing games with
                                  * us. Close them all, and fail */
                                 j = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                                close_many((int*) CMSG_DATA(cmsg), j);
+                                close_many((int *) CMSG_DATA(cmsg), j);
                                 return -EIO;
                         } else
-                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
-                                          cmsg->cmsg_level, cmsg->cmsg_type);
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d", cmsg->cmsg_level, cmsg->cmsg_type);
         }
 
         r = bus_socket_auth_verify(b);
@@ -631,7 +626,7 @@ static int bus_socket_start_auth_client(sd_bus *b) {
         else
                 auth_suffix = "\r\nBEGIN\r\n";
 
-        b->auth_iovec[0] = IOVEC_MAKE((void*) auth_prefix, 1 + strlen(auth_prefix + 1));
+        b->auth_iovec[0] = IOVEC_MAKE((void *) auth_prefix, 1 + strlen(auth_prefix + 1));
         b->auth_iovec[1] = IOVEC_MAKE(b->auth_buffer, l * 2);
         b->auth_iovec[2] = IOVEC_MAKE_STRING(auth_suffix);
 
@@ -680,7 +675,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
          * components. */
 
         if (b->inotify_fd < 0) {
-                b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                b->inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
                 if (b->inotify_fd < 0)
                         return -errno;
 
@@ -706,7 +701,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
 
         /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a symlink, and
          * always exists */
-        wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE|IN_MOVED_TO);
+        wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE | IN_MOVED_TO);
         if (wd < 0) {
                 r = log_debug_errno(errno, "Failed to add inotify watch on /: %m");
                 goto fail;
@@ -753,7 +748,8 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                wd = inotify_add_watch(b->inotify_fd, prefix, IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO|IN_DONT_FOLLOW);
+                wd = inotify_add_watch(
+                        b->inotify_fd, prefix, IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO | IN_DONT_FOLLOW);
                 log_debug("Added inotify watch for %s on bus %s: %i", prefix, strna(b->description), wd);
 
                 if (wd < 0) {
@@ -847,7 +843,7 @@ int bus_socket_connect(sd_bus *b) {
                 assert(b->output_fd < 0);
                 assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
-                b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
                 if (b->input_fd < 0)
                         return -errno;
 
@@ -870,10 +866,8 @@ int bus_socket_connect(sd_bus *b) {
                                 return 1;
                         }
 
-                        if (IN_SET(errno, ENOENT, ECONNREFUSED) &&  /* ENOENT → unix socket doesn't exist at all; ECONNREFUSED → unix socket stale */
-                            b->watch_bind &&
-                            b->sockaddr.sa.sa_family == AF_UNIX &&
-                            b->sockaddr.un.sun_path[0] != 0) {
+                        if (IN_SET(errno, ENOENT, ECONNREFUSED) && /* ENOENT → unix socket doesn't exist at all; ECONNREFUSED → unix socket stale */
+                            b->watch_bind && b->sockaddr.sa.sa_family == AF_UNIX && b->sockaddr.un.sun_path[0] != 0) {
 
                                 /* This connection attempt failed, let's release the socket for now, and start with a
                                  * fresh one when reconnecting. */
@@ -918,11 +912,11 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->exec_path);
         assert(b->busexec_pid == 0);
 
-        r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
+        r = socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, s);
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &b->busexec_pid);
+        r = safe_fork_full("(sd-busexec)", s + 1, 1, FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS, &b->busexec_pid);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
@@ -939,7 +933,7 @@ int bus_socket_exec(sd_bus *b) {
                         execvp(b->exec_path, b->exec_argv);
                 else {
                         const char *argv[] = { b->exec_path, NULL };
-                        execvp(b->exec_path, (char**) argv);
+                        execvp(b->exec_path, (char **) argv);
                 }
 
                 _exit(EXIT_FAILURE);
@@ -1005,7 +999,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                         memcpy(CMSG_DATA(control), m->fds, sizeof(int) * m->n_fds);
                 }
 
-                k = sendmsg(bus->output_fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+                k = sendmsg(bus->output_fd, &mh, MSG_DONTWAIT | MSG_NOSIGNAL);
                 if (k < 0 && errno == ENOTSOCK) {
                         bus->prefer_writev = true;
                         k = writev(bus->output_fd, iov, m->n_iovec);
@@ -1050,10 +1044,10 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
                 return 0;
         }
 
-        a = ((const uint32_t*) bus->rbuffer)[1];
-        b = ((const uint32_t*) bus->rbuffer)[3];
+        a = ((const uint32_t *) bus->rbuffer)[1];
+        b = ((const uint32_t *) bus->rbuffer)[3];
 
-        e = ((const uint8_t*) bus->rbuffer)[0];
+        e = ((const uint8_t *) bus->rbuffer)[0];
         if (e == BUS_LITTLE_ENDIAN) {
                 a = le32toh(a);
                 b = le32toh(b);
@@ -1085,18 +1079,13 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
                 return r;
 
         if (bus->rbuffer_size > size) {
-                b = memdup((const uint8_t*) bus->rbuffer + size,
-                           bus->rbuffer_size - size);
+                b = memdup((const uint8_t *) bus->rbuffer + size, bus->rbuffer_size - size);
                 if (!b)
                         return -ENOMEM;
         } else
                 b = NULL;
 
-        r = bus_message_from_malloc(bus,
-                                    bus->rbuffer, size,
-                                    bus->fds, bus->n_fds,
-                                    NULL,
-                                    &t);
+        r = bus_message_from_malloc(bus, bus->rbuffer, size, bus->fds, bus->n_fds, NULL, &t);
         if (r < 0) {
                 free(b);
                 return r;
@@ -1142,7 +1131,7 @@ int bus_socket_read_message(sd_bus *bus) {
 
         bus->rbuffer = b;
 
-        iov = IOVEC_MAKE((uint8_t *)bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
+        iov = IOVEC_MAKE((uint8_t *) bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
 
         if (bus->prefer_readv)
                 k = readv(bus->input_fd, &iov, 1);
@@ -1153,7 +1142,7 @@ int bus_socket_read_message(sd_bus *bus) {
                 mh.msg_control = &control;
                 mh.msg_controllen = sizeof(control);
 
-                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
                 if (k < 0 && errno == ENOTSOCK) {
                         bus->prefer_readv = true;
                         k = readv(bus->input_fd, &iov, 1);
@@ -1170,9 +1159,8 @@ int bus_socket_read_message(sd_bus *bus) {
         if (handle_cmsg) {
                 struct cmsghdr *cmsg;
 
-                CMSG_FOREACH(cmsg, &mh)
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_RIGHTS) {
+                CMSG_FOREACH (cmsg, &mh)
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
                                 int n, *f, i;
 
                                 n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
@@ -1182,22 +1170,21 @@ int bus_socket_read_message(sd_bus *bus) {
                                          * isn't actually enabled? Close them,
                                          * and fail */
 
-                                        close_many((int*) CMSG_DATA(cmsg), n);
+                                        close_many((int *) CMSG_DATA(cmsg), n);
                                         return -EIO;
                                 }
 
                                 f = reallocarray(bus->fds, bus->n_fds + n, sizeof(int));
                                 if (!f) {
-                                        close_many((int*) CMSG_DATA(cmsg), n);
+                                        close_many((int *) CMSG_DATA(cmsg), n);
                                         return -ENOMEM;
                                 }
 
                                 for (i = 0; i < n; i++)
-                                        f[bus->n_fds++] = fd_move_above_stdio(((int*) CMSG_DATA(cmsg))[i]);
+                                        f[bus->n_fds++] = fd_move_above_stdio(((int *) CMSG_DATA(cmsg))[i]);
                                 bus->fds = f;
                         } else
-                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
-                                          cmsg->cmsg_level, cmsg->cmsg_type);
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d", cmsg->cmsg_level, cmsg->cmsg_type);
         }
 
         r = bus_socket_read_message_need(bus, &need);
@@ -1225,7 +1212,7 @@ int bus_socket_process_opening(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        if (!(p.revents & (POLLOUT|POLLERR|POLLHUP)))
+        if (!(p.revents & (POLLOUT | POLLERR | POLLHUP)))
                 return 0;
 
         r = getsockopt(b->output_fd, SOL_SOCKET, SO_ERROR, &error, &slen);
@@ -1233,7 +1220,7 @@ int bus_socket_process_opening(sd_bus *b) {
                 b->last_connect_error = errno;
         else if (error != 0)
                 b->last_connect_error = error;
-        else if (p.revents & (POLLERR|POLLHUP))
+        else if (p.revents & (POLLERR | POLLHUP))
                 b->last_connect_error = ECONNREFUSED;
         else
                 return bus_socket_start_auth(b);

@@ -16,7 +16,8 @@ typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
 
-typedef enum CGroupDevicePolicy {
+typedef enum CGroupDevicePolicy
+{
 
         /* When devices listed, will allow those, plus built-in ones,
         if none are listed will allow everything. */
@@ -35,9 +36,9 @@ typedef enum CGroupDevicePolicy {
 struct CGroupDeviceAllow {
         LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
-        bool r:1;
-        bool w:1;
-        bool m:1;
+        bool r : 1;
+        bool w : 1;
+        bool m : 1;
 };
 
 struct CGroupIODeviceWeight {
@@ -123,7 +124,8 @@ struct CGroupContext {
 };
 
 /* Used when querying IP accounting data */
-typedef enum CGroupIPAccountingMetric {
+typedef enum CGroupIPAccountingMetric
+{
         CGROUP_IP_INGRESS_BYTES,
         CGROUP_IP_INGRESS_PACKETS,
         CGROUP_IP_EGRESS_BYTES,
@@ -137,7 +139,7 @@ typedef struct Manager Manager;
 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
-void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
+void cgroup_context_dump(CGroupContext *c, FILE *f, const char *prefix);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight *w);
@@ -184,7 +186,7 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m);
 
 Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
 Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid);
-Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
+Unit *manager_get_unit_by_pid(Manager *m, pid_t pid);
 
 int unit_search_main_pid(Unit *u, pid_t *ret);
 int unit_watch_all_pids(Unit *u);
@@ -199,10 +201,10 @@ int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *r
 int unit_reset_cpu_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
 
-#define UNIT_CGROUP_BOOL(u, name)                       \
-        ({                                              \
-        CGroupContext *cc = unit_get_cgroup_context(u); \
-        cc ? cc->name : false;                          \
+#define UNIT_CGROUP_BOOL(u, name)                               \
+        ({                                                      \
+                CGroupContext *cc = unit_get_cgroup_context(u); \
+                cc ? cc->name : false;                          \
         })
 
 bool manager_owns_host_root_cgroup(Manager *m);
@@ -215,7 +217,7 @@ void unit_invalidate_cgroup_bpf(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 
-const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
+const char *cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
 
 bool unit_cgroup_delegate(Unit *u);

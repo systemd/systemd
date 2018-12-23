@@ -30,10 +30,10 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-#define SD_RADV_DEFAULT_MIN_TIMEOUT_USEC        (200*USEC_PER_SEC)
-#define SD_RADV_DEFAULT_MAX_TIMEOUT_USEC        (600*USEC_PER_SEC)
+#define SD_RADV_DEFAULT_MIN_TIMEOUT_USEC (200 * USEC_PER_SEC)
+#define SD_RADV_DEFAULT_MAX_TIMEOUT_USEC (600 * USEC_PER_SEC)
 
-#define SD_RADV_DEFAULT_DNS_LIFETIME_USEC       (3*SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
+#define SD_RADV_DEFAULT_DNS_LIFETIME_USEC (3 * SD_RADV_DEFAULT_MAX_TIMEOUT_USEC)
 
 typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
@@ -59,10 +59,8 @@ int sd_radv_set_managed_information(sd_radv *ra, int managed);
 int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic);
-sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix,
-                                      unsigned char prefixlen);
-int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
-                      const struct in6_addr *dns, size_t n_dns);
+sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix, unsigned char prefixlen);
+int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime, const struct in6_addr *dns, size_t n_dns);
 int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime, char **search_list);
 
 /* Advertised prefixes */
@@ -70,15 +68,11 @@ int sd_radv_prefix_new(sd_radv_prefix **ret);
 sd_radv_prefix *sd_radv_prefix_ref(sd_radv_prefix *ra);
 sd_radv_prefix *sd_radv_prefix_unref(sd_radv_prefix *ra);
 
-int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
-                              unsigned char prefixlen);
+int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
 int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink);
-int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
-                                                 int address_autoconfiguration);
-int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p,
-                                      uint32_t valid_lifetime);
-int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p,
-                                          uint32_t preferred_lifetime);
+int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p, int address_autoconfiguration);
+int sd_radv_prefix_set_valid_lifetime(sd_radv_prefix *p, uint32_t valid_lifetime);
+int sd_radv_prefix_set_preferred_lifetime(sd_radv_prefix *p, uint32_t preferred_lifetime);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv, sd_radv_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_prefix, sd_radv_prefix_unref);

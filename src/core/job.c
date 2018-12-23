@@ -26,18 +26,18 @@
 #include "unit.h"
 #include "virt.h"
 
-Job* job_new_raw(Unit *unit) {
+Job *job_new_raw(Unit *unit) {
         Job *j;
 
         /* used for deserialization */
 
         assert(unit);
 
-        j = new(Job, 1);
+        j = new (Job, 1);
         if (!j)
                 return NULL;
 
-        *j = (Job) {
+        *j = (Job){
                 .manager = unit->manager,
                 .unit = unit,
                 .type = _JOB_TYPE_INVALID,
@@ -46,7 +46,7 @@ Job* job_new_raw(Unit *unit) {
         return j;
 }
 
-Job* job_new(Unit *unit, JobType type) {
+Job *job_new(Unit *unit, JobType type) {
         Job *j;
 
         assert(type < _JOB_TYPE_MAX);
@@ -89,7 +89,7 @@ void job_unlink(Job *j) {
         j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 }
 
-Job* job_free(Job *j) {
+Job *job_free(Job *j) {
         assert(j);
         assert(!j->installed);
         assert(!j->transaction_prev);
@@ -127,7 +127,8 @@ static void job_set_state(Job *j, JobState state) {
                 j->unit->manager->n_running_jobs--;
 
                 if (j->unit->manager->n_running_jobs <= 0)
-                        j->unit->manager->jobs_in_progress_event_source = sd_event_source_unref(j->unit->manager->jobs_in_progress_event_source);
+                        j->unit->manager->jobs_in_progress_event_source = sd_event_source_unref(
+                                j->unit->manager->jobs_in_progress_event_source);
         }
 }
 
@@ -185,7 +186,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
         j->ignore_order = j->ignore_order || other->ignore_order;
 }
 
-Job* job_install(Job *j) {
+Job *job_install(Job *j) {
         Job **pj;
         Job *uj;
 
@@ -202,12 +203,13 @@ Job* job_install(Job *j) {
                 else {
                         /* not conflicting, i.e. mergeable */
 
-                        if (uj->state == JOB_WAITING ||
-                            (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
+                        if (uj->state == JOB_WAITING || (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
                                 job_merge_into_installed(uj, j);
                                 log_unit_debug(uj->unit,
                                                "Merged into installed job %s/%s as %u",
-                                               uj->unit->id, job_type_to_string(uj->type), (unsigned) uj->id);
+                                               uj->unit->id,
+                                               job_type_to_string(uj->type),
+                                               (unsigned) uj->id);
                                 return uj;
                         } else {
                                 /* already running and not safe to merge into */
@@ -217,7 +219,9 @@ Job* job_install(Job *j) {
                                 job_merge_into_installed(uj, j);
                                 log_unit_debug(uj->unit,
                                                "Merged into running job, re-running: %s/%s as %u",
-                                               uj->unit->id, job_type_to_string(uj->type), (unsigned) uj->id);
+                                               uj->unit->id,
+                                               job_type_to_string(uj->type),
+                                               (unsigned) uj->id);
 
                                 job_set_state(uj, JOB_WAITING);
                                 return uj;
@@ -230,13 +234,11 @@ Job* job_install(Job *j) {
         j->installed = true;
 
         j->manager->n_installed_jobs++;
-        log_unit_debug(j->unit,
-                       "Installed new job %s/%s as %u",
-                       j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+        log_unit_debug(j->unit, "Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
 
         job_add_to_gc_queue(j);
 
-        job_add_to_dbus_queue(j); /* announce this job to clients */
+        job_add_to_dbus_queue(j);        /* announce this job to clients */
         unit_add_to_dbus_queue(j->unit); /* The Job property of the unit has changed now */
 
         return j;
@@ -249,14 +251,13 @@ int job_install_deserialized(Job *j) {
         assert(!j->installed);
 
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
-                return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid job type %s in deserialization.",
-                                       strna(job_type_to_string(j->type)));
+                return log_unit_debug_errno(
+                        j->unit, SYNTHETIC_ERRNO(EINVAL), "Invalid job type %s in deserialization.", strna(job_type_to_string(j->type)));
 
         pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
         if (*pj)
-                return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
-                                            "Unit already has a job installed. Not installing deserialized job.");
+                return log_unit_debug_errno(
+                        j->unit, SYNTHETIC_ERRNO(EEXIST), "Unit already has a job installed. Not installing deserialized job.");
 
         r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
@@ -270,13 +271,11 @@ int job_install_deserialized(Job *j) {
         if (j->state == JOB_RUNNING)
                 j->unit->manager->n_running_jobs++;
 
-        log_unit_debug(j->unit,
-                       "Reinstalled deserialized job %s/%s as %u",
-                       j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+        log_unit_debug(j->unit, "Reinstalled deserialized job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
         return 0;
 }
 
-JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {
+JobDependency *job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts) {
         JobDependency *l;
 
         assert(object);
@@ -326,11 +325,17 @@ void job_dump(Job *j, FILE *f, const char *prefix) {
                 "%s\tState: %s\n"
                 "%s\tIrreversible: %s\n"
                 "%s\tMay GC: %s\n",
-                prefix, j->id,
-                prefix, j->unit->id, job_type_to_string(j->type),
-                prefix, job_state_to_string(j->state),
-                prefix, yes_no(j->irreversible),
-                prefix, yes_no(job_may_gc(j)));
+                prefix,
+                j->id,
+                prefix,
+                j->unit->id,
+                job_type_to_string(j->type),
+                prefix,
+                job_state_to_string(j->state),
+                prefix,
+                yes_no(j->irreversible),
+                prefix,
+                yes_no(job_may_gc(j)));
 }
 
 /*
@@ -352,13 +357,19 @@ void job_dump(Job *j, FILE *f, const char *prefix) {
  * be merged with C either.
  */
 static const JobType job_merging_table[] = {
-/* What \ With       *  JOB_START         JOB_VERIFY_ACTIVE  JOB_STOP JOB_RELOAD */
-/*********************************************************************************/
-/*JOB_START          */
-/*JOB_VERIFY_ACTIVE  */ JOB_START,
-/*JOB_STOP           */ -1,                  -1,
-/*JOB_RELOAD         */ JOB_RELOAD_OR_START, JOB_RELOAD,          -1,
-/*JOB_RESTART        */ JOB_RESTART,         JOB_RESTART,         -1, JOB_RESTART,
+        /* What \ With       *  JOB_START         JOB_VERIFY_ACTIVE  JOB_STOP JOB_RELOAD */
+        /*********************************************************************************/
+        /*JOB_START          */
+        /*JOB_VERIFY_ACTIVE  */ JOB_START,
+        /*JOB_STOP           */ -1,
+        -1,
+        /*JOB_RELOAD         */ JOB_RELOAD_OR_START,
+        JOB_RELOAD,
+        -1,
+        /*JOB_RESTART        */ JOB_RESTART,
+        JOB_RESTART,
+        -1,
+        JOB_RESTART,
 };
 
 JobType job_type_lookup_merge(JobType a, JobType b) {
@@ -391,12 +402,10 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
                 return IN_SET(b, UNIT_ACTIVE, UNIT_RELOADING);
 
         case JOB_RELOAD:
-                return
-                        b == UNIT_RELOADING;
+                return b == UNIT_RELOADING;
 
         case JOB_RESTART:
-                return
-                        b == UNIT_ACTIVATING;
+                return b == UNIT_ACTIVATING;
 
         case JOB_NOP:
                 return true;
@@ -480,17 +489,16 @@ static bool job_is_runnable(Job *j) {
                  * starting or stopping something. */
 
                 HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
-                        if (other->job)
-                                return false;
+                if (other->job)
+                        return false;
         }
 
         /* Also, if something else is being stopped and we should
          * change state after it, then let's wait. */
 
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
-                if (other->job &&
-                    IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
-                        return false;
+        if (other->job && IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
+                return false;
 
         /* This means that for a service a and a service b where b
          * shall be started after a:
@@ -509,15 +517,13 @@ static bool job_is_runnable(Job *j) {
 static void job_change_type(Job *j, JobType newtype) {
         assert(j);
 
-        log_unit_debug(j->unit,
-                       "Converting job %s/%s -> %s/%s",
-                       j->unit->id, job_type_to_string(j->type),
-                       j->unit->id, job_type_to_string(newtype));
+        log_unit_debug(
+                j->unit, "Converting job %s/%s -> %s/%s", j->unit->id, job_type_to_string(j->type), j->unit->id, job_type_to_string(newtype));
 
         j->type = newtype;
 }
 
-_pure_ static const char* job_get_begin_status_message_format(Unit *u, JobType t) {
+_pure_ static const char *job_get_begin_status_message_format(Unit *u, JobType t) {
         const char *format;
 
         assert(u);
@@ -579,8 +585,7 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         REENABLE_WARNING;
 
         mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
-              t == JOB_STOP  ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
-                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
+                               t == JOB_STOP ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR : "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
 
         /* Note that we deliberately use LOG_MESSAGE() instead of
          * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
@@ -590,8 +595,10 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
          * name. */
         log_struct(LOG_INFO,
                    LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
+                   "JOB_ID=%" PRIu32,
+                   job_id,
+                   "JOB_TYPE=%s",
+                   job_type_to_string(t),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    mid);
@@ -628,23 +635,23 @@ static int job_perform_on_unit(Job **j) {
         id = (*j)->id;
 
         switch (t) {
-                case JOB_START:
-                        r = unit_start(u);
-                        break;
+        case JOB_START:
+                r = unit_start(u);
+                break;
 
-                case JOB_RESTART:
-                        t = JOB_STOP;
-                        _fallthrough_;
-                case JOB_STOP:
-                        r = unit_stop(u);
-                        break;
+        case JOB_RESTART:
+                t = JOB_STOP;
+                _fallthrough_;
+        case JOB_STOP:
+                r = unit_stop(u);
+                break;
 
-                case JOB_RELOAD:
-                        r = unit_reload(u);
-                        break;
+        case JOB_RELOAD:
+                r = unit_reload(u);
+                break;
 
-                default:
-                        assert_not_reached("Invalid job type");
+        default:
+                assert_not_reached("Invalid job type");
         }
 
         /* Log if the job still exists and the start/stop/reload function actually did something. Note that this means
@@ -680,47 +687,47 @@ int job_run_and_invalidate(Job *j) {
 
         switch (j->type) {
 
-                case JOB_VERIFY_ACTIVE: {
-                        UnitActiveState t;
+        case JOB_VERIFY_ACTIVE: {
+                UnitActiveState t;
 
-                        t = unit_active_state(j->unit);
-                        if (UNIT_IS_ACTIVE_OR_RELOADING(t))
-                                r = -EALREADY;
-                        else if (t == UNIT_ACTIVATING)
-                                r = -EAGAIN;
-                        else
-                                r = -EBADR;
-                        break;
-                }
-
-                case JOB_START:
-                case JOB_STOP:
-                case JOB_RESTART:
-                        r = job_perform_on_unit(&j);
-
-                        /* If the unit type does not support starting/stopping, then simply wait. */
-                        if (r == -EBADR)
-                                r = 0;
-                        break;
-
-                case JOB_RELOAD:
-                        r = job_perform_on_unit(&j);
-                        break;
-
-                case JOB_NOP:
+                t = unit_active_state(j->unit);
+                if (UNIT_IS_ACTIVE_OR_RELOADING(t))
                         r = -EALREADY;
-                        break;
+                else if (t == UNIT_ACTIVATING)
+                        r = -EAGAIN;
+                else
+                        r = -EBADR;
+                break;
+        }
 
-                default:
-                        assert_not_reached("Unknown job type");
+        case JOB_START:
+        case JOB_STOP:
+        case JOB_RESTART:
+                r = job_perform_on_unit(&j);
+
+                /* If the unit type does not support starting/stopping, then simply wait. */
+                if (r == -EBADR)
+                        r = 0;
+                break;
+
+        case JOB_RELOAD:
+                r = job_perform_on_unit(&j);
+                break;
+
+        case JOB_NOP:
+                r = -EALREADY;
+                break;
+
+        default:
+                assert_not_reached("Unknown job type");
         }
 
         if (j) {
                 if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
-                else if (r == -EALREADY) /* already being executed */
+                else if (r == -EALREADY)               /* already being executed */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, true);
-                else if (r == -ECOMM)    /* condition failed, but all is good */
+                else if (r == -ECOMM) /* condition failed, but all is good */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, false);
                 else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true, false);
@@ -744,30 +751,30 @@ int job_run_and_invalidate(Job *j) {
 _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t, JobResult result) {
 
         static const char *const generic_finished_start_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Started %s.",
-                [JOB_TIMEOUT]     = "Timed out starting %s.",
-                [JOB_FAILED]      = "Failed to start %s.",
-                [JOB_DEPENDENCY]  = "Dependency failed for %s.",
-                [JOB_ASSERT]      = "Assertion failed for %s.",
+                [JOB_DONE] = "Started %s.",
+                [JOB_TIMEOUT] = "Timed out starting %s.",
+                [JOB_FAILED] = "Failed to start %s.",
+                [JOB_DEPENDENCY] = "Dependency failed for %s.",
+                [JOB_ASSERT] = "Assertion failed for %s.",
                 [JOB_UNSUPPORTED] = "Starting of %s not supported.",
-                [JOB_COLLECTED]   = "Unnecessary job for %s was removed.",
-                [JOB_ONCE]        = "Unit %s has been started before and cannot be started again."
+                [JOB_COLLECTED] = "Unnecessary job for %s was removed.",
+                [JOB_ONCE] = "Unit %s has been started before and cannot be started again."
         };
         static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Stopped %s.",
-                [JOB_FAILED]      = "Stopped (with error) %s.",
-                [JOB_TIMEOUT]     = "Timed out stopping %s.",
+                [JOB_DONE] = "Stopped %s.",
+                [JOB_FAILED] = "Stopped (with error) %s.",
+                [JOB_TIMEOUT] = "Timed out stopping %s.",
         };
         static const char *const generic_finished_reload_job[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = "Reloaded %s.",
-                [JOB_FAILED]      = "Reload failed for %s.",
-                [JOB_TIMEOUT]     = "Timed out reloading %s.",
+                [JOB_DONE] = "Reloaded %s.",
+                [JOB_FAILED] = "Reload failed for %s.",
+                [JOB_TIMEOUT] = "Timed out reloading %s.",
         };
         /* When verify-active detects the unit is inactive, report it.
          * Most likely a DEPEND warning from a requisiting unit will
          * occur next and it's nice to see what was requisited. */
         static const char *const generic_finished_verify_active_job[_JOB_RESULT_MAX] = {
-                [JOB_SKIPPED]     = "%s is not active.",
+                [JOB_SKIPPED] = "%s is not active.",
         };
 
         const char *format;
@@ -777,9 +784,8 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
         assert(t < _JOB_TYPE_MAX);
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
-                format = t == JOB_START ?
-                        UNIT_VTABLE(u)->status_message_formats.finished_start_job[result] :
-                        UNIT_VTABLE(u)->status_message_formats.finished_stop_job[result];
+                format = t == JOB_START ? UNIT_VTABLE(u)->status_message_formats.finished_start_job[result] :
+                                          UNIT_VTABLE(u)->status_message_formats.finished_stop_job[result];
                 if (format)
                         return format;
         }
@@ -800,15 +806,15 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
 static const struct {
         const char *color, *word;
 } job_print_done_status_messages[_JOB_RESULT_MAX] = {
-        [JOB_DONE]        = { ANSI_OK_COLOR,         "  OK  " },
-        [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
-        [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
-        [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
-        [JOB_SKIPPED]     = { ANSI_HIGHLIGHT,        " INFO " },
-        [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
+        [JOB_DONE] = { ANSI_OK_COLOR, "  OK  " },
+        [JOB_TIMEOUT] = { ANSI_HIGHLIGHT_RED, " TIME " },
+        [JOB_FAILED] = { ANSI_HIGHLIGHT_RED, "FAILED" },
+        [JOB_DEPENDENCY] = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
+        [JOB_SKIPPED] = { ANSI_HIGHLIGHT, " INFO " },
+        [JOB_ASSERT] = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
         [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
         /* JOB_COLLECTED */
-        [JOB_ONCE]        = { ANSI_HIGHLIGHT_RED,    " ONCE " },
+        [JOB_ONCE] = { ANSI_HIGHLIGHT_RED, " ONCE " },
 };
 
 static void job_print_done_status_message(Unit *u, JobType t, JobResult result) {
@@ -835,9 +841,7 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
                 return;
 
         if (log_get_show_color())
-                status = strjoina(job_print_done_status_messages[result].color,
-                                  job_print_done_status_messages[result].word,
-                                  ANSI_NORMAL);
+                status = strjoina(job_print_done_status_messages[result].color, job_print_done_status_messages[result].word, ANSI_NORMAL);
         else
                 status = job_print_done_status_messages[result].word;
 
@@ -860,17 +864,9 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         const char *format, *mid;
         char buf[LINE_MAX];
         static const int job_result_log_level[_JOB_RESULT_MAX] = {
-                [JOB_DONE]        = LOG_INFO,
-                [JOB_CANCELED]    = LOG_INFO,
-                [JOB_TIMEOUT]     = LOG_ERR,
-                [JOB_FAILED]      = LOG_ERR,
-                [JOB_DEPENDENCY]  = LOG_WARNING,
-                [JOB_SKIPPED]     = LOG_NOTICE,
-                [JOB_INVALID]     = LOG_INFO,
-                [JOB_ASSERT]      = LOG_WARNING,
-                [JOB_UNSUPPORTED] = LOG_WARNING,
-                [JOB_COLLECTED]   = LOG_INFO,
-                [JOB_ONCE]        = LOG_ERR,
+                [JOB_DONE] = LOG_INFO,           [JOB_CANCELED] = LOG_INFO,  [JOB_TIMEOUT] = LOG_ERR,  [JOB_FAILED] = LOG_ERR,
+                [JOB_DEPENDENCY] = LOG_WARNING,  [JOB_SKIPPED] = LOG_NOTICE, [JOB_INVALID] = LOG_INFO, [JOB_ASSERT] = LOG_WARNING,
+                [JOB_UNSUPPORTED] = LOG_WARNING, [JOB_COLLECTED] = LOG_INFO, [JOB_ONCE] = LOG_ERR,
         };
 
         assert(u);
@@ -885,10 +881,14 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         /* Show condition check message if the job did not actually do anything due to failed condition. */
         if (t == JOB_START && result == JOB_DONE && !u->condition_result) {
                 log_struct(LOG_INFO,
-                           "MESSAGE=Condition check resulted in %s being skipped.", unit_description(u),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
+                           "MESSAGE=Condition check resulted in %s being skipped.",
+                           unit_description(u),
+                           "JOB_ID=%" PRIu32,
+                           job_id,
+                           "JOB_TYPE=%s",
+                           job_type_to_string(t),
+                           "JOB_RESULT=%s",
+                           job_result_to_string(result),
                            LOG_UNIT_ID(u),
                            LOG_UNIT_INVOCATION_ID(u),
                            "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTED_STR);
@@ -929,9 +929,12 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         default:
                 log_struct(job_result_log_level[result],
                            LOG_MESSAGE("%s", buf),
-                           "JOB_ID=%" PRIu32, job_id,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
+                           "JOB_ID=%" PRIu32,
+                           job_id,
+                           "JOB_TYPE=%s",
+                           job_type_to_string(t),
+                           "JOB_RESULT=%s",
+                           job_result_to_string(result),
                            LOG_UNIT_ID(u),
                            LOG_UNIT_INVOCATION_ID(u));
                 return;
@@ -939,9 +942,12 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
 
         log_struct(job_result_log_level[result],
                    LOG_MESSAGE("%s", buf),
-                   "JOB_ID=%" PRIu32, job_id,
-                   "JOB_TYPE=%s", job_type_to_string(t),
-                   "JOB_RESULT=%s", job_result_to_string(result),
+                   "JOB_ID=%" PRIu32,
+                   job_id,
+                   "JOB_TYPE=%s",
+                   job_type_to_string(t),
+                   "JOB_RESULT=%s",
+                   job_result_to_string(result),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    mid);
@@ -1030,13 +1036,13 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
          * unit itself. */
         if (IN_SET(result, JOB_TIMEOUT, JOB_DEPENDENCY)) {
                 log_struct(LOG_NOTICE,
-                           "JOB_TYPE=%s", job_type_to_string(t),
-                           "JOB_RESULT=%s", job_result_to_string(result),
+                           "JOB_TYPE=%s",
+                           job_type_to_string(t),
+                           "JOB_RESULT=%s",
+                           job_result_to_string(result),
                            LOG_UNIT_ID(u),
-                           LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
-                                            u->id,
-                                            job_type_to_string(t),
-                                            job_result_to_string(result)));
+                           LOG_UNIT_MESSAGE(
+                                   u, "Job %s/%s failed with result '%s'.", u->id, job_type_to_string(t), job_result_to_string(result)));
 
                 unit_start_on_failure(u);
         }
@@ -1046,15 +1052,15 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 finish:
         /* Try to start the next jobs that can be started */
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_AFTER], i)
-                if (other->job) {
-                        job_add_to_run_queue(other->job);
-                        job_add_to_gc_queue(other->job);
-                }
+        if (other->job) {
+                job_add_to_run_queue(other->job);
+                job_add_to_gc_queue(other->job);
+        }
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BEFORE], i)
-                if (other->job) {
-                        job_add_to_run_queue(other->job);
-                        job_add_to_gc_queue(other->job);
-                }
+        if (other->job) {
+                job_add_to_run_queue(other->job);
+                job_add_to_gc_queue(other->job);
+        }
 
         manager_check_finished(u->manager);
 
@@ -1073,9 +1079,12 @@ static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *user
         u = j->unit;
         job_finish_and_invalidate(j, JOB_TIMEOUT, true, false);
 
-        emergency_action(u->manager, u->job_timeout_action,
-                         EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
-                         u->job_timeout_reboot_arg, -1, "job timed out");
+        emergency_action(u->manager,
+                         u->job_timeout_action,
+                         EMERGENCY_ACTION_IS_WATCHDOG | EMERGENCY_ACTION_WARN,
+                         u->job_timeout_reboot_arg,
+                         -1,
+                         "job timed out");
 
         return 0;
 }
@@ -1115,12 +1124,7 @@ int job_start_timer(Job *j, bool job_running) {
                 timeout_time = usec_add(j->begin_usec, j->unit->job_timeout);
         }
 
-        r = sd_event_add_time(
-                        j->manager->event,
-                        &j->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        timeout_time, 0,
-                        job_dispatch_timer, j);
+        r = sd_event_add_time(j->manager->event, &j->timer_event_source, CLOCK_MONOTONIC, timeout_time, 0, job_dispatch_timer, j);
         if (r < 0)
                 return r;
 
@@ -1168,7 +1172,7 @@ char *job_dbus_path(Job *j) {
 
         assert(j);
 
-        if (asprintf(&p, "/org/freedesktop/systemd1/job/%"PRIu32, j->id) < 0)
+        if (asprintf(&p, "/org/freedesktop/systemd1/job/%" PRIu32, j->id) < 0)
                 return NULL;
 
         return p;
@@ -1224,9 +1228,9 @@ int job_deserialize(Job *j, FILE *f) {
 
                 if (l[k] == '=') {
                         l[k] = 0;
-                        v = l+k+1;
+                        v = l + k + 1;
                 } else
-                        v = l+k;
+                        v = l + k;
 
                 if (streq(l, "job-id")) {
 
@@ -1326,12 +1330,7 @@ int job_coldplug(Job *j) {
 
         j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
-        r = sd_event_add_time(
-                        j->manager->event,
-                        &j->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        timeout_time, 0,
-                        job_dispatch_timer, j);
+        r = sd_event_add_time(j->manager->event, &j->timer_event_source, CLOCK_MONOTONIC, timeout_time, 0, job_dispatch_timer, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
 
@@ -1483,7 +1482,7 @@ void job_add_to_gc_queue(Job *j) {
         j->in_gc_queue = true;
 }
 
-static int job_compare(Job * const *a, Job * const *b) {
+static int job_compare(Job *const *a, Job *const *b) {
         return CMP((*a)->id, (*b)->id);
 }
 
@@ -1506,8 +1505,8 @@ static size_t sort_job_list(Job **list, size_t n) {
         return b;
 }
 
-int job_get_before(Job *j, Job*** ret) {
-        _cleanup_free_ Job** list = NULL;
+int job_get_before(Job *j, Job ***ret) {
+        _cleanup_free_ Job **list = NULL;
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
         Iterator i;
@@ -1529,7 +1528,7 @@ int job_get_before(Job *j, Job*** ret) {
                         if (!other->job)
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        if (!GREEDY_REALLOC(list, n_allocated, n + 1))
                                 return -ENOMEM;
                         list[n++] = other->job;
                 }
@@ -1542,7 +1541,7 @@ int job_get_before(Job *j, Job*** ret) {
                 if (!IN_SET(other->job->type, JOB_STOP, JOB_RESTART))
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n_allocated, n + 1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1554,8 +1553,8 @@ int job_get_before(Job *j, Job*** ret) {
         return (int) n;
 }
 
-int job_get_after(Job *j, Job*** ret) {
-        _cleanup_free_ Job** list = NULL;
+int job_get_after(Job *j, Job ***ret) {
+        _cleanup_free_ Job **list = NULL;
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
         void *v;
@@ -1576,7 +1575,7 @@ int job_get_after(Job *j, Job*** ret) {
                 if (!IN_SET(other->job->type, JOB_START, JOB_VERIFY_ACTIVE, JOB_RELOAD))
                         continue;
 
-                if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                if (!GREEDY_REALLOC(list, n_allocated, n + 1))
                         return -ENOMEM;
                 list[n++] = other->job;
         }
@@ -1590,7 +1589,7 @@ int job_get_after(Job *j, Job*** ret) {
                         if (other->job->ignore_order)
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_allocated, n+1))
+                        if (!GREEDY_REALLOC(list, n_allocated, n + 1))
                                 return -ENOMEM;
                         list[n++] = other->job;
                 }
@@ -1603,14 +1602,14 @@ int job_get_after(Job *j, Job*** ret) {
         return (int) n;
 }
 
-static const char* const job_state_table[_JOB_STATE_MAX] = {
+static const char *const job_state_table[_JOB_STATE_MAX] = {
         [JOB_WAITING] = "waiting",
         [JOB_RUNNING] = "running",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);
 
-static const char* const job_type_table[_JOB_TYPE_MAX] = {
+static const char *const job_type_table[_JOB_TYPE_MAX] = {
         [JOB_START] = "start",
         [JOB_VERIFY_ACTIVE] = "verify-active",
         [JOB_STOP] = "stop",
@@ -1624,7 +1623,7 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
 
-static const char* const job_mode_table[_JOB_MODE_MAX] = {
+static const char *const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL] = "fail",
         [JOB_REPLACE] = "replace",
         [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
@@ -1636,7 +1635,7 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
 
-static const char* const job_result_table[_JOB_RESULT_MAX] = {
+static const char *const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_DONE] = "done",
         [JOB_CANCELED] = "canceled",
         [JOB_TIMEOUT] = "timeout",
@@ -1652,7 +1651,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
 
-const char* job_type_to_access_method(JobType t) {
+const char *job_type_to_access_method(JobType t) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 

@@ -29,13 +29,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_notify_access, notify_access, N
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 
 static int property_get_exit_status_set(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         ExitStatusSet *status_set = userdata;
         Iterator i;
@@ -105,17 +99,32 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RuntimeMaxUSec", "t", bus_property_get_usec, offsetof(Service, runtime_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogUSec", "t", bus_property_get_usec, offsetof(Service, watchdog_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("WatchdogTimestamp", offsetof(Service, watchdog_timestamp), 0),
-        SD_BUS_PROPERTY("PermissionsStartOnly", "b", bus_property_get_bool, offsetof(Service, permissions_start_only), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN), /* 😷 deprecated */
-        SD_BUS_PROPERTY("RootDirectoryStartOnly", "b", bus_property_get_bool, offsetof(Service, root_directory_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PermissionsStartOnly",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Service, permissions_start_only),
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN), /* 😷 deprecated */
+        SD_BUS_PROPERTY(
+                "RootDirectoryStartOnly", "b", bus_property_get_bool, offsetof(Service, root_directory_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterExit", "b", bus_property_get_bool, offsetof(Service, remain_after_exit), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("GuessMainPID", "b", bus_property_get_bool, offsetof(Service, guess_main_pid), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RestartPreventExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, restart_prevent_status), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RestartForceExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, restart_force_status), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SuccessExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, success_status), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartPreventExitStatus",
+                        "(aiai)",
+                        property_get_exit_status_set,
+                        offsetof(Service, restart_prevent_status),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartForceExitStatus",
+                        "(aiai)",
+                        property_get_exit_status_set,
+                        offsetof(Service, restart_force_status),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "SuccessExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, success_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MainPID", "u", bus_property_get_pid, offsetof(Service, main_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Service, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BusName", "s", NULL, offsetof(Service, bus_name), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("FileDescriptorStoreMax", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "FileDescriptorStoreMax", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NFileDescriptorStore", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store), 0),
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -127,29 +136,45 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("NRestarts", "u", bus_property_get_unsigned, offsetof(Service, n_restarts), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStartPre", offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStart", offsetof(Service, exec_command[SERVICE_EXEC_START]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE(
+                "ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
 
         /* The following four are obsolete, and thus marked hidden here. They moved into the Unit interface */
-        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartLimitInterval",
+                        "t",
+                        bus_property_get_usec,
+                        offsetof(Unit, start_limit.interval),
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartLimitBurst",
+                        "u",
+                        bus_property_get_unsigned,
+                        offsetof(Unit, start_limit.burst),
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartLimitAction",
+                        "s",
+                        property_get_emergency_action,
+                        offsetof(Unit, start_limit_action),
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("FailureAction",
+                        "s",
+                        property_get_emergency_action,
+                        offsetof(Unit, failure_action),
+                        SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RebootArgument", "s", NULL, offsetof(Unit, reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
         SD_BUS_VTABLE_END
 };
 
 static int bus_set_transient_exit_status(
-                Unit *u,
-                const char *name,
-                ExitStatusSet *status_set,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Unit *u, const char *name, ExitStatusSet *status_set, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         const int *status, *signal;
         size_t sz_status, sz_signal, i;
@@ -218,13 +243,7 @@ static int bus_set_transient_exit_status(
 }
 
 static int bus_set_transient_std_fd(
-                Unit *u,
-                const char *name,
-                int *p,
-                bool *b,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Unit *u, const char *name, int *p, bool *b, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         int fd, r;
 
@@ -254,12 +273,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_fr
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, service_name_is_valid);
 
-static int bus_service_set_transient_property(
-                Service *s,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+static int bus_service_set_transient_property(Service *s, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(s);
         ServiceExecCommand ci;
@@ -338,7 +352,11 @@ static int bus_service_set_transient_property(
                                 return log_oom();
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                                log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
+                                log_unit_notice(
+                                        u,
+                                        "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.",
+                                        n,
+                                        z);
 
                         free_and_replace(s->pid_file, z);
                 } else
@@ -384,12 +402,7 @@ static int bus_service_set_transient_property(
         return 0;
 }
 
-int bus_service_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+int bus_service_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Service *s = SERVICE(u);
         int r;

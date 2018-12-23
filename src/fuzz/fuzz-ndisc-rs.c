@@ -22,8 +22,7 @@ int icmp6_bind_router_advertisement(int index) {
         return -ENOSYS;
 }
 
-int icmp6_receive(int fd, void *iov_base, size_t iov_len,
-                  struct in6_addr *dst, triple_timestamp *timestamp) {
+int icmp6_receive(int fd, void *iov_base, size_t iov_len, struct in6_addr *dst, triple_timestamp *timestamp) {
         assert_se(read(fd, iov_base, iov_len) == (ssize_t) iov_len);
 
         if (timestamp)
@@ -37,9 +36,7 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        struct ether_addr mac_addr = {
-                .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
-        };
+        struct ether_addr mac_addr = { .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' } };
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 

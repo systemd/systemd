@@ -36,17 +36,17 @@
 #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
 #define SPECIAL_INITRD_ROOT_DEVICE_TARGET "initrd-root-device.target"
 #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
-#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
+#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target" /* LSB's $remote_fs */
 #define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
 #define SPECIAL_SWAP_TARGET "swap.target"
 #define SPECIAL_NETWORK_ONLINE_TARGET "network-online.target"
-#define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
+#define SPECIAL_TIME_SYNC_TARGET "time-sync.target" /* LSB's $time */
 #define SPECIAL_BASIC_TARGET "basic.target"
 
 /* LSB compatibility */
-#define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
-#define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
-#define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
+#define SPECIAL_NETWORK_TARGET "network.target"       /* LSB's $network */
+#define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target" /* LSB's $named */
+#define SPECIAL_RPCBIND_TARGET "rpcbind.target"       /* LSB's $portmap */
 
 /*
  * Rules regarding adding further high level targets like the above:

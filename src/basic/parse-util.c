@@ -26,13 +26,14 @@ int parse_boolean(const char *v) {
 
         if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;
-        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") || strcaseeq(v, "f") || strcaseeq(v, "off"))
+        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") || strcaseeq(v, "f") ||
+                 strcaseeq(v, "off"))
                 return 0;
 
         return -EINVAL;
 }
 
-int parse_pid(const char *s, pid_t* ret_pid) {
+int parse_pid(const char *s, pid_t *ret_pid) {
         unsigned long ul = 0;
         pid_t pid;
         int r;
@@ -73,7 +74,7 @@ int parse_mode(const char *s, mode_t *ret) {
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (l < 0 || l  > 07777)
+        if (l < 0 || l > 07777)
                 return -ERANGE;
 
         *ret = (mode_t) l;
@@ -139,25 +140,25 @@ int parse_size(const char *t, uint64_t base, uint64_t *size) {
         };
 
         static const struct table iec[] = {
-                { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
-                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
-                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
-                { "G", 1024ULL*1024ULL*1024ULL },
-                { "M", 1024ULL*1024ULL },
+                { "E", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL },
+                { "P", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL },
+                { "T", 1024ULL * 1024ULL * 1024ULL * 1024ULL },
+                { "G", 1024ULL * 1024ULL * 1024ULL },
+                { "M", 1024ULL * 1024ULL },
                 { "K", 1024ULL },
                 { "B", 1ULL },
-                { "",  1ULL },
+                { "", 1ULL },
         };
 
         static const struct table si[] = {
-                { "E", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
-                { "P", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
-                { "T", 1000ULL*1000ULL*1000ULL*1000ULL },
-                { "G", 1000ULL*1000ULL*1000ULL },
-                { "M", 1000ULL*1000ULL },
+                { "E", 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL },
+                { "P", 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL },
+                { "T", 1000ULL * 1000ULL * 1000ULL * 1000ULL },
+                { "G", 1000ULL * 1000ULL * 1000ULL },
+                { "M", 1000ULL * 1000ULL },
                 { "K", 1000ULL },
                 { "B", 1ULL },
-                { "",  1ULL },
+                { "", 1ULL },
         };
 
         const struct table *table;
@@ -349,11 +350,11 @@ char *format_bytes(char *buf, size_t l, uint64_t t) {
                 const char *suffix;
                 uint64_t factor;
         } table[] = {
-                { "E", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "P", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "T", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "G", UINT64_C(1024)*UINT64_C(1024)*UINT64_C(1024) },
-                { "M", UINT64_C(1024)*UINT64_C(1024) },
+                { "E", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
+                { "P", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
+                { "T", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
+                { "G", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
+                { "M", UINT64_C(1024) * UINT64_C(1024) },
                 { "K", UINT64_C(1024) },
         };
 
@@ -363,10 +364,11 @@ char *format_bytes(char *buf, size_t l, uint64_t t) {
         for (i = 0; i < ELEMENTSOF(table); i++) {
 
                 if (t >= table[i].factor) {
-                        snprintf(buf, l,
+                        snprintf(buf,
+                                 l,
                                  "%" PRIu64 ".%" PRIu64 "%s",
                                  t / table[i].factor,
-                                 ((t*UINT64_C(10)) / table[i].factor) % UINT64_C(10),
+                                 ((t * UINT64_C(10)) / table[i].factor) % UINT64_C(10),
                                  table[i].suffix);
 
                         goto finish;
@@ -376,9 +378,8 @@ char *format_bytes(char *buf, size_t l, uint64_t t) {
         snprintf(buf, l, "%" PRIu64 "B", t);
 
 finish:
-        buf[l-1] = 0;
+        buf[l - 1] = 0;
         return buf;
-
 }
 
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
@@ -574,7 +575,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         s = *p;
 
         /* accept any number of digits, strtoull is limited to 19 */
-        for (i=0; i < digits; i++,s++) {
+        for (i = 0; i < digits; i++, s++) {
                 if (*s < '0' || *s > '9') {
                         if (i == 0)
                                 return -EINVAL;

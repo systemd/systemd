@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#if ! ENABLE_EFI
+#if !ENABLE_EFI
 #include <errno.h>
 #endif
 #include <stdbool.h>
@@ -12,17 +12,17 @@
 
 #include "time-util.h"
 
-#define EFI_VENDOR_LOADER SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
-#define EFI_VENDOR_GLOBAL SD_ID128_MAKE(8b,e4,df,61,93,ca,11,d2,aa,0d,00,e0,98,03,2b,8c)
-#define EFI_VARIABLE_NON_VOLATILE       0x0000000000000001
+#define EFI_VENDOR_LOADER SD_ID128_MAKE(4a, 67, b0, 82, 0a, 4c, 41, cf, b6, c7, 44, 0b, 29, bb, 8c, 4f)
+#define EFI_VENDOR_GLOBAL SD_ID128_MAKE(8b, e4, df, 61, 93, ca, 11, d2, aa, 0d, 00, e0, 98, 03, 2b, 8c)
+#define EFI_VARIABLE_NON_VOLATILE 0x0000000000000001
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
-#define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
+#define EFI_VARIABLE_RUNTIME_ACCESS 0x0000000000000004
 
-#define EFI_LOADER_FEATURE_CONFIG_TIMEOUT          (UINT64_C(1) << 0)
+#define EFI_LOADER_FEATURE_CONFIG_TIMEOUT (UINT64_C(1) << 0)
 #define EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT (UINT64_C(1) << 1)
-#define EFI_LOADER_FEATURE_ENTRY_DEFAULT           (UINT64_C(1) << 2)
-#define EFI_LOADER_FEATURE_ENTRY_ONESHOT           (UINT64_C(1) << 3)
-#define EFI_LOADER_FEATURE_BOOT_COUNTING           (UINT64_C(1) << 4)
+#define EFI_LOADER_FEATURE_ENTRY_DEFAULT (UINT64_C(1) << 2)
+#define EFI_LOADER_FEATURE_ENTRY_ONESHOT (UINT64_C(1) << 3)
+#define EFI_LOADER_FEATURE_BOOT_COUNTING (UINT64_C(1) << 4)
 
 #if ENABLE_EFI
 
@@ -100,7 +100,8 @@ static inline int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *par
         return -EOPNOTSUPP;
 }
 
-static inline int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path) {
+static inline int efi_add_boot_option(
+        uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path) {
         return -EOPNOTSUPP;
 }
 

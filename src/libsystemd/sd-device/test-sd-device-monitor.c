@@ -29,8 +29,12 @@ static int test_send_receive_one(sd_device *device, bool subsystem_filter, bool 
         const char *syspath, *subsystem, *tag, *devtype = NULL;
         int r;
 
-        log_device_info(device, "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */", __func__,
-                        true_false(subsystem_filter), true_false(tag_filter), true_false(use_bpf));
+        log_device_info(device,
+                        "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */",
+                        __func__,
+                        true_false(subsystem_filter),
+                        true_false(tag_filter),
+                        true_false(use_bpf));
 
         assert_se(sd_device_get_syspath(device, &syspath) >= 0);
 
@@ -51,7 +55,7 @@ static int test_send_receive_one(sd_device *device, bool subsystem_filter, bool 
 
         if (tag_filter)
                 FOREACH_DEVICE_TAG(device, tag)
-                        assert_se(sd_device_monitor_filter_add_match_tag(monitor_client, tag) >= 0);
+        assert_se(sd_device_monitor_filter_add_match_tag(monitor_client, tag) >= 0);
 
         if ((subsystem_filter || tag_filter) && use_bpf)
                 assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
@@ -121,12 +125,12 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("Running in container? Skipping remaining tests");
         }
 
-        assert_se(test_send_receive_one(loopback,  true, false, false) >= 0);
-        assert_se(test_send_receive_one(loopback, false,  true, false) >= 0);
-        assert_se(test_send_receive_one(loopback,  true,  true, false) >= 0);
-        assert_se(test_send_receive_one(loopback,  true, false,  true) >= 0);
-        assert_se(test_send_receive_one(loopback, false,  true,  true) >= 0);
-        assert_se(test_send_receive_one(loopback,  true,  true,  true) >= 0);
+        assert_se(test_send_receive_one(loopback, true, false, false) >= 0);
+        assert_se(test_send_receive_one(loopback, false, true, false) >= 0);
+        assert_se(test_send_receive_one(loopback, true, true, false) >= 0);
+        assert_se(test_send_receive_one(loopback, true, false, true) >= 0);
+        assert_se(test_send_receive_one(loopback, false, true, true) >= 0);
+        assert_se(test_send_receive_one(loopback, true, true, true) >= 0);
 
         test_subsystem_filter(loopback);
 
@@ -140,12 +144,12 @@ int main(int argc, char *argv[]) {
         assert_se(device_add_property(sda, "SEQNUM", "11") >= 0);
 
         assert_se(test_send_receive_one(sda, false, false, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true, false, false) >= 0);
-        assert_se(test_send_receive_one(sda, false,  true, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true,  true, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true, false,  true) >= 0);
-        assert_se(test_send_receive_one(sda, false,  true,  true) >= 0);
-        assert_se(test_send_receive_one(sda,  true,  true,  true) >= 0);
+        assert_se(test_send_receive_one(sda, true, false, false) >= 0);
+        assert_se(test_send_receive_one(sda, false, true, false) >= 0);
+        assert_se(test_send_receive_one(sda, true, true, false) >= 0);
+        assert_se(test_send_receive_one(sda, true, false, true) >= 0);
+        assert_se(test_send_receive_one(sda, false, true, true) >= 0);
+        assert_se(test_send_receive_one(sda, true, true, true) >= 0);
 
         return 0;
 }

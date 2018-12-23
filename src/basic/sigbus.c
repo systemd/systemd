@@ -19,7 +19,7 @@ static unsigned n_installed = 0;
    don't have to deal with locks between signal handler and main
    programs in possibly multiple threads. */
 
-static void* volatile sigbus_queue[SIGBUS_QUEUE_MAX];
+static void *volatile sigbus_queue[SIGBUS_QUEUE_MAX];
 static volatile sig_atomic_t n_sigbus_queue = 0;
 
 static void sigbus_push(void *addr) {
@@ -97,14 +97,14 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
         ul = (unsigned long) si->si_addr;
         ul = ul / page_size();
         ul = ul * page_size();
-        aligned = (void*) ul;
+        aligned = (void *) ul;
 
         /* Let's remember which address failed */
         sigbus_push(aligned);
 
         /* Replace mapping with an anonymous page, so that the
          * execution can continue, however with a zeroed out page */
-        assert_se(mmap(aligned, page_size(), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == aligned);
+        assert_se(mmap(aligned, page_size(), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) == aligned);
 }
 
 void sigbus_install(void) {
@@ -114,7 +114,7 @@ void sigbus_install(void) {
         };
 
         /* make sure that sysconf() is not called from a signal handler because
-        * it is not guaranteed to be async-signal-safe since POSIX.1-2008 */
+         * it is not guaranteed to be async-signal-safe since POSIX.1-2008 */
         (void) page_size();
 
         n_installed++;

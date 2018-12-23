@@ -15,16 +15,8 @@
 #define BUCKETS_MAX 127
 #define GROUPS_MAX 2047
 
-static const int priority_map[] = {
-        [LOG_EMERG]   = 0,
-        [LOG_ALERT]   = 0,
-        [LOG_CRIT]    = 0,
-        [LOG_ERR]     = 1,
-        [LOG_WARNING] = 2,
-        [LOG_NOTICE]  = 3,
-        [LOG_INFO]    = 3,
-        [LOG_DEBUG]   = 4
-};
+static const int priority_map[] = { [LOG_EMERG] = 0,   [LOG_ALERT] = 0,  [LOG_CRIT] = 0, [LOG_ERR] = 1,
+                                    [LOG_WARNING] = 2, [LOG_NOTICE] = 3, [LOG_INFO] = 3, [LOG_DEBUG] = 4 };
 
 typedef struct JournalRateLimitPool JournalRateLimitPool;
 typedef struct JournalRateLimitGroup JournalRateLimitGroup;
@@ -52,7 +44,7 @@ struct JournalRateLimitGroup {
 
 struct JournalRateLimit {
 
-        JournalRateLimitGroup* buckets[BUCKETS_MAX];
+        JournalRateLimitGroup *buckets[BUCKETS_MAX];
         JournalRateLimitGroup *lru, *lru_tail;
 
         unsigned n_groups;
@@ -118,12 +110,11 @@ static void journal_rate_limit_vacuum(JournalRateLimit *r, usec_t ts) {
         /* Makes room for at least one new item, but drop all
          * expored items too. */
 
-        while (r->n_groups >= GROUPS_MAX ||
-               (r->lru_tail && journal_rate_limit_group_expired(r->lru_tail, ts)))
+        while (r->n_groups >= GROUPS_MAX || (r->lru_tail && journal_rate_limit_group_expired(r->lru_tail, ts)))
                 journal_rate_limit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
+static JournalRateLimitGroup *journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
         JournalRateLimitGroup *g;
 
         assert(r);
@@ -169,7 +160,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         if (k <= 20)
                 return burst;
 
-        burst = (burst * (k-16)) / 4;
+        burst = (burst * (k - 16)) / 4;
 
         /*
          * Example:
@@ -210,8 +201,8 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, usec_t rl_inter
         g = r->buckets[h % BUCKETS_MAX];
 
         LIST_FOREACH(bucket, g, g)
-                if (streq(g->id, id))
-                        break;
+        if (streq(g->id, id))
+                break;
 
         if (!g) {
                 g = journal_rate_limit_group_new(r, id, rl_interval, ts);

@@ -7,7 +7,7 @@
 #include "macro.h"
 #include "util.h"
 
-void* memdup(const void *p, size_t l) {
+void *memdup(const void *p, size_t l) {
         void *ret;
 
         assert(l == 0 || p);
@@ -20,7 +20,7 @@ void* memdup(const void *p, size_t l) {
         return ret;
 }
 
-void* memdup_suffix0(const void *p, size_t l) {
+void *memdup_suffix0(const void *p, size_t l) {
         void *ret;
 
         assert(l == 0 || p);
@@ -31,11 +31,11 @@ void* memdup_suffix0(const void *p, size_t l) {
         if (!ret)
                 return NULL;
 
-        *((uint8_t*) mempcpy(ret, p, l)) = 0;
+        *((uint8_t *) mempcpy(ret, p, l)) = 0;
         return ret;
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+void *greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         size_t a, newalloc;
         void *q;
 
@@ -61,7 +61,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         return q;
 }
 
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
+void *greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
         size_t prev;
         uint8_t *q;
 

@@ -32,7 +32,7 @@
 #include "fd-util.h"
 #include "mtd_probe.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
         _cleanup_close_ int mtd_fd = -1;
         mtd_info_t mtd_info;
 
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
                 return EXIT_FAILURE;
         }
 
-        mtd_fd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        mtd_fd = open(argv[1], O_RDONLY | O_CLOEXEC);
         if (mtd_fd < 0) {
                 log_error_errno(errno, "Failed to open: %m");
                 return EXIT_FAILURE;

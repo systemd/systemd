@@ -16,7 +16,7 @@ static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *io
 
         assert(p);
 
-        r = dns_stream_writev((DnsStream*) p, (const struct iovec*) iov, iovcnt, DNS_STREAM_WRITE_TLS_DATA);
+        r = dns_stream_writev((DnsStream *) p, (const struct iovec *) iov, iovcnt, DNS_STREAM_WRITE_TLS_DATA);
         if (r < 0) {
                 errno = -r;
                 return -1;
@@ -56,7 +56,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
 
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
-        gnutls_transport_set_ptr2(gs, (gnutls_transport_ptr_t) (long) stream->fd, stream);
+        gnutls_transport_set_ptr2(gs, (gnutls_transport_ptr_t)(long) stream->fd, stream);
         gnutls_transport_set_vec_push_function(gs, &dnstls_stream_writev);
 
         stream->encrypted = true;
@@ -149,15 +149,13 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
 
         ss = gnutls_record_send(stream->dnstls_data.session, buf, count);
         if (ss < 0)
-                switch(ss) {
+                switch (ss) {
                 case GNUTLS_E_INTERRUPTED:
                         return -EINTR;
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
-                                               "Failed to invoke gnutls_record_send: %s",
-                                               gnutls_strerror(ss));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE), "Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
                 }
 
         return ss;
@@ -173,15 +171,13 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
 
         ss = gnutls_record_recv(stream->dnstls_data.session, buf, count);
         if (ss < 0)
-                switch(ss) {
+                switch (ss) {
                 case GNUTLS_E_INTERRUPTED:
                         return -EINTR;
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
-                                               "Failed to invoke gnutls_record_recv: %s",
-                                               gnutls_strerror(ss));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE), "Failed to invoke gnutls_record_recv: %s", gnutls_strerror(ss));
                 }
 
         return ss;

@@ -51,15 +51,15 @@ static void test_find_legacy_keymap(void) {
 
         log_info("/*** %s ***/", __func__);
 
-        c.x11_layout = (char*) "foobar";
+        c.x11_layout = (char *) "foobar";
         assert_se(find_legacy_keymap(&c, &ans) == 0);
         assert_se(ans == NULL);
 
-        c.x11_layout = (char*) "pl";
+        c.x11_layout = (char *) "pl";
         assert_se(find_legacy_keymap(&c, &ans) == 1);
         assert_se(streq(ans, "pl2"));
 
-        c.x11_layout = (char*) "pl,ru";
+        c.x11_layout = (char *) "pl,ru";
         assert_se(find_legacy_keymap(&c, &ans2) == 1);
         assert_se(streq(ans, "pl2"));
 }

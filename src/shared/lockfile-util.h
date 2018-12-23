@@ -11,4 +11,5 @@ int make_lock_file(const char *p, int operation, LockFile *ret);
 int make_lock_file_for(const char *p, int operation, LockFile *ret);
 void release_lock_file(LockFile *f);
 
-#define LOCK_FILE_INIT { .fd = -1, .path = NULL }
+#define LOCK_FILE_INIT \
+        { .fd = -1, .path = NULL }

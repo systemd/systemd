@@ -20,8 +20,7 @@ static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
         assert(fd >= 0);
         assert(st);
 
-        if ((!uid_is_valid(uid) || st->st_uid == uid) &&
-            (!gid_is_valid(gid) || st->st_gid == gid))
+        if ((!uid_is_valid(uid) || st->st_uid == uid) && (!gid_is_valid(gid) || st->st_gid == gid))
                 return 0;
 
         /* We change ownership through the /proc/self/fd/%i path, so that we have a stable reference that works with
@@ -30,9 +29,9 @@ static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
 
         /* Drop any ACL if there is one */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default")
-                if (removexattr(procfs_path, n) < 0)
-                        if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
-                                return -errno;
+        if (removexattr(procfs_path, n) < 0)
+                if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
+                        return -errno;
 
         if (chown(procfs_path, uid, gid) < 0)
                 return -errno;
@@ -72,7 +71,7 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
 
                 /* Let's pin the child inode we want to fix now with an O_PATH fd, so that it cannot be swapped out
                  * while we manipulate it. */
-                path_fd = openat(dirfd(d), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                path_fd = openat(dirfd(d), de->d_name, O_PATH | O_CLOEXEC | O_NOFOLLOW);
                 if (path_fd < 0)
                         return -errno;
 
@@ -83,7 +82,7 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                         int subdir_fd;
 
                         /* Convert it to a "real" (i.e. non-O_PATH) fd now */
-                        subdir_fd = fd_reopen(path_fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                        subdir_fd = fd_reopen(path_fd, O_RDONLY | O_CLOEXEC | O_NOATIME);
                         if (subdir_fd < 0)
                                 return subdir_fd;
 
@@ -112,7 +111,7 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         struct stat st;
 
-        fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        fd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NOATIME);
         if (fd < 0)
                 return -errno;
 
@@ -125,8 +124,7 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the whole tree,
          * under the assumption that all is OK anyway. */
 
-        if ((!uid_is_valid(uid) || st.st_uid == uid) &&
-            (!gid_is_valid(gid) || st.st_gid == gid))
+        if ((!uid_is_valid(uid) || st.st_uid == uid) && (!gid_is_valid(gid) || st.st_gid == gid))
                 return 0;
 
         return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid); /* we donate the fd to the call, regardless if it succeeded or failed */

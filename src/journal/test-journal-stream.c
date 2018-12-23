@@ -34,7 +34,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
                 free(k);
 
                 assert_se(sd_journal_get_data(j, "MAGIC", &d, &l) >= 0);
-                printf("\t%.*s\n", (int) l, (const char*) d);
+                printf("\t%.*s\n", (int) l, (const char *) d);
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &d, &l) >= 0);
                 assert_se(k = strndup(d, l));
@@ -76,9 +76,10 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
-        assert_se(journal_file_open(-1, "three.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &three) == 0);
+        assert_se(journal_file_open(-1, "one.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
+        assert_se(journal_file_open(
+                          -1, "three.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &three) == 0);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
@@ -128,7 +129,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
-                printf("\t%.*s\n", (int) l, (const char*) data);
+                printf("\t%.*s\n", (int) l, (const char *) data);
 
                 assert_se(sd_journal_get_cursor(j, &c) >= 0);
                 assert_se(sd_journal_test_cursor(j, c) > 0);
@@ -138,7 +139,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *c;
 
                 assert_se(sd_journal_get_data(j, "NUMBER", &data, &l) >= 0);
-                printf("\t%.*s\n", (int) l, (const char*) data);
+                printf("\t%.*s\n", (int) l, (const char *) data);
 
                 assert_se(sd_journal_get_cursor(j, &c) >= 0);
                 assert_se(sd_journal_test_cursor(j, c) > 0);
@@ -172,9 +173,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_query_unique(j, "NUMBER") >= 0);
         SD_JOURNAL_FOREACH_UNIQUE(j, data, l)
-                printf("%.*s\n", (int) l, (const char*) data);
+        printf("%.*s\n", (int) l, (const char *) data);
 
-        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

@@ -68,9 +68,7 @@ static void print_device(struct udev_device *device) {
 
         count = 0;
         udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device)) {
-                log_info("property:  '%s=%s'",
-                       udev_list_entry_get_name(list_entry),
-                       udev_list_entry_get_value(list_entry));
+                log_info("property:  '%s=%s'", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
                 count++;
         }
         if (count > 0)
@@ -150,12 +148,9 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
-                                                      udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate), udev_list_entry_get_name(list_entry));
                 if (device != NULL) {
-                        log_info("device: '%s' (%s)",
-                                 udev_device_get_syspath(device),
-                                 udev_device_get_subsystem(device));
+                        log_info("device: '%s' (%s)", udev_device_get_syspath(device), udev_device_get_subsystem(device));
                         udev_device_unref(device);
                         count++;
                 }
@@ -168,12 +163,14 @@ static void test_monitor(struct udev *udev) {
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor;
         _cleanup_close_ int fd_ep;
         int fd_udev;
-        struct epoll_event ep_udev = {
-                .events = EPOLLIN,
-        }, ep_stdin = {
-                .events = EPOLLIN,
-                .data.fd = STDIN_FILENO,
-        };
+        struct epoll_event ep_udev =
+                                   {
+                                           .events = EPOLLIN,
+                                   },
+                           ep_stdin = {
+                                   .events = EPOLLIN,
+                                   .data.fd = STDIN_FILENO,
+                           };
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         assert_se(fd_ep >= 0);
@@ -269,7 +266,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL)
                 return -1;
-        udev_enumerate_add_match_subsystem(udev_enumerate,"block");
+        udev_enumerate_add_match_subsystem(udev_enumerate, "block");
         r = udev_enumerate_add_match_is_initialized(udev_enumerate);
         if (r < 0) {
                 udev_enumerate_unref(udev_enumerate);
@@ -335,7 +332,7 @@ static void test_util_replace_whitespace_one_len(const char *str, size_t len, co
         _cleanup_free_ char *result = NULL;
         int r;
 
-        result = new(char, len + 1);
+        result = new (char, len + 1);
         assert_se(result);
         r = util_replace_whitespace(str, result, len);
         assert_se((size_t) r == strlen(expected));
@@ -466,15 +463,13 @@ static void test_list(void) {
 int main(int argc, char *argv[]) {
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         bool arg_monitor = false;
-        static const struct option options[] = {
-                { "syspath",   required_argument, NULL, 'p' },
-                { "subsystem", required_argument, NULL, 's' },
-                { "debug",     no_argument,       NULL, 'd' },
-                { "help",      no_argument,       NULL, 'h' },
-                { "version",   no_argument,       NULL, 'V' },
-                { "monitor",   no_argument,       NULL, 'm' },
-                {}
-        };
+        static const struct option options[] = { { "syspath", required_argument, NULL, 'p' },
+                                                 { "subsystem", required_argument, NULL, 's' },
+                                                 { "debug", no_argument, NULL, 'd' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "monitor", no_argument, NULL, 'm' },
+                                                 {} };
         const char *syspath = "/devices/virtual/mem/null";
         const char *subsystem = NULL;
         int c;

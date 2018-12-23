@@ -33,7 +33,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
 
         /* First, try reading the D-Bus machine id, unless it is a symlink */
         dbus_machine_id = prefix_roota(root, "/var/lib/dbus/machine-id");
-        fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open(dbus_machine_id, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW);
         if (fd >= 0) {
                 if (id128_read_fd(fd, ID128_PLAIN, ret) >= 0) {
                         log_info("Initializing machine ID from D-Bus machine ID.");
@@ -51,8 +51,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                 if (detect_container() > 0) {
                         _cleanup_free_ char *e = NULL;
 
-                        if (getenv_for_pid(1, "container_uuid", &e) > 0 &&
-                            sd_id128_from_string(e, ret) >= 0) {
+                        if (getenv_for_pid(1, "container_uuid", &e) > 0 && sd_id128_from_string(e, ret) >= 0) {
                                 log_info("Initializing machine ID from container UUID.");
                                 return 0;
                         }
@@ -94,19 +93,19 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                  * people look. */
 
                 (void) mkdir_parents(etc_machine_id, 0755);
-                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+                fd = open(etc_machine_id, O_RDWR | O_CREAT | O_CLOEXEC | O_NOCTTY, 0444);
                 if (fd < 0) {
                         int old_errno = errno;
 
-                        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        fd = open(etc_machine_id, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                         if (fd < 0) {
                                 if (old_errno == EROFS && errno == ENOENT)
                                         return log_error_errno(errno,
-                                                  "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
-                                                  "Booting up is supported only when:\n"
-                                                  "1) /etc/machine-id exists and is populated.\n"
-                                                  "2) /etc/machine-id exists and is empty.\n"
-                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
+                                                               "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
+                                                               "Booting up is supported only when:\n"
+                                                               "1) /etc/machine-id exists and is populated.\n"
+                                                               "2) /etc/machine-id exists and is empty.\n"
+                                                               "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
                                         return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                         }
@@ -147,7 +146,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
         RUN_WITH_UMASK(0022)
-                r = id128_write(run_machine_id, ID128_PLAIN, machine_id, false);
+        r = id128_write(run_machine_id, ID128_PLAIN, machine_id, false);
         if (r < 0) {
                 (void) unlink(run_machine_id);
                 return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
@@ -162,7 +161,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
         log_info("Installed transient %s file.", etc_machine_id);
 
         /* Mark the mount read-only */
-        if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
+        if (mount(NULL, etc_machine_id, NULL, MS_BIND | MS_RDONLY | MS_REMOUNT, NULL) < 0)
                 log_warning_errno(errno, "Failed to make transient %s read-only, ignoring: %m", etc_machine_id);
 
 finish:
@@ -193,7 +192,7 @@ int machine_id_commit(const char *root) {
         }
 
         /* Read existing machine-id */
-        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(etc_machine_id, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
 
@@ -201,9 +200,7 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
-                                       "%s is not on a temporary file system.",
-                                       etc_machine_id);
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "%s is not on a temporary file system.", etc_machine_id);
 
         r = id128_read_fd(fd, ID128_PLAIN, &id);
         if (r < 0)
@@ -234,10 +231,14 @@ int machine_id_commit(const char *root) {
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
         if (r < 0)
-                return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
+                return log_warning_errno(
+                        r,
+                        "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.",
+                        etc_machine_id);
 
         if (umount2(etc_machine_id, MNT_DETACH) < 0)
-                return log_warning_errno(errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+                return log_warning_errno(
+                        errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
 
         return 0;
 }

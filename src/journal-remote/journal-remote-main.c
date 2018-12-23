@@ -23,22 +23,22 @@
 #include "strv.h"
 
 #define PRIV_KEY_FILE CERTIFICATE_ROOT "/private/journal-remote.pem"
-#define CERT_FILE     CERTIFICATE_ROOT "/certs/journal-remote.pem"
-#define TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
+#define CERT_FILE CERTIFICATE_ROOT "/certs/journal-remote.pem"
+#define TRUST_FILE CERTIFICATE_ROOT "/ca/trusted.pem"
 
-static const char* arg_url = NULL;
-static const char* arg_getter = NULL;
-static const char* arg_listen_raw = NULL;
-static const char* arg_listen_http = NULL;
-static const char* arg_listen_https = NULL;
-static char** arg_files = NULL; /* Do not free this. */
+static const char *arg_url = NULL;
+static const char *arg_getter = NULL;
+static const char *arg_listen_raw = NULL;
+static const char *arg_listen_http = NULL;
+static const char *arg_listen_https = NULL;
+static char **arg_files = NULL; /* Do not free this. */
 static int arg_compress = true;
 static int arg_seal = false;
 static int http_socket = -1, https_socket = -1;
-static char** arg_gnutls_log = NULL;
+static char **arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
-static const char* arg_output = NULL;
+static const char *arg_output = NULL;
 
 static char *arg_key = NULL;
 static char *arg_cert = NULL;
@@ -50,7 +50,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 
-static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
+static const char *const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
         [JOURNAL_WRITE_SPLIT_HOST] = "host",
 };
@@ -65,14 +65,14 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_write_split_mode,
  **********************************************************************
  **********************************************************************/
 
-static int spawn_child(const char* child, char** argv) {
+static int spawn_child(const char *child, char **argv) {
         pid_t child_pid;
         int fd[2], r;
 
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        r = safe_fork("(remote)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &child_pid);
         if (r < 0) {
                 safe_close_pair(fd);
                 return r;
@@ -104,12 +104,8 @@ static int spawn_child(const char* child, char** argv) {
         return fd[0];
 }
 
-static int spawn_curl(const char* url) {
-        char **argv = STRV_MAKE("curl",
-                                "-HAccept: application/vnd.fdo.journal",
-                                "--silent",
-                                "--show-error",
-                                url);
+static int spawn_curl(const char *url) {
+        char **argv = STRV_MAKE("curl", "-HAccept: application/vnd.fdo.journal", "--silent", "--show-error", url);
         int r;
 
         r = spawn_child("curl", argv);
@@ -138,13 +134,8 @@ static int spawn_getter(const char *getter) {
  **********************************************************************
  **********************************************************************/
 
-static int null_timer_event_handler(sd_event_source *s,
-                                uint64_t usec,
-                                void *userdata);
-static int dispatch_http_event(sd_event_source *event,
-                               int fd,
-                               uint32_t revents,
-                               void *userdata);
+static int null_timer_event_handler(sd_event_source *s, uint64_t usec, void *userdata);
+static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
 
 static int request_meta(void **connection_cls, int fd, char *hostname) {
         RemoteSource *source;
@@ -157,8 +148,7 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
 
         r = journal_remote_get_writer(journal_remote_server_global, hostname, &writer);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get writer for source %s: %m",
-                                         hostname);
+                return log_warning_errno(r, "Failed to get writer for source %s: %m", hostname);
 
         source = source_new(fd, true, hostname, writer);
         if (!source) {
@@ -172,10 +162,7 @@ static int request_meta(void **connection_cls, int fd, char *hostname) {
         return 0;
 }
 
-static void request_meta_free(void *cls,
-                              struct MHD_Connection *connection,
-                              void **connection_cls,
-                              enum MHD_RequestTerminationCode toe) {
+static void request_meta_free(void *cls, struct MHD_Connection *connection, void **connection_cls, enum MHD_RequestTerminationCode toe) {
         RemoteSource *s;
 
         assert(connection_cls);
@@ -188,11 +175,7 @@ static void request_meta_free(void *cls,
         }
 }
 
-static int process_http_upload(
-                struct MHD_Connection *connection,
-                const char *upload_data,
-                size_t *upload_data_size,
-                RemoteSource *source) {
+static int process_http_upload(struct MHD_Connection *connection, const char *upload_data, size_t *upload_data_size, RemoteSource *source) {
 
         bool finished = false;
         size_t remaining;
@@ -200,14 +183,12 @@ static int process_http_upload(
 
         assert(source);
 
-        log_trace("%s: connection %p, %zu bytes",
-                  __func__, connection, *upload_data_size);
+        log_trace("%s: connection %p, %zu bytes", __func__, connection, *upload_data_size);
 
         if (*upload_data_size) {
                 log_trace("Received %zu bytes", *upload_data_size);
 
-                r = journal_importer_push_data(&source->importer,
-                                               upload_data, *upload_data_size);
+                r = journal_importer_push_data(&source->importer, upload_data, *upload_data_size);
                 if (r < 0)
                         return mhd_respond_oom(connection);
 
@@ -216,21 +197,18 @@ static int process_http_upload(
                 finished = true;
 
         for (;;) {
-                r = process_source(source,
-                                   journal_remote_server_global->compress,
-                                   journal_remote_server_global->seal);
+                r = process_source(source, journal_remote_server_global->compress, journal_remote_server_global->seal);
                 if (r == -EAGAIN)
                         break;
                 else if (r < 0) {
                         log_warning("Failed to process data for connection %p", connection);
                         if (r == -E2BIG)
                                 return mhd_respondf(connection,
-                                                    r, MHD_HTTP_PAYLOAD_TOO_LARGE,
+                                                    r,
+                                                    MHD_HTTP_PAYLOAD_TOO_LARGE,
                                                     "Entry is too large, maximum is " STRINGIFY(DATA_SIZE_MAX) " bytes.");
                         else
-                                return mhd_respondf(connection,
-                                                    r, MHD_HTTP_UNPROCESSABLE_ENTITY,
-                                                    "Processing failed: %m.");
+                                return mhd_respondf(connection, r, MHD_HTTP_UNPROCESSABLE_ENTITY, "Processing failed: %m.");
                 }
         }
 
@@ -242,24 +220,21 @@ static int process_http_upload(
         remaining = journal_importer_bytes_remaining(&source->importer);
         if (remaining > 0) {
                 log_warning("Premature EOF byte. %zu bytes lost.", remaining);
-                return mhd_respondf(connection,
-                                    0, MHD_HTTP_EXPECTATION_FAILED,
-                                    "Premature EOF. %zu bytes of trailing data not processed.",
-                                    remaining);
+                return mhd_respondf(
+                        connection, 0, MHD_HTTP_EXPECTATION_FAILED, "Premature EOF. %zu bytes of trailing data not processed.", remaining);
         }
 
         return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.");
 };
 
-static int request_handler(
-                void *cls,
-                struct MHD_Connection *connection,
-                const char *url,
-                const char *method,
-                const char *version,
-                const char *upload_data,
-                size_t *upload_data_size,
-                void **connection_cls) {
+static int request_handler(void *cls,
+                           struct MHD_Connection *connection,
+                           const char *url,
+                           const char *method,
+                           const char *version,
+                           const char *upload_data,
+                           size_t *upload_data_size,
+                           void **connection_cls) {
 
         const char *header;
         int r, code, fd;
@@ -273,9 +248,7 @@ static int request_handler(
         log_trace("Handling a connection %s %s %s", method, url, version);
 
         if (*connection_cls)
-                return process_http_upload(connection,
-                                           upload_data, upload_data_size,
-                                           *connection_cls);
+                return process_http_upload(connection, upload_data, upload_data_size, *connection_cls);
 
         if (!streq(method, "POST"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
@@ -283,21 +256,17 @@ static int request_handler(
         if (!streq(url, "/upload"))
                 return mhd_respond(connection, MHD_HTTP_NOT_FOUND, "Not found.");
 
-        header = MHD_lookup_connection_value(connection,
-                                             MHD_HEADER_KIND, "Content-Type");
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Type");
         if (!header || !streq(header, "application/vnd.fdo.journal"))
-                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
-                                   "Content-Type: application/vnd.fdo.journal is required.");
+                return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE, "Content-Type: application/vnd.fdo.journal is required.");
 
         {
                 const union MHD_ConnectionInfo *ci;
 
-                ci = MHD_get_connection_info(connection,
-                                             MHD_CONNECTION_INFO_CONNECTION_FD);
+                ci = MHD_get_connection_info(connection, MHD_CONNECTION_INFO_CONNECTION_FD);
                 if (!ci) {
                         log_error("MHD_get_connection_info failed: cannot get remote fd");
-                        return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
-                                           "Cannot check remote address.");
+                        return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Cannot check remote address.");
                 }
 
                 fd = ci->connect_fd;
@@ -311,8 +280,7 @@ static int request_handler(
         } else {
                 r = getpeername_pretty(fd, false, &hostname);
                 if (r < 0)
-                        return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR,
-                                           "Cannot check remote hostname.");
+                        return mhd_respond(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, "Cannot check remote hostname.");
         }
 
         assert(hostname);
@@ -327,27 +295,18 @@ static int request_handler(
         return MHD_YES;
 }
 
-static int setup_microhttpd_server(RemoteServer *s,
-                                   int fd,
-                                   const char *key,
-                                   const char *cert,
-                                   const char *trust) {
-        struct MHD_OptionItem opts[] = {
-                { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
-                { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
-                { MHD_OPTION_LISTEN_SOCKET, fd},
-                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, 128*1024},
-                { MHD_OPTION_END},
-                { MHD_OPTION_END},
-                { MHD_OPTION_END},
-                { MHD_OPTION_END},
-                { MHD_OPTION_END}};
+static int setup_microhttpd_server(RemoteServer *s, int fd, const char *key, const char *cert, const char *trust) {
+        struct MHD_OptionItem opts[] = { { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free },
+                                         { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger },
+                                         { MHD_OPTION_LISTEN_SOCKET, fd },
+                                         { MHD_OPTION_CONNECTION_MEMORY_LIMIT, 128 * 1024 },
+                                         { MHD_OPTION_END },
+                                         { MHD_OPTION_END },
+                                         { MHD_OPTION_END },
+                                         { MHD_OPTION_END },
+                                         { MHD_OPTION_END } };
         int opts_pos = 4;
-        int flags =
-                MHD_USE_DEBUG |
-                MHD_USE_DUAL_STACK |
-                MHD_USE_EPOLL |
-                MHD_USE_ITC;
+        int flags = MHD_USE_DEBUG | MHD_USE_DUAL_STACK | MHD_USE_EPOLL | MHD_USE_ITC;
 
         const union MHD_DaemonInfo *info;
         int r, epoll_fd;
@@ -367,8 +326,7 @@ static int setup_microhttpd_server(RemoteServer *s,
  * deprecated yet and there exists an enum element with the same name.
  * So we can safely use it. */
 #ifdef MHD_USE_PEDANTIC_CHECKS
-        opts[opts_pos++] = (struct MHD_OptionItem)
-                {MHD_OPTION_STRICT_FOR_CLIENT, 1};
+        opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_STRICT_FOR_CLIENT, 1 };
 #else
         flags |= MHD_USE_PEDANTIC_CHECKS;
 #endif
@@ -376,37 +334,29 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (key) {
                 assert(cert);
 
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        {MHD_OPTION_HTTPS_MEM_KEY, 0, (char*) key};
-                opts[opts_pos++] = (struct MHD_OptionItem)
-                        {MHD_OPTION_HTTPS_MEM_CERT, 0, (char*) cert};
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_KEY, 0, (char *) key };
+                opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_CERT, 0, (char *) cert };
 
                 flags |= MHD_USE_TLS;
 
                 if (trust)
-                        opts[opts_pos++] = (struct MHD_OptionItem)
-                                {MHD_OPTION_HTTPS_MEM_TRUST, 0, (char*) trust};
+                        opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_TRUST, 0, (char *) trust };
         }
 
-        d = new(MHDDaemonWrapper, 1);
+        d = new (MHDDaemonWrapper, 1);
         if (!d)
                 return log_oom();
 
         d->fd = (uint64_t) fd;
 
-        d->daemon = MHD_start_daemon(flags, 0,
-                                     NULL, NULL,
-                                     request_handler, NULL,
-                                     MHD_OPTION_ARRAY, opts,
-                                     MHD_OPTION_END);
+        d->daemon = MHD_start_daemon(flags, 0, NULL, NULL, request_handler, NULL, MHD_OPTION_ARRAY, opts, MHD_OPTION_END);
         if (!d->daemon) {
                 log_error("Failed to start µhttp daemon");
                 r = -EINVAL;
                 goto error;
         }
 
-        log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
-                  key ? "HTTPS" : "HTTP", fd, d);
+        log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)", key ? "HTTPS" : "HTTP", fd, d);
 
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
@@ -422,9 +372,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_add_io(s->events, &d->io_event,
-                            epoll_fd, EPOLLIN,
-                            dispatch_http_event, d);
+        r = sd_event_add_io(s->events, &d->io_event, epoll_fd, EPOLLIN, dispatch_http_event, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add event callback: %m");
                 goto error;
@@ -436,9 +384,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 goto error;
         }
 
-        r = sd_event_add_time(s->events, &d->timer_event,
-                              CLOCK_MONOTONIC, (uint64_t) -1, 0,
-                              null_timer_event_handler, d);
+        r = sd_event_add_time(s->events, &d->timer_event, CLOCK_MONOTONIC, (uint64_t) -1, 0, null_timer_event_handler, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add timer_event: %m");
                 goto error;
@@ -472,11 +418,7 @@ error:
         return r;
 }
 
-static int setup_microhttpd_socket(RemoteServer *s,
-                                   const char *address,
-                                   const char *key,
-                                   const char *cert,
-                                   const char *trust) {
+static int setup_microhttpd_socket(RemoteServer *s, const char *address, const char *key, const char *cert, const char *trust) {
         int fd;
 
         fd = make_socket_fd(LOG_DEBUG, address, SOCK_STREAM, SOCK_CLOEXEC);
@@ -486,16 +428,11 @@ static int setup_microhttpd_socket(RemoteServer *s,
         return setup_microhttpd_server(s, fd, key, cert, trust);
 }
 
-static int null_timer_event_handler(sd_event_source *timer_event,
-                                    uint64_t usec,
-                                    void *userdata) {
+static int null_timer_event_handler(sd_event_source *timer_event, uint64_t usec, void *userdata) {
         return dispatch_http_event(timer_event, 0, 0, userdata);
 }
 
-static int dispatch_http_event(sd_event_source *event,
-                               int fd,
-                               uint32_t revents,
-                               void *userdata) {
+static int dispatch_http_event(sd_event_source *event, int fd, uint32_t revents, void *userdata) {
         MHDDaemonWrapper *d = userdata;
         int r;
         MHD_UNSIGNED_LONG_LONG timeout = ULONG_LONG_MAX;
@@ -505,8 +442,7 @@ static int dispatch_http_event(sd_event_source *event,
         r = MHD_run(d->daemon);
         if (r == MHD_NO)
                 // FIXME: unregister daemon
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "MHD_run failed!");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MHD_run failed!");
         if (MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
                 timeout = ULONG_LONG_MAX;
 
@@ -555,11 +491,7 @@ static int setup_raw_socket(RemoteServer *s, const char *address) {
         return journal_remote_add_raw_socket(s, fd);
 }
 
-static int create_remoteserver(
-                RemoteServer *s,
-                const char* key,
-                const char* cert,
-                const char* trust) {
+static int create_remoteserver(RemoteServer *s, const char *key, const char *cert, const char *trust) {
 
         int r, n, fd;
         char **file;
@@ -579,8 +511,7 @@ static int create_remoteserver(
                 log_debug("Received %d descriptors", n);
 
         if (MAX(http_socket, https_socket) >= SD_LISTEN_FDS_START + n)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADFD),
-                                       "Received fewer sockets than expected");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADFD), "Received fewer sockets than expected");
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 if (sd_is_socket(fd, AF_UNSPEC, 0, true)) {
@@ -603,8 +534,7 @@ static int create_remoteserver(
 
                         r = journal_remote_add_source(s, fd, hostname, true);
                 } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unknown socket passed on fd:%d", fd);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown socket passed on fd:%d", fd);
 
                 if (r < 0)
                         return log_error_errno(r, "Failed to register socket (fd:%d): %m", fd);
@@ -616,7 +546,7 @@ static int create_remoteserver(
                 if (fd < 0)
                         return fd;
 
-                r = journal_remote_add_source(s, fd, (char*) arg_output, false);
+                r = journal_remote_add_source(s, fd, (char *) arg_output, false);
                 if (r < 0)
                         return r;
         }
@@ -678,20 +608,19 @@ static int create_remoteserver(
                 } else {
                         log_debug("Reading file %s...", *file);
 
-                        fd = open(*file, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                        fd = open(*file, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to open %s: %m", *file);
                         output_name = *file;
                 }
 
-                r = journal_remote_add_source(s, fd, (char*) output_name, false);
+                r = journal_remote_add_source(s, fd, (char *) output_name, false);
                 if (r < 0)
                         return r;
         }
 
         if (s->active == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Zero sources specified");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Zero sources specified");
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE) {
                 /* In this case we know what the writer will be
@@ -721,19 +650,20 @@ static int negative_fd(const char *spec) {
 }
 
 static int parse_config(void) {
-        const ConfigTableItem items[] = {
-                { "Remote",  "Seal",                   config_parse_bool,             0, &arg_seal       },
-                { "Remote",  "SplitMode",              config_parse_write_split_mode, 0, &arg_split_mode },
-                { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key        },
-                { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert       },
-                { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust      },
-                {}
-        };
+        const ConfigTableItem items[] = { { "Remote", "Seal", config_parse_bool, 0, &arg_seal },
+                                          { "Remote", "SplitMode", config_parse_write_split_mode, 0, &arg_split_mode },
+                                          { "Remote", "ServerKeyFile", config_parse_path, 0, &arg_key },
+                                          { "Remote", "ServerCertificateFile", config_parse_path, 0, &arg_cert },
+                                          { "Remote", "TrustedCertificateFile", config_parse_path, 0, &arg_trust },
+                                          {} };
 
         return config_parse_many_nulstr(PKGSYSCONFDIR "/journal-remote.conf",
                                         CONF_PATHS_NULSTR("systemd/journal-remote.conf.d"),
-                                        "Remote\0", config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+                                        "Remote\0",
+                                        config_item_table_lookup,
+                                        items,
+                                        CONFIG_PARSE_WARN,
+                                        NULL);
 }
 
 static int help(void) {
@@ -757,25 +687,28 @@ static int help(void) {
                "     --compress[=BOOL]      XZ-compress the output journal (default: yes)\n"
                "     --seal[=BOOL]          Use event sealing (default: no)\n"
                "     --key=FILENAME         SSL key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
+               "                            \"" PRIV_KEY_FILE
+               "\")\n"
                "     --cert=FILENAME        SSL certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
+               "                            \"" CERT_FILE
+               "\")\n"
                "     --trust=FILENAME|all   SSL CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
+               "                            \"" TRUST_FILE
+               "\")\n"
                "     --gnutls-log=CATEGORY...\n"
                "                            Specify a list of gnutls logging categories\n"
                "     --split-mode=none|host How many output files to create\n"
                "\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_URL,
                 ARG_LISTEN_RAW,
@@ -791,24 +724,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GNUTLS_LOG,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "url",          required_argument, NULL, ARG_URL          },
-                { "getter",       required_argument, NULL, ARG_GETTER       },
-                { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
-                { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
-                { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "output",       required_argument, NULL, 'o'              },
-                { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
-                { "seal",         optional_argument, NULL, ARG_SEAL         },
-                { "key",          required_argument, NULL, ARG_KEY          },
-                { "cert",         required_argument, NULL, ARG_CERT         },
-                { "trust",        required_argument, NULL, ARG_TRUST        },
-                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "url", required_argument, NULL, ARG_URL },
+                                                 { "getter", required_argument, NULL, ARG_GETTER },
+                                                 { "listen-raw", required_argument, NULL, ARG_LISTEN_RAW },
+                                                 { "listen-http", required_argument, NULL, ARG_LISTEN_HTTP },
+                                                 { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
+                                                 { "output", required_argument, NULL, 'o' },
+                                                 { "split-mode", required_argument, NULL, ARG_SPLIT_MODE },
+                                                 { "compress", optional_argument, NULL, ARG_COMPRESS },
+                                                 { "seal", optional_argument, NULL, ARG_SEAL },
+                                                 { "key", required_argument, NULL, ARG_KEY },
+                                                 { "cert", required_argument, NULL, ARG_CERT },
+                                                 { "trust", required_argument, NULL, ARG_TRUST },
+                                                 { "gnutls-log", required_argument, NULL, ARG_GNUTLS_LOG },
+                                                 {} };
 
         int c, r;
         bool type_a, type_b;
@@ -817,7 +748,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return help();
@@ -827,32 +758,28 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_URL:
                         if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently set more than one --url");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot currently set more than one --url");
 
                         arg_url = optarg;
                         break;
 
                 case ARG_GETTER:
                         if (arg_getter)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --getter more than once");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot currently use --getter more than once");
 
                         arg_getter = optarg;
                         break;
 
                 case ARG_LISTEN_RAW:
                         if (arg_listen_raw)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-raw more than once");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot currently use --listen-raw more than once");
 
                         arg_listen_raw = optarg;
                         break;
 
                 case ARG_LISTEN_HTTP:
                         if (arg_listen_http || http_socket >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-http more than once");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot currently use --listen-http more than once");
 
                         r = negative_fd(optarg);
                         if (r >= 0)
@@ -863,8 +790,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LISTEN_HTTPS:
                         if (arg_listen_https || https_socket >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-https more than once");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot currently use --listen-https more than once");
 
                         r = negative_fd(optarg);
                         if (r >= 0)
@@ -876,8 +802,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_KEY:
                         if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Key file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file specified twice");
 
                         arg_key = strdup(optarg);
                         if (!arg_key)
@@ -887,8 +812,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CERT:
                         if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Certificate file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate file specified twice");
 
                         arg_cert = strdup(optarg);
                         if (!arg_cert)
@@ -898,8 +822,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TRUST:
                         if (arg_trust || arg_trust_all)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Confusing trusted CA configuration");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Confusing trusted CA configuration");
 
                         if (streq(optarg, "all"))
                                 arg_trust_all = true;
@@ -909,8 +832,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!arg_trust)
                                         return log_oom();
 #else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Option --trust is not available.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust is not available.");
 #endif
                         }
 
@@ -918,8 +840,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'o':
                         if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use --output/-o more than once");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use --output/-o more than once");
 
                         arg_output = optarg;
                         break;
@@ -927,16 +848,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SPLIT_MODE:
                         arg_split_mode = journal_write_split_mode_from_string(optarg);
                         if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid split mode: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid split mode: %s", optarg);
                         break;
 
                 case ARG_COMPRESS:
                         if (optarg) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --compress= parameter.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --compress= parameter.");
 
                                 arg_compress = !!r;
                         } else
@@ -948,8 +867,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse --seal= parameter.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --seal= parameter.");
 
                                 arg_seal = !!r;
                         } else
@@ -959,7 +877,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_GNUTLS_LOG: {
 #if HAVE_GNUTLS
-                        const char* p = optarg;
+                        const char *p = optarg;
                         for (;;) {
                                 _cleanup_free_ char *word = NULL;
 
@@ -976,8 +894,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 #else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --gnutls-log is not available.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log is not available.");
 #endif
                 }
 
@@ -992,22 +909,17 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_files = argv + optind;
 
         type_a = arg_getter || !strv_isempty(arg_files);
-        type_b = arg_url
-                || arg_listen_raw
-                || arg_listen_http || arg_listen_https
-                || sd_listen_fds(false) > 0;
+        type_b = arg_url || arg_listen_raw || arg_listen_http || arg_listen_https || sd_listen_fds(false) > 0;
         if (type_a && type_b)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot use file input or --getter with "
                                        "--arg-listen-... or socket activation.");
         if (type_a) {
                 if (!arg_output)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --output must be specified with file input or --getter.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --output must be specified with file input or --getter.");
 
                 if (!IN_SET(arg_split_mode, JOURNAL_WRITE_SPLIT_NONE, _JOURNAL_WRITE_SPLIT_INVALID))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "For active sources, only --split-mode=none is allowed.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "For active sources, only --split-mode=none is allowed.");
 
                 arg_split_mode = JOURNAL_WRITE_SPLIT_NONE;
         }
@@ -1017,17 +929,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_split_mode == JOURNAL_WRITE_SPLIT_NONE && arg_output) {
                 if (is_dir(arg_output, true) > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "For SplitMode=none, output must be a file.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "For SplitMode=none, output must be a file.");
                 if (!endswith(arg_output, ".journal"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "For SplitMode=none, output file name must end with .journal.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "For SplitMode=none, output file name must end with .journal.");
         }
 
-        if (arg_split_mode == JOURNAL_WRITE_SPLIT_HOST
-            && arg_output && is_dir(arg_output, true) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "For SplitMode=host, output must be a directory.");
+        if (arg_split_mode == JOURNAL_WRITE_SPLIT_HOST && arg_output && is_dir(arg_output, true) <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "For SplitMode=host, output must be a directory.");
 
         log_debug("Full config: SplitMode=%s Key=%s Cert=%s Trust=%s",
                   journal_write_split_mode_to_string(arg_split_mode),
@@ -1043,26 +951,22 @@ static int load_certificates(char **key, char **cert, char **trust) {
 
         r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read key from file '%s': %m",
-                                       arg_key ?: PRIV_KEY_FILE);
+                return log_error_errno(r, "Failed to read key from file '%s': %m", arg_key ?: PRIV_KEY_FILE);
 
         r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read certificate from file '%s': %m",
-                                       arg_cert ?: CERT_FILE);
+                return log_error_errno(r, "Failed to read certificate from file '%s': %m", arg_cert ?: CERT_FILE);
 
         if (arg_trust_all)
                 log_info("Certificate checking disabled.");
         else {
                 r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read CA certificate file '%s': %m",
-                                               arg_trust ?: TRUST_FILE);
+                        return log_error_errno(r, "Failed to read CA certificate file '%s': %m", arg_trust ?: TRUST_FILE);
         }
 
         if ((arg_listen_raw || arg_listen_http) && *trust)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --trust makes all non-HTTPS connections untrusted.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust makes all non-HTTPS connections untrusted.");
 
         return 0;
 }
@@ -1111,8 +1015,7 @@ static int run(int argc, char **argv) {
 
         log_debug("Watchdog is %sd.", enable_disable(r > 0));
 
-        log_debug("%s running as pid "PID_FMT,
-                  program_invocation_short_name, getpid_cached());
+        log_debug("%s running as pid " PID_FMT, program_invocation_short_name, getpid_cached());
 
         notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
@@ -1131,7 +1034,8 @@ static int run(int argc, char **argv) {
         notify_message = NULL;
         (void) sd_notifyf(false,
                           "STOPPING=1\n"
-                          "STATUS=Shutting down after writing %" PRIu64 " entries...", s.event_count);
+                          "STATUS=Shutting down after writing %" PRIu64 " entries...",
+                          s.event_count);
 
         log_info("Finishing after writing %" PRIu64 " entries", s.event_count);
 

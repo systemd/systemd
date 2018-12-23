@@ -16,7 +16,7 @@
 #include "string-util.h"
 #include "time-util.h"
 
-#define TEST_TIMEOUT_USEC (20*USEC_PER_SEC)
+#define TEST_TIMEOUT_USEC (20 * USEC_PER_SEC)
 
 static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, void *userdata) {
         const struct addrinfo *i;
@@ -57,16 +57,9 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
         int r = 0;
 
-        struct addrinfo hints = {
-                .ai_family = PF_UNSPEC,
-                .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_CANONNAME
-        };
+        struct addrinfo hints = { .ai_family = PF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_CANONNAME };
 
-        struct sockaddr_in sa = {
-                .sin_family = AF_INET,
-                .sin_port = htons(80)
-        };
+        struct sockaddr_in sa = { .sin_family = AF_INET, .sin_port = htons(80) };
 
         assert_se(sd_resolve_default(&resolve) >= 0);
 
@@ -82,7 +75,7 @@ int main(int argc, char *argv[]) {
 
         /* Make an address -> name query */
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
-        r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr*) &sa, sizeof(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
+        r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr *) &sa, sizeof(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 

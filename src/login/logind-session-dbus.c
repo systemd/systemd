@@ -18,13 +18,7 @@
 #include "util.h"
 
 static int property_get_user(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Session *s = userdata;
@@ -41,13 +35,7 @@ static int property_get_user(
 }
 
 static int property_get_name(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -59,13 +47,7 @@ static int property_get_name(
 }
 
 static int property_get_seat(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Session *s = userdata;
@@ -87,13 +69,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_active, "b", Session, session_is_act
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Session, session_get_state, session_state_to_string);
 
 static int property_get_idle_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -105,13 +81,7 @@ static int property_get_idle_hint(
 }
 
 static int property_get_idle_since_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Session *s = userdata;
         dual_timestamp t = DUAL_TIMESTAMP_NULL;
@@ -132,13 +102,7 @@ static int property_get_idle_since_hint(
 }
 
 static int property_get_locked_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Session *s = userdata;
 
@@ -157,14 +121,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         assert(s);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_KILL,
-                        "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        s->user->uid,
-                        &s->manager->polkit_registry,
-                        error);
+                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, s->user->uid, &s->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -199,14 +156,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(s);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.login1.lock-sessions",
-                        NULL,
-                        false,
-                        s->user->uid,
-                        &s->manager->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.login1.lock-sessions", NULL, false, s->user->uid, &s->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -303,14 +253,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_KILL,
-                        "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        s->user->uid,
-                        &s->manager->polkit_registry,
-                        error);
+                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, s->user->uid, &s->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -611,7 +554,7 @@ int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *name;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION | SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
                         r = sd_bus_creds_get_session(creds, &name);
                         if (r >= 0) {
@@ -639,12 +582,13 @@ int session_send_signal(Session *s, bool new_session) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_emit_signal(
-                        s->manager->bus,
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        new_session ? "SessionNew" : "SessionRemoved",
-                        "so", s->id, p);
+        return sd_bus_emit_signal(s->manager->bus,
+                                  "/org/freedesktop/login1",
+                                  "org.freedesktop.login1.Manager",
+                                  new_session ? "SessionNew" : "SessionRemoved",
+                                  "so",
+                                  s->id,
+                                  p);
 }
 
 int session_send_changed(Session *s, const char *properties, ...) {
@@ -674,12 +618,7 @@ int session_send_lock(Session *s, bool lock) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_emit_signal(
-                        s->manager->bus,
-                        p,
-                        "org.freedesktop.login1.Session",
-                        lock ? "Lock" : "Unlock",
-                        NULL);
+        return sd_bus_emit_signal(s->manager->bus, p, "org.freedesktop.login1.Session", lock ? "Lock" : "Unlock", NULL);
 }
 
 int session_send_lock_all(Manager *m, bool lock) {
@@ -705,8 +644,7 @@ static bool session_ready(Session *s) {
 
         /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
 
-        return !s->scope_job &&
-                !s->user->service_job;
+        return !s->scope_job && !s->user->service_job;
 }
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {
@@ -740,25 +678,26 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (!p)
                 return -ENOMEM;
 
-        log_debug("Sending reply about created session: "
-                  "id=%s object_path=%s uid=%u runtime_path=%s "
-                  "session_fd=%d seat=%s vtnr=%u",
-                  s->id,
-                  p,
-                  (uint32_t) s->user->uid,
-                  s->user->runtime_path,
-                  fifo_fd,
-                  s->seat ? s->seat->id : "",
-                  (uint32_t) s->vtnr);
+        log_debug(
+                "Sending reply about created session: "
+                "id=%s object_path=%s uid=%u runtime_path=%s "
+                "session_fd=%d seat=%s vtnr=%u",
+                s->id,
+                p,
+                (uint32_t) s->user->uid,
+                s->user->runtime_path,
+                fifo_fd,
+                s->seat ? s->seat->id : "",
+                (uint32_t) s->vtnr);
 
-        return sd_bus_reply_method_return(
-                        c, "soshusub",
-                        s->id,
-                        p,
-                        s->user->runtime_path,
-                        fifo_fd,
-                        (uint32_t) s->user->uid,
-                        s->seat ? s->seat->id : "",
-                        (uint32_t) s->vtnr,
-                        false);
+        return sd_bus_reply_method_return(c,
+                                          "soshusub",
+                                          s->id,
+                                          p,
+                                          s->user->runtime_path,
+                                          fifo_fd,
+                                          (uint32_t) s->user->uid,
+                                          s->seat ? s->seat->id : "",
+                                          (uint32_t) s->vtnr,
+                                          false);
 }

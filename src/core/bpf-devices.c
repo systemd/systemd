@@ -12,7 +12,7 @@ static int bpf_access_type(const char *acc) {
         assert(acc);
 
         for (; *acc; acc++)
-                switch(*acc) {
+                switch (*acc) {
                 case 'r':
                         r |= BPF_DEVCG_ACC_READ;
                         break;
@@ -32,12 +32,12 @@ static int bpf_access_type(const char *acc) {
 int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor, const char *acc) {
         struct bpf_insn insn[] = {
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 6), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),      /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2), /* compare major */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1), /* compare minor */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 2),     /* compare major */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_5, minor, 1),     /* compare minor */
+                BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
         int r, access;
 
@@ -60,11 +60,11 @@ int cgroup_bpf_whitelist_device(BPFProgram *prog, int type, int major, int minor
 int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char *acc) {
         struct bpf_insn insn[] = {
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),      /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
-                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1), /* compare major */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_IMM(BPF_JNE, BPF_REG_4, major, 1),     /* compare major */
+                BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
         int r, access;
 
@@ -87,10 +87,10 @@ int cgroup_bpf_whitelist_major(BPFProgram *prog, int type, int major, const char
 int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
         struct bpf_insn insn[] = {
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, type, 5), /* compare device type */
-                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3), /* calculate access type */
+                BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),      /* calculate access type */
                 BPF_ALU32_IMM(BPF_AND, BPF_REG_1, 0),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 1), /* compare access type */
-                BPF_JMP_A(PASS_JUMP_OFF), /* jump to PASS */
+                BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
         int r, access;
 
@@ -113,21 +113,17 @@ int cgroup_bpf_whitelist_class(BPFProgram *prog, int type, const char *acc) {
 int cgroup_init_device_bpf(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist) {
         struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */
-                BPF_LDX_MEM(BPF_H, BPF_REG_2, BPF_REG_1,
-                            offsetof(struct bpf_cgroup_dev_ctx, access_type)),
+                BPF_LDX_MEM(BPF_H, BPF_REG_2, BPF_REG_1, offsetof(struct bpf_cgroup_dev_ctx, access_type)),
 
                 /* load access type to r3 */
-                BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
-                            offsetof(struct bpf_cgroup_dev_ctx, access_type)),
+                BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1, offsetof(struct bpf_cgroup_dev_ctx, access_type)),
                 BPF_ALU32_IMM(BPF_RSH, BPF_REG_3, 16),
 
                 /* load major number to r4 */
-                BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
-                            offsetof(struct bpf_cgroup_dev_ctx, major)),
+                BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1, offsetof(struct bpf_cgroup_dev_ctx, major)),
 
                 /* load minor number to r5 */
-                BPF_LDX_MEM(BPF_W, BPF_REG_5, BPF_REG_1,
-                            offsetof(struct bpf_cgroup_dev_ctx, minor)),
+                BPF_LDX_MEM(BPF_W, BPF_REG_5, BPF_REG_1, offsetof(struct bpf_cgroup_dev_ctx, minor)),
         };
 
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
@@ -161,10 +157,9 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
 
         };
 
-        struct bpf_insn exit_insn[] = {
-                /* else return ALLOW */
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
+        struct bpf_insn exit_insn[] = { /* else return ALLOW */
+                                        BPF_MOV64_IMM(BPF_REG_0, 1),
+                                        BPF_EXIT_INSN()
         };
 
         _cleanup_free_ char *path = NULL;
@@ -217,10 +212,7 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
 }
 
 int bpf_devices_supported(void) {
-        struct bpf_insn trivial[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
-        };
+        struct bpf_insn trivial[] = { BPF_MOV64_IMM(BPF_REG_0, 1), BPF_EXIT_INSN() };
 
         _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
         static int supported = -1;

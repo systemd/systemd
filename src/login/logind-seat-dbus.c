@@ -19,13 +19,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
 
 static int property_get_active_session(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Seat *s = userdata;
@@ -42,13 +36,7 @@ static int property_get_active_session(
 }
 
 static int property_get_sessions(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Seat *s = userdata;
         Session *session;
@@ -72,7 +60,6 @@ static int property_get_sessions(
                 r = sd_bus_message_append(reply, "(so)", session->id, p);
                 if (r < 0)
                         return r;
-
         }
 
         r = sd_bus_message_close_container(reply);
@@ -83,13 +70,7 @@ static int property_get_sessions(
 }
 
 static int property_get_idle_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -101,13 +82,7 @@ static int property_get_idle_hint(
 }
 
 static int property_get_idle_since_hint(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Seat *s = userdata;
         dual_timestamp t;
@@ -135,14 +110,7 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(s);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_KILL,
-                        "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &s->manager->polkit_registry,
-                        error);
+                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, UID_INVALID, &s->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -338,7 +306,7 @@ int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
                 const char *name;
                 Session *session;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION|SD_BUS_CREDS_AUGMENT, &creds);
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_SESSION | SD_BUS_CREDS_AUGMENT, &creds);
                 if (r >= 0) {
                         r = sd_bus_creds_get_session(creds, &name);
                         if (r >= 0) {
@@ -366,12 +334,13 @@ int seat_send_signal(Seat *s, bool new_seat) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_emit_signal(
-                        s->manager->bus,
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        new_seat ? "SeatNew" : "SeatRemoved",
-                        "so", s->id, p);
+        return sd_bus_emit_signal(s->manager->bus,
+                                  "/org/freedesktop/login1",
+                                  "org.freedesktop.login1.Manager",
+                                  new_seat ? "SeatNew" : "SeatRemoved",
+                                  "so",
+                                  s->id,
+                                  p);
 }
 
 int seat_send_changed(Seat *s, const char *properties, ...) {

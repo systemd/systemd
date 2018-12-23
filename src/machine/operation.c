@@ -15,9 +15,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         assert(o);
         assert(si);
 
-        log_debug("Operating " PID_FMT " is now complete with code=%s status=%i",
-                  o->pid,
-                  sigchld_code_to_string(si->si_code), si->si_status);
+        log_debug("Operating " PID_FMT " is now complete with code=%s status=%i", o->pid, sigchld_code_to_string(si->si_code), si->si_status);
 
         o->pid = 0;
 

@@ -33,24 +33,18 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_decompressionContext_t, LZ4F_freeDecompressionC
 
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
-static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
+static const char *const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
         [OBJECT_COMPRESSED_XZ] = "XZ",
         [OBJECT_COMPRESSED_LZ4] = "LZ4",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
 
-int compress_blob_xz(const void *src, uint64_t src_size,
-                     void *dst, size_t dst_alloc_size, size_t *dst_size) {
+int compress_blob_xz(const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #if HAVE_XZ
-        static const lzma_options_lzma opt = {
-                1u << 20u, NULL, 0, LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
-                LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3, 4
-        };
-        static const lzma_filter filters[] = {
-                { LZMA_FILTER_LZMA2, (lzma_options_lzma*) &opt },
-                { LZMA_VLI_UNKNOWN, NULL }
-        };
+        static const lzma_options_lzma opt = { 1u << 20u,       NULL,           0,   LZMA_LC_DEFAULT, LZMA_LP_DEFAULT,
+                                               LZMA_PB_DEFAULT, LZMA_MODE_FAST, 128, LZMA_MF_HC3,     4 };
+        static const lzma_filter filters[] = { { LZMA_FILTER_LZMA2, (lzma_options_lzma *) &opt }, { LZMA_VLI_UNKNOWN, NULL } };
         lzma_ret ret;
         size_t out_pos = 0;
 
@@ -66,8 +60,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
         if (src_size < 80)
                 return -ENOBUFS;
 
-        ret = lzma_stream_buffer_encode((lzma_filter*) filters, LZMA_CHECK_NONE, NULL,
-                                        src, src_size, dst, &out_pos, dst_alloc_size);
+        ret = lzma_stream_buffer_encode((lzma_filter *) filters, LZMA_CHECK_NONE, NULL, src, src_size, dst, &out_pos, dst_alloc_size);
         if (ret != LZMA_OK)
                 return -ENOBUFS;
 
@@ -78,8 +71,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
 #endif
 }
 
-int compress_blob_lz4(const void *src, uint64_t src_size,
-                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
+int compress_blob_lz4(const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #if HAVE_LZ4
         int r;
 
@@ -95,11 +87,11 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = LZ4_compress_default(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
+        r = LZ4_compress_default(src, (char *) dst + 8, src_size, (int) dst_alloc_size - 8);
         if (r <= 0)
                 return -ENOBUFS;
 
-        *(le64_t*) dst = htole64(src_size);
+        *(le64_t *) dst = htole64(src_size);
         *dst_size = r + 8;
 
         return 0;
@@ -108,8 +100,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_blob_xz(const void *src, uint64_t src_size,
-                       void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+int decompress_blob_xz(const void *src, uint64_t src_size, void **dst, size_t *dst_alloc_size, size_t *dst_size, size_t dst_max) {
 
 #if HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
@@ -158,7 +149,7 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
                         return -ENOMEM;
 
                 s.avail_out = space - used;
-                s.next_out = *(uint8_t**)dst + used;
+                s.next_out = *(uint8_t **) dst + used;
         }
 
         *dst_size = space - s.avail_out;
@@ -168,11 +159,10 @@ int decompress_blob_xz(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_blob_lz4(const void *src, uint64_t src_size,
-                        void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+int decompress_blob_lz4(const void *src, uint64_t src_size, void **dst, size_t *dst_alloc_size, size_t *dst_size, size_t dst_max) {
 
 #if HAVE_LZ4
-        char* out;
+        char *out;
         int r, size; /* LZ4 uses int for size */
 
         assert(src);
@@ -185,8 +175,8 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size <= 8)
                 return -EBADMSG;
 
-        size = le64toh( *(le64_t*)src );
-        if (size < 0 || (unsigned) size != le64toh(*(le64_t*)src))
+        size = le64toh(*(le64_t *) src);
+        if (size < 0 || (unsigned) size != le64toh(*(le64_t *) src))
                 return -EFBIG;
         if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);
@@ -197,7 +187,7 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         } else
                 out = *dst;
 
-        r = LZ4_decompress_safe((char*)src + 8, out, src_size - 8, size);
+        r = LZ4_decompress_safe((char *) src + 8, out, src_size - 8, size);
         if (r < 0 || r != size)
                 return -EBADMSG;
 
@@ -208,23 +198,17 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_blob(int compression,
-                    const void *src, uint64_t src_size,
-                    void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+int decompress_blob(int compression, const void *src, uint64_t src_size, void **dst, size_t *dst_alloc_size, size_t *dst_size, size_t dst_max) {
         if (compression == OBJECT_COMPRESSED_XZ)
-                return decompress_blob_xz(src, src_size,
-                                          dst, dst_alloc_size, dst_size, dst_max);
+                return decompress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size, dst_max);
         else if (compression == OBJECT_COMPRESSED_LZ4)
-                return decompress_blob_lz4(src, src_size,
-                                           dst, dst_alloc_size, dst_size, dst_max);
+                return decompress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size, dst_max);
         else
                 return -EBADMSG;
 }
 
-int decompress_startswith_xz(const void *src, uint64_t src_size,
-                             void **buffer, size_t *buffer_size,
-                             const void *prefix, size_t prefix_len,
-                             uint8_t extra) {
+int decompress_startswith_xz(
+        const void *src, uint64_t src_size, void **buffer, size_t *buffer_size, const void *prefix, size_t prefix_len, uint8_t extra) {
 
 #if HAVE_XZ
         _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
@@ -261,8 +245,7 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
                         return -EBADMSG;
 
                 if (*buffer_size - s.avail_out >= prefix_len + 1)
-                        return memcmp(*buffer, prefix, prefix_len) == 0 &&
-                                ((const uint8_t*) *buffer)[prefix_len] == extra;
+                        return memcmp(*buffer, prefix, prefix_len) == 0 && ((const uint8_t *) *buffer)[prefix_len] == extra;
 
                 if (ret == LZMA_STREAM_END)
                         return 0;
@@ -272,7 +255,7 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
                 if (!(greedy_realloc(buffer, buffer_size, *buffer_size * 2, 1)))
                         return -ENOMEM;
 
-                s.next_out = *(uint8_t**)buffer + *buffer_size - s.avail_out;
+                s.next_out = *(uint8_t **) buffer + *buffer_size - s.avail_out;
         }
 
 #else
@@ -280,10 +263,8 @@ int decompress_startswith_xz(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_startswith_lz4(const void *src, uint64_t src_size,
-                              void **buffer, size_t *buffer_size,
-                              const void *prefix, size_t prefix_len,
-                              uint8_t extra) {
+int decompress_startswith_lz4(
+        const void *src, uint64_t src_size, void **buffer, size_t *buffer_size, const void *prefix, size_t prefix_len, uint8_t extra) {
 #if HAVE_LZ4
         /* Checks whether the decompressed blob starts with the
          * mentioned prefix. The byte extra needs to follow the
@@ -304,8 +285,7 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
         if (!(greedy_realloc(buffer, buffer_size, ALIGN_8(prefix_len + 1), 1)))
                 return -ENOMEM;
 
-        r = LZ4_decompress_safe_partial((char*)src + 8, *buffer, src_size - 8,
-                                        prefix_len + 1, *buffer_size);
+        r = LZ4_decompress_safe_partial((char *) src + 8, *buffer, src_size - 8, prefix_len + 1, *buffer_size);
         /* One lz4 < 1.8.3, we might get "failure" (r < 0), or "success" where
          * just a part of the buffer is decompressed. But if we get a smaller
          * amount of bytes than requested, we don't know whether there isn't enough
@@ -335,28 +315,24 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
                         return 0;
         }
 
-        return memcmp(*buffer, prefix, prefix_len) == 0 &&
-                ((const uint8_t*) *buffer)[prefix_len] == extra;
+        return memcmp(*buffer, prefix, prefix_len) == 0 && ((const uint8_t *) *buffer)[prefix_len] == extra;
 #else
         return -EPROTONOSUPPORT;
 #endif
 }
 
 int decompress_startswith(int compression,
-                          const void *src, uint64_t src_size,
-                          void **buffer, size_t *buffer_size,
-                          const void *prefix, size_t prefix_len,
+                          const void *src,
+                          uint64_t src_size,
+                          void **buffer,
+                          size_t *buffer_size,
+                          const void *prefix,
+                          size_t prefix_len,
                           uint8_t extra) {
         if (compression == OBJECT_COMPRESSED_XZ)
-                return decompress_startswith_xz(src, src_size,
-                                                buffer, buffer_size,
-                                                prefix, prefix_len,
-                                                extra);
+                return decompress_startswith_xz(src, src_size, buffer, buffer_size, prefix, prefix_len, extra);
         else if (compression == OBJECT_COMPRESSED_LZ4)
-                return decompress_startswith_lz4(src, src_size,
-                                                 buffer, buffer_size,
-                                                 prefix, prefix_len,
-                                                 extra);
+                return decompress_startswith_lz4(src, src_size, buffer, buffer_size, prefix, prefix_len, extra);
         else
                 return -EBADMSG;
 }
@@ -422,8 +398,9 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 return k;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
+                                log_debug("XZ compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                                          s.total_in,
+                                          s.total_out,
                                           (double) s.total_out / s.total_in * 100);
 
                                 return 0;
@@ -435,7 +412,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 #endif
 }
 
-#define LZ4_BUFSIZE (512*1024u)
+#define LZ4_BUFSIZE (512 * 1024u)
 
 int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
 
@@ -462,7 +439,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 return log_debug_errno(errno, "fstat() failed: %m");
 
         frame_size = LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
-        size =  frame_size + 64*1024; /* add some space for header and trailer */
+        size = frame_size + 64 * 1024; /* add some space for header and trailer */
         buf = malloc(size);
         if (!buf)
                 return -ENOMEM;
@@ -481,8 +458,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 ssize_t k;
 
                 k = MIN(LZ4_BUFSIZE, st.st_size - total_in);
-                n = LZ4F_compressUpdate(ctx, buf + offset, size - offset,
-                                        src + total_in, k, &options);
+                n = LZ4F_compressUpdate(ctx, buf + offset, size - offset, src + total_in, k, &options);
                 if (LZ4F_isError(n)) {
                         r = -ENOTRECOVERABLE;
                         goto cleanup;
@@ -493,7 +469,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 total_out += n;
 
                 if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Compressed stream longer than %"PRIu64" bytes", max_bytes);
+                        log_debug("Compressed stream longer than %" PRIu64 " bytes", max_bytes);
                         return -EFBIG;
                 }
 
@@ -519,10 +495,8 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
         if (r < 0)
                 goto cleanup;
 
-        log_debug("LZ4 compression finished (%zu -> %zu bytes, %.1f%%)",
-                  total_in, total_out,
-                  (double) total_out / total_in * 100);
- cleanup:
+        log_debug("LZ4 compression finished (%zu -> %zu bytes, %.1f%%)", total_in, total_out, (double) total_out / total_in * 100);
+cleanup:
         munmap(src, st.st_size);
         return r;
 #else
@@ -591,8 +565,9 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 return k;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
+                                log_debug("XZ decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                                          s.total_in,
+                                          s.total_out,
                                           (double) s.total_out / s.total_in * 100);
 
                                 return 0;
@@ -644,7 +619,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                 total_out += produced;
 
                 if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Decompressed stream longer than %"PRIu64" bytes", max_bytes);
+                        log_debug("Decompressed stream longer than %" PRIu64 " bytes", max_bytes);
                         r = -EFBIG;
                         goto cleanup;
                 }
@@ -655,9 +630,10 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         }
 
         log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
-                  total_in, total_out,
+                  total_in,
+                  total_out,
                   total_in > 0 ? (double) total_out / total_in * 100 : 0.0);
- cleanup:
+cleanup:
         munmap(src, st.st_size);
         return r;
 #else

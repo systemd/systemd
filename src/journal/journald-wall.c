@@ -8,12 +8,7 @@
 #include "string-util.h"
 #include "utmp-wtmp.h"
 
-void server_forward_wall(
-                Server *s,
-                int priority,
-                const char *identifier,
-                const char *message,
-                const struct ucred *ucred) {
+void server_forward_wall(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
 
         _cleanup_free_ char *ident_buf = NULL, *l_buf = NULL;
         const char *l;
@@ -31,7 +26,7 @@ void server_forward_wall(
                         identifier = ident_buf;
                 }
 
-                if (asprintf(&l_buf, "%s["PID_FMT"]: %s", strempty(identifier), ucred->pid, message) < 0) {
+                if (asprintf(&l_buf, "%s[" PID_FMT "]: %s", strempty(identifier), ucred->pid, message) < 0) {
                         log_oom();
                         return;
                 }

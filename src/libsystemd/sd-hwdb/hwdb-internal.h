@@ -5,7 +5,8 @@
 
 #include "sparse-endian.h"
 
-#define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
+#define HWDB_SIG \
+        { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }
 
 /* on-disk trie objects */
 struct trie_header_f {

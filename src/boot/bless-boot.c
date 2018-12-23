@@ -39,17 +39,16 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_PATH = 0x100,
                 ARG_VERSION,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "path",         required_argument, NULL, ARG_PATH         },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "path", required_argument, NULL, ARG_PATH },
+                                                 {} };
 
         int c, r;
 
@@ -100,11 +99,7 @@ static int acquire_esp(void) {
         return 0;
 }
 
-static int parse_counter(
-                const char *path,
-                const char **p,
-                uint64_t *ret_left,
-                uint64_t *ret_done) {
+static int parse_counter(const char *path, const char **p, uint64_t *ret_left, uint64_t *ret_done) {
 
         uint64_t left, done;
         const char *z, *e;
@@ -122,9 +117,7 @@ static int parse_counter(
 
         k = strspn(e, DIGITS);
         if (k == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s",
-                                       path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s", path);
 
         z = strndupa(e, k);
         r = safe_atou64(z, &left);
@@ -138,9 +131,8 @@ static int parse_counter(
 
                 k = strspn(e, DIGITS);
                 if (k == 0) /* If there's a "-" there also needs to be at least one digit */
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s",
-                                               path);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL), "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s", path);
 
                 z = strndupa(e, k);
                 r = safe_atou64(z, &done);
@@ -152,7 +144,8 @@ static int parse_counter(
                 done = 0;
 
         if (done == 0)
-                log_warning("The 'tries done' counter is currently at zero. This can't really be, after all we are running, and this boot must hence count as one. Proceeding anyway.");
+                log_warning(
+                        "The 'tries done' counter is currently at zero. This can't really be, after all we are running, and this boot must hence count as one. Proceeding anyway.");
 
         *p = e;
 
@@ -165,12 +158,7 @@ static int parse_counter(
         return 0;
 }
 
-static int acquire_boot_count_path(
-                char **ret_path,
-                char **ret_prefix,
-                uint64_t *ret_left,
-                uint64_t *ret_done,
-                char **ret_suffix) {
+static int acquire_boot_count_path(char **ret_path, char **ret_prefix, uint64_t *ret_left, uint64_t *ret_done, char **ret_suffix) {
 
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL;
         const char *last, *e;
@@ -186,21 +174,16 @@ static int acquire_boot_count_path(
         efi_tilt_backslashes(path);
 
         if (!path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Path read from LoaderBootCountPath is not normalized, refusing: %s",
-                                       path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath is not normalized, refusing: %s", path);
 
         if (!path_is_absolute(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Path read from LoaderBootCountPath is not absolute, refusing: %s",
-                                       path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath is not absolute, refusing: %s", path);
 
         last = last_path_component(path);
         e = strrchr(last, '+');
         if (!e)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Path read from LoaderBootCountPath does not contain a counter, refusing: %s",
-                                       path);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath does not contain a counter, refusing: %s", path);
 
         if (ret_prefix) {
                 prefix = strndup(path, e - path);
@@ -289,7 +272,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
-        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good", "bad" or "indeterminate" don't apply. */
+        if (r ==
+            -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good", "bad" or "indeterminate" don't apply. */
                 puts("clean");
                 return 0;
         }
@@ -308,18 +292,24 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        log_debug("Booted file: %s%s\n"
-                  "The same modified for 'good': %s%s\n"
-                  "The same modified for 'bad':  %s%s\n",
-                  arg_path, path,
-                  arg_path, good,
-                  arg_path, bad);
+        log_debug(
+                "Booted file: %s%s\n"
+                "The same modified for 'good': %s%s\n"
+                "The same modified for 'bad':  %s%s\n",
+                arg_path,
+                path,
+                arg_path,
+                good,
+                arg_path,
+                bad);
 
-        log_debug("Tries left: %" PRIu64"\n"
-                  "Tries done: %" PRIu64"\n",
-                  left, done);
+        log_debug("Tries left: %" PRIu64
+                  "\n"
+                  "Tries done: %" PRIu64 "\n",
+                  left,
+                  done);
 
-        fd = open(arg_path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        fd = open(arg_path, O_DIRECTORY | O_CLOEXEC | O_RDONLY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open ESP '%s': %m", arg_path);
 
@@ -372,7 +362,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        fd = open(arg_path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+        fd = open(arg_path, O_DIRECTORY | O_CLOEXEC | O_RDONLY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open ESP '%s': %m", arg_path);
 
@@ -380,11 +370,11 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         if (streq(argv[0], "good")) {
                 target = good;
                 source1 = path;
-                source2 = bad;      /* Maybe this boot was previously marked as 'bad'? */
+                source2 = bad; /* Maybe this boot was previously marked as 'bad'? */
         } else if (streq(argv[0], "bad")) {
                 target = bad;
                 source1 = path;
-                source2 = good;     /* Maybe this boot was previously marked as 'good'? */
+                source2 = good; /* Maybe this boot was previously marked as 'good'? */
         } else {
                 assert(streq(argv[0], "indeterminate"));
                 target = path;
@@ -429,7 +419,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         if (syncfs(fd) < 0)
                 log_debug_errno(errno, "Failed to synchronize ESP, ignoring: %m");
 
-        log_info("Marked boot as '%s'. (Boot attempt counter is at %" PRIu64".)", argv[0], done);
+        log_info("Marked boot as '%s'. (Boot attempt counter is at %" PRIu64 ".)", argv[0], done);
 
         return 1;
 
@@ -440,14 +430,12 @@ exists:
 
 static int run(int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,                 help        },
-                { "status",        VERB_ANY, 1,        VERB_DEFAULT,      verb_status },
-                { "good",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
-                { "bad",           VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
-                { "indeterminate", VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_set    },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "status", VERB_ANY, 1, VERB_DEFAULT, verb_status },
+                                      { "good", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_set },
+                                      { "bad", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_set },
+                                      { "indeterminate", VERB_ANY, 1, VERB_MUST_BE_ROOT, verb_set },
+                                      {} };
 
         int r;
 
@@ -459,12 +447,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is not supported in containers.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Marking a boot is not supported in containers.");
 
         if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Marking a boot is only supported on EFI systems.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Marking a boot is only supported on EFI systems.");
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

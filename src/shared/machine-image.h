@@ -13,14 +13,16 @@
 #include "string-util.h"
 #include "time-util.h"
 
-typedef enum ImageClass {
+typedef enum ImageClass
+{
         IMAGE_MACHINE,
         IMAGE_PORTABLE,
         _IMAGE_CLASS_MAX,
         _IMAGE_CLASS_INVALID = -1
 } ImageClass;
 
-typedef enum ImageType {
+typedef enum ImageType
+{
         IMAGE_DIRECTORY,
         IMAGE_SUBVOLUME,
         IMAGE_RAW,
@@ -50,8 +52,8 @@ typedef struct Image {
         char **machine_info;
         char **os_release;
 
-        bool metadata_valid:1;
-        bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
+        bool metadata_valid : 1;
+        bool discoverable : 1; /* true if we know for sure that image_find() would find the image given just the short name */
 
         void *userdata;
 } Image;
@@ -59,7 +61,7 @@ typedef struct Image {
 Image *image_unref(Image *i);
 Image *image_ref(Image *i);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Image *, image_unref);
 
 int image_find(ImageClass class, const char *name, Image **ret);
 int image_from_path(const char *path, Image **ret);
@@ -71,7 +73,7 @@ int image_rename(Image *i, const char *new_name);
 int image_clone(Image *i, const char *new_name, bool read_only);
 int image_read_only(Image *i, bool b);
 
-const char* image_type_to_string(ImageType t) _const_;
+const char *image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;
 
 bool image_name_is_valid(const char *s) _pure_;

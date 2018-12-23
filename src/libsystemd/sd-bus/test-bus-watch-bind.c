@@ -37,7 +37,7 @@ static const sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static void* thread_server(void *p) {
+static void *thread_server(void *p) {
         _cleanup_free_ char *suffixed = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union u = {};
@@ -68,7 +68,7 @@ static void* thread_server(void *p) {
         salen = sockaddr_un_set_path(&u.un, path);
         assert_se(salen >= 0);
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
         assert_se(fd >= 0);
 
         assert_se(bind(fd, &u.sa, salen) >= 0);
@@ -92,7 +92,7 @@ static void* thread_server(void *p) {
 
                 assert_se(sd_event_new(&event) >= 0);
 
-                bus_fd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+                bus_fd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
                 assert_se(bus_fd >= 0);
 
                 log_debug("Accepted server connection");
@@ -122,7 +122,7 @@ static void* thread_server(void *p) {
         return NULL;
 }
 
-static void* thread_client1(void *p) {
+static void *thread_client1(void *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *path = p, *t;
@@ -152,7 +152,7 @@ static int client2_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret
         return 0;
 }
 
-static void* thread_client2(void *p) {
+static void *thread_client2(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         const char *path = p, *t;

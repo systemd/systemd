@@ -74,11 +74,11 @@ static void test_fd_is_network_ns(void) {
         assert_se(fd_is_network_ns(STDERR_FILENO) == 0);
         assert_se(fd_is_network_ns(STDOUT_FILENO) == 0);
 
-        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se((fd = open("/proc/self/ns/mnt", O_CLOEXEC | O_RDONLY)) >= 0);
         assert_se(IN_SET(fd_is_network_ns(fd), 0, -EUCLEAN));
         fd = safe_close(fd);
 
-        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC|O_RDONLY)) >= 0);
+        assert_se((fd = open("/proc/self/ns/net", O_CLOEXEC | O_RDONLY)) >= 0);
         assert_se(IN_SET(fd_is_network_ns(fd), 1, -EUCLEAN));
 }
 

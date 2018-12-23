@@ -9,14 +9,14 @@
 
 const struct namespace_flag_map namespace_flag_map[] = {
         { CLONE_NEWCGROUP, "cgroup" },
-        { CLONE_NEWIPC,    "ipc"    },
-        { CLONE_NEWNET,    "net"    },
+        { CLONE_NEWIPC, "ipc" },
+        { CLONE_NEWNET, "net" },
         /* So, the mount namespace flag is called CLONE_NEWNS for historical reasons. Let's expose it here under a more
          * explanatory name: "mnt". This is in-line with how the kernel exposes namespaces in /proc/$PID/ns. */
-        { CLONE_NEWNS,     "mnt"    },
-        { CLONE_NEWPID,    "pid"    },
-        { CLONE_NEWUSER,   "user"   },
-        { CLONE_NEWUTS,    "uts"    },
+        { CLONE_NEWNS, "mnt" },
+        { CLONE_NEWPID, "pid" },
+        { CLONE_NEWUSER, "user" },
+        { CLONE_NEWUTS, "uts" },
         {}
 };
 
@@ -39,8 +39,8 @@ int namespace_flags_from_string(const char *name, unsigned long *ret) {
 
                 for (i = 0; namespace_flag_map[i].name; i++)
                         if (streq(word, namespace_flag_map[i].name)) {
-                                 f = namespace_flag_map[i].flag;
-                                 break;
+                                f = namespace_flag_map[i].flag;
+                                break;
                         }
 
                 if (f == 0)

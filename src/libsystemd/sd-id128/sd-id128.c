@@ -24,8 +24,8 @@ _public_ char *sd_id128_to_string(sd_id128_t id, char s[SD_ID128_STRING_MAX]) {
         assert_return(s, NULL);
 
         for (n = 0; n < 16; n++) {
-                s[n*2] = hexchar(id.bytes[n] >> 4);
-                s[n*2+1] = hexchar(id.bytes[n] & 0xF);
+                s[n * 2] = hexchar(id.bytes[n] >> 4);
+                s[n * 2 + 1] = hexchar(id.bytes[n] & 0xF);
         }
 
         s[32] = 0;
@@ -127,8 +127,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         gid_t gid;
         int r, c;
 
-#define MAX_PERMS ((unsigned long) (KEY_POS_VIEW|KEY_POS_READ|KEY_POS_SEARCH| \
-                                    KEY_USR_VIEW|KEY_USR_READ|KEY_USR_SEARCH))
+#define MAX_PERMS ((unsigned long) (KEY_POS_VIEW | KEY_POS_READ | KEY_POS_SEARCH | KEY_USR_VIEW | KEY_USR_READ | KEY_USR_SEARCH))
 
         assert(ret);
 
@@ -142,7 +141,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         }
 
         for (;;) {
-                description = new(char, sz);
+                description = new (char, sz);
                 if (!description)
                         return -ENOMEM;
 
@@ -158,7 +157,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         }
 
         /* The kernel returns a final NUL in the string, verify that. */
-        assert(description[c-1] == 0);
+        assert(description[c - 1] == 0);
 
         /* Chop off the final description string */
         d = strrchr(description, ';');

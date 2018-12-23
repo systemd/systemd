@@ -29,7 +29,7 @@ size_t strpcpy(char **dest, size_t size, const char *src) {
         len = strlen(src);
         if (len >= size) {
                 if (size > 1)
-                        *dest = mempcpy(*dest, src, size-1);
+                        *dest = mempcpy(*dest, src, size - 1);
                 size = 0;
         } else if (len > 0) {
                 *dest = mempcpy(*dest, src, len);
@@ -52,7 +52,7 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
 
         va_start(va, src);
         i = vsnprintf(*dest, size, src, va);
-        if (i < (int)size) {
+        if (i < (int) size) {
                 *dest += i;
                 size -= i;
         } else

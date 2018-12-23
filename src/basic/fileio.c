@@ -26,13 +26,9 @@
 #include "string-util.h"
 #include "tmpfile-util.h"
 
-#define READ_FULL_BYTES_MAX (4U*1024U*1024U)
+#define READ_FULL_BYTES_MAX (4U * 1024U * 1024U)
 
-int write_string_stream_ts(
-                FILE *f,
-                const char *line,
-                WriteStringFileFlags flags,
-                struct timespec *ts) {
+int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
 
         bool needs_nl;
         int r;
@@ -68,7 +64,7 @@ int write_string_stream_ts(
                 return r;
 
         if (ts) {
-                struct timespec twice[2] = {*ts, *ts};
+                struct timespec twice[2] = { *ts, *ts };
 
                 if (futimens(fileno(f), twice) < 0)
                         return -errno;
@@ -77,11 +73,7 @@ int write_string_stream_ts(
         return 0;
 }
 
-static int write_string_file_atomic(
-                const char *fn,
-                const char *line,
-                WriteStringFileFlags flags,
-                struct timespec *ts) {
+static int write_string_file_atomic(const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
@@ -113,11 +105,7 @@ fail:
         return r;
 }
 
-int write_string_file_ts(
-                const char *fn,
-                const char *line,
-                WriteStringFileFlags flags,
-                struct timespec *ts) {
+int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
         int q, r;
@@ -150,7 +138,7 @@ int write_string_file_ts(
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
-                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                fd = open(fn, O_WRONLY | O_CLOEXEC | O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (fd < 0) {
                         r = -errno;
                         goto fail;
@@ -191,10 +179,7 @@ fail:
         return 0;
 }
 
-int write_string_filef(
-                const char *fn,
-                WriteStringFileFlags flags,
-                const char *format, ...) {
+int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) {
 
         _cleanup_free_ char *p = NULL;
         va_list ap;
@@ -266,10 +251,7 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         return 1;
 }
 
-int read_full_stream(
-                FILE *f,
-                char **ret_contents,
-                size_t *ret_size) {
+int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
 
         _cleanup_free_ char *buf = NULL;
         struct stat st;
@@ -478,7 +460,7 @@ DIR *xopendirat(int fd, const char *name, int flags) {
 
         assert(!(flags & O_CREAT));
 
-        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
+        nfd = openat(fd, name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | flags, 0);
         if (nfd < 0)
                 return NULL;
 
@@ -544,7 +526,7 @@ int search_and_fopen(const char *path, const char *mode, const char *root, const
                 return -errno;
         }
 
-        copy = strv_copy((char**) search);
+        copy = strv_copy((char **) search);
         if (!copy)
                 return -ENOMEM;
 
@@ -605,7 +587,7 @@ int fflush_sync_and_check(FILE *f) {
 }
 
 int write_timestamp_file_atomic(const char *fn, usec_t n) {
-        char ln[DECIMAL_STR_MAX(n)+2];
+        char ln[DECIMAL_STR_MAX(n) + 2];
 
         /* Creates a "timestamp" file, that contains nothing but a
          * usec_t timestamp, formatted in ASCII. */
@@ -615,7 +597,7 @@ int write_timestamp_file_atomic(const char *fn, usec_t n) {
 
         xsprintf(ln, USEC_FMT "\n", n);
 
-        return write_string_file(fn, ln, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        return write_string_file(fn, ln, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
 }
 
 int read_timestamp_file(const char *fn, usec_t *ret) {
@@ -668,11 +650,12 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 }
 
 /* A bitmask of the EOL markers we know */
-typedef enum EndOfLineMarker {
-        EOL_NONE     = 0,
-        EOL_ZERO     = 1 << 0,  /* \0 (aka NUL) */
-        EOL_TEN      = 1 << 1,  /* \n (aka NL, aka LF)  */
-        EOL_THIRTEEN = 1 << 2,  /* \r (aka CR)  */
+typedef enum EndOfLineMarker
+{
+        EOL_NONE = 0,
+        EOL_ZERO = 1 << 0,     /* \0 (aka NUL) */
+        EOL_TEN = 1 << 1,      /* \n (aka NL, aka LF)  */
+        EOL_THIRTEEN = 1 << 2, /* \r (aka CR)  */
 } EndOfLineMarker;
 
 static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
@@ -690,7 +673,7 @@ static EndOfLineMarker categorize_eol(char c, ReadLineFlags flags) {
         return EOL_NONE;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE *, funlockfile);
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
@@ -751,8 +734,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
 
                         eol = categorize_eol(c, flags);
 
-                        if (FLAGS_SET(previous_eol, EOL_ZERO) ||
-                            (eol == EOL_NONE && previous_eol != EOL_NONE) ||
+                        if (FLAGS_SET(previous_eol, EOL_ZERO) || (eol == EOL_NONE && previous_eol != EOL_NONE) ||
                             (eol != EOL_NONE && (previous_eol & eol) != 0)) {
                                 /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
                                  * EOL marker has been seen right before?  In either of these three cases we are

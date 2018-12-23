@@ -16,6 +16,6 @@ struct IPAddressAccessItem {
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_address_access);
 
-IPAddressAccessItem* ip_address_access_free_all(IPAddressAccessItem *first);
+IPAddressAccessItem *ip_address_access_free_all(IPAddressAccessItem *first);
 
-IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first);
+IPAddressAccessItem *ip_address_access_reduce(IPAddressAccessItem *first);

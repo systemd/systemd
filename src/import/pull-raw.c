@@ -31,7 +31,8 @@
 #include "util.h"
 #include "web-util.h"
 
-typedef enum RawProgress {
+typedef enum RawProgress
+{
         RAW_DOWNLOADING,
         RAW_VERIFYING,
         RAW_UNPACKING,
@@ -71,7 +72,7 @@ struct RawPull {
         ImportVerify verify;
 };
 
-RawPull* raw_pull_unref(RawPull *i) {
+RawPull *raw_pull_unref(RawPull *i) {
         if (!i)
                 return NULL;
 
@@ -107,12 +108,7 @@ RawPull* raw_pull_unref(RawPull *i) {
         return mfree(i);
 }
 
-int raw_pull_new(
-                RawPull **ret,
-                sd_event *event,
-                const char *image_root,
-                RawPullFinished on_finished,
-                void *userdata) {
+int raw_pull_new(RawPull **ret, sd_event *event, const char *image_root, RawPullFinished on_finished, void *userdata) {
 
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -138,11 +134,11 @@ int raw_pull_new(
         if (r < 0)
                 return r;
 
-        i = new(RawPull, 1);
+        i = new (RawPull, 1);
         if (!i)
                 return -ENOMEM;
 
-        *i = (RawPull) {
+        *i = (RawPull){
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
@@ -238,7 +234,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = open(t, O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
@@ -281,10 +277,7 @@ static int raw_pull_determine_path(RawPull *i, const char *suffix, char **field)
         return 1;
 }
 
-static int raw_pull_copy_auxiliary_file(
-                RawPull *i,
-                const char *suffix,
-                char **path) {
+static int raw_pull_copy_auxiliary_file(RawPull *i, const char *suffix, char **path) {
 
         const char *local;
         int r;
@@ -329,7 +322,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
                 assert(i->raw_job->disk_fd < 0);
 
-                i->raw_job->disk_fd = open(i->final_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                i->raw_job->disk_fd = open(i->final_path, O_RDONLY | O_NOCTTY | O_CLOEXEC);
                 if (i->raw_job->disk_fd < 0)
                         return log_error_errno(errno, "Failed to open vendor image: %m");
         } else {
@@ -344,13 +337,13 @@ static int raw_pull_make_local_copy(RawPull *i) {
         p = strjoina(i->image_root, "/", i->local, ".raw");
 
         if (i->force_local)
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
 
         r = tempfn_random(p, NULL, &tp);
         if (r < 0)
                 return log_oom();
 
-        dfd = open(tp, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        dfd = open(tp, O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (dfd < 0)
                 return log_error_errno(errno, "Failed to create writable copy of image: %m");
 
@@ -374,7 +367,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         dfd = safe_close(dfd);
 
         r = rename(tp, p);
-        if (r < 0)  {
+        if (r < 0) {
                 r = log_error_errno(errno, "Failed to move writable image into place: %m");
                 unlink(tp);
                 return r;
@@ -415,11 +408,7 @@ static bool raw_pull_is_done(RawPull *i) {
         return true;
 }
 
-static int raw_pull_rename_auxiliary_file(
-                RawPull *i,
-                const char *suffix,
-                char **temp_path,
-                char **path) {
+static int raw_pull_rename_auxiliary_file(RawPull *i, const char *suffix, char **temp_path, char **path) {
 
         int r;
 
@@ -528,15 +517,13 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 i->temp_path = mfree(i->temp_path);
 
-                if (i->roothash_job &&
-                    i->roothash_job->error == 0) {
+                if (i->roothash_job && i->roothash_job->error == 0) {
                         r = raw_pull_rename_auxiliary_file(i, ".roothash", &i->roothash_temp_path, &i->roothash_path);
                         if (r < 0)
                                 goto finish;
                 }
 
-                if (i->settings_job &&
-                    i->settings_job->error == 0) {
+                if (i->settings_job && i->settings_job->error == 0) {
                         r = raw_pull_rename_auxiliary_file(i, ".nspawn", &i->settings_temp_path, &i->settings_path);
                         if (r < 0)
                                 goto finish;
@@ -558,11 +545,7 @@ finish:
                 sd_event_exit(i->event, r);
 }
 
-static int raw_pull_job_on_open_disk_generic(
-                RawPull *i,
-                PullJob *j,
-                const char *extra,
-                char **temp_path) {
+static int raw_pull_job_on_open_disk_generic(RawPull *i, PullJob *j, const char *extra, char **temp_path) {
 
         int r;
 
@@ -579,7 +562,7 @@ static int raw_pull_job_on_open_disk_generic(
 
         (void) mkdir_parents_label(*temp_path, 0700);
 
-        j->disk_fd = open(*temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        j->disk_fd = open(*temp_path, O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (j->disk_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", *temp_path);
 
@@ -642,14 +625,7 @@ static void raw_pull_job_on_progress(PullJob *j) {
         raw_pull_report_progress(i, RAW_DOWNLOADING);
 }
 
-int raw_pull_start(
-                RawPull *i,
-                const char *url,
-                const char *local,
-                bool force_local,
-                ImportVerify verify,
-                bool settings,
-                bool roothash) {
+int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings, bool roothash) {
 
         int r;
 

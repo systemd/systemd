@@ -13,7 +13,8 @@
  * https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
  */
 
-enum {
+enum
+{
         /* EXIT_SUCCESS defined by libc */
         /* EXIT_FAILURE defined by libc */
         EXIT_INVALIDARGUMENT = 2,
@@ -37,7 +38,7 @@ enum {
         EXIT_SIGNAL_MASK,
         EXIT_STDIN,
         EXIT_STDOUT,
-        EXIT_CHROOT,   /* 210 */
+        EXIT_CHROOT, /* 210 */
         EXIT_IOPRIO,
         EXIT_TIMERSLACK,
         EXIT_SECUREBITS,
@@ -47,7 +48,7 @@ enum {
         EXIT_USER,
         EXIT_CAPABILITIES,
         EXIT_CGROUP,
-        EXIT_SETSID,   /* 220 */
+        EXIT_SETSID, /* 220 */
         EXIT_CONFIRM,
         EXIT_STDERR,
         _EXIT_RESERVED, /* used to be tcpwrap, don't reuse! */
@@ -57,7 +58,7 @@ enum {
         EXIT_NO_NEW_PRIVILEGES,
         EXIT_SECCOMP,
         EXIT_SELINUX_CONTEXT,
-        EXIT_PERSONALITY,  /* 230 */
+        EXIT_PERSONALITY, /* 230 */
         EXIT_APPARMOR_PROFILE,
         EXIT_ADDRESS_FAMILIES,
         EXIT_RUNTIME_DIRECTORY,
@@ -70,14 +71,15 @@ enum {
         EXIT_LOGS_DIRECTORY, /* 240 */
         EXIT_CONFIGURATION_DIRECTORY,
 
-        EXIT_EXCEPTION = 255,  /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
+        EXIT_EXCEPTION = 255, /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
 };
 
-typedef enum ExitStatusLevel {
-        EXIT_STATUS_MINIMAL,   /* only cover libc EXIT_STATUS/EXIT_FAILURE */
-        EXIT_STATUS_SYSTEMD,   /* cover libc and systemd's own exit codes */
-        EXIT_STATUS_LSB,       /* cover libc, systemd's own and LSB exit codes */
-        EXIT_STATUS_FULL,      /* cover libc, systemd's own, LSB and BSD (EX_xyz) exit codes */
+typedef enum ExitStatusLevel
+{
+        EXIT_STATUS_MINIMAL, /* only cover libc EXIT_STATUS/EXIT_FAILURE */
+        EXIT_STATUS_SYSTEMD, /* cover libc and systemd's own exit codes */
+        EXIT_STATUS_LSB,     /* cover libc, systemd's own and LSB exit codes */
+        EXIT_STATUS_FULL,    /* cover libc, systemd's own, LSB and BSD (EX_xyz) exit codes */
 } ExitStatusLevel;
 
 typedef struct ExitStatusSet {
@@ -85,9 +87,10 @@ typedef struct ExitStatusSet {
         Set *signal;
 } ExitStatusSet;
 
-const char* exit_status_to_string(int status, ExitStatusLevel level) _const_;
+const char *exit_status_to_string(int status, ExitStatusLevel level) _const_;
 
-typedef enum ExitClean {
+typedef enum ExitClean
+{
         EXIT_CLEAN_DAEMON,
         EXIT_CLEAN_COMMAND,
 } ExitClean;

@@ -57,7 +57,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 
@@ -84,7 +84,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &(struct in_addr) { .s_addr = htobe32(INADDR_LOOPBACK) } );
+        r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &(struct in_addr){ .s_addr = htobe32(INADDR_LOOPBACK) });
         if (r < 0)
                 return r;
 
@@ -92,7 +92,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 
@@ -127,7 +127,7 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 
@@ -153,16 +153,20 @@ static bool check_loopback(sd_netlink *rtnl) {
 
 int loopback_setup(void) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        struct state state_4 = {
-                .error_message = "Failed to add address 127.0.0.1 to loopback interface",
-                .success_message = "Successfully added address 127.0.0.1 to loopback interface",
-        }, state_6 = {
-                .error_message = "Failed to add address ::1 to loopback interface",
-                .success_message = "Successfully added address ::1 to loopback interface",
-        }, state_up = {
-                .error_message = "Failed to bring loopback interface up",
-                .success_message = "Successfully brought loopback interface up",
-        };
+        struct state state_4 =
+                             {
+                                     .error_message = "Failed to add address 127.0.0.1 to loopback interface",
+                                     .success_message = "Successfully added address 127.0.0.1 to loopback interface",
+                             },
+                     state_6 =
+                             {
+                                     .error_message = "Failed to add address ::1 to loopback interface",
+                                     .success_message = "Successfully added address ::1 to loopback interface",
+                             },
+                     state_up = {
+                             .error_message = "Failed to bring loopback interface up",
+                             .success_message = "Successfully brought loopback interface up",
+                     };
         int r;
 
         r = sd_netlink_open(&rtnl);

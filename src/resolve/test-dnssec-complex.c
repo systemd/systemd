@@ -32,7 +32,7 @@ static void prefix_random(const char *name, char **ret) {
         }
 
         *ret = m;
- }
+}
 
 static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const char *result) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
@@ -46,13 +46,12 @@ static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const c
                 name = m;
         }
 
-        assert_se(sd_bus_message_new_method_call(
-                                  bus,
-                                  &req,
-                                  "org.freedesktop.resolve1",
-                                  "/org/freedesktop/resolve1",
-                                  "org.freedesktop.resolve1.Manager",
-                                  "ResolveRecord") >= 0);
+        assert_se(sd_bus_message_new_method_call(bus,
+                                                 &req,
+                                                 "org.freedesktop.resolve1",
+                                                 "/org/freedesktop/resolve1",
+                                                 "org.freedesktop.resolve1.Manager",
+                                                 "ResolveRecord") >= 0);
 
         assert_se(sd_bus_message_append(req, "isqqt", 0, name, DNS_CLASS_IN, type, UINT64_C(0)) >= 0);
 
@@ -83,13 +82,12 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 name = m;
         }
 
-        assert_se(sd_bus_message_new_method_call(
-                                  bus,
-                                  &req,
-                                  "org.freedesktop.resolve1",
-                                  "/org/freedesktop/resolve1",
-                                  "org.freedesktop.resolve1.Manager",
-                                  "ResolveHostname") >= 0);
+        assert_se(sd_bus_message_new_method_call(bus,
+                                                 &req,
+                                                 "org.freedesktop.resolve1",
+                                                 "/org/freedesktop/resolve1",
+                                                 "org.freedesktop.resolve1.Manager",
+                                                 "ResolveHostname") >= 0);
 
         assert_se(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)) >= 0);
 
@@ -103,10 +101,9 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 assert_se(!result);
                 log_info("[OK] %s/%s succeeded.", name, af);
         }
-
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
         /* Note that this is a manual test as it requires:

@@ -48,10 +48,10 @@ static bool arg_nice_set = false;
 static char **arg_environment = NULL;
 static char **arg_property = NULL;
 static enum {
-        ARG_STDIO_NONE,      /* The default, as it is for normal services, stdin connected to /dev/null, and stdout+stderr to the journal */
-        ARG_STDIO_PTY,       /* Interactive behaviour, requested by --pty: we allocate a pty and connect it to the TTY we are invoked from */
-        ARG_STDIO_DIRECT,    /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
-        ARG_STDIO_AUTO,      /* If --pipe and --pty are used together we use --pty when invoked on a TTY, and --pipe otherwise */
+        ARG_STDIO_NONE, /* The default, as it is for normal services, stdin connected to /dev/null, and stdout+stderr to the journal */
+        ARG_STDIO_PTY,  /* Interactive behaviour, requested by --pty: we allocate a pty and connect it to the TTY we are invoked from */
+        ARG_STDIO_DIRECT, /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
+        ARG_STDIO_AUTO, /* If --pipe and --pty are used together we use --pty when invoked on a TTY, and --pipe otherwise */
 } arg_stdio = ARG_STDIO_NONE;
 static char **arg_path_property = NULL;
 static char **arg_socket_property = NULL;
@@ -121,10 +121,9 @@ static int help(void) {
                "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
                "     --on-calendar=SPEC           Realtime timer\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -147,7 +146,8 @@ static int add_timer_property(const char *name, const char *val) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -177,44 +177,44 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "user",              no_argument,       NULL, ARG_USER              },
-                { "system",            no_argument,       NULL, ARG_SYSTEM            },
-                { "scope",             no_argument,       NULL, ARG_SCOPE             },
-                { "unit",              required_argument, NULL, ARG_UNIT              },
-                { "description",       required_argument, NULL, ARG_DESCRIPTION       },
-                { "slice",             required_argument, NULL, ARG_SLICE             },
-                { "remain-after-exit", no_argument,       NULL, 'r'                   },
-                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP       },
-                { "host",              required_argument, NULL, 'H'                   },
-                { "machine",           required_argument, NULL, 'M'                   },
-                { "service-type",      required_argument, NULL, ARG_SERVICE_TYPE      },
-                { "wait",              no_argument,       NULL, ARG_WAIT              },
-                { "uid",               required_argument, NULL, ARG_EXEC_USER         },
-                { "gid",               required_argument, NULL, ARG_EXEC_GROUP        },
-                { "nice",              required_argument, NULL, ARG_NICE              },
-                { "setenv",            required_argument, NULL, 'E'                   },
-                { "property",          required_argument, NULL, 'p'                   },
-                { "tty",               no_argument,       NULL, 't'                   }, /* deprecated alias */
-                { "pty",               no_argument,       NULL, 't'                   },
-                { "pipe",              no_argument,       NULL, 'P'                   },
-                { "quiet",             no_argument,       NULL, 'q'                   },
-                { "on-active",         required_argument, NULL, ARG_ON_ACTIVE         },
-                { "on-boot",           required_argument, NULL, ARG_ON_BOOT           },
-                { "on-startup",        required_argument, NULL, ARG_ON_STARTUP        },
-                { "on-unit-active",    required_argument, NULL, ARG_ON_UNIT_ACTIVE    },
-                { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE  },
-                { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR       },
-                { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY    },
-                { "path-property",     required_argument, NULL, ARG_PATH_PROPERTY     },
-                { "socket-property",   required_argument, NULL, ARG_SOCKET_PROPERTY   },
-                { "no-block",          no_argument,       NULL, ARG_NO_BLOCK          },
-                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
-                { "collect",           no_argument,       NULL, 'G'                   },
+                { "help", no_argument, NULL, 'h' },
+                { "version", no_argument, NULL, ARG_VERSION },
+                { "user", no_argument, NULL, ARG_USER },
+                { "system", no_argument, NULL, ARG_SYSTEM },
+                { "scope", no_argument, NULL, ARG_SCOPE },
+                { "unit", required_argument, NULL, ARG_UNIT },
+                { "description", required_argument, NULL, ARG_DESCRIPTION },
+                { "slice", required_argument, NULL, ARG_SLICE },
+                { "remain-after-exit", no_argument, NULL, 'r' },
+                { "send-sighup", no_argument, NULL, ARG_SEND_SIGHUP },
+                { "host", required_argument, NULL, 'H' },
+                { "machine", required_argument, NULL, 'M' },
+                { "service-type", required_argument, NULL, ARG_SERVICE_TYPE },
+                { "wait", no_argument, NULL, ARG_WAIT },
+                { "uid", required_argument, NULL, ARG_EXEC_USER },
+                { "gid", required_argument, NULL, ARG_EXEC_GROUP },
+                { "nice", required_argument, NULL, ARG_NICE },
+                { "setenv", required_argument, NULL, 'E' },
+                { "property", required_argument, NULL, 'p' },
+                { "tty", no_argument, NULL, 't' }, /* deprecated alias */
+                { "pty", no_argument, NULL, 't' },
+                { "pipe", no_argument, NULL, 'P' },
+                { "quiet", no_argument, NULL, 'q' },
+                { "on-active", required_argument, NULL, ARG_ON_ACTIVE },
+                { "on-boot", required_argument, NULL, ARG_ON_BOOT },
+                { "on-startup", required_argument, NULL, ARG_ON_STARTUP },
+                { "on-unit-active", required_argument, NULL, ARG_ON_UNIT_ACTIVE },
+                { "on-unit-inactive", required_argument, NULL, ARG_ON_UNIT_INACTIVE },
+                { "on-calendar", required_argument, NULL, ARG_ON_CALENDAR },
+                { "timer-property", required_argument, NULL, ARG_TIMER_PROPERTY },
+                { "path-property", required_argument, NULL, ARG_PATH_PROPERTY },
+                { "socket-property", required_argument, NULL, ARG_SOCKET_PROPERTY },
+                { "no-block", no_argument, NULL, ARG_NO_BLOCK },
+                { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                { "collect", no_argument, NULL, 'G' },
                 { "working-directory", required_argument, NULL, ARG_WORKING_DIRECTORY },
-                { "same-dir",          no_argument,       NULL, 'd'                   },
-                { "shell",             no_argument,       NULL, 'S'                   },
+                { "same-dir", no_argument, NULL, 'd' },
+                { "shell", no_argument, NULL, 'S' },
                 {},
         };
 
@@ -312,14 +312,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 't': /* --pty */
+                case 't':                                                        /* --pty */
                         if (IN_SET(arg_stdio, ARG_STDIO_DIRECT, ARG_STDIO_AUTO)) /* if --pipe is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
                                 arg_stdio = ARG_STDIO_PTY;
                         break;
 
-                case 'P': /* --pipe */
+                case 'P':                                                     /* --pipe */
                         if (IN_SET(arg_stdio, ARG_STDIO_PTY, ARG_STDIO_AUTO)) /* If --pty is already used, upgrade to auto mode */
                                 arg_stdio = ARG_STDIO_AUTO;
                         else
@@ -455,8 +455,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         /* currently, only single trigger (path, socket, timer) unit can be created simultaneously */
         if ((int) !!arg_path_property + (int) !!arg_socket_property + (int) with_timer > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Only single trigger (path, socket, timer) unit can be created.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only single trigger (path, socket, timer) unit can be created.");
 
         if (arg_shell) {
                 /* If --shell is imply --pty --pipe --same-dir --service-type=exec --wait --collect, unless otherwise
@@ -488,9 +487,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* If we both --pty and --pipe are specified we'll automatically pick --pty if we are connected fully
                  * to a TTY and pick direct fd passing otherwise. This way, we automatically adapt to usage in a shell
                  * pipeline, but we are neatly interactive with tty-level isolation otherwise. */
-                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ?
-                        ARG_STDIO_PTY :
-                        ARG_STDIO_DIRECT;
+                arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
         }
 
         if (argc > optind) {
@@ -523,49 +520,40 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command line to execute required.");
 
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Execution in user context is not supported on non-local systems.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Execution in user context is not supported on non-local systems.");
 
         if (arg_scope && arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Scope execution is not supported on non-local systems.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Scope execution is not supported on non-local systems.");
 
         if (arg_scope && (arg_remain_after_exit || arg_service_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--remain-after-exit and --service-type= are not supported in --scope mode.");
 
         if (arg_stdio != ARG_STDIO_NONE && (with_trigger || arg_scope))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--pty/--pipe is not compatible in timer or --scope mode.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pty/--pipe is not compatible in timer or --scope mode.");
 
         if (arg_stdio != ARG_STDIO_NONE && arg_transport == BUS_TRANSPORT_REMOTE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--pty/--pipe is only supported when connecting to the local system or containers.");
 
         if (arg_stdio != ARG_STDIO_NONE && arg_no_block)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--pty/--pipe is not compatible with --no-block.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pty/--pipe is not compatible with --no-block.");
 
         if (arg_scope && with_trigger)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Path, socket or timer options are not supported in --scope mode.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path, socket or timer options are not supported in --scope mode.");
 
         if (arg_timer_property && !with_timer)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--timer-property= has no effect without any other timer options.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--timer-property= has no effect without any other timer options.");
 
         if (arg_wait) {
                 if (arg_no_block)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--wait may not be combined with --no-block.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--wait may not be combined with --no-block.");
 
                 if (with_trigger)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--wait may not be combined with path, socket or timer operations.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--wait may not be combined with path, socket or timer operations.");
 
                 if (arg_scope)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--wait may not be combined with --scope.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--wait may not be combined with --scope.");
         }
 
         return 1;
@@ -687,10 +675,18 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         if (pty_path) {
                 r = sd_bus_message_append(m,
                                           "(sv)(sv)(sv)(sv)",
-                                          "StandardInput", "s", "tty",
-                                          "StandardOutput", "s", "tty",
-                                          "StandardError", "s", "tty",
-                                          "TTYPath", "s", pty_path);
+                                          "StandardInput",
+                                          "s",
+                                          "tty",
+                                          "StandardOutput",
+                                          "s",
+                                          "tty",
+                                          "StandardError",
+                                          "s",
+                                          "tty",
+                                          "TTYPath",
+                                          "s",
+                                          pty_path);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -699,9 +695,15 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         } else if (arg_stdio == ARG_STDIO_DIRECT) {
                 r = sd_bus_message_append(m,
                                           "(sv)(sv)(sv)",
-                                          "StandardInputFileDescriptor", "h", STDIN_FILENO,
-                                          "StandardOutputFileDescriptor", "h", STDOUT_FILENO,
-                                          "StandardErrorFileDescriptor", "h", STDERR_FILENO);
+                                          "StandardInputFileDescriptor",
+                                          "h",
+                                          STDIN_FILENO,
+                                          "StandardOutputFileDescriptor",
+                                          "h",
+                                          STDOUT_FILENO,
+                                          "StandardErrorFileDescriptor",
+                                          "h",
+                                          STDERR_FILENO);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -716,9 +718,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         char *n;
 
                         n = strjoina("TERM=", e);
-                        r = sd_bus_message_append(m,
-                                                  "(sv)",
-                                                  "Environment", "as", 1, n);
+                        r = sd_bus_message_append(m, "(sv)", "Environment", "as", 1, n);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
@@ -878,9 +878,7 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
 
         id = startswith(unique, ":1.");
         if (!id)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unique name %s has unexpected format.",
-                                       unique);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unique name %s has unexpected format.", unique);
 
         p = strjoin("run-u", id, ".", unit_type_to_string(t));
         if (!p)
@@ -940,29 +938,22 @@ static void run_context_check_done(RunContext *c) {
 static int run_context_update(RunContext *c, const char *path) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState",                      "s", NULL, offsetof(RunContext, active_state)        },
-                { "InactiveExitTimestampMonotonic",   "t", NULL, offsetof(RunContext, inactive_exit_usec)  },
-                { "InactiveEnterTimestampMonotonic",  "t", NULL, offsetof(RunContext, inactive_enter_usec) },
-                { "Result",                           "s", NULL, offsetof(RunContext, result)              },
-                { "ExecMainCode",                     "i", NULL, offsetof(RunContext, exit_code)           },
-                { "ExecMainStatus",                   "i", NULL, offsetof(RunContext, exit_status)         },
-                { "CPUUsageNSec",                     "t", NULL, offsetof(RunContext, cpu_usage_nsec)      },
-                { "IPIngressBytes",                   "t", NULL, offsetof(RunContext, ip_ingress_bytes)    },
-                { "IPEgressBytes",                    "t", NULL, offsetof(RunContext, ip_egress_bytes)     },
+                { "ActiveState", "s", NULL, offsetof(RunContext, active_state) },
+                { "InactiveExitTimestampMonotonic", "t", NULL, offsetof(RunContext, inactive_exit_usec) },
+                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(RunContext, inactive_enter_usec) },
+                { "Result", "s", NULL, offsetof(RunContext, result) },
+                { "ExecMainCode", "i", NULL, offsetof(RunContext, exit_code) },
+                { "ExecMainStatus", "i", NULL, offsetof(RunContext, exit_status) },
+                { "CPUUsageNSec", "t", NULL, offsetof(RunContext, cpu_usage_nsec) },
+                { "IPIngressBytes", "t", NULL, offsetof(RunContext, ip_ingress_bytes) },
+                { "IPEgressBytes", "t", NULL, offsetof(RunContext, ip_egress_bytes) },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = bus_map_all_properties(c->bus,
-                                   "org.freedesktop.systemd1",
-                                   path,
-                                   map,
-                                   BUS_MAP_STRDUP,
-                                   &error,
-                                   NULL,
-                                   c);
+        r = bus_map_all_properties(c->bus, "org.freedesktop.systemd1", path, map, BUS_MAP_STRDUP, &error, NULL, c);
         if (r < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(r, "Failed to query unit state: %s", bus_error_message(&error, r));
@@ -995,9 +986,7 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         return 0;
 }
 
-static int start_transient_service(
-                sd_bus *bus,
-                int *retval) {
+static int start_transient_service(sd_bus *bus, int *retval) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1012,7 +1001,7 @@ static int start_transient_service(
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                        master = posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
 
@@ -1039,7 +1028,8 @@ static int start_transient_service(
                                                "OpenMachinePTY",
                                                &error,
                                                &pty_reply,
-                                               "s", arg_host);
+                                               "s",
+                                               arg_host);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, -r));
 
@@ -1075,12 +1065,7 @@ static int start_transient_service(
         }
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1170,14 +1155,15 @@ static int start_transient_service(
                 if (!path)
                         return log_oom();
 
-                r = sd_bus_match_signal_async(
-                                bus,
-                                &c.match,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.DBus.Properties",
-                                "PropertiesChanged",
-                                on_properties_changed, NULL, &c);
+                r = sd_bus_match_signal_async(bus,
+                                              &c.match,
+                                              "org.freedesktop.systemd1",
+                                              path,
+                                              "org.freedesktop.DBus.Properties",
+                                              "PropertiesChanged",
+                                              on_properties_changed,
+                                              NULL,
+                                              &c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to request properties changed signal match: %m");
 
@@ -1212,20 +1198,26 @@ static int start_transient_service(
                                 log_info("Finished with result: %s", strna(c.result));
 
                         if (c.exit_code == CLD_EXITED)
-                                log_info("Main processes terminated with: code=%s/status=%i", sigchld_code_to_string(c.exit_code), c.exit_status);
+                                log_info("Main processes terminated with: code=%s/status=%i",
+                                         sigchld_code_to_string(c.exit_code),
+                                         c.exit_status);
                         else if (c.exit_code > 0)
-                                log_info("Main processes terminated with: code=%s/status=%s", sigchld_code_to_string(c.exit_code), signal_to_string(c.exit_status));
+                                log_info("Main processes terminated with: code=%s/status=%s",
+                                         sigchld_code_to_string(c.exit_code),
+                                         signal_to_string(c.exit_status));
 
-                        if (c.inactive_enter_usec > 0 && c.inactive_enter_usec != USEC_INFINITY &&
-                            c.inactive_exit_usec > 0 && c.inactive_exit_usec != USEC_INFINITY &&
-                            c.inactive_enter_usec > c.inactive_exit_usec) {
+                        if (c.inactive_enter_usec > 0 && c.inactive_enter_usec != USEC_INFINITY && c.inactive_exit_usec > 0 &&
+                            c.inactive_exit_usec != USEC_INFINITY && c.inactive_enter_usec > c.inactive_exit_usec) {
                                 char ts[FORMAT_TIMESPAN_MAX];
-                                log_info("Service runtime: %s", format_timespan(ts, sizeof(ts), c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
+                                log_info("Service runtime: %s",
+                                         format_timespan(ts, sizeof(ts), c.inactive_enter_usec - c.inactive_exit_usec, USEC_PER_MSEC));
                         }
 
                         if (c.cpu_usage_nsec != NSEC_INFINITY) {
                                 char ts[FORMAT_TIMESPAN_MAX];
-                                log_info("CPU time consumed: %s", format_timespan(ts, sizeof(ts), (c.cpu_usage_nsec + NSEC_PER_USEC - 1) / NSEC_PER_USEC, USEC_PER_MSEC));
+                                log_info("CPU time consumed: %s",
+                                         format_timespan(
+                                                 ts, sizeof(ts), (c.cpu_usage_nsec + NSEC_PER_USEC - 1) / NSEC_PER_USEC, USEC_PER_MSEC));
                         }
 
                         if (c.ip_ingress_bytes != UINT64_MAX) {
@@ -1308,12 +1300,7 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1387,7 +1374,7 @@ static int start_transient_scope(sd_bus *bus) {
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell, USER_CREDS_CLEAN|USER_CREDS_PREFER_NSS);
+                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell, USER_CREDS_CLEAN | USER_CREDS_PREFER_NSS);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
 
@@ -1432,9 +1419,7 @@ static int start_transient_scope(sd_bus *bus) {
         return log_error_errno(errno, "Failed to execute: %m");
 }
 
-static int start_transient_trigger(
-                sd_bus *bus,
-                const char *suffix) {
+static int start_transient_trigger(sd_bus *bus, const char *suffix) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1494,12 +1479,7 @@ static int start_transient_trigger(
         }
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1589,7 +1569,7 @@ static int start_transient_trigger(
         return 0;
 }
 
-static int run(int argc, char* argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL;
         int r, retval = EXIT_SUCCESS;

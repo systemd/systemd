@@ -18,22 +18,22 @@
  * Number of seconds between instances where the bonding
  * driver sends learning packets to each slaves peer switch
  */
-#define LEARNING_PACKETS_INTERVAL_MIN_SEC       (1 * USEC_PER_SEC)
-#define LEARNING_PACKETS_INTERVAL_MAX_SEC       (0x7fffffff * USEC_PER_SEC)
+#define LEARNING_PACKETS_INTERVAL_MIN_SEC (1 * USEC_PER_SEC)
+#define LEARNING_PACKETS_INTERVAL_MAX_SEC (0x7fffffff * USEC_PER_SEC)
 
 /* Number of IGMP membership reports to be issued after
  * a failover event.
  */
-#define RESEND_IGMP_MIN           0
-#define RESEND_IGMP_MAX           255
-#define RESEND_IGMP_DEFAULT       1
+#define RESEND_IGMP_MIN 0
+#define RESEND_IGMP_MAX 255
+#define RESEND_IGMP_DEFAULT 1
 
 /*
  * Number of packets to transmit through a slave before
  * moving to the next one.
  */
-#define PACKETS_PER_SLAVE_MIN     0
-#define PACKETS_PER_SLAVE_MAX     65535
+#define PACKETS_PER_SLAVE_MIN 0
+#define PACKETS_PER_SLAVE_MAX 65535
 #define PACKETS_PER_SLAVE_DEFAULT 1
 
 /*
@@ -41,28 +41,23 @@
  * unsolicited IPv6 Neighbor Advertisements) to be issued after a
  * failover event.
  */
-#define GRATUITOUS_ARP_MIN        0
-#define GRATUITOUS_ARP_MAX        255
-#define GRATUITOUS_ARP_DEFAULT    1
+#define GRATUITOUS_ARP_MIN 0
+#define GRATUITOUS_ARP_MAX 255
+#define GRATUITOUS_ARP_DEFAULT 1
 
-static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
-        [NETDEV_BOND_MODE_BALANCE_RR] = "balance-rr",
-        [NETDEV_BOND_MODE_ACTIVE_BACKUP] = "active-backup",
-        [NETDEV_BOND_MODE_BALANCE_XOR] = "balance-xor",
-        [NETDEV_BOND_MODE_BROADCAST] = "broadcast",
-        [NETDEV_BOND_MODE_802_3AD] = "802.3ad",
-        [NETDEV_BOND_MODE_BALANCE_TLB] = "balance-tlb",
+static const char *const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
+        [NETDEV_BOND_MODE_BALANCE_RR] = "balance-rr",   [NETDEV_BOND_MODE_ACTIVE_BACKUP] = "active-backup",
+        [NETDEV_BOND_MODE_BALANCE_XOR] = "balance-xor", [NETDEV_BOND_MODE_BROADCAST] = "broadcast",
+        [NETDEV_BOND_MODE_802_3AD] = "802.3ad",         [NETDEV_BOND_MODE_BALANCE_TLB] = "balance-tlb",
         [NETDEV_BOND_MODE_BALANCE_ALB] = "balance-alb",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_mode, bond_mode, BondMode, "Failed to parse bond mode");
 
-static const char* const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLICY_MAX] = {
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER2] = "layer2",
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER34] = "layer3+4",
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER23] = "layer2+3",
-        [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23] = "encap2+3",
+static const char *const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLICY_MAX] = {
+        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER2] = "layer2",    [NETDEV_BOND_XMIT_HASH_POLICY_LAYER34] = "layer3+4",
+        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER23] = "layer2+3", [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23] = "encap2+3",
         [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34] = "encap3+4",
 };
 
@@ -72,7 +67,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_xmit_hash_policy,
                          BondXmitHashPolicy,
                          "Failed to parse bond transmit hash policy")
 
-static const char* const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
+static const char *const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
         [NETDEV_BOND_LACP_RATE_SLOW] = "slow",
         [NETDEV_BOND_LACP_RATE_FAST] = "fast",
 };
@@ -80,7 +75,7 @@ static const char* const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_lacp_rate, bond_lacp_rate, BondLacpRate, "Failed to parse bond lacp rate")
 
-static const char* const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
+static const char *const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
         [NETDEV_BOND_AD_SELECT_STABLE] = "stable",
         [NETDEV_BOND_AD_SELECT_BANDWIDTH] = "bandwidth",
         [NETDEV_BOND_AD_SELECT_COUNT] = "count",
@@ -89,7 +84,7 @@ static const char* const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(bond_ad_select, BondAdSelect);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_ad_select, bond_ad_select, BondAdSelect, "Failed to parse bond AD select");
 
-static const char* const bond_fail_over_mac_table[_NETDEV_BOND_FAIL_OVER_MAC_MAX] = {
+static const char *const bond_fail_over_mac_table[_NETDEV_BOND_FAIL_OVER_MAC_MAX] = {
         [NETDEV_BOND_FAIL_OVER_MAC_NONE] = "none",
         [NETDEV_BOND_FAIL_OVER_MAC_ACTIVE] = "active",
         [NETDEV_BOND_FAIL_OVER_MAC_FOLLOW] = "follow",
@@ -100,9 +95,9 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_fail_over_mac, bond_fail_over_mac, Bo
 
 static const char *const bond_arp_validate_table[_NETDEV_BOND_ARP_VALIDATE_MAX] = {
         [NETDEV_BOND_ARP_VALIDATE_NONE] = "none",
-        [NETDEV_BOND_ARP_VALIDATE_ACTIVE]= "active",
-        [NETDEV_BOND_ARP_VALIDATE_BACKUP]= "backup",
-        [NETDEV_BOND_ARP_VALIDATE_ALL]= "all",
+        [NETDEV_BOND_ARP_VALIDATE_ACTIVE] = "active",
+        [NETDEV_BOND_ARP_VALIDATE_BACKUP] = "backup",
+        [NETDEV_BOND_ARP_VALIDATE_ALL] = "all",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(bond_arp_validate, BondArpValidate);
@@ -118,12 +113,15 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets
 
 static const char *bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
         [NETDEV_BOND_PRIMARY_RESELECT_ALWAYS] = "always",
-        [NETDEV_BOND_PRIMARY_RESELECT_BETTER]= "better",
-        [NETDEV_BOND_PRIMARY_RESELECT_FAILURE]= "failure",
+        [NETDEV_BOND_PRIMARY_RESELECT_BETTER] = "better",
+        [NETDEV_BOND_PRIMARY_RESELECT_FAILURE] = "failure",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_reselect, BondPrimaryReselect, "Failed to parse bond primary reselect");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect,
+                         bond_primary_reselect,
+                         BondPrimaryReselect,
+                         "Failed to parse bond primary reselect");
 
 static uint8_t bond_mode_to_kernel(BondMode mode) {
         switch (mode) {
@@ -177,22 +175,19 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(b);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE,
-                                              bond_mode_to_kernel(b->mode));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, bond_mode_to_kernel(b->mode));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MODE attribute: %m");
         }
 
         if (b->xmit_hash_policy != _NETDEV_BOND_XMIT_HASH_POLICY_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
-                                              bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY, bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %m");
         }
 
-        if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
-            b->mode == NETDEV_BOND_MODE_802_3AD) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
+        if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID && b->mode == NETDEV_BOND_MODE_802_3AD) {
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
         }
@@ -220,23 +215,20 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_INTERVAL attribute: %m");
 
-                if ((b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC) &&
-                    (b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC)) {
+                if ((b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC) && (b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC)) {
                         r = sd_netlink_message_append_u32(m, IFLA_BOND_LP_INTERVAL, b->lp_interval / USEC_PER_SEC);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_LP_INTERVAL attribute: %m");
                 }
         }
 
-        if (b->ad_select != _NETDEV_BOND_AD_SELECT_INVALID &&
-            b->mode == NETDEV_BOND_MODE_802_3AD) {
+        if (b->ad_select != _NETDEV_BOND_AD_SELECT_INVALID && b->mode == NETDEV_BOND_MODE_802_3AD) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_SELECT, b->ad_select);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_SELECT attribute: %m");
         }
 
-        if (b->fail_over_mac != _NETDEV_BOND_FAIL_OVER_MAC_INVALID &&
-            b->mode == NETDEV_BOND_MODE_ACTIVE_BACKUP) {
+        if (b->fail_over_mac != _NETDEV_BOND_FAIL_OVER_MAC_INVALID && b->mode == NETDEV_BOND_MODE_ACTIVE_BACKUP) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_FAIL_OVER_MAC, b->fail_over_mac);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_FAIL_OVER_MAC attribute: %m");
@@ -266,8 +258,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_RESEND_IGMP attribute: %m");
         }
 
-        if (b->packets_per_slave <= PACKETS_PER_SLAVE_MAX &&
-            b->mode == NETDEV_BOND_MODE_BALANCE_RR) {
+        if (b->packets_per_slave <= PACKETS_PER_SLAVE_MAX && b->mode == NETDEV_BOND_MODE_BALANCE_RR) {
                 r = sd_netlink_message_append_u32(m, IFLA_BOND_PACKETS_PER_SLAVE, b->packets_per_slave);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_PACKETS_PER_SLAVE attribute: %m");
@@ -313,7 +304,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_TLB_DYNAMIC_LB attribute: %m");
         }
 
-        if (b->arp_interval > 0)  {
+        if (b->arp_interval > 0) {
                 if (b->n_arp_ip_targets > 0) {
 
                         r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
@@ -360,7 +351,8 @@ int config_parse_arp_ip_target_address(const char *unit,
 
                 r = extract_first_word(&rvalue, &n, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Bond ARP ip target address, ignoring assignment: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, r, "Failed to parse Bond ARP ip target address, ignoring assignment: %s", rvalue);
                         return 0;
                 }
 
@@ -387,9 +379,14 @@ int config_parse_arp_ip_target_address(const char *unit,
         }
 
         if (b->n_arp_ip_targets > NETDEV_BOND_ARP_TARGETS_MAX)
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
                            "More than the maximum number of kernel-supported ARP ip targets specified: %d > %d",
-                           b->n_arp_ip_targets, NETDEV_BOND_ARP_TARGETS_MAX);
+                           b->n_arp_ip_targets,
+                           NETDEV_BOND_ARP_TARGETS_MAX);
 
         return 0;
 }
@@ -420,7 +417,8 @@ int config_parse_ad_actor_sys_prio(const char *unit,
         }
 
         if (v == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, 0, "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.", rvalue);
                 return 0;
         }
 
@@ -494,7 +492,13 @@ int config_parse_ad_actor_system(const char *unit,
         }
 
         if (ether_addr_is_null(n) || (n->ether_addr_octet[0] & 0x01)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.",
+                           rvalue);
                 return 0;
         }
 
@@ -516,7 +520,7 @@ static void bond_done(NetDev *netdev) {
         free(b->ad_actor_system);
 
         LIST_FOREACH_SAFE(arp_ip_target, t, n, b->arp_ip_targets)
-                free(t);
+        free(t);
 
         b->arp_ip_targets = NULL;
 }

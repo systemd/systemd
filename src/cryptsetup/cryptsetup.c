@@ -174,12 +174,10 @@ static int parse_one_option(const char *option) {
                 arg_type = ANY_LUKS;
 
                 if (!path_is_absolute(val))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Header path \"%s\" is not absolute, refusing.", val);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Header path \"%s\" is not absolute, refusing.", val);
 
                 if (arg_header)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Duplicate header= option, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate header= option, refusing.");
 
                 arg_header = strdup(val);
                 if (!arg_header)
@@ -214,8 +212,7 @@ static int parse_one_option(const char *option) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
 #else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This version of cryptsetup does not support tcrypt-veracrypt; refusing.");
 #endif
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
                 arg_type = CRYPT_PLAIN;
@@ -266,15 +263,15 @@ static int parse_options(const char *options) {
         /* sanity-check options */
         if (arg_type != NULL && !streq(arg_type, CRYPT_PLAIN)) {
                 if (arg_offset)
-                      log_warning("offset= ignored with type %s", arg_type);
+                        log_warning("offset= ignored with type %s", arg_type);
                 if (arg_skip)
-                      log_warning("skip= ignored with type %s", arg_type);
+                        log_warning("skip= ignored with type %s", arg_type);
         }
 
         return 0;
 }
 
-static char* disk_description(const char *path) {
+static char *disk_description(const char *path) {
         static const char name_fields[] =
                 "ID_PART_ENTRY_NAME\0"
                 "DM_NAME\0"
@@ -297,9 +294,8 @@ static char* disk_description(const char *path) {
                 return NULL;
 
         NULSTR_FOREACH(i, name_fields)
-                if (sd_device_get_property_value(device, i, &name) >= 0 &&
-                    !isempty(name))
-                        return strdup(name);
+        if (sd_device_get_property_value(device, i, &name) >= 0 && !isempty(name))
+                return strdup(name);
 
         return NULL;
 }
@@ -366,8 +362,12 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         id = strjoina("cryptsetup:", disk_path);
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
-                              ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+        r = ask_password_auto(text,
+                              "drive-harddisk",
+                              id,
+                              "cryptsetup",
+                              until,
+                              ASK_PASSWORD_PUSH_CACHE | (accept_cached * ASK_PASSWORD_ACCEPT_CACHED),
                               &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
@@ -399,11 +399,11 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         STRV_FOREACH(p, passwords) {
                 char *c;
 
-                if (strlen(*p)+1 >= arg_key_size)
+                if (strlen(*p) + 1 >= arg_key_size)
                         continue;
 
                 /* Pad password if necessary */
-                c = new(char, arg_key_size);
+                c = new (char, arg_key_size);
                 if (!c)
                         return log_oom();
 
@@ -417,20 +417,13 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         return 0;
 }
 
-static int attach_tcrypt(
-                struct crypt_device *cd,
-                const char *name,
-                const char *key_file,
-                char **passwords,
-                uint32_t flags) {
+static int attach_tcrypt(struct crypt_device *cd, const char *name, const char *key_file, char **passwords, uint32_t flags) {
 
         int r = 0;
         _cleanup_free_ char *passphrase = NULL;
-        struct crypt_params_tcrypt params = {
-                .flags = CRYPT_TCRYPT_LEGACY_MODES,
-                .keyfiles = (const char **)arg_tcrypt_keyfiles,
-                .keyfiles_count = strv_length(arg_tcrypt_keyfiles)
-        };
+        struct crypt_params_tcrypt params = { .flags = CRYPT_TCRYPT_LEGACY_MODES,
+                                              .keyfiles = (const char **) arg_tcrypt_keyfiles,
+                                              .keyfiles_count = strv_length(arg_tcrypt_keyfiles) };
 
         assert(cd);
         assert(name);
@@ -462,21 +455,15 @@ static int attach_tcrypt(
         r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
                 if (key_file && r == -EPERM)
-                        return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "Failed to activate using password file '%s'.",
-                                               key_file);
+                        return log_error_errno(SYNTHETIC_ERRNO(EAGAIN), "Failed to activate using password file '%s'.", key_file);
                 return r;
         }
 
         return crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
 }
 
-static int attach_luks_or_plain(struct crypt_device *cd,
-                                const char *name,
-                                const char *key_file,
-                                const char *data_device,
-                                char **passwords,
-                                uint32_t flags) {
+static int attach_luks_or_plain(
+        struct crypt_device *cd, const char *name, const char *key_file, const char *data_device, char **passwords, uint32_t flags) {
         int r = 0;
         bool pass_volume_key = false;
 
@@ -524,7 +511,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                                 return log_oom();
 
                         cipher = truncated_cipher;
-                        cipher_mode = arg_cipher[l] ? arg_cipher+l+1 : "plain";
+                        cipher_mode = arg_cipher[l] ? arg_cipher + l + 1 : "plain";
                 } else {
                         cipher = "aes";
                         cipher_mode = "cbc-essiv:sha256";
@@ -553,7 +540,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
                  crypt_get_cipher(cd),
                  crypt_get_cipher_mode(cd),
-                 crypt_get_volume_key_size(cd)*8,
+                 crypt_get_volume_key_size(cd) * 8,
                  crypt_get_device_name(cd));
 
         if (key_file) {
@@ -590,11 +577,10 @@ static int help(void) {
         printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
                "%s detach VOLUME\n\n"
                "Attaches or detaches an encrypted block device.\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -629,10 +615,7 @@ static int run(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-                if (argc >= 5 &&
-                    argv[4][0] &&
-                    !streq(argv[4], "-") &&
-                    !streq(argv[4], "none")) {
+                if (argc >= 5 && argv[4][0] && !streq(argv[4], "-") && !streq(argv[4], "none")) {
 
                         if (!path_is_absolute(argv[4]))
                                 log_error("Password file path '%s' is not absolute. Ignoring.", argv[4]);
@@ -701,12 +684,7 @@ static int run(int argc, char *argv[]) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
                                 r = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
                         else
-                                r = attach_luks_or_plain(cd,
-                                                         argv[2],
-                                                         key_file,
-                                                         arg_header ? argv[3] : NULL,
-                                                         passwords,
-                                                         flags);
+                                r = attach_luks_or_plain(cd, argv[2], key_file, arg_header ? argv[3] : NULL, passwords, flags);
                         if (r >= 0)
                                 break;
                         if (r == -EAGAIN) {

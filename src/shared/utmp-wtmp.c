@@ -101,7 +101,7 @@ static void init_entry(struct utmpx *store, usec_t t) {
         if (uname(&uts) >= 0)
                 strncpy(store->ut_host, uts.release, sizeof(store->ut_host));
 
-        strncpy(store->ut_line, "~", sizeof(store->ut_line));  /* or ~~ ? */
+        strncpy(store->ut_line, "~", sizeof(store->ut_line)); /* or ~~ ? */
         strncpy(store->ut_id, "~~", sizeof(store->ut_id));
 }
 
@@ -189,10 +189,10 @@ _pure_ static const char *sanitize_id(const char *id) {
         assert(id);
         l = strlen(id);
 
-        if (l <= sizeof(((struct utmpx*) NULL)->ut_id))
+        if (l <= sizeof(((struct utmpx *) NULL)->ut_id))
                 return id;
 
-        return id + l - sizeof(((struct utmpx*) NULL)->ut_id);
+        return id + l - sizeof(((struct utmpx *) NULL)->ut_id);
 }
 
 int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
@@ -226,7 +226,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 
         if (ut_type == USER_PROCESS) {
                 store.ut_type = USER_PROCESS;
-                strncpy(store.ut_user, user, sizeof(store.ut_user)-1);
+                strncpy(store.ut_user, user, sizeof(store.ut_user) - 1);
                 r = write_entry_both(&store);
                 if (r < 0)
                         return r;
@@ -236,9 +236,11 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
-        struct utmpx lookup = {
-                .ut_type = INIT_PROCESS /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
-        }, store, store_wtmp, *found;
+        struct utmpx lookup =
+                             {
+                                     .ut_type = INIT_PROCESS /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
+                             },
+                     store, store_wtmp, *found;
 
         assert(id);
 
@@ -311,14 +313,14 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(tty);
         assert(message);
 
-        fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
+        fd = open(tty, O_WRONLY | O_NONBLOCK | O_NOCTTY | O_CLOEXEC);
         if (fd < 0 || !isatty(fd))
                 return -errno;
 
         p = message;
         left = strlen(message);
 
-        end = now(CLOCK_MONOTONIC) + TIMEOUT_MSEC*USEC_PER_MSEC;
+        end = now(CLOCK_MONOTONIC) + TIMEOUT_MSEC * USEC_PER_MSEC;
 
         while (left > 0) {
                 ssize_t n;
@@ -358,12 +360,11 @@ static int write_to_terminal(const char *tty, const char *message) {
         return 0;
 }
 
-int utmp_wall(
-        const char *message,
-        const char *username,
-        const char *origin_tty,
-        bool (*match_tty)(const char *tty, void *userdata),
-        void *userdata) {
+int utmp_wall(const char *message,
+              const char *username,
+              const char *origin_tty,
+              bool (*match_tty)(const char *tty, void *userdata),
+              void *userdata) {
 
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *stdin_tty = NULL;
         char date[FORMAT_TIMESTAMP_MAX];
@@ -388,8 +389,10 @@ int utmp_wall(
                      "\a\r\n"
                      "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
-                     un ?: username, hn,
-                     origin_tty ? " on " : "", strempty(origin_tty),
+                     un ?: username,
+                     hn,
+                     origin_tty ? " on " : "",
+                     strempty(origin_tty),
                      format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
                      message) < 0)
                 return -ENOMEM;

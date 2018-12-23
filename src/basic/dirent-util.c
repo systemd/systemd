@@ -19,15 +19,15 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
         if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
 
-        de->d_type =
-                S_ISREG(st.st_mode)  ? DT_REG  :
-                S_ISDIR(st.st_mode)  ? DT_DIR  :
-                S_ISLNK(st.st_mode)  ? DT_LNK  :
-                S_ISFIFO(st.st_mode) ? DT_FIFO :
-                S_ISSOCK(st.st_mode) ? DT_SOCK :
-                S_ISCHR(st.st_mode)  ? DT_CHR  :
-                S_ISBLK(st.st_mode)  ? DT_BLK  :
-                                       DT_UNKNOWN;
+        de->d_type = S_ISREG(st.st_mode) ?
+                DT_REG :
+                S_ISDIR(st.st_mode) ?
+                DT_DIR :
+                S_ISLNK(st.st_mode) ?
+                DT_LNK :
+                S_ISFIFO(st.st_mode) ?
+                DT_FIFO :
+                S_ISSOCK(st.st_mode) ? DT_SOCK : S_ISCHR(st.st_mode) ? DT_CHR : S_ISBLK(st.st_mode) ? DT_BLK : DT_UNKNOWN;
 
         return 0;
 }
@@ -59,8 +59,8 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-struct dirent* readdir_no_dot(DIR *dirp) {
-        struct dirent* d;
+struct dirent *readdir_no_dot(DIR *dirp) {
+        struct dirent *d;
 
         for (;;) {
                 d = readdir(dirp);

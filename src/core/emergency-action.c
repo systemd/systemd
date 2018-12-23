@@ -15,18 +15,11 @@
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
         log_full(warn ? LOG_WARNING : LOG_DEBUG, "%s: %s", message, reason);
         if (warn)
-                manager_status_printf(m, STATUS_TYPE_EMERGENCY,
-                                      ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
-                                      "%s: %s", message, reason);
+                manager_status_printf(m, STATUS_TYPE_EMERGENCY, ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, "%s: %s", message, reason);
 }
 
 int emergency_action(
-                Manager *m,
-                EmergencyAction action,
-                EmergencyActionFlags options,
-                const char *reboot_arg,
-                int exit_status,
-                const char *reason) {
+        Manager *m, EmergencyAction action, EmergencyActionFlags options, const char *reboot_arg, int exit_status, const char *reason) {
 
         assert(m);
         assert(action >= 0);
@@ -129,7 +122,7 @@ int emergency_action(
         return -ECANCELED;
 }
 
-static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
+static const char *const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_NONE] = "none",
         [EMERGENCY_ACTION_REBOOT] = "reboot",
         [EMERGENCY_ACTION_REBOOT_FORCE] = "reboot-force",
@@ -142,10 +135,7 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
 };
 DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
 
-int parse_emergency_action(
-                const char *value,
-                bool system,
-                EmergencyAction *ret) {
+int parse_emergency_action(const char *value, bool system, EmergencyAction *ret) {
 
         EmergencyAction x;
 

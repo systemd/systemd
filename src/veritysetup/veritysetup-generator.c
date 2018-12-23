@@ -54,9 +54,13 @@ static int create_device(void) {
         if (!arg_root_hash || !arg_data_what || !arg_hash_what)
                 return -EINVAL;
 
-        log_debug("Using root verity data device %s,\n"
-                  "                  hash device %s,\n"
-                  "                and root hash %s.", arg_data_what, arg_hash_what, arg_root_hash);
+        log_debug(
+                "Using root verity data device %s,\n"
+                "                  hash device %s,\n"
+                "                and root hash %s.",
+                arg_data_what,
+                arg_hash_what,
+                arg_root_hash);
 
         u = fstab_node_to_udev_node(arg_data_what);
         if (!u)
@@ -101,15 +105,20 @@ static int create_device(void) {
                 "\n[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-veritysetup attach root '%s' '%s' '%s'\n"
+                "ExecStart=" ROOTLIBEXECDIR
+                "/systemd-veritysetup attach root '%s' '%s' '%s'\n"
                 "ExecStop=" ROOTLIBEXECDIR "/systemd-veritysetup detach root\n",
-                d, e,
-                d, e,
-                u_escaped, v_escaped, root_hash_escaped);
+                d,
+                e,
+                d,
+                e,
+                u_escaped,
+                v_escaped,
+                root_hash_escaped);
 
         r = fflush_and_check(f);
         if (r < 0)
-                return log_error_errno(r, "Failed to write file unit "SYSTEMD_VERITYSETUP_SERVICE": %m");
+                return log_error_errno(r, "Failed to write file unit " SYSTEMD_VERITYSETUP_SERVICE ": %m");
 
         to = strjoina(arg_dest, "/cryptsetup.target.requires/" SYSTEMD_VERITYSETUP_SERVICE);
 
@@ -194,7 +203,7 @@ static int determine_devices(void) {
         }
 
         if (!arg_hash_what) {
-                memcpy(&verity_uuid, (uint8_t*) m + l - sizeof(verity_uuid), sizeof(verity_uuid));
+                memcpy(&verity_uuid, (uint8_t *) m + l - sizeof(verity_uuid), sizeof(verity_uuid));
 
                 arg_hash_what = strjoin("/dev/disk/by-partuuid/", id128_to_uuid_string(verity_uuid, ids));
                 if (!arg_hash_what)

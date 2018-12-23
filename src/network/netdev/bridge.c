@@ -128,8 +128,7 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler,
-                               netdev_destroy_callback, netdev);
+        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler, netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

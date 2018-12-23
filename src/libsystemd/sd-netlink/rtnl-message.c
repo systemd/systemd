@@ -25,8 +25,7 @@ int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char
 
         rtm = NLMSG_DATA(m->hdr);
 
-        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
-            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
+        if ((rtm->rtm_family == AF_INET && prefixlen > 32) || (rtm->rtm_family == AF_INET6 && prefixlen > 128))
                 return -ERANGE;
 
         rtm->rtm_dst_len = prefixlen;
@@ -43,8 +42,7 @@ int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char
 
         rtm = NLMSG_DATA(m->hdr);
 
-        if ((rtm->rtm_family == AF_INET && prefixlen > 32) ||
-            (rtm->rtm_family == AF_INET6 && prefixlen > 128))
+        if ((rtm->rtm_family == AF_INET && prefixlen > 32) || (rtm->rtm_family == AF_INET6 && prefixlen > 128))
                 return -ERANGE;
 
         rtm->rtm_src_len = prefixlen;
@@ -257,15 +255,12 @@ int sd_rtnl_message_route_get_src_prefixlen(sd_netlink_message *m, unsigned char
         return 0;
 }
 
-int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret,
-                              uint16_t nlmsg_type, int rtm_family,
-                              unsigned char rtm_protocol) {
+int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol) {
         struct rtmsg *rtm;
         int r;
 
         assert_return(rtnl_message_type_is_route(nlmsg_type), -EINVAL);
-        assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) ||
-                      IN_SET(rtm_family, AF_INET, AF_INET6), -EINVAL);
+        assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) || IN_SET(rtm_family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -435,8 +430,7 @@ int sd_rtnl_message_link_set_family(sd_netlink_message *m, unsigned family) {
         return 0;
 }
 
-int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
-                             uint16_t nlmsg_type, int index) {
+int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index) {
         struct ifinfomsg *ifi;
         int r;
 
@@ -467,8 +461,7 @@ int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, unsigned char pref
 
         ifa = NLMSG_DATA(m->hdr);
 
-        if ((ifa->ifa_family == AF_INET && prefixlen > 32) ||
-            (ifa->ifa_family == AF_INET6 && prefixlen > 128))
+        if ((ifa->ifa_family == AF_INET && prefixlen > 32) || (ifa->ifa_family == AF_INET6 && prefixlen > 128))
                 return -ERANGE;
 
         ifa->ifa_prefixlen = prefixlen;
@@ -579,17 +572,13 @@ int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ifindex) {
         return 0;
 }
 
-int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
-                             uint16_t nlmsg_type, int index,
-                             int family) {
+int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int family) {
         struct ifaddrmsg *ifa;
         int r;
 
         assert_return(rtnl_message_type_is_addr(nlmsg_type), -EINVAL);
-        assert_return((nlmsg_type == RTM_GETADDR && index == 0) ||
-                      index > 0, -EINVAL);
-        assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) ||
-                      IN_SET(family, AF_INET, AF_INET6), -EINVAL);
+        assert_return((nlmsg_type == RTM_GETADDR && index == 0) || index > 0, -EINVAL);
+        assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) || IN_SET(family, AF_INET, AF_INET6), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -611,8 +600,7 @@ int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret,
         return 0;
 }
 
-int sd_rtnl_message_new_addr_update(sd_netlink *rtnl, sd_netlink_message **ret,
-                             int index, int family) {
+int sd_rtnl_message_new_addr_update(sd_netlink *rtnl, sd_netlink_message **ret, int index, int family) {
         int r;
 
         r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, index, family);
@@ -901,7 +889,7 @@ int sd_rtnl_message_routing_policy_rule_get_rtm_type(sd_netlink_message *m, unsi
 
         routing_policy_rule = NLMSG_DATA(m->hdr);
 
-        *type =  routing_policy_rule->rtm_type;
+        *type = routing_policy_rule->rtm_type;
 
         return 0;
 }

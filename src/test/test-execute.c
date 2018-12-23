@@ -77,29 +77,19 @@ static bool check_nobody_user_and_group(void) {
                 goto invalid;
 
         p = getpwnam(NOBODY_USER_NAME);
-        if (!p ||
-            !streq(p->pw_name, NOBODY_USER_NAME) ||
-            p->pw_uid != UID_NOBODY ||
-            p->pw_gid != GID_NOBODY)
+        if (!p || !streq(p->pw_name, NOBODY_USER_NAME) || p->pw_uid != UID_NOBODY || p->pw_gid != GID_NOBODY)
                 goto invalid;
 
         p = getpwuid(UID_NOBODY);
-        if (!p ||
-            !streq(p->pw_name, NOBODY_USER_NAME) ||
-            p->pw_uid != UID_NOBODY ||
-            p->pw_gid != GID_NOBODY)
+        if (!p || !streq(p->pw_name, NOBODY_USER_NAME) || p->pw_uid != UID_NOBODY || p->pw_gid != GID_NOBODY)
                 goto invalid;
 
         g = getgrnam(NOBODY_GROUP_NAME);
-        if (!g ||
-            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
-            g->gr_gid != GID_NOBODY)
+        if (!g || !streq(g->gr_name, NOBODY_GROUP_NAME) || g->gr_gid != GID_NOBODY)
                 goto invalid;
 
         g = getgrgid(GID_NOBODY);
-        if (!g ||
-            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
-            g->gr_gid != GID_NOBODY)
+        if (!g || !streq(g->gr_name, NOBODY_GROUP_NAME) || g->gr_gid != GID_NOBODY)
                 goto invalid;
 
         cache = 1;
@@ -117,13 +107,11 @@ static bool check_user_has_group_with_same_name(const char *name) {
         assert(name);
 
         p = getpwnam(name);
-        if (!p ||
-            !streq(p->pw_name, name))
+        if (!p || !streq(p->pw_name, name))
                 return false;
 
         g = getgrgid(p->pw_gid);
-        if (!g ||
-            !streq(g->gr_name, name))
+        if (!g || !streq(g->gr_name, name))
                 return false;
 
         return true;
@@ -133,13 +121,12 @@ static bool is_inaccessible_available(void) {
         char *p;
 
         FOREACH_STRING(p,
-                "/run/systemd/inaccessible/reg",
-                "/run/systemd/inaccessible/dir",
-                "/run/systemd/inaccessible/chr",
-                "/run/systemd/inaccessible/blk",
-                "/run/systemd/inaccessible/fifo",
-                "/run/systemd/inaccessible/sock"
-        ) {
+                       "/run/systemd/inaccessible/reg",
+                       "/run/systemd/inaccessible/dir",
+                       "/run/systemd/inaccessible/chr",
+                       "/run/systemd/inaccessible/blk",
+                       "/run/systemd/inaccessible/fifo",
+                       "/run/systemd/inaccessible/sock") {
                 if (access(p, F_OK) < 0)
                         return false;
         }
@@ -163,8 +150,8 @@ static void test_exec_bindpaths(Manager *m) {
 
         test(m, "exec-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
@@ -182,8 +169,7 @@ static void test_exec_cpuaffinity(Manager *m) {
         test(m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
         test(m, "exec-cpuaffinity2.service", 0, CLD_EXITED);
 
-        if (CPU_ISSET_S(1, CPU_ALLOC_SIZE(n), c) == 0 ||
-            CPU_ISSET_S(2, CPU_ALLOC_SIZE(n), c) == 0) {
+        if (CPU_ISSET_S(1, CPU_ALLOC_SIZE(n), c) == 0 || CPU_ISSET_S(2, CPU_ALLOC_SIZE(n), c) == 0) {
                 log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
                 return;
         }
@@ -197,7 +183,7 @@ static void test_exec_workingdirectory(Manager *m) {
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
-        (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -208,11 +194,11 @@ static void test_exec_personality(Manager *m) {
         test(m, "exec-personality-s390.service", 0, CLD_EXITED);
 
 #elif defined(__powerpc64__)
-#  if __BYTE_ORDER == __BIG_ENDIAN
+#if __BYTE_ORDER == __BIG_ENDIAN
         test(m, "exec-personality-ppc64.service", 0, CLD_EXITED);
-#  else
+#else
         test(m, "exec-personality-ppc64le.service", 0, CLD_EXITED);
-#  endif
+#endif
 
 #elif defined(__aarch64__)
         test(m, "exec-personality-aarch64.service", 0, CLD_EXITED);
@@ -478,18 +464,18 @@ static void test_exec_dynamicuser(Manager *m) {
         test(m, "exec-dynamicuser-supplementarygroups.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
 
         test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir-migrate-step2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_exec_environment(Manager *m) {
@@ -580,9 +566,7 @@ static void test_exec_capabilityboundingset(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_CHOWN) <= 0 ||
-            have_effective_cap(CAP_FOWNER) <= 0 ||
-            have_effective_cap(CAP_KILL) <= 0) {
+        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_FOWNER) <= 0 || have_effective_cap(CAP_KILL) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }
@@ -610,8 +594,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_CHOWN) <= 0 ||
-            have_effective_cap(CAP_NET_RAW) <= 0) {
+        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_NET_RAW) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }

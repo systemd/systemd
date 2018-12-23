@@ -62,7 +62,7 @@ Link *link_free(Link *l) {
 
         free(l->ifname);
         return mfree(l);
- }
+}
 
 int link_update_rtnl(Link *l, sd_netlink_message *m) {
         const char *ifname;

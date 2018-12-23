@@ -27,8 +27,8 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-static Manager* manager_unref(Manager *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+static Manager *manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_unref);
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
@@ -36,11 +36,11 @@ static int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new(Manager, 1);
+        m = new (Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        *m = (Manager) {
+        *m = (Manager){
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
         };
@@ -58,7 +58,8 @@ static int manager_new(Manager **ret) {
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->sessions_by_leader || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->sessions_by_leader || !m->users || !m->inhibitors || !m->buttons ||
+            !m->user_units || !m->session_units)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
@@ -81,7 +82,7 @@ static int manager_new(Manager **ret) {
         return 0;
 }
 
-static Manager* manager_unref(Manager *m) {
+static Manager *manager_unref(Manager *m) {
         Session *session;
         User *u;
         Device *d;
@@ -255,8 +256,7 @@ static int manager_enumerate_seats(Manager *m) {
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/seats/%s: %m",
-                                            de->d_name);
+                                log_warning("Failed to remove /run/systemd/seats/%s: %m", de->d_name);
                         continue;
                 }
 
@@ -434,14 +434,12 @@ static int manager_attach_fds(Manager *m) {
                 if (!sd) {
                         /* Weird, we got an fd for a session device which wasn't
                          * recorded in the session state file... */
-                        log_warning("Got fd for missing session device [%u:%u] in session %s",
-                                    major(dev), minor(dev), s->id);
+                        log_warning("Got fd for missing session device [%u:%u] in session %s", major(dev), minor(dev), s->id);
                         close_nointr(fd);
                         continue;
                 }
 
-                log_debug("Attaching fd to session device [%u:%u] for session %s",
-                          major(dev), minor(dev), s->id);
+                log_debug("Attaching fd to session device [%u:%u] for session %s", major(dev), minor(dev), s->id);
 
                 session_device_attach_fd(sd, fd, s->was_active);
         }
@@ -567,10 +565,8 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
         /* Whenever a VCSA device is removed try to reallocate our
          * VTs, to make sure our auto VTs never go away. */
 
-        if (sd_device_get_sysname(device, &name) >= 0 &&
-            startswith(name, "vcsa") &&
-            sd_device_get_property_value(device, "ACTION", &action) >= 0 &&
-            streq(action, "remove"))
+        if (sd_device_get_sysname(device, &name) >= 0 && startswith(name, "vcsa") &&
+            sd_device_get_property_value(device, "ACTION", &action) >= 0 && streq(action, "remove"))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
@@ -608,7 +604,7 @@ static int manager_reserve_vt(Manager *m) {
         if (asprintf(&p, "/dev/tty%u", m->reserve_vt) < 0)
                 return log_oom();
 
-        m->reserve_vt_fd = open(p, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        m->reserve_vt_fd = open(p, O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (m->reserve_vt_fd < 0) {
 
                 /* Don't complain on VT-less systems */
@@ -634,7 +630,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add seat object vtable: %m");
 
@@ -642,7 +639,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add seat enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add session object vtable: %m");
 
@@ -650,7 +648,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add session enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add user object vtable: %m");
 
@@ -658,59 +657,63 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add user enumerator: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        match_job_removed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "JobRemoved",
+                                      match_job_removed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for JobRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnitRemoved",
-                        match_unit_removed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "UnitRemoved",
+                                      match_unit_removed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        NULL,
-                        "org.freedesktop.DBus.Properties",
-                        "PropertiesChanged",
-                        match_properties_changed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      NULL,
+                                      "org.freedesktop.DBus.Properties",
+                                      "PropertiesChanged",
+                                      match_properties_changed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reloading",
-                        match_reloading, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "Reloading",
+                                      match_reloading,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Subscribe",
-                        NULL, NULL,
-                        NULL);
+        r = sd_bus_call_method_async(m->bus,
+                                     NULL,
+                                     "org.freedesktop.systemd1",
+                                     "/org/freedesktop/systemd1",
+                                     "org.freedesktop.systemd1.Manager",
+                                     "Subscribe",
+                                     NULL,
+                                     NULL,
+                                     NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 
@@ -761,7 +764,7 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
 
                 /* At this point we only have the kernel mapping for referring to the
                  * current VT. */
-                fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                fd = open_terminal("/dev/tty0", O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
                 if (fd < 0) {
                         log_warning_errno(fd, "Failed to open, ignoring: %m");
                         return 0;
@@ -800,7 +803,7 @@ static int manager_connect_console(Manager *m) {
         if (access("/dev/tty0", F_OK) < 0)
                 return 0;
 
-        m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY | O_NOCTTY | O_CLOEXEC);
         if (m->console_active_fd < 0) {
 
                 /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are broken, but
@@ -825,9 +828,7 @@ static int manager_connect_console(Manager *m) {
          */
 
         if (SIGRTMIN + 1 > SIGRTMAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough real-time signals available: %u-%u",
-                                       SIGRTMIN, SIGRTMAX);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough real-time signals available: %u-%u", SIGRTMIN, SIGRTMAX);
 
         assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
@@ -914,7 +915,8 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor), "logind-button-monitor");
+                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor),
+                                                       "logind-button-monitor");
         }
 
         /* Don't bother watching VCSA devices, if nobody cares */
@@ -964,8 +966,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 session->in_gc_queue = false;
 
                 /* First, if we are not closing yet, initiate stopping */
-                if (session_may_gc(session, drop_not_started) &&
-                    session_get_state(session) != SESSION_CLOSING)
+                if (session_may_gc(session, drop_not_started) && session_get_state(session) != SESSION_CLOSING)
                         (void) session_stop(session, false);
 
                 /* Normally, this should make the session referenced
@@ -1001,8 +1002,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         assert(m);
 
-        if (m->idle_action == HANDLE_IGNORE ||
-            m->idle_action_usec <= 0)
+        if (m->idle_action == HANDLE_IGNORE || m->idle_action_usec <= 0)
                 return 0;
 
         n = now(CLOCK_MONOTONIC);
@@ -1029,15 +1029,11 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         if (!m->idle_action_event_source) {
 
                 r = sd_event_add_time(
-                                m->event,
-                                &m->idle_action_event_source,
-                                CLOCK_MONOTONIC,
-                                elapse, USEC_PER_SEC*30,
-                                manager_dispatch_idle_action, m);
+                        m->event, &m->idle_action_event_source, CLOCK_MONOTONIC, elapse, USEC_PER_SEC * 30, manager_dispatch_idle_action, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add idle event source: %m");
 
-                r = sd_event_source_set_priority(m->idle_action_event_source, SD_EVENT_PRIORITY_IDLE+10);
+                r = sd_event_source_set_priority(m->idle_action_event_source, SD_EVENT_PRIORITY_IDLE + 10);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set idle event source priority: %m");
         } else {
@@ -1145,19 +1141,19 @@ static int manager_startup(Manager *m) {
 
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)
-                (void) seat_start(seat);
+        (void) seat_start(seat);
 
         HASHMAP_FOREACH(user, m->users, i)
-                (void) user_start(user);
+        (void) user_start(user);
 
         HASHMAP_FOREACH(session, m->sessions, i)
-                (void) session_start(session, NULL, NULL);
+        (void) session_start(session, NULL, NULL);
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
-                inhibitor_start(inhibitor);
+        inhibitor_start(inhibitor);
 
         HASHMAP_FOREACH(button, m->buttons, i)
-                button_check_switches(button);
+        button_check_switches(button);
 
         manager_dispatch_idle_action(NULL, 0, m);
 
@@ -1227,14 +1223,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-logind running as pid " PID_FMT, getpid_cached());
         (void) sd_notify(false,
                          "READY=1\n"
                          "STATUS=Processing requests...");
 
         r = manager_run(m);
 
-        log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-logind stopped as pid " PID_FMT, getpid_cached());
         (void) sd_notify(false,
                          "STOPPING=1\n"
                          "STATUS=Shutting down...");

@@ -14,7 +14,7 @@
 
 struct bus_container {
         char enclosing;
-        bool need_offsets:1;
+        bool need_offsets : 1;
 
         /* Indexes into the signature  string */
         unsigned index, saved_index;
@@ -41,10 +41,10 @@ struct bus_body_part {
         size_t allocated;
         uint64_t memfd_offset;
         int memfd;
-        bool free_this:1;
-        bool munmap_this:1;
-        bool sealed:1;
-        bool is_zero:1;
+        bool free_this : 1;
+        bool munmap_this : 1;
+        bool sealed : 1;
+        bool is_zero : 1;
 };
 
 struct sd_bus_message {
@@ -70,12 +70,12 @@ struct sd_bus_message {
         int64_t priority;
         uint64_t verify_destination_id;
 
-        bool sealed:1;
-        bool dont_send:1;
-        bool allow_fds:1;
-        bool free_header:1;
-        bool free_fds:1;
-        bool poisoned:1;
+        bool sealed : 1;
+        bool dont_send : 1;
+        bool allow_fds : 1;
+        bool free_header : 1;
+        bool free_fds : 1;
+        bool poisoned : 1;
 
         /* The first and last bytes of the message */
         struct bus_header *header;
@@ -145,20 +145,15 @@ static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
 }
 
 static inline size_t BUS_MESSAGE_SIZE(sd_bus_message *m) {
-        return
-                sizeof(struct bus_header) +
-                ALIGN8(m->fields_size) +
-                m->body_size;
+        return sizeof(struct bus_header) + ALIGN8(m->fields_size) + m->body_size;
 }
 
 static inline size_t BUS_MESSAGE_BODY_BEGIN(sd_bus_message *m) {
-        return
-                sizeof(struct bus_header) +
-                ALIGN8(m->fields_size);
+        return sizeof(struct bus_header) + ALIGN8(m->fields_size);
 }
 
-static inline void* BUS_MESSAGE_FIELDS(sd_bus_message *m) {
-        return (uint8_t*) m->header + sizeof(struct bus_header);
+static inline void *BUS_MESSAGE_FIELDS(sd_bus_message *m) {
+        return (uint8_t *) m->header + sizeof(struct bus_header);
 }
 
 static inline bool BUS_MESSAGE_IS_GVARIANT(sd_bus_message *m) {
@@ -168,27 +163,19 @@ static inline bool BUS_MESSAGE_IS_GVARIANT(sd_bus_message *m) {
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz);
 int bus_message_read_strv_extend(sd_bus_message *m, char ***l);
 
-int bus_message_from_header(
-                sd_bus *bus,
-                void *header,
-                size_t header_accessible,
-                void *footer,
-                size_t footer_accessible,
-                size_t message_size,
-                int *fds,
-                size_t n_fds,
-                const char *label,
-                size_t extra,
-                sd_bus_message **ret);
+int bus_message_from_header(sd_bus *bus,
+                            void *header,
+                            size_t header_accessible,
+                            void *footer,
+                            size_t footer_accessible,
+                            size_t message_size,
+                            int *fds,
+                            size_t n_fds,
+                            const char *label,
+                            size_t extra,
+                            sd_bus_message **ret);
 
-int bus_message_from_malloc(
-                sd_bus *bus,
-                void *buffer,
-                size_t length,
-                int *fds,
-                size_t n_fds,
-                const char *label,
-                sd_bus_message **ret);
+int bus_message_from_malloc(sd_bus *bus, void *buffer, size_t length, int *fds, size_t n_fds, const char *label, sd_bus_message **ret);
 
 int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
 int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
@@ -197,8 +184,7 @@ int bus_message_parse_fields(sd_bus_message *m);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);
 
-#define MESSAGE_FOREACH_PART(part, i, m) \
-        for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
+#define MESSAGE_FOREACH_PART(part, i, m) for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
 
 int bus_body_part_map(struct bus_body_part *part);
 void bus_body_part_unmap(struct bus_body_part *part);

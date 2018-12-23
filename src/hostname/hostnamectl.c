@@ -52,21 +52,17 @@ static void print_status_info(StatusInfo *i) {
 
         printf("   Static hostname: %s\n", strna(i->static_hostname));
 
-        if (!isempty(i->pretty_hostname) &&
-            !streq_ptr(i->pretty_hostname, i->static_hostname))
+        if (!isempty(i->pretty_hostname) && !streq_ptr(i->pretty_hostname, i->static_hostname))
                 printf("   Pretty hostname: %s\n", i->pretty_hostname);
 
-        if (!isempty(i->hostname) &&
-            !streq_ptr(i->hostname, i->static_hostname))
+        if (!isempty(i->hostname) && !streq_ptr(i->hostname, i->static_hostname))
                 printf("Transient hostname: %s\n", i->hostname);
 
         if (!isempty(i->icon_name))
-                printf("         Icon name: %s\n",
-                       strna(i->icon_name));
+                printf("         Icon name: %s\n", strna(i->icon_name));
 
         if (!isempty(i->chassis))
-                printf("           Chassis: %s\n",
-                       strna(i->chassis));
+                printf("           Chassis: %s\n", strna(i->chassis));
 
         if (!isempty(i->deployment))
                 printf("        Deployment: %s\n", i->deployment);
@@ -105,22 +101,16 @@ static void print_status_info(StatusInfo *i) {
 
         if (!isempty(i->architecture))
                 printf("      Architecture: %s\n", i->architecture);
-
 }
 
-static int show_one_name(sd_bus *bus, const char* attr) {
+static int show_one_name(sd_bus *bus, const char *attr) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
 
         r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
-                        attr,
-                        &error, &reply, "s");
+                bus, "org.freedesktop.hostname1", "/org/freedesktop/hostname1", "org.freedesktop.hostname1", attr, &error, &reply, "s");
         if (r < 0)
                 return log_error_errno(r, "Could not get property: %s", bus_error_message(&error, r));
 
@@ -136,50 +126,36 @@ static int show_one_name(sd_bus *bus, const char* attr) {
 static int show_all_names(sd_bus *bus, sd_bus_error *error) {
         StatusInfo info = {};
 
-        static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",                  "s", NULL, offsetof(StatusInfo, hostname)        },
-                { "StaticHostname",            "s", NULL, offsetof(StatusInfo, static_hostname) },
-                { "PrettyHostname",            "s", NULL, offsetof(StatusInfo, pretty_hostname) },
-                { "IconName",                  "s", NULL, offsetof(StatusInfo, icon_name)       },
-                { "Chassis",                   "s", NULL, offsetof(StatusInfo, chassis)         },
-                { "Deployment",                "s", NULL, offsetof(StatusInfo, deployment)      },
-                { "Location",                  "s", NULL, offsetof(StatusInfo, location)        },
-                { "KernelName",                "s", NULL, offsetof(StatusInfo, kernel_name)     },
-                { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)  },
-                { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)  },
-                { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)     },
-                { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)        },
+        static const struct bus_properties_map hostname_map[] = {
+                { "Hostname", "s", NULL, offsetof(StatusInfo, hostname) },
+                { "StaticHostname", "s", NULL, offsetof(StatusInfo, static_hostname) },
+                { "PrettyHostname", "s", NULL, offsetof(StatusInfo, pretty_hostname) },
+                { "IconName", "s", NULL, offsetof(StatusInfo, icon_name) },
+                { "Chassis", "s", NULL, offsetof(StatusInfo, chassis) },
+                { "Deployment", "s", NULL, offsetof(StatusInfo, deployment) },
+                { "Location", "s", NULL, offsetof(StatusInfo, location) },
+                { "KernelName", "s", NULL, offsetof(StatusInfo, kernel_name) },
+                { "KernelRelease", "s", NULL, offsetof(StatusInfo, kernel_release) },
+                { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name) },
+                { "OperatingSystemCPEName", "s", NULL, offsetof(StatusInfo, os_cpe_name) },
+                { "HomeURL", "s", NULL, offsetof(StatusInfo, home_url) },
                 {}
         };
 
-        static const struct bus_properties_map manager_map[] = {
-                { "Virtualization",            "s", NULL, offsetof(StatusInfo, virtualization)  },
-                { "Architecture",              "s", NULL, offsetof(StatusInfo, architecture)    },
-                {}
-        };
+        static const struct bus_properties_map manager_map[] = { { "Virtualization", "s", NULL, offsetof(StatusInfo, virtualization) },
+                                                                 { "Architecture", "s", NULL, offsetof(StatusInfo, architecture) },
+                                                                 {} };
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *host_message = NULL, *manager_message = NULL;
         int r;
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.hostname1",
-                                   "/org/freedesktop/hostname1",
-                                   hostname_map,
-                                   0,
-                                   error,
-                                   &host_message,
-                                   &info);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.hostname1", "/org/freedesktop/hostname1", hostname_map, 0, error, &host_message, &info);
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   "/org/freedesktop/systemd1",
-                                   manager_map,
-                                   0,
-                                   error,
-                                   &manager_message,
-                                   &info);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", manager_map, 0, error, &manager_message, &info);
 
         print_status_info(&info);
 
@@ -198,8 +174,7 @@ static int show_status(int argc, char **argv, void *userdata) {
                         return -EINVAL;
                 }
 
-                attr = arg_pretty ? "PrettyHostname" :
-                        arg_static ? "StaticHostname" : "Hostname";
+                attr = arg_pretty ? "PrettyHostname" : arg_static ? "StaticHostname" : "Hostname";
 
                 return show_one_name(bus, attr);
         } else {
@@ -219,14 +194,16 @@ static int set_simple_string(sd_bus *bus, const char *method, const char *value)
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.hostname1",
-                        "/org/freedesktop/hostname1",
-                        "org.freedesktop.hostname1",
-                        method,
-                        &error, NULL,
-                        "sb", value, arg_ask_password);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.hostname1",
+                               "/org/freedesktop/hostname1",
+                               "org.freedesktop.hostname1",
+                               method,
+                               &error,
+                               NULL,
+                               "sb",
+                               value,
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Could not set property: %s", bus_error_message(&error, -r));
 
@@ -326,10 +303,9 @@ static int help(void) {
                "  set-chassis NAME       Set chassis type for host\n"
                "  set-deployment NAME    Set deployment environment for host\n"
                "  set-location NAME      Set location for host\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -340,7 +316,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_ASK_PASSWORD,
                 ARG_TRANSIENT,
@@ -348,17 +325,15 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRETTY
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "transient",       no_argument,       NULL, ARG_TRANSIENT       },
-                { "static",          no_argument,       NULL, ARG_STATIC          },
-                { "pretty",          no_argument,       NULL, ARG_PRETTY          },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "transient", no_argument, NULL, ARG_TRANSIENT },
+                                                 { "static", no_argument, NULL, ARG_STATIC },
+                                                 { "pretty", no_argument, NULL, ARG_PRETTY },
+                                                 { "host", required_argument, NULL, 'H' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                                                 {} };
 
         int c;
 
@@ -413,16 +388,14 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status    },
-                { "set-hostname",   2,        2,        0,            set_hostname   },
-                { "set-icon-name",  2,        2,        0,            set_icon_name  },
-                { "set-chassis",    2,        2,        0,            set_chassis    },
-                { "set-deployment", 2,        2,        0,            set_deployment },
-                { "set-location",   2,        2,        0,            set_location   },
-                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help      }, /* Not documented, but supported since it is created. */
-                {}
-        };
+        static const Verb verbs[] = { { "status", VERB_ANY, 1, VERB_DEFAULT, show_status },
+                                      { "set-hostname", 2, 2, 0, set_hostname },
+                                      { "set-icon-name", 2, 2, 0, set_icon_name },
+                                      { "set-chassis", 2, 2, 0, set_chassis },
+                                      { "set-deployment", 2, 2, 0, set_deployment },
+                                      { "set-location", 2, 2, 0, set_location },
+                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help }, /* Not documented, but supported since it is created. */
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, bus);
 }

@@ -22,7 +22,7 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-int seat_new(Seat** ret, Manager *m, const char *id) {
+int seat_new(Seat **ret, Manager *m, const char *id) {
         _cleanup_(seat_freep) Seat *s = NULL;
         int r;
 
@@ -33,11 +33,11 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
         if (!seat_name_is_valid(id))
                 return -EINVAL;
 
-        s = new(Seat, 1);
+        s = new (Seat, 1);
         if (!s)
                 return -ENOMEM;
 
-        *s = (Seat) {
+        *s = (Seat){
                 .manager = m,
         };
 
@@ -55,7 +55,7 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
         return 0;
 }
 
-Seat* seat_free(Seat *s) {
+Seat *seat_free(Seat *s) {
         if (!s)
                 return NULL;
 
@@ -115,7 +115,7 @@ int seat_save(Seat *s) {
 
                 fprintf(f,
                         "ACTIVE=%s\n"
-                        "ACTIVE_UID="UID_FMT"\n",
+                        "ACTIVE_UID=" UID_FMT "\n",
                         s->active->id,
                         s->active->user->uid);
         }
@@ -125,18 +125,12 @@ int seat_save(Seat *s) {
 
                 fputs("SESSIONS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions) {
-                        fprintf(f,
-                                "%s%c",
-                                i->id,
-                                i->sessions_by_seat_next ? ' ' : '\n');
+                        fprintf(f, "%s%c", i->id, i->sessions_by_seat_next ? ' ' : '\n');
                 }
 
                 fputs("UIDS=", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
-                        fprintf(f,
-                                UID_FMT"%c",
-                                i->user->uid,
-                                i->sessions_by_seat_next ? ' ' : '\n');
+                fprintf(f, UID_FMT "%c", i->user->uid, i->sessions_by_seat_next ? ' ' : '\n');
         }
 
         r = fflush_and_check(f);
@@ -174,7 +168,7 @@ static int vt_allocate(unsigned vtnr) {
         assert(vtnr >= 1);
 
         xsprintf(p, "/dev/tty%u", vtnr);
-        fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        fd = open_terminal(p, O_RDWR | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
@@ -212,10 +206,8 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         assert(s);
 
-        r = devnode_acl_all(s->id,
-                            false,
-                            !!old_active, old_active ? old_active->user->uid : 0,
-                            !!s->active, s->active ? s->active->user->uid : 0);
+        r = devnode_acl_all(
+                s->id, false, !!old_active, old_active ? old_active->user->uid : 0, !!s->active, s->active ? s->active->user->uid : 0);
 
         if (r < 0)
                 return log_error_errno(r, "Failed to apply ACLs: %m");
@@ -340,19 +332,19 @@ int seat_active_vt_changed(Seat *s, unsigned vtnr) {
         /* we might have earlier closing sessions on the same VT, so try to
          * find a running one first */
         LIST_FOREACH(sessions_by_seat, i, s->sessions)
-                if (i->vtnr == vtnr && !i->stopping) {
-                        new_active = i;
-                        break;
-                }
+        if (i->vtnr == vtnr && !i->stopping) {
+                new_active = i;
+                break;
+        }
 
         if (!new_active) {
                 /* no running one? then we can't decide which one is the
                  * active one, let the first one win */
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
-                        if (i->vtnr == vtnr) {
-                                new_active = i;
-                                break;
-                        }
+                if (i->vtnr == vtnr) {
+                        new_active = i;
+                        break;
+                }
         }
 
         r = seat_set_active(s, new_active);
@@ -374,7 +366,7 @@ int seat_read_active_vt(Seat *s) {
         if (lseek(s->manager->console_active_fd, SEEK_SET, 0) < 0)
                 return log_error_errno(errno, "lseek on console_active_fd failed: %m");
 
-        k = read(s->manager->console_active_fd, t, sizeof(t)-1);
+        k = read(s->manager->console_active_fd, t, sizeof(t) - 1);
         if (k <= 0) {
                 log_error("Failed to read current console: %s", k < 0 ? strerror(-errno) : "EOF");
                 return k < 0 ? -errno : -EIO;
@@ -398,10 +390,7 @@ int seat_start(Seat *s) {
         if (s->started)
                 return 0;
 
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR,
-                   "SEAT_ID=%s", s->id,
-                   LOG_MESSAGE("New seat %s.", s->id));
+        log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR, "SEAT_ID=%s", s->id, LOG_MESSAGE("New seat %s.", s->id));
 
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
@@ -425,10 +414,7 @@ int seat_stop(Seat *s, bool force) {
         assert(s);
 
         if (s->started)
-                log_struct(LOG_INFO,
-                           "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR,
-                           "SEAT_ID=%s", s->id,
-                           LOG_MESSAGE("Removed seat %s.", s->id));
+                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR, "SEAT_ID=%s", s->id, LOG_MESSAGE("Removed seat %s.", s->id));
 
         r = seat_stop_sessions(s, force);
 
@@ -640,11 +626,7 @@ void seat_add_to_gc_queue(Seat *s) {
 }
 
 static bool seat_name_valid_char(char c) {
-        return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
-                IN_SET(c, '-', '_');
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || IN_SET(c, '-', '_');
 }
 
 bool seat_name_is_valid(const char *name) {

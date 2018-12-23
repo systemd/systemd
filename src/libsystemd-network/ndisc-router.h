@@ -29,19 +29,19 @@ struct sd_ndisc_router {
         uint32_t mtu;
 };
 
-static inline void* NDISC_ROUTER_RAW(const sd_ndisc_router *rt) {
-        return (uint8_t*) rt + ALIGN(sizeof(sd_ndisc_router));
+static inline void *NDISC_ROUTER_RAW(const sd_ndisc_router *rt) {
+        return (uint8_t *) rt + ALIGN(sizeof(sd_ndisc_router));
 }
 
 static inline void *NDISC_ROUTER_OPTION_DATA(const sd_ndisc_router *rt) {
-        return ((uint8_t*) NDISC_ROUTER_RAW(rt)) + rt->rindex;
+        return ((uint8_t *) NDISC_ROUTER_RAW(rt)) + rt->rindex;
 }
 
 static inline uint8_t NDISC_ROUTER_OPTION_TYPE(const sd_ndisc_router *rt) {
-        return ((uint8_t*) NDISC_ROUTER_OPTION_DATA(rt))[0];
+        return ((uint8_t *) NDISC_ROUTER_OPTION_DATA(rt))[0];
 }
 static inline size_t NDISC_ROUTER_OPTION_LENGTH(const sd_ndisc_router *rt) {
-        return ((uint8_t*) NDISC_ROUTER_OPTION_DATA(rt))[1] * 8;
+        return ((uint8_t *) NDISC_ROUTER_OPTION_DATA(rt))[1] * 8;
 }
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size);

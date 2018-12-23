@@ -30,7 +30,7 @@ static char *indent(unsigned level, unsigned flags) {
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER)
                 n += 2;
 
-        p = new(char, n + level*8 + 1);
+        p = new (char, n + level * 8 + 1);
         if (!p)
                 return NULL;
 
@@ -39,8 +39,8 @@ static char *indent(unsigned level, unsigned flags) {
                 p[i++] = ' ';
         }
 
-        memset(p + i, ' ', level*8);
-        p[i + level*8] = 0;
+        memset(p + i, ' ', level * 8);
+        p[i + level * 8] = 0;
 
         return p;
 }
@@ -56,10 +56,11 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
-                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
+                        "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%" PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
-                        m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
-                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "",
+                                                                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ?
+                                                                         ansi_highlight_green() :
+                                                                         m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "",
                         special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET),
                         ansi_normal(),
 
@@ -102,15 +103,19 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         fprintf(f,
                                 "  ErrorName=%s%s%s"
                                 "  ErrorMessage=%s\"%s\"%s\n",
-                                ansi_highlight_red(), strna(m->error.name), ansi_normal(),
-                                ansi_highlight_red(), strna(m->error.message), ansi_normal());
+                                ansi_highlight_red(),
+                                strna(m->error.name),
+                                ansi_normal(),
+                                ansi_highlight_red(),
+                                strna(m->error.message),
+                                ansi_normal());
 
                 if (m->monotonic != 0)
-                        fprintf(f, "  Monotonic="USEC_FMT, m->monotonic);
+                        fprintf(f, "  Monotonic=" USEC_FMT, m->monotonic);
                 if (m->realtime != 0)
-                        fprintf(f, "  Realtime="USEC_FMT, m->realtime);
+                        fprintf(f, "  Realtime=" USEC_FMT, m->realtime);
                 if (m->seqnum != 0)
-                        fprintf(f, "  SequenceNumber=%"PRIu64, m->seqnum);
+                        fprintf(f, "  SequenceNumber=%" PRIu64, m->seqnum);
 
                 if (m->monotonic != 0 || m->realtime != 0 || m->seqnum != 0)
                         fputs("\n", f);
@@ -227,11 +232,11 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        fprintf(f, "%sINT64 %s%"PRIi64"%s;\n", prefix, ansi_highlight(), basic.s64, ansi_normal());
+                        fprintf(f, "%sINT64 %s%" PRIi64 "%s;\n", prefix, ansi_highlight(), basic.s64, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        fprintf(f, "%sUINT64 %s%"PRIu64"%s;\n", prefix, ansi_highlight(), basic.u64, ansi_normal());
+                        fprintf(f, "%sUINT64 %s%" PRIu64 "%s;\n", prefix, ansi_highlight(), basic.u64, ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
@@ -272,12 +277,7 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         return 0;
 }
 
-static void dump_capabilities(
-                sd_bus_creds *c,
-                FILE *f,
-                const char *name,
-                bool terse,
-                int (*has)(sd_bus_creds *c, int capability)) {
+static void dump_capabilities(sd_bus_creds *c, FILE *f, const char *name, bool terse, int (*has)(sd_bus_creds *c, int capability)) {
 
         unsigned long i, last_cap;
         unsigned n = 0;
@@ -349,40 +349,40 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         }
 
         if (c->mask & SD_BUS_CREDS_PID)
-                fprintf(f, "%sPID=%s"PID_FMT"%s", prefix, color, c->pid, suffix);
+                fprintf(f, "%sPID=%s" PID_FMT "%s", prefix, color, c->pid, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
-                fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
+                fprintf(f, "%sTID=%s" PID_FMT "%s", prefix, color, c->tid, suffix);
         if (c->mask & SD_BUS_CREDS_PPID) {
                 if (c->ppid == 0)
                         fprintf(f, "%sPPID=%sn/a%s", prefix, color, suffix);
                 else
-                        fprintf(f, "%sPPID=%s"PID_FMT"%s", prefix, color, c->ppid, suffix);
+                        fprintf(f, "%sPPID=%s" PID_FMT "%s", prefix, color, c->ppid, suffix);
         }
         if (c->mask & SD_BUS_CREDS_TTY)
                 fprintf(f, "%sTTY=%s%s%s", prefix, color, strna(c->tty), suffix);
 
-        if (terse && ((c->mask & (SD_BUS_CREDS_PID|SD_BUS_CREDS_TID|SD_BUS_CREDS_PPID|SD_BUS_CREDS_TTY))))
+        if (terse && ((c->mask & (SD_BUS_CREDS_PID | SD_BUS_CREDS_TID | SD_BUS_CREDS_PPID | SD_BUS_CREDS_TTY))))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_UID)
-                fprintf(f, "%sUID=%s"UID_FMT"%s", prefix, color, c->uid, suffix);
+                fprintf(f, "%sUID=%s" UID_FMT "%s", prefix, color, c->uid, suffix);
         if (c->mask & SD_BUS_CREDS_EUID)
-                fprintf(f, "%sEUID=%s"UID_FMT"%s", prefix, color, c->euid, suffix);
+                fprintf(f, "%sEUID=%s" UID_FMT "%s", prefix, color, c->euid, suffix);
         if (c->mask & SD_BUS_CREDS_SUID)
-                fprintf(f, "%sSUID=%s"UID_FMT"%s", prefix, color, c->suid, suffix);
+                fprintf(f, "%sSUID=%s" UID_FMT "%s", prefix, color, c->suid, suffix);
         if (c->mask & SD_BUS_CREDS_FSUID)
-                fprintf(f, "%sFSUID=%s"UID_FMT"%s", prefix, color, c->fsuid, suffix);
+                fprintf(f, "%sFSUID=%s" UID_FMT "%s", prefix, color, c->fsuid, suffix);
         r = sd_bus_creds_get_owner_uid(c, &owner);
         if (r >= 0)
-                fprintf(f, "%sOwnerUID=%s"UID_FMT"%s", prefix, color, owner, suffix);
+                fprintf(f, "%sOwnerUID=%s" UID_FMT "%s", prefix, color, owner, suffix);
         if (c->mask & SD_BUS_CREDS_GID)
-                fprintf(f, "%sGID=%s"GID_FMT"%s", prefix, color, c->gid, suffix);
+                fprintf(f, "%sGID=%s" GID_FMT "%s", prefix, color, c->gid, suffix);
         if (c->mask & SD_BUS_CREDS_EGID)
-                fprintf(f, "%sEGID=%s"GID_FMT"%s", prefix, color, c->egid, suffix);
+                fprintf(f, "%sEGID=%s" GID_FMT "%s", prefix, color, c->egid, suffix);
         if (c->mask & SD_BUS_CREDS_SGID)
-                fprintf(f, "%sSGID=%s"GID_FMT"%s", prefix, color, c->sgid, suffix);
+                fprintf(f, "%sSGID=%s" GID_FMT "%s", prefix, color, c->sgid, suffix);
         if (c->mask & SD_BUS_CREDS_FSGID)
-                fprintf(f, "%sFSGID=%s"GID_FMT"%s", prefix, color, c->fsgid, suffix);
+                fprintf(f, "%sFSGID=%s" GID_FMT "%s", prefix, color, c->fsgid, suffix);
 
         if (c->mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS) {
                 unsigned i;
@@ -393,9 +393,11 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 fprintf(f, "%s", suffix);
         }
 
-        if (terse && ((c->mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
-                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
-                                  SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) || r >= 0))
+        if (terse &&
+            ((c->mask &
+              (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID | SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID |
+               SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID | SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) ||
+             r >= 0))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_COMM)
@@ -405,7 +407,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (c->mask & SD_BUS_CREDS_EXE)
                 fprintf(f, "%sExe=%s%s%s", prefix, color, strna(c->exe), suffix);
 
-        if (terse && (c->mask & (SD_BUS_CREDS_EXE|SD_BUS_CREDS_COMM|SD_BUS_CREDS_TID_COMM)))
+        if (terse && (c->mask & (SD_BUS_CREDS_EXE | SD_BUS_CREDS_COMM | SD_BUS_CREDS_TID_COMM)))
                 fputs("\n", f);
 
         r = sd_bus_creds_get_cmdline(c, &cmdline);
@@ -429,7 +431,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (c->mask & SD_BUS_CREDS_DESCRIPTION)
                 fprintf(f, "%sDescription=%s%s%s", prefix, color, c->description, suffix);
 
-        if (terse && (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT|SD_BUS_CREDS_DESCRIPTION)))
+        if (terse && (c->mask & (SD_BUS_CREDS_SELINUX_CONTEXT | SD_BUS_CREDS_DESCRIPTION)))
                 fputs("\n", f);
 
         if (c->mask & SD_BUS_CREDS_CGROUP)
@@ -460,12 +462,12 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         r = sd_bus_creds_get_audit_login_uid(c, &audit_loginuid);
         if (r >= 0)
-                fprintf(f, "%sAuditLoginUID=%s"UID_FMT"%s", prefix, color, audit_loginuid, suffix);
+                fprintf(f, "%sAuditLoginUID=%s" UID_FMT "%s", prefix, color, audit_loginuid, suffix);
         else if (r != -ENODATA)
                 fprintf(f, "%sAuditLoginUID=%sn/a%s", prefix, color, suffix);
         q = sd_bus_creds_get_audit_session_id(c, &audit_sessionid);
         if (q >= 0)
-                fprintf(f, "%sAuditSessionID=%s%"PRIu32"%s", prefix, color, audit_sessionid, suffix);
+                fprintf(f, "%sAuditSessionID=%s%" PRIu32 "%s", prefix, color, audit_sessionid, suffix);
         else if (q != -ENODATA)
                 fprintf(f, "%sAuditSessionID=%sn/a%s", prefix, color, suffix);
 
@@ -507,20 +509,20 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
  */
 
 typedef struct _packed_ pcap_hdr_s {
-        uint32_t magic_number;   /* magic number */
-        uint16_t version_major;  /* major version number */
-        uint16_t version_minor;  /* minor version number */
-        int32_t  thiszone;       /* GMT to local correction */
-        uint32_t sigfigs;        /* accuracy of timestamps */
-        uint32_t snaplen;        /* max length of captured packets, in octets */
-        uint32_t network;        /* data link type */
-} pcap_hdr_t ;
+        uint32_t magic_number;  /* magic number */
+        uint16_t version_major; /* major version number */
+        uint16_t version_minor; /* minor version number */
+        int32_t thiszone;       /* GMT to local correction */
+        uint32_t sigfigs;       /* accuracy of timestamps */
+        uint32_t snaplen;       /* max length of captured packets, in octets */
+        uint32_t network;       /* data link type */
+} pcap_hdr_t;
 
-typedef struct  _packed_ pcaprec_hdr_s {
-        uint32_t ts_sec;         /* timestamp seconds */
-        uint32_t ts_usec;        /* timestamp microseconds */
-        uint32_t incl_len;       /* number of octets of packet saved in file */
-        uint32_t orig_len;       /* actual length of packet */
+typedef struct _packed_ pcaprec_hdr_s {
+        uint32_t ts_sec;   /* timestamp seconds */
+        uint32_t ts_usec;  /* timestamp microseconds */
+        uint32_t incl_len; /* number of octets of packet saved in file */
+        uint32_t orig_len; /* actual length of packet */
 } pcaprec_hdr_t;
 
 int bus_pcap_header(size_t snaplen, FILE *f) {
@@ -538,7 +540,7 @@ int bus_pcap_header(size_t snaplen, FILE *f) {
                 f = stdout;
 
         assert(snaplen > 0);
-        assert((size_t) (uint32_t) snaplen == snaplen);
+        assert((size_t)(uint32_t) snaplen == snaplen);
 
         hdr.snaplen = (uint32_t) snaplen;
 
@@ -559,7 +561,7 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
 
         assert(m);
         assert(snaplen > 0);
-        assert((size_t) (uint32_t) snaplen == snaplen);
+        assert((size_t)(uint32_t) snaplen == snaplen);
 
         if (m->realtime != 0)
                 timeval_store(&tv, m->realtime);

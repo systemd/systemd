@@ -22,17 +22,16 @@ int parse_vlanid(const char *p, uint16_t *ret) {
         return 0;
 }
 
-int config_parse_default_port_vlanid(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_default_port_vlanid(const char *unit,
+                                     const char *filename,
+                                     unsigned line,
+                                     const char *section,
+                                     unsigned section_line,
+                                     const char *lvalue,
+                                     int ltype,
+                                     const char *rvalue,
+                                     void *data,
+                                     void *userdata) {
         uint16_t *id = data;
 
         assert(lvalue);
@@ -44,21 +43,19 @@ int config_parse_default_port_vlanid(
                 return 0;
         }
 
-        return config_parse_vlanid(unit, filename, line, section, section_line,
-                                   lvalue, ltype, rvalue, data, userdata);
+        return config_parse_vlanid(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
-int config_parse_vlanid(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_vlanid(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
 
         uint16_t *id = data;
         int r;

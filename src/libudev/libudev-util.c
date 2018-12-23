@@ -83,21 +83,21 @@ size_t util_path_encode(const char *src, char *dest, size_t size) {
 
         for (i = 0, j = 0; src[i] != '\0'; i++) {
                 if (src[i] == '/') {
-                        if (j+4 >= size) {
+                        if (j + 4 >= size) {
                                 j = 0;
                                 break;
                         }
                         memcpy(&dest[j], "\\x2f", 4);
                         j += 4;
                 } else if (src[i] == '\\') {
-                        if (j+4 >= size) {
+                        if (j + 4 >= size) {
                                 j = 0;
                                 break;
                         }
                         memcpy(&dest[j], "\\x5c", 4);
                         j += 4;
                 } else {
-                        if (j+1 >= size) {
+                        if (j + 1 >= size) {
                                 j = 0;
                                 break;
                         }
@@ -168,7 +168,7 @@ size_t util_replace_chars(char *str, const char *white) {
                 }
 
                 /* accept hex encoding */
-                if (str[i] == '\\' && str[i+1] == 'x') {
+                if (str[i] == '\\' && str[i + 1] == 'x') {
                         i += 2;
                         continue;
                 }

@@ -122,7 +122,6 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
-
 }
 
 static void test_route(sd_netlink *rtnl) {
@@ -334,9 +333,9 @@ static void test_async_destroy_callback(int ifindex) {
         _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
         char *ifname;
 
-        assert_se(t = new(struct test_async_object, 1));
+        assert_se(t = new (struct test_async_object, 1));
         assert_se(ifname = strdup("lo"));
-        *t = (struct test_async_object) {
+        *t = (struct test_async_object){
                 .n_ref = 1,
                 .ifname = ifname,
         };
@@ -496,7 +495,7 @@ static void test_get_addresses(sd_netlink *rtnl) {
                 assert_se(ifindex > 0);
                 assert_se(IN_SET(family, AF_INET, AF_INET6));
 
-                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4 : 6, ifindex);
         }
 }
 

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_LIBIDN2
-#  include <idn2.h>
+#include <idn2.h>
 #elif HAVE_LIBIDN
-#  include <idna.h>
-#  include <stringprep.h>
+#include <idna.h>
+#include <stringprep.h>
 #endif
 
 #include <endian.h>
@@ -82,13 +82,10 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
 
                                 /* Escaped literal ASCII character */
 
-                                if (!(n[1] >= '0' && n[1] <= '9') ||
-                                    !(n[2] >= '0' && n[2] <= '9'))
+                                if (!(n[1] >= '0' && n[1] <= '9') || !(n[2] >= '0' && n[2] <= '9'))
                                         return -EINVAL;
 
-                                k = ((unsigned) (n[0] - '0') * 100) +
-                                        ((unsigned) (n[1] - '0') * 10) +
-                                        ((unsigned) (n[2] - '0'));
+                                k = ((unsigned) (n[0] - '0') * 100) + ((unsigned) (n[1] - '0') * 10) + ((unsigned) (n[2] - '0'));
 
                                 /* Don't allow anything that doesn't
                                  * fit in 8bit. Note that we do allow
@@ -99,8 +96,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                                 if (k > 255)
                                         return -EINVAL;
 
-                                if (FLAGS_SET(flags, DNS_LABEL_LDH) &&
-                                    !valid_ldh_char((char) k))
+                                if (FLAGS_SET(flags, DNS_LABEL_LDH) && !valid_ldh_char((char) k))
                                         return -EINVAL;
 
                                 last_char = (char) k;
@@ -246,10 +242,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
 
                         sz -= 2;
 
-                } else if (IN_SET(*p, '_', '-') ||
-                           (*p >= '0' && *p <= '9') ||
-                           (*p >= 'a' && *p <= 'z') ||
-                           (*p >= 'A' && *p <= 'Z')) {
+                } else if (IN_SET(*p, '_', '-') || (*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')) {
 
                         /* Proper character */
 
@@ -292,7 +285,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         if (l <= 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
 
-        s = new(char, DNS_LABEL_ESCAPED_MAX);
+        s = new (char, DNS_LABEL_ESCAPED_MAX);
         if (!s)
                 return -ENOMEM;
 
@@ -311,7 +304,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         size_t input_size, l;
         const char *p;
         bool contains_8bit = false;
-        char buffer[DNS_LABEL_MAX+1];
+        char buffer[DNS_LABEL_MAX + 1];
 
         assert(encoded);
         assert(decoded);
@@ -489,7 +482,7 @@ void dns_name_hash_func(const char *p, struct siphash *state) {
         assert(p);
 
         for (;;) {
-                char label[DNS_LABEL_MAX+1];
+                char label[DNS_LABEL_MAX + 1];
 
                 r = dns_label_unescape(&p, label, sizeof label, 0);
                 if (r < 0)
@@ -697,8 +690,7 @@ int dns_name_between(const char *a, const char *b, const char *c) {
                    a and c are properly ordered:
                    a<---b--->c
                 */
-                return dns_name_compare_func(a, b) < 0 &&
-                       dns_name_compare_func(b, c) < 0;
+                return dns_name_compare_func(a, b) < 0 && dns_name_compare_func(b, c) < 0;
         else
                 /*
                    a and c are equal or 'reversed':
@@ -706,8 +698,7 @@ int dns_name_between(const char *a, const char *b, const char *c) {
                    or:
                    <-----c         a--b-->
                 */
-                return dns_name_compare_func(b, c) < 0 ||
-                       dns_name_compare_func(a, b) < 0;
+                return dns_name_compare_func(b, c) < 0 || dns_name_compare_func(a, b) < 0;
 }
 
 int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
@@ -717,20 +708,45 @@ int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         assert(a);
         assert(ret);
 
-        p = (const uint8_t*) a;
+        p = (const uint8_t *) a;
 
         if (family == AF_INET)
                 r = asprintf(ret, "%u.%u.%u.%u.in-addr.arpa", p[3], p[2], p[1], p[0]);
         else if (family == AF_INET6)
-                r = asprintf(ret, "%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.ip6.arpa",
-                             hexchar(p[15] & 0xF), hexchar(p[15] >> 4), hexchar(p[14] & 0xF), hexchar(p[14] >> 4),
-                             hexchar(p[13] & 0xF), hexchar(p[13] >> 4), hexchar(p[12] & 0xF), hexchar(p[12] >> 4),
-                             hexchar(p[11] & 0xF), hexchar(p[11] >> 4), hexchar(p[10] & 0xF), hexchar(p[10] >> 4),
-                             hexchar(p[ 9] & 0xF), hexchar(p[ 9] >> 4), hexchar(p[ 8] & 0xF), hexchar(p[ 8] >> 4),
-                             hexchar(p[ 7] & 0xF), hexchar(p[ 7] >> 4), hexchar(p[ 6] & 0xF), hexchar(p[ 6] >> 4),
-                             hexchar(p[ 5] & 0xF), hexchar(p[ 5] >> 4), hexchar(p[ 4] & 0xF), hexchar(p[ 4] >> 4),
-                             hexchar(p[ 3] & 0xF), hexchar(p[ 3] >> 4), hexchar(p[ 2] & 0xF), hexchar(p[ 2] >> 4),
-                             hexchar(p[ 1] & 0xF), hexchar(p[ 1] >> 4), hexchar(p[ 0] & 0xF), hexchar(p[ 0] >> 4));
+                r = asprintf(ret,
+                             "%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.ip6.arpa",
+                             hexchar(p[15] & 0xF),
+                             hexchar(p[15] >> 4),
+                             hexchar(p[14] & 0xF),
+                             hexchar(p[14] >> 4),
+                             hexchar(p[13] & 0xF),
+                             hexchar(p[13] >> 4),
+                             hexchar(p[12] & 0xF),
+                             hexchar(p[12] >> 4),
+                             hexchar(p[11] & 0xF),
+                             hexchar(p[11] >> 4),
+                             hexchar(p[10] & 0xF),
+                             hexchar(p[10] >> 4),
+                             hexchar(p[9] & 0xF),
+                             hexchar(p[9] >> 4),
+                             hexchar(p[8] & 0xF),
+                             hexchar(p[8] >> 4),
+                             hexchar(p[7] & 0xF),
+                             hexchar(p[7] >> 4),
+                             hexchar(p[6] & 0xF),
+                             hexchar(p[6] >> 4),
+                             hexchar(p[5] & 0xF),
+                             hexchar(p[5] >> 4),
+                             hexchar(p[4] & 0xF),
+                             hexchar(p[4] >> 4),
+                             hexchar(p[3] & 0xF),
+                             hexchar(p[3] >> 4),
+                             hexchar(p[2] & 0xF),
+                             hexchar(p[2] >> 4),
+                             hexchar(p[1] & 0xF),
+                             hexchar(p[1] >> 4),
+                             hexchar(p[0] & 0xF),
+                             hexchar(p[0] >> 4));
         else
                 return -EAFNOSUPPORT;
         if (r < 0)
@@ -754,7 +770,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                 unsigned i;
 
                 for (i = 0; i < ELEMENTSOF(a); i++) {
-                        char label[DNS_LABEL_MAX+1];
+                        char label[DNS_LABEL_MAX + 1];
 
                         r = dns_label_unescape(&p, label, sizeof label, 0);
                         if (r < 0)
@@ -774,10 +790,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                         return r;
 
                 *family = AF_INET;
-                address->in.s_addr = htobe32(((uint32_t) a[3] << 24) |
-                                             ((uint32_t) a[2] << 16) |
-                                             ((uint32_t) a[1] << 8) |
-                                              (uint32_t) a[0]);
+                address->in.s_addr = htobe32(((uint32_t) a[3] << 24) | ((uint32_t) a[2] << 16) | ((uint32_t) a[1] << 8) | (uint32_t) a[0]);
 
                 return 1;
         }
@@ -790,7 +803,7 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                 unsigned i;
 
                 for (i = 0; i < ELEMENTSOF(a.s6_addr); i++) {
-                        char label[DNS_LABEL_MAX+1];
+                        char label[DNS_LABEL_MAX + 1];
                         int x, y;
 
                         r = dns_label_unescape(&p, label, sizeof label, 0);
@@ -878,7 +891,7 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
                  * format, as described in RFC 4034, section 6.2. Or
                  * in other words: in lower-case. */
                 if (canonical)
-                        ascii_strlower_n((char*) out, (size_t) r);
+                        ascii_strlower_n((char *) out, (size_t) r);
 
                 /* Fill label length, move forward */
                 *label_length = r;
@@ -909,16 +922,13 @@ static bool srv_type_label_is_valid(const char *label, size_t n) {
                 return false;
 
         /* Second char must be a letter */
-        if (!(label[1] >= 'A' && label[1] <= 'Z') &&
-            !(label[1] >= 'a' && label[1] <= 'z'))
+        if (!(label[1] >= 'A' && label[1] <= 'Z') && !(label[1] >= 'a' && label[1] <= 'z'))
                 return false;
 
         /* Third and further chars must be alphanumeric or a hyphen */
         for (k = 2; k < n; k++) {
-                if (!(label[k] >= 'A' && label[k] <= 'Z') &&
-                    !(label[k] >= 'a' && label[k] <= 'z') &&
-                    !(label[k] >= '0' && label[k] <= '9') &&
-                    label[k] != '-')
+                if (!(label[k] >= 'A' && label[k] <= 'Z') && !(label[k] >= 'a' && label[k] <= 'z') &&
+                    !(label[k] >= '0' && label[k] <= '9') && label[k] != '-')
                         return false;
         }
 
@@ -1145,7 +1155,7 @@ static int dns_name_build_suffix_table(const char *name, const char *table[]) {
 }
 
 int dns_name_suffix(const char *name, unsigned n_labels, const char **ret) {
-        const char* labels[DNS_N_LABELS_MAX+1];
+        const char *labels[DNS_N_LABELS_MAX + 1];
         int n;
 
         assert(name);
@@ -1220,7 +1230,7 @@ int dns_name_equal_skip(const char *a, unsigned n_labels, const char *b) {
 }
 
 int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
-        const char *a_labels[DNS_N_LABELS_MAX+1], *b_labels[DNS_N_LABELS_MAX+1];
+        const char *a_labels[DNS_N_LABELS_MAX + 1], *b_labels[DNS_N_LABELS_MAX + 1];
         int n = 0, m = 0, k = 0, r, q;
 
         assert(a);
@@ -1275,8 +1285,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         assert(name);
         assert(ret);
 
-        r = idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
-                           IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
+        r = idn2_lookup_u8((uint8_t *) name, (uint8_t **) &t, IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
         log_debug("idn2_lookup_u8: %s → %s", name, t);
         if (r == IDN2_OK) {
                 if (!startswith(name, "xn--")) {
@@ -1284,14 +1293,12 @@ int dns_name_apply_idna(const char *name, char **ret) {
 
                         r = idn2_to_unicode_8z8z(t, &s, 0);
                         if (r != IDN2_OK) {
-                                log_debug("idn2_to_unicode_8z8z(\"%s\") failed: %d/%s",
-                                          t, r, idn2_strerror(r));
+                                log_debug("idn2_to_unicode_8z8z(\"%s\") failed: %d/%s", t, r, idn2_strerror(r));
                                 return 0;
                         }
 
                         if (!streq_ptr(name, s)) {
-                                log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.",
-                                          name, t, s);
+                                log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.", name, t, s);
                                 return 0;
                         }
                 }

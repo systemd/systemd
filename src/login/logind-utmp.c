@@ -26,8 +26,7 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
         usec_t left;
         unsigned i;
         static const int wall_timers[] = {
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-                25, 40, 55, 70, 100, 130, 150, 180,
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 40, 55, 70, 100, 130, 150, 180,
         };
 
         /* If the time is already passed, then don't announce */
@@ -38,7 +37,7 @@ _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
 
         for (i = 1; i < ELEMENTSOF(wall_timers); i++)
                 if (wall_timers[i] * USEC_PER_MINUTE >= left)
-                        return left - wall_timers[i-1] * USEC_PER_MINUTE;
+                        return left - wall_timers[i - 1] * USEC_PER_MINUTE;
 
         return left % USEC_PER_HOUR;
 }
@@ -72,7 +71,8 @@ static int warn_wall(Manager *m, usec_t n) {
 
         left = m->scheduled_shutdown_timeout > n;
 
-        r = asprintf(&l, "%s%sThe system is going down for %s %s%s!",
+        r = asprintf(&l,
+                     "%s%sThe system is going down for %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
                      m->scheduled_shutdown_type,
@@ -89,10 +89,7 @@ static int warn_wall(Manager *m, usec_t n) {
         return 1;
 }
 
-static int wall_message_timeout_handler(
-                        sd_event_source *s,
-                        uint64_t usec,
-                        void *userdata) {
+static int wall_message_timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 
         Manager *m = userdata;
         usec_t n, next;
@@ -161,8 +158,8 @@ int manager_setup_wall_message_timer(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
         } else {
-                r = sd_event_add_time(m->event, &m->wall_message_timeout_source,
-                                      CLOCK_REALTIME, n + elapse, 0, wall_message_timeout_handler, m);
+                r = sd_event_add_time(
+                        m->event, &m->wall_message_timeout_source, CLOCK_REALTIME, n + elapse, 0, wall_message_timeout_handler, m);
                 if (r < 0)
                         return log_error_errno(r, "sd_event_add_time() failed. %m");
         }

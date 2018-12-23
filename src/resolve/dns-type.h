@@ -6,9 +6,10 @@
 /* DNS record types, taken from
  * http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml.
  */
-enum {
+enum
+{
         /* Normal records */
-        DNS_TYPE_A          = 0x01,
+        DNS_TYPE_A = 0x01,
         DNS_TYPE_NS,
         DNS_TYPE_MD,
         DNS_TYPE_MF,
@@ -48,7 +49,7 @@ enum {
         DNS_TYPE_A6,
         DNS_TYPE_DNAME,
         DNS_TYPE_SINK,
-        DNS_TYPE_OPT,          /* EDNS0 option */
+        DNS_TYPE_OPT, /* EDNS0 option */
         DNS_TYPE_APL,
         DNS_TYPE_DS,
         DNS_TYPE_SSHFP,
@@ -61,7 +62,7 @@ enum {
         DNS_TYPE_NSEC3PARAM,
         DNS_TYPE_TLSA,
 
-        DNS_TYPE_HIP        = 0x37,
+        DNS_TYPE_HIP = 0x37,
         DNS_TYPE_NINFO,
         DNS_TYPE_RKEY,
         DNS_TYPE_TALINK,
@@ -69,7 +70,7 @@ enum {
         DNS_TYPE_CDNSKEY,
         DNS_TYPE_OPENPGPKEY,
 
-        DNS_TYPE_SPF        = 0x63,
+        DNS_TYPE_SPF = 0x63,
         DNS_TYPE_NID,
         DNS_TYPE_L32,
         DNS_TYPE_L64,
@@ -77,7 +78,7 @@ enum {
         DNS_TYPE_EUI48,
         DNS_TYPE_EUI64,
 
-        DNS_TYPE_TKEY       = 0xF9,
+        DNS_TYPE_TKEY = 0xF9,
         DNS_TYPE_TSIG,
         DNS_TYPE_IXFR,
         DNS_TYPE_AXFR,
@@ -86,7 +87,7 @@ enum {
         DNS_TYPE_ANY,
         DNS_TYPE_URI,
         DNS_TYPE_CAA,
-        DNS_TYPE_TA         = 0x8000,
+        DNS_TYPE_TA = 0x8000,
         DNS_TYPE_DLV,
 
         _DNS_TYPE_MAX,
@@ -98,9 +99,10 @@ assert_cc(DNS_TYPE_TLSA == 52);
 assert_cc(DNS_TYPE_ANY == 255);
 
 /* DNS record classes, see RFC 1035 */
-enum {
-        DNS_CLASS_IN   = 0x01,
-        DNS_CLASS_ANY  = 0xFF,
+enum
+{
+        DNS_CLASS_IN = 0x01,
+        DNS_CLASS_ANY = 0xFF,
 
         _DNS_CLASS_MAX,
         _DNS_CLASS_INVALID = -1

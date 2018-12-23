@@ -4,7 +4,8 @@
 #include "conf-parser.h"
 #include "macro.h"
 
-typedef enum AddressFamilyBoolean {
+typedef enum AddressFamilyBoolean
+{
         /* This is a bitmask, though it usually doesn't feel that way! */
         ADDRESS_FAMILY_NO = 0,
         ADDRESS_FAMILY_IPV4 = 1,

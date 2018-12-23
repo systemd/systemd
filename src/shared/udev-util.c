@@ -12,7 +12,7 @@
 #include "udev-util.h"
 #include "udev.h"
 
-static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
+static const char *const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_NEVER] = "never",
         [RESOLVE_NAME_LATE] = "late",
         [RESOLVE_NAME_EARLY] = "early",
@@ -20,21 +20,26 @@ static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);
 
-int udev_parse_config_full(
-                unsigned *ret_children_max,
-                usec_t *ret_exec_delay_usec,
-                usec_t *ret_event_timeout_usec,
-                ResolveNameTiming *ret_resolve_name_timing) {
+int udev_parse_config_full(unsigned *ret_children_max,
+                           usec_t *ret_exec_delay_usec,
+                           usec_t *ret_event_timeout_usec,
+                           ResolveNameTiming *ret_resolve_name_timing) {
 
         _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL;
         int r;
 
-        r = parse_env_file(NULL, "/etc/udev/udev.conf",
-                           "udev_log", &log_val,
-                           "children_max", &children_max,
-                           "exec_delay", &exec_delay,
-                           "event_timeout", &event_timeout,
-                           "resolve_names", &resolve_names);
+        r = parse_env_file(NULL,
+                           "/etc/udev/udev.conf",
+                           "udev_log",
+                           &log_val,
+                           "children_max",
+                           &children_max,
+                           "exec_delay",
+                           &exec_delay,
+                           "event_timeout",
+                           &event_timeout,
+                           "resolve_names",
+                           &resolve_names);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -46,9 +51,7 @@ int udev_parse_config_full(
 
                 /* unquote */
                 n = strlen(log_val);
-                if (n >= 2 &&
-                    ((log_val[0] == '"' && log_val[n-1] == '"') ||
-                     (log_val[0] == '\'' && log_val[n-1] == '\''))) {
+                if (n >= 2 && ((log_val[0] == '"' && log_val[n - 1] == '"') || (log_val[0] == '\'' && log_val[n - 1] == '\''))) {
                         log_val[n - 1] = '\0';
                         log = log_val + 1;
                 } else

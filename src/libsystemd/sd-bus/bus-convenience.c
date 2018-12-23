@@ -7,12 +7,7 @@
 #include "bus-util.h"
 #include "string-util.h"
 
-_public_ int sd_bus_emit_signal(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *member,
-                const char *types, ...) {
+_public_ int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -41,16 +36,16 @@ _public_ int sd_bus_emit_signal(
         return sd_bus_send(bus, m, NULL);
 }
 
-_public_ int sd_bus_call_method_async(
-                sd_bus *bus,
-                sd_bus_slot **slot,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_message_handler_t callback,
-                void *userdata,
-                const char *types, ...) {
+_public_ int sd_bus_call_method_async(sd_bus *bus,
+                                      sd_bus_slot **slot,
+                                      const char *destination,
+                                      const char *path,
+                                      const char *interface,
+                                      const char *member,
+                                      sd_bus_message_handler_t callback,
+                                      void *userdata,
+                                      const char *types,
+                                      ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -79,15 +74,15 @@ _public_ int sd_bus_call_method_async(
         return sd_bus_call_async(bus, slot, m, callback, userdata, 0);
 }
 
-_public_ int sd_bus_call_method(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                sd_bus_message **reply,
-                const char *types, ...) {
+_public_ int sd_bus_call_method(sd_bus *bus,
+                                const char *destination,
+                                const char *path,
+                                const char *interface,
+                                const char *member,
+                                sd_bus_error *error,
+                                sd_bus_message **reply,
+                                const char *types,
+                                ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -120,9 +115,7 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
-_public_ int sd_bus_reply_method_return(
-                sd_bus_message *call,
-                const char *types, ...) {
+_public_ int sd_bus_reply_method_return(sd_bus_message *call, const char *types, ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -156,9 +149,7 @@ _public_ int sd_bus_reply_method_return(
         return sd_bus_send(call->bus, m, NULL);
 }
 
-_public_ int sd_bus_reply_method_error(
-                sd_bus_message *call,
-                const sd_bus_error *e) {
+_public_ int sd_bus_reply_method_error(sd_bus_message *call, const sd_bus_error *e) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -183,11 +174,7 @@ _public_ int sd_bus_reply_method_error(
         return sd_bus_send(call->bus, m, NULL);
 }
 
-_public_ int sd_bus_reply_method_errorf(
-                sd_bus_message *call,
-                const char *name,
-                const char *format,
-                ...) {
+_public_ int sd_bus_reply_method_errorf(sd_bus_message *call, const char *name, const char *format, ...) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         va_list ap;
@@ -211,10 +198,7 @@ _public_ int sd_bus_reply_method_errorf(
         return sd_bus_reply_method_error(call, &error);
 }
 
-_public_ int sd_bus_reply_method_errno(
-                sd_bus_message *call,
-                int error,
-                const sd_bus_error *p) {
+_public_ int sd_bus_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
@@ -238,11 +222,7 @@ _public_ int sd_bus_reply_method_errno(
         return sd_bus_reply_method_error(call, &berror);
 }
 
-_public_ int sd_bus_reply_method_errnof(
-                sd_bus_message *call,
-                int error,
-                const char *format,
-                ...) {
+_public_ int sd_bus_reply_method_errnof(sd_bus_message *call, int error, const char *format, ...) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
         va_list ap;
@@ -266,15 +246,14 @@ _public_ int sd_bus_reply_method_errnof(
         return sd_bus_reply_method_error(call, &berror);
 }
 
-_public_ int sd_bus_get_property(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                sd_bus_message **reply,
-                const char *type) {
+_public_ int sd_bus_get_property(sd_bus *bus,
+                                 const char *destination,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *member,
+                                 sd_bus_error *error,
+                                 sd_bus_message **reply,
+                                 const char *type) {
 
         sd_bus_message *rep = NULL;
         int r;
@@ -291,7 +270,8 @@ _public_ int sd_bus_get_property(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &rep, "ss", strempty(interface), member);
+        r = sd_bus_call_method(
+                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &rep, "ss", strempty(interface), member);
         if (r < 0)
                 return r;
 
@@ -308,14 +288,14 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
-_public_ int sd_bus_get_property_trivial(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                char type, void *ptr) {
+_public_ int sd_bus_get_property_trivial(sd_bus *bus,
+                                         const char *destination,
+                                         const char *path,
+                                         const char *interface,
+                                         const char *member,
+                                         sd_bus_error *error,
+                                         char type,
+                                         void *ptr) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -332,7 +312,8 @@ _public_ int sd_bus_get_property_trivial(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(
+                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
         if (r < 0)
                 return r;
 
@@ -351,13 +332,7 @@ fail:
 }
 
 _public_ int sd_bus_get_property_string(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                char **ret) {
+        sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char **ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *s;
@@ -375,7 +350,8 @@ _public_ int sd_bus_get_property_string(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(
+                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
         if (r < 0)
                 return r;
 
@@ -401,13 +377,7 @@ fail:
 }
 
 _public_ int sd_bus_get_property_strv(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                char ***ret) {
+        sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char ***ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -423,7 +393,8 @@ _public_ int sd_bus_get_property_strv(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(
+                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
         if (r < 0)
                 return r;
 
@@ -441,14 +412,14 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
-_public_ int sd_bus_set_property(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_error *error,
-                const char *type, ...) {
+_public_ int sd_bus_set_property(sd_bus *bus,
+                                 const char *destination,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *member,
+                                 sd_bus_error *error,
+                                 const char *type,
+                                 ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         va_list ap;
@@ -546,7 +517,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
 
         if (capability >= 0) {
 
-                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
                 if (r < 0)
                         return r;
 
@@ -563,7 +534,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                 if (r == 0)
                         know_caps = true;
         } else {
-                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID, &creds);
+                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID, &creds);
                 if (r < 0)
                         return r;
         }
@@ -579,7 +550,7 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                  * /proc. This can never actually happen, but let's
                  * better be safe than sorry, and do an extra check
                  * here. */
-                assert_return((sd_bus_creds_get_augmented_mask(creds) & (SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID)) == 0, -EPERM);
+                assert_return((sd_bus_creds_get_augmented_mask(creds) & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID)) == 0, -EPERM);
 
                 /* Try to use the EUID, if we have it. */
                 r = sd_bus_creds_get_euid(creds, &sender_uid);
@@ -600,32 +571,29 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
         return 0;
 }
 
-#define make_expression(sender, path, interface, member)        \
-        strjoina(                                               \
-                "type='signal'",                                \
-                sender ? ",sender='" : "",                      \
-                sender ?: "",                                   \
-                sender ? "'" : "",                              \
-                path ? ",path='" : "",                          \
-                path ?: "",                                     \
-                path ? "'" : "",                                \
-                interface ? ",interface='" : "",                \
-                interface ?: "",                                \
-                interface ? "'" : "",                           \
-                member ? ",member='" : "",                      \
-                member ?: "",                                   \
-                member ? "'" : ""                               \
-        )
+#define make_expression(sender, path, interface, member) \
+        strjoina("type='signal'",                        \
+                 sender ? ",sender='" : "",              \
+                 sender ?: "",                           \
+                 sender ? "'" : "",                      \
+                 path ? ",path='" : "",                  \
+                 path ?: "",                             \
+                 path ? "'" : "",                        \
+                 interface ? ",interface='" : "",        \
+                 interface ?: "",                        \
+                 interface ? "'" : "",                   \
+                 member ? ",member='" : "",              \
+                 member ?: "",                           \
+                 member ? "'" : "")
 
-_public_ int sd_bus_match_signal(
-                sd_bus *bus,
-                sd_bus_slot **ret,
-                const char *sender,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+_public_ int sd_bus_match_signal(sd_bus *bus,
+                                 sd_bus_slot **ret,
+                                 const char *sender,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *member,
+                                 sd_bus_message_handler_t callback,
+                                 void *userdata) {
 
         const char *expression;
 
@@ -642,16 +610,15 @@ _public_ int sd_bus_match_signal(
         return sd_bus_add_match(bus, ret, expression, callback, userdata);
 }
 
-_public_ int sd_bus_match_signal_async(
-                sd_bus *bus,
-                sd_bus_slot **ret,
-                const char *sender,
-                const char *path,
-                const char *interface,
-                const char *member,
-                sd_bus_message_handler_t callback,
-                sd_bus_message_handler_t install_callback,
-                void *userdata) {
+_public_ int sd_bus_match_signal_async(sd_bus *bus,
+                                       sd_bus_slot **ret,
+                                       const char *sender,
+                                       const char *path,
+                                       const char *interface,
+                                       const char *member,
+                                       sd_bus_message_handler_t callback,
+                                       sd_bus_message_handler_t install_callback,
+                                       void *userdata) {
 
         const char *expression;
 

@@ -8,7 +8,7 @@
 #include "strv.h"
 #include "time-util.h"
 
-#define NSCD_FLUSH_CACHE_TIMEOUT_USEC (5*USEC_PER_SEC)
+#define NSCD_FLUSH_CACHE_TIMEOUT_USEC (5 * USEC_PER_SEC)
 
 struct nscdInvalidateRequest {
         int32_t version;
@@ -36,7 +36,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
         req_size = offsetof(struct nscdInvalidateRequest, dbname) + l + 1;
 
         req = alloca(req_size);
-        *req = (struct nscdInvalidateRequest) {
+        *req = (struct nscdInvalidateRequest){
                 .version = 2,
                 .type = 10,
                 .key_len = l + 1,
@@ -44,7 +44,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
 
         strcpy(req->dbname, database);
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to allocate nscd socket: %m");
 
@@ -62,7 +62,8 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
          * and not really reasonably usable from threads-aware code.) */
         if (connect(fd, &nscd_sa.sa, SOCKADDR_UN_LEN(nscd_sa.un)) < 0) {
                 if (errno == EAGAIN)
-                        return log_debug_errno(errno, "nscd is overloaded (backlog limit reached) and refuses to take further connections: %m");
+                        return log_debug_errno(errno,
+                                               "nscd is overloaded (backlog limit reached) and refuses to take further connections: %m");
                 if (errno != EINPROGRESS)
                         return log_debug_errno(errno, "Failed to connect to nscd socket: %m");
 
@@ -70,8 +71,8 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
                  * establishing the connection is complete. */
                 events = 0;
         } else
-                events = POLLIN|POLLOUT; /* Let's assume initially that we can write and read to the fd, to suppress
-                                          * one poll() invocation */
+                events = POLLIN | POLLOUT; /* Let's assume initially that we can write and read to the fd, to suppress
+                                            * one poll() invocation */
         for (;;) {
                 usec_t p;
 
@@ -80,7 +81,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
 
                         assert(has_written < req_size);
 
-                        m = send(fd, (uint8_t*) req + has_written, req_size - has_written, MSG_NOSIGNAL);
+                        m = send(fd, (uint8_t *) req + has_written, req_size - has_written, MSG_NOSIGNAL);
                         if (m < 0) {
                                 if (errno != EAGAIN) /* Note that EAGAIN is returned by the kernel whenever it can't
                                                       * take the data right now, and that includes if the connect() is
@@ -91,17 +92,17 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
                                 has_written += m;
                 }
 
-                if (events & (POLLIN|POLLERR|POLLHUP)) {
+                if (events & (POLLIN | POLLERR | POLLHUP)) {
                         ssize_t m;
 
                         if (has_read >= sizeof(resp))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Response from nscd longer than expected: %m");
 
-                        m = recv(fd, (uint8_t*) &resp + has_read, sizeof(resp) - has_read, 0);
+                        m = recv(fd, (uint8_t *) &resp + has_read, sizeof(resp) - has_read, 0);
                         if (m < 0) {
                                 if (errno != EAGAIN)
                                         return log_debug_errno(errno, "Failed to read from nscd socket: %m");
-                        } else if (m == 0) { /* EOF */
+                        } else if (m == 0) {                                  /* EOF */
                                 if (has_read == 0 && has_written >= req_size) /* Older nscd immediately terminated the
                                                                                * connection, accept that as OK */
                                         return 1;

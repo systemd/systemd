@@ -7,13 +7,7 @@
 #include "strv.h"
 
 static int property_get_ether_addrs(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         char buf[ETHER_ADDR_TO_STRING_MAX];
         const struct ether_addr *p;

@@ -36,9 +36,7 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid,
-                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
-                                                   _mkdir);
+                        return mkdir_safe_internal(p, mode, uid, gid, flags & ~MKDIR_FOLLOW_SYMLINK, _mkdir);
 
                 if (lstat(p, &st) < 0)
                         return -errno;
@@ -46,19 +44,19 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
 
         if (!S_ISDIR(st.st_mode)) {
                 log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
-                         "Path \"%s\" already exists and is not a directory, refusing.", path);
+                         "Path \"%s\" already exists and is not a directory, refusing.",
+                         path);
                 return -ENOTDIR;
         }
-        if ((st.st_mode & 0007) > (mode & 0007) ||
-            (st.st_mode & 0070) > (mode & 0070) ||
-            (st.st_mode & 0700) > (mode & 0700)) {
+        if ((st.st_mode & 0007) > (mode & 0007) || (st.st_mode & 0070) > (mode & 0070) || (st.st_mode & 0700) > (mode & 0700)) {
                 log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
                          "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
-                         path, st.st_mode & 0777, mode);
+                         path,
+                         st.st_mode & 0777,
+                         mode);
                 return -EEXIST;
         }
-        if ((uid != UID_INVALID && st.st_uid != uid) ||
-            (gid != GID_INVALID && st.st_gid != gid)) {
+        if ((uid != UID_INVALID && st.st_uid != uid) || (gid != GID_INVALID && st.st_gid != gid)) {
                 char u[DECIMAL_STR_MAX(uid_t)] = "-", g[DECIMAL_STR_MAX(gid_t)] = "-";
 
                 if (uid != UID_INVALID)
@@ -66,8 +64,12 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
                 if (gid != UID_INVALID)
                         xsprintf(g, GID_FMT, gid);
                 log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
-                         "Directory \"%s\" already exists, but is owned by "UID_FMT":"GID_FMT" (%s:%s was requested), refusing.",
-                         path, st.st_uid, st.st_gid, u, g);
+                         "Directory \"%s\" already exists, but is owned by " UID_FMT ":" GID_FMT " (%s:%s was requested), refusing.",
+                         path,
+                         st.st_uid,
+                         st.st_gid,
+                         u,
+                         g);
                 return -EEXIST;
         }
 
@@ -128,7 +130,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mk
                         return 0;
 
                 memcpy(t, path, e - path);
-                t[e-path] = 0;
+                t[e - path] = 0;
 
                 if (prefix && path_startswith(prefix, t))
                         continue;

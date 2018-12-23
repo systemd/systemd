@@ -23,12 +23,7 @@ static int reload_manager(sd_bus *bus) {
         log_info("Reloading system manager configuration");
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
+                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -57,7 +52,9 @@ static int start_default_target(sd_bus *bus) {
                                "StartUnit",
                                &error,
                                NULL,
-                               "ss", "default.target", "isolate");
+                               "ss",
+                               "default.target",
+                               "isolate");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
@@ -65,16 +62,16 @@ static int start_default_target(sd_bus *bus) {
         return 0;
 }
 
-static int fork_wait(const char* const cmdline[]) {
+static int fork_wait(const char *const cmdline[]) {
         pid_t pid;
         int r;
 
-        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
-                execv(cmdline[0], (char**) cmdline);
+                execv(cmdline[0], (char **) cmdline);
                 log_error_errno(errno, "Failed to execute %s: %m", cmdline[0]);
                 _exit(EXIT_FAILURE); /* Operational error */
         }
@@ -82,19 +79,18 @@ static int fork_wait(const char* const cmdline[]) {
         return wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
 }
 
-static void print_mode(const char* mode) {
+static void print_mode(const char *mode) {
         printf("You are in %s mode. After logging in, type \"journalctl -xb\" to view\n"
-                "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or \"exit\"\n"
-                "to boot into default mode.\n", mode);
+               "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or \"exit\"\n"
+               "to boot into default mode.\n",
+               mode);
         fflush(stdout);
 }
 
 int main(int argc, char *argv[]) {
-        const char* sulogin_cmdline[] = {
-                SULOGIN,
-                NULL,             /* --force */
-                NULL
-        };
+        const char *sulogin_cmdline[] = { SULOGIN,
+                                          NULL, /* --force */
+                                          NULL };
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

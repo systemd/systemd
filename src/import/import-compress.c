@@ -27,15 +27,9 @@ void import_compress_free(ImportCompress *c) {
 }
 
 int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
-        static const uint8_t xz_signature[] = {
-                0xfd, '7', 'z', 'X', 'Z', 0x00
-        };
-        static const uint8_t gzip_signature[] = {
-                0x1f, 0x8b
-        };
-        static const uint8_t bzip2_signature[] = {
-                'B', 'Z', 'h'
-        };
+        static const uint8_t xz_signature[] = { 0xfd, '7', 'z', 'X', 'Z', 0x00 };
+        static const uint8_t gzip_signature[] = { 0x1f, 0x8b };
+        static const uint8_t bzip2_signature[] = { 'B', 'Z', 'h' };
 
         int r;
 
@@ -44,9 +38,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
         if (c->type != IMPORT_COMPRESS_UNKNOWN)
                 return 1;
 
-        if (size < MAX3(sizeof(xz_signature),
-                        sizeof(gzip_signature),
-                        sizeof(bzip2_signature)))
+        if (size < MAX3(sizeof(xz_signature), sizeof(gzip_signature), sizeof(bzip2_signature)))
                 return 0;
 
         assert(data);
@@ -61,7 +53,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
                 c->type = IMPORT_COMPRESS_XZ;
 
         } else if (memcmp(data, gzip_signature, sizeof(gzip_signature)) == 0) {
-                r = inflateInit2(&c->gzip, 15+16);
+                r = inflateInit2(&c->gzip, 15 + 16);
                 if (r != Z_OK)
                         return -EIO;
 
@@ -133,7 +125,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 break;
 
         case IMPORT_COMPRESS_GZIP:
-                c->gzip.next_in = (void*) data;
+                c->gzip.next_in = (void *) data;
                 c->gzip.avail_in = size;
 
                 while (c->gzip.avail_in > 0) {
@@ -155,13 +147,13 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
 
 #if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
-                c->bzip2.next_in = (void*) data;
+                c->bzip2.next_in = (void *) data;
                 c->bzip2.avail_in = size;
 
                 while (c->bzip2.avail_in > 0) {
                         uint8_t buffer[16 * 1024];
 
-                        c->bzip2.next_out = (char*) buffer;
+                        c->bzip2.next_out = (char *) buffer;
                         c->bzip2.avail_out = sizeof(buffer);
 
                         r = BZ2_bzDecompress(&c->bzip2);
@@ -238,7 +230,7 @@ static int enlarge_buffer(void **buffer, size_t *buffer_size, size_t *buffer_all
         if (*buffer_allocated > *buffer_size)
                 return 0;
 
-        l = MAX(16*1024U, (*buffer_size * 2));
+        l = MAX(16 * 1024U, (*buffer_size * 2));
         p = realloc(*buffer, l);
         if (!p)
                 return -ENOMEM;
@@ -281,7 +273,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
                         if (r < 0)
                                 return r;
 
-                        c->xz.next_out = (uint8_t*) *buffer + *buffer_size;
+                        c->xz.next_out = (uint8_t *) *buffer + *buffer_size;
                         c->xz.avail_out = *buffer_allocated - *buffer_size;
 
                         lzr = lzma_code(&c->xz, LZMA_RUN);
@@ -295,7 +287,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
 
         case IMPORT_COMPRESS_GZIP:
 
-                c->gzip.next_in = (void*) data;
+                c->gzip.next_in = (void *) data;
                 c->gzip.avail_in = size;
 
                 while (c->gzip.avail_in > 0) {
@@ -303,7 +295,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
                         if (r < 0)
                                 return r;
 
-                        c->gzip.next_out = (uint8_t*) *buffer + *buffer_size;
+                        c->gzip.next_out = (uint8_t *) *buffer + *buffer_size;
                         c->gzip.avail_out = *buffer_allocated - *buffer_size;
 
                         r = deflate(&c->gzip, Z_NO_FLUSH);
@@ -318,7 +310,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
 #if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
 
-                c->bzip2.next_in = (void*) data;
+                c->bzip2.next_in = (void *) data;
                 c->bzip2.avail_in = size;
 
                 while (c->bzip2.avail_in > 0) {
@@ -326,7 +318,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
                         if (r < 0)
                                 return r;
 
-                        c->bzip2.next_out = (void*) ((uint8_t*) *buffer + *buffer_size);
+                        c->bzip2.next_out = (void *) ((uint8_t *) *buffer + *buffer_size);
                         c->bzip2.avail_out = *buffer_allocated - *buffer_size;
 
                         r = BZ2_bzCompress(&c->bzip2, BZ_RUN);
@@ -388,7 +380,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
                         if (r < 0)
                                 return r;
 
-                        c->xz.next_out = (uint8_t*) *buffer + *buffer_size;
+                        c->xz.next_out = (uint8_t *) *buffer + *buffer_size;
                         c->xz.avail_out = *buffer_allocated - *buffer_size;
 
                         lzr = lzma_code(&c->xz, LZMA_FINISH);
@@ -409,7 +401,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
                         if (r < 0)
                                 return r;
 
-                        c->gzip.next_out = (uint8_t*) *buffer + *buffer_size;
+                        c->gzip.next_out = (uint8_t *) *buffer + *buffer_size;
                         c->gzip.avail_out = *buffer_allocated - *buffer_size;
 
                         r = deflate(&c->gzip, Z_FINISH);
@@ -430,7 +422,7 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
                         if (r < 0)
                                 return r;
 
-                        c->bzip2.next_out = (void*) ((uint8_t*) *buffer + *buffer_size);
+                        c->bzip2.next_out = (void *) ((uint8_t *) *buffer + *buffer_size);
                         c->bzip2.avail_out = *buffer_allocated - *buffer_size;
 
                         r = BZ2_bzCompress(&c->bzip2, BZ_FINISH);
@@ -453,11 +445,9 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
         return 0;
 }
 
-static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] = {
-        [IMPORT_COMPRESS_UNKNOWN] = "unknown",
-        [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
-        [IMPORT_COMPRESS_XZ] = "xz",
-        [IMPORT_COMPRESS_GZIP] = "gzip",
+static const char *const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] = {
+        [IMPORT_COMPRESS_UNKNOWN] = "unknown", [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
+        [IMPORT_COMPRESS_XZ] = "xz",           [IMPORT_COMPRESS_GZIP] = "gzip",
 #if HAVE_BZIP2
         [IMPORT_COMPRESS_BZIP2] = "bzip2",
 #endif

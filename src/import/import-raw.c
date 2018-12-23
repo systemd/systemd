@@ -48,7 +48,7 @@ struct RawImport {
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
+        uint8_t buffer[16 * 1024];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -60,7 +60,7 @@ struct RawImport {
         RateLimit progress_rate_limit;
 };
 
-RawImport* raw_import_unref(RawImport *i) {
+RawImport *raw_import_unref(RawImport *i) {
         if (!i)
                 return NULL;
 
@@ -83,12 +83,7 @@ RawImport* raw_import_unref(RawImport *i) {
         return mfree(i);
 }
 
-int raw_import_new(
-                RawImport **ret,
-                sd_event *event,
-                const char *image_root,
-                RawImportFinished on_finished,
-                void *userdata) {
+int raw_import_new(RawImport **ret, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata) {
 
         _cleanup_(raw_import_unrefp) RawImport *i = NULL;
         _cleanup_free_ char *root = NULL;
@@ -100,11 +95,11 @@ int raw_import_new(
         if (!root)
                 return -ENOMEM;
 
-        i = new(RawImport, 1);
+        i = new (RawImport, 1);
         if (!i)
                 return -ENOMEM;
 
-        *i = (RawImport) {
+        *i = (RawImport){
                 .input_fd = -1,
                 .output_fd = -1,
                 .on_finished = on_finished,
@@ -171,7 +166,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         if (r < 0)
                 return log_oom();
 
-        converted_fd = open(t, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        converted_fd = open(t, O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
@@ -226,7 +221,7 @@ static int raw_import_finish(RawImport *i) {
         }
 
         if (i->force_local)
-                (void) rm_rf(i->final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(i->final_path, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
 
         r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
         if (r < 0)
@@ -256,7 +251,7 @@ static int raw_import_open_disk(RawImport *i) {
 
         (void) mkdir_parents_label(i->temp_path, 0700);
 
-        i->output_fd = open(i->temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        i->output_fd = open(i->temp_path, O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (i->output_fd < 0)
                 return log_error_errno(errno, "Failed to open destination %s: %m", i->temp_path);
 

@@ -13,9 +13,12 @@
 #include "string-util.h"
 #include "utf8.h"
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode,
+                         dns_stub_listener_mode,
+                         DnsStubListenerMode,
+                         "Failed to parse DNS stub listener mode setting");
 
-static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
+static const char *const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
         [DNS_STUB_LISTENER_NO] = "no",
         [DNS_STUB_LISTENER_UDP] = "udp",
         [DNS_STUB_LISTENER_TCP] = "tcp",
@@ -133,17 +136,16 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
         return 0;
 }
 
-int config_parse_dns_servers(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dns_servers(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         Manager *m = userdata;
         int r;
@@ -175,17 +177,16 @@ int config_parse_dns_servers(
         return 0;
 }
 
-int config_parse_search_domains(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_search_domains(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
 
         Manager *m = userdata;
         int r;
@@ -214,14 +215,21 @@ int config_parse_search_domains(
         return 0;
 }
 
-int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        static const Specifier specifier_table[] = {
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name,       NULL },
-                { 'm', specifier_machine_id,      NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                {}
-        };
+int config_parse_dnssd_service_name(const char *unit,
+                                    const char *filename,
+                                    unsigned line,
+                                    const char *section,
+                                    unsigned section_line,
+                                    const char *lvalue,
+                                    int ltype,
+                                    const char *rvalue,
+                                    void *data,
+                                    void *userdata) {
+        static const Specifier specifier_table[] = { { 'b', specifier_boot_id, NULL },
+                                                     { 'H', specifier_host_name, NULL },
+                                                     { 'm', specifier_machine_id, NULL },
+                                                     { 'v', specifier_kernel_release, NULL },
+                                                     {} };
         DnssdService *s = userdata;
         _cleanup_free_ char *name = NULL;
         int r;
@@ -252,7 +260,16 @@ int config_parse_dnssd_service_name(const char *unit, const char *filename, unsi
         return 0;
 }
 
-int config_parse_dnssd_service_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+int config_parse_dnssd_service_type(const char *unit,
+                                    const char *filename,
+                                    unsigned line,
+                                    const char *section,
+                                    unsigned section_line,
+                                    const char *lvalue,
+                                    int ltype,
+                                    const char *rvalue,
+                                    void *data,
+                                    void *userdata) {
         DnssdService *s = userdata;
         int r;
 
@@ -278,7 +295,16 @@ int config_parse_dnssd_service_type(const char *unit, const char *filename, unsi
         return 0;
 }
 
-int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+int config_parse_dnssd_txt(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         DnssdService *s = userdata;
         DnsTxtItem *last = NULL;
@@ -307,8 +333,7 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                 DnsTxtItem *i;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, NULL,
-                                       EXTRACT_QUOTES|EXTRACT_CUNESCAPE|EXTRACT_CUNESCAPE_RELAX);
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES | EXTRACT_CUNESCAPE | EXTRACT_CUNESCAPE_RELAX);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -335,8 +360,7 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0)
-                                        return log_syntax(unit, LOG_ERR, filename, line, r,
-                                                          "Invalid base64 encoding, ignoring: %s", value);
+                                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid base64 encoding, ignoring: %s", value);
                         }
 
                         r = dnssd_txt_item_new_from_data(key, decoded, length, &i);
@@ -374,8 +398,10 @@ int manager_parse_config_file(Manager *m) {
         r = config_parse_many_nulstr(PKGSYSCONFDIR "/resolved.conf",
                                      CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
                                      "Resolve\0",
-                                     config_item_perf_lookup, resolved_gperf_lookup,
-                                     CONFIG_PARSE_WARN, m);
+                                     config_item_perf_lookup,
+                                     resolved_gperf_lookup,
+                                     CONFIG_PARSE_WARN,
+                                     m);
         if (r < 0)
                 return r;
 
@@ -385,19 +411,20 @@ int manager_parse_config_file(Manager *m) {
                         return r;
         }
 
-#if ! HAVE_GCRYPT
+#if !HAVE_GCRYPT
         if (m->dnssec_mode != DNSSEC_NO) {
-                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
+                log_warning(
+                        "DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
         }
 #endif
 
-#if ! ENABLE_DNS_OVER_TLS
+#if !ENABLE_DNS_OVER_TLS
         if (m->dns_over_tls_mode != DNS_OVER_TLS_NO) {
-                log_warning("DNS-over-TLS option cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                log_warning(
+                        "DNS-over-TLS option cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif
         return 0;
-
 }

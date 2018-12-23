@@ -22,8 +22,8 @@
 #include "signal-util.h"
 #include "special.h"
 
-static Manager* manager_unref(Manager *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+static Manager *manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
@@ -62,7 +62,7 @@ static int manager_new(Manager **ret) {
         return 0;
 }
 
-static Manager* manager_unref(Manager *m) {
+static Manager *manager_unref(Manager *m) {
         if (!m)
                 return NULL;
 
@@ -189,7 +189,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine object vtable: %m");
 
@@ -197,7 +198,8 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/image", "org.freedesktop.machine1.Image", image_vtable, image_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/machine1/image", "org.freedesktop.machine1.Image", image_vtable, image_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image object vtable: %m");
 
@@ -205,59 +207,63 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add image enumerator: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        match_job_removed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "JobRemoved",
+                                      match_job_removed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for JobRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnitRemoved",
-                        match_unit_removed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "UnitRemoved",
+                                      match_unit_removed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        NULL,
-                        "org.freedesktop.DBus.Properties",
-                        "PropertiesChanged",
-                        match_properties_changed, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      NULL,
+                                      "org.freedesktop.DBus.Properties",
+                                      "PropertiesChanged",
+                                      match_properties_changed,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reloading",
-                        match_reloading, NULL, m);
+        r = sd_bus_match_signal_async(m->bus,
+                                      NULL,
+                                      "org.freedesktop.systemd1",
+                                      "/org/freedesktop/systemd1",
+                                      "org.freedesktop.systemd1.Manager",
+                                      "Reloading",
+                                      match_reloading,
+                                      NULL,
+                                      m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Subscribe",
-                        NULL, NULL,
-                        NULL);
+        r = sd_bus_call_method_async(m->bus,
+                                     NULL,
+                                     "org.freedesktop.systemd1",
+                                     "/org/freedesktop/systemd1",
+                                     "org.freedesktop.systemd1.Manager",
+                                     "Subscribe",
+                                     NULL,
+                                     NULL,
+                                     NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 
@@ -282,8 +288,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 machine->in_gc_queue = false;
 
                 /* First, if we are not closing yet, initiate stopping */
-                if (machine_may_gc(machine, drop_not_started) &&
-                    machine_get_state(machine) != MACHINE_CLOSING)
+                if (machine_may_gc(machine, drop_not_started) && machine_get_state(machine) != MACHINE_CLOSING)
                         machine_stop(machine);
 
                 /* Now, the stop probably made this referenced
@@ -316,7 +321,7 @@ static int manager_startup(Manager *m) {
 
         /* And start everything */
         HASHMAP_FOREACH(machine, m->machines, i)
-                machine_start(machine, NULL, NULL);
+        machine_start(machine, NULL, NULL);
 
         return 0;
 }
@@ -335,12 +340,7 @@ static bool check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.machine1",
-                        DEFAULT_EXIT_USEC,
-                        check_idle, m);
+        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.machine1", DEFAULT_EXIT_USEC, check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {
@@ -372,14 +372,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-machined running as pid " PID_FMT, getpid_cached());
         (void) sd_notify(false,
                          "READY=1\n"
                          "STATUS=Processing requests...");
 
         r = manager_run(m);
 
-        log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-machined stopped as pid " PID_FMT, getpid_cached());
         (void) sd_notify(false,
                          "STOPPING=1\n"
                          "STATUS=Shutting down...");

@@ -49,7 +49,14 @@ int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *er
 int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, sd_bus_message *more_properties, sd_bus_error *error, char **job);
+int manager_start_scope(Manager *manager,
+                        const char *scope,
+                        pid_t pid,
+                        const char *slice,
+                        const char *description,
+                        sd_bus_message *more_properties,
+                        sd_bus_error *error,
+                        char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error);
 int manager_unref_unit(Manager *m, const char *unit, sd_bus_error *error);

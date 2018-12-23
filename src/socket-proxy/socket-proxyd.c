@@ -96,7 +96,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
         if (buffer[0] >= 0)
                 return 0;
 
-        r = pipe2(buffer, O_CLOEXEC|O_NONBLOCK);
+        r = pipe2(buffer, O_CLOEXEC | O_NONBLOCK);
         if (r < 0)
                 return log_error_errno(errno, "Failed to allocate pipe buffer: %m");
 
@@ -113,10 +113,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
 }
 
 static int connection_shovel(
-                Connection *c,
-                int *from, int buffer[2], int *to,
-                size_t *full, size_t *sz,
-                sd_event_source **from_source, sd_event_source **to_source) {
+        Connection *c, int *from, int buffer[2], int *to, size_t *full, size_t *sz, sd_event_source **from_source, sd_event_source **to_source) {
 
         bool shoveled;
 
@@ -137,7 +134,7 @@ static int connection_shovel(
                 shoveled = false;
 
                 if (*full < *sz && *from >= 0 && *to >= 0) {
-                        z = splice(*from, NULL, buffer[1], NULL, *sz - *full, SPLICE_F_MOVE|SPLICE_F_NONBLOCK);
+                        z = splice(*from, NULL, buffer[1], NULL, *sz - *full, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
@@ -149,7 +146,7 @@ static int connection_shovel(
                 }
 
                 if (*full > 0 && *to >= 0) {
-                        z = splice(buffer[0], NULL, *to, NULL, *full, SPLICE_F_MOVE|SPLICE_F_NONBLOCK);
+                        z = splice(buffer[0], NULL, *to, NULL, *full, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
                         if (z > 0) {
                                 *full -= z;
                                 shoveled = true;
@@ -175,16 +172,24 @@ static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         assert(c);
 
         r = connection_shovel(c,
-                              &c->server_fd, c->server_to_client_buffer, &c->client_fd,
-                              &c->server_to_client_buffer_full, &c->server_to_client_buffer_size,
-                              &c->server_event_source, &c->client_event_source);
+                              &c->server_fd,
+                              c->server_to_client_buffer,
+                              &c->client_fd,
+                              &c->server_to_client_buffer_full,
+                              &c->server_to_client_buffer_size,
+                              &c->server_event_source,
+                              &c->client_event_source);
         if (r < 0)
                 goto quit;
 
         r = connection_shovel(c,
-                              &c->client_fd, c->client_to_server_buffer, &c->server_fd,
-                              &c->client_to_server_buffer_full, &c->client_to_server_buffer_size,
-                              &c->client_event_source, &c->server_event_source);
+                              &c->client_fd,
+                              c->client_to_server_buffer,
+                              &c->server_fd,
+                              &c->client_to_server_buffer_full,
+                              &c->client_to_server_buffer_size,
+                              &c->client_event_source,
+                              &c->server_event_source);
         if (r < 0)
                 goto quit;
 
@@ -311,7 +316,7 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
         assert(sa);
         assert(salen);
 
-        c->client_fd = socket(sa->sa_family, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        c->client_fd = socket(sa->sa_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
         if (c->client_fd < 0) {
                 log_error_errno(errno, "Failed to get remote socket: %m");
                 goto fail;
@@ -368,11 +373,7 @@ fail:
 
 static int resolve_remote(Connection *c) {
 
-        static const struct addrinfo hints = {
-                .ai_family = AF_UNSPEC,
-                .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_ADDRCONFIG
-        };
+        static const struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_ADDRCONFIG };
 
         union sockaddr_union sa = {};
         const char *node, *service;
@@ -464,7 +465,7 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(revents & EPOLLIN);
         assert(context);
 
-        nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (nfd < 0) {
                 if (errno != -EAGAIN)
                         log_warning_errno(errno, "Failed to accept() socket: %m");
@@ -506,8 +507,7 @@ static int add_listen_socket(Context *context, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine socket type: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Passed in socket is not a stream socket.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Passed in socket is not a stream socket.");
 
         r = fd_nonblock(fd, true);
         if (r < 0)
@@ -547,27 +547,25 @@ static int help(void) {
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_IGNORE_ENV
         };
 
-        static const struct option options[] = {
-                { "connections-max", required_argument, NULL, 'c'           },
-                { "help",            no_argument,       NULL, 'h'           },
-                { "version",         no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
+        static const struct option options[] = { { "connections-max", required_argument, NULL, 'c' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 {} };
 
         int c, r;
 
@@ -592,8 +590,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (arg_connections_max < 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Connection limit is too low.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Connection limit is too low.");
 
                         break;
 
@@ -605,12 +602,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough parameters.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough parameters.");
 
-        if (argc != optind+1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many parameters.");
+        if (argc != optind + 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters.");
 
         arg_remote_host = argv[optind];
         return 1;

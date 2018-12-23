@@ -23,24 +23,21 @@
 #include "missing_syscall.h"
 #include "unit.h"
 
-enum {
+enum
+{
         MAP_KEY_PACKETS,
         MAP_KEY_BYTES,
 };
 
-enum {
+enum
+{
         ACCESS_ALLOWED = 1,
-        ACCESS_DENIED  = 2,
+        ACCESS_DENIED = 2,
 };
 
 /* Compile instructions for one list of addresses, one direction and one specific verdict on matches. */
 
-static int add_lookup_instructions(
-                BPFProgram *p,
-                int map_fd,
-                int protocol,
-                bool is_ingress,
-                int verdict) {
+static int add_lookup_instructions(BPFProgram *p, int map_fd, int protocol, bool is_ingress, int verdict) {
 
         int r, addr_offset, addr_size;
 
@@ -51,16 +48,12 @@ static int add_lookup_instructions(
 
         case ETH_P_IP:
                 addr_size = sizeof(uint32_t);
-                addr_offset = is_ingress ?
-                        offsetof(struct iphdr, saddr) :
-                        offsetof(struct iphdr, daddr);
+                addr_offset = is_ingress ? offsetof(struct iphdr, saddr) : offsetof(struct iphdr, daddr);
                 break;
 
         case ETH_P_IPV6:
                 addr_size = 4 * sizeof(uint32_t);
-                addr_offset = is_ingress ?
-                        offsetof(struct ip6_hdr, ip6_src.s6_addr) :
-                        offsetof(struct ip6_hdr, ip6_dst.s6_addr);
+                addr_offset = is_ingress ? offsetof(struct ip6_hdr, ip6_src.s6_addr) : offsetof(struct ip6_hdr, ip6_dst.s6_addr);
                 break;
 
         default:
@@ -123,10 +116,7 @@ static int add_lookup_instructions(
         return 0;
 }
 
-static int bpf_firewall_compile_bpf(
-                Unit *u,
-                bool is_ingress,
-                BPFProgram **ret) {
+static int bpf_firewall_compile_bpf(Unit *u, bool is_ingress, BPFProgram **ret) {
 
         struct bpf_insn pre_insn[] = {
                 /*
@@ -177,15 +167,9 @@ static int bpf_firewall_compile_bpf(
         assert(u);
         assert(ret);
 
-        accounting_map_fd = is_ingress ?
-                u->ip_accounting_ingress_map_fd :
-                u->ip_accounting_egress_map_fd;
+        accounting_map_fd = is_ingress ? u->ip_accounting_ingress_map_fd : u->ip_accounting_egress_map_fd;
 
-        access_enabled =
-                u->ipv4_allow_map_fd >= 0 ||
-                u->ipv6_allow_map_fd >= 0 ||
-                u->ipv4_deny_map_fd >= 0 ||
-                u->ipv6_deny_map_fd >= 0;
+        access_enabled = u->ipv4_allow_map_fd >= 0 || u->ipv6_allow_map_fd >= 0 || u->ipv4_deny_map_fd >= 0 || u->ipv6_deny_map_fd >= 0;
 
         if (accounting_map_fd < 0 && !access_enabled) {
                 *ret = NULL;
@@ -247,18 +231,18 @@ static int bpf_firewall_compile_bpf(
                         BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 0),
 
                         /* Count packets */
-                        BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_PACKETS), /* r0 = 0 */
+                        BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_PACKETS),     /* r0 = 0 */
                         BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
                         BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-                        BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
+                        BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),       /* r2 = fp - 4 */
                         BPF_LD_MAP_FD(BPF_REG_1, accounting_map_fd), /* load map fd to r1 */
                         BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
                         BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-                        BPF_MOV64_IMM(BPF_REG_1, 1), /* r1 = 1 */
+                        BPF_MOV64_IMM(BPF_REG_1, 1),                                           /* r1 = 1 */
                         BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
 
                         /* Count bytes */
-                        BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_BYTES), /* r0 = 1 */
+                        BPF_MOV64_IMM(BPF_REG_0, MAP_KEY_BYTES),       /* r0 = 1 */
                         BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
                         BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
                         BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
@@ -266,7 +250,7 @@ static int bpf_firewall_compile_bpf(
                         BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
                         BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
                         BPF_LDX_MEM(BPF_W, BPF_REG_1, BPF_REG_6, offsetof(struct __sk_buff, len)), /* r1 = skb->len */
-                        BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
+                        BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0),     /* xadd r0 += r1 */
 
                         /* Allow the packet to pass */
                         BPF_MOV64_IMM(BPF_REG_0, 1),
@@ -285,9 +269,7 @@ static int bpf_firewall_compile_bpf(
                  * Exit from the eBPF program, R0 contains the verdict.
                  * 0 means the packet is denied, 1 means the packet may pass.
                  */
-                struct bpf_insn insn[] = {
-                        BPF_EXIT_INSN()
-                };
+                struct bpf_insn insn[] = { BPF_EXIT_INSN() };
 
                 r = bpf_program_add_instructions(p, insn, ELEMENTSOF(insn));
                 if (r < 0)
@@ -324,11 +306,7 @@ static int bpf_firewall_count_access_items(IPAddressAccessItem *list, size_t *n_
         return 0;
 }
 
-static int bpf_firewall_add_access_items(
-                IPAddressAccessItem *list,
-                int ipv4_map_fd,
-                int ipv6_map_fd,
-                int verdict) {
+static int bpf_firewall_add_access_items(IPAddressAccessItem *list, int ipv4_map_fd, int ipv6_map_fd, int verdict) {
 
         struct bpf_lpm_trie_key *key_ipv4, *key_ipv6;
         uint64_t value = verdict;
@@ -369,11 +347,7 @@ static int bpf_firewall_add_access_items(
         return 0;
 }
 
-static int bpf_firewall_prepare_access_maps(
-                Unit *u,
-                int verdict,
-                int *ret_ipv4_map_fd,
-                int *ret_ipv6_map_fd) {
+static int bpf_firewall_prepare_access_maps(Unit *u, int verdict, int *ret_ipv4_map_fd, int *ret_ipv6_map_fd) {
 
         _cleanup_close_ int ipv4_map_fd = -1, ipv6_map_fd = -1;
         size_t n_ipv4 = 0, n_ipv6 = 0;
@@ -394,23 +368,21 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv4 > 0) {
-                ipv4_map_fd = bpf_map_new(
-                                BPF_MAP_TYPE_LPM_TRIE,
-                                offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t),
-                                sizeof(uint64_t),
-                                n_ipv4,
-                                BPF_F_NO_PREALLOC);
+                ipv4_map_fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
+                                          offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t),
+                                          sizeof(uint64_t),
+                                          n_ipv4,
+                                          BPF_F_NO_PREALLOC);
                 if (ipv4_map_fd < 0)
                         return ipv4_map_fd;
         }
 
         if (n_ipv6 > 0) {
-                ipv6_map_fd = bpf_map_new(
-                                BPF_MAP_TYPE_LPM_TRIE,
-                                offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t)*4,
-                                sizeof(uint64_t),
-                                n_ipv6,
-                                BPF_F_NO_PREALLOC);
+                ipv6_map_fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
+                                          offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t) * 4,
+                                          sizeof(uint64_t),
+                                          n_ipv6,
+                                          BPF_F_NO_PREALLOC);
                 if (ipv6_map_fd < 0)
                         return ipv6_map_fd;
         }
@@ -422,8 +394,8 @@ static int bpf_firewall_prepare_access_maps(
                 if (!cc)
                         continue;
 
-                r = bpf_firewall_add_access_items(verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny,
-                                                  ipv4_map_fd, ipv6_map_fd, verdict);
+                r = bpf_firewall_add_access_items(
+                        verdict == ACCESS_ALLOWED ? cc->ip_address_allow : cc->ip_address_deny, ipv4_map_fd, ipv6_map_fd, verdict);
                 if (r < 0)
                         return r;
         }
@@ -573,8 +545,8 @@ int bpf_firewall_install(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to determine cgroup path: %m");
 
-        flags = (supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
-                 (u->type == UNIT_SLICE || unit_cgroup_delegate(u))) ? BPF_F_ALLOW_MULTI : 0;
+        flags = (supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI && (u->type == UNIT_SLICE || unit_cgroup_delegate(u))) ? BPF_F_ALLOW_MULTI :
+                                                                                                                         0;
 
         /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program, to
          * minimize the time window when we don't account for IP traffic. */
@@ -645,10 +617,7 @@ int bpf_firewall_reset_accounting(int map_fd) {
 }
 
 int bpf_firewall_supported(void) {
-        struct bpf_insn trivial[] = {
-                BPF_MOV64_IMM(BPF_REG_0, 1),
-                BPF_EXIT_INSN()
-        };
+        struct bpf_insn trivial[] = { BPF_MOV64_IMM(BPF_REG_0, 1), BPF_EXIT_INSN() };
 
         _cleanup_(bpf_program_unrefp) BPFProgram *program = NULL;
         static int supported = -1;
@@ -680,11 +649,8 @@ int bpf_firewall_supported(void) {
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
-        fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
-                         offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint64_t),
-                         sizeof(uint64_t),
-                         1,
-                         BPF_F_NO_PREALLOC);
+        fd = bpf_map_new(
+                BPF_MAP_TYPE_LPM_TRIE, offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint64_t), sizeof(uint64_t), 1, BPF_F_NO_PREALLOC);
         if (fd < 0) {
                 log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
@@ -718,7 +684,7 @@ int bpf_firewall_supported(void) {
          * CONFIG_CGROUP_BPF is turned off, then the call will fail early with EINVAL. If it is turned on the
          * parameters are validated however, and that'll fail with EBADF then. */
 
-        attr = (union bpf_attr) {
+        attr = (union bpf_attr){
                 .attach_type = BPF_CGROUP_INET_EGRESS,
                 .target_fd = -1,
                 .attach_bpf_fd = -1,
@@ -732,7 +698,8 @@ int bpf_firewall_supported(void) {
 
                 /* YAY! */
         } else {
-                log_debug("Wut? Kernel accepted our invalid BPF_PROG_DETACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                log_debug(
+                        "Wut? Kernel accepted our invalid BPF_PROG_DETACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
@@ -741,7 +708,7 @@ int bpf_firewall_supported(void) {
          * bpf() call and the BPF_F_ALLOW_MULTI flags value. Since the flags are checked early in the system call we'll
          * get EINVAL if it's not supported, and EBADF as before if it is available. */
 
-        attr = (union bpf_attr) {
+        attr = (union bpf_attr){
                 .attach_type = BPF_CGROUP_INET_EGRESS,
                 .target_fd = -1,
                 .attach_bpf_fd = -1,
@@ -761,7 +728,8 @@ int bpf_firewall_supported(void) {
 
                 return supported = BPF_FIREWALL_SUPPORTED;
         } else {
-                log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                log_debug(
+                        "Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 }

@@ -40,51 +40,51 @@ static void test_get_process_comm(pid_t pid) {
         dev_t h;
         int r;
 
-        xsprintf(path, "/proc/"PID_FMT"/comm", pid);
+        xsprintf(path, "/proc/" PID_FMT "/comm", pid);
 
         if (stat(path, &st) == 0) {
                 assert_se(get_process_comm(pid, &a) >= 0);
-                log_info("PID"PID_FMT" comm: '%s'", pid, a);
+                log_info("PID" PID_FMT " comm: '%s'", pid, a);
         } else
                 log_warning("%s not exist.", path);
 
         assert_se(get_process_cmdline(pid, 0, true, &c) >= 0);
-        log_info("PID"PID_FMT" cmdline: '%s'", pid, c);
+        log_info("PID" PID_FMT " cmdline: '%s'", pid, c);
 
         assert_se(get_process_cmdline(pid, 8, false, &d) >= 0);
-        log_info("PID"PID_FMT" cmdline truncated to 8: '%s'", pid, d);
+        log_info("PID" PID_FMT " cmdline truncated to 8: '%s'", pid, d);
 
         free(d);
         assert_se(get_process_cmdline(pid, 1, false, &d) >= 0);
-        log_info("PID"PID_FMT" cmdline truncated to 1: '%s'", pid, d);
+        log_info("PID" PID_FMT " cmdline truncated to 1: '%s'", pid, d);
 
         assert_se(get_process_ppid(pid, &e) >= 0);
-        log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
+        log_info("PID" PID_FMT " PPID: " PID_FMT, pid, e);
         assert_se(pid == 1 ? e == 0 : e > 0);
 
         assert_se(is_kernel_thread(pid) == 0 || pid != 1);
 
         r = get_process_exe(pid, &f);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("PID"PID_FMT" exe: '%s'", pid, strna(f));
+        log_info("PID" PID_FMT " exe: '%s'", pid, strna(f));
 
         assert_se(get_process_uid(pid, &u) == 0);
-        log_info("PID"PID_FMT" UID: "UID_FMT, pid, u);
+        log_info("PID" PID_FMT " UID: " UID_FMT, pid, u);
         assert_se(u == 0 || pid != 1);
 
         assert_se(get_process_gid(pid, &g) == 0);
-        log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
+        log_info("PID" PID_FMT " GID: " GID_FMT, pid, g);
         assert_se(g == 0 || pid != 1);
 
         r = get_process_environ(pid, &env);
         assert_se(r >= 0 || r == -EACCES);
-        log_info("PID"PID_FMT" strlen(environ): %zi", pid, env ? (ssize_t)strlen(env) : (ssize_t)-errno);
+        log_info("PID" PID_FMT " strlen(environ): %zi", pid, env ? (ssize_t) strlen(env) : (ssize_t) -errno);
 
         if (!detect_container())
                 assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
         (void) getenv_for_pid(pid, "PATH", &i);
-        log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
+        log_info("PID" PID_FMT " $PATH: '%s'", pid, strna(i));
 }
 
 static void test_get_process_comm_escape_one(const char *input, const char *output) {
@@ -217,7 +217,7 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
                 log_warning_errno(errno, "mount(..., \"/\", MS_SLAVE|MS_REC, ...) failed: %m");
                 assert_se(IN_SET(errno, EPERM, EACCES));
                 return;
@@ -394,9 +394,7 @@ static void test_rename_process_now(const char *p, int ret) {
         int r;
 
         r = rename_process(p);
-        assert_se(r == ret ||
-                  (ret == 0 && r >= 0) ||
-                  (ret > 0 && r > 0));
+        assert_se(r == ret || (ret == 0 && r >= 0) || (ret > 0 && r > 0));
 
         if (r < 0)
                 return;
@@ -409,7 +407,7 @@ static void test_rename_process_now(const char *p, int ret) {
 
         assert_se(get_process_comm(0, &comm) >= 0);
         log_info("comm = <%s>", comm);
-        assert_se(strneq(comm, p, TASK_COMM_LEN-1));
+        assert_se(strneq(comm, p, TASK_COMM_LEN - 1));
 
         r = get_process_cmdline(0, 0, false, &cmdline);
         assert_se(r >= 0);
@@ -463,7 +461,7 @@ static void test_rename_process_multi(void) {
         /* child */
         test_rename_process_now("one", 1);
         test_rename_process_now("more", 0); /* longer than "one", hence truncated */
-        (void) setresuid(99, 99, 99); /* change uid when running privileged */
+        (void) setresuid(99, 99, 99);       /* change uid when running privileged */
         test_rename_process_now("time!", 0);
         test_rename_process_now("0", 1); /* shorter than "one", should fit */
         test_rename_process_one("", -EINVAL);
@@ -474,9 +472,9 @@ static void test_rename_process_multi(void) {
 static void test_rename_process(void) {
         test_rename_process_one(NULL, -EINVAL);
         test_rename_process_one("", -EINVAL);
-        test_rename_process_one("foo", 1); /* should always fit */
+        test_rename_process_one("foo", 1);                                                                    /* should always fit */
         test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
-        test_rename_process_one("1234567", 1); /* should always fit */
+        test_rename_process_one("1234567", 1);                                                                /* should always fit */
         test_rename_process_multi(); /* multiple invocations and dropped privileges */
 }
 
@@ -525,14 +523,14 @@ static void test_getpid_measure(void) {
                 (void) getpid();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info(" glibc getpid(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+        log_info(" glibc getpid(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS * USEC_PER_SEC / q));
 
         t = now(CLOCK_MONOTONIC);
         for (i = 0; i < MEASURE_ITERATIONS; i++)
                 (void) getpid_cached();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
+        log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS * USEC_PER_SEC / q));
 }
 
 static void test_safe_fork(void) {
@@ -542,7 +540,7 @@ static void test_safe_fork(void) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NULL_STDIO|FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(test-child)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_NULL_STDIO | FORK_REOPEN_LOG, &pid);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -584,8 +582,7 @@ static void test_ioprio_class_from_to_string_one(const char *val, int expected) 
 
                 assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
                 /* We sometimes get a class number and sometimes a number back */
-                assert_se(streq(s, val) ||
-                          safe_atou(val, &ret) == 0);
+                assert_se(streq(s, val) || safe_atou(val, &ret) == 0);
         }
 }
 

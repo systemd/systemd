@@ -22,24 +22,27 @@ struct sd_bus_track {
         Hashmap *names;
         LIST_FIELDS(sd_bus_track, queue);
         Iterator iterator;
-        bool in_list:1;    /* In bus->tracks? */
-        bool in_queue:1;   /* In bus->track_queue? */
-        bool modified:1;
-        bool recursive:1;
+        bool in_list : 1;  /* In bus->tracks? */
+        bool in_queue : 1; /* In bus->track_queue? */
+        bool modified : 1;
+        bool recursive : 1;
         sd_bus_destroy_t destroy_callback;
 
         LIST_FIELDS(sd_bus_track, tracks);
 };
 
-#define MATCH_FOR_NAME(name)                            \
-        strjoina("type='signal',"                       \
-                 "sender='org.freedesktop.DBus',"       \
-                 "path='/org/freedesktop/DBus',"        \
-                 "interface='org.freedesktop.DBus',"    \
-                 "member='NameOwnerChanged',"           \
-                 "arg0='", name, "'")
+#define MATCH_FOR_NAME(name)                        \
+        strjoina(                                   \
+                "type='signal',"                    \
+                "sender='org.freedesktop.DBus',"    \
+                "path='/org/freedesktop/DBus',"     \
+                "interface='org.freedesktop.DBus'," \
+                "member='NameOwnerChanged',"        \
+                "arg0='",                           \
+                name,                               \
+                "'")
 
-static struct track_item* track_item_free(struct track_item *i) {
+static struct track_item *track_item_free(struct track_item *i) {
 
         if (!i)
                 return NULL;
@@ -49,9 +52,9 @@ static struct track_item* track_item_free(struct track_item *i) {
         return mfree(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item*, track_item_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(track_item_hash_ops, char, string_hash_func, string_compare_func,
-                                              struct track_item, track_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct track_item *, track_item_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        track_item_hash_ops, char, string_hash_func, string_compare_func, struct track_item, track_item_free);
 
 static void bus_track_add_to_queue(sd_bus_track *track) {
         assert(track);
@@ -112,11 +115,7 @@ static int bus_track_remove_name_fully(sd_bus_track *track, const char *name) {
         return 1;
 }
 
-_public_ int sd_bus_track_new(
-                sd_bus *bus,
-                sd_bus_track **track,
-                sd_bus_track_handler_t handler,
-                void *userdata) {
+_public_ int sd_bus_track_new(sd_bus *bus, sd_bus_track **track, sd_bus_track_handler_t handler, void *userdata) {
 
         sd_bus_track *t;
 
@@ -287,16 +286,16 @@ _public_ unsigned sd_bus_track_count(sd_bus_track *track) {
         return hashmap_size(track->names);
 }
 
-_public_ const char* sd_bus_track_contains(sd_bus_track *track, const char *name) {
+_public_ const char *sd_bus_track_contains(sd_bus_track *track, const char *name) {
         assert_return(name, NULL);
 
         if (!track) /* Let's consider a NULL object equivalent to an empty object */
                 return NULL;
 
-        return hashmap_get(track->names, (void*) name) ? name : NULL;
+        return hashmap_get(track->names, (void *) name) ? name : NULL;
 }
 
-_public_ const char* sd_bus_track_first(sd_bus_track *track) {
+_public_ const char *sd_bus_track_first(sd_bus_track *track) {
         const char *n = NULL;
 
         if (!track)
@@ -305,11 +304,11 @@ _public_ const char* sd_bus_track_first(sd_bus_track *track) {
         track->modified = false;
         track->iterator = ITERATOR_FIRST;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        hashmap_iterate(track->names, &track->iterator, NULL, (const void **) &n);
         return n;
 }
 
-_public_ const char* sd_bus_track_next(sd_bus_track *track) {
+_public_ const char *sd_bus_track_next(sd_bus_track *track) {
         const char *n = NULL;
 
         if (!track)
@@ -318,7 +317,7 @@ _public_ const char* sd_bus_track_next(sd_bus_track *track) {
         if (track->modified)
                 return NULL;
 
-        hashmap_iterate(track->names, &track->iterator, NULL, (const void**) &n);
+        hashmap_iterate(track->names, &track->iterator, NULL, (const void **) &n);
         return n;
 }
 
@@ -356,7 +355,7 @@ _public_ int sd_bus_track_remove_sender(sd_bus_track *track, sd_bus_message *m) 
         return sd_bus_track_remove_name(track, sender);
 }
 
-_public_ sd_bus* sd_bus_track_get_bus(sd_bus_track *track) {
+_public_ sd_bus *sd_bus_track_get_bus(sd_bus_track *track) {
         assert_return(track, NULL);
 
         return track->bus;

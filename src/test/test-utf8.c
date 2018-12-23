@@ -20,19 +20,19 @@ static void test_utf8_is_valid(void) {
 }
 
 static void test_ascii_is_valid(void) {
-        assert_se( ascii_is_valid("alsdjf\t\vbarr\nba z"));
+        assert_se(ascii_is_valid("alsdjf\t\vbarr\nba z"));
         assert_se(!ascii_is_valid("\342\204\242"));
         assert_se(!ascii_is_valid("\341\204"));
 }
 
 static void test_ascii_is_valid_n(void) {
-        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
-        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
+        assert_se(ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
+        assert_se(ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
         assert_se(!ascii_is_valid_n("alsdjf\t\vbarr\nba z", 18));
         assert_se(!ascii_is_valid_n("\342\204\242", 3));
         assert_se(!ascii_is_valid_n("\342\204\242", 2));
         assert_se(!ascii_is_valid_n("\342\204\242", 1));
-        assert_se( ascii_is_valid_n("\342\204\242", 0));
+        assert_se(ascii_is_valid_n("\342\204\242", 0));
 }
 
 static void test_utf8_encoded_valid_unichar(void) {
@@ -88,7 +88,8 @@ static void test_utf8_escaping_printable(void) {
 }
 
 static void test_utf16_to_utf8(void) {
-        const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'), htole16(0xdc00), htole16('c'), htole16(0xd801), htole16(0xdc37) };
+        const char16_t utf16[] = { htole16('a'), htole16(0xd800), htole16('b'),   htole16(0xdc00),
+                                   htole16('c'), htole16(0xd801), htole16(0xdc37) };
         static const char utf8[] = { 'a', 'b', 'c', 0xf0, 0x90, 0x90, 0xb7 };
         _cleanup_free_ char16_t *b = NULL;
         _cleanup_free_ char *a = NULL;
@@ -130,12 +131,7 @@ static void test_utf8_console_width(void) {
 static void test_utf8_to_utf16(void) {
         const char *p;
 
-        FOREACH_STRING(p,
-                       "abc",
-                       "zażółcić gęślą jaźń",
-                       "串",
-                       "",
-                       "…👊🔪💐…") {
+        FOREACH_STRING(p, "abc", "zażółcić gęślą jaźń", "串", "", "…👊🔪💐…") {
 
                 _cleanup_free_ char16_t *a = NULL;
                 _cleanup_free_ char *b = NULL;

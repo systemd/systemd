@@ -23,8 +23,8 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
         char c;
         int r;
 
-        char quote = 0;                 /* 0 or ' or " */
-        bool backslash = false;         /* whether we've just seen a backslash */
+        char quote = 0;         /* 0 or ' or " */
+        bool backslash = false; /* whether we've just seen a backslash */
 
         assert(p);
         assert(ret);
@@ -43,7 +43,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
          * the pointer *p at the first invalid character. */
 
         if (flags & EXTRACT_DONT_COALESCE_SEPARATORS)
-                if (!GREEDY_REALLOC(s, allocated, sz+1))
+                if (!GREEDY_REALLOC(s, allocated, sz + 1))
                         return -ENOMEM;
 
         for (;; (*p)++, c = **p) {
@@ -58,7 +58,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                         /* We found a non-blank character, so we will always
                          * want to return a string (even if it is empty),
                          * allocate it here. */
-                        if (!GREEDY_REALLOC(s, allocated, sz+1))
+                        if (!GREEDY_REALLOC(s, allocated, sz + 1))
                                 return -ENOMEM;
                         break;
                 }
@@ -66,12 +66,11 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
         for (;; (*p)++, c = **p) {
                 if (backslash) {
-                        if (!GREEDY_REALLOC(s, allocated, sz+7))
+                        if (!GREEDY_REALLOC(s, allocated, sz + 7))
                                 return -ENOMEM;
 
                         if (c == 0) {
-                                if ((flags & EXTRACT_CUNESCAPE_RELAX) &&
-                                    (!quote || flags & EXTRACT_RELAX)) {
+                                if ((flags & EXTRACT_CUNESCAPE_RELAX) && (!quote || flags & EXTRACT_RELAX)) {
                                         /* If we find an unquoted trailing backslash and we're in
                                          * EXTRACT_CUNESCAPE_RELAX mode, keep it verbatim in the
                                          * output.
@@ -111,20 +110,20 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                         backslash = false;
 
-                } else if (quote) {     /* inside either single or double quotes */
+                } else if (quote) { /* inside either single or double quotes */
                         for (;; (*p)++, c = **p) {
                                 if (c == 0) {
                                         if (flags & EXTRACT_RELAX)
                                                 goto finish_force_terminate;
                                         return -EINVAL;
-                                } else if (c == quote) {        /* found the end quote */
+                                } else if (c == quote) { /* found the end quote */
                                         quote = 0;
                                         break;
                                 } else if (c == '\\' && !(flags & EXTRACT_RETAIN_ESCAPE)) {
                                         backslash = true;
                                         break;
                                 } else {
-                                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        if (!GREEDY_REALLOC(s, allocated, sz + 2))
                                                 return -ENOMEM;
 
                                         s[sz++] = c;
@@ -156,7 +155,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
                                         goto finish;
 
                                 } else {
-                                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        if (!GREEDY_REALLOC(s, allocated, sz + 2))
                                                 return -ENOMEM;
 
                                         s[sz++] = c;
@@ -181,15 +180,14 @@ finish_force_next:
         return 1;
 }
 
-int extract_first_word_and_warn(
-                const char **p,
-                char **ret,
-                const char *separators,
-                ExtractFlags flags,
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *rvalue) {
+int extract_first_word_and_warn(const char **p,
+                                char **ret,
+                                const char *separators,
+                                ExtractFlags flags,
+                                const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *rvalue) {
 
         /* Try to unquote it, if it fails, warn about it and try again
          * but this time using EXTRACT_CUNESCAPE_RELAX to keep the
@@ -207,7 +205,7 @@ int extract_first_word_and_warn(
 
                 /* Retry it with EXTRACT_CUNESCAPE_RELAX. */
                 *p = save;
-                r = extract_first_word(p, ret, separators, flags|EXTRACT_CUNESCAPE_RELAX);
+                r = extract_first_word(p, ret, separators, flags | EXTRACT_CUNESCAPE_RELAX);
                 if (r >= 0) {
                         /* It worked this time, hence it must have been an invalid escape sequence. */
                         log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Ignoring unknown escape sequences: \"%s\"", *ret);
@@ -251,7 +249,7 @@ int extract_many_words(const char **p, const char *separators, unsigned flags, .
                 return 0;
 
         /* Read all words into a temporary array */
-        l = newa0(char*, n);
+        l = newa0(char *, n);
         for (c = 0; c < n; c++) {
 
                 r = extract_first_word(p, &l[c], separators, flags);

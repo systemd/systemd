@@ -37,8 +37,7 @@ struct bmp_map {
         UINT8 reserved;
 } __attribute__((packed));
 
-EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
-                            struct bmp_map **ret_map, UINT8 **pixmap) {
+EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib, struct bmp_map **ret_map, UINT8 **pixmap) {
         struct bmp_file *file;
         struct bmp_dib *dib;
         struct bmp_map *map;
@@ -48,7 +47,7 @@ EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
                 return EFI_INVALID_PARAMETER;
 
         /* check file header */
-        file = (struct bmp_file *)bmp;
+        file = (struct bmp_file *) bmp;
         if (file->signature[0] != 'B' || file->signature[1] != 'M')
                 return EFI_INVALID_PARAMETER;
         if (file->size != size)
@@ -57,7 +56,7 @@ EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
                 return EFI_INVALID_PARAMETER;
 
         /*  check device-independent bitmap */
-        dib = (struct bmp_dib *)(bmp + sizeof(struct bmp_file));
+        dib = (struct bmp_dib *) (bmp + sizeof(struct bmp_file));
         if (dib->size < sizeof(struct bmp_dib))
                 return EFI_UNSUPPORTED;
 
@@ -83,13 +82,13 @@ EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib,
         }
 
         row_size = ((UINTN) dib->depth * dib->x + 31) / 32 * 4;
-        if (file->size - file->offset <  dib->y * row_size)
+        if (file->size - file->offset < dib->y * row_size)
                 return EFI_INVALID_PARAMETER;
         if (row_size * dib->y > 64 * 1024 * 1024)
                 return EFI_INVALID_PARAMETER;
 
         /* check color table */
-        map = (struct bmp_map *)(bmp + sizeof(struct bmp_file) + dib->size);
+        map = (struct bmp_map *) (bmp + sizeof(struct bmp_file) + dib->size);
         if (file->offset < sizeof(struct bmp_file) + dib->size)
                 return EFI_INVALID_PARAMETER;
 
@@ -135,21 +134,19 @@ static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
 
         /* decompose into RB and G components */
         src_rb = (src & 0xff00ff);
-        src_g  = (src & 0x00ff00);
+        src_g = (src & 0x00ff00);
 
         dst_rb = (*dst & 0xff00ff);
-        dst_g  = (*dst & 0x00ff00);
+        dst_g = (*dst & 0x00ff00);
 
         /* blend */
         rb = ((((src_rb - dst_rb) * alpha + 0x800080) >> 8) + dst_rb) & 0xff00ff;
-        g  = ((((src_g  -  dst_g) * alpha + 0x008000) >> 8) +  dst_g) & 0x00ff00;
+        g = ((((src_g - dst_g) * alpha + 0x008000) >> 8) + dst_g) & 0x00ff00;
 
         *dst = (rb | g);
 }
 
-EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
-                      struct bmp_dib *dib, struct bmp_map *map,
-                      UINT8 *pixmap) {
+EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf, struct bmp_dib *dib, struct bmp_map *map, UINT8 *pixmap) {
         UINT8 *in;
         UINTN y;
 
@@ -222,7 +219,7 @@ EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
                         case 32: {
                                 UINT32 i = *(UINT32 *) in;
 
-                                pixel_blend((UINT32 *)out, i);
+                                pixel_blend((UINT32 *) out, i);
 
                                 in += 3;
                                 break;
@@ -260,7 +257,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
                 background = &pixel;
         }
 
-        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **) &GraphicsOutput);
         if (EFI_ERROR(err))
                 return err;
 
@@ -273,11 +270,18 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (dib->y < GraphicsOutput->Mode->Info->VerticalResolution)
                 y_pos = (GraphicsOutput->Mode->Info->VerticalResolution - dib->y) / 2;
 
-        uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                          (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
-                          EfiBltVideoFill, 0, 0, 0, 0,
+        uefi_call_wrapper(GraphicsOutput->Blt,
+                          10,
+                          GraphicsOutput,
+                          (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *) background,
+                          EfiBltVideoFill,
+                          0,
+                          0,
+                          0,
+                          0,
                           GraphicsOutput->Mode->Info->HorizontalResolution,
-                          GraphicsOutput->Mode->Info->VerticalResolution, 0);
+                          GraphicsOutput->Mode->Info->VerticalResolution,
+                          0);
 
         /* EFI buffer */
         blt_size = sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * dib->x * dib->y;
@@ -285,9 +289,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (!blt)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
-                                dib->x, dib->y, 0);
+        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput, blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0, dib->x, dib->y, 0);
         if (EFI_ERROR(err))
                 return err;
 
@@ -299,7 +301,5 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                                 blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
-                                 dib->x, dib->y, 0);
+        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput, blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos, dib->x, dib->y, 0);
 }

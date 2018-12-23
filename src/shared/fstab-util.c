@@ -57,8 +57,7 @@ int fstab_is_mount_point(const char *mount) {
         return false;
 }
 
-int fstab_filter_options(const char *opts, const char *names,
-                         const char **namefound, char **value, char **filtered) {
+int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered) {
         const char *name, *n = NULL, *x;
         _cleanup_strv_free_ char **stor = NULL;
         _cleanup_free_ char *v = NULL, **strv = NULL;
@@ -75,38 +74,38 @@ int fstab_filter_options(const char *opts, const char *names,
                 size_t l;
 
                 FOREACH_WORD_SEPARATOR(word, l, opts, ",", state)
-                        NULSTR_FOREACH(name, names) {
-                                if (l < strlen(name))
-                                        continue;
-                                if (!strneq(word, name, strlen(name)))
-                                        continue;
+                NULSTR_FOREACH(name, names) {
+                        if (l < strlen(name))
+                                continue;
+                        if (!strneq(word, name, strlen(name)))
+                                continue;
 
-                                /* we know that the string is NUL
-                                 * terminated, so *x is valid */
-                                x = word + strlen(name);
-                                if (IN_SET(*x, '\0', '=', ',')) {
-                                        n = name;
-                                        if (value) {
-                                                free(v);
-                                                if (IN_SET(*x, '\0', ','))
-                                                        v = NULL;
-                                                else {
-                                                        assert(*x == '=');
-                                                        x++;
-                                                        v = strndup(x, l - strlen(name) - 1);
-                                                        if (!v)
-                                                                return -ENOMEM;
-                                                }
+                        /* we know that the string is NUL
+                         * terminated, so *x is valid */
+                        x = word + strlen(name);
+                        if (IN_SET(*x, '\0', '=', ',')) {
+                                n = name;
+                                if (value) {
+                                        free(v);
+                                        if (IN_SET(*x, '\0', ','))
+                                                v = NULL;
+                                        else {
+                                                assert(*x == '=');
+                                                x++;
+                                                v = strndup(x, l - strlen(name) - 1);
+                                                if (!v)
+                                                        return -ENOMEM;
                                         }
                                 }
                         }
+                }
         } else {
                 char **t, **s;
 
                 stor = strv_split(opts, ",");
                 if (!stor)
                         return -ENOMEM;
-                strv = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
+                strv = memdup(stor, sizeof(char *) * (strv_length(stor) + 1));
                 if (!strv)
                         return -ENOMEM;
 
@@ -210,7 +209,7 @@ int fstab_find_pri(const char *options, int *ret) {
         return 1;
 }
 
-static char *unquote(const char *s, const char* quotes) {
+static char *unquote(const char *s, const char *quotes) {
         size_t l;
         assert(s);
 
@@ -224,8 +223,8 @@ static char *unquote(const char *s, const char* quotes) {
         if (l < 2)
                 return strdup(s);
 
-        if (strchr(quotes, s[0]) && s[l-1] == s[0])
-                return strndup(s+1, l-2);
+        if (strchr(quotes, s[0]) && s[l - 1] == s[0])
+                return strndup(s + 1, l - 2);
 
         return strdup(s);
 }
@@ -239,7 +238,7 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
                 return NULL;
 
         enc_len = strlen(u) * 4 + 1;
-        t = new(char, enc_len);
+        t = new (char, enc_len);
         if (!t)
                 return NULL;
 
@@ -253,16 +252,16 @@ char *fstab_node_to_udev_node(const char *p) {
         assert(p);
 
         if (startswith(p, "LABEL="))
-                return tag_to_udev_node(p+6, "label");
+                return tag_to_udev_node(p + 6, "label");
 
         if (startswith(p, "UUID="))
-                return tag_to_udev_node(p+5, "uuid");
+                return tag_to_udev_node(p + 5, "uuid");
 
         if (startswith(p, "PARTUUID="))
-                return tag_to_udev_node(p+9, "partuuid");
+                return tag_to_udev_node(p + 9, "partuuid");
 
         if (startswith(p, "PARTLABEL="))
-                return tag_to_udev_node(p+10, "partlabel");
+                return tag_to_udev_node(p + 10, "partlabel");
 
         return strdup(p);
 }

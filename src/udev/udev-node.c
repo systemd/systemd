@@ -54,8 +54,7 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 } else if (S_ISLNK(stats.st_mode)) {
                         _cleanup_free_ char *buf = NULL;
 
-                        if (readlink_malloc(slink, &buf) >= 0 &&
-                            streq(target, buf)) {
+                        if (readlink_malloc(slink, &buf) >= 0 && streq(target, buf)) {
                                 log_device_debug(dev, "Preserve already existing symlink '%s' to '%s'", slink, target);
                                 (void) label_fix(slink, LABEL_IGNORE_ENOENT);
                                 (void) utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
@@ -76,7 +75,8 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
                 if (r == 0)
                         return 0;
                 if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
+                        log_device_debug_errno(
+                                dev, r, "Failed to create symlink '%s' to '%s', trying to replace '%s': %m", slink, target, slink);
         }
 
         log_device_debug(dev, "Atomically replace '%s'", slink);
@@ -225,7 +225,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                         r = mkdir_parents(filename, 0755);
                         if (!IN_SET(r, 0, -ENOENT))
                                 break;
-                        fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
+                        fd = open(filename, O_WRONLY | O_CREAT | O_CLOEXEC | O_TRUNC | O_NOFOLLOW, 0444);
                         if (fd < 0)
                                 r = -errno;
                 } while (r == -ENOENT);
@@ -251,25 +251,22 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 
                 /* check if old link name still belongs to this device */
                 FOREACH_DEVICE_DEVLINK(dev, name_current)
-                        if (streq(name, name_current)) {
-                                found = true;
-                                break;
-                        }
+                if (streq(name, name_current)) {
+                        found = true;
+                        break;
+                }
 
                 if (found)
                         continue;
 
-                log_device_debug(dev, "Updating old name, '%s' no longer belonging to '%s'",
-                                 name, devpath);
+                log_device_debug(dev, "Updating old name, '%s' no longer belonging to '%s'", name, devpath);
                 link_update(dev, name, false);
         }
 
         return 0;
 }
 
-static int node_permissions_apply(sd_device *dev, bool apply,
-                                  mode_t mode, uid_t uid, gid_t gid,
-                                  Hashmap *seclabel_list) {
+static int node_permissions_apply(sd_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid, Hashmap *seclabel_list) {
         const char *devnode, *subsystem, *id_filename = NULL;
         struct stat stats;
         dev_t devnum;
@@ -297,8 +294,7 @@ static int node_permissions_apply(sd_device *dev, bool apply,
                 return log_device_debug_errno(dev, errno, "cannot stat() node '%s' (%m)", devnode);
 
         if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum))
-                return log_device_debug_errno(dev, EEXIST, "Found node '%s' with non-matching devnum %s, skip handling",
-                                              devnode, id_filename);
+                return log_device_debug_errno(dev, EEXIST, "Found node '%s' with non-matching devnum %s, skip handling", devnode, id_filename);
 
         if (apply) {
                 bool selinux = false, smack = false;
@@ -369,9 +365,7 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        xsprintf_dev_num_path(filename,
-                              streq(subsystem, "block") ? "block" : "char",
-                              devnum);
+        xsprintf_dev_num_path(filename, streq(subsystem, "block") ? "block" : "char", devnum);
 
         s = strdup(filename);
         if (!s)
@@ -381,9 +375,7 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
         return 0;
 }
 
-int udev_node_add(sd_device *dev, bool apply,
-                  mode_t mode, uid_t uid, gid_t gid,
-                  Hashmap *seclabel_list) {
+int udev_node_add(sd_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid, Hashmap *seclabel_list) {
         const char *devnode, *devlink;
         _cleanup_free_ char *filename = NULL;
         int r;
@@ -398,8 +390,13 @@ int udev_node_add(sd_device *dev, bool apply,
                 const char *id_filename = NULL;
 
                 (void) device_get_id_filename(dev, &id_filename);
-                log_device_debug(dev, "Handling device node '%s', devnum=%s, mode=%#o, uid="UID_FMT", gid="GID_FMT,
-                                 devnode, strnull(id_filename), mode, uid, gid);
+                log_device_debug(dev,
+                                 "Handling device node '%s', devnum=%s, mode=%#o, uid=" UID_FMT ", gid=" GID_FMT,
+                                 devnode,
+                                 strnull(id_filename),
+                                 mode,
+                                 uid,
+                                 gid);
         }
 
         r = node_permissions_apply(dev, apply, mode, uid, gid, seclabel_list);
@@ -415,7 +412,7 @@ int udev_node_add(sd_device *dev, bool apply,
 
         /* create/update symlinks, add symlinks to name index */
         FOREACH_DEVICE_DEVLINK(dev, devlink)
-                (void) link_update(dev, devlink, true);
+        (void) link_update(dev, devlink, true);
 
         return 0;
 }
@@ -429,7 +426,7 @@ int udev_node_remove(sd_device *dev) {
 
         /* remove/update symlinks, remove symlinks from name index */
         FOREACH_DEVICE_DEVLINK(dev, devlink)
-                (void) link_update(dev, devlink, false);
+        (void) link_update(dev, devlink, false);
 
         r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
         if (r < 0)

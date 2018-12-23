@@ -16,7 +16,7 @@
 #include "strv.h"
 #include "xattr-util.h"
 
-PullJob* pull_job_unref(PullJob *j) {
+PullJob *pull_job_unref(PullJob *j) {
         if (!j)
                 return NULL;
 
@@ -88,7 +88,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
         long status;
         int r;
 
-        if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **)&j) != CURLE_OK)
+        if (curl_easy_getinfo(curl, CURLINFO_PRIVATE, (char **) &j) != CURLE_OK)
                 return;
 
         if (!j || IN_SET(j->state, PULL_JOB_DONE, PULL_JOB_FAILED))
@@ -146,8 +146,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->content_length != (uint64_t) -1 &&
-            j->content_length != j->written_compressed) {
+        if (j->content_length != (uint64_t) -1 && j->content_length != j->written_compressed) {
                 log_error("Download truncated.");
                 r = -EIO;
                 goto finish;
@@ -214,12 +213,10 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
                 return 0;
 
         if (j->written_uncompressed + sz < j->written_uncompressed)
-                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW),
-                                       "File too large, overflow");
+                return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
         if (j->written_uncompressed + sz > j->uncompressed_max)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                       "File overly large, refusing");
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing");
 
         if (j->disk_fd >= 0) {
 
@@ -263,10 +260,8 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         if (j->written_compressed + sz > j->compressed_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
-        if (j->content_length != (uint64_t) -1 &&
-            j->written_compressed + sz > j->content_length)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
-                                       "Content length incorrect.");
+        if (j->content_length != (uint64_t) -1 && j->written_compressed + sz > j->content_length)
+                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "Content length incorrect.");
 
         if (j->checksum_context)
                 gcry_md_write(j->checksum_context, p, sz);
@@ -308,8 +303,7 @@ static int pull_job_open_disk(PullJob *j) {
                 initialize_libgcrypt(false);
 
                 if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to initialize hash context.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize hash context.");
         }
 
         return 0;
@@ -498,9 +492,7 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
         percent = ((100 * dlnow) / dltotal);
         n = now(CLOCK_MONOTONIC);
 
-        if (n > j->last_status_usec + USEC_PER_SEC &&
-            percent != j->progress_percent &&
-            dlnow < dltotal) {
+        if (n > j->last_status_usec + USEC_PER_SEC && percent != j->progress_percent && dlnow < dltotal) {
                 char buf[FORMAT_TIMESPAN_MAX];
 
                 if (n - j->start_usec > USEC_PER_SEC && dlnow > 0) {
@@ -508,13 +500,13 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
                         usec_t left, done;
 
                         done = n - j->start_usec;
-                        left = (usec_t) (((double) done * (double) dltotal) / dlnow) - done;
+                        left = (usec_t)(((double) done * (double) dltotal) / dlnow) - done;
 
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
                                  j->url,
                                  format_timespan(buf, sizeof(buf), left, USEC_PER_SEC),
-                                 format_bytes(y, sizeof(y), (uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
+                                 format_bytes(y, sizeof(y), (uint64_t)((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, j->url);
 
@@ -540,18 +532,18 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
         if (u)
                 return -ENOMEM;
 
-        j = new(PullJob, 1);
+        j = new (PullJob, 1);
         if (!j)
                 return -ENOMEM;
 
-        *j = (PullJob) {
+        *j = (PullJob){
                 .state = PULL_JOB_INIT,
                 .disk_fd = -1,
                 .userdata = userdata,
                 .glue = glue,
                 .content_length = (uint64_t) -1,
                 .start_usec = now(CLOCK_MONOTONIC),
-                .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
+                .compressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU,   /* 64GB safety limit */
                 .uncompressed_max = 64LLU * 1024LLU * 1024LLU * 1024LLU, /* 64GB safety limit */
                 .style = VERIFICATION_STYLE_UNSET,
                 .url = TAKE_PTR(u),

@@ -15,8 +15,8 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
-        struct in_addr address = {.s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
-        static const uint8_t chaddr[] = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
+        struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1)) };
+        static const uint8_t chaddr[] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
         uint8_t *client_id;
         DHCPLease *lease;
         int pool_offset;
@@ -25,7 +25,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return 0;
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
-        server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
+        server->fd = open("/dev/null", O_RDWR | O_CLOEXEC | O_NOCTTY);
         assert_se(server->fd >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);
 
@@ -46,7 +46,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         server->bound_leases[pool_offset] = lease;
         assert_se(hashmap_put(server->leases_by_client_id, &lease->client_id, lease) >= 0);
 
-        (void) dhcp_server_handle_message(server, (DHCPMessage*)data, size);
+        (void) dhcp_server_handle_message(server, (DHCPMessage *) data, size);
 
         return 0;
 }

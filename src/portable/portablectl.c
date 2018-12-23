@@ -32,7 +32,7 @@ static bool arg_legend = true;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static const char *arg_profile = "default";
-static const char* arg_copy_mode = NULL;
+static const char *arg_copy_mode = NULL;
 static bool arg_runtime = false;
 static bool arg_reload = true;
 static bool arg_cat = false;
@@ -51,8 +51,10 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 char *c;
 
                 if (!arg_quiet && laccess(image, F_OK) >= 0)
-                        log_warning("Ambiguous invocation: current working directory contains file matching non-path argument '%s', ignoring. "
-                                    "Prefix argument with './' to force reference to file in current working directory.", image);
+                        log_warning(
+                                "Ambiguous invocation: current working directory contains file matching non-path argument '%s', ignoring. "
+                                "Prefix argument with './' to force reference to file in current working directory.",
+                                image);
 
                 c = strdup(image);
                 if (!c)
@@ -135,8 +137,7 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
         } else if (strv_equal(l, STRV_MAKE("-"))) {
 
                 if (!allow_any)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Refusing all unit file match.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing all unit file match.");
 
                 if (!arg_quiet)
                         log_info("(Matching all unit files.)");
@@ -192,12 +193,7 @@ static int maybe_reload(sd_bus **bus) {
                 return r;
 
         r = sd_bus_message_new_method_call(
-                        *bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
+                *bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -234,12 +230,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 return r;
 
         r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "GetImageMetadata");
+                bus, &m, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "GetImageMetadata");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -275,13 +266,11 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
 
                 _cleanup_fclose_ FILE *f;
 
-                f = fmemopen((void*) data, sz, "re");
+                f = fmemopen((void *) data, sz, "re");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
-                r = parse_env_file(f, "/etc/os-release",
-                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                   "PRETTY_NAME", &pretty_os);
+                r = parse_env_file(f, "/etc/os-release", "PORTABLE_PRETTY_NAME", &pretty_portable, "PRETTY_NAME", &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
@@ -411,12 +400,7 @@ static int attach_image(int argc, char *argv[], void *userdata) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "AttachImage");
+                bus, &m, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "AttachImage");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -459,15 +443,16 @@ static int detach_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "DetachImage",
-                        &error,
-                        &reply,
-                        "sb", image, arg_runtime);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.portable1",
+                               "/org/freedesktop/portable1",
+                               "org.freedesktop.portable1.Manager",
+                               "DetachImage",
+                               &error,
+                               &reply,
+                               "sb",
+                               image,
+                               arg_runtime);
         if (r < 0)
                 return log_error_errno(r, "Failed to detach image: %s", bus_error_message(&error, r));
 
@@ -488,15 +473,14 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "ListImages",
-                        &error,
-                        &reply,
-                        NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.portable1",
+                               "/org/freedesktop/portable1",
+                               "org.freedesktop.portable1.Manager",
+                               "ListImages",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
 
@@ -521,9 +505,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = table_add_many(table,
-                                   TABLE_STRING, name,
-                                   TABLE_STRING, type);
+                r = table_add_many(table, TABLE_STRING, name, TABLE_STRING, type);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 
@@ -538,10 +520,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to set table cell color: %m");
                 }
 
-                r = table_add_many(table,
-                                   TABLE_TIMESTAMP, crtime,
-                                   TABLE_TIMESTAMP, mtime,
-                                   TABLE_SIZE, usage);
+                r = table_add_many(table, TABLE_TIMESTAMP, crtime, TABLE_TIMESTAMP, mtime, TABLE_SIZE, usage);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
 
@@ -596,13 +575,12 @@ static int remove_image(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "RemoveImage");
+                r = sd_bus_message_new_method_call(bus,
+                                                   &m,
+                                                   "org.freedesktop.portable1",
+                                                   "/org/freedesktop/portable1",
+                                                   "org.freedesktop.portable1.Manager",
+                                                   "RemoveImage");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -636,15 +614,16 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "MarkImageReadOnly",
-                        &error,
-                        NULL,
-                        "sb", argv[1], b);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.portable1",
+                               "/org/freedesktop/portable1",
+                               "org.freedesktop.portable1.Manager",
+                               "MarkImageReadOnly",
+                               &error,
+                               NULL,
+                               "sb",
+                               argv[1],
+                               b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -663,36 +642,37 @@ static int set_limit(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
+        if (STR_IN_SET(argv[argc - 1], "-", "none", "infinity"))
                 limit = (uint64_t) -1;
         else {
-                r = parse_size(argv[argc-1], 1024, &limit);
+                r = parse_size(argv[argc - 1], 1024, &limit);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
+                        return log_error_errno(r, "Failed to parse size: %s", argv[argc - 1]);
         }
 
         if (argc > 2)
                 /* With two arguments changes the quota limit of the specified image */
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "SetImageLimit",
-                                &error,
-                                NULL,
-                                "st", argv[1], limit);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.portable1",
+                                       "/org/freedesktop/portable1",
+                                       "org.freedesktop.portable1.Manager",
+                                       "SetImageLimit",
+                                       &error,
+                                       NULL,
+                                       "st",
+                                       argv[1],
+                                       limit);
         else
                 /* With one argument changes the pool quota limit */
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "SetPoolLimit",
-                                &error,
-                                NULL,
-                                "t", limit);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.portable1",
+                                       "/org/freedesktop/portable1",
+                                       "org.freedesktop.portable1.Manager",
+                                       "SetPoolLimit",
+                                       &error,
+                                       NULL,
+                                       "t",
+                                       limit);
 
         if (r < 0)
                 return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));
@@ -716,15 +696,15 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "GetImageState",
-                        &error,
-                        &reply,
-                        "s", image);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.portable1",
+                               "/org/freedesktop/portable1",
+                               "org.freedesktop.portable1.Manager",
+                               "GetImageState",
+                               &error,
+                               &reply,
+                               "s",
+                               image);
         if (r < 0)
                 return log_error_errno(r, "Failed to get image state: %s", bus_error_message(&error, r));
 
@@ -750,13 +730,7 @@ static int dump_profiles(void) {
                 return r;
 
         r = sd_bus_get_property_strv(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "Profiles",
-                        &error,
-                        &l);
+                bus, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "Profiles", &error, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire list of profiles: %s", bus_error_message(&error, r));
 
@@ -808,17 +782,17 @@ static int help(int argc, char *argv[], void *userdata) {
                "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
                "  remove NAME|PATH...         Remove a portable service image\n"
                "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
@@ -829,22 +803,20 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CAT,
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "profile",         required_argument, NULL, 'p'                 },
-                { "copy",            required_argument, NULL, ARG_COPY            },
-                { "runtime",         no_argument,       NULL, ARG_RUNTIME         },
-                { "no-reload",       no_argument,       NULL, ARG_NO_RELOAD       },
-                { "cat",             no_argument,       NULL, ARG_CAT             },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "no-legend", no_argument, NULL, ARG_NO_LEGEND },
+                                                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                                                 { "host", required_argument, NULL, 'H' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "quiet", no_argument, NULL, 'q' },
+                                                 { "profile", required_argument, NULL, 'p' },
+                                                 { "copy", required_argument, NULL, ARG_COPY },
+                                                 { "runtime", no_argument, NULL, ARG_RUNTIME },
+                                                 { "no-reload", no_argument, NULL, ARG_NO_RELOAD },
+                                                 { "cat", no_argument, NULL, ARG_CAT },
+                                                 {} };
 
         assert(argc >= 0);
         assert(argv);
@@ -895,8 +867,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return dump_profiles();
 
                         if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unit profile name not valid: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unit profile name not valid: %s", optarg);
 
                         arg_profile = optarg;
                         break;
@@ -912,8 +883,7 @@ static int parse_argv(int argc, char *argv[]) {
                                      "symlink");
                                 return 0;
                         } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --copy= argument: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --copy= argument: %s", optarg);
 
                         break;
 
@@ -941,18 +911,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
-                { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
-                { "attach",      2,        VERB_ANY, 0,            attach_image      },
-                { "detach",      2,        2,        0,            detach_image      },
-                { "inspect",     2,        VERB_ANY, 0,            inspect_image     },
-                { "is-attached", 2,        2,        0,            is_image_attached },
-                { "read-only",   2,        3,        0,            read_only_image   },
-                { "remove",      2,        VERB_ANY, 0,            remove_image      },
-                { "set-limit",   3,        3,        0,            set_limit         },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },      { "list", VERB_ANY, 1, VERB_DEFAULT, list_images },
+                                      { "attach", 2, VERB_ANY, 0, attach_image },   { "detach", 2, 2, 0, detach_image },
+                                      { "inspect", 2, VERB_ANY, 0, inspect_image }, { "is-attached", 2, 2, 0, is_image_attached },
+                                      { "read-only", 2, 3, 0, read_only_image },    { "remove", 2, VERB_ANY, 0, remove_image },
+                                      { "set-limit", 3, 3, 0, set_limit },          {} };
 
         int r;
 

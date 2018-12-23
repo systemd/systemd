@@ -15,10 +15,11 @@ char *id128_to_uuid_string(sd_id128_t id, char s[37]);
 
 bool id128_is_valid(const char *s) _pure_;
 
-typedef enum Id128Format {
+typedef enum Id128Format
+{
         ID128_ANY,
-        ID128_PLAIN,  /* formatted as 32 hex chars as-is */
-        ID128_UUID,   /* formatted as 36 character uuid string */
+        ID128_PLAIN, /* formatted as 32 hex chars as-is */
+        ID128_UUID,  /* formatted as 36 character uuid string */
         _ID128_FORMAT_MAX,
 } Id128Format;
 

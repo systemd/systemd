@@ -9,8 +9,8 @@
 
 typedef struct FDSet FDSet;
 
-FDSet* fdset_new(void);
-FDSet* fdset_free(FDSet *s);
+FDSet *fdset_new(void);
+FDSet *fdset_free(FDSet *s);
 
 int fdset_put(FDSet *s, int fd);
 int fdset_put_dup(FDSet *s, int fd);
@@ -36,5 +36,5 @@ int fdset_steal_first(FDSet *fds);
 #define FDSET_FOREACH(fd, fds, i) \
         for ((i) = ITERATOR_FIRST, (fd) = fdset_iterate((fds), &(i)); (fd) >= 0; (fd) = fdset_iterate((fds), &(i)))
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet*, fdset_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet *, fdset_free);
 #define _cleanup_fdset_free_ _cleanup_(fdset_freep)

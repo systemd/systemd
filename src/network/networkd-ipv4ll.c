@@ -107,8 +107,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         else if (r < 0)
                 return r;
 
-        log_link_debug(link, "IPv4 link-local claim %u.%u.%u.%u",
-                       ADDRESS_FMT_VAL(address));
+        log_link_debug(link, "IPv4 link-local claim %u.%u.%u.%u", ADDRESS_FMT_VAL(address));
 
         r = address_new(&ll_addr);
         if (r < 0)
@@ -154,35 +153,35 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        switch(event) {
-                case SD_IPV4LL_EVENT_STOP:
-                        r = ipv4ll_address_lost(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return;
-                        }
-                        break;
-                case SD_IPV4LL_EVENT_CONFLICT:
-                        r = ipv4ll_address_lost(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return;
-                        }
+        switch (event) {
+        case SD_IPV4LL_EVENT_STOP:
+                r = ipv4ll_address_lost(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return;
+                }
+                break;
+        case SD_IPV4LL_EVENT_CONFLICT:
+                r = ipv4ll_address_lost(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return;
+                }
 
-                        r = sd_ipv4ll_restart(ll);
-                        if (r < 0)
-                                log_link_warning(link, "Could not acquire IPv4 link-local address");
-                        break;
-                case SD_IPV4LL_EVENT_BIND:
-                        r = ipv4ll_address_claimed(ll, link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return;
-                        }
-                        break;
-                default:
-                        log_link_warning(link, "IPv4 link-local unknown event: %d", event);
-                        break;
+                r = sd_ipv4ll_restart(ll);
+                if (r < 0)
+                        log_link_warning(link, "Could not acquire IPv4 link-local address");
+                break;
+        case SD_IPV4LL_EVENT_BIND:
+                r = ipv4ll_address_claimed(ll, link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return;
+                }
+                break;
+        default:
+                log_link_warning(link, "IPv4 link-local unknown event: %d", event);
+                break;
         }
 }
 
@@ -200,8 +199,7 @@ int ipv4ll_configure(Link *link) {
                         return r;
         }
 
-        if (link->sd_device &&
-            net_get_unique_predictable_data(link->sd_device, &seed) >= 0) {
+        if (link->sd_device && net_get_unique_predictable_data(link->sd_device, &seed) >= 0) {
                 r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
                 if (r < 0)
                         return r;

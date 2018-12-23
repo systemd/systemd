@@ -47,7 +47,7 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
         }
 }
 
-DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c) {
+DnsQueryCandidate *dns_query_candidate_free(DnsQueryCandidate *c) {
 
         if (!c)
                 return NULL;
@@ -316,7 +316,6 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
                                 return;
                         }
                 }
-
         }
 
         dns_query_ready(c->query);
@@ -336,7 +335,7 @@ static void dns_query_stop(DnsQuery *q) {
         q->timeout_event_source = sd_event_source_unref(q->timeout_event_source);
 
         LIST_FOREACH(candidates_by_query, c, q->candidates)
-                dns_query_candidate_stop(c);
+        dns_query_candidate_stop(c);
 }
 
 static void dns_query_free_candidates(DnsQuery *q) {
@@ -403,13 +402,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
-int dns_query_new(
-                Manager *m,
-                DnsQuery **ret,
-                DnsQuestion *question_utf8,
-                DnsQuestion *question_idna,
-                int ifindex,
-                uint64_t flags) {
+int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQuestion *question_idna, int ifindex, uint64_t flags) {
 
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         DnsResourceKey *key;
@@ -467,8 +460,7 @@ int dns_query_new(
 
         /* First dump UTF8  question */
         DNS_QUESTION_FOREACH(key, question_utf8)
-                log_debug("Looking up RR for %s.",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+        log_debug("Looking up RR for %s.", dns_resource_key_to_string(key, key_str, sizeof key_str));
 
         /* And then dump the IDNA question, but only what hasn't been dumped already through the UTF8 question. */
         DNS_QUESTION_FOREACH(key, question_idna) {
@@ -478,8 +470,7 @@ int dns_query_new(
                 if (r > 0)
                         continue;
 
-                log_debug("Looking up IDNA RR for %s.",
-                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("Looking up IDNA RR for %s.", dns_resource_key_to_string(key, key_str, sizeof key_str));
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -554,8 +545,7 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
                 return r;
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
-        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0 &&
-            dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna))) {
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0 && dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna))) {
                 /* OK, we need a search domain now. Let's find one for this scope */
 
                 r = dns_query_candidate_next_search_domain(c);
@@ -594,11 +584,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                     DNS_TRANSACTION_NOT_FOUND))
                 return 0;
 
-        r = dns_synthesize_answer(
-                        q->manager,
-                        q->question_utf8,
-                        q->ifindex,
-                        &answer);
+        r = dns_synthesize_answer(q->manager, q->question_utf8, q->ifindex, &answer);
         if (r == -ENXIO) {
                 /* If we get ENXIO this tells us to generate NXDOMAIN unconditionally. */
 
@@ -636,10 +622,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
          * data from /etc/hosts hence takes precedence over the network. */
 
-        r = manager_etc_hosts_lookup(
-                        q->manager,
-                        q->question_utf8,
-                        &answer);
+        r = manager_etc_hosts_lookup(q->manager, q->question_utf8, &answer);
         if (r <= 0)
                 return r;
 
@@ -733,12 +716,13 @@ int dns_query_go(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        r = sd_event_add_time(
-                        q->manager->event,
-                        &q->timeout_event_source,
-                        clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + SD_RESOLVED_QUERY_TIMEOUT_USEC,
-                        0, on_query_timeout, q);
+        r = sd_event_add_time(q->manager->event,
+                              &q->timeout_event_source,
+                              clock_boottime_or_monotonic(),
+                              now(clock_boottime_or_monotonic()) + SD_RESOLVED_QUERY_TIMEOUT_USEC,
+                              0,
+                              on_query_timeout,
+                              q);
         if (r < 0)
                 goto fail;
 
@@ -947,7 +931,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 if (k < 0)
                         return k;
                 else if (k > 0)
-                        log_debug("Following UTF8 CNAME/DNAME %s → %s.", dns_question_first_name(q->question_utf8), dns_question_first_name(nq_utf8));
+                        log_debug("Following UTF8 CNAME/DNAME %s → %s.",
+                                  dns_question_first_name(q->question_utf8),
+                                  dns_question_first_name(nq_utf8));
         }
 
         if (r == 0 && k == 0) /* No actual cname happened? */
@@ -958,7 +944,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                  * cannot invade the local namespace. The opposite way we permit: local names may redirect to global
                  * ones. */
 
-                q->flags &= ~(SD_RESOLVED_LLMNR|SD_RESOLVED_MDNS); /* mask away the local protocols */
+                q->flags &= ~(SD_RESOLVED_LLMNR | SD_RESOLVED_MDNS); /* mask away the local protocols */
         }
 
         /* Turn off searching for the new name */
@@ -1063,7 +1049,7 @@ int dns_query_bus_track(DnsQuery *q, sd_bus_message *m) {
         return 0;
 }
 
-DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
+DnsQuestion *dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {
         assert(q);
 
         switch (protocol) {

@@ -28,7 +28,8 @@
 #include "utf8.h"
 #include "util.h"
 
-typedef enum ItemType {
+typedef enum ItemType
+{
         ADD_USER = 'u',
         ADD_GROUP = 'g',
         ADD_MEMBER = 'm',
@@ -48,17 +49,17 @@ typedef struct Item {
         gid_t gid;
         uid_t uid;
 
-        bool gid_set:1;
+        bool gid_set : 1;
 
         /* When set the group with the specified gid must exist
          * and the check if a uid clashes with the gid is skipped.
          */
-        bool id_set_strict:1;
+        bool id_set_strict : 1;
 
-        bool uid_set:1;
+        bool uid_set : 1;
 
-        bool todo_user:1;
-        bool todo_group:1;
+        bool todo_user : 1;
+        bool todo_group : 1;
 } Item;
 
 static char *arg_root = NULL;
@@ -198,7 +199,7 @@ static int make_backup(const char *target, const char *x) {
         struct stat st;
         int r;
 
-        src = open(x, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        src = open(x, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (src < 0) {
                 if (errno == ENOENT) /* No backup necessary... */
                         return 0;
@@ -360,7 +361,7 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
         return r;
 }
 
-static const char* default_shell(uid_t uid) {
+static const char *default_shell(uid_t uid) {
         return uid == 0 ? "/bin/sh" : "/sbin/nologin";
 }
 
@@ -425,14 +426,14 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_gecos = i->description,
 
                         /* "x" means the password is stored in the shadow file */
-                        .pw_passwd = (char*) "x",
+                        .pw_passwd = (char *) "x",
 
                         /* We default to the root directory as home */
-                        .pw_dir = i->home ? i->home : (char*) "/",
+                        .pw_dir = i->home ? i->home : (char *) "/",
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
-                        .pw_shell = i->shell ?: (char*) default_shell(i->uid),
+                        .pw_shell = i->shell ?: (char *) default_shell(i->uid),
                 };
 
                 r = putpwent_sane(&n, passwd);
@@ -522,7 +523,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!!",
+                        .sp_pwdp = (char *) "!!",
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
@@ -599,7 +600,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                         if (ordered_hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
                                 log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
-                                return  -EEXIST;
+                                return -EEXIST;
                         }
 
                         /* Make sure we keep the NIS entries (if any) at the end. */
@@ -626,7 +627,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
-                        .gr_passwd = (char*) "x",
+                        .gr_passwd = (char *) "x",
                 };
 
                 r = putgrent_with_members(&n, group);
@@ -660,7 +661,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         return 0;
 }
 
-static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, char **tmpfile_path) {
+static int write_temporary_gshadow(const char *gshadow_path, FILE **tmpfile, char **tmpfile_path) {
 #if ENABLE_GSHADOW
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
@@ -711,7 +712,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
                 struct sgrp n = {
                         .sg_namp = i->name,
-                        .sg_passwd = (char*) "!!",
+                        .sg_passwd = (char *) "!!",
                 };
 
                 r = putsgent_with_members(&n, gshadow);
@@ -895,9 +896,7 @@ static int read_id_from_file(Item *i, uid_t *_uid, gid_t *_gid) {
         }
 
         /* Then, try to get the uid directly */
-        if ((_uid || (_gid && !found_gid))
-            && i->uid_path
-            && root_stat(i->uid_path, &st) >= 0) {
+        if ((_uid || (_gid && !found_gid)) && i->uid_path && root_stat(i->uid_path, &st) >= 0) {
 
                 uid = st.st_uid;
                 found_uid = true;
@@ -1129,9 +1128,7 @@ static int add_group(Item *i) {
                          * r == 0: means the gid exists -> nothing more to do.
                          */
                         if (r > 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to create %s: please create GID %d",
-                                                       i->name, i->gid);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to create %s: please create GID %d", i->name, i->gid);
                         if (r == 0)
                                 return 0;
                 }
@@ -1243,7 +1240,7 @@ static int process_item(Item *i) {
         }
 }
 
-static Item* item_free(Item *i) {
+static Item *item_free(Item *i) {
         if (!i)
                 return NULL;
 
@@ -1256,7 +1253,7 @@ static Item* item_free(Item *i) {
         return mfree(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Item *, item_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
 
 static int add_implicit(void) {
@@ -1269,32 +1266,31 @@ static int add_implicit(void) {
                 char **m;
 
                 STRV_FOREACH(m, l)
-                        if (!ordered_hashmap_get(users, *m)) {
-                                _cleanup_(item_freep) Item *j = NULL;
+                if (!ordered_hashmap_get(users, *m)) {
+                        _cleanup_(item_freep) Item *j = NULL;
 
-                                r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
-                                if (r < 0)
-                                        return log_oom();
+                        r = ordered_hashmap_ensure_allocated(&users, &item_hash_ops);
+                        if (r < 0)
+                                return log_oom();
 
-                                j = new0(Item, 1);
-                                if (!j)
-                                        return log_oom();
+                        j = new0(Item, 1);
+                        if (!j)
+                                return log_oom();
 
-                                j->type = ADD_USER;
-                                j->name = strdup(*m);
-                                if (!j->name)
-                                        return log_oom();
+                        j->type = ADD_USER;
+                        j->name = strdup(*m);
+                        if (!j->name)
+                                return log_oom();
 
-                                r = ordered_hashmap_put(users, j->name, j);
-                                if (r < 0)
-                                        return log_oom();
+                        r = ordered_hashmap_put(users, j->name, j);
+                        if (r < 0)
+                                return log_oom();
 
-                                log_debug("Adding implicit user '%s' due to m line", j->name);
-                                j = NULL;
-                        }
+                        log_debug("Adding implicit user '%s' due to m line", j->name);
+                        j = NULL;
+                }
 
-                if (!(ordered_hashmap_get(users, g) ||
-                      ordered_hashmap_get(groups, g))) {
+                if (!(ordered_hashmap_get(users, g) || ordered_hashmap_get(groups, g))) {
                         _cleanup_(item_freep) Item *j = NULL;
 
                         r = ordered_hashmap_ensure_allocated(&groups, &item_hash_ops);
@@ -1362,26 +1358,20 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
-DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
+DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char *, strv_free);
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,     NULL },
-                { 'b', specifier_boot_id,        NULL },
-                { 'H', specifier_host_name,      NULL },
-                { 'v', specifier_kernel_release, NULL },
-                { 'T', specifier_tmp_dir,        NULL },
-                { 'V', specifier_var_tmp_dir,    NULL },
-                {}
-        };
+        static const Specifier specifier_table[] = { { 'm', specifier_machine_id, NULL },
+                                                     { 'b', specifier_boot_id, NULL },
+                                                     { 'H', specifier_host_name, NULL },
+                                                     { 'v', specifier_kernel_release, NULL },
+                                                     { 'T', specifier_tmp_dir, NULL },
+                                                     { 'V', specifier_var_tmp_dir, NULL },
+                                                     {} };
 
-        _cleanup_free_ char *action = NULL,
-                *name = NULL, *resolved_name = NULL,
-                *id = NULL, *resolved_id = NULL,
-                *description = NULL, *resolved_description = NULL,
-                *home = NULL, *resolved_home = NULL,
-                *shell, *resolved_shell = NULL;
+        _cleanup_free_ char *action = NULL, *name = NULL, *resolved_name = NULL, *id = NULL, *resolved_id = NULL, *description = NULL,
+                            *resolved_description = NULL, *home = NULL, *resolved_home = NULL, *shell, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
@@ -1394,8 +1384,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = extract_many_words(&p, NULL, EXTRACT_QUOTES,
-                               &action, &name, &id, &description, &home, &shell, NULL);
+        r = extract_many_words(&p, NULL, EXTRACT_QUOTES, &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return r;
@@ -1515,7 +1504,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (description || home || shell) {
                         log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
+                                  fname,
+                                  line,
+                                  action[0],
                                   description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
@@ -1549,7 +1540,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (description || home || shell) {
                         log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
+                                  fname,
+                                  line,
+                                  action[0],
                                   description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
@@ -1642,7 +1635,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (description || home || shell) {
                         log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
-                                  fname, line, action[0],
+                                  fname,
+                                  line,
+                                  action[0],
                                   description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
@@ -1707,7 +1702,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char **) CONF_PATHS_STRV("sysusers.d"), &rf);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1779,17 +1774,17 @@ static int help(void) {
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_ROOT,
@@ -1798,16 +1793,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
         };
 
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
-                { "root",       required_argument, NULL, ARG_ROOT       },
-                { "replace",    required_argument, NULL, ARG_REPLACE    },
-                { "inline",     no_argument,       NULL, ARG_INLINE     },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
+                                                 { "root", required_argument, NULL, ARG_ROOT },
+                                                 { "replace", required_argument, NULL, ARG_REPLACE },
+                                                 { "inline", no_argument, NULL, ARG_INLINE },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 {} };
 
         int c, r;
 
@@ -1835,8 +1828,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REPLACE:
-                        if (!path_is_absolute(optarg) ||
-                            !endswith(optarg, ".conf"))
+                        if (!path_is_absolute(optarg) || !endswith(optarg, ".conf"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "The argument to --replace= must an absolute path to a config file");
 
@@ -1859,12 +1851,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_replace && arg_cat_config)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --replace= is not supported with --cat-config");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --replace= is not supported with --cat-config");
 
         if (arg_replace && optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "When --replace= is given, some configuration items must be specified");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When --replace= is given, some configuration items must be specified");
 
         return 1;
 }
@@ -1900,18 +1890,18 @@ static int read_config_files(char **args) {
                 return r;
 
         STRV_FOREACH(f, files)
-                if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"…", *f);
+        if (p && path_equal(*f, p)) {
+                log_debug("Parsing arguments at position \"%s\"…", *f);
 
-                        r = parse_arguments(args);
-                        if (r < 0)
-                                return r;
-                } else {
-                        log_debug("Reading config file \"%s\"…", *f);
+                r = parse_arguments(args);
+                if (r < 0)
+                        return r;
+        } else {
+                log_debug("Reading config file \"%s\"…", *f);
 
-                        /* Just warn, ignore result otherwise */
-                        (void) read_config_file(*f, true);
-                }
+                /* Just warn, ignore result otherwise */
+                (void) read_config_file(*f, true);
+        }
 
         return 0;
 }
@@ -1982,10 +1972,10 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to read group database: %m");
 
         ORDERED_HASHMAP_FOREACH(i, groups, iterator)
-                (void) process_item(i);
+        (void) process_item(i);
 
         ORDERED_HASHMAP_FOREACH(i, users, iterator)
-                (void) process_item(i);
+        (void) process_item(i);
 
         r = write_files();
         if (r < 0)

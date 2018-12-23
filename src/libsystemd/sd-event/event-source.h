@@ -12,7 +12,8 @@
 #include "list.h"
 #include "prioq.h"
 
-typedef enum EventSourceType {
+typedef enum EventSourceType
+{
         SOURCE_IO,
         SOURCE_TIME_REALTIME,
         SOURCE_TIME_BOOTTIME,
@@ -32,7 +33,8 @@ typedef enum EventSourceType {
 
 /* All objects we use in epoll events start with this value, so that
  * we know how to dispatch it */
-typedef enum WakeupType {
+typedef enum WakeupType
+{
         WAKEUP_NONE,
         WAKEUP_EVENT_SOURCE,
         WAKEUP_CLOCK_DATA,
@@ -55,11 +57,11 @@ struct sd_event_source {
 
         char *description;
 
-        EventSourceType type:5;
-        signed int enabled:3;
-        bool pending:1;
-        bool dispatching:1;
-        bool floating:1;
+        EventSourceType type : 5;
+        signed int enabled : 3;
+        bool pending : 1;
+        bool dispatching : 1;
+        bool floating : 1;
 
         int64_t priority;
         unsigned pending_index;
@@ -77,8 +79,8 @@ struct sd_event_source {
                         int fd;
                         uint32_t events;
                         uint32_t revents;
-                        bool registered:1;
-                        bool owned:1;
+                        bool registered : 1;
+                        bool owned : 1;
                 } io;
                 struct {
                         sd_event_time_handler_t callback;
@@ -131,7 +133,7 @@ struct clock_data {
         Prioq *latest;
         usec_t next;
 
-        bool needs_rearm:1;
+        bool needs_rearm : 1;
 };
 
 struct signal_data {

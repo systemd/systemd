@@ -25,8 +25,7 @@ static int test_failed_enumerate(void) {
         return 0;
 }
 
-#define DELL_MODALIAS \
-        "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY"
+#define DELL_MODALIAS "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY"
 
 static void test_basic_enumerate(void) {
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;

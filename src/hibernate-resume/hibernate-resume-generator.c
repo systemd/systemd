@@ -75,8 +75,7 @@ static int run(int argc, char *argv[]) {
         log_setup_generator();
 
         if (argc > 1 && argc != 4)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes three or no arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes three or no arguments.");
 
         if (argc > 1)
                 arg_dest = argv[1];

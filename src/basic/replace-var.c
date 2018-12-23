@@ -26,7 +26,7 @@ static int get_variable(const char *b, char **r) {
                 return 0;
 
         k = strspn(b + 1, UPPERCASE_LETTERS "_");
-        if (k <= 0 || b[k+1] != '@')
+        if (k <= 0 || b[k + 1] != '@')
                 return 0;
 
         t = strndup(b + 1, k);
@@ -46,7 +46,7 @@ char *replace_var(const char *text, char *(*lookup)(const char *variable, void *
         assert(lookup);
 
         l = strlen(text);
-        r = new(char, l+1);
+        r = new (char, l + 1);
         if (!r)
                 return NULL;
 

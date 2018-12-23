@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
-        log_info("Current system CPU time: %s", format_timespan(buf, sizeof(buf), nsec/NSEC_PER_USEC, 1));
+        log_info("Current system CPU time: %s", format_timespan(buf, sizeof(buf), nsec / NSEC_PER_USEC, 1));
 
         assert_se(procfs_memory_get_current(&v) >= 0);
         log_info("Current memory usage: %s", format_bytes(buf, sizeof(buf), v));
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 
         if (v > 100) {
                 uint64_t w;
-                r = procfs_tasks_set_limit(v-1);
+                r = procfs_tasks_set_limit(v - 1);
                 assert_se(IN_SET(r, 0, -EPERM, -EACCES, -EROFS));
 
                 assert_se(procfs_tasks_get_limit(&w) >= 0);

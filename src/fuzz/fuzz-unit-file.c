@@ -24,7 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size == 0)
                 return 0;
 
-        f = fmemopen((char*) data, size, "re");
+        f = fmemopen((char *) data, size, "re");
         assert_se(f);
 
         if (read_line(f, LINE_MAX, &p) < 0)
@@ -70,10 +70,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         name = strjoina("a.", unit_type_to_string(t));
         assert_se(unit_new_for_name(m, unit_vtable[t]->object_size, name, &u) >= 0);
 
-        (void) config_parse(name, name, f,
-                            UNIT_VTABLE(u)->sections,
-                            config_item_perf_lookup, load_fragment_gperf_lookup,
-                            CONFIG_PARSE_ALLOW_INCLUDE, u);
+        (void) config_parse(
+                name, name, f, UNIT_VTABLE(u)->sections, config_item_perf_lookup, load_fragment_gperf_lookup, CONFIG_PARSE_ALLOW_INCLUDE, u);
 
         g = open_memstream(&out, &out_size);
         assert_se(g);

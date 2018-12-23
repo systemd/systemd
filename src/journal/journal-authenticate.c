@@ -44,9 +44,7 @@ int journal_file_append_tag(JournalFile *f) {
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
 
-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
-                  le64toh(o->tag.seqnum),
-                  FSPRG_GetEpoch(f->fsprg_state));
+        log_debug("Writing tag %" PRIu64 " for epoch %" PRIu64 "", le64toh(o->tag.seqnum), FSPRG_GetEpoch(f->fsprg_state));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -88,8 +86,7 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
         assert(epoch);
         assert(f->seal);
 
-        if (f->fss_start_usec == 0 ||
-            f->fss_interval_usec == 0)
+        if (f->fss_start_usec == 0 || f->fss_interval_usec == 0)
                 return -EOPNOTSUPP;
 
         if (realtime < f->fss_start_usec)
@@ -136,7 +133,7 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
 
         epoch = FSPRG_GetEpoch(f->fsprg_state);
         if (epoch < goal)
-                log_debug("Evolving FSPRG key from epoch %"PRIu64" to %"PRIu64".", epoch, goal);
+                log_debug("Evolving FSPRG key from epoch %" PRIu64 " to %" PRIu64 ".", epoch, goal);
 
         for (;;) {
                 if (epoch > goal)
@@ -167,7 +164,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
                 if (goal == epoch)
                         return 0;
 
-                if (goal == epoch+1) {
+                if (goal == epoch + 1) {
                         FSPRG_Evolve(f->fsprg_state);
                         return 0;
                 }
@@ -179,7 +176,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
                         return -ENOMEM;
         }
 
-        log_debug("Seeking FSPRG key to %"PRIu64".", goal);
+        log_debug("Seeking FSPRG key to %" PRIu64 ".", goal);
 
         msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
@@ -295,7 +292,9 @@ int journal_file_hmac_put_header(JournalFile *f) {
         gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
         gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
         gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
-        gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+        gcry_md_write(f->hmac,
+                      &f->header->data_hash_table_offset,
+                      offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
 
         return 0;
 }
@@ -316,11 +315,10 @@ int journal_file_fss_load(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
-                     SD_ID128_FORMAT_VAL(machine)) < 0)
+        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss", SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
-        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        fd = open(p, O_RDWR | O_CLOEXEC | O_NOCTTY, 0600);
         if (fd < 0) {
                 if (errno != ENOENT)
                         log_error_errno(errno, "Failed to open %s: %m", p);
@@ -377,13 +375,12 @@ int journal_file_fss_load(JournalFile *f) {
                 goto finish;
         }
 
-        if (le64toh(m->start_usec) <= 0 ||
-            le64toh(m->interval_usec) <= 0) {
+        if (le64toh(m->start_usec) <= 0 || le64toh(m->interval_usec) <= 0) {
                 r = -EBADMSG;
                 goto finish;
         }
 
-        f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (f->fss_file == MAP_FAILED) {
                 f->fss_file = NULL;
                 r = -errno;
@@ -393,7 +390,7 @@ int journal_file_fss_load(JournalFile *f) {
         f->fss_start_usec = le64toh(f->fss_file->start_usec);
         f->fss_interval_usec = le64toh(f->fss_file->interval_usec);
 
-        f->fsprg_state = (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size);
+        f->fsprg_state = (uint8_t *) f->fss_file + le64toh(f->fss_file->header_size);
         f->fsprg_state_size = le64toh(f->fss_file->fsprg_state_size);
 
         r = 0;
@@ -493,7 +490,7 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
                 }
                 k++;
 
-                seed[c] = (uint8_t) (x * 16 + y);
+                seed[c] = (uint8_t)(x * 16 + y);
         }
 
         if (*k != '/') {
@@ -528,7 +525,7 @@ bool journal_file_next_evolve_usec(JournalFile *f, usec_t *u) {
 
         epoch = FSPRG_GetEpoch(f->fsprg_state);
 
-        *u = (usec_t) (f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
+        *u = (usec_t)(f->fss_start_usec + f->fss_interval_usec * epoch + f->fss_interval_usec);
 
         return true;
 }

@@ -45,11 +45,14 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->private_network = -1;
         s->network_veth = -1;
 
-        r = config_parse(NULL, path, f,
+        r = config_parse(NULL,
+                         path,
+                         f,
                          "Exec\0"
                          "Network\0"
                          "Files\0",
-                         config_item_perf_lookup, nspawn_gperf_lookup,
+                         config_item_perf_lookup,
+                         nspawn_gperf_lookup,
                          CONFIG_PARSE_WARN,
                          s);
         if (r < 0)
@@ -70,7 +73,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         return 0;
 }
 
-Settings* settings_free(Settings *s) {
+Settings *settings_free(Settings *s) {
 
         if (!s)
                 return NULL;
@@ -102,39 +105,28 @@ Settings* settings_free(Settings *s) {
 bool settings_private_network(Settings *s) {
         assert(s);
 
-        return
-                s->private_network > 0 ||
-                s->network_veth > 0 ||
-                s->network_bridge ||
-                s->network_zone ||
-                s->network_interfaces ||
-                s->network_macvlan ||
-                s->network_ipvlan ||
-                s->network_veth_extra;
+        return s->private_network > 0 || s->network_veth > 0 || s->network_bridge || s->network_zone || s->network_interfaces ||
+                s->network_macvlan || s->network_ipvlan || s->network_veth_extra;
 }
 
 bool settings_network_veth(Settings *s) {
         assert(s);
 
-        return
-                s->network_veth > 0 ||
-                s->network_bridge ||
-                s->network_zone;
+        return s->network_veth > 0 || s->network_bridge || s->network_zone;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
 
-int config_parse_expose_port(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_expose_port(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         Settings *s = data;
         int r;
@@ -156,17 +148,16 @@ int config_parse_expose_port(
         return 0;
 }
 
-int config_parse_capability(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_capability(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
         uint64_t u = 0, *result = data;
         int r;
@@ -202,17 +193,16 @@ int config_parse_capability(
         return 0;
 }
 
-int config_parse_id128(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_id128(const char *unit,
+                       const char *filename,
+                       unsigned line,
+                       const char *section,
+                       unsigned section_line,
+                       const char *lvalue,
+                       int ltype,
+                       const char *rvalue,
+                       void *data,
+                       void *userdata) {
 
         sd_id128_t t, *result = data;
         int r;
@@ -231,17 +221,16 @@ int config_parse_id128(
         return 0;
 }
 
-int config_parse_pivot_root(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_pivot_root(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -259,17 +248,16 @@ int config_parse_pivot_root(
         return 0;
 }
 
-int config_parse_bind(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_bind(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -287,17 +275,16 @@ int config_parse_bind(
         return 0;
 }
 
-int config_parse_tmpfs(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_tmpfs(const char *unit,
+                       const char *filename,
+                       unsigned line,
+                       const char *section,
+                       unsigned section_line,
+                       const char *lvalue,
+                       int ltype,
+                       const char *rvalue,
+                       void *data,
+                       void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -315,17 +302,16 @@ int config_parse_tmpfs(
         return 0;
 }
 
-int config_parse_overlay(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_overlay(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -341,17 +327,16 @@ int config_parse_overlay(
         return 0;
 }
 
-int config_parse_veth_extra(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_veth_extra(const char *unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -369,17 +354,16 @@ int config_parse_veth_extra(
         return 0;
 }
 
-int config_parse_network_zone(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_network_zone(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
 
         Settings *settings = data;
         _cleanup_free_ char *j = NULL;
@@ -399,17 +383,16 @@ int config_parse_network_zone(
         return 0;
 }
 
-int config_parse_boot(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_boot(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -444,17 +427,16 @@ conflict:
         return 0;
 }
 
-int config_parse_pid2(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_pid2(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -489,17 +471,16 @@ conflict:
         return 0;
 }
 
-int config_parse_private_users(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_private_users(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -559,17 +540,16 @@ int config_parse_private_users(
         return 0;
 }
 
-int config_parse_syscall_filter(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_syscall_filter(const char *unit,
+                                const char *filename,
+                                unsigned line,
+                                const char *section,
+                                unsigned section_line,
+                                const char *lvalue,
+                                int ltype,
+                                const char *rvalue,
+                                void *data,
+                                void *userdata) {
 
         Settings *settings = data;
         bool negative;
@@ -607,17 +587,16 @@ int config_parse_syscall_filter(
         return 0;
 }
 
-int config_parse_hostname(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_hostname(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
 
         char **s = data;
 
@@ -635,17 +614,16 @@ int config_parse_hostname(
         return 0;
 }
 
-int config_parse_oom_score_adjust(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_oom_score_adjust(const char *unit,
+                                  const char *filename,
+                                  unsigned line,
+                                  const char *section,
+                                  unsigned section_line,
+                                  const char *lvalue,
+                                  int ltype,
+                                  const char *rvalue,
+                                  void *data,
+                                  void *userdata) {
 
         Settings *settings = data;
         int oa, r;
@@ -674,17 +652,16 @@ int config_parse_oom_score_adjust(
         return 0;
 }
 
-int config_parse_cpu_affinity(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_cpu_affinity(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
 
         _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
         Settings *settings = data;
@@ -766,17 +743,16 @@ int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
         return 0;
 }
 
-int config_parse_link_journal(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_link_journal(const char *unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
 
         Settings *settings = data;
         int r;
@@ -796,12 +772,8 @@ int config_parse_link_journal(
 DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
 
 static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
-        [TIMEZONE_OFF] = "off",
-        [TIMEZONE_COPY] = "copy",
-        [TIMEZONE_BIND] = "bind",
-        [TIMEZONE_SYMLINK] = "symlink",
-        [TIMEZONE_DELETE] = "delete",
-        [TIMEZONE_AUTO] = "auto",
+        [TIMEZONE_OFF] = "off",         [TIMEZONE_COPY] = "copy",     [TIMEZONE_BIND] = "bind",
+        [TIMEZONE_SYMLINK] = "symlink", [TIMEZONE_DELETE] = "delete", [TIMEZONE_AUTO] = "auto",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);

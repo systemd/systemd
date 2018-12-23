@@ -9,7 +9,7 @@
 #include "macro.h"
 #include "string-util.h"
 
-char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
+char *ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
         assert(addr);
         assert(buffer);
 
@@ -17,7 +17,8 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
          * ethernet addresses, which makes them look less funny. Also,
          * doesn't use a static buffer. */
 
-        sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+        sprintf(buffer,
+                "%02x:%02x:%02x:%02x:%02x:%02x",
                 addr->ether_addr_octet[0],
                 addr->ether_addr_octet[1],
                 addr->ether_addr_octet[2],
@@ -45,33 +46,33 @@ int ether_addr_from_string(const char *s, struct ether_addr *ret) {
         size_t x;
         bool touched;
 
-#define parse_fields(v)                                         \
-        for (field = 0; field < ELEMENTSOF(v); field++) {       \
-                touched = false;                                \
-                for (n = 0; n < (2 * sizeof(v[0])); n++) {      \
-                        if (s[pos] == '\0')                     \
-                                break;                          \
-                        hexoff = strchr(hex, s[pos]);           \
-                        if (!hexoff)                            \
-                                break;                          \
-                        assert(hexoff >= hex);                  \
-                        x = hexoff - hex;                       \
-                        if (x >= 16)                            \
-                                x -= 6; /* A-F */               \
-                        assert(x < 16);                         \
-                        touched = true;                         \
-                        v[field] <<= 4;                         \
-                        v[field] += x;                          \
-                        pos++;                                  \
-                }                                               \
-                if (!touched)                                   \
-                        return -EINVAL;                         \
-                if (field < (ELEMENTSOF(v)-1)) {                \
-                        if (s[pos] != sep)                      \
-                                return -EINVAL;                 \
-                        else                                    \
-                                pos++;                          \
-                }                                               \
+#define parse_fields(v)                                    \
+        for (field = 0; field < ELEMENTSOF(v); field++) {  \
+                touched = false;                           \
+                for (n = 0; n < (2 * sizeof(v[0])); n++) { \
+                        if (s[pos] == '\0')                \
+                                break;                     \
+                        hexoff = strchr(hex, s[pos]);      \
+                        if (!hexoff)                       \
+                                break;                     \
+                        assert(hexoff >= hex);             \
+                        x = hexoff - hex;                  \
+                        if (x >= 16)                       \
+                                x -= 6; /* A-F */          \
+                        assert(x < 16);                    \
+                        touched = true;                    \
+                        v[field] <<= 4;                    \
+                        v[field] += x;                     \
+                        pos++;                             \
+                }                                          \
+                if (!touched)                              \
+                        return -EINVAL;                    \
+                if (field < (ELEMENTSOF(v) - 1)) {         \
+                        if (s[pos] != sep)                 \
+                                return -EINVAL;            \
+                        else                               \
+                                pos++;                     \
+                }                                          \
         }
 
         assert(s);
@@ -89,8 +90,8 @@ int ether_addr_from_string(const char *s, struct ether_addr *ret) {
                         return -EINVAL;
 
                 for (n = 0; n < ELEMENTSOF(shorts); n++) {
-                        ret->ether_addr_octet[2*n] = ((shorts[n] & (uint16_t)0xff00) >> 8);
-                        ret->ether_addr_octet[2*n + 1] = (shorts[n] & (uint16_t)0x00ff);
+                        ret->ether_addr_octet[2 * n] = ((shorts[n] & (uint16_t) 0xff00) >> 8);
+                        ret->ether_addr_octet[2 * n + 1] = (shorts[n] & (uint16_t) 0x00ff);
                 }
 
         } else if (IN_SET(sep, ':', '-')) {

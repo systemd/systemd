@@ -27,8 +27,7 @@ int update_reboot_parameter_and_warn(const char *parameter) {
         }
 
         RUN_WITH_UMASK(0022) {
-                r = write_string_file("/run/systemd/reboot-param", parameter,
-                                      WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file("/run/systemd/reboot-param", parameter, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to write reboot parameter file: %m");
         }
@@ -51,20 +50,20 @@ int reboot_with_parameter(RebootFlags flags) {
 
                 r = read_one_line_file("/run/systemd/reboot-param", &parameter);
                 if (r < 0 && r != -ENOENT)
-                        log_full_errno(flags & REBOOT_LOG ? LOG_WARNING : LOG_DEBUG, r,
-                                       "Failed to read reboot parameter file, ignoring: %m");
+                        log_full_errno(
+                                flags & REBOOT_LOG ? LOG_WARNING : LOG_DEBUG, r, "Failed to read reboot parameter file, ignoring: %m");
 
                 if (!isempty(parameter)) {
 
-                        log_full(flags & REBOOT_LOG ? LOG_INFO : LOG_DEBUG,
-                                 "Rebooting with argument '%s'.", parameter);
+                        log_full(flags & REBOOT_LOG ? LOG_INFO : LOG_DEBUG, "Rebooting with argument '%s'.", parameter);
 
                         if (flags & REBOOT_DRY_RUN)
                                 return 0;
 
                         (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, parameter);
 
-                        log_full_errno(flags & REBOOT_LOG ? LOG_WARNING : LOG_DEBUG, errno,
+                        log_full_errno(flags & REBOOT_LOG ? LOG_WARNING : LOG_DEBUG,
+                                       errno,
                                        "Failed to reboot with parameter, retrying without: %m");
                 }
         }

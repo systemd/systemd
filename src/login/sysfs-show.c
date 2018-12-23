@@ -14,15 +14,14 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static int show_sysfs_one(
-                const char *seat,
-                sd_device **dev_list,
-                size_t *i_dev,
-                size_t n_dev,
-                const char *sub,
-                const char *prefix,
-                unsigned n_columns,
-                OutputFlags flags) {
+static int show_sysfs_one(const char *seat,
+                          sd_device **dev_list,
+                          size_t *i_dev,
+                          size_t n_dev,
+                          const char *sub,
+                          const char *prefix,
+                          unsigned n_columns,
+                          OutputFlags flags) {
 
         size_t max_width;
         int r;
@@ -45,18 +44,15 @@ static int show_sysfs_one(
                 size_t lookahead;
                 bool is_master;
 
-                if (sd_device_get_syspath(dev_list[*i_dev], &sysfs) < 0 ||
-                    !path_startswith(sysfs, sub))
+                if (sd_device_get_syspath(dev_list[*i_dev], &sysfs) < 0 || !path_startswith(sysfs, sub))
                         return 0;
 
                 if (sd_device_get_property_value(dev_list[*i_dev], "ID_SEAT", &sn) < 0 || isempty(sn))
                         sn = "seat0";
 
                 /* Explicitly also check for tag 'seat' here */
-                if (!streq(seat, sn) ||
-                    sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
-                    sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 ||
-                    sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
+                if (!streq(seat, sn) || sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
+                    sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 || sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
                         (*i_dev)++;
                         continue;
                 }
@@ -73,12 +69,10 @@ static int show_sysfs_one(
                         if (sd_device_get_syspath(dev_list[lookahead], &lookahead_sysfs) < 0)
                                 continue;
 
-                        if (path_startswith(lookahead_sysfs, sub) &&
-                            !path_startswith(lookahead_sysfs, sysfs)) {
+                        if (path_startswith(lookahead_sysfs, sub) && !path_startswith(lookahead_sysfs, sysfs)) {
                                 const char *lookahead_sn;
 
-                                if (sd_device_get_property_value(dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 ||
-                                    isempty(lookahead_sn))
+                                if (sd_device_get_property_value(dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 || isempty(lookahead_sn))
                                         lookahead_sn = "seat0";
 
                                 if (streq(seat, lookahead_sn) && sd_device_has_tag(dev_list[lookahead], "seat") > 0)
@@ -95,8 +89,11 @@ static int show_sysfs_one(
                 if (asprintf(&l,
                              "%s%s:%s%s%s%s",
                              is_master ? "[MASTER] " : "",
-                             subsystem, sysname,
-                             name ? " \"" : "", strempty(name), name ? "\"" : "") < 0)
+                             subsystem,
+                             sysname,
+                             name ? " \"" : "",
+                             strempty(name),
+                             name ? "\"" : "") < 0)
                         return -ENOMEM;
 
                 free(k);
@@ -113,13 +110,17 @@ static int show_sysfs_one(
                         if (!p)
                                 return -ENOMEM;
 
-                        r = show_sysfs_one(seat, dev_list, i_dev, n_dev, sysfs, p,
+                        r = show_sysfs_one(seat,
+                                           dev_list,
+                                           i_dev,
+                                           n_dev,
+                                           sysfs,
+                                           p,
                                            n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
                                            flags);
                         if (r < 0)
                                 return r;
                 }
-
         }
 
         return 0;

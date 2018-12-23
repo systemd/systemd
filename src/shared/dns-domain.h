@@ -13,7 +13,7 @@
 #define DNS_LABEL_MAX 63
 
 /* Worst case length of a single label, with all escaping applied and room for a trailing NUL byte. */
-#define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX*4+1)
+#define DNS_LABEL_ESCAPED_MAX (DNS_LABEL_MAX * 4 + 1)
 
 /* Maximum length of a full hostname, consisting of a series of unescaped labels, and no trailing dot or NUL byte */
 #define DNS_HOSTNAME_MAX 253
@@ -24,8 +24,9 @@
 /* Maximum number of labels per valid hostname */
 #define DNS_N_LABELS_MAX 127
 
-typedef enum DNSLabelFlags {
-        DNS_LABEL_LDH        = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
+typedef enum DNSLabelFlags
+{
+        DNS_LABEL_LDH = 1 << 0,        /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
         DNS_LABEL_NO_ESCAPES = 1 << 1, /* Do not treat backslashes specially */
 } DNSLabelFlags;
 
@@ -65,7 +66,7 @@ static inline int dns_name_is_valid(const char *s) {
 static inline int dns_name_is_valid_ldh(const char *s) {
         int r;
 
-        r = dns_name_concat(s, NULL, DNS_LABEL_LDH|DNS_LABEL_NO_ESCAPES, NULL);
+        r = dns_name_concat(s, NULL, DNS_LABEL_LDH | DNS_LABEL_NO_ESCAPES, NULL);
         if (r == -EINVAL)
                 return 0;
         if (r < 0)

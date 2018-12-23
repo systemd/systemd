@@ -21,16 +21,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ CHAR8 *b = NULL;
         UINTN size;
         BOOLEAN secure = FALSE;
-        CHAR8 *sections[] = {
-                (UINT8 *)".cmdline",
-                (UINT8 *)".linux",
-                (UINT8 *)".initrd",
-                (UINT8 *)".splash",
-                NULL
-        };
-        UINTN addrs[ELEMENTSOF(sections)-1] = {};
-        UINTN offs[ELEMENTSOF(sections)-1] = {};
-        UINTN szs[ELEMENTSOF(sections)-1] = {};
+        CHAR8 *sections[] = { (UINT8 *) ".cmdline", (UINT8 *) ".linux", (UINT8 *) ".initrd", (UINT8 *) ".splash", NULL };
+        UINTN addrs[ELEMENTSOF(sections) - 1] = {};
+        UINTN offs[ELEMENTSOF(sections) - 1] = {};
+        UINTN szs[ELEMENTSOF(sections) - 1] = {};
         CHAR8 *cmdline = NULL;
         UINTN cmdline_len;
         CHAR16 uuid[37];
@@ -38,8 +32,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = uefi_call_wrapper(
+                BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **) &loaded_image, image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
                 Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
@@ -58,17 +52,17 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (szs[0] > 0)
-                cmdline = (CHAR8 *)(loaded_image->ImageBase + addrs[0]);
+                cmdline = (CHAR8 *) (loaded_image->ImageBase + addrs[0]);
 
         cmdline_len = szs[0];
 
         /* if we are not in secure boot mode, accept a custom command line and replace the built-in one */
-        if (!secure && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
+        if (!secure && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *) loaded_image->LoadOptions > 0x1F) {
                 CHAR16 *options;
                 CHAR8 *line;
                 UINTN i;
 
-                options = (CHAR16 *)loaded_image->LoadOptions;
+                options = (CHAR16 *) loaded_image->LoadOptions;
                 cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
                 line = AllocatePool(cmdline_len);
                 for (i = 0; i < cmdline_len; i++)
@@ -78,8 +72,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 #if ENABLE_TPM
                 /* Try to log any options to the TPM, especially manually edited options */
                 err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
-                                    loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
+                                    (EFI_PHYSICAL_ADDRESS)(UINTN) loaded_image->LoadOptions,
+                                    loaded_image->LoadOptionsSize,
+                                    loaded_image->LoadOptions);
                 if (EFI_ERROR(err)) {
                         Print(L"Unable to add image options measurement: %r", err);
                         uefi_call_wrapper(BS->Stall, 1, 200 * 1000);
@@ -120,11 +115,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 efivar_set(L"StubInfo", L"systemd-stub " PACKAGE_VERSION, FALSE);
 
         if (szs[3] > 0)
-                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
+                graphics_splash((UINT8 *) ((UINTN) loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
-        err = linux_exec(image, cmdline, cmdline_len,
-                         (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2], secure);
+        err = linux_exec(image,
+                         cmdline,
+                         cmdline_len,
+                         (UINTN) loaded_image->ImageBase + addrs[1],
+                         (UINTN) loaded_image->ImageBase + addrs[2],
+                         szs[2],
+                         secure);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);

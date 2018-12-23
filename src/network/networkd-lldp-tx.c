@@ -33,9 +33,9 @@
 #define LLDP_FAST_TX_USEC (1U * USEC_PER_SEC - LLDP_JITTER_USEC / 2)
 
 static const struct ether_addr lldp_multicast_addr[_LLDP_EMIT_MAX] = {
-        [LLDP_EMIT_NEAREST_BRIDGE]  = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }},
-        [LLDP_EMIT_NON_TPMR_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }},
-        [LLDP_EMIT_CUSTOMER_BRIDGE] = {{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 }},
+        [LLDP_EMIT_NEAREST_BRIDGE] = { { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e } },
+        [LLDP_EMIT_NON_TPMR_BRIDGE] = { { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 } },
+        [LLDP_EMIT_CUSTOMER_BRIDGE] = { { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 } },
 };
 
 static int lldp_write_tlv_header(uint8_t **p, uint8_t id, size_t sz) {
@@ -53,18 +53,18 @@ static int lldp_write_tlv_header(uint8_t **p, uint8_t id, size_t sz) {
         return 0;
 }
 
-static int lldp_make_packet(
-                LLDPEmit mode,
-                const struct ether_addr *hwaddr,
-                const char *machine_id,
-                const char *ifname,
-                uint16_t ttl,
-                const char *port_description,
-                const char *hostname,
-                const char *pretty_hostname,
-                uint16_t system_capabilities,
-                uint16_t enabled_capabilities,
-                void **ret, size_t *sz) {
+static int lldp_make_packet(LLDPEmit mode,
+                            const struct ether_addr *hwaddr,
+                            const char *machine_id,
+                            const char *ifname,
+                            uint16_t ttl,
+                            const char *port_description,
+                            const char *hostname,
+                            const char *pretty_hostname,
+                            uint16_t system_capabilities,
+                            uint16_t enabled_capabilities,
+                            void **ret,
+                            size_t *sz) {
 
         size_t machine_id_length, ifname_length, port_description_length = 0, hostname_length = 0, pretty_hostname_length = 0;
         _cleanup_free_ void *packet = NULL;
@@ -121,12 +121,12 @@ static int lldp_make_packet(
         if (!packet)
                 return -ENOMEM;
 
-        h = (struct ether_header*) packet;
+        h = (struct ether_header *) packet;
         h->ether_type = htobe16(ETHERTYPE_LLDP);
         memcpy(h->ether_dhost, lldp_multicast_addr + mode, ETH_ALEN);
         memcpy(h->ether_shost, hwaddr, ETH_ALEN);
 
-        p = (uint8_t*) packet + sizeof(struct ether_header);
+        p = (uint8_t *) packet + sizeof(struct ether_header);
 
         r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_CHASSIS_ID, 1 + machine_id_length);
         if (r < 0)
@@ -179,7 +179,7 @@ static int lldp_make_packet(
         if (r < 0)
                 return r;
 
-        assert(p == (uint8_t*) packet + l);
+        assert(p == (uint8_t *) packet + l);
 
         *ret = TAKE_PTR(packet);
         *sz = l;
@@ -187,11 +187,7 @@ static int lldp_make_packet(
         return 0;
 }
 
-static int lldp_send_packet(
-                int ifindex,
-                const struct ether_addr *address,
-                const void *packet,
-                size_t packet_size) {
+static int lldp_send_packet(int ifindex, const struct ether_addr *address, const void *packet, size_t packet_size) {
 
         union sockaddr_union sa = {
                 .ll.sll_family = AF_PACKET,
@@ -209,7 +205,7 @@ static int lldp_send_packet(
 
         memcpy(sa.ll.sll_addr, address, ETH_ALEN);
 
-        fd = socket(PF_PACKET, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_RAW);
+        fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC, IPPROTO_RAW);
         if (fd < 0)
                 return -errno;
 
@@ -250,9 +246,8 @@ static int link_send_lldp(Link *link) {
         assert_cc(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1 <= (UINT16_MAX - 1) * USEC_PER_SEC);
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);
 
-        caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ?
-                SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
-                SD_LLDP_SYSTEM_CAPABILITIES_STATION;
+        caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ? SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
+                                                                                   SD_LLDP_SYSTEM_CAPABILITIES_STATION;
 
         r = lldp_make_packet(link->network->lldp_emit,
                              &link->mac,
@@ -262,9 +257,10 @@ static int link_send_lldp(Link *link) {
                              link->network ? link->network->description : NULL,
                              hostname,
                              pretty_hostname,
-                             SD_LLDP_SYSTEM_CAPABILITIES_STATION|SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE|SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
+                             SD_LLDP_SYSTEM_CAPABILITIES_STATION | SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE | SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
                              caps,
-                             &packet, &packet_size);
+                             &packet,
+                             &packet_size);
         if (r < 0)
                 return r;
 
@@ -319,8 +315,7 @@ int link_lldp_emit_start(Link *link) {
 
         link->lldp_tx_fast = LLDP_TX_FAST_INIT;
 
-        next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC),
-                     (usec_t) random_u64() % LLDP_JITTER_USEC);
+        next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC), (usec_t) random_u64() % LLDP_JITTER_USEC);
 
         if (link->lldp_emit_event_source) {
                 usec_t old;
@@ -336,13 +331,7 @@ int link_lldp_emit_start(Link *link) {
                 return sd_event_source_set_time(link->lldp_emit_event_source, next);
         } else {
                 r = sd_event_add_time(
-                                link->manager->event,
-                                &link->lldp_emit_event_source,
-                                clock_boottime_or_monotonic(),
-                                next,
-                                0,
-                                on_lldp_timer,
-                                link);
+                        link->manager->event, &link->lldp_emit_event_source, clock_boottime_or_monotonic(), next, 0, on_lldp_timer, link);
                 if (r < 0)
                         return r;
 
@@ -358,17 +347,16 @@ void link_lldp_emit_stop(Link *link) {
         link->lldp_emit_event_source = sd_event_source_unref(link->lldp_emit_event_source);
 }
 
-int config_parse_lldp_emit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_lldp_emit(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
 
         LLDPEmit *emit = data;
         int r;

@@ -20,9 +20,10 @@ typedef struct Manager Manager;
 #include "namespace.h"
 #include "nsflags.h"
 
-#define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
+#define EXEC_STDIN_DATA_MAX (64U * 1024U * 1024U)
 
-typedef enum ExecUtmpMode {
+typedef enum ExecUtmpMode
+{
         EXEC_UTMP_INIT,
         EXEC_UTMP_LOGIN,
         EXEC_UTMP_USER,
@@ -30,7 +31,8 @@ typedef enum ExecUtmpMode {
         _EXEC_UTMP_MODE_INVALID = -1
 } ExecUtmpMode;
 
-typedef enum ExecInput {
+typedef enum ExecInput
+{
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
         EXEC_INPUT_TTY_FORCE,
@@ -43,7 +45,8 @@ typedef enum ExecInput {
         _EXEC_INPUT_INVALID = -1
 } ExecInput;
 
-typedef enum ExecOutput {
+typedef enum ExecOutput
+{
         EXEC_OUTPUT_INHERIT,
         EXEC_OUTPUT_NULL,
         EXEC_OUTPUT_TTY,
@@ -61,7 +64,8 @@ typedef enum ExecOutput {
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
 
-typedef enum ExecPreserveMode {
+typedef enum ExecPreserveMode
+{
         EXEC_PRESERVE_NO,
         EXEC_PRESERVE_YES,
         EXEC_PRESERVE_RESTART,
@@ -69,7 +73,8 @@ typedef enum ExecPreserveMode {
         _EXEC_PRESERVE_MODE_INVALID = -1
 } ExecPreserveMode;
 
-typedef enum ExecKeyringMode {
+typedef enum ExecKeyringMode
+{
         EXEC_KEYRING_INHERIT,
         EXEC_KEYRING_PRIVATE,
         EXEC_KEYRING_SHARED,
@@ -82,15 +87,16 @@ struct ExecStatus {
         pid_t pid;
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
-        int code;     /* as in siginfo_t::si_code */
-        int status;   /* as in sigingo_t::si_status */
+        int code;   /* as in siginfo_t::si_code */
+        int status; /* as in sigingo_t::si_status */
 };
 
-typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
+typedef enum ExecCommandFlags
+{
+        EXEC_COMMAND_IGNORE_FAILURE = 1 << 0,
         EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
-        EXEC_COMMAND_NO_SETUID        = 1 << 2,
-        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
+        EXEC_COMMAND_NO_SETUID = 1 << 2,
+        EXEC_COMMAND_AMBIENT_MAGIC = 1 << 3,
 } ExecCommandFlags;
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
@@ -121,7 +127,8 @@ struct ExecRuntime {
         int netns_storage_socket[2];
 };
 
-typedef enum ExecDirectoryType {
+typedef enum ExecDirectoryType
+{
         EXEC_DIRECTORY_RUNTIME = 0,
         EXEC_DIRECTORY_STATE,
         EXEC_DIRECTORY_CACHE,
@@ -222,7 +229,7 @@ struct ExecContext {
 
         int log_level_max;
 
-        struct iovec* log_extra_fields;
+        struct iovec *log_extra_fields;
         size_t n_log_extra_fields;
 
         usec_t log_rate_limit_interval_usec;
@@ -262,10 +269,10 @@ struct ExecContext {
         Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
-        bool syscall_whitelist:1;
+        bool syscall_whitelist : 1;
 
         Set *address_families;
-        bool address_families_whitelist:1;
+        bool address_families_whitelist : 1;
 
         ExecPreserveMode runtime_directory_preserve_mode;
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
@@ -273,10 +280,10 @@ struct ExecContext {
         bool memory_deny_write_execute;
         bool restrict_realtime;
 
-        bool oom_score_adjust_set:1;
-        bool nice_set:1;
-        bool ioprio_set:1;
-        bool cpu_sched_set:1;
+        bool oom_score_adjust_set : 1;
+        bool nice_set : 1;
+        bool ioprio_set : 1;
+        bool cpu_sched_set : 1;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
@@ -285,21 +292,23 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
 }
 
-typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1 << 0,
-        EXEC_APPLY_CHROOT      = 1 << 1,
-        EXEC_APPLY_TTY_STDIN   = 1 << 2,
-        EXEC_PASS_LOG_UNIT     = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
+typedef enum ExecFlags
+{
+        EXEC_APPLY_SANDBOXING = 1 << 0,
+        EXEC_APPLY_CHROOT = 1 << 1,
+        EXEC_APPLY_TTY_STDIN = 1 << 2,
+        EXEC_PASS_LOG_UNIT = 1 << 3,     /* Whether to pass the unit name to the service's journal stream connection */
         EXEC_CHOWN_DIRECTORIES = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1 << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1 << 6,
-        EXEC_IS_CONTROL        = 1 << 7,
-        EXEC_CONTROL_CGROUP    = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_NSS_BYPASS_BUS = 1 << 5,    /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_CGROUP_DELEGATE = 1 << 6,
+        EXEC_IS_CONTROL = 1 << 7,
+        EXEC_CONTROL_CGROUP = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only
+                                         EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 9,
-        EXEC_SETENV_RESULT     = 1 << 10,
-        EXEC_SET_WATCHDOG      = 1 << 11,
+        EXEC_PASS_FDS = 1 << 9,
+        EXEC_SETENV_RESULT = 1 << 10,
+        EXEC_SET_WATCHDOG = 1 << 11,
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -313,7 +322,7 @@ struct ExecParameters {
         size_t n_storage_fds;
 
         ExecFlags flags;
-        bool selinux_context_net:1;
+        bool selinux_context_net : 1;
 
         CGroupMask cgroup_supported;
         const char *cgroup_path;
@@ -346,7 +355,7 @@ int exec_spawn(Unit *unit,
                pid_t *ret);
 
 void exec_command_done_array(ExecCommand *c, size_t n);
-ExecCommand* exec_command_free_list(ExecCommand *c);
+ExecCommand *exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, size_t n);
 void exec_command_reset_status_array(ExecCommand *c, size_t n);
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n);
@@ -357,11 +366,11 @@ int exec_command_append(ExecCommand *c, const char *path, ...) _sentinel_;
 
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
-void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
+void exec_context_dump(const ExecContext *c, FILE *f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 
-const char* exec_context_fdname(const ExecContext *c, int fd_index);
+const char *exec_context_fdname(const ExecContext *c, int fd_index);
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
@@ -385,20 +394,20 @@ void exec_runtime_vacuum(Manager *m);
 
 void exec_params_clear(ExecParameters *p);
 
-const char* exec_output_to_string(ExecOutput i) _const_;
+const char *exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;
 
-const char* exec_input_to_string(ExecInput i) _const_;
+const char *exec_input_to_string(ExecInput i) _const_;
 ExecInput exec_input_from_string(const char *s) _pure_;
 
-const char* exec_utmp_mode_to_string(ExecUtmpMode i) _const_;
+const char *exec_utmp_mode_to_string(ExecUtmpMode i) _const_;
 ExecUtmpMode exec_utmp_mode_from_string(const char *s) _pure_;
 
-const char* exec_preserve_mode_to_string(ExecPreserveMode i) _const_;
+const char *exec_preserve_mode_to_string(ExecPreserveMode i) _const_;
 ExecPreserveMode exec_preserve_mode_from_string(const char *s) _pure_;
 
-const char* exec_keyring_mode_to_string(ExecKeyringMode i) _const_;
+const char *exec_keyring_mode_to_string(ExecKeyringMode i) _const_;
 ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
 
-const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
+const char *exec_directory_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;

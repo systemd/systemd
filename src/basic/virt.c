@@ -30,16 +30,16 @@ static int detect_vm_cpuid(void) {
                 const char *cpuid;
                 int id;
         } cpuid_vendor_table[] = {
-                { "XenVMMXenVMM", VIRTUALIZATION_XEN       },
-                { "KVMKVMKVM",    VIRTUALIZATION_KVM       },
-                { "TCGTCGTCGTCG", VIRTUALIZATION_QEMU      },
+                { "XenVMMXenVMM", VIRTUALIZATION_XEN },
+                { "KVMKVMKVM", VIRTUALIZATION_KVM },
+                { "TCGTCGTCGTCG", VIRTUALIZATION_QEMU },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                { "VMwareVMware", VIRTUALIZATION_VMWARE    },
+                { "VMwareVMware", VIRTUALIZATION_VMWARE },
                 /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
                 { "Microsoft Hv", VIRTUALIZATION_MICROSOFT },
                 /* https://wiki.freebsd.org/bhyve */
-                { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
-                { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
+                { "bhyve bhyve ", VIRTUALIZATION_BHYVE },
+                { "QNXQVMBSQG", VIRTUALIZATION_QNX },
         };
 
         uint32_t eax, ebx, ecx, edx;
@@ -69,7 +69,7 @@ static int detect_vm_cpuid(void) {
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
-                for (j = 0; j < ELEMENTSOF(cpuid_vendor_table); j ++)
+                for (j = 0; j < ELEMENTSOF(cpuid_vendor_table); j++)
                         if (streq(sig.text, cpuid_vendor_table[j].cpuid))
                                 return cpuid_vendor_table[j].id;
 
@@ -101,10 +101,10 @@ static int detect_vm_device_tree(void) {
                 }
 
                 FOREACH_DIRENT(dent, dir, return -errno)
-                        if (strstr(dent->d_name, "fw-cfg")) {
-                                log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", dent->d_name);
-                                return VIRTUALIZATION_QEMU;
-                        }
+                if (strstr(dent->d_name, "fw-cfg")) {
+                        log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", dent->d_name);
+                        return VIRTUALIZATION_QEMU;
+                }
 
                 log_debug("No virtualization found in /proc/device-tree/*");
                 return VIRTUALIZATION_NONE;
@@ -127,28 +127,26 @@ static int detect_vm_device_tree(void) {
 static int detect_vm_dmi(void) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 
-        static const char *const dmi_vendors[] = {
-                "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
-                "/sys/class/dmi/id/sys_vendor",
-                "/sys/class/dmi/id/board_vendor",
-                "/sys/class/dmi/id/bios_vendor"
-        };
+        static const char *const dmi_vendors[] = { "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
+                                                   "/sys/class/dmi/id/sys_vendor",
+                                                   "/sys/class/dmi/id/board_vendor",
+                                                   "/sys/class/dmi/id/bios_vendor" };
 
         static const struct {
                 const char *vendor;
                 int id;
         } dmi_vendor_table[] = {
-                { "KVM",           VIRTUALIZATION_KVM       },
-                { "QEMU",          VIRTUALIZATION_QEMU      },
+                { "KVM", VIRTUALIZATION_KVM },
+                { "QEMU", VIRTUALIZATION_QEMU },
                 /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                { "VMware",        VIRTUALIZATION_VMWARE    },
-                { "VMW",           VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",  VIRTUALIZATION_ORACLE    },
-                { "Xen",           VIRTUALIZATION_XEN       },
-                { "Bochs",         VIRTUALIZATION_BOCHS     },
-                { "Parallels",     VIRTUALIZATION_PARALLELS },
+                { "VMware", VIRTUALIZATION_VMWARE },
+                { "VMW", VIRTUALIZATION_VMWARE },
+                { "innotek GmbH", VIRTUALIZATION_ORACLE },
+                { "Xen", VIRTUALIZATION_XEN },
+                { "Bochs", VIRTUALIZATION_BOCHS },
+                { "Parallels", VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",         VIRTUALIZATION_BHYVE     },
+                { "BHYVE", VIRTUALIZATION_BHYVE },
         };
         unsigned i;
         int r;
@@ -210,13 +208,15 @@ static int detect_vm_xen_dom0(void) {
                 r = sscanf(domcap, "%lx", &features);
                 if (r == 1) {
                         r = !!(features & (1U << XENFEAT_dom0));
-                        log_debug("Virtualization XEN, found %s with value %08lx, "
-                                  "XENFEAT_dom0 (indicating the 'hardware domain') is%s set.",
-                                  PATH_FEATURES, features, r ? "" : " not");
+                        log_debug(
+                                "Virtualization XEN, found %s with value %08lx, "
+                                "XENFEAT_dom0 (indicating the 'hardware domain') is%s set.",
+                                PATH_FEATURES,
+                                features,
+                                r ? "" : " not");
                         return r;
                 }
-                log_debug("Virtualization XEN, found %s, unhandled content '%s'",
-                          PATH_FEATURES, domcap);
+                log_debug("Virtualization XEN, found %s, unhandled content '%s'", PATH_FEATURES, domcap);
         }
 
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
@@ -431,11 +431,11 @@ int detect_container(void) {
                 const char *value;
                 int id;
         } value_table[] = {
-                { "lxc",            VIRTUALIZATION_LXC            },
-                { "lxc-libvirt",    VIRTUALIZATION_LXC_LIBVIRT    },
+                { "lxc", VIRTUALIZATION_LXC },
+                { "lxc-libvirt", VIRTUALIZATION_LXC_LIBVIRT },
                 { "systemd-nspawn", VIRTUALIZATION_SYSTEMD_NSPAWN },
-                { "docker",         VIRTUALIZATION_DOCKER         },
-                { "rkt",            VIRTUALIZATION_RKT            },
+                { "docker", VIRTUALIZATION_DOCKER },
+                { "rkt", VIRTUALIZATION_RKT },
         };
 
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
@@ -448,8 +448,7 @@ int detect_container(void) {
                 return cached_found;
 
         /* /proc/vz exists in container and outside of the container, /proc/bc only outside of the container. */
-        if (access("/proc/vz", F_OK) >= 0 &&
-            access("/proc/bc", F_OK) < 0) {
+        if (access("/proc/vz", F_OK) >= 0 && access("/proc/bc", F_OK) < 0) {
                 r = VIRTUALIZATION_OPENVZ;
                 goto finish;
         }
@@ -555,7 +554,7 @@ static int userns_has_mapping(const char *name) {
                 return log_debug_errno(errno, "Failed to read %s: %m", name);
         }
 
-        r = sscanf(buf, "%"PRIu32" %"PRIu32" %"PRIu32, &a, &b, &c);
+        r = sscanf(buf, "%" PRIu32 " %" PRIu32 " %" PRIu32, &a, &b, &c);
         if (r < 3)
                 return log_debug_errno(errno, "Failed to parse %s: %m", name);
 

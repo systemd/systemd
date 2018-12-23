@@ -34,7 +34,12 @@ typedef struct sd_netlink sd_netlink;
 typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
-typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
+typedef enum
+{
+        SD_GENL_ID_CTRL,
+        SD_GENL_WIREGUARD,
+        SD_GENL_FOU
+} sd_genl_family;
 
 /* callback */
 
@@ -51,21 +56,28 @@ sd_netlink *sd_netlink_ref(sd_netlink *nl);
 sd_netlink *sd_netlink_unref(sd_netlink *nl);
 
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial);
-int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink_message *message,
-                          sd_netlink_message_handler_t callback, sd_netlink_destroy_t destoy_callback,
-                          void *userdata, uint64_t usec, const char *description);
-int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout,
-                    sd_netlink_message **reply);
+int sd_netlink_call_async(sd_netlink *nl,
+                          sd_netlink_slot **ret_slot,
+                          sd_netlink_message *message,
+                          sd_netlink_message_handler_t callback,
+                          sd_netlink_destroy_t destoy_callback,
+                          void *userdata,
+                          uint64_t usec,
+                          const char *description);
+int sd_netlink_call(sd_netlink *nl, sd_netlink_message *message, uint64_t timeout, sd_netlink_message **reply);
 
 int sd_netlink_get_events(sd_netlink *nl);
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout);
 int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret);
 int sd_netlink_wait(sd_netlink *nl, uint64_t timeout);
 
-int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t match,
+int sd_netlink_add_match(sd_netlink *nl,
+                         sd_netlink_slot **ret_slot,
+                         uint16_t match,
                          sd_netlink_message_handler_t callback,
                          sd_netlink_destroy_t destroy_callback,
-                         void *userdata, const char *description);
+                         void *userdata,
+                         const char *description);
 
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);

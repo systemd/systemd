@@ -29,7 +29,7 @@
 int switch_root(const char *new_root,
                 const char *old_root_after, /* path below the new root, where to place the old root after the transition */
                 bool unmount_old_root,
-                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND */
+                unsigned long mount_flags) { /* MS_MOVE or MS_BIND */
 
         _cleanup_free_ char *resolved_old_root_after = NULL;
         _cleanup_close_ int old_root_fd = -1;
@@ -46,13 +46,13 @@ int switch_root(const char *new_root,
         /* Check if we shall remove the contents of the old root */
         old_root_remove = in_initrd();
         if (old_root_remove) {
-                old_root_fd = open("/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
+                old_root_fd = open("/", O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY | O_DIRECTORY);
                 if (old_root_fd < 0)
                         return log_error_errno(errno, "Failed to open root directory: %m");
         }
 
         /* Determine where we shall place the old root after the transition */
-        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after);
+        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &resolved_old_root_after);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
         if (r == 0) /* Doesn't exist yet. Let's create it */
@@ -62,13 +62,13 @@ int switch_root(const char *new_root,
          * remount them MS_PRIVATE here as a work-around.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
-        if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
+        if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to set \"/\" mount propagation to private: %m");
 
         FOREACH_STRING(i, "/sys", "/dev", "/run", "/proc") {
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased);
+                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &chased);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, i);
                 if (r > 0) {
@@ -79,7 +79,7 @@ int switch_root(const char *new_root,
                         if (r > 0) /* If it is already mounted, then do nothing */
                                 continue;
                 } else
-                         /* Doesn't exist yet? */
+                        /* Doesn't exist yet? */
                         (void) mkdir_p_label(chased, 0755);
 
                 if (mount(i, chased, NULL, mount_flags, NULL) < 0)

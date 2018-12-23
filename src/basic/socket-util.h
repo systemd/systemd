@@ -54,7 +54,8 @@ typedef struct SocketAddress {
         int protocol;
 } SocketAddress;
 
-typedef enum SocketAddressBindIPv6Only {
+typedef enum SocketAddressBindIPv6Only
+{
         SOCKET_ADDRESS_DEFAULT,
         SOCKET_ADDRESS_BOTH,
         SOCKET_ADDRESS_IPV6_ONLY,
@@ -64,7 +65,7 @@ typedef enum SocketAddressBindIPv6Only {
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
-const char* socket_address_type_to_string(int t) _const_;
+const char *socket_address_type_to_string(int t) _const_;
 int socket_address_type_from_string(const char *s) _pure_;
 
 int socket_address_parse(SocketAddress *a, const char *s);
@@ -81,19 +82,18 @@ static inline int socket_address_unlink(const SocketAddress *a) {
 
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
-int socket_address_listen(
-                const SocketAddress *a,
-                int flags,
-                int backlog,
-                SocketAddressBindIPv6Only only,
-                const char *bind_to_device,
-                bool reuse_port,
-                bool free_bind,
-                bool transparent,
-                mode_t directory_mode,
-                mode_t socket_mode,
-                const char *label);
-int make_socket_fd(int log_level, const char* address, int type, int flags);
+int socket_address_listen(const SocketAddress *a,
+                          int flags,
+                          int backlog,
+                          SocketAddressBindIPv6Only only,
+                          const char *bind_to_device,
+                          bool reuse_port,
+                          bool free_bind,
+                          bool transparent,
+                          mode_t directory_mode,
+                          mode_t socket_mode,
+                          const char *label);
+int make_socket_fd(int log_level, const char *address, int type, int flags);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
@@ -102,7 +102,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
 
-const char* socket_address_get_path(const SocketAddress *a);
+const char *socket_address_get_path(const SocketAddress *a);
 
 bool socket_ipv6_is_supported(void);
 
@@ -114,7 +114,7 @@ int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret);
 
-const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
+const char *socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
 
@@ -136,16 +136,8 @@ int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 
-ssize_t send_one_fd_iov_sa(
-                int transport_fd,
-                int fd,
-                struct iovec *iov, size_t iovlen,
-                const struct sockaddr *sa, socklen_t len,
-                int flags);
-int send_one_fd_sa(int transport_fd,
-                   int fd,
-                   const struct sockaddr *sa, socklen_t len,
-                   int flags);
+ssize_t send_one_fd_iov_sa(int transport_fd, int fd, struct iovec *iov, size_t iovlen, const struct sockaddr *sa, socklen_t len, int flags);
+int send_one_fd_sa(int transport_fd, int fd, const struct sockaddr *sa, socklen_t len, int flags);
 #define send_one_fd_iov(transport_fd, fd, iov, iovlen, flags) send_one_fd_iov_sa(transport_fd, fd, iov, iovlen, NULL, 0, flags)
 #define send_one_fd(transport_fd, fd, flags) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, NULL, 0, flags)
 ssize_t receive_one_fd_iov(int transport_fd, struct iovec *iov, size_t iovlen, int flags, int *ret_fd);
@@ -155,37 +147,35 @@ ssize_t next_datagram_size_fd(int fd);
 
 int flush_accept(int fd);
 
-#define CMSG_FOREACH(cmsg, mh)                                          \
-        for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
+#define CMSG_FOREACH(cmsg, mh) for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
-struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
+struct cmsghdr *cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
 
 /*
  * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
  * (8 bytes) and run over the structure. This macro returns the correct size that
  * must be passed to kernel.
  */
-#define SOCKADDR_LL_LEN(sa)                                             \
-        ({                                                              \
-                const struct sockaddr_ll *_sa = &(sa);                  \
-                size_t _mac_len = sizeof(_sa->sll_addr);                \
-                assert(_sa->sll_family == AF_PACKET);                   \
-                if (be16toh(_sa->sll_hatype) == ARPHRD_ETHER)           \
-                        _mac_len = MAX(_mac_len, (size_t) ETH_ALEN);    \
-                if (be16toh(_sa->sll_hatype) == ARPHRD_INFINIBAND)      \
+#define SOCKADDR_LL_LEN(sa)                                                 \
+        ({                                                                  \
+                const struct sockaddr_ll *_sa = &(sa);                      \
+                size_t _mac_len = sizeof(_sa->sll_addr);                    \
+                assert(_sa->sll_family == AF_PACKET);                       \
+                if (be16toh(_sa->sll_hatype) == ARPHRD_ETHER)               \
+                        _mac_len = MAX(_mac_len, (size_t) ETH_ALEN);        \
+                if (be16toh(_sa->sll_hatype) == ARPHRD_INFINIBAND)          \
                         _mac_len = MAX(_mac_len, (size_t) INFINIBAND_ALEN); \
-                offsetof(struct sockaddr_ll, sll_addr) + _mac_len;      \
+                offsetof(struct sockaddr_ll, sll_addr) + _mac_len;          \
         })
 
 /* Covers only file system and abstract AF_UNIX socket addresses, but not unnamed socket addresses. */
-#define SOCKADDR_UN_LEN(sa)                                             \
-        ({                                                              \
-                const struct sockaddr_un *_sa = &(sa);                  \
-                assert(_sa->sun_family == AF_UNIX);                     \
-                offsetof(struct sockaddr_un, sun_path) +                \
-                        (_sa->sun_path[0] == 0 ?                        \
-                         1 + strnlen(_sa->sun_path+1, sizeof(_sa->sun_path)-1) : \
-                         strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
+#define SOCKADDR_UN_LEN(sa)                                                                                  \
+        ({                                                                                                   \
+                const struct sockaddr_un *_sa = &(sa);                                                       \
+                assert(_sa->sun_family == AF_UNIX);                                                          \
+                offsetof(struct sockaddr_un, sun_path) +                                                     \
+                        (_sa->sun_path[0] == 0 ? 1 + strnlen(_sa->sun_path + 1, sizeof(_sa->sun_path) - 1) : \
+                                                 strnlen(_sa->sun_path, sizeof(_sa->sun_path)) + 1);         \
         })
 
 int socket_ioctl_fd(void);

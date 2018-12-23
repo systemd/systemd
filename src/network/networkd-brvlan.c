@@ -18,7 +18,7 @@
 #include "vlan-util.h"
 
 static bool is_bit_set(unsigned bit, uint32_t scope) {
-        assert(bit < sizeof(scope)*8);
+        assert(bit < sizeof(scope) * 8);
         return scope & (1 << bit);
 }
 
@@ -42,7 +42,8 @@ static int find_next_bit(int i, uint32_t x) {
         return j ? j + i : 0;
 }
 
-static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
+static int append_vlan_info_data(
+        Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
         struct bridge_vlan_info br_vlan;
         int i, j, k, r, done, cnt;
         uint16_t begin, end;
@@ -75,7 +76,8 @@ static int append_vlan_info_data(Link *const link, sd_netlink_message *req, uint
                                 }
 
                                 /* this bit is a continuation of prior bits */
-                                if (j - 2 + base_bit == end && untagged == is_bit_set(j - 1, untagged_map) && (uint16_t)j - 1 + base_bit != pvid && (uint16_t)begin != pvid) {
+                                if (j - 2 + base_bit == end && untagged == is_bit_set(j - 1, untagged_map) &&
+                                    (uint16_t) j - 1 + base_bit != pvid && (uint16_t) begin != pvid) {
                                         end++;
                                         goto next;
                                 }
@@ -194,8 +196,7 @@ int br_vlan_configure(Link *link, uint16_t pvid, uint32_t *br_vid_bitmap, uint32
                 return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
 
         /* send message to the kernel */
-        r = netlink_call_async(rtnl, NULL, req, set_brvlan_handler,
-                               link_netlink_destroy_callback, link);
+        r = netlink_call_async(rtnl, NULL, req, set_brvlan_handler, link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
@@ -247,10 +248,15 @@ static int parse_vid_range(const char *rvalue, uint16_t *vid, uint16_t *vid_end)
         return r;
 }
 
-int config_parse_brvlan_pvid(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
+int config_parse_brvlan_pvid(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
                              void *userdata) {
         Network *network = userdata;
         int r;
@@ -265,10 +271,15 @@ int config_parse_brvlan_pvid(const char *unit, const char *filename,
         return 0;
 }
 
-int config_parse_brvlan_vlan(const char *unit, const char *filename,
-                             unsigned line, const char *section,
-                             unsigned section_line, const char *lvalue,
-                             int ltype, const char *rvalue, void *data,
+int config_parse_brvlan_vlan(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
                              void *userdata) {
         Network *network = userdata;
         int r;
@@ -300,10 +311,15 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
         return 0;
 }
 
-int config_parse_brvlan_untagged(const char *unit, const char *filename,
-                                 unsigned line, const char *section,
-                                 unsigned section_line, const char *lvalue,
-                                 int ltype, const char *rvalue, void *data,
+int config_parse_brvlan_untagged(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
                                  void *userdata) {
         Network *network = userdata;
         int r;

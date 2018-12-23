@@ -20,7 +20,7 @@
 struct khash {
         int fd;
         char *algorithm;
-        uint8_t digest[LONGEST_DIGEST+1];
+        uint8_t digest[LONGEST_DIGEST + 1];
         size_t digest_size;
         bool digest_valid;
 };
@@ -30,18 +30,16 @@ int khash_supported(void) {
                 struct sockaddr sa;
                 struct sockaddr_alg alg;
         } sa = {
-                .alg.salg_family = AF_ALG,
-                .alg.salg_type = "hash",
-                .alg.salg_name = "sha256", /* a very common algorithm */
+                .alg.salg_family = AF_ALG, .alg.salg_type = "hash", .alg.salg_name = "sha256", /* a very common algorithm */
         };
 
         static int cached = -1;
 
         if (cached < 0) {
                 _cleanup_close_ int fd1 = -1, fd2 = -1;
-                uint8_t buf[LONGEST_DIGEST+1];
+                uint8_t buf[LONGEST_DIGEST + 1];
 
-                fd1 = socket(AF_ALG, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                fd1 = socket(AF_ALG, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
                 if (fd1 < 0) {
                         /* The kernel returns EAFNOSUPPORT if AF_ALG is not supported at all */
                         if (IN_SET(errno, EAFNOSUPPORT, EOPNOTSUPP))
@@ -116,11 +114,11 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
         if (supported == 0)
                 return -EOPNOTSUPP;
 
-        fd = socket(AF_ALG, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+        fd = socket(AF_ALG, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
-        strcpy((char*) sa.alg.salg_name, algorithm);
+        strcpy((char *) sa.alg.salg_name, algorithm);
         if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
                 if (errno == ENOENT)
                         return -EOPNOTSUPP;
@@ -170,7 +168,7 @@ int khash_new(khash **ret, const char *algorithm) {
         return khash_new_with_key(ret, algorithm, NULL, 0);
 }
 
-khash* khash_unref(khash *h) {
+khash *khash_unref(khash *h) {
         if (!h)
                 return NULL;
 
@@ -249,7 +247,7 @@ int khash_put(khash *h, const void *buffer, size_t size) {
 
 int khash_put_iovec(khash *h, const struct iovec *iovec, size_t n) {
         struct msghdr mh = {
-                mh.msg_iov = (struct iovec*) iovec,
+                mh.msg_iov = (struct iovec *) iovec,
                 mh.msg_iovlen = n,
         };
         ssize_t k;

@@ -3,22 +3,24 @@
 
 #include "macro.h"
 
-enum {
+enum
+{
         NETLINK_TYPE_UNSPEC,
-        NETLINK_TYPE_U8,                        /* NLA_U8 */
-        NETLINK_TYPE_U16,                       /* NLA_U16 */
-        NETLINK_TYPE_U32,                       /* NLA_U32 */
-        NETLINK_TYPE_U64,                       /* NLA_U64 */
-        NETLINK_TYPE_STRING,                    /* NLA_STRING */
-        NETLINK_TYPE_FLAG,                      /* NLA_FLAG */
+        NETLINK_TYPE_U8,     /* NLA_U8 */
+        NETLINK_TYPE_U16,    /* NLA_U16 */
+        NETLINK_TYPE_U32,    /* NLA_U32 */
+        NETLINK_TYPE_U64,    /* NLA_U64 */
+        NETLINK_TYPE_STRING, /* NLA_STRING */
+        NETLINK_TYPE_FLAG,   /* NLA_FLAG */
         NETLINK_TYPE_IN_ADDR,
         NETLINK_TYPE_ETHER_ADDR,
         NETLINK_TYPE_CACHE_INFO,
-        NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
+        NETLINK_TYPE_NESTED, /* NLA_NESTED */
         NETLINK_TYPE_UNION,
 };
 
-typedef enum NLMatchType {
+typedef enum NLMatchType
+{
         NL_MATCH_SIBLING,
         NL_MATCH_PROTOCOL,
 } NLMatchType;
@@ -44,7 +46,7 @@ size_t type_get_size(const NLType *type);
 void type_get_type_system(const NLType *type, const NLTypeSystem **ret);
 void type_get_type_system_union(const NLType *type, const NLTypeSystemUnion **ret);
 
-const NLTypeSystem* type_system_get_root(int protocol);
+const NLTypeSystem *type_system_get_root(int protocol);
 uint16_t type_system_get_count(const NLTypeSystem *type_system);
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type);
 int type_system_get_type_system(const NLTypeSystem *type_system, const NLTypeSystem **ret, uint16_t type);
@@ -52,7 +54,8 @@ int type_system_get_type_system_union(const NLTypeSystem *type_system, const NLT
 int type_system_union_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, const char *key);
 int type_system_union_protocol_get_type_system(const NLTypeSystemUnion *type_system_union, const NLTypeSystem **ret, uint16_t protocol);
 
-typedef enum NLUnionLinkInfoData {
+typedef enum NLUnionLinkInfoData
+{
         NL_UNION_LINK_INFO_DATA_BOND,
         NL_UNION_LINK_INFO_DATA_BRIDGE,
         NL_UNION_LINK_INFO_DATA_VLAN,

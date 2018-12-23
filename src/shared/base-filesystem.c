@@ -27,19 +27,22 @@ typedef struct BaseFilesystem {
 } BaseFilesystem;
 
 static const BaseFilesystem table[] = {
-        { "bin",      0, "usr/bin\0",                  NULL },
-        { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0755, NULL,                         NULL, true },
-        { "sbin",     0, "usr/sbin\0",                 NULL },
-        { "usr",   0755, NULL,                         NULL },
-        { "var",   0755, NULL,                         NULL },
-        { "etc",   0755, NULL,                         NULL },
-        { "proc",  0755, NULL,                         NULL, true },
-        { "sys",   0755, NULL,                         NULL, true },
-        { "dev",   0755, NULL,                         NULL, true },
+        { "bin", 0, "usr/bin\0", NULL },
+        { "lib", 0, "usr/lib\0", NULL },
+        { "root", 0755, NULL, NULL, true },
+        { "sbin", 0, "usr/sbin\0", NULL },
+        { "usr", 0755, NULL, NULL },
+        { "var", 0755, NULL, NULL },
+        { "etc", 0755, NULL, NULL },
+        { "proc", 0755, NULL, NULL, true },
+        { "sys", 0755, NULL, NULL, true },
+        { "dev", 0755, NULL, NULL, true },
 #if defined(__i386__) || defined(__x86_64__)
-        { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
-                         "usr/lib64\0",                "ld-linux-x86-64.so.2" },
+        { "lib64",
+          0,
+          "usr/lib/x86_64-linux-gnu\0"
+          "usr/lib64\0",
+          "ld-linux-x86-64.so.2" },
 #endif
 };
 
@@ -48,11 +51,11 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
         int r = 0;
         size_t i;
 
-        fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd = open(root, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root file system: %m");
 
-        for (i = 0; i < ELEMENTSOF(table); i ++) {
+        for (i = 0; i < ELEMENTSOF(table); i++) {
                 if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
 
@@ -96,10 +99,13 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                 }
 
                 RUN_WITH_UMASK(0000)
-                        r = mkdirat(fd, table[i].dir, table[i].mode);
+                r = mkdirat(fd, table[i].dir, table[i].mode);
                 if (r < 0 && errno != EEXIST) {
-                        log_full_errno(table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
-                                       "Failed to create directory at %s/%s: %m", root, table[i].dir);
+                        log_full_errno(table[i].ignore_failure ? LOG_DEBUG : LOG_ERR,
+                                       errno,
+                                       "Failed to create directory at %s/%s: %m",
+                                       root,
+                                       table[i].dir);
 
                         if (!table[i].ignore_failure)
                                 return -errno;

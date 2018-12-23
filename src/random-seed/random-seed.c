@@ -18,12 +18,12 @@
 #include "util.h"
 
 #define POOL_SIZE_MIN 512
-#define POOL_SIZE_MAX (10*1024*1024)
+#define POOL_SIZE_MAX (10 * 1024 * 1024)
 
 static int run(int argc, char *argv[]) {
         _cleanup_close_ int seed_fd = -1, random_fd = -1;
         bool read_seed_file, write_seed_file;
-        _cleanup_free_ void* buf = NULL;
+        _cleanup_free_ void *buf = NULL;
         size_t buf_size = 0;
         struct stat st;
         ssize_t k;
@@ -33,8 +33,7 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires one argument.");
 
         umask(0022);
 
@@ -61,29 +60,28 @@ static int run(int argc, char *argv[]) {
         if (streq(argv[1], "load")) {
                 int open_rw_error;
 
-                seed_fd = open(RANDOM_SEED, O_RDWR|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                seed_fd = open(RANDOM_SEED, O_RDWR | O_CLOEXEC | O_NOCTTY | O_CREAT, 0600);
                 open_rw_error = -errno;
                 if (seed_fd < 0) {
                         write_seed_file = false;
 
-                        seed_fd = open(RANDOM_SEED, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        seed_fd = open(RANDOM_SEED, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                         if (seed_fd < 0) {
                                 bool missing = errno == ENOENT;
 
-                                log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
-                                               open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
-                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
-                                                   errno, "Failed to open " RANDOM_SEED " for reading: %m");
+                                log_full_errno(
+                                        missing ? LOG_DEBUG : LOG_ERR, open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
+                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR, errno, "Failed to open " RANDOM_SEED " for reading: %m");
                                 return missing ? 0 : r;
                         }
                 } else
                         write_seed_file = true;
 
-                random_fd = open("/dev/urandom", O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+                random_fd = open("/dev/urandom", O_RDWR | O_CLOEXEC | O_NOCTTY, 0600);
                 if (random_fd < 0) {
                         write_seed_file = false;
 
-                        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600);
+                        random_fd = open("/dev/urandom", O_WRONLY | O_CLOEXEC | O_NOCTTY, 0600);
                         if (random_fd < 0)
                                 return log_error_errno(errno, "Failed to open /dev/urandom: %m");
                 }
@@ -92,11 +90,11 @@ static int run(int argc, char *argv[]) {
 
         } else if (streq(argv[1], "save")) {
 
-                random_fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                random_fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (random_fd < 0)
                         return log_error_errno(errno, "Failed to open /dev/urandom: %m");
 
-                seed_fd = open(RANDOM_SEED, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_CREAT, 0600);
+                seed_fd = open(RANDOM_SEED, O_WRONLY | O_CLOEXEC | O_NOCTTY | O_CREAT, 0600);
                 if (seed_fd < 0)
                         return log_error_errno(errno, "Failed to open " RANDOM_SEED ": %m");
 
@@ -104,8 +102,7 @@ static int run(int argc, char *argv[]) {
                 write_seed_file = true;
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown verb '%s'.", argv[1]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
 
         if (fstat(seed_fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat() seed file " RANDOM_SEED ": %m");
@@ -163,8 +160,7 @@ static int run(int argc, char *argv[]) {
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Got EOF while reading from /dev/urandom.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got EOF while reading from /dev/urandom.");
 
                 r = loop_write(seed_fd, buf, (size_t) k, false);
                 if (r < 0)

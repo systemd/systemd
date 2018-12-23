@@ -7,7 +7,8 @@
 #include "list.h"
 #include "macro.h"
 
-typedef enum ConditionType {
+typedef enum ConditionType
+{
         CONDITION_ARCHITECTURE,
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
@@ -41,7 +42,8 @@ typedef enum ConditionType {
         _CONDITION_TYPE_INVALID = -1
 } ConditionType;
 
-typedef enum ConditionResult {
+typedef enum ConditionResult
+{
         CONDITION_UNTESTED,
         CONDITION_SUCCEEDED,
         CONDITION_FAILED,
@@ -51,34 +53,34 @@ typedef enum ConditionResult {
 } ConditionResult;
 
 typedef struct Condition {
-        ConditionType type:8;
+        ConditionType type : 8;
 
-        bool trigger:1;
-        bool negate:1;
+        bool trigger : 1;
+        bool negate : 1;
 
-        ConditionResult result:6;
+        ConditionResult result : 6;
 
         char *parameter;
 
         LIST_FIELDS(struct Condition, conditions);
 } Condition;
 
-Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
+Condition *condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
 void condition_free(Condition *c);
-Condition* condition_free_list(Condition *c);
+Condition *condition_free_list(Condition *c);
 
 int condition_test(Condition *c);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
 void condition_dump_list(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
 
-const char* condition_type_to_string(ConditionType t) _const_;
+const char *condition_type_to_string(ConditionType t) _const_;
 ConditionType condition_type_from_string(const char *s) _pure_;
 
-const char* assert_type_to_string(ConditionType t) _const_;
+const char *assert_type_to_string(ConditionType t) _const_;
 ConditionType assert_type_from_string(const char *s) _pure_;
 
-const char* condition_result_to_string(ConditionResult r) _const_;
+const char *condition_result_to_string(ConditionResult r) _const_;
 ConditionResult condition_result_from_string(const char *s) _pure_;
 
 static inline bool condition_takes_path(ConditionType t) {

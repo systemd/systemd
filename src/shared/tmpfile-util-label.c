@@ -6,11 +6,7 @@
 #include "tmpfile-util-label.h"
 #include "tmpfile-util.h"
 
-int fopen_temporary_label(
-                const char *target,
-                const char *path,
-                FILE **f,
-                char **temp_path) {
+int fopen_temporary_label(const char *target, const char *path, FILE **f, char **temp_path) {
 
         int r;
 

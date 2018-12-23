@@ -41,7 +41,8 @@ static PagerFlags arg_pager_flags = 0;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 static const char *arg_service_family = NULL;
 
-typedef enum RawType {
+typedef enum RawType
+{
         RAW_NONE,
         RAW_PAYLOAD,
         RAW_PACKET,
@@ -63,7 +64,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_set_dns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_domain, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_set_nta, strv_freep);
 
-typedef enum StatusMode {
+typedef enum StatusMode
+{
         STATUS_ALL,
         STATUS_DNS,
         STATUS_DOMAIN,
@@ -142,7 +144,7 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
         if (flags != 0)
                 printf(" protocol%s%s%s%s%s",
-                       flags & SD_RESOLVED_DNS ? " DNS" :"",
+                       flags & SD_RESOLVED_DNS ? " DNS" : "",
                        flags & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
                        flags & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
                        flags & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
@@ -152,8 +154,11 @@ static void print_source(uint64_t flags, usec_t rtt) {
 
         printf(" in %s.%s\n"
                "%s-- Data is authenticated: %s%s\n",
-               rtt_str, ansi_normal(),
-               ansi_grey(), yes_no(flags & SD_RESOLVED_AUTHENTICATED), ansi_normal());
+               rtt_str,
+               ansi_normal(),
+               ansi_grey(),
+               yes_no(flags & SD_RESOLVED_AUTHENTICATED),
+               ansi_normal());
 }
 
 static void print_ifindex_comment(int printed_so_far, int ifindex) {
@@ -166,8 +171,11 @@ static void print_ifindex_comment(int printed_so_far, int ifindex) {
                 log_warning_errno(errno, "Failed to resolve interface name for index %i, ignoring: %m", ifindex);
         else
                 printf("%*s%s-- link: %s%s",
-                       60 > printed_so_far ? 60 - printed_so_far : 0, " ", /* Align comment to the 60th column */
-                       ansi_grey(), ifname, ansi_normal());
+                       60 > printed_so_far ? 60 - printed_so_far : 0,
+                       " ", /* Align comment to the 60th column */
+                       ansi_grey(),
+                       ifname,
+                       ansi_normal());
 }
 
 static int resolve_host(sd_bus *bus, const char *name) {
@@ -184,12 +192,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveHostname");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -235,7 +238,10 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 }
 
                 if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                        log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
+                        log_error("%s: systemd-resolved returned address of invalid size %zu for family %s",
+                                  name,
+                                  sz,
+                                  af_to_name(family) ?: "unknown");
                         return -EINVAL;
                 }
 
@@ -243,9 +249,8 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
-                k = printf("%*s%s %s%s%s",
-                           (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                           ansi_highlight(), pretty, ansi_normal());
+                k = printf(
+                        "%*s%s %s%s%s", (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ", ansi_highlight(), pretty, ansi_normal());
 
                 print_ifindex_comment(k, ifindex);
                 fputc('\n', stdout);
@@ -264,9 +269,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
                 return bus_log_parse_error(r);
 
         if (!streq(name, canonical))
-                printf("%*s%s (%s)\n",
-                       (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
-                       canonical);
+                printf("%*s%s (%s)\n", (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ", canonical);
 
         if (c == 0) {
                 log_error("%s: no addresses found", name);
@@ -301,12 +304,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         log_debug("Resolving %s.", pretty);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveAddress");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveAddress");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -348,10 +346,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
                 if (r < 0)
                         return r;
 
-                k = printf("%*s%s %s%s%s",
-                           (int) strlen(pretty), c == 0 ? pretty : "",
-                           c == 0 ? ":" : " ",
-                           ansi_highlight(), n, ansi_normal());
+                k = printf("%*s%s %s%s%s", (int) strlen(pretty), c == 0 ? pretty : "", c == 0 ? ":" : " ", ansi_highlight(), n, ansi_normal());
 
                 print_ifindex_comment(k, ifindex);
                 fputc('\n', stdout);
@@ -433,15 +428,14 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         assert(name);
 
-        log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
+        log_debug("Resolving %s %s %s (interface %s).",
+                  name,
+                  dns_class_to_string(class),
+                  dns_type_to_string(type),
+                  isempty(arg_ifname) ? "*" : arg_ifname);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveRecord");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveRecord");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -522,13 +516,14 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
         if ((flags & SD_RESOLVED_AUTHENTICATED) == 0 && needs_authentication) {
                 fflush(stdout);
 
-                fprintf(stderr, "\n%s"
-                       "WARNING: The resources shown contain cryptographic key data which could not be\n"
-                       "         authenticated. It is not suitable to authenticate any communication.\n"
-                       "         This is usually indication that DNSSEC authentication was not enabled\n"
-                       "         or is not available for the selected protocol or DNS servers.%s\n",
-                       ansi_highlight_red(),
-                       ansi_normal());
+                fprintf(stderr,
+                        "\n%s"
+                        "WARNING: The resources shown contain cryptographic key data which could not be\n"
+                        "         authenticated. It is not suitable to authenticate any communication.\n"
+                        "         This is usually indication that DNSSEC authentication was not enabled\n"
+                        "         or is not available for the selected protocol or DNS servers.%s\n",
+                        ansi_highlight_red(),
+                        ansi_normal());
         }
 
         return 0;
@@ -577,8 +572,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                 const char *e;
 
                                 if (class != 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "DNS class specified twice.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DNS class specified twice.");
 
                                 e = strchrnul(f, ';');
                                 t = strndup(f, e - f);
@@ -587,8 +581,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
                                 r = dns_class_from_string(t);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown DNS class %s.", t);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown DNS class %s.", t);
 
                                 class = r;
 
@@ -606,8 +599,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
                                 const char *e;
 
                                 if (type != 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "DNS type specified twice.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "DNS type specified twice.");
 
                                 e = strchrnul(f, ';');
                                 t = strndup(f, e - f);
@@ -616,8 +608,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
 
                                 r = dns_type_from_string(t);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Unknown DNS type %s.", t);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown DNS type %s.", t);
 
                                 type = r;
 
@@ -642,8 +633,7 @@ static int resolve_rfc4501(sd_bus *bus, const char *name) {
         return resolve_record(bus, n, class, type, true);
 
 invalid:
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "Invalid DNS URI: %s", name);
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DNS URI: %s", name);
 }
 
 static int verb_query(int argc, char **argv, void *userdata) {
@@ -697,19 +687,26 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         type = empty_to_null(type);
 
         if (name)
-                log_debug("Resolving service \"%s\" of type %s in %s (family %s, interface %s).", name, type, domain, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
+                log_debug("Resolving service \"%s\" of type %s in %s (family %s, interface %s).",
+                          name,
+                          type,
+                          domain,
+                          af_to_name(arg_family) ?: "*",
+                          isempty(arg_ifname) ? "*" : arg_ifname);
         else if (type)
-                log_debug("Resolving service type %s of %s (family %s, interface %s).", type, domain, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
+                log_debug("Resolving service type %s of %s (family %s, interface %s).",
+                          type,
+                          domain,
+                          af_to_name(arg_family) ?: "*",
+                          isempty(arg_ifname) ? "*" : arg_ifname);
         else
-                log_debug("Resolving service type %s (family %s, interface %s).", domain, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
+                log_debug("Resolving service type %s (family %s, interface %s).",
+                          domain,
+                          af_to_name(arg_family) ?: "*",
+                          isempty(arg_ifname) ? "*" : arg_ifname);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveService");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveService");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -729,10 +726,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        indent =
-                (name ? strlen(name) + 1 : 0) +
-                (type ? strlen(type) + 1 : 0) +
-                strlen(domain) + 2;
+        indent = (name ? strlen(name) + 1 : 0) + (type ? strlen(type) + 1 : 0) + strlen(domain) + 2;
 
         c = 0;
         while ((r = sd_bus_message_enter_container(reply, 'r', "qqqsa(iiay)s")) > 0) {
@@ -749,10 +743,13 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                         printf("%*s%s", (int) strlen(type), c == 0 ? type : "", c == 0 ? "/" : " ");
 
                 printf("%*s%s %s:%u [priority=%u, weight=%u]\n",
-                       (int) strlen(domain), c == 0 ? domain : "",
+                       (int) strlen(domain),
+                       c == 0 ? domain : "",
                        c == 0 ? ":" : " ",
-                       hostname, port,
-                       priority, weight);
+                       hostname,
+                       port,
+                       priority,
+                       weight);
 
                 r = sd_bus_message_enter_container(reply, 'a', "(iiay)");
                 if (r < 0)
@@ -783,7 +780,10 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                         }
 
                         if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                                log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
+                                log_error("%s: systemd-resolved returned address of invalid size %zu for family %s",
+                                          name,
+                                          sz,
+                                          af_to_name(family) ?: "unknown");
                                 return -EINVAL;
                         }
 
@@ -826,7 +826,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read_array(reply, 'y', (const void**) &p, &sz)) > 0) {
+        while ((r = sd_bus_message_read_array(reply, 'y', (const void **) &p, &sz)) > 0) {
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape_length(p, sz);
@@ -849,9 +849,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         canonical_name = empty_to_null(canonical_name);
         canonical_type = empty_to_null(canonical_type);
 
-        if (!streq_ptr(name, canonical_name) ||
-            !streq_ptr(type, canonical_type) ||
-            !streq_ptr(domain, canonical_domain)) {
+        if (!streq_ptr(name, canonical_name) || !streq_ptr(type, canonical_type) || !streq_ptr(domain, canonical_domain)) {
 
                 printf("%*s(", (int) indent, "");
 
@@ -889,11 +887,9 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 
         domain = strrchr(address, '@');
         if (!domain)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Address does not contain '@': \"%s\"", address);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Address does not contain '@': \"%s\"", address);
         if (domain == address || domain[1] == '\0')
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Address starts or ends with '@': \"%s\"", address);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Address starts or ends with '@': \"%s\"", address);
         domain++;
 
         r = string_hashsum_sha256(address, domain - 1 - address, &hashed);
@@ -905,22 +901,18 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
         full = strjoina(hashed, "._openpgpkey.", domain);
         log_debug("Looking up \"%s\".", full);
 
-        r = resolve_record(bus, full,
-                           arg_class ?: DNS_CLASS_IN,
-                           arg_type ?: DNS_TYPE_OPENPGPKEY, false);
+        r = resolve_record(bus, full, arg_class ?: DNS_CLASS_IN, arg_type ?: DNS_TYPE_OPENPGPKEY, false);
 
         if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
-              hashed = mfree(hashed);
-              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
-              if (r < 0)
-                    return log_error_errno(r, "Hashing failed: %m");
+                hashed = mfree(hashed);
+                r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+                if (r < 0)
+                        return log_error_errno(r, "Hashing failed: %m");
 
-              full = strjoina(hashed, "._openpgpkey.", domain);
-              log_debug("Looking up \"%s\".", full);
+                full = strjoina(hashed, "._openpgpkey.", domain);
+                log_debug("Looking up \"%s\".", full);
 
-              return resolve_record(bus, full,
-                                    arg_class ?: DNS_CLASS_IN,
-                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
+                return resolve_record(bus, full, arg_class ?: DNS_CLASS_IN, arg_type ?: DNS_TYPE_OPENPGPKEY, true);
         }
 
         return r;
@@ -958,18 +950,13 @@ static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
                 address = strndupa(address, port - address);
         }
 
-        r = asprintf(&full, "_%u._%s.%s",
-                     port_num,
-                     family,
-                     address);
+        r = asprintf(&full, "_%u._%s.%s", port_num, family, address);
         if (r < 0)
                 return log_oom();
 
         log_debug("Looking up \"%s\".", full);
 
-        return resolve_record(bus, full,
-                              arg_class ?: DNS_CLASS_IN,
-                              arg_type ?: DNS_TYPE_TLSA, true);
+        return resolve_record(bus, full, arg_class ?: DNS_CLASS_IN, arg_type ?: DNS_TYPE_TLSA, true);
 }
 
 static bool service_family_is_valid(const char *s) {
@@ -1000,9 +987,8 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         sd_bus *bus = userdata;
-        uint64_t n_current_transactions, n_total_transactions,
-                cache_size, n_cache_hit, n_cache_miss,
-                n_dnssec_secure, n_dnssec_insecure, n_dnssec_bogus, n_dnssec_indeterminate;
+        uint64_t n_current_transactions, n_total_transactions, cache_size, n_cache_hit, n_cache_miss, n_dnssec_secure, n_dnssec_insecure,
+                n_dnssec_bogus, n_dnssec_indeterminate;
         int r, dnssec_supported;
 
         assert(bus);
@@ -1018,10 +1004,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get DNSSEC supported state: %s", bus_error_message(&error, r));
 
-        printf("DNSSEC supported by current servers: %s%s%s\n\n",
-               ansi_highlight(),
-               yes_no(dnssec_supported),
-               ansi_normal());
+        printf("DNSSEC supported by current servers: %s%s%s\n\n", ansi_highlight(), yes_no(dnssec_supported), ansi_normal());
 
         r = sd_bus_get_property(bus,
                                 "org.freedesktop.resolve1",
@@ -1034,14 +1017,13 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get transaction statistics: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "(tt)",
-                                &n_current_transactions,
-                                &n_total_transactions);
+        r = sd_bus_message_read(reply, "(tt)", &n_current_transactions, &n_total_transactions);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         printf("%sTransactions%s\n"
-               "Current Transactions: %" PRIu64 "\n"
+               "Current Transactions: %" PRIu64
+               "\n"
                "  Total Transactions: %" PRIu64 "\n",
                ansi_highlight(),
                ansi_normal(),
@@ -1061,16 +1043,15 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get cache statistics: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "(ttt)",
-                                &cache_size,
-                                &n_cache_hit,
-                                &n_cache_miss);
+        r = sd_bus_message_read(reply, "(ttt)", &cache_size, &n_cache_hit, &n_cache_miss);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         printf("\n%sCache%s\n"
-               "  Current Cache Size: %" PRIu64 "\n"
-               "          Cache Hits: %" PRIu64 "\n"
+               "  Current Cache Size: %" PRIu64
+               "\n"
+               "          Cache Hits: %" PRIu64
+               "\n"
                "        Cache Misses: %" PRIu64 "\n",
                ansi_highlight(),
                ansi_normal(),
@@ -1091,18 +1072,17 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get DNSSEC statistics: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "(tttt)",
-                                &n_dnssec_secure,
-                                &n_dnssec_insecure,
-                                &n_dnssec_bogus,
-                                &n_dnssec_indeterminate);
+        r = sd_bus_message_read(reply, "(tttt)", &n_dnssec_secure, &n_dnssec_insecure, &n_dnssec_bogus, &n_dnssec_indeterminate);
         if (r < 0)
                 return bus_log_parse_error(r);
 
         printf("\n%sDNSSEC Verdicts%s\n"
-               "              Secure: %" PRIu64 "\n"
-               "            Insecure: %" PRIu64 "\n"
-               "               Bogus: %" PRIu64 "\n"
+               "              Secure: %" PRIu64
+               "\n"
+               "            Insecure: %" PRIu64
+               "\n"
+               "               Bogus: %" PRIu64
+               "\n"
                "       Indeterminate: %" PRIu64 "\n",
                ansi_highlight(),
                ansi_normal(),
@@ -1348,11 +1328,10 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
 static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) {
         char **i;
 
-        printf("%sLink %i (%s)%s:",
-               ansi_highlight(), ifindex, ifname, ansi_normal());
+        printf("%sLink %i (%s)%s:", ansi_highlight(), ifindex, ifname, ansi_normal());
 
         STRV_FOREACH(i, p)
-                printf(" %s", *i);
+        printf(" %s", *i);
 
         printf("\n");
 
@@ -1382,17 +1361,17 @@ static void link_info_clear(struct link_info *p) {
 
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "ScopesMask",                 "t",      NULL,                        offsetof(struct link_info, scopes_mask)      },
-                { "DNS",                        "a(iay)", map_link_dns_servers,        offsetof(struct link_info, dns)              },
-                { "CurrentDNSServer",           "(iay)",  map_link_current_dns_server, offsetof(struct link_info, current_dns)      },
-                { "Domains",                    "a(sb)",  map_link_domains,            offsetof(struct link_info, domains)          },
-                { "DefaultRoute",               "b",      NULL,                        offsetof(struct link_info, default_route)    },
-                { "LLMNR",                      "s",      NULL,                        offsetof(struct link_info, llmnr)            },
-                { "MulticastDNS",               "s",      NULL,                        offsetof(struct link_info, mdns)             },
-                { "DNSOverTLS",                 "s",      NULL,                        offsetof(struct link_info, dns_over_tls)     },
-                { "DNSSEC",                     "s",      NULL,                        offsetof(struct link_info, dnssec)           },
-                { "DNSSECNegativeTrustAnchors", "as",     NULL,                        offsetof(struct link_info, ntas)             },
-                { "DNSSECSupported",            "b",      NULL,                        offsetof(struct link_info, dnssec_supported) },
+                { "ScopesMask", "t", NULL, offsetof(struct link_info, scopes_mask) },
+                { "DNS", "a(iay)", map_link_dns_servers, offsetof(struct link_info, dns) },
+                { "CurrentDNSServer", "(iay)", map_link_current_dns_server, offsetof(struct link_info, current_dns) },
+                { "Domains", "a(sb)", map_link_domains, offsetof(struct link_info, domains) },
+                { "DefaultRoute", "b", NULL, offsetof(struct link_info, default_route) },
+                { "LLMNR", "s", NULL, offsetof(struct link_info, llmnr) },
+                { "MulticastDNS", "s", NULL, offsetof(struct link_info, mdns) },
+                { "DNSOverTLS", "s", NULL, offsetof(struct link_info, dns_over_tls) },
+                { "DNSSEC", "s", NULL, offsetof(struct link_info, dnssec) },
+                { "DNSSECNegativeTrustAnchors", "as", NULL, offsetof(struct link_info, ntas) },
+                { "DNSSECSupported", "b", NULL, offsetof(struct link_info, dnssec_supported) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1420,14 +1399,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return log_oom();
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.resolve1",
-                                   p,
-                                   property_map,
-                                   BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   &m,
-                                   &link_info);
+        r = bus_map_all_properties(bus, "org.freedesktop.resolve1", p, property_map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &link_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
 
@@ -1443,41 +1415,31 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 return status_print_strv_ifindex(ifindex, name, link_info.ntas);
 
         if (mode == STATUS_DEFAULT_ROUTE) {
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(), ifindex, name, ansi_normal(),
-                       yes_no(link_info.default_route));
+                printf("%sLink %i (%s)%s: %s\n", ansi_highlight(), ifindex, name, ansi_normal(), yes_no(link_info.default_route));
 
                 return 0;
         }
 
         if (mode == STATUS_LLMNR) {
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(), ifindex, name, ansi_normal(),
-                       strna(link_info.llmnr));
+                printf("%sLink %i (%s)%s: %s\n", ansi_highlight(), ifindex, name, ansi_normal(), strna(link_info.llmnr));
 
                 return 0;
         }
 
         if (mode == STATUS_MDNS) {
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(), ifindex, name, ansi_normal(),
-                       strna(link_info.mdns));
+                printf("%sLink %i (%s)%s: %s\n", ansi_highlight(), ifindex, name, ansi_normal(), strna(link_info.mdns));
 
                 return 0;
         }
 
         if (mode == STATUS_PRIVATE) {
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(), ifindex, name, ansi_normal(),
-                       strna(link_info.dns_over_tls));
+                printf("%sLink %i (%s)%s: %s\n", ansi_highlight(), ifindex, name, ansi_normal(), strna(link_info.dns_over_tls));
 
                 return 0;
         }
 
         if (mode == STATUS_DNSSEC) {
-                printf("%sLink %i (%s)%s: %s\n",
-                       ansi_highlight(), ifindex, name, ansi_normal(),
-                       strna(link_info.dnssec));
+                printf("%sLink %i (%s)%s: %s\n", ansi_highlight(), ifindex, name, ansi_normal(), strna(link_info.dnssec));
 
                 return 0;
         }
@@ -1485,8 +1447,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (empty_line && *empty_line)
                 fputc('\n', stdout);
 
-        printf("%sLink %i (%s)%s\n",
-               ansi_highlight(), ifindex, name, ansi_normal());
+        printf("%sLink %i (%s)%s\n", ansi_highlight(), ifindex, name, ansi_normal());
 
         if (link_info.scopes_mask == 0)
                 printf("      Current Scopes: none\n");
@@ -1515,21 +1476,15 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 printf("  Current DNS Server: %s\n", link_info.current_dns);
 
         STRV_FOREACH(i, link_info.dns) {
-                printf("         %s %s\n",
-                       i == link_info.dns ? "DNS Servers:" : "            ",
-                       *i);
+                printf("         %s %s\n", i == link_info.dns ? "DNS Servers:" : "            ", *i);
         }
 
         STRV_FOREACH(i, link_info.domains) {
-                printf("          %s %s\n",
-                       i == link_info.domains ? "DNS Domain:" : "           ",
-                       *i);
+                printf("          %s %s\n", i == link_info.domains ? "DNS Domain:" : "           ", *i);
         }
 
         STRV_FOREACH(i, link_info.ntas) {
-                printf("          %s %s\n",
-                       i == link_info.ntas ? "DNSSEC NTA:" : "           ",
-                       *i);
+                printf("          %s %s\n", i == link_info.ntas ? "DNSSEC NTA:" : "           ", *i);
         }
 
         if (empty_line)
@@ -1625,7 +1580,7 @@ static int status_print_strv_global(char **p) {
         printf("%sGlobal%s:", ansi_highlight(), ansi_normal());
 
         STRV_FOREACH(i, p)
-                printf(" %s", *i);
+        printf(" %s", *i);
 
         printf("\n");
 
@@ -1655,16 +1610,16 @@ static void global_info_clear(struct global_info *p) {
 
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, dns)              },
-                { "FallbackDNS",                "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, fallback_dns)     },
-                { "CurrentDNSServer",           "(iiay)",  map_global_current_dns_server, offsetof(struct global_info, current_dns)      },
-                { "Domains",                    "a(isb)",  map_global_domains,            offsetof(struct global_info, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",      NULL,                          offsetof(struct global_info, ntas)             },
-                { "LLMNR",                      "s",       NULL,                          offsetof(struct global_info, llmnr)            },
-                { "MulticastDNS",               "s",       NULL,                          offsetof(struct global_info, mdns)             },
-                { "DNSOverTLS",                 "s",       NULL,                          offsetof(struct global_info, dns_over_tls)     },
-                { "DNSSEC",                     "s",       NULL,                          offsetof(struct global_info, dnssec)           },
-                { "DNSSECSupported",            "b",       NULL,                          offsetof(struct global_info, dnssec_supported) },
+                { "DNS", "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns) },
+                { "FallbackDNS", "a(iiay)", map_global_dns_servers, offsetof(struct global_info, fallback_dns) },
+                { "CurrentDNSServer", "(iiay)", map_global_current_dns_server, offsetof(struct global_info, current_dns) },
+                { "Domains", "a(isb)", map_global_domains, offsetof(struct global_info, domains) },
+                { "DNSSECNegativeTrustAnchors", "as", NULL, offsetof(struct global_info, ntas) },
+                { "LLMNR", "s", NULL, offsetof(struct global_info, llmnr) },
+                { "MulticastDNS", "s", NULL, offsetof(struct global_info, mdns) },
+                { "DNSOverTLS", "s", NULL, offsetof(struct global_info, dns_over_tls) },
+                { "DNSSEC", "s", NULL, offsetof(struct global_info, dnssec) },
+                { "DNSSECSupported", "b", NULL, offsetof(struct global_info, dnssec_supported) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1676,14 +1631,8 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         assert(bus);
         assert(empty_line);
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.resolve1",
-                                   "/org/freedesktop/resolve1",
-                                   property_map,
-                                   BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   &m,
-                                   &global_info);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", property_map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &global_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
 
@@ -1699,29 +1648,25 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 return status_print_strv_global(global_info.ntas);
 
         if (mode == STATUS_LLMNR) {
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(global_info.llmnr));
+                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(), strna(global_info.llmnr));
 
                 return 0;
         }
 
         if (mode == STATUS_MDNS) {
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(global_info.mdns));
+                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(), strna(global_info.mdns));
 
                 return 0;
         }
 
         if (mode == STATUS_PRIVATE) {
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(global_info.dns_over_tls));
+                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(), strna(global_info.dns_over_tls));
 
                 return 0;
         }
 
         if (mode == STATUS_DNSSEC) {
-                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(global_info.dnssec));
+                printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(), strna(global_info.dnssec));
 
                 return 0;
         }
@@ -1743,28 +1688,20 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 printf("  Current DNS Server: %s\n", global_info.current_dns);
 
         STRV_FOREACH(i, global_info.dns) {
-                printf("         %s %s\n",
-                       i == global_info.dns ? "DNS Servers:" : "            ",
-                       *i);
+                printf("         %s %s\n", i == global_info.dns ? "DNS Servers:" : "            ", *i);
         }
 
         STRV_FOREACH(i, global_info.fallback_dns) {
-                printf("%s %s\n",
-                       i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ",
-                       *i);
+                printf("%s %s\n", i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ", *i);
         }
 
         STRV_FOREACH(i, global_info.domains) {
-                printf("          %s %s\n",
-                       i == global_info.domains ? "DNS Domain:" : "           ",
-                       *i);
+                printf("          %s %s\n", i == global_info.domains ? "DNS Domain:" : "           ", *i);
         }
 
         strv_sort(global_info.ntas);
         STRV_FOREACH(i, global_info.ntas) {
-                printf("          %s %s\n",
-                       i == global_info.ntas ? "DNSSEC NTA:" : "           ",
-                       *i);
+                printf("          %s %s\n", i == global_info.ntas ? "DNSSEC NTA:" : "           ", *i);
         }
 
         *empty_line = true;
@@ -1889,12 +1826,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDNS");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "SetLinkDNS");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1943,8 +1875,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set DNS configuration: %s", bus_error_message(&error, r));
@@ -1975,12 +1906,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
 
         r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDomains");
+                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "SetLinkDomains");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2023,8 +1949,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set domain configuration: %s", bus_error_message(&error, r));
@@ -2063,13 +1988,14 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
                                "SetLinkDefaultRoute",
                                &error,
                                NULL,
-                               "ib", arg_ifindex, b);
+                               "ib",
+                               arg_ifindex,
+                               b);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set default route configuration: %s", bus_error_message(&error, r));
@@ -2104,13 +2030,14 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
                                "SetLinkLLMNR",
                                &error,
                                NULL,
-                               "is", arg_ifindex, argv[2]);
+                               "is",
+                               arg_ifindex,
+                               argv[2]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set LLMNR configuration: %s", bus_error_message(&error, r));
@@ -2145,13 +2072,14 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                                "SetLinkMulticastDNS",
                                &error,
                                NULL,
-                               "is", arg_ifindex, argv[2]);
+                               "is",
+                               arg_ifindex,
+                               argv[2]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set MulticastDNS configuration: %s", bus_error_message(&error, r));
@@ -2186,13 +2114,14 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
                                "SetLinkDNSOverTLS",
                                &error,
                                NULL,
-                               "is", arg_ifindex, argv[2]);
+                               "is",
+                               arg_ifindex,
+                               argv[2]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set DNSOverTLS configuration: %s", bus_error_message(&error, r));
@@ -2227,13 +2156,14 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
                                "SetLinkDNSSEC",
                                &error,
                                NULL,
-                               "is", arg_ifindex, argv[2]);
+                               "is",
+                               arg_ifindex,
+                               argv[2]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set DNSSEC configuration: %s", bus_error_message(&error, r));
@@ -2279,13 +2209,12 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                         }
                 }
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDNSSECNegativeTrustAnchors");
+        r = sd_bus_message_new_method_call(bus,
+                                           &req,
+                                           "org.freedesktop.resolve1",
+                                           "/org/freedesktop/resolve1",
+                                           "org.freedesktop.resolve1.Manager",
+                                           "SetLinkDNSSECNegativeTrustAnchors");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2302,8 +2231,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                         return log_interface_is_managed(r, arg_ifindex);
 
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to set DNSSEC NTA configuration: %s", bus_error_message(&error, r));
@@ -2335,10 +2263,10 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
                                "RevertLink",
                                &error,
                                NULL,
-                               "i", arg_ifindex);
+                               "i",
+                               arg_ifindex);
         if (r < 0) {
-                if (arg_ifindex_permissive &&
-                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                if (arg_ifindex_permissive && sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
                 return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
@@ -2415,10 +2343,9 @@ static int compat_help(void) {
                "     --set-dnssec=MODE      Set per-interface DNSSEC mode\n"
                "     --set-nta=DOMAIN       Set per-interface DNSSEC NTA\n"
                "     --revert               Revert per-interface configuration\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -2472,10 +2399,9 @@ static int native_help(void) {
                "  dnssec [LINK [MODE]]         Get/set per-interface DNSSEC mode\n"
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -2485,7 +2411,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int compat_parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_LEGEND,
                 ARG_SERVICE,
@@ -2512,38 +2439,41 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 ARG_REVERT_LINK,
         };
 
-        static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                       },
-                { "version",               no_argument,       NULL, ARG_VERSION               },
-                { "type",                  required_argument, NULL, 't'                       },
-                { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
-                { "interface",             required_argument, NULL, 'i'                       },
-                { "protocol",              required_argument, NULL, 'p'                       },
-                { "cname",                 required_argument, NULL, ARG_CNAME                 },
-                { "service",               no_argument,       NULL, ARG_SERVICE               },
-                { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
-                { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
-                { "openpgp",               no_argument,       NULL, ARG_OPENPGP               },
-                { "tlsa",                  optional_argument, NULL, ARG_TLSA                  },
-                { "raw",                   optional_argument, NULL, ARG_RAW                   },
-                { "search",                required_argument, NULL, ARG_SEARCH                },
-                { "statistics",            no_argument,       NULL, ARG_STATISTICS,           },
-                { "reset-statistics",      no_argument,       NULL, ARG_RESET_STATISTICS      },
-                { "status",                no_argument,       NULL, ARG_STATUS                },
-                { "flush-caches",          no_argument,       NULL, ARG_FLUSH_CACHES          },
-                { "reset-server-features", no_argument,       NULL, ARG_RESET_SERVER_FEATURES },
-                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
-                { "set-dns",               required_argument, NULL, ARG_SET_DNS               },
-                { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
-                { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
-                { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-dnsovertls",        required_argument, NULL, ARG_SET_PRIVATE           },
-                { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
-                { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
-                { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "type", required_argument, NULL, 't' },
+                                                 { "class", required_argument, NULL, 'c' },
+                                                 { "legend", required_argument, NULL, ARG_LEGEND },
+                                                 { "interface", required_argument, NULL, 'i' },
+                                                 { "protocol", required_argument, NULL, 'p' },
+                                                 { "cname", required_argument, NULL, ARG_CNAME },
+                                                 { "service", no_argument, NULL, ARG_SERVICE },
+                                                 { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
+                                                 { "service-txt", required_argument, NULL, ARG_SERVICE_TXT },
+                                                 { "openpgp", no_argument, NULL, ARG_OPENPGP },
+                                                 { "tlsa", optional_argument, NULL, ARG_TLSA },
+                                                 { "raw", optional_argument, NULL, ARG_RAW },
+                                                 { "search", required_argument, NULL, ARG_SEARCH },
+                                                 {
+                                                         "statistics",
+                                                         no_argument,
+                                                         NULL,
+                                                         ARG_STATISTICS,
+                                                 },
+                                                 { "reset-statistics", no_argument, NULL, ARG_RESET_STATISTICS },
+                                                 { "status", no_argument, NULL, ARG_STATUS },
+                                                 { "flush-caches", no_argument, NULL, ARG_FLUSH_CACHES },
+                                                 { "reset-server-features", no_argument, NULL, ARG_RESET_SERVER_FEATURES },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "set-dns", required_argument, NULL, ARG_SET_DNS },
+                                                 { "set-domain", required_argument, NULL, ARG_SET_DOMAIN },
+                                                 { "set-llmnr", required_argument, NULL, ARG_SET_LLMNR },
+                                                 { "set-mdns", required_argument, NULL, ARG_SET_MDNS },
+                                                 { "set-dnsovertls", required_argument, NULL, ARG_SET_PRIVATE },
+                                                 { "set-dnssec", required_argument, NULL, ARG_SET_DNSSEC },
+                                                 { "set-nta", required_argument, NULL, ARG_SET_NTA },
+                                                 { "revert", no_argument, NULL, ARG_REVERT_LINK },
+                                                 {} };
 
         int c, r;
 
@@ -2551,7 +2481,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return compat_help();
@@ -2633,8 +2563,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "mdns-ipv6"))
                                 arg_flags |= SD_RESOLVED_MDNS_IPV6;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown protocol specifier: %s", optarg);
 
                         break;
 
@@ -2651,23 +2580,19 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         if (!optarg || service_family_is_valid(optarg))
                                 arg_service_family = optarg;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown service family \"%s\".", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown service family \"%s\".", optarg);
                         break;
 
                 case ARG_RAW:
                         if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Refusing to write binary data to tty.");
 
                         if (optarg == NULL || streq(optarg, "payload"))
                                 arg_raw = RAW_PAYLOAD;
                         else if (streq(optarg, "packet"))
                                 arg_raw = RAW_PACKET;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown --raw specifier \"%s\".", optarg);
 
                         arg_legend = false;
                         break;
@@ -2780,12 +2705,10 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_type == 0 && arg_class != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--class= may only be used in conjunction with --type=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--class= may only be used in conjunction with --type=.");
 
         if (arg_type != 0 && arg_mode == MODE_RESOLVE_SERVICE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--service and --type= may not be combined.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--service and --type= may not be combined.");
 
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;
@@ -2796,15 +2719,17 @@ static int compat_parse_argv(int argc, char *argv[]) {
         if (IN_SET(arg_mode, MODE_SET_LINK, MODE_REVERT_LINK)) {
 
                 if (arg_ifindex <= 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
         }
 
         return 1 /* work to do */;
 }
 
 static int native_parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_LEGEND,
                 ARG_CNAME,
@@ -2815,22 +2740,20 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
         };
 
-        static const struct option options[] = {
-                { "help",                  no_argument,       NULL, 'h'                       },
-                { "version",               no_argument,       NULL, ARG_VERSION               },
-                { "type",                  required_argument, NULL, 't'                       },
-                { "class",                 required_argument, NULL, 'c'                       },
-                { "legend",                required_argument, NULL, ARG_LEGEND                },
-                { "interface",             required_argument, NULL, 'i'                       },
-                { "protocol",              required_argument, NULL, 'p'                       },
-                { "cname",                 required_argument, NULL, ARG_CNAME                 },
-                { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
-                { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
-                { "raw",                   optional_argument, NULL, ARG_RAW                   },
-                { "search",                required_argument, NULL, ARG_SEARCH                },
-                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "type", required_argument, NULL, 't' },
+                                                 { "class", required_argument, NULL, 'c' },
+                                                 { "legend", required_argument, NULL, ARG_LEGEND },
+                                                 { "interface", required_argument, NULL, 'i' },
+                                                 { "protocol", required_argument, NULL, 'p' },
+                                                 { "cname", required_argument, NULL, ARG_CNAME },
+                                                 { "service-address", required_argument, NULL, ARG_SERVICE_ADDRESS },
+                                                 { "service-txt", required_argument, NULL, ARG_SERVICE_TXT },
+                                                 { "raw", optional_argument, NULL, ARG_RAW },
+                                                 { "search", required_argument, NULL, ARG_SEARCH },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 {} };
 
         int c, r;
 
@@ -2838,7 +2761,7 @@ static int native_parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h46i:t:c:p:", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return native_help();
@@ -2919,25 +2842,20 @@ static int native_parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "mdns-ipv6"))
                                 arg_flags |= SD_RESOLVED_MDNS_IPV6;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown protocol specifier: %s",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown protocol specifier: %s", optarg);
 
                         break;
 
                 case ARG_RAW:
                         if (on_tty())
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
-                                                       "Refusing to write binary data to tty.");
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Refusing to write binary data to tty.");
 
                         if (optarg == NULL || streq(optarg, "payload"))
                                 arg_raw = RAW_PAYLOAD;
                         else if (streq(optarg, "packet"))
                                 arg_raw = RAW_PACKET;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown --raw specifier \"%s\".",
-                                                       optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown --raw specifier \"%s\".", optarg);
 
                         arg_legend = false;
                         break;
@@ -2982,8 +2900,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_type == 0 && arg_class != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--class= may only be used in conjunction with --type=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--class= may only be used in conjunction with --type=.");
 
         if (arg_type != 0 && arg_class == 0)
                 arg_class = DNS_CLASS_IN;
@@ -2996,28 +2913,26 @@ static int native_parse_argv(int argc, char *argv[]) {
 
 static int native_main(int argc, char *argv[], sd_bus *bus) {
 
-        static const Verb verbs[] = {
-                { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help             },
-                { "status",                VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_status           },
-                { "query",                 2,        VERB_ANY, 0,            verb_query            },
-                { "service",               2,        4,        0,            verb_service          },
-                { "openpgp",               2,        VERB_ANY, 0,            verb_openpgp          },
-                { "tlsa",                  2,        VERB_ANY, 0,            verb_tlsa             },
-                { "statistics",            VERB_ANY, 1,        0,            show_statistics       },
-                { "reset-statistics",      VERB_ANY, 1,        0,            reset_statistics      },
-                { "flush-caches",          VERB_ANY, 1,        0,            flush_caches          },
-                { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
-                { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
-                { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
-                { "default-route",         VERB_ANY, 3,        0,            verb_default_route    },
-                { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
-                { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
-                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls     },
-                { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
-                { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
-                { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, verb_help },
+                                      { "status", VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_status },
+                                      { "query", 2, VERB_ANY, 0, verb_query },
+                                      { "service", 2, 4, 0, verb_service },
+                                      { "openpgp", 2, VERB_ANY, 0, verb_openpgp },
+                                      { "tlsa", 2, VERB_ANY, 0, verb_tlsa },
+                                      { "statistics", VERB_ANY, 1, 0, show_statistics },
+                                      { "reset-statistics", VERB_ANY, 1, 0, reset_statistics },
+                                      { "flush-caches", VERB_ANY, 1, 0, flush_caches },
+                                      { "reset-server-features", VERB_ANY, 1, 0, reset_server_features },
+                                      { "dns", VERB_ANY, VERB_ANY, 0, verb_dns },
+                                      { "domain", VERB_ANY, VERB_ANY, 0, verb_domain },
+                                      { "default-route", VERB_ANY, 3, 0, verb_default_route },
+                                      { "llmnr", VERB_ANY, 3, 0, verb_llmnr },
+                                      { "mdns", VERB_ANY, 3, 0, verb_mdns },
+                                      { "dnsovertls", VERB_ANY, 3, 0, verb_dns_over_tls },
+                                      { "dnssec", VERB_ANY, 3, 0, verb_dnssec },
+                                      { "nta", VERB_ANY, VERB_ANY, 0, verb_nta },
+                                      { "revert", VERB_ANY, 2, 0, verb_revert_link },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, bus);
 }

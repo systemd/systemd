@@ -20,26 +20,25 @@
 static bool arg_keep = false;
 
 _noreturn_ static void log_assert_errno(const char *text, int error, const char *file, int line, const char *func) {
-        log_internal(LOG_CRIT, error, file, line, func,
-                     "'%s' failed at %s:%u (%s): %m", text, file, line, func);
+        log_internal(LOG_CRIT, error, file, line, func, "'%s' failed at %s:%u (%s): %m", text, file, line, func);
         abort();
 }
 
-#define assert_ret(expr)                                                \
-        do {                                                            \
-                int _r_ = (expr);                                       \
-                if (_unlikely_(_r_ < 0))                                \
+#define assert_ret(expr)                                                                        \
+        do {                                                                                    \
+                int _r_ = (expr);                                                               \
+                if (_unlikely_(_r_ < 0))                                                        \
                         log_assert_errno(#expr, -_r_, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
 static JournalFile *test_open(const char *name) {
         JournalFile *f;
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f));
+        assert_ret(journal_file_open(-1, name, O_RDWR | O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f));
         return f;
 }
 
 static void test_close(JournalFile *f) {
-        (void) journal_file_close (f);
+        (void) journal_file_close(f);
 }
 
 static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
@@ -64,7 +63,7 @@ static void append_number(JournalFile *f, int n, uint64_t *seqnum) {
         free(p);
 }
 
-static void test_check_number (sd_journal *j, int n) {
+static void test_check_number(sd_journal *j, int n) {
         const void *d;
         _cleanup_free_ char *k;
         size_t l;
@@ -78,7 +77,7 @@ static void test_check_number (sd_journal *j, int n) {
         assert_se(n == x);
 }
 
-static void test_check_numbers_down (sd_journal *j, int count) {
+static void test_check_numbers_down(sd_journal *j, int count) {
         int i;
 
         for (i = 1; i <= count; i++) {
@@ -90,10 +89,9 @@ static void test_check_numbers_down (sd_journal *j, int count) {
                 else
                         assert_se(r == 1);
         }
-
 }
 
-static void test_check_numbers_up (sd_journal *j, int count) {
+static void test_check_numbers_up(sd_journal *j, int count) {
         for (int i = count; i >= 1; i--) {
                 int r;
                 test_check_number(j, i);
@@ -103,7 +101,6 @@ static void test_check_numbers_up (sd_journal *j, int count) {
                 else
                         assert_se(r == 1);
         }
-
 }
 
 static void setup_sequential(void) {
@@ -181,7 +178,7 @@ static void test_skip(void (*setup)(void)) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 
         puts("------------------------------------------------------------");
@@ -197,14 +194,13 @@ static void test_sequence_numbers(void) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
+        assert_se(journal_file_open(-1, "one.journal", O_RDWR | O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
 
         append_number(one, 1, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 1);
         append_number(one, 2, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 2);
 
         assert_se(one->header->state == STATE_ONLINE);
@@ -214,8 +210,7 @@ static void test_sequence_numbers(void) {
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0644,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, one, &two) == 0);
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR | O_CREAT, 0644, true, (uint64_t) -1, false, NULL, NULL, NULL, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->header->file_id, one->header->file_id));
@@ -224,20 +219,20 @@ static void test_sequence_numbers(void) {
         assert_se(sd_id128_equal(one->header->seqnum_id, one->header->seqnum_id));
 
         append_number(two, 3, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 3);
         append_number(two, 4, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 4);
 
         test_close(two);
 
         append_number(one, 5, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 5);
 
         append_number(one, 6, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 6);
 
         test_close(one);
@@ -245,13 +240,12 @@ static void test_sequence_numbers(void) {
         /* restart server */
         seqnum = 0;
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0,
-                                    true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR, 0, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
 
         assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 
         append_number(two, 7, &seqnum);
-        printf("seqnum=%"PRIu64"\n", seqnum);
+        printf("seqnum=%" PRIu64 "\n", seqnum);
         assert_se(seqnum == 5);
 
         /* So..., here we have the same seqnum in two files with the
@@ -266,7 +260,7 @@ static void test_sequence_numbers(void) {
         else {
                 journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
 
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+                assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
         }
 }
 

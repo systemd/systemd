@@ -28,11 +28,8 @@ NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
 NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
 
 enum nss_status _nss_myhostname_gethostbyname4_r(
-                const char *name,
-                struct gaih_addrtuple **pat,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) {
+        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+{
 
         struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
@@ -94,7 +91,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         }
 
         l = strlen(canonical);
-        ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
+        ms = ALIGN(l + 1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
@@ -103,13 +100,13 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         /* First, fill in hostname */
         r_name = buffer;
-        memcpy(r_name, canonical, l+1);
-        idx = ALIGN(l+1);
+        memcpy(r_name, canonical, l + 1);
+        idx = ALIGN(l + 1);
 
         assert(n_addresses >= 0);
         if (n_addresses == 0) {
                 /* Second, fill in IPv6 tuple */
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple = (struct gaih_addrtuple *) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = AF_INET6;
@@ -120,11 +117,11 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple_prev = r_tuple;
 
                 /* Third, fill in IPv4 tuple */
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple = (struct gaih_addrtuple *) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = AF_INET;
-                *(uint32_t*) r_tuple->addr = local_address_ipv4;
+                *(uint32_t *) r_tuple->addr = local_address_ipv4;
                 r_tuple->scopeid = 0;
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -133,7 +130,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
 
         /* Fourth, fill actual addresses in, but in backwards order */
         for (a = addresses + n_addresses - 1, n = 0; (int) n < n_addresses; n++, a--) {
-                r_tuple = (struct gaih_addrtuple*) (buffer + idx);
+                r_tuple = (struct gaih_addrtuple *) (buffer + idx);
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = a->family;
@@ -164,16 +161,19 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         return NSS_STATUS_SUCCESS;
 }
 
-static enum nss_status fill_in_hostent(
-                const char *canonical, const char *additional,
-                int af,
-                struct local_address *addresses, unsigned n_addresses,
-                uint32_t local_address_ipv4,
-                struct hostent *result,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp,
-                char **canonp) {
+static enum nss_status fill_in_hostent(const char *canonical,
+                                       const char *additional,
+                                       int af,
+                                       struct local_address *addresses,
+                                       unsigned n_addresses,
+                                       uint32_t local_address_ipv4,
+                                       struct hostent *result,
+                                       char *buffer,
+                                       size_t buflen,
+                                       int *errnop,
+                                       int *h_errnop,
+                                       int32_t *ttlp,
+                                       char **canonp) {
 
         size_t l_canonical, l_additional, idx, ms, alen;
         char *r_addr, *r_name, *r_aliases, *r_alias = NULL, *r_addr_list;
@@ -194,12 +194,8 @@ static enum nss_status fill_in_hostent(
 
         l_canonical = strlen(canonical);
         l_additional = strlen_ptr(additional);
-        ms = ALIGN(l_canonical+1)+
-                (additional ? ALIGN(l_additional+1) : 0) +
-                sizeof(char*) +
-                (additional ? sizeof(char*) : 0) +
-                (c > 0 ? c : 1) * ALIGN(alen) +
-                (c > 0 ? c+1 : 2) * sizeof(char*);
+        ms = ALIGN(l_canonical + 1) + (additional ? ALIGN(l_additional + 1) : 0) + sizeof(char *) + (additional ? sizeof(char *) : 0) +
+                (c > 0 ? c : 1) * ALIGN(alen) + (c > 0 ? c + 1 : 2) * sizeof(char *);
 
         if (buflen < ms) {
                 *errnop = ERANGE;
@@ -209,24 +205,24 @@ static enum nss_status fill_in_hostent(
 
         /* First, fill in hostnames */
         r_name = buffer;
-        memcpy(r_name, canonical, l_canonical+1);
-        idx = ALIGN(l_canonical+1);
+        memcpy(r_name, canonical, l_canonical + 1);
+        idx = ALIGN(l_canonical + 1);
 
         if (additional) {
                 r_alias = buffer + idx;
-                memcpy(r_alias, additional, l_additional+1);
-                idx += ALIGN(l_additional+1);
+                memcpy(r_alias, additional, l_additional + 1);
+                idx += ALIGN(l_additional + 1);
         }
 
         /* Second, create aliases array */
         r_aliases = buffer + idx;
         if (additional) {
-                ((char**) r_aliases)[0] = r_alias;
-                ((char**) r_aliases)[1] = NULL;
-                idx += 2*sizeof(char*);
+                ((char **) r_aliases)[0] = r_alias;
+                ((char **) r_aliases)[1] = NULL;
+                idx += 2 * sizeof(char *);
         } else {
-                ((char**) r_aliases)[0] = NULL;
-                idx += sizeof(char*);
+                ((char **) r_aliases)[0] = NULL;
+                idx += sizeof(char *);
         }
 
         /* Third, add addresses */
@@ -238,15 +234,15 @@ static enum nss_status fill_in_hostent(
                         if (af != a->family)
                                 continue;
 
-                        memcpy(r_addr + i*ALIGN(alen), &a->address, alen);
+                        memcpy(r_addr + i * ALIGN(alen), &a->address, alen);
                         i++;
                 }
 
                 assert(i == c);
-                idx += c*ALIGN(alen);
+                idx += c * ALIGN(alen);
         } else {
                 if (af == AF_INET)
-                        *(uint32_t*) r_addr = local_address_ipv4;
+                        *(uint32_t *) r_addr = local_address_ipv4;
                 else
                         memcpy(r_addr, LOCALADDRESS_IPV6, 16);
 
@@ -259,25 +255,25 @@ static enum nss_status fill_in_hostent(
                 unsigned i;
 
                 for (i = 0; i < c; i++)
-                        ((char**) r_addr_list)[i] = r_addr + i*ALIGN(alen);
+                        ((char **) r_addr_list)[i] = r_addr + i * ALIGN(alen);
 
-                ((char**) r_addr_list)[i] = NULL;
-                idx += (c+1) * sizeof(char*);
+                ((char **) r_addr_list)[i] = NULL;
+                idx += (c + 1) * sizeof(char *);
 
         } else {
-                ((char**) r_addr_list)[0] = r_addr;
-                ((char**) r_addr_list)[1] = NULL;
-                idx += 2 * sizeof(char*);
+                ((char **) r_addr_list)[0] = r_addr;
+                ((char **) r_addr_list)[1] = NULL;
+                idx += 2 * sizeof(char *);
         }
 
         /* Verify the size matches */
         assert(idx == ms);
 
         result->h_name = r_name;
-        result->h_aliases = (char**) r_aliases;
+        result->h_aliases = (char **) r_aliases;
         result->h_addrtype = af;
         result->h_length = alen;
-        result->h_addr_list = (char**) r_addr_list;
+        result->h_addr_list = (char **) r_addr_list;
 
         if (ttlp)
                 *ttlp = 0;
@@ -294,13 +290,8 @@ static enum nss_status fill_in_hostent(
 }
 
 enum nss_status _nss_myhostname_gethostbyname3_r(
-                const char *name,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp,
-                char **canonp) {
+        const char *name, int af, struct hostent *host, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+{
 
         _cleanup_free_ struct local_address *addresses = NULL;
         const char *canonical, *additional = NULL;
@@ -363,24 +354,12 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         }
 
         return fill_in_hostent(
-                        canonical, additional,
-                        af,
-                        addresses, n_addresses,
-                        local_address_ipv4,
-                        host,
-                        buffer, buflen,
-                        errnop, h_errnop,
-                        ttlp,
-                        canonp);
+                canonical, additional, af, addresses, n_addresses, local_address_ipv4, host, buffer, buflen, errnop, h_errnop, ttlp, canonp);
 }
 
 enum nss_status _nss_myhostname_gethostbyaddr2_r(
-                const void* addr, socklen_t len,
-                int af,
-                struct hostent *host,
-                char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
-                int32_t *ttlp) {
+        const void *addr, socklen_t len, int af, struct hostent *host, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+{
 
         const char *canonical = NULL, *additional = NULL;
         uint32_t local_address_ipv4 = LOCALADDRESS_IPV4;
@@ -413,10 +392,10 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         }
 
         if (af == AF_INET) {
-                if ((*(uint32_t*) addr) == LOCALADDRESS_IPV4)
+                if ((*(uint32_t *) addr) == LOCALADDRESS_IPV4)
                         goto found;
 
-                if ((*(uint32_t*) addr) == htobe32(INADDR_LOOPBACK)) {
+                if ((*(uint32_t *) addr) == htobe32(INADDR_LOOPBACK)) {
                         canonical = "localhost";
                         local_address_ipv4 = htobe32(INADDR_LOOPBACK);
                         goto found;
@@ -473,15 +452,7 @@ found:
         }
 
         return fill_in_hostent(
-                        canonical, additional,
-                        af,
-                        addresses, n_addresses,
-                        local_address_ipv4,
-                        host,
-                        buffer, buflen,
-                        errnop, h_errnop,
-                        ttlp,
-                        NULL);
+                canonical, additional, af, addresses, n_addresses, local_address_ipv4, host, buffer, buflen, errnop, h_errnop, ttlp, NULL);
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(myhostname);

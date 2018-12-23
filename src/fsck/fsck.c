@@ -35,15 +35,16 @@
 #include "util.h"
 
 /* exit codes as defined in fsck(8) */
-enum {
-        FSCK_SUCCESS                 = 0,
-        FSCK_ERROR_CORRECTED         = 1 << 0,
-        FSCK_SYSTEM_SHOULD_REBOOT    = 1 << 1,
+enum
+{
+        FSCK_SUCCESS = 0,
+        FSCK_ERROR_CORRECTED = 1 << 0,
+        FSCK_SYSTEM_SHOULD_REBOOT = 1 << 1,
         FSCK_ERRORS_LEFT_UNCORRECTED = 1 << 2,
-        FSCK_OPERATIONAL_ERROR       = 1 << 3,
-        FSCK_USAGE_OR_SYNTAX_ERROR   = 1 << 4,
-        FSCK_USER_CANCELLED          = 1 << 5,
-        FSCK_SHARED_LIB_ERROR        = 1 << 7,
+        FSCK_OPERATIONAL_ERROR = 1 << 3,
+        FSCK_USAGE_OR_SYNTAX_ERROR = 1 << 4,
+        FSCK_USER_CANCELLED = 1 << 5,
+        FSCK_SHARED_LIB_ERROR = 1 << 7,
 };
 
 static bool arg_skip = false;
@@ -74,7 +75,10 @@ static void start_target(const char *target, const char *mode) {
                                "StartUnitReplace",
                                &error,
                                NULL,
-                               "sss", "basic.target", target, mode);
+                               "sss",
+                               "basic.target",
+                               target,
+                               mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
@@ -136,12 +140,14 @@ static void test_files(void) {
 
 #if HAVE_SYSV_COMPAT
         if (access("/fastboot", F_OK) >= 0) {
-                log_error("Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");
+                log_error(
+                        "Please pass 'fsck.mode=skip' on the kernel command line rather than creating /fastboot on the root file system.");
                 arg_skip = true;
         }
 
         if (access("/forcefsck", F_OK) >= 0) {
-                log_error("Please pass 'fsck.mode=force' on the kernel command line rather than creating /forcefsck on the root file system.");
+                log_error(
+                        "Please pass 'fsck.mode=force' on the kernel command line rather than creating /forcefsck on the root file system.");
                 arg_force = true;
         }
 #endif
@@ -152,9 +158,7 @@ static void test_files(void) {
 static double percent(int pass, unsigned long cur, unsigned long max) {
         /* Values stolen from e2fsck */
 
-        static const int pass_table[] = {
-                0, 70, 90, 92, 95, 100
-        };
+        static const int pass_table[] = { 0, 70, 90, 92, 95, 100 };
 
         if (pass <= 0)
                 return 0.0;
@@ -162,9 +166,7 @@ static double percent(int pass, unsigned long cur, unsigned long max) {
         if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
                 return 100.0;
 
-        return (double) pass_table[pass-1] +
-                ((double) pass_table[pass] - (double) pass_table[pass-1]) *
-                (double) cur / (double) max;
+        return (double) pass_table[pass - 1] + ((double) pass_table[pass] - (double) pass_table[pass - 1]) * (double) cur / (double) max;
 }
 
 static int process_progress(int fd) {
@@ -209,7 +211,7 @@ static int process_progress(int fd) {
 
                 /* Only show one progress counter at max */
                 if (!locked) {
-                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
+                        if (flock(fileno(console), LOCK_EX | LOCK_NB) < 0)
                                 continue;
 
                         locked = true;
@@ -257,7 +259,9 @@ static int fsck_progress_socket(void) {
 
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                 return log_full_errno(IN_SET(errno, ECONNREFUSED, ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                      errno, "Failed to connect to progress socket %s, ignoring: %m", sa.un.sun_path);
+                                      errno,
+                                      "Failed to connect to progress socket %s, ignoring: %m",
+                                      sa.un.sun_path);
 
         return TAKE_FD(fd);
 }
@@ -349,11 +353,10 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_show_progress &&
-            pipe(progress_pipe) < 0)
+        if (arg_show_progress && pipe(progress_pipe) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -380,7 +383,7 @@ static int run(int argc, char *argv[]) {
                         dash_c[0] = 0;
 
                 cmdline[i++] = "/sbin/fsck";
-                cmdline[i++] =  arg_repair;
+                cmdline[i++] = arg_repair;
                 cmdline[i++] = "-T";
 
                 /*
@@ -404,7 +407,7 @@ static int run(int argc, char *argv[]) {
 
                 (void) rlimit_nofile_safe();
 
-                execv(cmdline[0], (char**) cmdline);
+                execv(cmdline[0], (char **) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 

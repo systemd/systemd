@@ -36,11 +36,7 @@ struct audit_info {
    Any time an access gets denied this callback will be called
    with the audit data.  We then need to just copy the audit data into the msgbuf.
 */
-static int audit_callback(
-                void *auditdata,
-                security_class_t cls,
-                char *msgbuf,
-                size_t msgbufsize) {
+static int audit_callback(void *auditdata, security_class_t cls, char *msgbuf, size_t msgbufsize) {
 
         const struct audit_info *audit = auditdata;
         uid_t uid = 0, login_uid = 0;
@@ -56,17 +52,24 @@ static int audit_callback(
         if (sd_bus_creds_get_egid(audit->creds, &gid) >= 0)
                 xsprintf(gid_buf, GID_FMT, gid);
 
-        snprintf(msgbuf, msgbufsize,
+        snprintf(msgbuf,
+                 msgbufsize,
                  "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
-                 login_uid_buf, uid_buf, gid_buf,
-                 audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+                 login_uid_buf,
+                 uid_buf,
+                 gid_buf,
+                 audit->path ? " path=\"" : "",
+                 strempty(audit->path),
+                 audit->path ? "\"" : "",
+                 audit->cmdline ? " cmdline=\"" : "",
+                 strempty(audit->cmdline),
+                 audit->cmdline ? "\"" : "");
 
         return 0;
 }
 
 static int callback_type_to_priority(int type) {
-        switch(type) {
+        switch (type) {
 
         case SELINUX_ERROR:
                 return LOG_ERR;
@@ -120,9 +123,7 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         va_start(ap, fmt);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-        log_internalv(LOG_AUTH | callback_type_to_priority(type),
-                      0, __FILE__, __LINE__, __FUNCTION__,
-                      fmt2, ap);
+        log_internalv(LOG_AUTH | callback_type_to_priority(type), 0, __FILE__, __LINE__, __FUNCTION__, fmt2, ap);
 #pragma GCC diagnostic pop
         va_end(ap);
 
@@ -169,11 +170,7 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_generic_access_check(
-                sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
+int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
@@ -191,13 +188,11 @@ int mac_selinux_generic_access_check(
         if (r <= 0)
                 return r;
 
-        r = sd_bus_query_sender_creds(
-                        message,
-                        SD_BUS_CREDS_PID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|
-                        SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_AUDIT_LOGIN_UID|
-                        SD_BUS_CREDS_SELINUX_CONTEXT|
-                        SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
-                        &creds);
+        r = sd_bus_query_sender_creds(message,
+                                      SD_BUS_CREDS_PID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_CMDLINE |
+                                              SD_BUS_CREDS_AUDIT_LOGIN_UID | SD_BUS_CREDS_SELINUX_CONTEXT |
+                                              SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
+                                      &creds);
         if (r < 0)
                 goto finish;
 
@@ -259,11 +254,7 @@ finish:
 
 #else
 
-int mac_selinux_generic_access_check(
-                sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
+int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error) {
 
         return 0;
 }

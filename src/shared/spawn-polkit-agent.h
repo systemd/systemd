@@ -6,9 +6,7 @@
 int polkit_agent_open(void);
 void polkit_agent_close(void);
 
-static inline int polkit_agent_open_if_enabled(
-                BusTransport transport,
-                bool ask_password) {
+static inline int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password) {
 
         /* Open the polkit agent as a child process if necessary */
 

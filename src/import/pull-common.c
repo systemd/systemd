@@ -26,13 +26,7 @@
 #define FILENAME_ESCAPE "/.#\"\'"
 #define HASH_URL_THRESHOLD_LENGTH (_POSIX_PATH_MAX - 16)
 
-int pull_find_old_etags(
-                const char *url,
-                const char *image_root,
-                int dt,
-                const char *prefix,
-                const char *suffix,
-                char ***etags) {
+int pull_find_old_etags(const char *url, const char *image_root, int dt, const char *prefix, const char *suffix, char ***etags) {
 
         _cleanup_free_ char *escaped_url = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -64,8 +58,7 @@ int pull_find_old_etags(
                 const char *a, *b;
                 char *u;
 
-                if (de->d_type != DT_UNKNOWN &&
-                    de->d_type != dt)
+                if (de->d_type != DT_UNKNOWN && de->d_type != dt)
                         continue;
 
                 if (prefix) {
@@ -125,13 +118,10 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         p = strjoina(image_root, "/", local);
 
         if (force_local)
-                (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
 
-        r = btrfs_subvol_snapshot(final, p,
-                                  BTRFS_SNAPSHOT_QUOTA|
-                                  BTRFS_SNAPSHOT_FALLBACK_COPY|
-                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
-                                  BTRFS_SNAPSHOT_RECURSIVE);
+        r = btrfs_subvol_snapshot(
+                final, p, BTRFS_SNAPSHOT_QUOTA | BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_FALLBACK_DIRECTORY | BTRFS_SNAPSHOT_RECURSIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create local image: %m");
 
@@ -142,12 +132,12 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
 
 static int hash_url(const char *url, char **ret) {
         uint64_t h;
-        static const sd_id128_t k = SD_ID128_ARRAY(df,89,16,87,01,cc,42,30,98,ab,4a,19,a6,a5,63,4f);
+        static const sd_id128_t k = SD_ID128_ARRAY(df, 89, 16, 87, 01, cc, 42, 30, 98, ab, 4a, 19, a6, a5, 63, 4f);
 
         assert(url);
 
         h = siphash24(url, strlen(url), k.bytes);
-        if (asprintf(ret, "%"PRIx64, h) < 0)
+        if (asprintf(ret, "%" PRIx64, h) < 0)
                 return -ENOMEM;
 
         return 0;
@@ -173,8 +163,7 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
                         return -ENOMEM;
         }
 
-        path = strjoin(image_root, "/", strempty(prefix), escaped_url, escaped_etag ? "." : "",
-                       strempty(escaped_etag), strempty(suffix));
+        path = strjoin(image_root, "/", strempty(prefix), escaped_url, escaped_etag ? "." : "", strempty(escaped_etag), strempty(suffix));
         if (!path)
                 return -ENOMEM;
 
@@ -191,8 +180,7 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
                 if (r < 0)
                         return r;
 
-                path = strjoin(image_root, "/", strempty(prefix), hash, escaped_etag ? "." : "",
-                               strempty(escaped_etag), strempty(suffix));
+                path = strjoin(image_root, "/", strempty(prefix), hash, escaped_etag ? "." : "", strempty(escaped_etag), strempty(suffix));
                 if (!path)
                         return -ENOMEM;
         }
@@ -201,14 +189,13 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         return 0;
 }
 
-int pull_make_auxiliary_job(
-                PullJob **ret,
-                const char *url,
-                int (*strip_suffixes)(const char *name, char **ret),
-                const char *suffix,
-                CurlGlue *glue,
-                PullJobFinished on_finished,
-                void *userdata) {
+int pull_make_auxiliary_job(PullJob **ret,
+                            const char *url,
+                            int (*strip_suffixes)(const char *name, char **ret),
+                            const char *suffix,
+                            CurlGlue *glue,
+                            PullJobFinished on_finished,
+                            void *userdata) {
 
         _cleanup_free_ char *last_component = NULL, *ll = NULL, *auxiliary_url = NULL;
         _cleanup_(pull_job_unrefp) PullJob *job = NULL;
@@ -246,14 +233,13 @@ int pull_make_auxiliary_job(
         return 0;
 }
 
-int pull_make_verification_jobs(
-                PullJob **ret_checksum_job,
-                PullJob **ret_signature_job,
-                ImportVerify verify,
-                const char *url,
-                CurlGlue *glue,
-                PullJobFinished on_finished,
-                void *userdata) {
+int pull_make_verification_jobs(PullJob **ret_checksum_job,
+                                PullJob **ret_signature_job,
+                                ImportVerify verify,
+                                const char *url,
+                                CurlGlue *glue,
+                                PullJobFinished on_finished,
+                                void *userdata) {
 
         _cleanup_(pull_job_unrefp) PullJob *checksum_job = NULL, *signature_job = NULL;
         int r;
@@ -340,38 +326,28 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return log_oom();
 
         if (!filename_is_valid(fn))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Cannot verify checksum, could not determine server-side file name.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Cannot verify checksum, could not determine server-side file name.");
 
         line = strjoina(job->checksum, " *", fn, "\n");
 
-        p = memmem(checksum_job->payload,
-                   checksum_job->payload_size,
-                   line,
-                   strlen(line));
+        p = memmem(checksum_job->payload, checksum_job->payload_size, line, strlen(line));
 
         if (!p) {
                 line = strjoina(job->checksum, "  ", fn, "\n");
 
-                p = memmem(checksum_job->payload,
-                        checksum_job->payload_size,
-                        line,
-                        strlen(line));
+                p = memmem(checksum_job->payload, checksum_job->payload_size, line, strlen(line));
         }
 
-        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n'))
+        if (!p || (p != (char *) checksum_job->payload && p[-1] != '\n'))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "DOWNLOAD INVALID: Checksum of %s file did not checkout, file has been tampered with.", fn);
+                                       "DOWNLOAD INVALID: Checksum of %s file did not checkout, file has been tampered with.",
+                                       fn);
 
         log_info("SHA256 checksum of %s is valid.", job->url);
         return 1;
 }
 
-int pull_verify(PullJob *main_job,
-                PullJob *roothash_job,
-                PullJob *settings_job,
-                PullJob *checksum_job,
-                PullJob *signature_job) {
+int pull_verify(PullJob *main_job, PullJob *roothash_job, PullJob *settings_job, PullJob *checksum_job, PullJob *signature_job) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
         _cleanup_close_ int sig_file = -1;
@@ -442,7 +418,7 @@ int pull_verify(PullJob *main_job,
 
         gpg_home_created = true;
 
-        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(gpg)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -492,8 +468,8 @@ int pull_verify(PullJob *main_job,
                         cmd[k++] = NULL;
                 }
 
-                execvp("gpg2", (char * const *) cmd);
-                execvp("gpg", (char * const *) cmd);
+                execvp("gpg2", (char *const *) cmd);
+                execvp("gpg", (char *const *) cmd);
                 log_error_errno(errno, "Failed to execute gpg: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -524,7 +500,7 @@ finish:
         (void) unlink(sig_file_path);
 
         if (gpg_home_created)
-                (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
+                (void) rm_rf(gpg_home, REMOVE_ROOT | REMOVE_PHYSICAL);
 
         return r;
 }

@@ -57,7 +57,7 @@ static void test_same_fd(void) {
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
-        assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((b = open("/dev/null", O_RDONLY | O_CLOEXEC)) >= 0);
         assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
@@ -95,7 +95,7 @@ static void test_open_serialization_fd(void) {
 }
 
 static void test_acquire_data_fd_one(unsigned flags) {
-        char wbuffer[196*1024 - 7];
+        char wbuffer[196 * 1024 - 7];
         char rbuffer[sizeof(wbuffer)];
         int fd;
 
@@ -134,12 +134,12 @@ static void test_acquire_data_fd(void) {
         test_acquire_data_fd_one(0);
         test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL);
         test_acquire_data_fd_one(ACQUIRE_NO_MEMFD);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL | ACQUIRE_NO_MEMFD);
         test_acquire_data_fd_one(ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE);
-        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE|ACQUIRE_NO_TMPFILE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL | ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_MEMFD | ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL | ACQUIRE_NO_MEMFD | ACQUIRE_NO_PIPE);
+        test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL | ACQUIRE_NO_MEMFD | ACQUIRE_NO_PIPE | ACQUIRE_NO_TMPFILE);
 }
 
 static void test_fd_move_above_stdio(void) {
@@ -164,7 +164,7 @@ static void test_rearrange_stdio(void) {
         pid_t pid;
         int r;
 
-        r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
+        r = safe_fork("rearrange", FORK_WAIT | FORK_LOG, &pid);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -200,7 +200,7 @@ static void test_rearrange_stdio(void) {
                         assert_se(pair[1] == 1);
                         assert_se(fd_move_above_stdio(0) == 3);
                 }
-                assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
+                assert_se(open("/dev/full", O_WRONLY | O_CLOEXEC) == 0);
                 assert_se(acquire_data_fd("foobar", 6, 0) == 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
@@ -254,7 +254,7 @@ static void test_fd_duplicate_data_fd(void) {
         uint64_t i, j;
         int r;
 
-        fd1 = open("/etc/fstab", O_RDONLY|O_CLOEXEC);
+        fd1 = open("/etc/fstab", O_RDONLY | O_CLOEXEC);
         if (fd1 >= 0) {
 
                 fd2 = fd_duplicate_data_fd(fd1);
@@ -267,14 +267,14 @@ static void test_fd_duplicate_data_fd(void) {
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = acquire_data_fd("hallo", 6,  0);
+        fd1 = acquire_data_fd("hallo", 6, 0);
         assert_se(fd1 >= 0);
 
         fd2 = fd_duplicate_data_fd(fd1);
         assert_se(fd2 >= 0);
 
         safe_close(fd1);
-        fd1 = acquire_data_fd("hallo", 6,  0);
+        fd1 = acquire_data_fd("hallo", 6, 0);
         assert_se(fd1 >= 0);
 
         assert_equal_fd(fd1, fd2);
@@ -282,9 +282,9 @@ static void test_fd_duplicate_data_fd(void) {
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sfd) >= 0);
 
-        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG, &pid);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -292,7 +292,7 @@ static void test_fd_duplicate_data_fd(void) {
 
                 sfd[0] = safe_close(sfd[0]);
 
-                for (i = 0; i < 1536*1024 / sizeof(uint64_t); i++)
+                for (i = 0; i < 1536 * 1024 / sizeof(uint64_t); i++)
                         assert_se(write(sfd[1], &i, sizeof(i)) == sizeof(i));
 
                 sfd[1] = safe_close(sfd[1]);
@@ -305,7 +305,7 @@ static void test_fd_duplicate_data_fd(void) {
         fd2 = fd_duplicate_data_fd(sfd[0]);
         assert_se(fd2 >= 0);
 
-        for (i = 0; i < 1536*1024 / sizeof(uint64_t); i++) {
+        for (i = 0; i < 1536 * 1024 / sizeof(uint64_t); i++) {
                 assert_se(read(fd2, &j, sizeof(j)) == sizeof(j));
                 assert_se(i == j);
         }

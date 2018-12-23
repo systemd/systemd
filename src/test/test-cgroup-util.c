@@ -174,7 +174,8 @@ static void test_proc(void) {
         assert_se(d);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *slice = NULL;
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL,
+                                    *slice = NULL;
                 pid_t pid;
                 uid_t uid = UID_INVALID;
 
@@ -197,16 +198,7 @@ static void test_proc(void) {
                 cg_pid_get_machine_name(pid, &machine);
                 cg_pid_get_slice(pid, &slice);
 
-                printf(PID_FMT"\t%s\t%s\t"UID_FMT"\t%s\t%s\t%s\t%s\t%s\n",
-                       pid,
-                       path,
-                       path_shifted,
-                       uid,
-                       session,
-                       unit,
-                       user_unit,
-                       machine,
-                       slice);
+                printf(PID_FMT "\t%s\t%s\t" UID_FMT "\t%s\t%s\t%s\t%s\t%s\n", pid, path, path_shifted, uid, session, unit, user_unit, machine, slice);
         }
 }
 
@@ -322,11 +314,11 @@ static void test_is_cgroup_fs(void) {
 static void test_fd_is_cgroup_fs(void) {
         int fd;
 
-        fd = open("/sys/fs/cgroup", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        fd = open("/sys/fs/cgroup", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
         assert_se(fd >= 0);
         if (fd_is_temporary_fs(fd)) {
                 fd = safe_close(fd);
-                fd = open("/sys/fs/cgroup/systemd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                fd = open("/sys/fs/cgroup/systemd", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
                 assert_se(fd >= 0);
         }
         assert_se(fd_is_cgroup_fs(fd));
@@ -352,33 +344,33 @@ static void test_is_wanted_print(bool header) {
 }
 
 static void test_is_wanted(void) {
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "systemd.unified_cgroup_hierarchy", 1) >= 0);
         test_is_wanted_print(false);
 
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
-        test_is_wanted_print(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
         test_is_wanted_print(false);
 
         assert_se(setenv("SYSTEMD_PROC_CMDLINE",
                          "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
+                         "systemd.legacy_systemd_cgroup_controller",
+                         1) >= 0);
+        test_is_wanted_print(false);
+
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
+                         "systemd.unified_cgroup_hierarchy=0 "
+                         "systemd.legacy_systemd_cgroup_controller=0",
+                         1) >= 0);
         test_is_wanted_print(false);
 
         /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
          * explicitly specified. */
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all", 1) >= 0);
+        assert_se(setenv("SYSTEMD_PROC_CMDLINE", "cgroup_no_v1=all", 1) >= 0);
         test_is_wanted_print(false);
 
         assert_se(setenv("SYSTEMD_PROC_CMDLINE",
                          "cgroup_no_v1=all "
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
+                         "systemd.unified_cgroup_hierarchy=0",
+                         1) >= 0);
         test_is_wanted_print(false);
 }
 
@@ -442,15 +434,11 @@ static void test_cg_get_keyed_attribute(void) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
-                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
-        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"",
-                 vals3[0], vals3[1], vals3[2]);
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"", vals3[0], vals3[1], vals3[2]);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
-                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
-        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
-                 vals3a[0], vals3a[1], vals3a[2]);
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"", vals3a[0], vals3a[1], vals3a[2]);
 
         for (i = 0; i < 3; i++) {
                 free(vals3[i]);

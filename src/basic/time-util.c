@@ -66,7 +66,7 @@ nsec_t now_nsec(clockid_t clock_id) {
         return timespec_load_nsec(&ts);
 }
 
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
+dual_timestamp *dual_timestamp_get(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
@@ -75,7 +75,7 @@ dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
         return ts;
 }
 
-triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
+triple_timestamp *triple_timestamp_get(triple_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
@@ -85,7 +85,7 @@ triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
         return ts;
 }
 
-dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
+dual_timestamp *dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         int64_t delta;
         assert(ts);
 
@@ -102,7 +102,7 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         return ts;
 }
 
-triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
+triple_timestamp *triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
         int64_t delta;
 
         assert(ts);
@@ -120,7 +120,7 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
         return ts;
 }
 
-dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
+dual_timestamp *dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         int64_t delta;
         assert(ts);
 
@@ -136,7 +136,7 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         return ts;
 }
 
-dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
+dual_timestamp *dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
         int64_t delta;
 
         if (u == USEC_INFINITY) {
@@ -181,9 +181,7 @@ usec_t timespec_load(const struct timespec *ts) {
         if ((usec_t) ts->tv_sec > (UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / USEC_PER_SEC)
                 return USEC_INFINITY;
 
-        return
-                (usec_t) ts->tv_sec * USEC_PER_SEC +
-                (usec_t) ts->tv_nsec / NSEC_PER_USEC;
+        return (usec_t) ts->tv_sec * USEC_PER_SEC + (usec_t) ts->tv_nsec / NSEC_PER_USEC;
 }
 
 nsec_t timespec_load_nsec(const struct timespec *ts) {
@@ -198,17 +196,16 @@ nsec_t timespec_load_nsec(const struct timespec *ts) {
         return (nsec_t) ts->tv_sec * NSEC_PER_SEC + (nsec_t) ts->tv_nsec;
 }
 
-struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
+struct timespec *timespec_store(struct timespec *ts, usec_t u) {
         assert(ts);
 
-        if (u == USEC_INFINITY ||
-            u / USEC_PER_SEC >= TIME_T_MAX) {
+        if (u == USEC_INFINITY || u / USEC_PER_SEC >= TIME_T_MAX) {
                 ts->tv_sec = (time_t) -1;
                 ts->tv_nsec = (long) -1;
                 return ts;
         }
 
-        ts->tv_sec = (time_t) (u / USEC_PER_SEC);
+        ts->tv_sec = (time_t)(u / USEC_PER_SEC);
         ts->tv_nsec = (long int) ((u % USEC_PER_SEC) * NSEC_PER_USEC);
 
         return ts;
@@ -223,43 +220,29 @@ usec_t timeval_load(const struct timeval *tv) {
         if ((usec_t) tv->tv_sec > (UINT64_MAX - tv->tv_usec) / USEC_PER_SEC)
                 return USEC_INFINITY;
 
-        return
-                (usec_t) tv->tv_sec * USEC_PER_SEC +
-                (usec_t) tv->tv_usec;
+        return (usec_t) tv->tv_sec * USEC_PER_SEC + (usec_t) tv->tv_usec;
 }
 
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
 
-        if (u == USEC_INFINITY ||
-            u / USEC_PER_SEC > TIME_T_MAX) {
+        if (u == USEC_INFINITY || u / USEC_PER_SEC > TIME_T_MAX) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
         } else {
-                tv->tv_sec = (time_t) (u / USEC_PER_SEC);
-                tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
+                tv->tv_sec = (time_t)(u / USEC_PER_SEC);
+                tv->tv_usec = (suseconds_t)(u % USEC_PER_SEC);
         }
 
         return tv;
 }
 
-static char *format_timestamp_internal(
-                char *buf,
-                size_t l,
-                usec_t t,
-                bool utc,
-                bool us) {
+static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc, bool us) {
 
         /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that our
          * generated timestamps may be parsed with parse_timestamp(), and always read the same. */
-        static const char * const weekdays[] = {
-                [0] = "Sun",
-                [1] = "Mon",
-                [2] = "Tue",
-                [3] = "Wed",
-                [4] = "Thu",
-                [5] = "Fri",
-                [6] = "Sat",
+        static const char *const weekdays[] = {
+                [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat",
         };
 
         struct tm tm;
@@ -268,13 +251,12 @@ static char *format_timestamp_internal(
 
         assert(buf);
 
-        if (l <
-            3 +                  /* week day */
-            1 + 10 +             /* space and date */
-            1 + 8 +              /* space and time */
-            (us ? 1 + 6 : 0) +   /* "." and microsecond part */
-            1 + 1 +              /* space and shortest possible zone */
-            1)
+        if (l < 3 +                    /* week day */
+                    1 + 10 +           /* space and date */
+                    1 + 8 +            /* space and time */
+                    (us ? 1 + 6 : 0) + /* "." and microsecond part */
+                    1 + 1 +            /* space and shortest possible zone */
+                    1)
                 return NULL; /* Not enough space even for the shortest form. */
         if (t <= 0 || t == USEC_INFINITY)
                 return NULL; /* Timestamp is unset */
@@ -286,7 +268,7 @@ static char *format_timestamp_internal(
                 return buf;
         }
 
-        sec = (time_t) (t / USEC_PER_SEC); /* Round down */
+        sec = (time_t)(t / USEC_PER_SEC); /* Round down */
 
         if (!localtime_or_gmtime_r(&sec, &tm, utc))
                 return NULL;
@@ -305,7 +287,7 @@ static char *format_timestamp_internal(
                 if (n + 8 > l)
                         return NULL; /* Microseconds part doesn't fit. */
 
-                sprintf(buf + n, ".%06"PRI_USEC, t % USEC_PER_SEC);
+                sprintf(buf + n, ".%06" PRI_USEC, t % USEC_PER_SEC);
         }
 
         /* Append the timezone */
@@ -375,49 +357,33 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         }
 
         if (d >= USEC_PER_YEAR)
-                snprintf(buf, l, USEC_FMT " years " USEC_FMT " months %s",
-                         d / USEC_PER_YEAR,
-                         (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
+                snprintf(buf, l, USEC_FMT " years " USEC_FMT " months %s", d / USEC_PER_YEAR, (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
         else if (d >= USEC_PER_MONTH)
-                snprintf(buf, l, USEC_FMT " months " USEC_FMT " days %s",
-                         d / USEC_PER_MONTH,
-                         (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
+                snprintf(buf, l, USEC_FMT " months " USEC_FMT " days %s", d / USEC_PER_MONTH, (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
         else if (d >= USEC_PER_WEEK)
-                snprintf(buf, l, USEC_FMT " weeks " USEC_FMT " days %s",
-                         d / USEC_PER_WEEK,
-                         (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
-        else if (d >= 2*USEC_PER_DAY)
+                snprintf(buf, l, USEC_FMT " weeks " USEC_FMT " days %s", d / USEC_PER_WEEK, (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
+        else if (d >= 2 * USEC_PER_DAY)
                 snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
-        else if (d >= 25*USEC_PER_HOUR)
-                snprintf(buf, l, "1 day " USEC_FMT "h %s",
-                         (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
-        else if (d >= 6*USEC_PER_HOUR)
-                snprintf(buf, l, USEC_FMT "h %s",
-                         d / USEC_PER_HOUR, s);
+        else if (d >= 25 * USEC_PER_HOUR)
+                snprintf(buf, l, "1 day " USEC_FMT "h %s", (d - USEC_PER_DAY) / USEC_PER_HOUR, s);
+        else if (d >= 6 * USEC_PER_HOUR)
+                snprintf(buf, l, USEC_FMT "h %s", d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
-                snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s",
-                         d / USEC_PER_HOUR,
-                         (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
-        else if (d >= 5*USEC_PER_MINUTE)
-                snprintf(buf, l, USEC_FMT "min %s",
-                         d / USEC_PER_MINUTE, s);
+                snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s", d / USEC_PER_HOUR, (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
+        else if (d >= 5 * USEC_PER_MINUTE)
+                snprintf(buf, l, USEC_FMT "min %s", d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
-                snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s",
-                         d / USEC_PER_MINUTE,
-                         (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
+                snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s", d / USEC_PER_MINUTE, (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
         else if (d >= USEC_PER_SEC)
-                snprintf(buf, l, USEC_FMT "s %s",
-                         d / USEC_PER_SEC, s);
+                snprintf(buf, l, USEC_FMT "s %s", d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
-                snprintf(buf, l, USEC_FMT "ms %s",
-                         d / USEC_PER_MSEC, s);
+                snprintf(buf, l, USEC_FMT "ms %s", d / USEC_PER_MSEC, s);
         else if (d > 0)
-                snprintf(buf, l, USEC_FMT"us %s",
-                         d, s);
+                snprintf(buf, l, USEC_FMT "us %s", d, s);
         else
                 snprintf(buf, l, "now");
 
-        buf[l-1] = 0;
+        buf[l - 1] = 0;
         return buf;
 }
 
@@ -426,15 +392,9 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 const char *suffix;
                 usec_t usec;
         } table[] = {
-                { "y",     USEC_PER_YEAR   },
-                { "month", USEC_PER_MONTH  },
-                { "w",     USEC_PER_WEEK   },
-                { "d",     USEC_PER_DAY    },
-                { "h",     USEC_PER_HOUR   },
-                { "min",   USEC_PER_MINUTE },
-                { "s",     USEC_PER_SEC    },
-                { "ms",    USEC_PER_MSEC   },
-                { "us",    1               },
+                { "y", USEC_PER_YEAR }, { "month", USEC_PER_MONTH }, { "w", USEC_PER_WEEK },
+                { "d", USEC_PER_DAY },  { "h", USEC_PER_HOUR },      { "min", USEC_PER_MINUTE },
+                { "s", USEC_PER_SEC },  { "ms", USEC_PER_MSEC },     { "us", 1 },
         };
 
         size_t i;
@@ -445,14 +405,14 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         assert(l > 0);
 
         if (t == USEC_INFINITY) {
-                strncpy(p, "infinity", l-1);
-                p[l-1] = 0;
+                strncpy(p, "infinity", l - 1);
+                p[l - 1] = 0;
                 return p;
         }
 
         if (t <= 0) {
-                strncpy(p, "0", l-1);
-                p[l-1] = 0;
+                strncpy(p, "0", l - 1);
+                p[l - 1] = 0;
                 return p;
         }
 
@@ -494,13 +454,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                         }
 
                         if (j > 0) {
-                                k = snprintf(p, l,
-                                             "%s"USEC_FMT".%0*"PRI_USEC"%s",
-                                             p > buf ? " " : "",
-                                             a,
-                                             j,
-                                             b,
-                                             table[i].suffix);
+                                k = snprintf(p, l, "%s" USEC_FMT ".%0*" PRI_USEC "%s", p > buf ? " " : "", a, j, b, table[i].suffix);
 
                                 t = 0;
                                 done = true;
@@ -509,11 +463,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
 
                 /* No? Then let's show it normally */
                 if (!done) {
-                        k = snprintf(p, l,
-                                     "%s"USEC_FMT"%s",
-                                     p > buf ? " " : "",
-                                     a,
-                                     table[i].suffix);
+                        k = snprintf(p, l, "%s" USEC_FMT "%s", p > buf ? " " : "", a, table[i].suffix);
 
                         t = b;
                 }
@@ -536,20 +486,9 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                 const char *name;
                 const int nr;
         } day_nr[] = {
-                { "Sunday",    0 },
-                { "Sun",       0 },
-                { "Monday",    1 },
-                { "Mon",       1 },
-                { "Tuesday",   2 },
-                { "Tue",       2 },
-                { "Wednesday", 3 },
-                { "Wed",       3 },
-                { "Thursday",  4 },
-                { "Thu",       4 },
-                { "Friday",    5 },
-                { "Fri",       5 },
-                { "Saturday",  6 },
-                { "Sat",       6 },
+                { "Sunday", 0 }, { "Sun", 0 },       { "Monday", 1 },   { "Mon", 1 },      { "Tuesday", 2 },
+                { "Tue", 2 },    { "Wednesday", 3 }, { "Wed", 3 },      { "Thursday", 4 }, { "Thu", 4 },
+                { "Friday", 5 }, { "Fri", 5 },       { "Saturday", 6 }, { "Sat", 6 },
         };
 
         const char *k, *utc = NULL, *tzn = NULL;
@@ -588,14 +527,14 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                         goto finish;
 
                 else if (t[0] == '+') {
-                        r = parse_sec(t+1, &plus);
+                        r = parse_sec(t + 1, &plus);
                         if (r < 0)
                                 return r;
 
                         goto finish;
 
                 } else if (t[0] == '-') {
-                        r = parse_sec(t+1, &minus);
+                        r = parse_sec(t + 1, &minus);
                         if (r < 0)
                                 return r;
 
@@ -661,7 +600,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                 }
         }
 
-        x = (time_t) (ret / USEC_PER_SEC);
+        x = (time_t)(ret / USEC_PER_SEC);
         x_usec = 0;
 
         if (!localtime_or_gmtime_r(&x, &tm, utc))
@@ -765,20 +704,19 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
         return -EINVAL;
 
-parse_usec:
-        {
-                unsigned add;
+parse_usec : {
+        unsigned add;
 
-                k++;
-                r = parse_fractional_part_u(&k, 6, &add);
-                if (r < 0)
-                        return -EINVAL;
+        k++;
+        r = parse_fractional_part_u(&k, 6, &add);
+        if (r < 0)
+                return -EINVAL;
 
-                if (*k)
-                        return -EINVAL;
+        if (*k)
+                return -EINVAL;
 
-                x_usec = add;
-        }
+        x_usec = add;
+}
 
 from_tm:
         if (weekday >= 0 && tm.tm_wday != weekday)
@@ -826,11 +764,11 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (!tz || endswith_no_case(t, " UTC"))
                 return parse_timestamp_impl(t, usec, false);
 
-        shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+        shared = mmap(NULL, sizeof *shared, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT, NULL);
         if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
                 return r;
@@ -868,40 +806,40 @@ int parse_timestamp(const char *t, usec_t *usec) {
         return tmp.return_value;
 }
 
-static const char* extract_multiplier(const char *p, usec_t *multiplier) {
+static const char *extract_multiplier(const char *p, usec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 usec_t usec;
         } table[] = {
-                { "seconds", USEC_PER_SEC    },
-                { "second",  USEC_PER_SEC    },
-                { "sec",     USEC_PER_SEC    },
-                { "s",       USEC_PER_SEC    },
+                { "seconds", USEC_PER_SEC },
+                { "second", USEC_PER_SEC },
+                { "sec", USEC_PER_SEC },
+                { "s", USEC_PER_SEC },
                 { "minutes", USEC_PER_MINUTE },
-                { "minute",  USEC_PER_MINUTE },
-                { "min",     USEC_PER_MINUTE },
-                { "months",  USEC_PER_MONTH  },
-                { "month",   USEC_PER_MONTH  },
-                { "M",       USEC_PER_MONTH  },
-                { "msec",    USEC_PER_MSEC   },
-                { "ms",      USEC_PER_MSEC   },
-                { "m",       USEC_PER_MINUTE },
-                { "hours",   USEC_PER_HOUR   },
-                { "hour",    USEC_PER_HOUR   },
-                { "hr",      USEC_PER_HOUR   },
-                { "h",       USEC_PER_HOUR   },
-                { "days",    USEC_PER_DAY    },
-                { "day",     USEC_PER_DAY    },
-                { "d",       USEC_PER_DAY    },
-                { "weeks",   USEC_PER_WEEK   },
-                { "week",    USEC_PER_WEEK   },
-                { "w",       USEC_PER_WEEK   },
-                { "years",   USEC_PER_YEAR   },
-                { "year",    USEC_PER_YEAR   },
-                { "y",       USEC_PER_YEAR   },
-                { "usec",    1ULL            },
-                { "us",      1ULL            },
-                { "µs",      1ULL            },
+                { "minute", USEC_PER_MINUTE },
+                { "min", USEC_PER_MINUTE },
+                { "months", USEC_PER_MONTH },
+                { "month", USEC_PER_MONTH },
+                { "M", USEC_PER_MONTH },
+                { "msec", USEC_PER_MSEC },
+                { "ms", USEC_PER_MSEC },
+                { "m", USEC_PER_MINUTE },
+                { "hours", USEC_PER_HOUR },
+                { "hour", USEC_PER_HOUR },
+                { "hr", USEC_PER_HOUR },
+                { "h", USEC_PER_HOUR },
+                { "days", USEC_PER_DAY },
+                { "day", USEC_PER_DAY },
+                { "d", USEC_PER_DAY },
+                { "weeks", USEC_PER_WEEK },
+                { "week", USEC_PER_WEEK },
+                { "w", USEC_PER_WEEK },
+                { "years", USEC_PER_YEAR },
+                { "year", USEC_PER_YEAR },
+                { "y", USEC_PER_YEAR },
+                { "usec", 1ULL },
+                { "us", 1ULL },
+                { "µs", 1ULL },
         };
         size_t i;
 
@@ -995,7 +933,7 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                         const char *b;
 
                         for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
-                                k = (usec_t) (*b - '0') * m;
+                                k = (usec_t)(*b - '0') * m;
                                 if (k >= USEC_INFINITY - r)
                                         return -ERANGE;
 
@@ -1032,43 +970,43 @@ int parse_sec_fix_0(const char *t, usec_t *ret) {
         return r;
 }
 
-static const char* extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
+static const char *extract_nsec_multiplier(const char *p, nsec_t *multiplier) {
         static const struct {
                 const char *suffix;
                 nsec_t nsec;
         } table[] = {
-                { "seconds", NSEC_PER_SEC    },
-                { "second",  NSEC_PER_SEC    },
-                { "sec",     NSEC_PER_SEC    },
-                { "s",       NSEC_PER_SEC    },
+                { "seconds", NSEC_PER_SEC },
+                { "second", NSEC_PER_SEC },
+                { "sec", NSEC_PER_SEC },
+                { "s", NSEC_PER_SEC },
                 { "minutes", NSEC_PER_MINUTE },
-                { "minute",  NSEC_PER_MINUTE },
-                { "min",     NSEC_PER_MINUTE },
-                { "months",  NSEC_PER_MONTH  },
-                { "month",   NSEC_PER_MONTH  },
-                { "M",       NSEC_PER_MONTH  },
-                { "msec",    NSEC_PER_MSEC   },
-                { "ms",      NSEC_PER_MSEC   },
-                { "m",       NSEC_PER_MINUTE },
-                { "hours",   NSEC_PER_HOUR   },
-                { "hour",    NSEC_PER_HOUR   },
-                { "hr",      NSEC_PER_HOUR   },
-                { "h",       NSEC_PER_HOUR   },
-                { "days",    NSEC_PER_DAY    },
-                { "day",     NSEC_PER_DAY    },
-                { "d",       NSEC_PER_DAY    },
-                { "weeks",   NSEC_PER_WEEK   },
-                { "week",    NSEC_PER_WEEK   },
-                { "w",       NSEC_PER_WEEK   },
-                { "years",   NSEC_PER_YEAR   },
-                { "year",    NSEC_PER_YEAR   },
-                { "y",       NSEC_PER_YEAR   },
-                { "usec",    NSEC_PER_USEC   },
-                { "us",      NSEC_PER_USEC   },
-                { "µs",      NSEC_PER_USEC   },
-                { "nsec",    1ULL            },
-                { "ns",      1ULL            },
-                { "",        1ULL            }, /* default is nsec */
+                { "minute", NSEC_PER_MINUTE },
+                { "min", NSEC_PER_MINUTE },
+                { "months", NSEC_PER_MONTH },
+                { "month", NSEC_PER_MONTH },
+                { "M", NSEC_PER_MONTH },
+                { "msec", NSEC_PER_MSEC },
+                { "ms", NSEC_PER_MSEC },
+                { "m", NSEC_PER_MINUTE },
+                { "hours", NSEC_PER_HOUR },
+                { "hour", NSEC_PER_HOUR },
+                { "hr", NSEC_PER_HOUR },
+                { "h", NSEC_PER_HOUR },
+                { "days", NSEC_PER_DAY },
+                { "day", NSEC_PER_DAY },
+                { "d", NSEC_PER_DAY },
+                { "weeks", NSEC_PER_WEEK },
+                { "week", NSEC_PER_WEEK },
+                { "w", NSEC_PER_WEEK },
+                { "years", NSEC_PER_YEAR },
+                { "year", NSEC_PER_YEAR },
+                { "y", NSEC_PER_YEAR },
+                { "usec", NSEC_PER_USEC },
+                { "us", NSEC_PER_USEC },
+                { "µs", NSEC_PER_USEC },
+                { "nsec", 1ULL },
+                { "ns", 1ULL },
+                { "", 1ULL }, /* default is nsec */
         };
         size_t i;
 
@@ -1161,7 +1099,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                         const char *b;
 
                         for (b = e + 1; *b >= '0' && *b <= '9'; b++, m /= 10) {
-                                k = (nsec_t) (*b - '0') * m;
+                                k = (nsec_t)(*b - '0') * m;
                                 if (k >= NSEC_INFINITY - r)
                                         return -ERANGE;
 
@@ -1274,10 +1212,7 @@ bool timezone_is_valid(const char *name, int log_level) {
                 return false;
 
         for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
-                    !IN_SET(*p, '-', '_', '+', '/'))
+                if (!(*p >= '0' && *p <= '9') && !(*p >= 'a' && *p <= 'z') && !(*p >= 'A' && *p <= 'Z') && !IN_SET(*p, '-', '_', '+', '/'))
                         return false;
 
                 if (*p == '/') {
@@ -1298,7 +1233,7 @@ bool timezone_is_valid(const char *name, int log_level) {
 
         t = strjoina("/usr/share/zoneinfo/", name);
 
-        fd = open(t, O_RDONLY|O_CLOEXEC);
+        fd = open(t, O_RDONLY | O_CLOEXEC);
         if (fd < 0) {
                 log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
                 return false;
@@ -1333,7 +1268,7 @@ bool clock_boottime_supported(void) {
         if (supported < 0) {
                 int fd;
 
-                fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+                fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK | TFD_CLOEXEC);
                 if (fd < 0)
                         supported = false;
                 else {
@@ -1419,7 +1354,7 @@ unsigned long usec_to_jiffies(usec_t u) {
                 hz = r;
         }
 
-        return DIV_ROUND_UP(u , USEC_PER_SEC / hz);
+        return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
 }
 
 usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
@@ -1461,11 +1396,11 @@ int time_change_fd(void) {
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
          * CLOCK_MONOTONIC. */
 
-        fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        if (timerfd_settime(fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
+        if (timerfd_settime(fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
                 return -errno;
 
         return TAKE_FD(fd);

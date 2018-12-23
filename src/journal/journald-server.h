@@ -17,7 +17,8 @@ typedef struct Server Server;
 #include "list.h"
 #include "prioq.h"
 
-typedef enum Storage {
+typedef enum Storage
+{
         STORAGE_AUTO,
         STORAGE_VOLATILE,
         STORAGE_PERSISTENT,
@@ -26,7 +27,8 @@ typedef enum Storage {
         _STORAGE_INVALID = -1
 } Storage;
 
-typedef enum SplitMode {
+typedef enum SplitMode
+{
         SPLIT_UID,
         SPLIT_LOGIN, /* deprecated */
         SPLIT_NONE,
@@ -40,7 +42,7 @@ typedef struct JournalCompressOptions {
 } JournalCompressOptions;
 
 typedef struct JournalStorageSpace {
-        usec_t   timestamp;
+        usec_t timestamp;
 
         uint64_t available;
         uint64_t limit;
@@ -138,11 +140,11 @@ struct Server {
         Set *deferred_closes;
 
         uint64_t *kernel_seqnum;
-        bool dev_kmsg_readable:1;
+        bool dev_kmsg_readable : 1;
 
-        bool send_watchdog:1;
-        bool sent_notify_ready:1;
-        bool sync_scheduled:1;
+        bool send_watchdog : 1;
+        bool sent_notify_ready : 1;
+        bool sync_scheduled : 1;
 
         char machine_id_field[sizeof("_MACHINE_ID=") + 32];
         char boot_id_field[sizeof("_BOOT_ID=") + 32];
@@ -161,7 +163,7 @@ struct Server {
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
 
-        ClientContext *my_context; /* the context of journald itself */
+        ClientContext *my_context;   /* the context of journald itself */
         ClientContext *pid1_context; /* the context of PID 1 */
 };
 
@@ -182,11 +184,12 @@ struct Server {
 /* kmsg: Maximum number of extra fields we'll import from udev's devices */
 #define N_IOVEC_UDEV_FIELDS 32
 
-void server_dispatch_message(Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
-void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_ _printf_(4,0);
+void server_dispatch_message(
+        Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid);
+void server_driver_message(Server *s, pid_t object_pid, const char *message_id, const char *format, ...) _sentinel_ _printf_(4, 0);
 
 /* gperf lookup function */
-const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem *journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_storage);
 CONFIG_PARSER_PROTOTYPE(config_parse_line_max);

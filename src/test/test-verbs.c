@@ -9,21 +9,19 @@ static int noop_dispatcher(int argc, char *argv[], void *userdata) {
 }
 
 #define test_dispatch_one(argv, verbs, expected) \
-        optind = 0; \
+        optind = 0;                              \
         assert_se(dispatch_verb(strv_length(argv), argv, verbs, NULL) == expected);
 
 static void test_verbs(void) {
-        static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            noop_dispatcher },
-                { "list-images", VERB_ANY, 1,        0,            noop_dispatcher },
-                { "list",        VERB_ANY, 2,        VERB_DEFAULT, noop_dispatcher },
-                { "status",      2,        VERB_ANY, 0,            noop_dispatcher },
-                { "show",        VERB_ANY, VERB_ANY, 0,            noop_dispatcher },
-                { "terminate",   2,        VERB_ANY, 0,            noop_dispatcher },
-                { "login",       2,        2,        0,            noop_dispatcher },
-                { "copy-to",     3,        4,        0,            noop_dispatcher },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, noop_dispatcher },
+                                      { "list-images", VERB_ANY, 1, 0, noop_dispatcher },
+                                      { "list", VERB_ANY, 2, VERB_DEFAULT, noop_dispatcher },
+                                      { "status", 2, VERB_ANY, 0, noop_dispatcher },
+                                      { "show", VERB_ANY, VERB_ANY, 0, noop_dispatcher },
+                                      { "terminate", 2, VERB_ANY, 0, noop_dispatcher },
+                                      { "login", 2, 2, 0, noop_dispatcher },
+                                      { "copy-to", 3, 4, 0, noop_dispatcher },
+                                      {} };
 
         /* not found */
         test_dispatch_one(STRV_MAKE("command-not-found"), verbs, -EINVAL);

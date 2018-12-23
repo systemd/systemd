@@ -123,7 +123,7 @@ static int boot_entry_load(const char *path, BootEntry *entry) {
         }
 
         *entry = tmp;
-        tmp = (BootEntry) {};
+        tmp = (BootEntry){};
         return 0;
 }
 
@@ -263,8 +263,7 @@ static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
 
         for (i = 0; i < n_entries; i++)
                 for (j = 0; j < n_entries; j++)
-                        if (i != j && streq(boot_entry_title(entries + i),
-                                            boot_entry_title(entries + j)))
+                        if (i != j && streq(boot_entry_title(entries + i), boot_entry_title(entries + j)))
                                 non_unique = arr[i] = arr[j] = true;
 
         return non_unique;
@@ -329,16 +328,14 @@ static int boot_entries_select_default(const BootConfig *config) {
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_oneshot, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
-                                          config->entries[i].id);
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot", config->entries[i].id);
                                 return i;
                         }
 
         if (config->entry_default)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_default, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
-                                          config->entries[i].id);
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault", config->entries[i].id);
                                 return i;
                         }
 
@@ -346,7 +343,8 @@ static int boot_entries_select_default(const BootConfig *config) {
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (fnmatch(config->default_pattern, config->entries[i].id, FNM_CASEFOLD) == 0) {
                                 log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
-                                          config->entries[i].id, config->default_pattern);
+                                          config->entries[i].id,
+                                          config->default_pattern);
                                 return i;
                         }
 
@@ -395,14 +393,13 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
 
 /********************************************************************************/
 
-static int verify_esp(
-                const char *p,
-                bool searching,
-                bool unprivileged_mode,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+static int verify_esp(const char *p,
+                      bool searching,
+                      bool unprivileged_mode,
+                      uint32_t *ret_part,
+                      uint64_t *ret_pstart,
+                      uint64_t *ret_psize,
+                      sd_id128_t *ret_uuid) {
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
@@ -430,8 +427,10 @@ static int verify_esp(
                         if (errno == ENOENT && searching)
                                 return -ENOENT;
 
-                        return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                              "Failed to check file system type of \"%s\": %m", p);
+                        return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR,
+                                              errno,
+                                              "Failed to check file system type of \"%s\": %m",
+                                              p);
                 }
 
                 if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
@@ -444,8 +443,10 @@ static int verify_esp(
         }
 
         if (stat(p, &st) < 0)
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", p);
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR,
+                                      errno,
+                                      "Failed to determine block device node of \"%s\": %m",
+                                      p);
 
         if (major(st.st_dev) == 0) {
                 log_error("Block device node of %p is invalid.", p);
@@ -455,8 +456,10 @@ static int verify_esp(
         t2 = strjoina(p, "/..");
         r = stat(t2, &st2);
         if (r < 0)
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", p);
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR,
+                                      errno,
+                                      "Failed to determine block device node of parent of \"%s\": %m",
+                                      p);
 
         if (st.st_dev == st2.st_dev) {
                 log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
@@ -568,14 +571,13 @@ finish:
         return 0;
 }
 
-int find_esp_and_warn(
-                const char *path,
-                bool unprivileged_mode,
-                char **ret_path,
-                uint32_t *ret_part,
-                uint64_t *ret_pstart,
-                uint64_t *ret_psize,
-                sd_id128_t *ret_uuid) {
+int find_esp_and_warn(const char *path,
+                      bool unprivileged_mode,
+                      char **ret_path,
+                      uint32_t *ret_part,
+                      uint64_t *ret_pstart,
+                      uint64_t *ret_psize,
+                      sd_id128_t *ret_uuid) {
 
         int r;
 
@@ -596,9 +598,8 @@ int find_esp_and_warn(
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
                 if (!path_is_valid(path) || !path_is_absolute(path))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s",
-                                               path);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL), "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s", path);
 
                 /* Note: when the user explicitly configured things with an env var we won't validate the mount
                  * point. After all we want this to be useful for testing. */
@@ -631,11 +632,7 @@ found:
         return 0;
 }
 
-int find_default_boot_entry(
-                const char *esp_path,
-                char **esp_where,
-                BootConfig *config,
-                const BootEntry **e) {
+int find_default_boot_entry(const char *esp_path, char **esp_where, BootConfig *config, const BootEntry **e) {
 
         _cleanup_free_ char *where = NULL;
         int r;
@@ -652,8 +649,7 @@ int find_default_boot_entry(
                 return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
         if (config->default_entry < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No entry suitable as default, refusing to guess.");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No entry suitable as default, refusing to guess.");
 
         *e = &config->entries[config->default_entry];
         log_debug("Found default boot entry in file \"%s\"", (*e)->path);

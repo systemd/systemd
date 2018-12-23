@@ -5,7 +5,7 @@
 
 static void test_dns_packet_new(void) {
         size_t i;
-         _cleanup_(dns_packet_unrefp) DnsPacket *p2 = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *p2 = NULL;
 
         for (i = 0; i <= DNS_PACKET_SIZE_MAX; i++) {
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;

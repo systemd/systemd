@@ -28,7 +28,8 @@ static void test_proc_cmdline_parse(void) {
 static void test_proc_cmdline_override(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") ==
+                  0);
 
         /* Test if the override works */
         _cleanup_free_ char *line = NULL, *value = NULL;
@@ -79,10 +80,12 @@ static void test_proc_cmdline_given(bool flip_initrd) {
 
         bool t = true, f = false;
         assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
+                                           parse_item_given,
+                                           &t,
+                                           PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
 
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &f, 0) >= 0);
+        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"", parse_item_given, &f, 0) >=
+                  0);
 
         if (flip_initrd)
                 in_initrd_force(!in_initrd());
@@ -92,7 +95,7 @@ static void test_proc_cmdline_get_key(void) {
         _cleanup_free_ char *value = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"") == 0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -135,7 +138,7 @@ static void test_proc_cmdline_get_bool(void) {
         bool value = false;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep") == 0);
 
         assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
@@ -154,15 +157,12 @@ static void test_proc_cmdline_get_key_many(void) {
         _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"") == 0);
 
-        assert_se(proc_cmdline_get_key_many(0,
-                                            "wuff-piep", &value3,
-                                            "foo_bar", &value1,
-                                            "idontexist", &value2,
-                                            "zumm", &value4,
-                                            "SPACE", &value5,
-                                            "doubleticks", &value6) == 4);
+        assert_se(
+                proc_cmdline_get_key_many(
+                        0, "wuff-piep", &value3, "foo_bar", &value1, "idontexist", &value2, "zumm", &value4, "SPACE", &value5, "doubleticks", &value6) ==
+                4);
 
         assert_se(streq_ptr(value1, "quux"));
         assert_se(!value2);

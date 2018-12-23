@@ -8,7 +8,7 @@
 #include "macro.h"
 #include "set.h"
 
-const char* exit_status_to_string(int status, ExitStatusLevel level) {
+const char *exit_status_to_string(int status, ExitStatusLevel level) {
 
         /* Exit status ranges:
          *
@@ -25,7 +25,7 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
          *         │ signal or such, and we follow that logic here.)
          */
 
-        switch (status) {  /* We always cover the ISO C ones */
+        switch (status) { /* We always cover the ISO C ones */
 
         case EXIT_SUCCESS:
                 return "SUCCESS";
@@ -241,16 +241,12 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
 bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status) {
 
         if (code == CLD_EXITED)
-                return status == 0 ||
-                       (success_status &&
-                        set_contains(success_status->status, INT_TO_PTR(status)));
+                return status == 0 || (success_status && set_contains(success_status->status, INT_TO_PTR(status)));
 
         /* If a daemon does not implement handlers for some of the signals that's not considered an unclean shutdown */
         if (code == CLD_KILLED)
-                return
-                        (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
-                        (success_status &&
-                         set_contains(success_status->signal, INT_TO_PTR(status)));
+                return (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
+                        (success_status && set_contains(success_status->signal, INT_TO_PTR(status)));
 
         return false;
 }

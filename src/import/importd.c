@@ -33,7 +33,8 @@
 typedef struct Transfer Transfer;
 typedef struct Manager Manager;
 
-typedef enum TransferType {
+typedef enum TransferType
+{
         TRANSFER_IMPORT_TAR,
         TRANSFER_IMPORT_RAW,
         TRANSFER_IMPORT_FS,
@@ -94,13 +95,9 @@ struct Manager {
 
 #define TRANSFERS_MAX 64
 
-static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
-        [TRANSFER_IMPORT_TAR] = "import-tar",
-        [TRANSFER_IMPORT_RAW] = "import-raw",
-        [TRANSFER_IMPORT_FS] = "import-fs",
-        [TRANSFER_EXPORT_TAR] = "export-tar",
-        [TRANSFER_EXPORT_RAW] = "export-raw",
-        [TRANSFER_PULL_TAR] = "pull-tar",
+static const char *const transfer_type_table[_TRANSFER_TYPE_MAX] = {
+        [TRANSFER_IMPORT_TAR] = "import-tar", [TRANSFER_IMPORT_RAW] = "import-raw", [TRANSFER_IMPORT_FS] = "import-fs",
+        [TRANSFER_EXPORT_TAR] = "export-tar", [TRANSFER_EXPORT_RAW] = "export-raw", [TRANSFER_PULL_TAR] = "pull-tar",
         [TRANSFER_PULL_RAW] = "pull-raw",
 };
 
@@ -133,7 +130,7 @@ static Transfer *transfer_unref(Transfer *t) {
         return mfree(t);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer *, transfer_unref);
 
 static int transfer_new(Manager *m, Transfer **ret) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
@@ -150,17 +147,17 @@ static int transfer_new(Manager *m, Transfer **ret) {
         if (r < 0)
                 return r;
 
-        t = new(Transfer, 1);
+        t = new (Transfer, 1);
         if (!t)
                 return -ENOMEM;
 
-        *t = (Transfer) {
+        *t = (Transfer){
                 .type = _TRANSFER_TYPE_INVALID,
                 .log_fd = -1,
                 .stdin_fd = -1,
                 .stdout_fd = -1,
                 .verify = _IMPORT_VERIFY_INVALID,
-                .progress_percent= (unsigned) -1,
+                .progress_percent = (unsigned) -1,
         };
 
         id = m->current_transfer_id + 1;
@@ -201,17 +198,10 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
 
         log_full(priority, "(transfer%" PRIu32 ") %s", t->id, line);
 
-        r = sd_bus_emit_signal(
-                        t->manager->bus,
-                        t->object_path,
-                        "org.freedesktop.import1.Transfer",
-                        "LogMessage",
-                        "us",
-                        priority,
-                        line);
+        r = sd_bus_emit_signal(t->manager->bus, t->object_path, "org.freedesktop.import1.Transfer", "LogMessage", "us", priority, line);
         if (r < 0)
                 log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
- }
+}
 
 static void transfer_send_logs(Transfer *t, bool flush) {
         assert(t);
@@ -275,16 +265,14 @@ static int transfer_finalize(Transfer *t, bool success) {
 
         transfer_send_logs(t, true);
 
-        r = sd_bus_emit_signal(
-                        t->manager->bus,
-                        "/org/freedesktop/import1",
-                        "org.freedesktop.import1.Manager",
-                        "TransferRemoved",
-                        "uos",
-                        t->id,
-                        t->object_path,
-                        success ? "done" :
-                        t->n_canceled > 0 ? "canceled" : "failed");
+        r = sd_bus_emit_signal(t->manager->bus,
+                               "/org/freedesktop/import1",
+                               "org.freedesktop.import1.Manager",
+                               "TransferRemoved",
+                               "uos",
+                               t->id,
+                               t->object_path,
+                               success ? "done" : t->n_canceled > 0 ? "canceled" : "failed");
 
         if (r < 0)
                 log_error_errno(r, "Cannot emit message: %m");
@@ -366,40 +354,35 @@ static int transfer_start(Transfer *t) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-transfer)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &t->pid);
+        r = safe_fork("(sd-transfer)", FORK_RESET_SIGNALS | FORK_DEATHSIG, &t->pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmd[] = {
-                        NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
-                        NULL, /* tar, raw  */
-                        NULL, /* --verify= */
-                        NULL, /* verify argument */
-                        NULL, /* maybe --force */
-                        NULL, /* maybe --read-only */
-                        NULL, /* if so: the actual URL */
-                        NULL, /* maybe --format= */
-                        NULL, /* if so: the actual format */
-                        NULL, /* remote */
-                        NULL, /* local */
-                        NULL
-                };
+                const char *cmd[] = { NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
+                                      NULL, /* tar, raw  */
+                                      NULL, /* --verify= */
+                                      NULL, /* verify argument */
+                                      NULL, /* maybe --force */
+                                      NULL, /* maybe --read-only */
+                                      NULL, /* if so: the actual URL */
+                                      NULL, /* maybe --format= */
+                                      NULL, /* if so: the actual format */
+                                      NULL, /* remote */
+                                      NULL, /* local */
+                                      NULL };
                 unsigned k = 0;
 
                 /* Child */
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = rearrange_stdio(t->stdin_fd,
-                                    t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd,
-                                    pipefd[1]);
+                r = rearrange_stdio(t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
-                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 || setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -477,7 +460,7 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = t->local;
                 cmd[k] = NULL;
 
-                execv(cmd[0], (char * const *) cmd);
+                execv(cmd[0], (char *const *) cmd);
                 log_error_errno(errno, "Failed to execute %s tool: %m", cmd[0]);
                 _exit(EXIT_FAILURE);
         }
@@ -496,18 +479,12 @@ static int transfer_start(Transfer *t) {
                 return r;
 
         /* Make sure always process logging before SIGCHLD */
-        r = sd_event_source_set_priority(t->log_event_source, SD_EVENT_PRIORITY_NORMAL -5);
+        r = sd_event_source_set_priority(t->log_event_source, SD_EVENT_PRIORITY_NORMAL - 5);
         if (r < 0)
                 return r;
 
         r = sd_bus_emit_signal(
-                        t->manager->bus,
-                        "/org/freedesktop/import1",
-                        "org.freedesktop.import1.Manager",
-                        "TransferNew",
-                        "uo",
-                        t->id,
-                        t->object_path);
+                t->manager->bus, "/org/freedesktop/import1", "org.freedesktop.import1.Manager", "TransferNew", "uo", t->id, t->object_path);
         if (r < 0)
                 return r;
 
@@ -536,19 +513,18 @@ static Manager *manager_unref(Manager *m) {
         return mfree(m);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_unref);
 
 static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
 
-        char buf[NOTIFY_BUFFER_MAX+1];
+        char buf[NOTIFY_BUFFER_MAX + 1];
         struct iovec iovec = {
                 .iov_base = buf,
-                .iov_len = sizeof(buf)-1,
+                .iov_len = sizeof(buf) - 1,
         };
         union {
                 struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
         } control = {};
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
@@ -565,7 +541,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         ssize_t n;
         int r;
 
-        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        n = recvmsg(fd, &msghdr, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
         if (n < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
@@ -575,11 +551,9 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         cmsg_close_all(&msghdr);
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+        CMSG_FOREACH (cmsg, &msghdr)
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                        ucred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (msghdr.msg_flags & MSG_TRUNC) {
                 log_warning("Got overly long notification datagram, ignoring.");
@@ -592,8 +566,8 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         }
 
         HASHMAP_FOREACH(t, m->transfers, i)
-                if (ucred->pid == t->pid)
-                        break;
+        if (ucred->pid == t->pid)
+                break;
 
         if (!t) {
                 log_warning("Got notification datagram from unexpected peer, ignoring.");
@@ -650,7 +624,7 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        m->notify_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (m->notify_fd < 0)
                 return -errno;
 
@@ -682,8 +656,8 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
         assert(type < _TRANSFER_TYPE_MAX);
 
         HASHMAP_FOREACH(t, m->transfers, i)
-                if (t->type == type && streq_ptr(t->remote, remote))
-                        return t;
+        if (t->type == type && streq_ptr(t->remote, remote))
+                return t;
 
         return NULL;
 }
@@ -700,14 +674,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         assert(m);
 
         r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.import", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -768,14 +735,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         assert(m);
 
         r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.import", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -835,14 +795,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         assert(m);
 
         r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.export",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.export", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -904,15 +857,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+        r = bus_verify_polkit_async(msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -995,15 +940,14 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
 
         HASHMAP_FOREACH(t, m->transfers, i) {
 
-                r = sd_bus_message_append(
-                                reply,
-                                "(usssdo)",
-                                t->id,
-                                transfer_type_to_string(t->type),
-                                t->remote,
-                                t->local,
-                                transfer_percent_as_double(t),
-                                t->object_path);
+                r = sd_bus_message_append(reply,
+                                          "(usssdo)",
+                                          t->id,
+                                          transfer_type_to_string(t->type),
+                                          t->remote,
+                                          t->local,
+                                          transfer_percent_as_double(t),
+                                          t->object_path);
                 if (r < 0)
                         return r;
         }
@@ -1023,14 +967,7 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
         assert(t);
 
         r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &t->manager->polkit_registry,
-                        error);
+                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &t->manager->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1052,15 +989,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+        r = bus_verify_polkit_async(msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1084,13 +1013,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 }
 
 static int property_get_progress(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Transfer *t = userdata;
 
@@ -1169,7 +1092,7 @@ static int transfer_node_enumerator(sd_bus *bus, const char *path, void *userdat
         unsigned k = 0;
         Iterator i;
 
-        l = new0(char*, hashmap_size(m->transfers) + 1);
+        l = new0(char *, hashmap_size(m->transfers) + 1);
         if (!l)
                 return -ENOMEM;
 
@@ -1196,7 +1119,8 @@ static int manager_add_bus_objects(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/import1/transfer", "org.freedesktop.import1.Transfer", transfer_vtable, transfer_object_find, m);
+        r = sd_bus_add_fallback_vtable(
+                m->bus, NULL, "/org/freedesktop/import1/transfer", "org.freedesktop.import1.Transfer", transfer_vtable, transfer_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
@@ -1224,13 +1148,7 @@ static bool manager_check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.import1",
-                        DEFAULT_EXIT_USEC,
-                        manager_check_idle,
-                        m);
+        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.import1", DEFAULT_EXIT_USEC, manager_check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {

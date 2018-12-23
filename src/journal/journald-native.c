@@ -33,33 +33,20 @@ static bool allow_object_pid(const struct ucred *ucred) {
 }
 
 static void server_process_entry_meta(
-                const char *p, size_t l,
-                const struct ucred *ucred,
-                int *priority,
-                char **identifier,
-                char **message,
-                pid_t *object_pid) {
+        const char *p, size_t l, const struct ucred *ucred, int *priority, char **identifier, char **message, pid_t *object_pid) {
 
         /* We need to determine the priority of this entry for the rate limiting logic */
 
-        if (l == 10 &&
-            startswith(p, "PRIORITY=") &&
-            p[9] >= '0' && p[9] <= '9')
+        if (l == 10 && startswith(p, "PRIORITY=") && p[9] >= '0' && p[9] <= '9')
                 *priority = (*priority & LOG_FACMASK) | (p[9] - '0');
 
-        else if (l == 17 &&
-                 startswith(p, "SYSLOG_FACILITY=") &&
-                 p[16] >= '0' && p[16] <= '9')
+        else if (l == 17 && startswith(p, "SYSLOG_FACILITY=") && p[16] >= '0' && p[16] <= '9')
                 *priority = (*priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
 
-        else if (l == 18 &&
-                 startswith(p, "SYSLOG_FACILITY=") &&
-                 p[16] >= '0' && p[16] <= '9' &&
-                 p[17] >= '0' && p[17] <= '9')
-                *priority = (*priority & LOG_PRIMASK) | (((p[16] - '0')*10 + (p[17] - '0')) << 3);
+        else if (l == 18 && startswith(p, "SYSLOG_FACILITY=") && p[16] >= '0' && p[16] <= '9' && p[17] >= '0' && p[17] <= '9')
+                *priority = (*priority & LOG_PRIMASK) | (((p[16] - '0') * 10 + (p[17] - '0')) << 3);
 
-        else if (l >= 19 &&
-                 startswith(p, "SYSLOG_IDENTIFIER=")) {
+        else if (l >= 19 && startswith(p, "SYSLOG_IDENTIFIER=")) {
                 char *t;
 
                 t = strndup(p + 18, l - 18);
@@ -68,8 +55,7 @@ static void server_process_entry_meta(
                         *identifier = t;
                 }
 
-        } else if (l >= 8 &&
-                   startswith(p, "MESSAGE=")) {
+        } else if (l >= 8 && startswith(p, "MESSAGE=")) {
                 char *t;
 
                 t = strndup(p + 8, l - 8);
@@ -78,26 +64,24 @@ static void server_process_entry_meta(
                         *message = t;
                 }
 
-        } else if (l > STRLEN("OBJECT_PID=") &&
-                   l < STRLEN("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
-                   startswith(p, "OBJECT_PID=") &&
+        } else if (l > STRLEN("OBJECT_PID=") && l < STRLEN("OBJECT_PID=") + DECIMAL_STR_MAX(pid_t) && startswith(p, "OBJECT_PID=") &&
                    allow_object_pid(ucred)) {
                 char buf[DECIMAL_STR_MAX(pid_t)];
-                memcpy(buf, p + STRLEN("OBJECT_PID="),
-                       l - STRLEN("OBJECT_PID="));
-                buf[l-STRLEN("OBJECT_PID=")] = '\0';
+                memcpy(buf, p + STRLEN("OBJECT_PID="), l - STRLEN("OBJECT_PID="));
+                buf[l - STRLEN("OBJECT_PID=")] = '\0';
 
                 (void) parse_pid(buf, object_pid);
         }
 }
 
-static int server_process_entry(
-                Server *s,
-                const void *buffer, size_t *remaining,
-                ClientContext *context,
-                const struct ucred *ucred,
-                const struct timeval *tv,
-                const char *label, size_t label_len) {
+static int server_process_entry(Server *s,
+                                const void *buffer,
+                                size_t *remaining,
+                                ClientContext *context,
+                                const struct ucred *ucred,
+                                const struct timeval *tv,
+                                const char *label,
+                                size_t label_len) {
 
         /* Process a single entry from a native message. Returns 0 if nothing special happened and the message
          * processing should continue, and a negative or positive value otherwise.
@@ -143,10 +127,8 @@ static int server_process_entry(
                 /* A property follows */
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m,
-                                    n + 2 +
-                                    N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
-                                    client_context_extra_fields_n_iovec(context))) {
+                if (!GREEDY_REALLOC(
+                            iovec, m, n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS + client_context_extra_fields_n_iovec(context))) {
                         r = log_oom();
                         break;
                 }
@@ -160,14 +142,10 @@ static int server_process_entry(
 
                                 /* If the field name starts with an underscore, skip the variable, since that indicates
                                  * a trusted field */
-                                iovec[n++] = IOVEC_MAKE((char*) p, l);
+                                iovec[n++] = IOVEC_MAKE((char *) p, l);
                                 entry_size += l;
 
-                                server_process_entry_meta(p, l, ucred,
-                                                          &priority,
-                                                          &identifier,
-                                                          &message,
-                                                          &object_pid);
+                                server_process_entry_meta(p, l, ucred, &priority, &identifier, &message, &object_pid);
                         }
 
                         *remaining -= (e - p) + 1;
@@ -185,12 +163,11 @@ static int server_process_entry(
                         l = unaligned_read_le64(e + 1);
 
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
+                                log_debug("Received binary data block of %" PRIu64 " bytes is too large, ignoring.", l);
                                 break;
                         }
 
-                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
-                            e[1+sizeof(uint64_t)+l] != '\n') {
+                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 || e[1 + sizeof(uint64_t) + l] != '\n') {
                                 log_debug("Failed to parse message, ignoring.");
                                 break;
                         }
@@ -210,11 +187,7 @@ static int server_process_entry(
                                 entry_size += iovec[n].iov_len;
                                 n++;
 
-                                server_process_entry_meta(k, (e - p) + 1 + l, ucred,
-                                                          &priority,
-                                                          &identifier,
-                                                          &message,
-                                                          &object_pid);
+                                server_process_entry_meta(k, (e - p) + 1 + l, ucred, &priority, &identifier, &message, &object_pid);
                         } else
                                 free(k);
 
@@ -259,12 +232,11 @@ static int server_process_entry(
         server_dispatch_message(s, iovec, n, m, context, tv, priority, object_pid);
 
 finish:
-        for (j = 0; j < n; j++)  {
+        for (j = 0; j < n; j++) {
                 if (j == tn)
                         continue;
 
-                if (iovec[j].iov_base < buffer ||
-                    (const char*) iovec[j].iov_base >= p + *remaining)
+                if (iovec[j].iov_base < buffer || (const char *) iovec[j].iov_base >= p + *remaining)
                         free(iovec[j].iov_base);
         }
 
@@ -275,12 +247,13 @@ finish:
         return r;
 }
 
-void server_process_native_message(
-                Server *s,
-                const char *buffer, size_t buffer_size,
-                const struct ucred *ucred,
-                const struct timeval *tv,
-                const char *label, size_t label_len) {
+void server_process_native_message(Server *s,
+                                   const char *buffer,
+                                   size_t buffer_size,
+                                   const struct ucred *ucred,
+                                   const struct timeval *tv,
+                                   const char *label,
+                                   size_t label_len) {
 
         size_t remaining = buffer_size;
         ClientContext *context = NULL;
@@ -296,18 +269,12 @@ void server_process_native_message(
         }
 
         do {
-                r = server_process_entry(s,
-                                         (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
-                                         context, ucred, tv, label, label_len);
+                r = server_process_entry(
+                        s, (const uint8_t *) buffer + (buffer_size - remaining), &remaining, context, ucred, tv, label, label_len);
         } while (r == 0);
 }
 
-void server_process_native_file(
-                Server *s,
-                int fd,
-                const struct ucred *ucred,
-                const struct timeval *tv,
-                const char *label, size_t label_len) {
+void server_process_native_file(Server *s, int fd, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len) {
 
         struct stat st;
         bool sealed;
@@ -444,7 +411,7 @@ int server_open_native_socket(Server *s) {
         assert(s);
 
         if (s->native_fd < 0) {
-                s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                s->native_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
                 if (s->native_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
@@ -478,7 +445,7 @@ int server_open_native_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 
-        r = sd_event_source_set_priority(s->native_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->native_event_source, SD_EVENT_PRIORITY_NORMAL + 5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust native event source priority: %m");
 

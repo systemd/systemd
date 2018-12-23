@@ -29,18 +29,21 @@ static int acquire_runtime_dir_size(uint64_t *ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', ret);
+        r = sd_bus_get_property_trivial(bus,
+                                        "org.freedesktop.login1",
+                                        "/org/freedesktop/login1",
+                                        "org.freedesktop.login1.Manager",
+                                        "RuntimeDirectorySize",
+                                        &error,
+                                        't',
+                                        ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
 
         return 0;
 }
 
-static int user_mkdir_runtime_path(
-                const char *runtime_path,
-                uid_t uid,
-                gid_t gid,
-                uint64_t runtime_dir_size) {
+static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gid, uint64_t runtime_dir_size) {
 
         int r;
 
@@ -56,27 +59,29 @@ static int user_mkdir_runtime_path(
         if (path_is_mount_point(runtime_path, NULL, 0) >= 0)
                 log_debug("%s is already a mount point", runtime_path);
         else {
-                char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*")
-                             + DECIMAL_STR_MAX(uid_t)
-                             + DECIMAL_STR_MAX(gid_t)
-                             + DECIMAL_STR_MAX(uint64_t)];
+                char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*") + DECIMAL_STR_MAX(uid_t) + DECIMAL_STR_MAX(gid_t) +
+                             DECIMAL_STR_MAX(uint64_t)];
 
                 xsprintf(options,
                          "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%" PRIu64 "%s",
-                         uid, gid, runtime_dir_size,
+                         uid,
+                         gid,
+                         runtime_dir_size,
                          mac_smack_use() ? ",smackfsroot=*" : "");
 
                 (void) mkdir_label(runtime_path, 0700);
 
-                r = mount("tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
+                r = mount("tmpfs", runtime_path, "tmpfs", MS_NODEV | MS_NOSUID, options);
                 if (r < 0) {
                         if (!IN_SET(errno, EPERM, EACCES)) {
                                 r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
                                 goto fail;
                         }
 
-                        log_debug_errno(errno, "Failed to mount per-user tmpfs directory %s.\n"
-                                        "Assuming containerized execution, ignoring: %m", runtime_path);
+                        log_debug_errno(errno,
+                                        "Failed to mount per-user tmpfs directory %s.\n"
+                                        "Assuming containerized execution, ignoring: %m",
+                                        runtime_path);
 
                         r = chmod_and_chown(runtime_path, 0700, uid, gid);
                         if (r < 0) {
@@ -132,8 +137,8 @@ static int do_mount(const char *user) {
         if (r < 0)
                 return log_error_errno(r,
                                        r == -ESRCH ? "No such user \"%s\"" :
-                                       r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
-                                                    : "Failed to look up user \"%s\": %m",
+                                                     r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group" :
+                                                                    "Failed to look up user \"%s\": %m",
                                        user);
 
         r = acquire_runtime_dir_size(&runtime_dir_size);
@@ -142,7 +147,7 @@ static int do_mount(const char *user) {
 
         xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
 
-        log_debug("Will mount %s owned by "UID_FMT":"GID_FMT, runtime_path, uid, gid);
+        log_debug("Will mount %s owned by " UID_FMT ":" GID_FMT, runtime_path, uid, gid);
         return user_mkdir_runtime_path(runtime_path, uid, gid, runtime_dir_size);
 }
 
@@ -158,8 +163,8 @@ static int do_umount(const char *user) {
                 if (r < 0)
                         return log_error_errno(r,
                                                r == -ESRCH ? "No such user \"%s\"" :
-                                               r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
-                                                            : "Failed to look up user \"%s\": %m",
+                                                             r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group" :
+                                                                            "Failed to look up user \"%s\": %m",
                                                user);
         }
 
@@ -176,11 +181,9 @@ static int run(int argc, char *argv[]) {
         log_open();
 
         if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes two arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes two arguments.");
         if (!STR_IN_SET(argv[1], "start", "stop"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "First argument must be either \"start\" or \"stop\".");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "First argument must be either \"start\" or \"stop\".");
 
         r = mac_selinux_init();
         if (r < 0)

@@ -42,7 +42,7 @@ struct sd_device_monitor {
         void *userdata;
 };
 
-#define UDEV_MONITOR_MAGIC                0xfeedcafe
+#define UDEV_MONITOR_MAGIC 0xfeedcafe
 
 typedef struct monitor_netlink_header {
         /* "libudev" prefix to distinguish libudev and kernel messages */
@@ -129,9 +129,7 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         assert_return(ret, -EINVAL);
         assert_return(group >= 0 && group < _MONITOR_NETLINK_GROUP_MAX, -EINVAL);
 
-        if (group == MONITOR_GROUP_UDEV &&
-            access("/run/udev/control", F_OK) < 0 &&
-            dev_is_devtmpfs() <= 0) {
+        if (group == MONITOR_GROUP_UDEV && access("/run/udev/control", F_OK) < 0 && dev_is_devtmpfs() <= 0) {
 
                 /*
                  * We do not support subscribing to uevents if no instance of
@@ -151,16 +149,16 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
         }
 
         if (fd < 0) {
-                sock = socket(PF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
+                sock = socket(PF_NETLINK, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, NETLINK_KOBJECT_UEVENT);
                 if (sock < 0)
                         return log_debug_errno(errno, "sd-device-monitor: Failed to create socket: %m");
         }
 
-        m = new(sd_device_monitor, 1);
+        m = new (sd_device_monitor, 1);
         if (!m)
                 return -ENOMEM;
 
-        *m = (sd_device_monitor) {
+        *m = (sd_device_monitor){
                 .n_ref = 1,
                 .sock = fd >= 0 ? fd : TAKE_FD(sock),
                 .bound = fd >= 0,
@@ -352,8 +350,8 @@ tag:
                 return 1;
 
         SET_FOREACH(tag, m->tag_filter, i)
-                if (sd_device_has_tag(device, tag) > 0)
-                        return 1;
+        if (sd_device_has_tag(device, tag) > 0)
+                return 1;
 
         return 0;
 }
@@ -364,10 +362,7 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 monitor_netlink_header nlh;
                 char raw[8192];
         } buf;
-        struct iovec iov = {
-                .iov_base = &buf,
-                .iov_len = sizeof(buf)
-        };
+        struct iovec iov = { .iov_base = &buf, .iov_len = sizeof(buf) };
         char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
         union sockaddr_union snl;
         struct msghdr smsg = {
@@ -394,43 +389,41 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
         }
 
         if (buflen < 32 || (smsg.msg_flags & MSG_TRUNC))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "sd-device-monitor: Invalid message length.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "sd-device-monitor: Invalid message length.");
 
         if (snl.nl.nl_groups == MONITOR_GROUP_NONE) {
                 /* unicast message, check if we trust the sender */
-                if (m->snl_trusted_sender.nl.nl_pid == 0 ||
-                    snl.nl.nl_pid != m->snl_trusted_sender.nl.nl_pid)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Unicast netlink message ignored.");
+                if (m->snl_trusted_sender.nl.nl_pid == 0 || snl.nl.nl_pid != m->snl_trusted_sender.nl.nl_pid)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "sd-device-monitor: Unicast netlink message ignored.");
 
         } else if (snl.nl.nl_groups == MONITOR_GROUP_KERNEL) {
                 if (snl.nl.nl_pid > 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
+                                               "sd-device-monitor: Multicast kernel netlink message from PID %" PRIu32 " ignored.",
+                                               snl.nl.nl_pid);
         }
 
         cmsg = CMSG_FIRSTHDR(&smsg);
         if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: No sender credentials received, message ignored.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "sd-device-monitor: No sender credentials received, message ignored.");
 
-        cred = (struct ucred*) CMSG_DATA(cmsg);
+        cred = (struct ucred *) CMSG_DATA(cmsg);
         if (cred->uid != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "sd-device-monitor: Sender uid=" UID_FMT ", message ignored.", cred->uid);
 
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "sd-device-monitor: Invalid message signature (%x != %x)",
-                                               buf.nlh.magic, htobe32(UDEV_MONITOR_MAGIC));
+                                               buf.nlh.magic,
+                                               htobe32(UDEV_MONITOR_MAGIC));
 
-                if (buf.nlh.properties_off+32 > (size_t) buflen)
+                if (buf.nlh.properties_off + 32 > (size_t) buflen)
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "sd-device-monitor: Invalid message length (%u > %zd)",
-                                               buf.nlh.properties_off+32, buflen);
+                                               buf.nlh.properties_off + 32,
+                                               buflen);
 
                 bufpos = buf.nlh.properties_off;
 
@@ -441,16 +434,14 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 /* kernel message with header */
                 bufpos = strlen(buf.raw) + 1;
                 if ((size_t) bufpos < sizeof("a@/d") || bufpos >= buflen)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message length");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "sd-device-monitor: Invalid message length");
 
                 /* check message header */
                 if (!strstr(buf.raw, "@/"))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                               "sd-device-monitor: Invalid message header");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "sd-device-monitor: Invalid message header");
         }
 
-        r = device_new_from_nulstr(&device, (uint8_t*) &buf.raw[bufpos], buflen - bufpos);
+        r = device_new_from_nulstr(&device, (uint8_t *) &buf.raw[bufpos], buflen - bufpos);
         if (r < 0)
                 return log_debug_errno(r, "sd-device-monitor: Failed to create device from received message: %m");
 
@@ -485,10 +476,7 @@ static uint64_t string_bloom64(const char *str) {
         return bits;
 }
 
-int device_monitor_send_device(
-                sd_device_monitor *m,
-                sd_device_monitor *destination,
-                sd_device *device) {
+int device_monitor_send_device(sd_device_monitor *m, sd_device_monitor *destination, sd_device *device) {
 
         monitor_netlink_header nlh = {
                 .prefix = "libudev",
@@ -520,7 +508,8 @@ int device_monitor_send_device(
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device-monitor: Failed to get device properties: %m");
         if (blen < 32) {
-                log_device_debug(device, "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
+                log_device_debug(device,
+                                 "sd-device-monitor: Length of device property nulstr is too small to contain valid device information");
                 return -EINVAL;
         }
 
@@ -536,7 +525,7 @@ int device_monitor_send_device(
         /* add tag bloom filter */
         tag_bloom_bits = 0;
         FOREACH_DEVICE_TAG(device, val)
-                tag_bloom_bits |= string_bloom64(val);
+        tag_bloom_bits |= string_bloom64(val);
 
         if (tag_bloom_bits > 0) {
                 nlh.filter_tag_bloom_hi = htobe32(tag_bloom_bits >> 32);
@@ -546,7 +535,7 @@ int device_monitor_send_device(
         /* add properties list */
         nlh.properties_off = iov[0].iov_len;
         nlh.properties_len = blen;
-        iov[1] = IOVEC_MAKE((char*) buf, blen);
+        iov[1] = IOVEC_MAKE((char *) buf, blen);
 
         /*
          * Use custom address for target, or the default one.
@@ -569,18 +558,15 @@ int device_monitor_send_device(
         return count;
 }
 
-static void bpf_stmt(struct sock_filter *ins, unsigned *i,
-                     unsigned short code, unsigned data) {
-        ins[(*i)++] = (struct sock_filter) {
+static void bpf_stmt(struct sock_filter *ins, unsigned *i, unsigned short code, unsigned data) {
+        ins[(*i)++] = (struct sock_filter){
                 .code = code,
                 .k = data,
         };
 }
 
-static void bpf_jmp(struct sock_filter *ins, unsigned *i,
-                    unsigned short code, unsigned data,
-                    unsigned short jt, unsigned short jf) {
-        ins[(*i)++] = (struct sock_filter) {
+static void bpf_jmp(struct sock_filter *ins, unsigned *i, unsigned short code, unsigned data, unsigned short jt, unsigned short jf) {
+        ins[(*i)++] = (struct sock_filter){
                 .code = code,
                 .jt = jt,
                 .jf = jf,
@@ -600,18 +586,17 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         if (m->filter_uptodate)
                 return 0;
 
-        if (hashmap_isempty(m->subsystem_filter) &&
-            set_isempty(m->tag_filter)) {
+        if (hashmap_isempty(m->subsystem_filter) && set_isempty(m->tag_filter)) {
                 m->filter_uptodate = true;
                 return 0;
         }
 
         /* load magic in A */
-        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, magic));
+        bpf_stmt(ins, &i, BPF_LD | BPF_W | BPF_ABS, offsetof(monitor_netlink_header, magic));
         /* jump if magic matches */
-        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
+        bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
         /* wrong magic, pass packet */
-        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+        bpf_stmt(ins, &i, BPF_RET | BPF_K, 0xffffffff);
 
         if (!set_isempty(m->tag_filter)) {
                 int tag_matches = set_size(m->tag_filter);
@@ -623,23 +608,23 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
 
                         /* load device bloom bits in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_hi));
+                        bpf_stmt(ins, &i, BPF_LD | BPF_W | BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_hi));
                         /* clear bits (tag bits & bloom bits) */
-                        bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_hi);
+                        bpf_stmt(ins, &i, BPF_ALU | BPF_AND | BPF_K, tag_bloom_hi);
                         /* jump to next tag if it does not match */
-                        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_hi, 0, 3);
+                        bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, tag_bloom_hi, 0, 3);
 
                         /* load device bloom bits in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_lo));
+                        bpf_stmt(ins, &i, BPF_LD | BPF_W | BPF_ABS, offsetof(monitor_netlink_header, filter_tag_bloom_lo));
                         /* clear bits (tag bits & bloom bits) */
-                        bpf_stmt(ins, &i, BPF_ALU|BPF_AND|BPF_K, tag_bloom_lo);
+                        bpf_stmt(ins, &i, BPF_ALU | BPF_AND | BPF_K, tag_bloom_lo);
                         /* jump behind end of tag match block if tag matches */
                         tag_matches--;
-                        bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, tag_bloom_lo, 1 + (tag_matches * 6), 0);
+                        bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, tag_bloom_lo, 1 + (tag_matches * 6), 0);
                 }
 
                 /* nothing matched, drop packet */
-                bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+                bpf_stmt(ins, &i, BPF_RET | BPF_K, 0);
         }
 
         /* add all subsystem matches */
@@ -648,36 +633,36 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                         uint32_t hash = string_hash32(subsystem);
 
                         /* load device subsystem value in A */
-                        bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_subsystem_hash));
+                        bpf_stmt(ins, &i, BPF_LD | BPF_W | BPF_ABS, offsetof(monitor_netlink_header, filter_subsystem_hash));
                         if (!devtype) {
                                 /* jump if subsystem does not match */
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+                                bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, hash, 0, 1);
                         } else {
                                 /* jump if subsystem does not match */
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
+                                bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, hash, 0, 3);
                                 /* load device devtype value in A */
-                                bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(monitor_netlink_header, filter_devtype_hash));
+                                bpf_stmt(ins, &i, BPF_LD | BPF_W | BPF_ABS, offsetof(monitor_netlink_header, filter_devtype_hash));
                                 /* jump if value does not match */
                                 hash = string_hash32(devtype);
-                                bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+                                bpf_jmp(ins, &i, BPF_JMP | BPF_JEQ | BPF_K, hash, 0, 1);
                         }
 
                         /* matched, pass packet */
-                        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+                        bpf_stmt(ins, &i, BPF_RET | BPF_K, 0xffffffff);
 
-                        if (i+1 >= ELEMENTSOF(ins))
+                        if (i + 1 >= ELEMENTSOF(ins))
                                 return -E2BIG;
                 }
 
                 /* nothing matched, drop packet */
-                bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+                bpf_stmt(ins, &i, BPF_RET | BPF_K, 0);
         }
 
         /* matched, pass packet */
-        bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+        bpf_stmt(ins, &i, BPF_RET | BPF_K, 0xffffffff);
 
         /* install filter */
-        filter = (struct sock_fprog) {
+        filter = (struct sock_fprog){
                 .len = i,
                 .filter = ins,
         };

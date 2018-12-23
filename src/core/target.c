@@ -10,10 +10,7 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
-        [TARGET_DEAD] = UNIT_INACTIVE,
-        [TARGET_ACTIVE] = UNIT_ACTIVE
-};
+static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = { [TARGET_DEAD] = UNIT_INACTIVE, [TARGET_ACTIVE] = UNIT_ACTIVE };
 
 static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
@@ -26,23 +23,14 @@ static void target_set_state(Target *t, TargetState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(t)->id,
-                          target_state_to_string(old_state),
-                          target_state_to_string(state));
+                log_debug("%s changed %s -> %s", UNIT(t)->id, target_state_to_string(old_state), target_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int target_add_default_dependencies(Target *t) {
 
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRES,
-                UNIT_REQUISITE,
-                UNIT_WANTS,
-                UNIT_BINDS_TO,
-                UNIT_PART_OF
-        };
+        static const UnitDependency deps[] = { UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_BINDS_TO, UNIT_PART_OF };
 
         int r;
         unsigned k;
@@ -112,9 +100,7 @@ static void target_dump(Unit *u, FILE *f, const char *prefix) {
         assert(t);
         assert(f);
 
-        fprintf(f,
-                "%sTarget State: %s\n",
-                prefix, target_state_to_string(t->state));
+        fprintf(f, "%sTarget State: %s\n", prefix, target_state_to_string(t->state));
 }
 
 static int target_start(Unit *u) {
@@ -212,12 +198,15 @@ const UnitVTable target_vtable = {
 
         .bus_vtable = bus_target_vtable,
 
-        .status_message_formats = {
-                .finished_start_job = {
-                        [JOB_DONE]       = "Reached target %s.",
+        .status_message_formats =
+                {
+                        .finished_start_job =
+                                {
+                                        [JOB_DONE] = "Reached target %s.",
+                                },
+                        .finished_stop_job =
+                                {
+                                        [JOB_DONE] = "Stopped target %s.",
+                                },
                 },
-                .finished_stop_job = {
-                        [JOB_DONE]       = "Stopped target %s.",
-                },
-        },
 };

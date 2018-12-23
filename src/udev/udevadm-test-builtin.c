@@ -19,8 +19,8 @@ static int help(void) {
                "Test a built-in command.\n\n"
                "  -h --help     Print this message\n"
                "  -V --version  Print version of the program\n\n"
-               "Commands:\n"
-               , program_invocation_short_name);
+               "Commands:\n",
+               program_invocation_short_name);
 
         udev_builtin_list();
 
@@ -28,11 +28,7 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "version", no_argument, NULL, 'V' },
-                { "help",    no_argument, NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "version", no_argument, NULL, 'V' }, { "help", no_argument, NULL, 'h' }, {} };
 
         int c;
 
@@ -50,13 +46,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_command = argv[optind++];
         if (!arg_command)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Command missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command missing.");
 
         arg_syspath = argv[optind++];
         if (!arg_syspath)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "syspath missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "syspath missing.");
 
         return 1;
 }

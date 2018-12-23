@@ -43,7 +43,7 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
         if (t->vnet_hdr)
                 ifr->ifr_flags |= IFF_VNET_HDR;
 
-        strncpy(ifr->ifr_name, netdev->ifname, IFNAMSIZ-1);
+        strncpy(ifr->ifr_name, netdev->ifname, IFNAMSIZ - 1);
 
         return 0;
 }
@@ -60,9 +60,9 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(netdev);
         assert(ifr);
 
-        fd = open(TUN_DEV, O_RDWR|O_CLOEXEC);
+        fd = open(TUN_DEV, O_RDWR | O_CLOEXEC);
         if (fd < 0)
-                return log_netdev_error_errno(netdev, -errno,  "Failed to open tun dev: %m");
+                return log_netdev_error_errno(netdev, -errno, "Failed to open tun dev: %m");
 
         if (ioctl(fd, TUNSETIFF, ifr) < 0)
                 return log_netdev_error_errno(netdev, -errno, "TUNSETIFF failed on tun dev: %m");
@@ -94,7 +94,6 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 if (ioctl(fd, TUNSETGROUP, gid) < 0)
                         return log_netdev_error_errno(netdev, -errno, "TUNSETGROUP failed on tun dev: %m");
-
         }
 
         if (ioctl(fd, TUNSETPERSIST, 1) < 0)

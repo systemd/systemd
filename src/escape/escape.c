@@ -12,11 +12,7 @@
 #include "strv.h"
 #include "unit-name.h"
 
-static enum {
-        ACTION_ESCAPE,
-        ACTION_UNESCAPE,
-        ACTION_MANGLE
-} arg_action = ACTION_ESCAPE;
+static enum { ACTION_ESCAPE, ACTION_UNESCAPE, ACTION_MANGLE } arg_action = ACTION_ESCAPE;
 static const char *arg_suffix = NULL;
 static const char *arg_template = NULL;
 static bool arg_path = false;
@@ -40,33 +36,31 @@ static int help(void) {
                "  -u --unescape           Unescape strings\n"
                "  -m --mangle             Mangle strings\n"
                "  -p --path               When escaping/unescaping assume the string is a path\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_SUFFIX,
                 ARG_TEMPLATE
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                { "template",  required_argument, NULL, ARG_TEMPLATE  },
-                { "unescape",  no_argument,       NULL, 'u'           },
-                { "mangle",    no_argument,       NULL, 'm'           },
-                { "path",      no_argument,       NULL, 'p'           },
-                { "instance",  no_argument,       NULL, 'i'           },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "suffix", required_argument, NULL, ARG_SUFFIX },
+                                                 { "template", required_argument, NULL, ARG_TEMPLATE },
+                                                 { "unescape", no_argument, NULL, 'u' },
+                                                 { "mangle", no_argument, NULL, 'm' },
+                                                 { "path", no_argument, NULL, 'p' },
+                                                 { "instance", no_argument, NULL, 'i' },
+                                                 {} };
 
         int c;
 
@@ -86,8 +80,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SUFFIX:
 
                         if (unit_type_from_string(optarg) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid unit suffix type %s.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit suffix type %s.", optarg);
 
                         arg_suffix = optarg;
                         break;
@@ -95,8 +88,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TEMPLATE:
 
                         if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Template name %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Template name %s is not valid.", optarg);
 
                         arg_template = optarg;
                         break;
@@ -125,32 +117,25 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough arguments.");
 
         if (arg_template && arg_suffix)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--suffix= and --template= may not be combined.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix= and --template= may not be combined.");
 
         if ((arg_template || arg_suffix) && arg_action == ACTION_MANGLE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--suffix= and --template= are not compatible with --mangle.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix= and --template= are not compatible with --mangle.");
 
         if (arg_suffix && arg_action == ACTION_UNESCAPE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--suffix is not compatible with --unescape.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix is not compatible with --unescape.");
 
         if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--path may not be combined with --mangle.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--path may not be combined with --mangle.");
 
         if (arg_instance && arg_action != ACTION_UNESCAPE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--instance must be used in conjunction with --unescape.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--instance must be used in conjunction with --unescape.");
 
         if (arg_instance && arg_template)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--instance may not be combined with --template.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--instance may not be combined with --template.");
 
         return 1;
 }
@@ -218,8 +203,8 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract template: %m");
                                 if (arg_template && !streq(arg_template, template))
-                                        return log_error("Unit %s template %s does not match specified template %s.",
-                                                         *i, template, arg_template);
+                                        return log_error(
+                                                "Unit %s template %s does not match specified template %s.", *i, template, arg_template);
                         } else {
                                 name = strdup(*i);
                                 if (!name)

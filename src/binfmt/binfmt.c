@@ -36,14 +36,13 @@ static int delete_rule(const char *rule) {
         if (!x)
                 return log_oom();
 
-        e = strchrnul(x+1, x[0]);
+        e = strchrnul(x + 1, x[0]);
         *e = 0;
 
         if (!filename_is_valid(x + 1))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Rule file name '%s' is not valid, refusing.", x + 1);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Rule file name '%s' is not valid, refusing.", x + 1);
 
-        fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
+        fn = strappend("/proc/sys/fs/binfmt_misc/", x + 1);
         if (!fn)
                 return log_oom();
 
@@ -68,7 +67,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f);
+        r = search_and_fopen(path, "re", NULL, (const char **) CONF_PATHS_STRV("binfmt.d"), &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -116,28 +115,26 @@ static int help(void) {
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
                "     --no-pager         Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_NO_PAGER,
         };
 
-        static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'            },
-                { "version",    no_argument, NULL, ARG_VERSION    },
-                { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
-                { "no-pager",   no_argument, NULL, ARG_NO_PAGER   },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 {} };
 
         int c;
 
@@ -170,8 +167,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_cat_config && argc > optind)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Positional arguments are not allowed with --cat-config");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }
@@ -201,7 +197,7 @@ static int run(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("binfmt.d"));
+                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char **) CONF_PATHS_STRV("binfmt.d"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
 

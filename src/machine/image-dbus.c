@@ -24,10 +24,7 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
-int bus_image_method_remove(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         Image *image = userdata;
@@ -42,20 +39,13 @@ int bus_image_method_remove(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+        if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
         r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
@@ -86,10 +76,7 @@ int bus_image_method_remove(
         return 1;
 }
 
-int bus_image_method_rename(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_rename(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         Manager *m = image->userdata;
@@ -107,14 +94,7 @@ int bus_image_method_rename(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -127,10 +107,7 @@ int bus_image_method_rename(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_image_method_clone(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_clone(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         Image *image = userdata;
@@ -154,20 +131,13 @@ int bus_image_method_clone(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+        if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
         r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
@@ -198,10 +168,7 @@ int bus_image_method_clone(
         return 1;
 }
 
-int bus_image_method_mark_read_only(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_mark_read_only(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         Manager *m = image->userdata;
@@ -214,14 +181,7 @@ int bus_image_method_mark_read_only(
                 return r;
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -234,10 +194,7 @@ int bus_image_method_mark_read_only(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_image_method_set_limit(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_set_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         Manager *m = image->userdata;
@@ -253,14 +210,7 @@ int bus_image_method_set_limit(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
         r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.machine1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -273,10 +223,7 @@ int bus_image_method_set_limit(
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_image_method_get_hostname(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_get_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         int r;
@@ -290,10 +237,7 @@ int bus_image_method_get_hostname(
         return sd_bus_reply_method_return(message, "s", image->hostname);
 }
 
-int bus_image_method_get_machine_id(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_get_machine_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Image *image = userdata;
@@ -319,10 +263,7 @@ int bus_image_method_get_machine_id(
         return sd_bus_send(NULL, reply, NULL);
 }
 
-int bus_image_method_get_machine_info(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_get_machine_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         int r;
@@ -336,10 +277,7 @@ int bus_image_method_get_machine_info(
         return bus_reply_pair_array(message, image->machine_info);
 }
 
-int bus_image_method_get_os_release(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+int bus_image_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         Image *image = userdata;
         int r;
@@ -357,7 +295,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
         SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
-        SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
+        SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Image, type), 0),
         SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
         SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),

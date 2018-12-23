@@ -33,30 +33,30 @@
 #include "util.h"
 
 #ifndef ADJ_SETOFFSET
-#define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
+#define ADJ_SETOFFSET 0x0100 /* add 'time' to current time */
 #endif
 
 /* expected accuracy of time synchronization; used to adjust the poll interval */
-#define NTP_ACCURACY_SEC                0.2
+#define NTP_ACCURACY_SEC 0.2
 
 /*
  * Maximum delta in seconds which the system clock is gradually adjusted
  * (slewed) to approach the network time. Deltas larger that this are set by
  * letting the system time jump. The kernel's limit for adjtime is 0.5s.
  */
-#define NTP_MAX_ADJUST                  0.4
+#define NTP_MAX_ADJUST 0.4
 
 /* Default of maximum acceptable root distance in microseconds. */
-#define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
+#define NTP_MAX_ROOT_DISTANCE (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
-#define NTP_MAX_MISSED_REPLIES          2
+#define NTP_MAX_MISSED_REPLIES 2
 
-#define RETRY_USEC (30*USEC_PER_SEC)
-#define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
+#define RETRY_USEC (30 * USEC_PER_SEC)
+#define RATELIMIT_INTERVAL_USEC (10 * USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
-#define TIMEOUT_USEC (10*USEC_PER_SEC)
+#define TIMEOUT_USEC (10 * USEC_PER_SEC)
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
@@ -68,7 +68,7 @@ static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
 }
 
 static double ntp_ts_to_d(const struct ntp_ts *ts) {
-        return be32toh(ts->sec) + ((double)be32toh(ts->frac) / UINT_MAX);
+        return be32toh(ts->sec) + ((double) be32toh(ts->frac) / UINT_MAX);
 }
 
 static double ts_to_d(const struct timespec *ts) {
@@ -129,7 +129,12 @@ static int manager_send_request(Manager *m) {
 
         server_address_pretty(m->current_server_address, &pretty);
 
-        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
+        len = sendto(m->server_socket,
+                     &ntpmsg,
+                     sizeof(ntpmsg),
+                     MSG_DONTWAIT,
+                     &m->current_server_address->sockaddr.sa,
+                     m->current_server_address->socklen);
         if (len == sizeof(ntpmsg)) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
@@ -151,12 +156,13 @@ static int manager_send_request(Manager *m) {
 
         m->missed_replies++;
         if (m->missed_replies > NTP_MAX_MISSED_REPLIES) {
-                r = sd_event_add_time(
-                                m->event,
-                                &m->event_timeout,
-                                clock_boottime_or_monotonic(),
-                                now(clock_boottime_or_monotonic()) + TIMEOUT_USEC, 0,
-                                manager_timeout, m);
+                r = sd_event_add_time(m->event,
+                                      &m->event_timeout,
+                                      clock_boottime_or_monotonic(),
+                                      now(clock_boottime_or_monotonic()) + TIMEOUT_USEC,
+                                      0,
+                                      manager_timeout,
+                                      m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to arm timeout timer: %m");
         }
@@ -191,11 +197,7 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         }
 
         return sd_event_add_time(
-                        m->event,
-                        &m->event_timer,
-                        clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + next, 0,
-                        manager_timer, m);
+                m->event, &m->event_timer, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + next, 0, manager_timer, m);
 }
 
 static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -261,14 +263,14 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
                 tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET | ADJ_MAXERROR | ADJ_ESTERROR;
 
                 /* ADJ_NANO uses nanoseconds in the microseconds field */
-                tmx.time.tv_sec = (long)offset;
+                tmx.time.tv_sec = (long) offset;
                 tmx.time.tv_usec = (offset - tmx.time.tv_sec) * NSEC_PER_SEC;
                 tmx.maxerror = 0;
                 tmx.esterror = 0;
 
                 /* the kernel expects -0.3s as {-1, 7000.000.000} */
                 if (tmx.time.tv_usec < 0) {
-                        tmx.time.tv_sec  -= 1;
+                        tmx.time.tv_sec -= 1;
                         tmx.time.tv_usec += NSEC_PER_SEC;
                 }
 
@@ -306,16 +308,22 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         m->drift_freq = tmx.freq;
 
-        log_debug("  status       : %04i %s\n"
-                  "  time now     : %"PRI_TIME".%03"PRI_USEC"\n"
-                  "  constant     : %"PRI_TIMEX"\n"
-                  "  offset       : %+.3f sec\n"
-                  "  freq offset  : %+"PRI_TIMEX" (%+"PRI_TIMEX" ppm)\n",
-                  tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
-                  tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
-                  tmx.constant,
-                  (double)tmx.offset / NSEC_PER_SEC,
-                  tmx.freq, tmx.freq / 65536);
+        log_debug(
+                "  status       : %04i %s\n"
+                "  time now     : %" PRI_TIME ".%03" PRI_USEC
+                "\n"
+                "  constant     : %" PRI_TIMEX
+                "\n"
+                "  offset       : %+.3f sec\n"
+                "  freq offset  : %+" PRI_TIMEX " (%+" PRI_TIMEX " ppm)\n",
+                tmx.status,
+                tmx.status & STA_UNSYNC ? "unsync" : "sync",
+                tmx.time.tv_sec,
+                tmx.time.tv_usec / NSEC_PER_MSEC,
+                tmx.constant,
+                (double) tmx.offset / NSEC_PER_SEC,
+                tmx.freq,
+                tmx.freq / 65536);
 
         return 0;
 }
@@ -435,7 +443,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         assert(source);
         assert(m);
 
-        if (revents & (EPOLLHUP|EPOLLERR)) {
+        if (revents & (EPOLLHUP | EPOLLERR)) {
                 log_warning("Server connection returned error.");
                 return manager_connect(m);
         }
@@ -455,14 +463,12 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        if (!m->current_server_name ||
-            !m->current_server_address ||
-            !sockaddr_equal(&server_addr, &m->current_server_address->sockaddr)) {
+        if (!m->current_server_name || !m->current_server_address || !sockaddr_equal(&server_addr, &m->current_server_address->sockaddr)) {
                 log_debug("Response from unknown server.");
                 return 0;
         }
 
-        CMSG_FOREACH(cmsg, &msghdr) {
+        CMSG_FOREACH (cmsg, &msghdr) {
                 if (cmsg->cmsg_level != SOL_SOCKET)
                         continue;
 
@@ -473,8 +479,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 }
         }
         if (!recv_time)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid packet timestamp.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid packet timestamp.");
 
         if (!m->pending) {
                 log_debug("Unexpected reply. Ignoring.");
@@ -492,14 +497,12 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 ||
-            be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
+        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 || be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
                 log_debug("Invalid reply, returned times before epoch. Ignoring.");
                 return manager_connect(m);
         }
 
-        if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC ||
-            ntpmsg.stratum == 0 || ntpmsg.stratum >= 16) {
+        if (NTP_FIELD_LEAP(ntpmsg.field) == NTP_LEAP_NOTINSYNC || ntpmsg.stratum == 0 || ntpmsg.stratum >= 16) {
                 log_debug("Server is not synchronized. Disconnecting.");
                 return manager_connect(m);
         }
@@ -558,38 +561,43 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         manager_adjust_poll(m, offset, spike);
 
-        log_debug("NTP response:\n"
-                  "  leap         : %u\n"
-                  "  version      : %u\n"
-                  "  mode         : %u\n"
-                  "  stratum      : %u\n"
-                  "  precision    : %.6f sec (%d)\n"
-                  "  root distance: %.6f sec\n"
-                  "  reference    : %.4s\n"
-                  "  origin       : %.3f\n"
-                  "  receive      : %.3f\n"
-                  "  transmit     : %.3f\n"
-                  "  dest         : %.3f\n"
-                  "  offset       : %+.3f sec\n"
-                  "  delay        : %+.3f sec\n"
-                  "  packet count : %"PRIu64"\n"
-                  "  jitter       : %.3f%s\n"
-                  "  poll interval: " USEC_FMT "\n",
-                  NTP_FIELD_LEAP(ntpmsg.field),
-                  NTP_FIELD_VERSION(ntpmsg.field),
-                  NTP_FIELD_MODE(ntpmsg.field),
-                  ntpmsg.stratum,
-                  exp2(ntpmsg.precision), ntpmsg.precision,
-                  root_distance,
-                  ntpmsg.stratum == 1 ? ntpmsg.refid : "n/a",
-                  origin - OFFSET_1900_1970,
-                  receive - OFFSET_1900_1970,
-                  trans - OFFSET_1900_1970,
-                  dest - OFFSET_1900_1970,
-                  offset, delay,
-                  m->packet_count,
-                  m->samples_jitter, spike ? " spike" : "",
-                  m->poll_interval_usec / USEC_PER_SEC);
+        log_debug(
+                "NTP response:\n"
+                "  leap         : %u\n"
+                "  version      : %u\n"
+                "  mode         : %u\n"
+                "  stratum      : %u\n"
+                "  precision    : %.6f sec (%d)\n"
+                "  root distance: %.6f sec\n"
+                "  reference    : %.4s\n"
+                "  origin       : %.3f\n"
+                "  receive      : %.3f\n"
+                "  transmit     : %.3f\n"
+                "  dest         : %.3f\n"
+                "  offset       : %+.3f sec\n"
+                "  delay        : %+.3f sec\n"
+                "  packet count : %" PRIu64
+                "\n"
+                "  jitter       : %.3f%s\n"
+                "  poll interval: " USEC_FMT "\n",
+                NTP_FIELD_LEAP(ntpmsg.field),
+                NTP_FIELD_VERSION(ntpmsg.field),
+                NTP_FIELD_MODE(ntpmsg.field),
+                ntpmsg.stratum,
+                exp2(ntpmsg.precision),
+                ntpmsg.precision,
+                root_distance,
+                ntpmsg.stratum == 1 ? ntpmsg.refid : "n/a",
+                origin - OFFSET_1900_1970,
+                receive - OFFSET_1900_1970,
+                trans - OFFSET_1900_1970,
+                dest - OFFSET_1900_1970,
+                offset,
+                delay,
+                m->packet_count,
+                m->samples_jitter,
+                spike ? " spike" : "",
+                m->poll_interval_usec / USEC_PER_SEC);
 
         if (!spike) {
                 m->sync = true;
@@ -604,8 +612,12 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->dest_time = *recv_time;
         m->spike = spike;
 
-        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRIi64"ppm%s",
-                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+" PRIi64 "ppm%s",
+                  m->poll_interval_usec / USEC_PER_SEC,
+                  offset,
+                  delay,
+                  m->samples_jitter,
+                  m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
 
         (void) sd_bus_emit_properties_changed(m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
@@ -753,7 +765,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                         continue;
                 }
 
-                r = server_address_new(m->current_server_name, &a, (const union sockaddr_union*) ai->ai_addr, ai->ai_addrlen);
+                r = server_address_new(m->current_server_name, &a, (const union sockaddr_union *) ai->ai_addr, ai->ai_addrlen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add server address: %m");
 
@@ -792,7 +804,13 @@ int manager_connect(Manager *m) {
         if (!ratelimit_below(&m->ratelimit)) {
                 log_debug("Delaying attempts to contact servers.");
 
-                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
+                r = sd_event_add_time(m->event,
+                                      &m->event_retry,
+                                      clock_boottime_or_monotonic(),
+                                      now(clock_boottime_or_monotonic()) + RETRY_USEC,
+                                      0,
+                                      manager_retry_connect,
+                                      m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -805,7 +823,7 @@ int manager_connect(Manager *m) {
                 manager_set_server_address(m, m->current_server_address->addresses_next);
         else {
                 struct addrinfo hints = {
-                        .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
+                        .ai_flags = AI_NUMERICSERV | AI_ADDRCONFIG,
                         .ai_socktype = SOCK_DGRAM,
                 };
 
@@ -846,7 +864,13 @@ int manager_connect(Manager *m) {
 
                         if (restart && !m->exhausted_servers && m->poll_interval_usec) {
                                 log_debug("Waiting after exhausting servers.");
-                                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + m->poll_interval_usec, 0, manager_retry_connect, m);
+                                r = sd_event_add_time(m->event,
+                                                      &m->event_retry,
+                                                      clock_boottime_or_monotonic(),
+                                                      now(clock_boottime_or_monotonic()) + m->poll_interval_usec,
+                                                      0,
+                                                      manager_retry_connect,
+                                                      m);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -873,7 +897,8 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                r = resolve_getaddrinfo(
+                        m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -904,7 +929,7 @@ void manager_disconnect(Manager *m) {
         sd_notifyf(false, "STATUS=Idle.");
 }
 
-void manager_flush_server_names(Manager  *m, ServerType t) {
+void manager_flush_server_names(Manager *m, ServerType t) {
         assert(m);
 
         if (t == SERVER_SYSTEM)
@@ -961,7 +986,7 @@ static int manager_network_read_link_servers(Manager *m) {
         }
 
         LIST_FOREACH(names, n, m->link_servers)
-                n->marked = true;
+        n->marked = true;
 
         STRV_FOREACH(i, ntp) {
                 bool found = false;
@@ -976,11 +1001,11 @@ static int manager_network_read_link_servers(Manager *m) {
                 }
 
                 LIST_FOREACH(names, n, m->link_servers)
-                        if (streq(n->string, *i)) {
-                                n->marked = false;
-                                found = true;
-                                break;
-                        }
+                if (streq(n->string, *i)) {
+                        n->marked = false;
+                        found = true;
+                        break;
+                }
 
                 if (!found) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
@@ -994,10 +1019,10 @@ static int manager_network_read_link_servers(Manager *m) {
         }
 
         LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
-                if (n->marked) {
-                        server_name_free(n);
-                        changed = true;
-                }
+        if (n->marked) {
+                server_name_free(n);
+                changed = true;
+        }
 
         return changed;
 
@@ -1098,7 +1123,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         (void) sd_event_set_watchdog(m->event, true);

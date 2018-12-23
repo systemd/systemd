@@ -531,8 +531,8 @@ static void test_condition_test_virtualization(void) {
 
 static void test_condition_test_user(void) {
         Condition *condition;
-        char* uid;
-        char* username;
+        char *uid;
+        char *username;
         int r;
 
         condition = condition_new(CONDITION_USER, "garbage oifdsjfoidsjoj", false, false);
@@ -542,7 +542,7 @@ static void test_condition_test_user(void) {
         assert_se(r == 0);
         condition_free(condition);
 
-        assert_se(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)) > 0);
+        assert_se(asprintf(&uid, "%" PRIu32, UINT32_C(0xFFFF)) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition);
@@ -551,7 +551,7 @@ static void test_condition_test_user(void) {
         condition_free(condition);
         free(uid);
 
-        assert_se(asprintf(&uid, "%u", (unsigned)getuid()) > 0);
+        assert_se(asprintf(&uid, "%u", (unsigned) getuid()) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition);
@@ -560,7 +560,7 @@ static void test_condition_test_user(void) {
         condition_free(condition);
         free(uid);
 
-        assert_se(asprintf(&uid, "%u", (unsigned)getuid()+1) > 0);
+        assert_se(asprintf(&uid, "%u", (unsigned) getuid() + 1) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
         r = condition_test(condition);
@@ -579,7 +579,7 @@ static void test_condition_test_user(void) {
         condition_free(condition);
         free(username);
 
-        username = (char*)(geteuid() == 0 ? NOBODY_USER_NAME : "root");
+        username = (char *) (geteuid() == 0 ? NOBODY_USER_NAME : "root");
         condition = condition_new(CONDITION_USER, username, false, false);
         assert_se(condition);
         r = condition_test(condition);
@@ -600,8 +600,8 @@ static void test_condition_test_user(void) {
 
 static void test_condition_test_group(void) {
         Condition *condition;
-        char* gid;
-        char* groupname;
+        char *gid;
+        char *groupname;
         gid_t *gids, max_gid;
         int ngroups_max, ngroups, r, i;
 
@@ -655,7 +655,7 @@ static void test_condition_test_group(void) {
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
 
-        assert_se(0 < asprintf(&gid, "%u", max_gid+1));
+        assert_se(0 < asprintf(&gid, "%u", max_gid + 1));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
         assert_se(condition);
         r = condition_test(condition);
@@ -664,7 +664,7 @@ static void test_condition_test_group(void) {
         condition_free(condition);
         free(gid);
 
-        groupname = (char*)(geteuid() == 0 ? NOBODY_GROUP_NAME : "root");
+        groupname = (char *) (geteuid() == 0 ? NOBODY_GROUP_NAME : "root");
         condition = condition_new(CONDITION_GROUP, groupname, false, false);
         assert_se(condition);
         r = condition_test(condition);

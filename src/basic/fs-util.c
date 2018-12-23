@@ -52,18 +52,18 @@ int rmdir_parents(const char *path, const char *stop) {
         l = strlen(path);
 
         /* Skip trailing slashes */
-        while (l > 0 && path[l-1] == '/')
+        while (l > 0 && path[l - 1] == '/')
                 l--;
 
         while (l > 0) {
                 char *t;
 
                 /* Skip last component */
-                while (l > 0 && path[l-1] != '/')
+                while (l > 0 && path[l - 1] != '/')
                         l--;
 
                 /* Skip trailing slashes */
-                while (l > 0 && path[l-1] == '/')
+                while (l > 0 && path[l - 1] == '/')
                         l--;
 
                 if (l <= 0)
@@ -133,7 +133,7 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 }
 
 int readlinkat_malloc(int fd, const char *p, char **ret) {
-        size_t l = FILENAME_MAX+1;
+        size_t l = FILENAME_MAX + 1;
         int r;
 
         assert(p);
@@ -143,18 +143,18 @@ int readlinkat_malloc(int fd, const char *p, char **ret) {
                 char *c;
                 ssize_t n;
 
-                c = new(char, l);
+                c = new (char, l);
                 if (!c)
                         return -ENOMEM;
 
-                n = readlinkat(fd, p, c, l-1);
+                n = readlinkat(fd, p, c, l - 1);
                 if (n < 0) {
                         r = -errno;
                         free(c);
                         return r;
                 }
 
-                if ((size_t) n < l-1) {
+                if ((size_t) n < l - 1) {
                         c[n] = 0;
                         *ret = c;
                         return 0;
@@ -219,8 +219,8 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         /* Under the assumption that we are running privileged we first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change mode/owner
-                                                       * on the same file */
+        fd = open(path, O_PATH | O_CLOEXEC | O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change mode/owner
+                                                           * on the same file */
         if (fd < 0)
                 return -errno;
 
@@ -311,10 +311,14 @@ int fd_warn_permissions(const char *path, int fd) {
                 log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
 
         if (st.st_mode & 0002)
-                log_warning("Configuration file %s is marked world-writable. Please remove world writability permission bits. Proceeding anyway.", path);
+                log_warning(
+                        "Configuration file %s is marked world-writable. Please remove world writability permission bits. Proceeding anyway.",
+                        path);
 
         if (getpid_cached() == 1 && (st.st_mode & 0044) != 0044)
-                log_warning("Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.", path);
+                log_warning(
+                        "Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.",
+                        path);
 
         return 0;
 }
@@ -337,14 +341,14 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
         /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is useful in
          * case the path refers to an existing device or socket node, as we can open it successfully in all cases, and
          * won't trigger any driver magic or so. */
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        fd = open(path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
         if (fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
                 /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a regular file
                  * here, and nothing else */
-                fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
+                fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
                 if (fd < 0)
                         return -errno;
         }
@@ -686,7 +690,10 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s %s %s during canonicalization of %s.",
-                                 n1, special_glyph(SPECIAL_GLYPH_ARROW), n2, path);
+                                 n1,
+                                 special_glyph(SPECIAL_GLYPH_ARROW),
+                                 n2,
+                                 path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
@@ -697,9 +704,7 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
 
         (void) fd_get_path(fd, &n1);
 
-        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                 "Detected autofs mount point %s during canonicalization of %s.",
-                                 n1, path);
+        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE), "Detected autofs mount point %s during canonicalization of %s.", n1, path);
 }
 
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
@@ -776,10 +781,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (empty_or_root(original_root))
                 original_root = NULL;
 
-        if (!original_root && !ret && (flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_OPEN|CHASE_STEP)) == CHASE_OPEN) {
+        if (!original_root && !ret && (flags & (CHASE_NONEXISTENT | CHASE_NO_AUTOFS | CHASE_SAFE | CHASE_OPEN | CHASE_STEP)) == CHASE_OPEN) {
                 /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no root set
                  * and doesn't care about any of the other special features we provide either. */
-                r = open(path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = open(path, O_PATH | O_CLOEXEC | ((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -805,7 +810,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (r < 0)
                 return r;
 
-        fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = open("/", O_CLOEXEC | O_NOFOLLOW | O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -822,8 +827,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 size_t n, m;
 
                 /* Determine length of first component in the path */
-                n = strspn(todo, "/");                  /* The slashes */
-                m = n + strcspn(todo + n, "/");         /* The entire length of the component */
+                n = strspn(todo, "/");          /* The slashes */
+                m = n + strcspn(todo + n, "/"); /* The entire length of the component */
 
                 /* Extract the first component. */
                 first = strndup(todo, m);
@@ -866,9 +871,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 return -ENOMEM;
 
                         /* Don't allow this to leave the root dir.  */
-                        if (root &&
-                            path_startswith(done, root) &&
-                            !path_startswith(parent, root))
+                        if (root && path_startswith(done, root) && !path_startswith(parent, root))
                                 continue;
 
                         free_and_replace(done, parent);
@@ -876,7 +879,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         if (flags & CHASE_STEP)
                                 goto chased_one;
 
-                        fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                        fd_parent = openat(fd, "..", O_CLOEXEC | O_NOFOLLOW | O_PATH);
                         if (fd_parent < 0)
                                 return -errno;
 
@@ -897,12 +900,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 }
 
                 /* Otherwise let's see what this is. */
-                child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                child = openat(fd, first + n, O_CLOEXEC | O_NOFOLLOW | O_PATH);
                 if (child < 0) {
 
-                        if (errno == ENOENT &&
-                            (flags & CHASE_NONEXISTENT) &&
-                            (isempty(todo) || path_is_normalized(todo))) {
+                        if (errno == ENOENT && (flags & CHASE_NONEXISTENT) && (isempty(todo) || path_is_normalized(todo))) {
 
                                 /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK, return
                                  * what we got so far. But don't allow this if the remaining path contains "../ or "./"
@@ -924,14 +925,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 if (fstat(child, &st) < 0)
                         return -errno;
-                if ((flags & CHASE_SAFE) &&
-                    unsafe_transition(&previous_stat, &st))
+                if ((flags & CHASE_SAFE) && unsafe_transition(&previous_stat, &st))
                         return log_unsafe_transition(fd, child, path, flags);
 
                 previous_stat = st;
 
-                if ((flags & CHASE_NO_AUTOFS) &&
-                    fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
+                if ((flags & CHASE_NO_AUTOFS) && fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return log_autofs_mount_point(child, path, flags);
 
                 if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
@@ -956,7 +955,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                  * directory as base. */
 
                                 safe_close(fd);
-                                fd = open(root ?: "/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                                fd = open(root ?: "/", O_CLOEXEC | O_NOFOLLOW | O_PATH);
                                 if (fd < 0)
                                         return -errno;
 
@@ -1052,12 +1051,7 @@ chased_one:
         return 0;
 }
 
-int chase_symlinks_and_open(
-                const char *path,
-                const char *root,
-                unsigned chase_flags,
-                int open_flags,
-                char **ret_path) {
+int chase_symlinks_and_open(const char *path, const char *root, unsigned chase_flags, int open_flags, char **ret_path) {
 
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
@@ -1066,7 +1060,7 @@ int chase_symlinks_and_open(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS | CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 r = open(path, open_flags);
                 if (r < 0)
@@ -1075,7 +1069,7 @@ int chase_symlinks_and_open(
                 return r;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        path_fd = chase_symlinks(path, root, chase_flags | CHASE_OPEN, ret_path ? &p : NULL);
         if (path_fd < 0)
                 return path_fd;
 
@@ -1089,12 +1083,7 @@ int chase_symlinks_and_open(
         return r;
 }
 
-int chase_symlinks_and_opendir(
-                const char *path,
-                const char *root,
-                unsigned chase_flags,
-                char **ret_path,
-                DIR **ret_dir) {
+int chase_symlinks_and_opendir(const char *path, const char *root, unsigned chase_flags, char **ret_path, DIR **ret_dir) {
 
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int path_fd = -1;
@@ -1106,7 +1095,7 @@ int chase_symlinks_and_opendir(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS | CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)
@@ -1116,7 +1105,7 @@ int chase_symlinks_and_opendir(
                 return 0;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        path_fd = chase_symlinks(path, root, chase_flags | CHASE_OPEN, ret_path ? &p : NULL);
         if (path_fd < 0)
                 return path_fd;
 
@@ -1132,12 +1121,7 @@ int chase_symlinks_and_opendir(
         return 0;
 }
 
-int chase_symlinks_and_stat(
-                const char *path,
-                const char *root,
-                unsigned chase_flags,
-                char **ret_path,
-                struct stat *ret_stat) {
+int chase_symlinks_and_stat(const char *path, const char *root, unsigned chase_flags, char **ret_path, struct stat *ret_stat) {
 
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
@@ -1148,7 +1132,7 @@ int chase_symlinks_and_stat(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS | CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 if (stat(path, ret_stat) < 0)
                         return -errno;
@@ -1156,7 +1140,7 @@ int chase_symlinks_and_stat(
                 return 1;
         }
 
-        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        path_fd = chase_symlinks(path, root, chase_flags | CHASE_OPEN, ret_path ? &p : NULL);
         if (path_fd < 0)
                 return path_fd;
 
@@ -1217,7 +1201,7 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
          * primary job – to delete the file – is accomplished. */
 
         if ((flags & AT_REMOVEDIR) == 0) {
-                truncate_fd = openat(fd, name, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+                truncate_fd = openat(fd, name, O_WRONLY | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
                 if (truncate_fd < 0) {
 
                         /* If this failed because the file doesn't exist propagate the error right-away. Also,
@@ -1252,7 +1236,7 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
         bs = MAX(st.st_blksize, 512);
         l = DIV_ROUND_UP(st.st_size, bs) * bs; /* Round up to next block size */
 
-        if (fallocate(truncate_fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, 0, l) >= 0)
+        if (fallocate(truncate_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, l) >= 0)
                 return 0; /* Successfully punched a hole! 😊 */
 
         /* Fall back to truncation */
@@ -1275,9 +1259,7 @@ int fsync_directory_of_file(int fd) {
 
         r = fd_get_path(fd, &path);
         if (r < 0) {
-                log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m",
-                                fd,
-                                r == -EOPNOTSUPP ? ", ignoring" : "");
+                log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m", fd, r == -EOPNOTSUPP ? ", ignoring" : "");
 
                 if (r == -EOPNOTSUPP)
                         /* If /proc is not available, we're most likely running in some
@@ -1307,7 +1289,7 @@ int fsync_path_at(int at_fd, const char *path) {
 
         if (isempty(path)) {
                 if (at_fd == AT_FDCWD) {
-                        opened_fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        opened_fd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
                         if (opened_fd < 0)
                                 return -errno;
 
@@ -1316,7 +1298,7 @@ int fsync_path_at(int at_fd, const char *path) {
                         fd = at_fd;
         } else {
 
-                opened_fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC);
+                opened_fd = openat(at_fd, path, O_RDONLY | O_CLOEXEC);
                 if (opened_fd < 0)
                         return -errno;
 
@@ -1348,7 +1330,7 @@ int open_parent(const char *path, int flags, mode_t mode) {
         if ((flags & O_PATH) == O_PATH)
                 flags |= O_DIRECTORY;
         else if ((flags & O_TMPFILE) != O_TMPFILE)
-                flags |= O_DIRECTORY|O_RDONLY;
+                flags |= O_DIRECTORY | O_RDONLY;
 
         fd = open(parent, flags, mode);
         if (fd < 0)

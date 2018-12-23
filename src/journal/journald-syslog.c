@@ -34,7 +34,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
         struct msghdr msghdr = {
                 .msg_iov = (struct iovec *) iovec,
                 .msg_iovlen = n_iovec,
-                .msg_name = (struct sockaddr*) &sa.sa,
+                .msg_name = (struct sockaddr *) &sa.sa,
                 .msg_namelen = SOCKADDR_UN_LEN(sa.un),
         };
         struct cmsghdr *cmsg;
@@ -98,7 +98,8 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 log_debug_errno(errno, "Failed to forward syslog message: %m");
 }
 
-static void forward_syslog_raw(Server *s, int priority, const char *buffer, size_t buffer_len, const struct ucred *ucred, const struct timeval *tv) {
+static void forward_syslog_raw(
+        Server *s, int priority, const char *buffer, size_t buffer_len, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec;
 
         assert(s);
@@ -111,10 +112,10 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, size
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
 
-void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
+void server_forward_syslog(
+        Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
         struct iovec iovec[5];
-        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64],
-             header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
+        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64], header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
         struct tm tm;
@@ -133,7 +134,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
         iovec[n++] = IOVEC_MAKE_STRING(header_priority);
 
         /* Second: timestamp */
-        t = tv ? tv->tv_sec : ((time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC));
+        t = tv ? tv->tv_sec : ((time_t)(now(CLOCK_REALTIME) / USEC_PER_SEC));
         if (!localtime_r(&t, &tm))
                 return;
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
@@ -147,7 +148,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
                         identifier = ident_buf;
                 }
 
-                xsprintf(header_pid, "["PID_FMT"]: ", ucred->pid);
+                xsprintf(header_pid, "[" PID_FMT "]: ", ucred->pid);
 
                 if (identifier)
                         iovec[n++] = IOVEC_MAKE_STRING(identifier);
@@ -186,20 +187,19 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         p += strspn(p, WHITESPACE);
         l = strcspn(p, WHITESPACE);
 
-        if (l <= 0 ||
-            p[l-1] != ':')
+        if (l <= 0 || p[l - 1] != ':')
                 return 0;
 
         e = l;
         l--;
 
-        if (l > 0 && p[l-1] == ']') {
-                size_t k = l-1;
+        if (l > 0 && p[l - 1] == ']') {
+                size_t k = l - 1;
 
                 for (;;) {
 
                         if (p[k] == '[') {
-                                t = strndup(p+k+1, l-k-2);
+                                t = strndup(p + k + 1, l - k - 2);
                                 if (t)
                                         *pid = t;
 
@@ -228,24 +228,15 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
 }
 
 static int syslog_skip_timestamp(const char **buf) {
-        enum {
+        enum
+        {
                 LETTER,
                 SPACE,
                 NUMBER,
                 SPACE_OR_NUMBER,
                 COLON
-        } sequence[] = {
-                LETTER, LETTER, LETTER,
-                SPACE,
-                SPACE_OR_NUMBER, NUMBER,
-                SPACE,
-                SPACE_OR_NUMBER, NUMBER,
-                COLON,
-                SPACE_OR_NUMBER, NUMBER,
-                COLON,
-                SPACE_OR_NUMBER, NUMBER,
-                SPACE
-        };
+        } sequence[] = { LETTER, LETTER, LETTER,          SPACE,  SPACE_OR_NUMBER, NUMBER,          SPACE,  SPACE_OR_NUMBER,
+                         NUMBER, COLON,  SPACE_OR_NUMBER, NUMBER, COLON,           SPACE_OR_NUMBER, NUMBER, SPACE };
 
         const char *p, *t;
         unsigned i;
@@ -276,8 +267,7 @@ static int syslog_skip_timestamp(const char **buf) {
                         break;
 
                 case LETTER:
-                        if (!(*p >= 'A' && *p <= 'Z') &&
-                            !(*p >= 'a' && *p <= 'z'))
+                        if (!(*p >= 'A' && *p <= 'Z') && !(*p >= 'a' && *p <= 'z'))
                                 return 0;
 
                         break;
@@ -286,7 +276,6 @@ static int syslog_skip_timestamp(const char **buf) {
                         if (*p != ':')
                                 return 0;
                         break;
-
                 }
         }
 
@@ -296,19 +285,12 @@ static int syslog_skip_timestamp(const char **buf) {
 }
 
 void server_process_syslog_message(
-                Server *s,
-                const char *buf,
-                size_t raw_len,
-                const struct ucred *ucred,
-                const struct timeval *tv,
-                const char *label,
-                size_t label_len) {
+        Server *s, const char *buf, size_t raw_len, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len) {
 
         char *t, syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-                 syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+                syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
         const char *msg, *syslog_ts, *a;
-        _cleanup_free_ char *identifier = NULL, *pid = NULL,
-                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
+        _cleanup_free_ char *identifier = NULL, *pid = NULL, *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
@@ -332,7 +314,7 @@ void server_process_syslog_message(
         /* We are creating a copy of the message because we want to forward the original message
            verbatim to the legacy syslog implementation */
         for (i = raw_len; i > 0; i--)
-                if (!strchr(WHITESPACE, buf[i-1]))
+                if (!strchr(WHITESPACE, buf[i - 1]))
                         break;
 
         leading_ws = strspn(buf, WHITESPACE);
@@ -344,7 +326,7 @@ void server_process_syslog_message(
                 /* Nice! No need to strip anything on the end, let's optimize this a bit */
                 msg = buf + leading_ws;
         else {
-                msg = dummy = new(char, i - leading_ws + 1);
+                msg = dummy = new (char, i - leading_ws + 1);
                 if (!dummy) {
                         log_oom();
                         return;
@@ -426,7 +408,7 @@ void server_process_syslog_message(
         if (store_raw) {
                 const size_t hlen = STRLEN("SYSLOG_RAW=");
 
-                msg_raw = new(char, hlen + raw_len);
+                msg_raw = new (char, hlen + raw_len);
                 if (!msg_raw) {
                         log_oom();
                         return;
@@ -452,7 +434,7 @@ int server_open_syslog_socket(Server *s) {
         assert(s);
 
         if (s->syslog_fd < 0) {
-                s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
@@ -486,7 +468,7 @@ int server_open_syslog_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
 
-        r = sd_event_source_set_priority(s->syslog_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->syslog_event_source, SD_EVENT_PRIORITY_NORMAL + 5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust syslog event source priority: %m");
 
@@ -505,10 +487,10 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
         if (s->last_warn_forward_syslog_missed + WARN_FORWARD_SYSLOG_MISSED_USEC > n)
                 return;
 
-        server_driver_message(s, 0,
+        server_driver_message(s,
+                              0,
                               "MESSAGE_ID=" SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR,
-                              LOG_MESSAGE("Forwarding to syslog missed %u messages.",
-                                          s->n_forward_syslog_missed),
+                              LOG_MESSAGE("Forwarding to syslog missed %u messages.", s->n_forward_syslog_missed),
                               NULL);
 
         s->n_forward_syslog_missed = 0;

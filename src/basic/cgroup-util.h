@@ -16,14 +16,15 @@
 #define SYSTEMD_CGROUP_CONTROLLER "_systemd"
 
 /* An enum of well known cgroup controllers */
-typedef enum CGroupController {
+typedef enum CGroupController
+{
         /* Original cgroup controllers */
         CGROUP_CONTROLLER_CPU,
-        CGROUP_CONTROLLER_CPUACCT,    /* v1 only */
-        CGROUP_CONTROLLER_IO,         /* v2 only */
-        CGROUP_CONTROLLER_BLKIO,      /* v1 only */
+        CGROUP_CONTROLLER_CPUACCT, /* v1 only */
+        CGROUP_CONTROLLER_IO,      /* v2 only */
+        CGROUP_CONTROLLER_BLKIO,   /* v1 only */
         CGROUP_CONTROLLER_MEMORY,
-        CGROUP_CONTROLLER_DEVICES,    /* v1 only */
+        CGROUP_CONTROLLER_DEVICES, /* v1 only */
         CGROUP_CONTROLLER_PIDS,
 
         /* BPF-based pseudo-controllers, v2 only */
@@ -37,7 +38,8 @@ typedef enum CGroupController {
 #define CGROUP_CONTROLLER_TO_MASK(c) (1U << (c))
 
 /* A bit mask of well known cgroup controllers */
-typedef enum CGroupMask {
+typedef enum CGroupMask
+{
         CGROUP_MASK_CPU = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPU),
         CGROUP_MASK_CPUACCT = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_CPUACCT),
         CGROUP_MASK_IO = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_IO),
@@ -49,13 +51,14 @@ typedef enum CGroupMask {
         CGROUP_MASK_BPF_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_DEVICES),
 
         /* All real cgroupv1 controllers */
-        CGROUP_MASK_V1 = CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT|CGROUP_MASK_BLKIO|CGROUP_MASK_MEMORY|CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS,
+        CGROUP_MASK_V1 = CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT | CGROUP_MASK_BLKIO | CGROUP_MASK_MEMORY | CGROUP_MASK_DEVICES |
+                CGROUP_MASK_PIDS,
 
         /* All real cgroupv2 controllers */
-        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS,
+        CGROUP_MASK_V2 = CGROUP_MASK_CPU | CGROUP_MASK_IO | CGROUP_MASK_MEMORY | CGROUP_MASK_PIDS,
 
         /* All cgroupv2 BPF pseudo-controllers */
-        CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL|CGROUP_MASK_BPF_DEVICES,
+        CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL | CGROUP_MASK_BPF_DEVICES,
 
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1
 } CGroupMask;
@@ -63,8 +66,8 @@ typedef enum CGroupMask {
 static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
         /* We always mount "cpu" and "cpuacct" in the same hierarchy. Hence, when one bit is set also set the other */
 
-        if (mask & (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT))
-                mask |= (CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT);
+        if (mask & (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT))
+                mask |= (CGROUP_MASK_CPU | CGROUP_MASK_CPUACCT);
 
         return mask;
 }
@@ -82,13 +85,12 @@ bool cpu_accounting_is_cheap(void);
 #define CGROUP_LIMIT_MAX ((uint64_t) -1)
 
 static inline bool CGROUP_WEIGHT_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_WEIGHT_INVALID ||
-            (x >= CGROUP_WEIGHT_MIN && x <= CGROUP_WEIGHT_MAX);
+        return x == CGROUP_WEIGHT_INVALID || (x >= CGROUP_WEIGHT_MIN && x <= CGROUP_WEIGHT_MAX);
 }
 
 /* IO limits on unified hierarchy */
-typedef enum CGroupIOLimitType {
+typedef enum CGroupIOLimitType
+{
         CGROUP_IO_RBPS_MAX,
         CGROUP_IO_WBPS_MAX,
         CGROUP_IO_RIOPS_MAX,
@@ -100,7 +102,7 @@ typedef enum CGroupIOLimitType {
 
 extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 
-const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
+const char *cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
 CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 
 /* Special values for the cpu.shares attribute */
@@ -110,9 +112,7 @@ CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
 #define CGROUP_CPU_SHARES_DEFAULT UINT64_C(1024)
 
 static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_CPU_SHARES_INVALID ||
-            (x >= CGROUP_CPU_SHARES_MIN && x <= CGROUP_CPU_SHARES_MAX);
+        return x == CGROUP_CPU_SHARES_INVALID || (x >= CGROUP_CPU_SHARES_MIN && x <= CGROUP_CPU_SHARES_MAX);
 }
 
 /* Special values for the blkio.weight attribute */
@@ -122,20 +122,19 @@ static inline bool CGROUP_CPU_SHARES_IS_OK(uint64_t x) {
 #define CGROUP_BLKIO_WEIGHT_DEFAULT UINT64_C(500)
 
 static inline bool CGROUP_BLKIO_WEIGHT_IS_OK(uint64_t x) {
-        return
-            x == CGROUP_BLKIO_WEIGHT_INVALID ||
-            (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
+        return x == CGROUP_BLKIO_WEIGHT_INVALID || (x >= CGROUP_BLKIO_WEIGHT_MIN && x <= CGROUP_BLKIO_WEIGHT_MAX);
 }
 
 /* Default resource limits */
-#define DEFAULT_TASKS_MAX_PERCENTAGE            15U /* 15% of PIDs, 4915 on default settings */
-#define DEFAULT_USER_TASKS_MAX_PERCENTAGE       33U /* 33% of PIDs, 10813 on default settings */
+#define DEFAULT_TASKS_MAX_PERCENTAGE 15U      /* 15% of PIDs, 4915 on default settings */
+#define DEFAULT_USER_TASKS_MAX_PERCENTAGE 33U /* 33% of PIDs, 10813 on default settings */
 
-typedef enum CGroupUnified {
+typedef enum CGroupUnified
+{
         CGROUP_UNIFIED_UNKNOWN = -1,
-        CGROUP_UNIFIED_NONE = 0,        /* Both systemd and controllers on legacy */
-        CGROUP_UNIFIED_SYSTEMD = 1,     /* Only systemd on unified */
-        CGROUP_UNIFIED_ALL = 2,         /* Both systemd and controllers on unified */
+        CGROUP_UNIFIED_NONE = 0,    /* Both systemd and controllers on legacy */
+        CGROUP_UNIFIED_SYSTEMD = 1, /* Only systemd on unified */
+        CGROUP_UNIFIED_ALL = 2,     /* Both systemd and controllers on unified */
 } CGroupUnified;
 
 /*
@@ -155,16 +154,16 @@ typedef enum CGroupUnified {
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
 int cg_read_pid(FILE *f, pid_t *_pid);
-int cg_read_event(const char *controller, const char *path, const char *event,
-                  char **val);
+int cg_read_event(const char *controller, const char *path, const char *event, char **val);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);
 
-typedef enum CGroupFlags {
-        CGROUP_SIGCONT     = 1,
+typedef enum CGroupFlags
+{
+        CGROUP_SIGCONT = 1,
         CGROUP_IGNORE_SELF = 2,
-        CGROUP_REMOVE      = 4,
+        CGROUP_REMOVE = 4,
 } CGroupFlags;
 
 typedef void (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
@@ -238,11 +237,11 @@ bool cg_controller_is_valid(const char *p);
 
 int cg_slice_to_path(const char *unit, char **ret);
 
-typedef const char* (*cg_migrate_callback_t)(CGroupMask mask, void *userdata);
+typedef const char *(*cg_migrate_callback_t)(CGroupMask mask, void *userdata);
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path);
 int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
-int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
+int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set *pids, cg_migrate_callback_t callback, void *userdata);
 int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root);
 int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *ret_result_mask);
@@ -264,7 +263,7 @@ bool cg_is_unified_wanted(void);
 bool cg_is_legacy_wanted(void);
 bool cg_is_hybrid_wanted(void);
 
-const char* cgroup_controller_to_string(CGroupController c) _const_;
+const char *cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;
 
 int cg_weight_parse(const char *s, uint64_t *ret);

@@ -16,44 +16,34 @@
 #include "util.h"
 
 #if HAVE_XZ
-# define XZ_OK 0
+#define XZ_OK 0
 #else
-# define XZ_OK -EPROTONOSUPPORT
+#define XZ_OK -EPROTONOSUPPORT
 #endif
 
 #if HAVE_LZ4
-# define LZ4_OK 0
+#define LZ4_OK 0
 #else
-# define LZ4_OK -EPROTONOSUPPORT
+#define LZ4_OK -EPROTONOSUPPORT
 #endif
 
-typedef int (compress_blob_t)(const void *src, uint64_t src_size,
-                              void *dst, size_t dst_alloc_size, size_t *dst_size);
-typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
-                                void **dst, size_t *dst_alloc_size,
-                                size_t* dst_size, size_t dst_max);
-typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
-                              void **buffer, size_t *buffer_size,
-                              const void *prefix, size_t prefix_len,
-                              uint8_t extra);
+typedef int(compress_blob_t)(const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size);
+typedef int(decompress_blob_t)(const void *src, uint64_t src_size, void **dst, size_t *dst_alloc_size, size_t *dst_size, size_t dst_max);
+typedef int(decompress_sw_t)(
+        const void *src, uint64_t src_size, void **buffer, size_t *buffer_size, const void *prefix, size_t prefix_len, uint8_t extra);
 
-typedef int (compress_stream_t)(int fdf, int fdt, uint64_t max_bytes);
-typedef int (decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
+typedef int(compress_stream_t)(int fdf, int fdt, uint64_t max_bytes);
+typedef int(decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
 
 #if HAVE_XZ || HAVE_LZ4
-static void test_compress_decompress(int compression,
-                                     compress_blob_t compress,
-                                     decompress_blob_t decompress,
-                                     const char *data,
-                                     size_t data_len,
-                                     bool may_fail) {
+static void test_compress_decompress(
+        int compression, compress_blob_t compress, decompress_blob_t decompress, const char *data, size_t data_len, bool may_fail) {
         char compressed[512];
         size_t csize, usize = 0;
         _cleanup_free_ char *decompressed = NULL;
         int r;
 
-        log_info("/* testing %s %s blob compression/decompression */",
-                 object_compressed_to_string(compression), data);
+        log_info("/* testing %s %s blob compression/decompression */", object_compressed_to_string(compression), data);
 
         r = compress(data, data_len, compressed, sizeof(compressed), &csize);
         if (r == -ENOBUFS) {
@@ -61,43 +51,34 @@ static void test_compress_decompress(int compression,
                 assert_se(may_fail);
         } else {
                 assert_se(r == 0);
-                r = decompress(compressed, csize,
-                               (void **) &decompressed, &usize, &csize, 0);
+                r = decompress(compressed, csize, (void **) &decompressed, &usize, &csize, 0);
                 assert_se(r == 0);
                 assert_se(decompressed);
                 assert_se(memcmp(decompressed, data, data_len) == 0);
         }
 
-        r = decompress("garbage", 7,
-                       (void **) &decompressed, &usize, &csize, 0);
+        r = decompress("garbage", 7, (void **) &decompressed, &usize, &csize, 0);
         assert_se(r < 0);
 
         /* make sure to have the minimal lz4 compressed size */
-        r = decompress("00000000\1g", 9,
-                       (void **) &decompressed, &usize, &csize, 0);
+        r = decompress("00000000\1g", 9, (void **) &decompressed, &usize, &csize, 0);
         assert_se(r < 0);
 
-        r = decompress("\100000000g", 9,
-                       (void **) &decompressed, &usize, &csize, 0);
+        r = decompress("\100000000g", 9, (void **) &decompressed, &usize, &csize, 0);
         assert_se(r < 0);
 
         memzero(decompressed, usize);
 }
 
-static void test_decompress_startswith(int compression,
-                                       compress_blob_t compress,
-                                       decompress_sw_t decompress_sw,
-                                       const char *data,
-                                       size_t data_len,
-                                       bool may_fail) {
+static void test_decompress_startswith(
+        int compression, compress_blob_t compress, decompress_sw_t decompress_sw, const char *data, size_t data_len, bool may_fail) {
 
         char *compressed;
         _cleanup_free_ char *compressed1 = NULL, *compressed2 = NULL, *decompressed = NULL;
         size_t csize, usize = 0, len;
         int r;
 
-        log_info("/* testing decompress_startswith with %s on %.20s text */",
-                 object_compressed_to_string(compression), data);
+        log_info("/* testing decompress_startswith with %s on %.20s text */", object_compressed_to_string(compression), data);
 
 #define BUFSIZE_1 512
 #define BUFSIZE_2 20000
@@ -124,7 +105,7 @@ static void test_decompress_startswith(int compression,
         assert_se(r == 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, "barbarbar", 9, ' ');
         assert_se(r == 0);
-        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len - 1, data[len-1]);
+        r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len - 1, data[len - 1]);
         assert_se(r > 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, &usize, data, len - 1, 'w');
         assert_se(r == 0);
@@ -132,9 +113,7 @@ static void test_decompress_startswith(int compression,
         assert_se(r > 0);
 }
 
-static void test_decompress_startswith_short(int compression,
-                                             compress_blob_t compress,
-                                             decompress_sw_t decompress_sw) {
+static void test_decompress_startswith_short(int compression, compress_blob_t compress, decompress_sw_t decompress_sw) {
 
 #define TEXT "HUGE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
@@ -158,16 +137,12 @@ static void test_decompress_startswith_short(int compression,
         }
 }
 
-static void test_compress_stream(int compression,
-                                 const char* cat,
-                                 compress_stream_t compress,
-                                 decompress_stream_t decompress,
-                                 const char *srcfile) {
+static void test_compress_stream(
+        int compression, const char *cat, compress_stream_t compress, decompress_stream_t decompress, const char *srcfile) {
 
         _cleanup_close_ int src = -1, dst = -1, dst2 = -1;
-        _cleanup_(unlink_tempfilep) char
-                pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
-                pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
+        _cleanup_(unlink_tempfilep) char pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
+                                         pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
         int r;
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL;
         struct stat st = {};
@@ -178,12 +153,11 @@ static void test_compress_stream(int compression,
                 return;
         }
 
-        log_debug("/* testing %s compression */",
-                  object_compressed_to_string(compression));
+        log_debug("/* testing %s compression */", object_compressed_to_string(compression));
 
         log_debug("/* create source from %s */", srcfile);
 
-        assert_se((src = open(srcfile, O_RDONLY|O_CLOEXEC)) >= 0);
+        assert_se((src = open(srcfile, O_RDONLY | O_CLOEXEC)) >= 0);
 
         log_debug("/* test compression */");
 
@@ -229,7 +203,7 @@ static void test_lz4_decompress_partial(void) {
         int r;
         _cleanup_free_ char *huge = NULL;
 
-#define HUGE_SIZE (4096*1024)
+#define HUGE_SIZE (4096 * 1024)
         assert_se(huge = malloc(HUGE_SIZE));
         memset(huge, 'x', HUGE_SIZE);
         memcpy(huge, "HUGE=", 5);
@@ -243,17 +217,14 @@ static void test_lz4_decompress_partial(void) {
         assert_se(r >= 0);
         log_info("Decompressed → %i", r);
 
-        r = LZ4_decompress_safe_partial(buf, huge,
-                                        compressed,
-                                        12, HUGE_SIZE);
+        r = LZ4_decompress_safe_partial(buf, huge, compressed, 12, HUGE_SIZE);
         assert_se(r >= 0);
         log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
 
         for (size_t size = 1; size < sizeof(buf2); size++) {
                 /* This failed in older lz4s but works in newer ones. */
                 r = LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
-                log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r,
-                                                                   r < 0 ? "bad" : "good");
+                log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r, r < 0 ? "bad" : "good");
                 if (r >= 0 && LZ4_versionNumber() >= 10803)
                         /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
                         assert_se(memcmp(buf2, huge, r) == 0);
@@ -272,7 +243,7 @@ int main(int argc, char *argv[]) {
 
         char data[512] = "random\0";
 
-        char huge[4096*1024];
+        char huge[4096 * 1024];
         memset(huge, 'x', sizeof(huge));
         memcpy(huge, "HUGE=", 5);
         char_array_0(huge);
@@ -282,23 +253,14 @@ int main(int argc, char *argv[]) {
         random_bytes(data + 7, sizeof(data) - 7);
 
 #if HAVE_XZ
-        test_compress_decompress(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_blob_xz,
-                                 text, sizeof(text), false);
-        test_compress_decompress(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_blob_xz,
-                                 data, sizeof(data), true);
+        test_compress_decompress(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_blob_xz, text, sizeof(text), false);
+        test_compress_decompress(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_blob_xz, data, sizeof(data), true);
 
-        test_decompress_startswith(OBJECT_COMPRESSED_XZ,
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   text, sizeof(text), false);
-        test_decompress_startswith(OBJECT_COMPRESSED_XZ,
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   data, sizeof(data), true);
-        test_decompress_startswith(OBJECT_COMPRESSED_XZ,
-                                   compress_blob_xz, decompress_startswith_xz,
-                                   huge, sizeof(huge), true);
+        test_decompress_startswith(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz, text, sizeof(text), false);
+        test_decompress_startswith(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz, data, sizeof(data), true);
+        test_decompress_startswith(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz, huge, sizeof(huge), true);
 
-        test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat",
-                             compress_stream_xz, decompress_stream_xz, srcfile);
+        test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat", compress_stream_xz, decompress_stream_xz, srcfile);
 
         test_decompress_startswith_short(OBJECT_COMPRESSED_XZ, compress_blob_xz, decompress_startswith_xz);
 
@@ -307,23 +269,14 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_LZ4
-        test_compress_decompress(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_blob_lz4,
-                                 text, sizeof(text), false);
-        test_compress_decompress(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_blob_lz4,
-                                 data, sizeof(data), true);
+        test_compress_decompress(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_blob_lz4, text, sizeof(text), false);
+        test_compress_decompress(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_blob_lz4, data, sizeof(data), true);
 
-        test_decompress_startswith(OBJECT_COMPRESSED_LZ4,
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   text, sizeof(text), false);
-        test_decompress_startswith(OBJECT_COMPRESSED_LZ4,
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   data, sizeof(data), true);
-        test_decompress_startswith(OBJECT_COMPRESSED_LZ4,
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   huge, sizeof(huge), true);
+        test_decompress_startswith(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_startswith_lz4, text, sizeof(text), false);
+        test_decompress_startswith(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_startswith_lz4, data, sizeof(data), true);
+        test_decompress_startswith(OBJECT_COMPRESSED_LZ4, compress_blob_lz4, decompress_startswith_lz4, huge, sizeof(huge), true);
 
-        test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat",
-                             compress_stream_lz4, decompress_stream_lz4, srcfile);
+        test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat", compress_stream_lz4, decompress_stream_lz4, srcfile);
 
         test_lz4_decompress_partial();
 

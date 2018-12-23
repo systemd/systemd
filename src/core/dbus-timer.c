@@ -11,13 +11,7 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, timer_result, TimerResult);
 
 static int property_get_monotonic_timers(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Timer *t = userdata;
         TimerValue *v;
@@ -44,12 +38,12 @@ static int property_get_monotonic_timers(
 
                 /* s/Sec/USec/ */
                 l = strlen(s);
-                buf = new(char, l+2);
+                buf = new (char, l + 2);
                 if (!buf)
                         return -ENOMEM;
 
-                memcpy(buf, s, l-3);
-                memcpy(buf+l-3, "USec", 5);
+                memcpy(buf, s, l - 3);
+                memcpy(buf + l - 3, "USec", 5);
 
                 r = sd_bus_message_append(reply, "(stt)", buf, v->value, v->next_elapse);
                 if (r < 0)
@@ -60,13 +54,7 @@ static int property_get_monotonic_timers(
 }
 
 static int property_get_calendar_timers(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Timer *t = userdata;
         TimerValue *v;
@@ -99,13 +87,7 @@ static int property_get_calendar_timers(
 }
 
 static int property_get_next_elapse_monotonic(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Timer *t = userdata;
 
@@ -113,9 +95,8 @@ static int property_get_next_elapse_monotonic(
         assert(reply);
         assert(t);
 
-        return sd_bus_message_append(reply, "t",
-                                     (uint64_t) usec_shift_clock(t->next_elapse_monotonic_or_boottime,
-                                                                 TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC));
+        return sd_bus_message_append(
+                reply, "t", (uint64_t) usec_shift_clock(t->next_elapse_monotonic_or_boottime, TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC));
 }
 
 const sd_bus_vtable bus_timer_vtable[] = {
@@ -123,7 +104,8 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NextElapseUSecMonotonic", "t", property_get_next_elapse_monotonic, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("LastTriggerUSec", offsetof(Timer, last_trigger), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Timer, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -135,12 +117,7 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int bus_timer_set_transient_property(
-                Timer *t,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+static int bus_timer_set_transient_property(Timer *t, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(t);
         int r;
@@ -191,7 +168,11 @@ static int bus_timer_set_transient_property(
                                 char ts[FORMAT_TIMESPAN_MAX];
                                 TimerValue *v;
 
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name,
+                                unit_write_settingf(u,
+                                                    flags | UNIT_ESCAPE_SPECIFIERS,
+                                                    name,
+                                                    "%s=%s",
+                                                    base_name,
                                                     format_timespan(ts, sizeof(ts), usec, USEC_PER_MSEC));
 
                                 v = new0(TimerValue, 1);
@@ -245,7 +226,7 @@ static int bus_timer_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 TimerValue *v;
 
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name, str);
+                                unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name, str);
 
                                 v = new0(TimerValue, 1);
                                 if (!v)
@@ -273,12 +254,7 @@ static int bus_timer_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name,
-                       "OnActiveSec",
-                       "OnBootSec",
-                       "OnStartupSec",
-                       "OnUnitActiveSec",
-                       "OnUnitInactiveSec")) {
+        } else if (STR_IN_SET(name, "OnActiveSec", "OnBootSec", "OnStartupSec", "OnUnitActiveSec", "OnUnitInactiveSec")) {
 
                 TimerValue *v;
                 TimerBase b = _TIMER_BASE_INVALID;
@@ -297,7 +273,11 @@ static int bus_timer_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         char time[FORMAT_TIMESPAN_MAX];
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name,
+                        unit_write_settingf(u,
+                                            flags | UNIT_ESCAPE_SPECIFIERS,
+                                            name,
+                                            "%s=%s",
+                                            name,
                                             format_timespan(time, sizeof(time), usec, USEC_PER_MSEC));
 
                         v = new0(TimerValue, 1);
@@ -331,7 +311,7 @@ static int bus_timer_set_transient_property(
                         if (r < 0)
                                 return r;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
+                        unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
 
                         v = new0(TimerValue, 1);
                         if (!v)
@@ -349,12 +329,7 @@ static int bus_timer_set_transient_property(
         return 0;
 }
 
-int bus_timer_set_property(
-                Unit *u,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags mode,
-                sd_bus_error *error) {
+int bus_timer_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags mode, sd_bus_error *error) {
 
         Timer *t = TIMER(u);
 

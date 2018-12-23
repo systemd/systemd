@@ -146,7 +146,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 local = "imported";
 
         if (path) {
-                open_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+                open_fd = open(path, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
                 if (open_fd < 0)
                         return log_error_errno(errno, "Failed to open directory to import: %m");
 
@@ -170,19 +170,19 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         (void) mkdir_parents_label(temp_path, 0700);
 
-        RATELIMIT_INIT(progress.limit, 200*USEC_PER_MSEC, 1);
+        RATELIMIT_INIT(progress.limit, 200 * USEC_PER_MSEC, 1);
 
         /* Hook into SIGINT/SIGTERM, so that we can cancel things then */
         assert(sigaction(SIGINT, &sa, &old_sigint_sa) >= 0);
         assert(sigaction(SIGTERM, &sa, &old_sigterm_sa) >= 0);
 
-        r = btrfs_subvol_snapshot_fd_full(
-                        fd,
-                        temp_path,
-                        BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_RECURSIVE|BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|BTRFS_SNAPSHOT_QUOTA,
-                        progress_path,
-                        progress_bytes,
-                        &progress);
+        r = btrfs_subvol_snapshot_fd_full(fd,
+                                          temp_path,
+                                          BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                  BTRFS_SNAPSHOT_QUOTA,
+                                          progress_path,
+                                          progress_bytes,
+                                          &progress);
         if (r == -EOWNERDEAD) { /* SIGINT + SIGTERM cause this, see signal handler above */
                 log_error("Copy cancelled.");
                 goto finish;
@@ -207,7 +207,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_force)
-                (void) rm_rf(final_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(final_path, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
 
         r = rename_noreplace(AT_FDCWD, temp_path, AT_FDCWD, final_path);
         if (r < 0) {
@@ -245,21 +245,20 @@ static int help(int argc, char *argv[], void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
                 ARG_IMAGE_ROOT,
                 ARG_READ_ONLY,
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "force", no_argument, NULL, ARG_FORCE },
+                                                 { "image-root", required_argument, NULL, ARG_IMAGE_ROOT },
+                                                 { "read-only", no_argument, NULL, ARG_READ_ONLY },
+                                                 {} };
 
         int c;
 
@@ -300,11 +299,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_fs_main(int argc, char *argv[]) {
 
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help      },
-                { "run",  2,        3,        0, import_fs },
-                {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help }, { "run", 2, 3, 0, import_fs }, {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

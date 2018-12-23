@@ -13,8 +13,10 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_stat
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_PROPERTY("OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_VTABLE_END
 };
@@ -49,7 +51,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         assert(m);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->links) + 1);
+        l = new0(char *, hashmap_size(m->links) + 1);
         if (!l)
                 return -ENOMEM;
 
@@ -114,9 +116,5 @@ int link_send_changed(Link *link, const char *property, ...) {
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_emit_properties_changed_strv(
-                        link->manager->bus,
-                        p,
-                        "org.freedesktop.network1.Link",
-                        l);
+        return sd_bus_emit_properties_changed_strv(link->manager->bus, p, "org.freedesktop.network1.Link", l);
 }

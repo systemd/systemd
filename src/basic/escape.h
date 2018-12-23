@@ -28,11 +28,13 @@
  */
 #define SHELL_NEED_ESCAPE_POSIX "\\\'"
 
-typedef enum UnescapeFlags {
+typedef enum UnescapeFlags
+{
         UNESCAPE_RELAX = 1,
 } UnescapeFlags;
 
-typedef enum EscapeStyle {
+typedef enum EscapeStyle
+{
         ESCAPE_BACKSLASH = 1,
         ESCAPE_POSIX = 2,
 } EscapeStyle;
@@ -50,4 +52,4 @@ char *xescape(const char *s, const char *bad);
 char *octescape(const char *s, size_t len);
 
 char *shell_escape(const char *s, const char *bad);
-char* shell_maybe_quote(const char *s, EscapeStyle style);
+char *shell_maybe_quote(const char *s, EscapeStyle style);

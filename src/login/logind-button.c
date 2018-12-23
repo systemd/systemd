@@ -18,7 +18,7 @@
 
 #define CONST_MAX4(a, b, c, d) CONST_MAX(CONST_MAX(a, b), CONST_MAX(c, d))
 
-#define ULONG_BITS (sizeof(unsigned long)*8)
+#define ULONG_BITS (sizeof(unsigned long) * 8)
 
 static bool bitset_get(const unsigned long *bits, unsigned i) {
         return (bits[i / ULONG_BITS] >> (i % ULONG_BITS)) & 1UL;
@@ -28,7 +28,7 @@ static void bitset_put(unsigned long *bits, unsigned i) {
         bits[i / ULONG_BITS] |= (unsigned long) 1 << (i % ULONG_BITS);
 }
 
-Button* button_new(Manager *m, const char *name) {
+Button *button_new(Manager *m, const char *name) {
         Button *b;
 
         assert(m);
@@ -97,8 +97,7 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
          * differently */
         if (manager_is_docked_or_external_displays(manager))
                 handle_action = manager->handle_lid_switch_docked;
-        else if (manager->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
-                 manager_is_on_external_power())
+        else if (manager->handle_lid_switch_ep != _HANDLE_ACTION_INVALID && manager_is_on_external_power())
                 handle_action = manager->handle_lid_switch_ep;
         else
                 handle_action = manager->handle_lid_switch;
@@ -129,7 +128,7 @@ static int button_install_check_event_source(Button *b) {
         if (r < 0)
                 return r;
 
-        return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
+        return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE + 1);
 }
 
 static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -153,51 +152,53 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Power key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("Power key pressed."), "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
 
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager,
+                                              INHIBIT_HANDLE_POWER_KEY,
+                                              b->manager->handle_power_key,
+                                              b->manager->power_key_ignore_inhibited,
+                                              true);
                         break;
 
-                /* The kernel is a bit confused here:
+                        /* The kernel is a bit confused here:
 
-                   KEY_SLEEP   = suspend-to-ram, which everybody else calls "suspend"
-                   KEY_SUSPEND = suspend-to-disk, which everybody else calls "hibernate"
-                */
+                           KEY_SLEEP   = suspend-to-ram, which everybody else calls "suspend"
+                           KEY_SUSPEND = suspend-to-disk, which everybody else calls "hibernate"
+                        */
 
                 case KEY_SLEEP:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Suspend key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("Suspend key pressed."), "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
 
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager,
+                                              INHIBIT_HANDLE_SUSPEND_KEY,
+                                              b->manager->handle_suspend_key,
+                                              b->manager->suspend_key_ignore_inhibited,
+                                              true);
                         break;
 
                 case KEY_SUSPEND:
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Hibernate key pressed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("Hibernate key pressed."), "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
 
-                        manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        manager_handle_action(b->manager,
+                                              INHIBIT_HANDLE_HIBERNATE_KEY,
+                                              b->manager->handle_hibernate_key,
+                                              b->manager->hibernate_key_ignore_inhibited,
+                                              true);
                         break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
 
                 if (ev.code == SW_LID) {
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Lid closed."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("Lid closed."), "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
 
                         b->lid_closed = true;
                         button_lid_switch_handle_action(b->manager, true);
                         button_install_check_event_source(b);
 
                 } else if (ev.code == SW_DOCK) {
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("System docked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("System docked."), "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
 
                         b->docked = true;
                 }
@@ -205,17 +206,13 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
         } else if (ev.type == EV_SW && ev.value == 0) {
 
                 if (ev.code == SW_LID) {
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("Lid opened."),
-                                   "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("Lid opened."), "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
 
                 } else if (ev.code == SW_DOCK) {
-                        log_struct(LOG_INFO,
-                                   LOG_MESSAGE("System undocked."),
-                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
+                        log_struct(LOG_INFO, LOG_MESSAGE("System undocked."), "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
 
                         b->docked = false;
                 }
@@ -225,7 +222,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int button_suitable(Button *b) {
-        unsigned long types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1];
+        unsigned long types[CONST_MAX(EV_KEY, EV_SW) / ULONG_BITS + 1];
 
         assert(b);
         assert(b->fd);
@@ -234,26 +231,23 @@ static int button_suitable(Button *b) {
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
-                unsigned long keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1];
+                unsigned long keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND) / ULONG_BITS + 1];
 
                 if (ioctl(b->fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) < 0)
                         return -errno;
 
-                if (bitset_get(keys, KEY_POWER) ||
-                    bitset_get(keys, KEY_POWER2) ||
-                    bitset_get(keys, KEY_SLEEP) ||
+                if (bitset_get(keys, KEY_POWER) || bitset_get(keys, KEY_POWER2) || bitset_get(keys, KEY_SLEEP) ||
                     bitset_get(keys, KEY_SUSPEND))
                         return true;
         }
 
         if (bitset_get(types, EV_SW)) {
-                unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1];
+                unsigned long switches[CONST_MAX(SW_LID, SW_DOCK) / ULONG_BITS + 1];
 
                 if (ioctl(b->fd, EVIOCGBIT(EV_SW, sizeof(switches)), switches) < 0)
                         return -errno;
 
-                if (bitset_get(switches, SW_LID) ||
-                    bitset_get(switches, SW_DOCK))
+                if (bitset_get(switches, SW_LID) || bitset_get(switches, SW_DOCK))
                         return true;
         }
 
@@ -261,10 +255,10 @@ static int button_suitable(Button *b) {
 }
 
 static int button_set_mask(Button *b) {
-        unsigned long
-                types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
-                keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND)/ULONG_BITS+1] = {},
-                switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+        unsigned long types[CONST_MAX(EV_KEY, EV_SW) / ULONG_BITS +
+                            1] = {},
+                            keys[CONST_MAX4(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND) / ULONG_BITS + 1] = {},
+                            switches[CONST_MAX(SW_LID, SW_DOCK) / ULONG_BITS + 1] = {};
         struct input_mask mask;
 
         assert(b);
@@ -273,7 +267,7 @@ static int button_set_mask(Button *b) {
         bitset_put(types, EV_KEY);
         bitset_put(types, EV_SW);
 
-        mask = (struct input_mask) {
+        mask = (struct input_mask){
                 .type = EV_SYN,
                 .codes_size = sizeof(types),
                 .codes_ptr = PTR_TO_UINT64(types),
@@ -282,14 +276,16 @@ static int button_set_mask(Button *b) {
         if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
                 /* Log only at debug level if the kernel doesn't do EVIOCSMASK yet */
                 return log_full_errno(IN_SET(errno, ENOTTY, EOPNOTSUPP, EINVAL) ? LOG_DEBUG : LOG_WARNING,
-                                      errno, "Failed to set EV_SYN event mask on /dev/input/%s: %m", b->name);
+                                      errno,
+                                      "Failed to set EV_SYN event mask on /dev/input/%s: %m",
+                                      b->name);
 
         bitset_put(keys, KEY_POWER);
         bitset_put(keys, KEY_POWER2);
         bitset_put(keys, KEY_SLEEP);
         bitset_put(keys, KEY_SUSPEND);
 
-        mask = (struct input_mask) {
+        mask = (struct input_mask){
                 .type = EV_KEY,
                 .codes_size = sizeof(keys),
                 .codes_ptr = PTR_TO_UINT64(keys),
@@ -301,7 +297,7 @@ static int button_set_mask(Button *b) {
         bitset_put(switches, SW_LID);
         bitset_put(switches, SW_DOCK);
 
-        mask = (struct input_mask) {
+        mask = (struct input_mask){
                 .type = EV_SW,
                 .codes_size = sizeof(switches),
                 .codes_ptr = PTR_TO_UINT64(switches),
@@ -323,7 +319,7 @@ int button_open(Button *b) {
 
         p = strjoina("/dev/input/", b->name);
 
-        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        b->fd = open(p, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
         if (b->fd < 0)
                 return log_warning_errno(errno, "Failed to open %s: %m", p);
 
@@ -331,9 +327,8 @@ int button_open(Button *b) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device is relevant to us: %m");
         if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Device %s does not expose keys or switches relevant to us, ignoring.",
-                                       p);
+                return log_debug_errno(
+                        SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Device %s does not expose keys or switches relevant to us, ignoring.", p);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
                 r = log_error_errno(errno, "Failed to get input name: %m");
@@ -358,7 +353,7 @@ fail:
 }
 
 int button_check_switches(Button *b) {
-        unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+        unsigned long switches[CONST_MAX(SW_LID, SW_DOCK) / ULONG_BITS + 1] = {};
         assert(b);
 
         if (b->fd < 0)

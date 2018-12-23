@@ -72,27 +72,21 @@ static gcry_mpi_t mpi_import(const void *buf, size_t buflen) {
 
 static void uint64_export(void *buf, size_t buflen, uint64_t x) {
         assert(buflen == 8);
-        ((uint8_t*) buf)[0] = (x >> 56) & 0xff;
-        ((uint8_t*) buf)[1] = (x >> 48) & 0xff;
-        ((uint8_t*) buf)[2] = (x >> 40) & 0xff;
-        ((uint8_t*) buf)[3] = (x >> 32) & 0xff;
-        ((uint8_t*) buf)[4] = (x >> 24) & 0xff;
-        ((uint8_t*) buf)[5] = (x >> 16) & 0xff;
-        ((uint8_t*) buf)[6] = (x >>  8) & 0xff;
-        ((uint8_t*) buf)[7] = (x >>  0) & 0xff;
+        ((uint8_t *) buf)[0] = (x >> 56) & 0xff;
+        ((uint8_t *) buf)[1] = (x >> 48) & 0xff;
+        ((uint8_t *) buf)[2] = (x >> 40) & 0xff;
+        ((uint8_t *) buf)[3] = (x >> 32) & 0xff;
+        ((uint8_t *) buf)[4] = (x >> 24) & 0xff;
+        ((uint8_t *) buf)[5] = (x >> 16) & 0xff;
+        ((uint8_t *) buf)[6] = (x >> 8) & 0xff;
+        ((uint8_t *) buf)[7] = (x >> 0) & 0xff;
 }
 
 _pure_ static uint64_t uint64_import(const void *buf, size_t buflen) {
         assert(buflen == 8);
-        return
-                (uint64_t)(((uint8_t*) buf)[0]) << 56 |
-                (uint64_t)(((uint8_t*) buf)[1]) << 48 |
-                (uint64_t)(((uint8_t*) buf)[2]) << 40 |
-                (uint64_t)(((uint8_t*) buf)[3]) << 32 |
-                (uint64_t)(((uint8_t*) buf)[4]) << 24 |
-                (uint64_t)(((uint8_t*) buf)[5]) << 16 |
-                (uint64_t)(((uint8_t*) buf)[6]) <<  8 |
-                (uint64_t)(((uint8_t*) buf)[7]) <<  0;
+        return (uint64_t)(((uint8_t *) buf)[0]) << 56 | (uint64_t)(((uint8_t *) buf)[1]) << 48 | (uint64_t)(((uint8_t *) buf)[2]) << 40 |
+                (uint64_t)(((uint8_t *) buf)[3]) << 32 | (uint64_t)(((uint8_t *) buf)[4]) << 24 | (uint64_t)(((uint8_t *) buf)[5]) << 16 |
+                (uint64_t)(((uint8_t *) buf)[6]) << 8 | (uint64_t)(((uint8_t *) buf)[7]) << 0;
 }
 
 /* deterministically generate from seed/idx a string of buflen pseudorandom bytes */
@@ -106,15 +100,15 @@ static void det_randomize(void *buf, size_t buflen, const void *seed, size_t see
         gcry_md_write(hd, seed, seedlen);
         gcry_md_putc(hd, (idx >> 24) & 0xff);
         gcry_md_putc(hd, (idx >> 16) & 0xff);
-        gcry_md_putc(hd, (idx >>  8) & 0xff);
-        gcry_md_putc(hd, (idx >>  0) & 0xff);
+        gcry_md_putc(hd, (idx >> 8) & 0xff);
+        gcry_md_putc(hd, (idx >> 0) & 0xff);
 
         for (ctr = 0; buflen; ctr++) {
                 gcry_md_copy(&hd2, hd);
                 gcry_md_putc(hd2, (ctr >> 24) & 0xff);
                 gcry_md_putc(hd2, (ctr >> 16) & 0xff);
-                gcry_md_putc(hd2, (ctr >>  8) & 0xff);
-                gcry_md_putc(hd2, (ctr >>  0) & 0xff);
+                gcry_md_putc(hd2, (ctr >> 8) & 0xff);
+                gcry_md_putc(hd2, (ctr >> 0) & 0xff);
                 gcry_md_final(hd2);
                 cpylen = (buflen < olen) ? buflen : olen;
                 memcpy(buf, gcry_md_read(hd2, RND_HASH), cpylen);
@@ -135,7 +129,7 @@ static gcry_mpi_t genprime3mod4(int bits, const void *seed, size_t seedlen, uint
         assert(buflen > 0);
 
         det_randomize(buf, buflen, seed, seedlen, idx);
-        buf[0] |= 0xc0; /* set upper two bits, so that n=pq has maximum size */
+        buf[0] |= 0xc0;          /* set upper two bits, so that n=pq has maximum size */
         buf[buflen - 1] |= 0x03; /* set lower two bits, to have result 3 (mod 4) */
 
         p = mpi_import(buf, buflen);
@@ -176,7 +170,7 @@ static gcry_mpi_t twopowmodphi(uint64_t m, const gcry_mpi_t p) {
         while (n) { /* square and multiply algorithm for fast exponentiation */
                 n--;
                 gcry_mpi_mulm(r, r, r, phi);
-                if (m & ((uint64_t)1 << n)) {
+                if (m & ((uint64_t) 1 << n)) {
                         gcry_mpi_add(r, r, r);
                         if (gcry_mpi_cmp(r, phi) >= 0)
                                 gcry_mpi_sub(r, r, phi);
@@ -230,15 +224,13 @@ size_t FSPRG_stateinbytes(unsigned _secpar) {
 
 static void store_secpar(void *buf, uint16_t secpar) {
         secpar = secpar / 16 - 1;
-        ((uint8_t*) buf)[0] = (secpar >> 8) & 0xff;
-        ((uint8_t*) buf)[1] = (secpar >> 0) & 0xff;
+        ((uint8_t *) buf)[0] = (secpar >> 8) & 0xff;
+        ((uint8_t *) buf)[1] = (secpar >> 0) & 0xff;
 }
 
 static uint16_t read_secpar(const void *buf) {
         uint16_t secpar;
-        secpar =
-                (uint16_t)(((uint8_t*) buf)[0]) << 8 |
-                (uint16_t)(((uint8_t*) buf)[1]) << 0;
+        secpar = (uint16_t)(((uint8_t *) buf)[0]) << 8 | (uint16_t)(((uint8_t *) buf)[1]) << 0;
         return 16 * (secpar + 1);
 }
 
@@ -335,8 +327,8 @@ void FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, 
         initialize_libgcrypt(false);
 
         secpar = read_secpar(msk + 0);
-        p  = mpi_import(msk + 2 + 0 * (secpar / 2) / 8, (secpar / 2) / 8);
-        q  = mpi_import(msk + 2 + 1 * (secpar / 2) / 8, (secpar / 2) / 8);
+        p = mpi_import(msk + 2 + 0 * (secpar / 2) / 8, (secpar / 2) / 8);
+        q = mpi_import(msk + 2 + 1 * (secpar / 2) / 8, (secpar / 2) / 8);
 
         n = gcry_mpi_new(0);
         gcry_mpi_mul(n, p, q);

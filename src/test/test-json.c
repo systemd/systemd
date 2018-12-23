@@ -123,7 +123,7 @@ static void test_variant(const char *data, Test test) {
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
-        r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
+        r = json_variant_format(v, JSON_FORMAT_COLOR | JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
         printf("Pretty with color:\n%s\n", s);
@@ -153,8 +153,8 @@ static void test_1(JsonVariant *v) {
         /* check  foo[0] = 1, foo[1] = 2, foo[2] = 3 */
         for (i = 0; i < 3; ++i) {
                 q = json_variant_by_index(p, i);
-                assert_se(q && json_variant_type(q) == JSON_VARIANT_UNSIGNED && json_variant_unsigned(q) == (i+1));
-                assert_se(q && json_variant_has_type(q, JSON_VARIANT_INTEGER) && json_variant_integer(q) == (i+1));
+                assert_se(q && json_variant_type(q) == JSON_VARIANT_UNSIGNED && json_variant_unsigned(q) == (i + 1));
+                assert_se(q && json_variant_has_type(q, JSON_VARIANT_INTEGER) && json_variant_integer(q) == (i + 1));
         }
 
         /* has bar */
@@ -272,28 +272,33 @@ static void test_build(void) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("one", JSON_BUILD_INTEGER(7)),
-                                                   JSON_BUILD_PAIR("two", JSON_BUILD_REAL(2.0)),
-                                                   JSON_BUILD_PAIR("three", JSON_BUILD_INTEGER(0)))) >= 0);
+        assert_se(json_build(&a,
+                             JSON_BUILD_OBJECT(JSON_BUILD_PAIR("one", JSON_BUILD_INTEGER(7)),
+                                               JSON_BUILD_PAIR("two", JSON_BUILD_REAL(2.0)),
+                                               JSON_BUILD_PAIR("three", JSON_BUILD_INTEGER(0)))) >= 0);
 
-        assert_se(json_build(&b, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("two", JSON_BUILD_INTEGER(2)),
-                                                   JSON_BUILD_PAIR("three", JSON_BUILD_REAL(0)),
-                                                   JSON_BUILD_PAIR("one", JSON_BUILD_REAL(7)))) >= 0);
+        assert_se(json_build(&b,
+                             JSON_BUILD_OBJECT(JSON_BUILD_PAIR("two", JSON_BUILD_INTEGER(2)),
+                                               JSON_BUILD_PAIR("three", JSON_BUILD_REAL(0)),
+                                               JSON_BUILD_PAIR("one", JSON_BUILD_REAL(7)))) >= 0);
 
         assert_se(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_ARRAY(JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
-                                                                    JSON_BUILD_PAIR("y", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("this", JSON_BUILD_NULL)))),
-                                                  JSON_BUILD_VARIANT(NULL),
-                                                  JSON_BUILD_LITERAL(NULL),
-                                                  JSON_BUILD_STRING(NULL),
-                                                  JSON_BUILD_NULL,
-                                                  JSON_BUILD_INTEGER(77),
-                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")), JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
-                                                  JSON_BUILD_STRV(STRV_MAKE("one", "two", "three", "four")))) >= 0);
+        assert_se(json_build(&a,
+                             JSON_BUILD_ARRAY(
+                                     JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
+                                                       JSON_BUILD_PAIR("y", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("this", JSON_BUILD_NULL)))),
+                                     JSON_BUILD_VARIANT(NULL),
+                                     JSON_BUILD_LITERAL(NULL),
+                                     JSON_BUILD_STRING(NULL),
+                                     JSON_BUILD_NULL,
+                                     JSON_BUILD_INTEGER(77),
+                                     JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")),
+                                                      JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
+                                     JSON_BUILD_STRV(STRV_MAKE("one", "two", "three", "four")))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
@@ -317,19 +322,20 @@ static void test_build(void) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
-        assert_se(json_build(&a, JSON_BUILD_OBJECT(
-                                             JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
-                                             JSON_BUILD_PAIR("z", JSON_BUILD_STRING("a")),
-                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c"))
-                             )) >= 0);
+        assert_se(json_build(&a,
+                             JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
+                                               JSON_BUILD_PAIR("z", JSON_BUILD_STRING("a")),
+                                               JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c")))) >= 0);
 
-        assert_se(json_build(&b, JSON_BUILD_OBJECT(
-                                             JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
-                                             JSON_BUILD_PAIR_CONDITION(false, "p", JSON_BUILD_STRING("q")),
-                                             JSON_BUILD_PAIR_CONDITION(true, "z", JSON_BUILD_STRING("a")),
-                                             JSON_BUILD_PAIR_CONDITION(false, "j", JSON_BUILD_ARRAY(JSON_BUILD_STRING("k"), JSON_BUILD_STRING("u"), JSON_BUILD_STRING("i"))),
-                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c"))
-                             )) >= 0);
+        assert_se(json_build(
+                          &b,
+                          JSON_BUILD_OBJECT(
+                                  JSON_BUILD_PAIR("x", JSON_BUILD_STRING("y")),
+                                  JSON_BUILD_PAIR_CONDITION(false, "p", JSON_BUILD_STRING("q")),
+                                  JSON_BUILD_PAIR_CONDITION(true, "z", JSON_BUILD_STRING("a")),
+                                  JSON_BUILD_PAIR_CONDITION(
+                                          false, "j", JSON_BUILD_ARRAY(JSON_BUILD_STRING("k"), JSON_BUILD_STRING("u"), JSON_BUILD_STRING("i"))),
+                                  JSON_BUILD_PAIR("b", JSON_BUILD_STRING("c")))) >= 0);
 
         assert_se(json_variant_equal(a, b));
 }
@@ -356,9 +362,10 @@ static void test_source(void) {
 
         printf("--- original begin ---\n"
                "%s"
-               "--- original end ---\n", data);
+               "--- original end ---\n",
+               data);
 
-        assert_se(f = fmemopen((void*) data, strlen(data), "r"));
+        assert_se(f = fmemopen((void *) data, strlen(data), "r"));
 
         assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
 
@@ -367,7 +374,7 @@ static void test_source(void) {
         printf("\n--- non-pretty end ---\n");
 
         printf("--- pretty begin ---\n");
-        json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR|JSON_FORMAT_SOURCE, stdout, NULL);
+        json_variant_dump(v, JSON_FORMAT_PRETTY | JSON_FORMAT_COLOR | JSON_FORMAT_SOURCE, stdout, NULL);
         printf("--- pretty end ---\n");
 }
 
@@ -387,7 +394,7 @@ static void test_depth(void) {
                 if (i & 1)
                         r = json_variant_new_array(&w, &v, 1);
                 else
-                        r = json_variant_new_object(&w, (JsonVariant*[]) { JSON_VARIANT_STRING_CONST("key"), v }, 2);
+                        r = json_variant_new_object(&w, (JsonVariant *[]){ JSON_VARIANT_STRING_CONST("key"), v }, 2);
                 if (r == -ELNRNG) {
                         log_info("max depth at %u", i);
                         break;
@@ -435,8 +442,29 @@ int main(int argc, char *argv[]) {
         test_tokenizer("\"\"", JSON_TOKEN_STRING, "", JSON_TOKEN_END);
         test_tokenizer("\"foo\"", JSON_TOKEN_STRING, "foo", JSON_TOKEN_END);
         test_tokenizer("\"foo\\nfoo\"", JSON_TOKEN_STRING, "foo\nfoo", JSON_TOKEN_END);
-        test_tokenizer("{\"foo\" : \"bar\"}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_STRING, "bar", JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
-        test_tokenizer("{\"foo\" : [true, false]}", JSON_TOKEN_OBJECT_OPEN, JSON_TOKEN_STRING, "foo", JSON_TOKEN_COLON, JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_BOOLEAN, true, JSON_TOKEN_COMMA, JSON_TOKEN_BOOLEAN, false, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_OBJECT_CLOSE, JSON_TOKEN_END);
+        test_tokenizer("{\"foo\" : \"bar\"}",
+                       JSON_TOKEN_OBJECT_OPEN,
+                       JSON_TOKEN_STRING,
+                       "foo",
+                       JSON_TOKEN_COLON,
+                       JSON_TOKEN_STRING,
+                       "bar",
+                       JSON_TOKEN_OBJECT_CLOSE,
+                       JSON_TOKEN_END);
+        test_tokenizer("{\"foo\" : [true, false]}",
+                       JSON_TOKEN_OBJECT_OPEN,
+                       JSON_TOKEN_STRING,
+                       "foo",
+                       JSON_TOKEN_COLON,
+                       JSON_TOKEN_ARRAY_OPEN,
+                       JSON_TOKEN_BOOLEAN,
+                       true,
+                       JSON_TOKEN_COMMA,
+                       JSON_TOKEN_BOOLEAN,
+                       false,
+                       JSON_TOKEN_ARRAY_CLOSE,
+                       JSON_TOKEN_OBJECT_CLOSE,
+                       JSON_TOKEN_END);
         test_tokenizer("\"\xef\xbf\xbd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
         test_tokenizer("\"\\ufffd\"", JSON_TOKEN_STRING, "\xef\xbf\xbd", JSON_TOKEN_END);
         test_tokenizer("\"\\uf\"", -EINVAL);
@@ -444,11 +472,24 @@ int main(int argc, char *argv[]) {
         test_tokenizer("\"\\udc00\\udc00\"", -EINVAL);
         test_tokenizer("\"\\ud801\\udc37\"", JSON_TOKEN_STRING, "\xf0\x90\x90\xb7", JSON_TOKEN_END);
 
-        test_tokenizer("[1, 2, -3]", JSON_TOKEN_ARRAY_OPEN, JSON_TOKEN_UNSIGNED, (uintmax_t) 1, JSON_TOKEN_COMMA, JSON_TOKEN_UNSIGNED, (uintmax_t) 2, JSON_TOKEN_COMMA, JSON_TOKEN_INTEGER, (intmax_t) -3, JSON_TOKEN_ARRAY_CLOSE, JSON_TOKEN_END);
+        test_tokenizer("[1, 2, -3]",
+                       JSON_TOKEN_ARRAY_OPEN,
+                       JSON_TOKEN_UNSIGNED,
+                       (uintmax_t) 1,
+                       JSON_TOKEN_COMMA,
+                       JSON_TOKEN_UNSIGNED,
+                       (uintmax_t) 2,
+                       JSON_TOKEN_COMMA,
+                       JSON_TOKEN_INTEGER,
+                       (intmax_t) -3,
+                       JSON_TOKEN_ARRAY_CLOSE,
+                       JSON_TOKEN_END);
 
         test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
-        test_variant("{\"foo\" : \"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFF\"}", NULL);
+        test_variant(
+                "{\"foo\" : \"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFF\"}",
+                NULL);
 
         test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 

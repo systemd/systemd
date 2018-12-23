@@ -77,8 +77,8 @@ static int dns_stream_complete(DnsStream *s, int error) {
 static int dns_stream_identify(DnsStream *s) {
         union {
                 struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
-                               + EXTRA_CMSG_SPACE /* kernel appears to require extra space */];
+                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo)) +
+                               EXTRA_CMSG_SPACE /* kernel appears to require extra space */];
         } control;
         struct msghdr mh = {};
         struct cmsghdr *cmsg;
@@ -127,7 +127,7 @@ static int dns_stream_identify(DnsStream *s) {
         mh.msg_control = &control;
         mh.msg_controllen = sl;
 
-        CMSG_FOREACH(cmsg, &mh) {
+        CMSG_FOREACH (cmsg, &mh) {
 
                 if (cmsg->cmsg_level == IPPROTO_IPV6) {
                         assert(s->peer.sa.sa_family == AF_INET6);
@@ -135,7 +135,7 @@ static int dns_stream_identify(DnsStream *s) {
                         switch (cmsg->cmsg_type) {
 
                         case IPV6_PKTINFO: {
-                                struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                                struct in6_pktinfo *i = (struct in6_pktinfo *) CMSG_DATA(cmsg);
 
                                 if (s->ifindex <= 0)
                                         s->ifindex = i->ipi6_ifindex;
@@ -153,7 +153,7 @@ static int dns_stream_identify(DnsStream *s) {
                         switch (cmsg->cmsg_type) {
 
                         case IP_PKTINFO: {
-                                struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                                struct in_pktinfo *i = (struct in_pktinfo *) CMSG_DATA(cmsg);
 
                                 if (s->ifindex <= 0)
                                         s->ifindex = i->ipi_ifindex;
@@ -177,7 +177,10 @@ static int dns_stream_identify(DnsStream *s) {
         /* If we don't know the interface index still, we look for the
          * first local interface with a matching address. Yuck! */
         if (s->ifindex <= 0)
-                s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
+                s->ifindex = manager_find_ifindex(s->manager,
+                                                  s->local.sa.sa_family,
+                                                  s->local.sa.sa_family == AF_INET ? (union in_addr_union *) &s->local.in.sin_addr :
+                                                                                     (union in_addr_union *) &s->local.in6.sin6_addr);
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
                 uint32_t ifindex = htobe32(s->ifindex);
@@ -222,12 +225,9 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                 }
         } else
 #endif
-        if (s->tfo_salen > 0) {
+                if (s->tfo_salen > 0) {
                 struct msghdr hdr = {
-                        .msg_iov = (struct iovec*) iov,
-                        .msg_iovlen = iovcnt,
-                        .msg_name = &s->tfo_address.sa,
-                        .msg_namelen = s->tfo_salen
+                        .msg_iov = (struct iovec *) iov, .msg_iovlen = iovcnt, .msg_name = &s->tfo_address.sa, .msg_namelen = s->tfo_salen
                 };
 
                 m = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
@@ -308,9 +308,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         return dns_stream_complete(s, -r);
         }
 
-        if ((revents & EPOLLOUT) &&
-            s->write_packet &&
-            s->n_written < sizeof(s->write_size) + s->write_packet->size) {
+        if ((revents & EPOLLOUT) && s->write_packet && s->n_written < sizeof(s->write_size) + s->write_packet->size) {
 
                 struct iovec iov[2];
                 ssize_t ss;
@@ -335,14 +333,12 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 }
         }
 
-        if ((revents & (EPOLLIN|EPOLLHUP|EPOLLRDHUP)) &&
-            (!s->read_packet ||
-             s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
+        if ((revents & (EPOLLIN | EPOLLHUP | EPOLLRDHUP)) && (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
 
                 if (s->n_read < sizeof(s->read_size)) {
                         ssize_t ss;
 
-                        ss = dns_stream_read(s, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
+                        ss = dns_stream_read(s, (uint8_t *) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
                         if (ss < 0) {
                                 if (!IN_SET(-ss, EINTR, EAGAIN))
                                         return dns_stream_complete(s, -ss);
@@ -391,8 +387,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 }
 
                                 ss = dns_stream_read(s,
-                                          (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
-                                          sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
+                                                     (uint8_t *) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
+                                                     sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
                                         if (!IN_SET(-ss, EINTR, EAGAIN))
                                                 return dns_stream_complete(s, -ss);
@@ -446,7 +442,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 #endif
 
         ORDERED_SET_FOREACH(p, s->write_queue, i)
-                dns_packet_unref(ordered_set_remove(s->write_queue, p));
+        dns_packet_unref(ordered_set_remove(s->write_queue, p));
 
         dns_packet_unref(s->write_packet);
         dns_packet_unref(s->read_packet);
@@ -459,12 +455,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 
-int dns_stream_new(
-                Manager *m,
-                DnsStream **ret,
-                DnsProtocol protocol,
-                int fd,
-                const union sockaddr_union *tfo_address) {
+int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
 
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
@@ -476,11 +467,11 @@ int dns_stream_new(
         if (m->n_dns_streams > DNS_STREAMS_MAX)
                 return -EBUSY;
 
-        s = new(DnsStream, 1);
+        s = new (DnsStream, 1);
         if (!s)
                 return -ENOMEM;
 
-        *s = (DnsStream) {
+        *s = (DnsStream){
                 .n_ref = 1,
                 .fd = -1,
                 .protocol = protocol,
@@ -496,12 +487,13 @@ int dns_stream_new(
 
         (void) sd_event_source_set_description(s->io_event_source, "dns-stream-io");
 
-        r = sd_event_add_time(
-                        m->event,
-                        &s->timeout_event_source,
-                        clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC, 0,
-                        on_stream_timeout, s);
+        r = sd_event_add_time(m->event,
+                              &s->timeout_event_source,
+                              clock_boottime_or_monotonic(),
+                              now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC,
+                              0,
+                              on_stream_timeout,
+                              s);
         if (r < 0)
                 return r;
 

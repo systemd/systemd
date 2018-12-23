@@ -26,7 +26,7 @@
 #include "util.h"
 
 #if HAVE_SELINUX
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char *, freecon);
 DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 
 #define _cleanup_freecon_ _cleanup_(freeconp)
@@ -76,7 +76,7 @@ int mac_selinux_init(void) {
         if (!label_hnd) {
                 log_enforcing_errno(errno, "Failed to initialize SELinux context: %m");
                 r = security_getenforce() == 1 ? -errno : 0;
-        } else  {
+        } else {
                 char timespan[FORMAT_TIMESPAN_MAX];
                 int l;
 
@@ -87,7 +87,7 @@ int mac_selinux_init(void) {
 
                 log_debug("Successfully loaded SELinux database in %s, size on heap is %iK.",
                           format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
-                          (l+1023)/1024);
+                          (l + 1023) / 1024);
         }
 #endif
 
@@ -109,7 +109,7 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
 #if HAVE_SELINUX
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_freecon_ char* fcon = NULL;
+        _cleanup_freecon_ char *fcon = NULL;
         _cleanup_close_ int fd = -1;
         struct stat st;
         int r;
@@ -121,7 +121,7 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
                 return 0;
 
         /* Open the file as O_PATH, to pin it while we determine and adjust the label */
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = open(path, O_NOFOLLOW | O_CLOEXEC | O_PATH);
         if (fd < 0) {
                 if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
                         return 0;
@@ -301,7 +301,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         return r;
 }
 
-char* mac_selinux_free(char *label) {
+char *mac_selinux_free(char *label) {
 
 #if HAVE_SELINUX
         if (!label)
@@ -466,7 +466,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 goto skipped;
 
         /* Filter out abstract namespace sockets */
-        un = (const struct sockaddr_un*) addr;
+        un = (const struct sockaddr_un *) addr;
         if (un->sun_path[0] == 0)
                 goto skipped;
 

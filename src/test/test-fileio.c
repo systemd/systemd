@@ -21,12 +21,10 @@
 #include "util.h"
 
 static void test_parse_env_file(void) {
-        _cleanup_(unlink_tempfilep) char
-                t[] = "/tmp/test-fileio-in-XXXXXX",
-                p[] = "/tmp/test-fileio-out-XXXXXX";
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX", p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
-        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL,
-                        *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL;
+        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL, *eight = NULL,
+                            *nine = NULL, *ten = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
@@ -51,7 +49,8 @@ static void test_parse_env_file(void) {
               "export nine=nineval\n"
               "ten=ignored\n"
               "ten=ignored\n"
-              "ten=", f);
+              "ten=",
+              f);
 
         fflush(f);
         fclose(f);
@@ -60,7 +59,7 @@ static void test_parse_env_file(void) {
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
-                log_info("Got: <%s>", *i);
+        log_info("Got: <%s>", *i);
 
         assert_se(streq_ptr(a[0], "one=BAR"));
         assert_se(streq_ptr(a[1], "two=bar"));
@@ -82,18 +81,28 @@ static void test_parse_env_file(void) {
                 assert_se(streq(*i, a[k++]));
         }
 
-        r = parse_env_file(
-                        NULL, t,
-                       "one", &one,
-                       "two", &two,
-                       "three", &three,
-                       "four", &four,
-                       "five", &five,
-                       "six", &six,
-                       "seven", &seven,
-                       "eight", &eight,
-                       "export nine", &nine,
-                       "ten", &ten);
+        r = parse_env_file(NULL,
+                           t,
+                           "one",
+                           &one,
+                           "two",
+                           &two,
+                           "three",
+                           &three,
+                           "four",
+                           &four,
+                           "five",
+                           &five,
+                           "six",
+                           &six,
+                           "seven",
+                           &seven,
+                           "eight",
+                           &eight,
+                           "export nine",
+                           &nine,
+                           "ten",
+                           &ten);
 
         assert_se(r >= 0);
 
@@ -133,9 +142,7 @@ static void test_parse_env_file(void) {
 }
 
 static void test_parse_multiline_env_file(void) {
-        _cleanup_(unlink_tempfilep) char
-                t[] = "/tmp/test-fileio-in-XXXXXX",
-                p[] = "/tmp/test-fileio-out-XXXXXX";
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX", p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
@@ -152,7 +159,8 @@ static void test_parse_multiline_env_file(void) {
               "#comment\n"
               "tri=\"bar \\\n"
               "    var \\\n"
-              "\tgar \"\n", f);
+              "\tgar \"\n",
+              f);
 
         fflush(f);
         fclose(f);
@@ -161,7 +169,7 @@ static void test_parse_multiline_env_file(void) {
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
-                log_info("Got: <%s>", *i);
+        log_info("Got: <%s>", *i);
 
         assert_se(streq_ptr(a[0], "one=BAR    VAR\tGAR"));
         assert_se(streq_ptr(a[1], "two=bar    var\tgar"));
@@ -201,8 +209,8 @@ static void test_merge_env_file(void) {
                                 "yyy=${one:-fallback}\n"
                                 "zzz=${one:+replacement}\n"
                                 "zzzz=${foobar:-${nothing}}\n"
-                                "zzzzz=${nothing:+${nothing}}\n"
-                                , WRITE_STRING_FILE_AVOID_NEWLINE);
+                                "zzzzz=${nothing:+${nothing}}\n",
+                                WRITE_STRING_FILE_AVOID_NEWLINE);
         assert(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
@@ -210,7 +218,7 @@ static void test_merge_env_file(void) {
         strv_sort(a);
 
         STRV_FOREACH(i, a)
-                log_info("Got: <%s>", *i);
+        log_info("Got: <%s>", *i);
 
         assert_se(streq(a[0], "one=2"));
         assert_se(streq(a[1], "twelve=12"));
@@ -229,7 +237,7 @@ static void test_merge_env_file(void) {
         strv_sort(a);
 
         STRV_FOREACH(i, a)
-                log_info("Got2: <%s>", *i);
+        log_info("Got2: <%s>", *i);
 
         assert_se(streq(a[0], "one=2"));
         assert_se(streq(a[1], "twelve=12"));
@@ -265,15 +273,16 @@ static void test_merge_env_file_invalid(void) {
                                 "#comment=comment\n"
                                 ";comment2=comment2\n"
                                 "#\n"
-                                "\n\n"                  /* empty line */
-                                , WRITE_STRING_FILE_AVOID_NEWLINE);
+                                "\n\n" /* empty line */
+                                ,
+                                WRITE_STRING_FILE_AVOID_NEWLINE);
         assert(r >= 0);
 
         r = merge_env_file(&a, NULL, t);
         assert_se(r >= 0);
 
         STRV_FOREACH(i, a)
-                log_info("Got: <%s>", *i);
+        log_info("Got: <%s>", *i);
 
         assert_se(strv_isempty(a));
 }
@@ -411,7 +420,7 @@ static void test_write_string_file(void) {
 static void test_write_string_file_no_create(void) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
         _cleanup_close_ int fd;
-        char buf[64] = {0};
+        char buf[64] = { 0 };
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -438,9 +447,9 @@ static void test_write_string_file_verify(void) {
         assert_se(write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
         assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
 
-        r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE);
         assert_se(IN_SET(r, -EACCES, -EIO));
-        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
+        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
 }
 
 static void test_load_env_file_pairs(void) {
@@ -454,14 +463,14 @@ static void test_load_env_file_pairs(void) {
         assert_se(fd >= 0);
 
         r = write_string_file(fn,
-                        "NAME=\"Arch Linux\"\n"
-                        "ID=arch\n"
-                        "PRETTY_NAME=\"Arch Linux\"\n"
-                        "ANSI_COLOR=\"0;36\"\n"
-                        "HOME_URL=\"https://www.archlinux.org/\"\n"
-                        "SUPPORT_URL=\"https://bbs.archlinux.org/\"\n"
-                        "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n",
-                        WRITE_STRING_FILE_CREATE);
+                              "NAME=\"Arch Linux\"\n"
+                              "ID=arch\n"
+                              "PRETTY_NAME=\"Arch Linux\"\n"
+                              "ANSI_COLOR=\"0;36\"\n"
+                              "HOME_URL=\"https://www.archlinux.org/\"\n"
+                              "SUPPORT_URL=\"https://bbs.archlinux.org/\"\n"
+                              "BUG_REPORT_URL=\"https://bugs.archlinux.org/\"\n",
+                              WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
 
         f = fdopen(fd, "r");
@@ -474,18 +483,25 @@ static void test_load_env_file_pairs(void) {
         STRV_FOREACH_PAIR(k, v, l) {
                 assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
                 printf("%s=%s\n", *k, *v);
-                if (streq(*k, "NAME")) assert_se(streq(*v, "Arch Linux"));
-                if (streq(*k, "ID")) assert_se(streq(*v, "arch"));
-                if (streq(*k, "PRETTY_NAME")) assert_se(streq(*v, "Arch Linux"));
-                if (streq(*k, "ANSI_COLOR")) assert_se(streq(*v, "0;36"));
-                if (streq(*k, "HOME_URL")) assert_se(streq(*v, "https://www.archlinux.org/"));
-                if (streq(*k, "SUPPORT_URL")) assert_se(streq(*v, "https://bbs.archlinux.org/"));
-                if (streq(*k, "BUG_REPORT_URL")) assert_se(streq(*v, "https://bugs.archlinux.org/"));
+                if (streq(*k, "NAME"))
+                        assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ID"))
+                        assert_se(streq(*v, "arch"));
+                if (streq(*k, "PRETTY_NAME"))
+                        assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ANSI_COLOR"))
+                        assert_se(streq(*v, "0;36"));
+                if (streq(*k, "HOME_URL"))
+                        assert_se(streq(*v, "https://www.archlinux.org/"));
+                if (streq(*k, "SUPPORT_URL"))
+                        assert_se(streq(*v, "https://bbs.archlinux.org/"));
+                if (streq(*k, "BUG_REPORT_URL"))
+                        assert_se(streq(*v, "https://bugs.archlinux.org/"));
         }
 }
 
 static void test_search_and_fopen(void) {
-        const char *dirs[] = {"/tmp/foo/bar", "/tmp", NULL};
+        const char *dirs[] = { "/tmp/foo/bar", "/tmp", NULL };
 
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
         int fd, r;
@@ -610,14 +626,13 @@ static void test_tempfn(void) {
         free(ret);
 }
 
-static const char chars[] =
-        "Aąę„”\n루\377";
+static const char chars[] = "Aąę„”\n루\377";
 
 static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
 
-        f = fmemopen((void*) chars, sizeof(chars), "re");
+        f = fmemopen((void *) chars, sizeof(chars), "re");
         assert_se(f);
 
         for (unsigned i = 0; i < sizeof(chars); i++) {
@@ -705,7 +720,7 @@ static void test_read_line_one_file(FILE *f) {
 static void test_read_line(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        f = fmemopen((void*) buffer, sizeof(buffer), "re");
+        f = fmemopen((void *) buffer, sizeof(buffer), "re");
         assert_se(f);
 
         test_read_line_one_file(f);
@@ -747,16 +762,8 @@ static void test_read_line4(void) {
                 const char *string;
         } eof_endings[] = {
                 /* Each of these will be followed by EOF and should generate the one same single string */
-                { 3, "foo" },
-                { 4, "foo\n" },
-                { 4, "foo\r" },
-                { 4, "foo\0" },
-                { 5, "foo\n\0" },
-                { 5, "foo\r\0" },
-                { 5, "foo\r\n" },
-                { 5, "foo\n\r" },
-                { 6, "foo\r\n\0" },
-                { 6, "foo\n\r\0" },
+                { 3, "foo" },     { 4, "foo\n" },   { 4, "foo\r" },   { 4, "foo\0" },     { 5, "foo\n\0" },
+                { 5, "foo\r\0" }, { 5, "foo\r\n" }, { 5, "foo\n\r" }, { 6, "foo\r\n\0" }, { 6, "foo\n\r\0" },
         };
 
         size_t i;
@@ -766,7 +773,7 @@ static void test_read_line4(void) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *s = NULL;
 
-                assert_se(f = fmemopen((void*) eof_endings[i].string, eof_endings[i].length, "r"));
+                assert_se(f = fmemopen((void *) eof_endings[i].string, eof_endings[i].length, "r"));
 
                 r = read_line(f, (size_t) -1, &s);
                 assert_se((size_t) r == eof_endings[i].length);
@@ -777,7 +784,8 @@ static void test_read_line4(void) {
 }
 
 static void test_read_nul_string(void) {
-        static const char test[] = "string nr. 1\0"
+        static const char test[] =
+                "string nr. 1\0"
                 "string nr. 2\n\0"
                 "\377empty string follows\0"
                 "\0"
@@ -787,7 +795,7 @@ static void test_read_nul_string(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *s = NULL;
 
-        assert_se(f = fmemopen((void*) test, sizeof(test)-1, "r"));
+        assert_se(f = fmemopen((void *) test, sizeof(test) - 1, "r"));
 
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 13 && streq_ptr(s, "string nr. 1"));
         s = mfree(s);

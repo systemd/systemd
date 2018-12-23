@@ -23,8 +23,7 @@ int introspect_begin(struct introspect *i, bool trusted) {
 
         (void) __fsetlocking(i->f, FSETLOCKING_BYCALLER);
 
-        fputs(BUS_INTROSPECT_DOCTYPE
-              "<node>\n", i->f);
+        fputs(BUS_INTROSPECT_DOCTYPE "<node>\n", i->f);
 
         return 0;
 }
@@ -32,9 +31,7 @@ int introspect_begin(struct introspect *i, bool trusted) {
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {
         assert(i);
 
-        fputs(BUS_INTROSPECT_INTERFACE_PEER
-              BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
-              BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
+        fputs(BUS_INTROSPECT_INTERFACE_PEER BUS_INTROSPECT_INTERFACE_INTROSPECTABLE BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
 
         if (object_manager)
                 fputs(BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
@@ -80,9 +77,7 @@ static void introspect_write_flags(struct introspect *i, int type, uint64_t flag
                         fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"false\"/>\n", i->f);
         }
 
-        if (!i->trusted &&
-            IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
-            !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
+        if (!i->trusted && IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) && !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
                 fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
@@ -140,7 +135,8 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
                 case _SD_BUS_VTABLE_PROPERTY:
                 case _SD_BUS_VTABLE_WRITABLE_PROPERTY:
-                        fprintf(i->f, "  <property name=\"%s\" type=\"%s\" access=\"%s\">\n",
+                        fprintf(i->f,
+                                "  <property name=\"%s\" type=\"%s\" access=\"%s\">\n",
                                 v->x.property.member,
                                 v->x.property.signature,
                                 v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY ? "readwrite" : "read");
@@ -155,7 +151,6 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                         fputs("  </signal>\n", i->f);
                         break;
                 }
-
         }
 
         return 0;

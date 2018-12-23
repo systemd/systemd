@@ -23,32 +23,32 @@
 #include "user-util.h"
 #include "util.h"
 
-static const char* arg_what = "idle:sleep:shutdown";
-static const char* arg_who = NULL;
-static const char* arg_why = "Unknown reason";
-static const char* arg_mode = NULL;
+static const char *arg_what = "idle:sleep:shutdown";
+static const char *arg_who = NULL;
+static const char *arg_why = "Unknown reason";
+static const char *arg_mode = NULL;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 
-static enum {
-        ACTION_INHIBIT,
-        ACTION_LIST
-} arg_action = ACTION_INHIBIT;
+static enum { ACTION_INHIBIT, ACTION_LIST } arg_action = ACTION_INHIBIT;
 
 static int inhibit(sd_bus *bus, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
         int fd;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "Inhibit",
-                        error,
-                        &reply,
-                        "ssss", arg_what, arg_who, arg_why, arg_mode);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "Inhibit",
+                               error,
+                               &reply,
+                               "ssss",
+                               arg_what,
+                               arg_who,
+                               arg_why,
+                               arg_mode);
         if (r < 0)
                 return r;
 
@@ -71,15 +71,14 @@ static int print_inhibitors(sd_bus *bus) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ListInhibitors",
-                        &error,
-                        &reply,
-                        "");
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "ListInhibitors",
+                               &error,
+                               &reply,
+                               "");
         if (r < 0)
                 return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
 
@@ -112,14 +111,22 @@ static int print_inhibitors(sd_bus *bus) {
                 u = uid_to_name(uid);
 
                 r = table_add_many(table,
-                                   TABLE_STRING, who,
-                                   TABLE_UINT32, uid,
-                                   TABLE_STRING, strna(u),
-                                   TABLE_UINT32, pid,
-                                   TABLE_STRING, strna(comm),
-                                   TABLE_STRING, what,
-                                   TABLE_STRING, why,
-                                   TABLE_STRING, mode);
+                                   TABLE_STRING,
+                                   who,
+                                   TABLE_UINT32,
+                                   uid,
+                                   TABLE_STRING,
+                                   strna(u),
+                                   TABLE_UINT32,
+                                   pid,
+                                   TABLE_STRING,
+                                   strna(comm),
+                                   TABLE_STRING,
+                                   what,
+                                   TABLE_STRING,
+                                   why,
+                                   TABLE_STRING,
+                                   mode);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add table row: %m");
         }
@@ -172,17 +179,17 @@ static int help(void) {
                "     --why=STRING         A descriptive string why is being inhibited\n"
                "     --mode=MODE          One of block or delay\n"
                "     --list               List active inhibitors\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_WHAT,
                 ARG_WHO,
@@ -193,18 +200,16 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
         };
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "what",         required_argument, NULL, ARG_WHAT         },
-                { "who",          required_argument, NULL, ARG_WHO          },
-                { "why",          required_argument, NULL, ARG_WHY          },
-                { "mode",         required_argument, NULL, ARG_MODE         },
-                { "list",         no_argument,       NULL, ARG_LIST         },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND       },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "what", required_argument, NULL, ARG_WHAT },
+                                                 { "who", required_argument, NULL, ARG_WHO },
+                                                 { "why", required_argument, NULL, ARG_WHY },
+                                                 { "mode", required_argument, NULL, ARG_MODE },
+                                                 { "list", no_argument, NULL, ARG_LIST },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "no-legend", no_argument, NULL, ARG_NO_LEGEND },
+                                                 {} };
 
         int c;
 
@@ -260,8 +265,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_action = ACTION_LIST;
 
         else if (arg_action == ACTION_INHIBIT && optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Missing command line to execute.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing command line to execute.");
 
         return 1;
 }
@@ -303,7 +307,7 @@ static int run(int argc, char *argv[]) {
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
 
-                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
                 if (r < 0)
                         return r;
                 if (r == 0) {

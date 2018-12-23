@@ -137,10 +137,10 @@ static void test_path_is_mount_point(void) {
         assert_se(file1);
         file2 = path_join(tmp_dir, "file2");
         assert_se(file2);
-        fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(file1, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
-        fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(file2, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
         link1 = path_join(tmp_dir, "link1");
@@ -177,7 +177,7 @@ static void test_path_is_mount_point(void) {
         /* file in subdirectory mountpoints */
         dir1file = path_join(dir1, "file");
         assert_se(dir1file);
-        fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+        fd = open(dir1file, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
         assert_se(fd > 0);
         close(fd);
 
@@ -218,7 +218,7 @@ static void test_path_is_mount_point(void) {
                 /* dirs */
                 dir2file = path_join(dir2, "file");
                 assert_se(dir2file);
-                fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
+                fd = open(dir2file, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0664);
                 assert_se(fd > 0);
                 close(fd);
 
@@ -247,7 +247,7 @@ static void test_path_is_mount_point(void) {
         } else
                 printf("Skipping bind mount file test: %m\n");
 
-        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT | REMOVE_PHYSICAL) == 0);
 }
 
 int main(int argc, char *argv[]) {

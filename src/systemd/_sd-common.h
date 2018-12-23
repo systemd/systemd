@@ -20,63 +20,61 @@
 /* This is a private header; never even think of including this directly! */
 
 #if defined(__INCLUDE_LEVEL__) && __INCLUDE_LEVEL__ <= 1
-#  error "Do not include _sd-common.h directly; it is a private header."
+#error "Do not include _sd-common.h directly; it is a private header."
 #endif
 
 typedef void (*_sd_destroy_t)(void *userdata);
 
 #ifndef _sd_printf_
-#  if __GNUC__ >= 4
-#    define _sd_printf_(a,b) __attribute__((__format__(printf, a, b)))
-#  else
-#    define _sd_printf_(a,b)
-#  endif
+#if __GNUC__ >= 4
+#define _sd_printf_(a, b) __attribute__((__format__(printf, a, b)))
+#else
+#define _sd_printf_(a, b)
+#endif
 #endif
 
 #ifndef _sd_sentinel_
-#  define _sd_sentinel_ __attribute__((__sentinel__))
+#define _sd_sentinel_ __attribute__((__sentinel__))
 #endif
 
 #ifndef _sd_packed_
-#  define _sd_packed_ __attribute__((__packed__))
+#define _sd_packed_ __attribute__((__packed__))
 #endif
 
 #ifndef _sd_pure_
-#  define _sd_pure_ __attribute__((__pure__))
+#define _sd_pure_ __attribute__((__pure__))
 #endif
 
 #ifndef _SD_STRINGIFY
-#  define _SD_XSTRINGIFY(x) #x
-#  define _SD_STRINGIFY(x) _SD_XSTRINGIFY(x)
+#define _SD_XSTRINGIFY(x) #x
+#define _SD_STRINGIFY(x) _SD_XSTRINGIFY(x)
 #endif
 
 #ifndef _SD_BEGIN_DECLARATIONS
-#  ifdef __cplusplus
-#    define _SD_BEGIN_DECLARATIONS                              \
-        extern "C" {                                            \
+#ifdef __cplusplus
+#define _SD_BEGIN_DECLARATIONS \
+        extern "C" {           \
         struct _sd_useless_struct_to_allow_trailing_semicolon_
-#  else
-#    define _SD_BEGIN_DECLARATIONS                              \
-        struct _sd_useless_struct_to_allow_trailing_semicolon_
-#  endif
+#else
+#define _SD_BEGIN_DECLARATIONS struct _sd_useless_struct_to_allow_trailing_semicolon_
+#endif
 #endif
 
 #ifndef _SD_END_DECLARATIONS
-#  ifdef __cplusplus
-#    define _SD_END_DECLARATIONS                                \
-        }                                                       \
+#ifdef __cplusplus
+#define _SD_END_DECLARATIONS \
+        }                    \
         struct _sd_useless_cpp_struct_to_allow_trailing_semicolon_
-#  else
-#    define _SD_END_DECLARATIONS                                \
-        struct _sd_useless_struct_to_allow_trailing_semicolon_
-#  endif
+#else
+#define _SD_END_DECLARATIONS struct _sd_useless_struct_to_allow_trailing_semicolon_
+#endif
 #endif
 
-#define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func)             \
-        static __inline__ void func##p(type **p) {              \
-                if (*p)                                         \
-                        func(*p);                               \
-        }                                                       \
+#define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func) \
+        static __inline__ void func##p(type **p) {  \
+                if (*p)                             \
+                        func(*p);                   \
+        }                                           \
         struct _sd_useless_struct_to_allow_trailing_semicolon_
 
 #endif

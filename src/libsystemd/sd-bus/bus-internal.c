@@ -19,7 +19,7 @@ bool object_path_is_valid(const char *p) {
         if (p[1] == 0)
                 return true;
 
-        for (slash = true, q = p+1; *q; q++)
+        for (slash = true, q = p + 1; *q; q++)
                 if (*q == '/') {
                         if (slash)
                                 return false;
@@ -28,11 +28,7 @@ bool object_path_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                (*q >= '0' && *q <= '9') ||
-                                *q == '_';
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9') || *q == '_';
 
                         if (!good)
                                 return false;
@@ -46,25 +42,24 @@ bool object_path_is_valid(const char *p) {
         return true;
 }
 
-char* object_path_startswith(const char *a, const char *b) {
+char *object_path_startswith(const char *a, const char *b) {
         const char *p;
 
-        if (!object_path_is_valid(a) ||
-            !object_path_is_valid(b))
+        if (!object_path_is_valid(a) || !object_path_is_valid(b))
                 return NULL;
 
         if (streq(b, "/"))
-                return (char*) a + 1;
+                return (char *) a + 1;
 
         p = startswith(a, b);
         if (!p)
                 return NULL;
 
         if (*p == 0)
-                return (char*) p;
+                return (char *) p;
 
         if (*p == '/')
-                return (char*) p + 1;
+                return (char *) p + 1;
 
         return NULL;
 }
@@ -85,11 +80,7 @@ bool interface_name_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                (!dot && *q >= '0' && *q <= '9') ||
-                                *q == '_';
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (!dot && *q >= '0' && *q <= '9') || *q == '_';
 
                         if (!good)
                                 return false;
@@ -118,7 +109,7 @@ bool service_name_is_valid(const char *p) {
 
         unique = p[0] == ':';
 
-        for (dot = true, q = unique ? p+1 : p; *q; q++)
+        for (dot = true, q = unique ? p + 1 : p; *q; q++)
                 if (*q == '.') {
                         if (dot)
                                 return false;
@@ -127,10 +118,7 @@ bool service_name_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good =
-                                (*q >= 'a' && *q <= 'z') ||
-                                (*q >= 'A' && *q <= 'Z') ||
-                                ((!dot || unique) && *q >= '0' && *q <= '9') ||
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || ((!dot || unique) && *q >= '0' && *q <= '9') ||
                                 IN_SET(*q, '_', '-');
 
                         if (!good)
@@ -160,11 +148,7 @@ bool member_name_is_valid(const char *p) {
         for (q = p; *q; q++) {
                 bool good;
 
-                good =
-                        (*q >= 'a' && *q <= 'z') ||
-                        (*q >= 'A' && *q <= 'Z') ||
-                        (*q >= '0' && *q <= '9') ||
-                        *q == '_';
+                good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9') || *q == '_';
 
                 if (!good)
                         return false;
@@ -280,7 +264,7 @@ const char *bus_message_type_to_string(uint8_t u) {
         else if (u == SD_BUS_MESSAGE_METHOD_ERROR)
                 return "error";
         else if (u == SD_BUS_MESSAGE_METHOD_RETURN)
-                 return "method_return";
+                return "method_return";
         else
                 return NULL;
 }
@@ -289,16 +273,13 @@ char *bus_address_escape(const char *v) {
         const char *a;
         char *r, *b;
 
-        r = new(char, strlen(v)*3+1);
+        r = new (char, strlen(v) * 3 + 1);
         if (!r)
                 return NULL;
 
         for (a = v, b = r; *a; a++) {
 
-                if ((*a >= '0' && *a <= '9') ||
-                    (*a >= 'a' && *a <= 'z') ||
-                    (*a >= 'A' && *a <= 'Z') ||
-                    strchr("_-/.", *a))
+                if ((*a >= '0' && *a <= '9') || (*a >= 'a' && *a <= 'z') || (*a >= 'A' && *a <= 'Z') || strchr("_-/.", *a))
                         *(b++) = *a;
                 else {
                         *(b++) = '%';
@@ -324,7 +305,8 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
         } else
                 return r;
 
-        log_debug("Failed to process message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64 " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s: %s",
+        log_debug("Failed to process message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64
+                  " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s: %s",
                   bus_message_type_to_string(m->header->type),
                   strna(sd_bus_message_get_sender(m)),
                   strna(sd_bus_message_get_destination(m)),

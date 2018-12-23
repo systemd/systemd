@@ -43,23 +43,13 @@
 #include "util.h"
 #include "utmp-wtmp.h"
 
-static enum {
-        ACTION_LIST,
-        ACTION_QUERY,
-        ACTION_WATCH,
-        ACTION_WALL
-} arg_action = ACTION_QUERY;
+static enum { ACTION_LIST, ACTION_QUERY, ACTION_WATCH, ACTION_WALL } arg_action = ACTION_QUERY;
 
 static bool arg_plymouth = false;
 static bool arg_console = false;
 static const char *arg_device = NULL;
 
-static int ask_password_plymouth(
-                const char *message,
-                usec_t until,
-                AskPasswordFlags flags,
-                const char *flag_file,
-                char ***ret) {
+static int ask_password_plymouth(const char *message, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret) {
 
         static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_close_ int fd = -1, notify = -1;
@@ -69,7 +59,8 @@ static int ask_password_plymouth(
         struct pollfd pollfd[2] = {};
         char buffer[LINE_MAX];
         size_t p = 0;
-        enum {
+        enum
+        {
                 POLL_SOCKET,
                 POLL_INOTIFY
         };
@@ -77,7 +68,7 @@ static int ask_password_plymouth(
         assert(ret);
 
         if (flag_file) {
-                notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+                notify = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
                 if (notify < 0)
                         return -errno;
 
@@ -86,7 +77,7 @@ static int ask_password_plymouth(
                         return -errno;
         }
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
@@ -180,7 +171,7 @@ static int ask_password_plymouth(
                                         goto finish;
                                 }
 
-                                r = loop_write(fd, packet, n+1, true);
+                                r = loop_write(fd, packet, n + 1, true);
                                 if (r < 0)
                                         goto finish;
 
@@ -201,14 +192,14 @@ static int ask_password_plymouth(
                         if (p < 5)
                                 continue;
 
-                        memcpy(&size, buffer+1, sizeof(size));
+                        memcpy(&size, buffer + 1, sizeof(size));
                         size = le32toh(size);
                         if (size + 5 > sizeof(buffer)) {
                                 r = -EIO;
                                 goto finish;
                         }
 
-                        if (p-5 < size)
+                        if (p - 5 < size)
                                 continue;
 
                         l = strv_parse_nulstr(buffer + 5, size);
@@ -250,9 +241,9 @@ static int send_passwords(const char *socket_name, char **passwords) {
                 return salen;
 
         STRV_FOREACH(p, passwords)
-                packet_length += strlen(*p) + 1;
+        packet_length += strlen(*p) + 1;
 
-        packet = new(char, packet_length);
+        packet = new (char, packet_length);
         if (!packet)
                 return -ENOMEM;
 
@@ -260,9 +251,9 @@ static int send_passwords(const char *socket_name, char **passwords) {
 
         d = packet + 1;
         STRV_FOREACH(p, passwords)
-                d = stpcpy(d, *p) + 1;
+        d = stpcpy(d, *p) + 1;
 
-        socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        socket_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (socket_fd < 0) {
                 r = log_debug_errno(errno, "socket(): %m");
                 goto finish;
@@ -287,30 +278,24 @@ static int parse_password(const char *filename, char **wall) {
         uint64_t not_after = 0;
         unsigned pid = 0;
 
-        const ConfigTableItem items[] = {
-                { "Ask", "Socket",       config_parse_string,   0, &socket_name   },
-                { "Ask", "NotAfter",     config_parse_uint64,   0, &not_after     },
-                { "Ask", "Message",      config_parse_string,   0, &message       },
-                { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
-                { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
-                { "Ask", "Echo",         config_parse_bool,     0, &echo          },
-                {}
-        };
+        const ConfigTableItem items[] = { { "Ask", "Socket", config_parse_string, 0, &socket_name },
+                                          { "Ask", "NotAfter", config_parse_uint64, 0, &not_after },
+                                          { "Ask", "Message", config_parse_string, 0, &message },
+                                          { "Ask", "PID", config_parse_unsigned, 0, &pid },
+                                          { "Ask", "AcceptCached", config_parse_bool, 0, &accept_cached },
+                                          { "Ask", "Echo", config_parse_bool, 0, &echo },
+                                          {} };
 
         int r;
 
         assert(filename);
 
-        r = config_parse(NULL, filename, NULL,
-                         NULL,
-                         config_item_table_lookup, items,
-                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_WARN, NULL);
+        r = config_parse(NULL, filename, NULL, NULL, config_item_table_lookup, items, CONFIG_PARSE_RELAXED | CONFIG_PARSE_WARN, NULL);
         if (r < 0)
                 return r;
 
         if (!socket_name)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Invalid password file %s", filename);
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid password file %s", filename);
 
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
@@ -365,10 +350,13 @@ static int parse_password(const char *filename, char **wall) {
                                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
                         }
 
-                        r = ask_password_tty(tty_fd, message, NULL, not_after,
-                                             (echo ? ASK_PASSWORD_ECHO : 0) |
-                                             (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
-                                             filename, &passwords);
+                        r = ask_password_tty(tty_fd,
+                                             message,
+                                             NULL,
+                                             not_after,
+                                             (echo ? ASK_PASSWORD_ECHO : 0) | (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
+                                             filename,
+                                             &passwords);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);
@@ -408,7 +396,7 @@ static int wall_tty_block(void) {
         (void) mkdir_parents_label(p, 0700);
         (void) mkfifo(p, 0600);
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = open(p, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open %s: %m", p);
 
@@ -446,7 +434,7 @@ static bool wall_tty_match(const char *path, void *userdata) {
                 return true;
         }
 
-        fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        fd = open(p, O_WRONLY | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to open the wall pipe: %m");
                 return 1;
@@ -501,7 +489,8 @@ static int show_passwords(void) {
 }
 
 static int watch_passwords(void) {
-        enum {
+        enum
+        {
                 FD_INOTIFY,
                 FD_SIGNAL,
                 _FD_MAX
@@ -520,9 +509,10 @@ static int watch_passwords(void) {
         if (notify < 0)
                 return log_error_errno(errno, "Failed to allocate directory watch: %m");
 
-        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE|IN_MOVED_TO) < 0) {
+        if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE | IN_MOVED_TO) < 0) {
                 if (errno == ENOSPC)
-                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
+                        return log_error_errno(errno,
+                                               "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
                 else
                         return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
         }
@@ -531,7 +521,7 @@ static int watch_passwords(void) {
         assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) >= 0);
 
-        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
+        signal_fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
         if (signal_fd < 0)
                 return log_error_errno(errno, "Failed to allocate signal file descriptor: %m");
 
@@ -580,17 +570,17 @@ static int help(void) {
                "     --wall     Continuously forward password requests to wall\n"
                "     --plymouth Ask question with Plymouth instead of on TTY\n"
                "     --console  Ask question on /dev/console instead of current TTY\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_LIST = 0x100,
                 ARG_QUERY,
                 ARG_WATCH,
@@ -600,17 +590,15 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION
         };
 
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "list",     no_argument,       NULL, ARG_LIST     },
-                { "query",    no_argument,       NULL, ARG_QUERY    },
-                { "watch",    no_argument,       NULL, ARG_WATCH    },
-                { "wall",     no_argument,       NULL, ARG_WALL     },
-                { "plymouth", no_argument,       NULL, ARG_PLYMOUTH },
-                { "console",  optional_argument, NULL, ARG_CONSOLE  },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "list", no_argument, NULL, ARG_LIST },
+                                                 { "query", no_argument, NULL, ARG_QUERY },
+                                                 { "watch", no_argument, NULL, ARG_WATCH },
+                                                 { "wall", no_argument, NULL, ARG_WALL },
+                                                 { "plymouth", no_argument, NULL, ARG_PLYMOUTH },
+                                                 { "console", optional_argument, NULL, ARG_CONSOLE },
+                                                 {} };
 
         int c;
 
@@ -652,8 +640,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
 
                                 if (isempty(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Empty console device path is not allowed.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty console device path is not allowed.");
 
                                 arg_device = optarg;
                         }
@@ -667,18 +654,15 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no arguments.", program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         if (arg_plymouth || arg_console) {
 
                 if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Options --query and --watch conflict.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Options --query and --watch conflict.");
 
                 if (arg_plymouth && arg_console)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Options --plymouth and --console conflict.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Options --plymouth and --console conflict.");
         }
 
         return 1;
@@ -708,7 +692,7 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -746,7 +730,7 @@ static void terminate_agents(Set *pids) {
          * are not required anymore.
          */
         SET_FOREACH(p, pids, i)
-                (void) kill(PTR_TO_PID(p), SIGTERM);
+        (void) kill(PTR_TO_PID(p), SIGTERM);
 
         /*
          * Collect the processes which have go away.
@@ -758,7 +742,7 @@ static void terminate_agents(Set *pids) {
         while (!set_isempty(pids)) {
 
                 zero(status);
-                r = waitid(P_ALL, 0, &status, WEXITED|WNOHANG);
+                r = waitid(P_ALL, 0, &status, WEXITED | WNOHANG);
                 if (r < 0 && errno == EINTR)
                         continue;
 

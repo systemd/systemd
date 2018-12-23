@@ -28,7 +28,8 @@
 #define BRIDGE_VLAN_BITMAP_MAX 4096
 #define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
-typedef enum DHCPClientIdentifier {
+typedef enum DHCPClientIdentifier
+{
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
         /* The following option may not be good for RFC regarding DHCP (3315 and 4361).
@@ -40,7 +41,8 @@ typedef enum DHCPClientIdentifier {
         _DHCP_CLIENT_ID_INVALID = -1,
 } DHCPClientIdentifier;
 
-typedef enum IPv6PrivacyExtensions {
+typedef enum IPv6PrivacyExtensions
+{
         /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
         IPV6_PRIVACY_EXTENSIONS_NO,
         IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
@@ -49,7 +51,8 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
 } IPv6PrivacyExtensions;
 
-typedef enum DHCPUseDomains {
+typedef enum DHCPUseDomains
+{
         DHCP_USE_DOMAINS_NO,
         DHCP_USE_DOMAINS_YES,
         DHCP_USE_DOMAINS_ROUTE,
@@ -57,7 +60,8 @@ typedef enum DHCPUseDomains {
         _DHCP_USE_DOMAINS_INVALID = -1,
 } DHCPUseDomains;
 
-typedef enum LLDPMode {
+typedef enum LLDPMode
+{
         LLDP_MODE_NO = 0,
         LLDP_MODE_YES = 1,
         LLDP_MODE_ROUTERS_ONLY = 2,
@@ -74,7 +78,8 @@ typedef struct DUID {
         usec_t llt_time;
 } DUID;
 
-typedef enum RADVPrefixDelegation {
+typedef enum RADVPrefixDelegation
+{
         RADV_PREFIX_DELEGATION_NONE,
         RADV_PREFIX_DELEGATION_STATIC,
         RADV_PREFIX_DELEGATION_DHCP6,
@@ -90,7 +95,7 @@ typedef struct NetworkConfigSection {
 
 int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
 void network_config_section_free(NetworkConfigSection *network);
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection *, network_config_section_free);
 extern const struct hash_ops network_config_hash_ops;
 
 typedef struct Manager Manager;
@@ -279,7 +284,7 @@ struct Network {
 
 void network_free(Network *network);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Network *, network_free);
 
 int network_load(Manager *manager);
 int network_load_one(Manager *manager, const char *filename);
@@ -315,21 +320,21 @@ CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 /* Legacy IPv4LL support */
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 
-const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem *network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 extern const sd_bus_vtable network_vtable[];
 
 int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 
-const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
+const char *ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
-const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
+const char *dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
 
-const char* lldp_mode_to_string(LLDPMode m) _const_;
+const char *lldp_mode_to_string(LLDPMode m) _const_;
 LLDPMode lldp_mode_from_string(const char *s) _pure_;
 
-const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
+const char *radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
 RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;

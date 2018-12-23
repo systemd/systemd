@@ -20,13 +20,11 @@
 #include "user-util.h"
 #include "virt.h"
 
-static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
-        [TIMER_DEAD] = UNIT_INACTIVE,
-        [TIMER_WAITING] = UNIT_ACTIVE,
-        [TIMER_RUNNING] = UNIT_ACTIVE,
-        [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_FAILED] = UNIT_FAILED
-};
+static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = { [TIMER_DEAD] = UNIT_INACTIVE,
+                                                                           [TIMER_WAITING] = UNIT_ACTIVE,
+                                                                           [TIMER_RUNNING] = UNIT_ACTIVE,
+                                                                           [TIMER_ELAPSED] = UNIT_ACTIVE,
+                                                                           [TIMER_FAILED] = UNIT_FAILED };
 
 static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata);
 
@@ -95,7 +93,8 @@ static int timer_add_default_dependencies(Timer *t) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(
+                        UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
 
@@ -212,13 +211,20 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWakeSystem: %s\n"
                 "%sAccuracy: %s\n"
                 "%sRemainAfterElapse: %s\n",
-                prefix, timer_state_to_string(t->state),
-                prefix, timer_result_to_string(t->result),
-                prefix, trigger ? trigger->id : "n/a",
-                prefix, yes_no(t->persistent),
-                prefix, yes_no(t->wake_system),
-                prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
-                prefix, yes_no(t->remain_after_elapse));
+                prefix,
+                timer_state_to_string(t->state),
+                prefix,
+                timer_result_to_string(t->result),
+                prefix,
+                trigger ? trigger->id : "n/a",
+                prefix,
+                yes_no(t->persistent),
+                prefix,
+                yes_no(t->wake_system),
+                prefix,
+                format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
+                prefix,
+                yes_no(t->remain_after_elapse));
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -227,12 +233,8 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
 
                         (void) calendar_spec_to_string(v->calendar_spec, &p);
 
-                        fprintf(f,
-                                "%s%s: %s\n",
-                                prefix,
-                                timer_base_to_string(v->base),
-                                strna(p));
-                } else  {
+                        fprintf(f, "%s%s: %s\n", prefix, timer_base_to_string(v->base), strna(p));
+                } else {
                         char timespan1[FORMAT_TIMESPAN_MAX];
 
                         fprintf(f,
@@ -327,7 +329,7 @@ static void add_random(Timer *t, usec_t *v) {
 
         add = random_u64() % t->random_usec;
 
-        if (*v + add < *v) /* overflow */
+        if (*v + add < *v)        /* overflow */
                 *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
         else
                 *v += add;
@@ -445,8 +447,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
 
-                        if (dual_timestamp_is_set(&t->last_trigger) &&
-                            !time_change &&
+                        if (dual_timestamp_is_set(&t->last_trigger) && !time_change &&
                             v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
                             IN_SET(v->base, TIMER_ACTIVE, TIMER_BOOT, TIMER_STARTUP)) {
                                 /* This is a one time trigger, disable it now */
@@ -488,12 +489,13 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 goto fail;
                 } else {
 
-                        r = sd_event_add_time(
-                                        UNIT(t)->manager->event,
-                                        &t->monotonic_event_source,
-                                        t->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC,
-                                        t->next_elapse_monotonic_or_boottime, t->accuracy_usec,
-                                        timer_dispatch, t);
+                        r = sd_event_add_time(UNIT(t)->manager->event,
+                                              &t->monotonic_event_source,
+                                              t->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC,
+                                              t->next_elapse_monotonic_or_boottime,
+                                              t->accuracy_usec,
+                                              timer_dispatch,
+                                              t);
                         if (r < 0)
                                 goto fail;
 
@@ -523,12 +525,13 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         if (r < 0)
                                 goto fail;
                 } else {
-                        r = sd_event_add_time(
-                                        UNIT(t)->manager->event,
-                                        &t->realtime_event_source,
-                                        t->wake_system ? CLOCK_REALTIME_ALARM : CLOCK_REALTIME,
-                                        t->next_elapse_realtime, t->accuracy_usec,
-                                        timer_dispatch, t);
+                        r = sd_event_add_time(UNIT(t)->manager->event,
+                                              &t->realtime_event_source,
+                                              t->wake_system ? CLOCK_REALTIME_ALARM : CLOCK_REALTIME,
+                                              t->next_elapse_realtime,
+                                              t->accuracy_usec,
+                                              timer_dispatch,
+                                              t);
                         if (r < 0)
                                 goto fail;
 
@@ -614,8 +617,8 @@ static int timer_start(Unit *u) {
 
         /* Reenable all timers that depend on unit activation time */
         LIST_FOREACH(value, v, t->values)
-                if (v->base == TIMER_ACTIVE)
-                        v->disabled = false;
+        if (v->base == TIMER_ACTIVE)
+                v->disabled = false;
 
         if (t->stamp_path) {
                 struct stat st;
@@ -632,7 +635,8 @@ static int timer_start(Unit *u) {
                         else {
                                 char z[FORMAT_TIMESTAMP_MAX];
 
-                                log_unit_warning(u, "Not using persistent file timestamp %s as it is in the future.",
+                                log_unit_warning(u,
+                                                 "Not using persistent file timestamp %s as it is in the future.",
                                                  format_timestamp(z, sizeof(z), ft));
                         }
 
@@ -750,8 +754,8 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
 
         /* Reenable all timers that depend on unit state */
         LIST_FOREACH(value, v, t->values)
-                if (IN_SET(v->base, TIMER_UNIT_ACTIVE, TIMER_UNIT_INACTIVE))
-                        v->disabled = false;
+        if (IN_SET(v->base, TIMER_UNIT_ACTIVE, TIMER_UNIT_INACTIVE))
+                v->disabled = false;
 
         switch (t->state) {
 
@@ -823,18 +827,16 @@ static void timer_timezone_change(Unit *u) {
         timer_enter_waiting(t, false);
 }
 
-static const char* const timer_base_table[_TIMER_BASE_MAX] = {
-        [TIMER_ACTIVE] = "OnActiveSec",
-        [TIMER_BOOT] = "OnBootSec",
-        [TIMER_STARTUP] = "OnStartupSec",
-        [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
-        [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
-        [TIMER_CALENDAR] = "OnCalendar"
-};
+static const char *const timer_base_table[_TIMER_BASE_MAX] = { [TIMER_ACTIVE] = "OnActiveSec",
+                                                               [TIMER_BOOT] = "OnBootSec",
+                                                               [TIMER_STARTUP] = "OnStartupSec",
+                                                               [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
+                                                               [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
+                                                               [TIMER_CALENDAR] = "OnCalendar" };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
-static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
+static const char *const timer_result_table[_TIMER_RESULT_MAX] = {
         [TIMER_SUCCESS] = "success",
         [TIMER_FAILURE_RESOURCES] = "resources",
         [TIMER_FAILURE_START_LIMIT_HIT] = "start-limit-hit",

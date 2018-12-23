@@ -8,7 +8,7 @@
 const char *af_to_name(int id);
 int af_from_name(const char *name);
 
-static inline const char* af_to_name_short(int id) {
+static inline const char *af_to_name_short(int id) {
         const char *f;
 
         if (id == AF_UNSPEC)

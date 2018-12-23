@@ -53,7 +53,7 @@ static void test_copy_file_fd(void) {
         char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_close_ int in_fd = -1, out_fd = -1;
         char text[] = "boohoo\nfoo\n\tbar\n";
-        char buf[64] = {0};
+        char buf[64] = { 0 };
 
         log_info("%s", __func__);
 
@@ -78,16 +78,15 @@ static void test_copy_tree(void) {
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
-        char **links = STRV_MAKE("link", "file",
-                                 "link2", "dir1/file");
+        char **links = STRV_MAKE("link", "file", "link2", "dir1/file");
         char **p, **link;
         const char *unixsockp;
         struct stat st;
 
         log_info("%s", __func__);
 
-        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *f;
@@ -109,9 +108,9 @@ static void test_copy_tree(void) {
         }
 
         unixsockp = strjoina(original_dir, "unixsock");
-        assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
+        assert_se(mknod(unixsockp, S_IFSOCK | 0644, 0) >= 0);
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE) == 0);
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK | COPY_MERGE) == 0);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf, *f;
@@ -141,19 +140,19 @@ static void test_copy_tree(void) {
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
         assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
 
-        (void) rm_rf(copy_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
-        (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
+        (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
 }
 
 static void test_copy_bytes(void) {
-        _cleanup_close_pair_ int pipefd[2] = {-1, -1};
+        _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
         _cleanup_close_ int infd = -1;
         int r, r2;
         char buf[1024], buf2[1024];
 
-        infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
+        infd = open("/usr/lib/os-release", O_RDONLY | O_CLOEXEC);
         if (infd < 0)
-                infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
+                infd = open("/etc/os-release", O_RDONLY | O_CLOEXEC);
         assert_se(infd >= 0);
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);

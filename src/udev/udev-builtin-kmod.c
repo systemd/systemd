@@ -17,7 +17,8 @@
 
 static struct kmod_ctx *ctx = NULL;
 
-_printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
+_printf_(6,
+         0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
@@ -28,8 +29,7 @@ static int builtin_kmod(sd_device *dev, int argc, char *argv[], bool test) {
                 return 0;
 
         if (argc < 3 || !streq(argv[1], "load"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: expected: load <module>", argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s: expected: load <module>", argv[0]);
 
         for (i = 2; argv[i]; i++)
                 (void) module_load_and_warn(ctx, argv[i], false);

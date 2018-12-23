@@ -58,15 +58,14 @@ static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
 
 static enum {
-        SHOW_MASKED     = 1 << 0,
+        SHOW_MASKED = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDDEN = 1 << 3,
-        SHOW_UNCHANGED  = 1 << 4,
-        SHOW_EXTENDED   = 1 << 5,
+        SHOW_UNCHANGED = 1 << 4,
+        SHOW_EXTENDED = 1 << 5,
 
-        SHOW_DEFAULTS =
-        (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
+        SHOW_DEFAULTS = (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
 } arg_flags = 0;
 
 static int equivalent(const char *a, const char *b) {
@@ -88,9 +87,7 @@ static int notify_override_masked(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_MASKED))
                 return 0;
 
-        printf("%s%s%s     %s %s %s\n",
-               ansi_highlight_red(), "[MASKED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s     %s %s %s\n", ansi_highlight_red(), "[MASKED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
         return 1;
 }
 
@@ -98,9 +95,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EQUIVALENT))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n", ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
         return 1;
 }
 
@@ -108,9 +103,7 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[REDIRECTED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n", ansi_highlight(), "[REDIRECTED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
         return 1;
 }
 
@@ -118,19 +111,15 @@ static int notify_override_overridden(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_OVERRIDDEN))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n",
-               ansi_highlight(), "[OVERRIDDEN]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n", ansi_highlight(), "[OVERRIDDEN]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
         return 1;
 }
 
 static int notify_override_extended(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EXTENDED))
-               return 0;
+                return 0;
 
-        printf("%s%s%s   %s %s %s\n",
-               ansi_highlight(), "[EXTENDED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s   %s %s %s\n", ansi_highlight(), "[EXTENDED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
         return 1;
 }
 
@@ -169,7 +158,7 @@ static int found_override(const char *top, const char *bottom) {
 
         fflush(stdout);
 
-        r = safe_fork("(diff)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(diff)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -185,11 +174,7 @@ static int found_override(const char *top, const char *bottom) {
         return r;
 }
 
-static int enumerate_dir_d(
-                OrderedHashmap *top,
-                OrderedHashmap *bottom,
-                OrderedHashmap *drops,
-                const char *toppath, const char *drop) {
+static int enumerate_dir_d(OrderedHashmap *top, OrderedHashmap *bottom, OrderedHashmap *drops, const char *toppath, const char *drop) {
 
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
@@ -271,7 +256,11 @@ static int enumerate_dir_d(
                         return -ENOMEM;
 
                 log_debug("Adding to drops: %s %s %s %s %s",
-                          unit, special_glyph(SPECIAL_GLYPH_ARROW), basename(p), special_glyph(SPECIAL_GLYPH_ARROW), p);
+                          unit,
+                          special_glyph(SPECIAL_GLYPH_ARROW),
+                          basename(p),
+                          special_glyph(SPECIAL_GLYPH_ARROW),
+                          p);
                 k = ordered_hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
@@ -282,11 +271,7 @@ static int enumerate_dir_d(
         return 0;
 }
 
-static int enumerate_dir(
-                OrderedHashmap *top,
-                OrderedHashmap *bottom,
-                OrderedHashmap *drops,
-                const char *path, bool dropins) {
+static int enumerate_dir(OrderedHashmap *top, OrderedHashmap *bottom, OrderedHashmap *drops, const char *path, bool dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -320,7 +305,7 @@ static int enumerate_dir(
                         dirs[n_dirs] = strdup(de->d_name);
                         if (!dirs[n_dirs])
                                 return -ENOMEM;
-                        n_dirs ++;
+                        n_dirs++;
                 }
 
                 if (!dirent_is_file(de))
@@ -332,7 +317,7 @@ static int enumerate_dir(
                 files[n_files] = strdup(de->d_name);
                 if (!files[n_files])
                         return -ENOMEM;
-                n_files ++;
+                n_files++;
         }
 
         strv_sort(dirs);
@@ -458,8 +443,8 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
                 h = ordered_hashmap_get(drops, key);
                 if (h)
                         ORDERED_HASHMAP_FOREACH(o, h, j)
-                                if (!onlyprefix || startswith(o, onlyprefix))
-                                        n_found += notify_override_extended(f, o);
+                if (!onlyprefix || startswith(o, onlyprefix))
+                        n_found += notify_override_extended(f, o);
         }
 
 finish:
@@ -513,8 +498,7 @@ static int process_suffix_chop(const char *arg) {
                 }
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                               "Invalid suffix specification %s.", arg);
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid suffix specification %s.", arg);
 }
 
 static int help(void) {
@@ -532,10 +516,9 @@ static int help(void) {
                "     --no-pager       Do not pipe output into a pager\n"
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -547,7 +530,7 @@ static int parse_flags(const char *flag_str, int flags) {
         FOREACH_WORD_SEPARATOR(word, l, flag_str, ",", state) {
                 if (strneq("masked", word, l))
                         flags |= SHOW_MASKED;
-                else if (strneq ("equivalent", word, l))
+                else if (strneq("equivalent", word, l))
                         flags |= SHOW_EQUIVALENT;
                 else if (strneq("redirected", word, l))
                         flags |= SHOW_REDIRECTED;
@@ -567,20 +550,19 @@ static int parse_flags(const char *flag_str, int flags) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_NO_PAGER = 0x100,
                 ARG_DIFF,
                 ARG_VERSION
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'          },
-                { "version",   no_argument,       NULL, ARG_VERSION  },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
-                { "diff",      optional_argument, NULL, ARG_DIFF     },
-                { "type",      required_argument, NULL, 't'          },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "diff", optional_argument, NULL, ARG_DIFF },
+                                                 { "type", required_argument, NULL, 't' },
+                                                 {} };
 
         int c;
 
@@ -605,8 +587,7 @@ static int parse_argv(int argc, char *argv[]) {
                         int f;
                         f = parse_flags(optarg, arg_flags);
                         if (f < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse flags field.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse flags field.");
                         arg_flags = f;
                         break;
                 }
@@ -619,8 +600,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 b = parse_boolean(optarg);
                                 if (b < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse diff boolean.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse diff boolean.");
 
                                 arg_diff = b;
                         }

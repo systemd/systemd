@@ -36,17 +36,17 @@ struct sm_oob {
 } _packed_;
 
 /* one sector is always 512 bytes, but it can consist of two nand pages */
-#define SM_SECTOR_SIZE                512
+#define SM_SECTOR_SIZE 512
 
 /* oob area is also 16 bytes, but might be from two pages */
-#define SM_OOB_SIZE                16
+#define SM_OOB_SIZE 16
 
 /* This is maximum zone size, and all devices that have more that one zone
    have this size */
-#define SM_MAX_ZONE_SIZE         1024
+#define SM_MAX_ZONE_SIZE 1024
 
 /* support for small page nand */
-#define SM_SMALL_PAGE                 256
-#define SM_SMALL_OOB_SIZE        8
+#define SM_SMALL_PAGE 256
+#define SM_SMALL_OOB_SIZE 8
 
 int probe_smart_media(int mtd_fd, mtd_info_t *info);

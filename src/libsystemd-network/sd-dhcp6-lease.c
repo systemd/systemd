@@ -50,8 +50,7 @@ DHCP6IA *dhcp6_lease_free_ia(DHCP6IA *ia) {
         return NULL;
 }
 
-int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id,
-                             size_t len) {
+int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
         uint8_t *serverid;
 
         assert_return(lease, -EINVAL);
@@ -135,9 +134,7 @@ int dhcp6_lease_get_pd_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
         return 0;
 }
 
-int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr,
-                               uint32_t *lifetime_preferred,
-                               uint32_t *lifetime_valid) {
+int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr, uint32_t *lifetime_preferred, uint32_t *lifetime_valid) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
         assert_return(lifetime_preferred, -EINVAL);
@@ -146,10 +143,8 @@ int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr,
         if (!lease->addr_iter)
                 return -ENOMSG;
 
-        memcpy(addr, &lease->addr_iter->iaaddr.address,
-                sizeof(struct in6_addr));
-        *lifetime_preferred =
-                be32toh(lease->addr_iter->iaaddr.lifetime_preferred);
+        memcpy(addr, &lease->addr_iter->iaaddr.address, sizeof(struct in6_addr));
+        *lifetime_preferred = be32toh(lease->addr_iter->iaaddr.lifetime_preferred);
         *lifetime_valid = be32toh(lease->addr_iter->iaaddr.lifetime_valid);
 
         lease->addr_iter = lease->addr_iter->addresses_next;
@@ -162,10 +157,8 @@ void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
                 lease->addr_iter = lease->ia.addresses;
 }
 
-int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
-                          uint8_t *prefix_len,
-                          uint32_t *lifetime_preferred,
-                          uint32_t *lifetime_valid) {
+int sd_dhcp6_lease_get_pd(
+        sd_dhcp6_lease *lease, struct in6_addr *prefix, uint8_t *prefix_len, uint32_t *lifetime_preferred, uint32_t *lifetime_valid) {
         assert_return(lease, -EINVAL);
         assert_return(prefix, -EINVAL);
         assert_return(prefix_len, -EINVAL);
@@ -175,13 +168,10 @@ int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
         if (!lease->prefix_iter)
                 return -ENOMSG;
 
-        memcpy(prefix, &lease->prefix_iter->iapdprefix.address,
-               sizeof(struct in6_addr));
+        memcpy(prefix, &lease->prefix_iter->iapdprefix.address, sizeof(struct in6_addr));
         *prefix_len = lease->prefix_iter->iapdprefix.prefixlen;
-        *lifetime_preferred =
-                be32toh(lease->prefix_iter->iapdprefix.lifetime_preferred);
-        *lifetime_valid =
-                be32toh(lease->prefix_iter->iapdprefix.lifetime_valid);
+        *lifetime_preferred = be32toh(lease->prefix_iter->iapdprefix.lifetime_preferred);
+        *lifetime_valid = be32toh(lease->prefix_iter->iapdprefix.lifetime_valid);
 
         lease->prefix_iter = lease->prefix_iter->addresses_next;
 
@@ -202,12 +192,9 @@ int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         if (!optlen)
                 return 0;
 
-        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns,
-                                        lease->dns_count,
-                                        &lease->dns_allocated);
+        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->dns, lease->dns_count, &lease->dns_allocated);
         if (r < 0) {
-                log_dhcp6_client(client, "Invalid DNS server option: %s",
-                                 strerror(-r));
+                log_dhcp6_client(client, "Invalid DNS server option: %s", strerror(-r));
 
                 return r;
         }
@@ -229,8 +216,7 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs) {
         return -ENOENT;
 }
 
-int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval,
-                            size_t optlen) {
+int dhcp6_lease_set_domains(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         int r;
         char **domains;
 
@@ -275,21 +261,17 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         lease->ntp_count = 0;
         lease->ntp_allocated = 0;
 
-        while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen,
-                                       &subval)) >= 0) {
+        while ((r = dhcp6_option_parse(&optval, &optlen, &subopt, &sublen, &subval)) >= 0) {
                 int s;
                 char **servers;
 
-                switch(subopt) {
+                switch (subopt) {
                 case DHCP6_NTP_SUBOPTION_SRV_ADDR:
                 case DHCP6_NTP_SUBOPTION_MC_ADDR:
                         if (sublen != 16)
                                 return 0;
 
-                        s = dhcp6_option_parse_ip6addrs(subval, sublen,
-                                                        &lease->ntp,
-                                                        lease->ntp_count,
-                                                        &lease->ntp_allocated);
+                        s = dhcp6_option_parse_ip6addrs(subval, sublen, &lease->ntp, lease->ntp_count, &lease->ntp_allocated);
                         if (s < 0)
                                 return s;
 
@@ -298,8 +280,7 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                         break;
 
                 case DHCP6_NTP_SUBOPTION_SRV_FQDN:
-                        r = dhcp6_option_parse_domainname(subval, sublen,
-                                                          &servers);
+                        r = dhcp6_option_parse_domainname(subval, sublen, &servers);
                         if (r < 0)
                                 return 0;
 
@@ -333,12 +314,9 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
 
         log_dhcp6_client(client, "Using deprecated SNTP information");
 
-        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp,
-                                        lease->ntp_count,
-                                        &lease->ntp_allocated);
+        r = dhcp6_option_parse_ip6addrs(optval, optlen, &lease->ntp, lease->ntp_count, &lease->ntp_allocated);
         if (r < 0) {
-                log_dhcp6_client(client, "Invalid SNTP server option: %s",
-                                 strerror(-r));
+                log_dhcp6_client(client, "Invalid SNTP server option: %s", strerror(-r));
 
                 return r;
         }
@@ -348,8 +326,7 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
         return 0;
 }
 
-int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease,
-                                 struct in6_addr **addrs) {
+int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, struct in6_addr **addrs) {
         assert_return(lease, -EINVAL);
         assert_return(addrs, -EINVAL);
 

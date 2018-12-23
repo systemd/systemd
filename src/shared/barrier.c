@@ -183,7 +183,7 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
                 goto error;
 
         /* lock if we aborted */
-        if (buf >= (uint64_t)BARRIER_ABORTION) {
+        if (buf >= (uint64_t) BARRIER_ABORTION) {
                 if (barrier_they_aborted(b))
                         b->barriers = BARRIER_WE_ABORTED;
                 else
@@ -210,11 +210,8 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                 return false;
 
         while (b->barriers > comp) {
-                struct pollfd pfd[2] = {
-                        { .fd = b->pipe[0] >= 0 ? b->pipe[0] : b->pipe[1],
-                          .events = POLLHUP },
-                        { .fd = b->them,
-                          .events = POLLIN }};
+                struct pollfd pfd[2] = { { .fd = b->pipe[0] >= 0 ? b->pipe[0] : b->pipe[1], .events = POLLHUP },
+                                         { .fd = b->them, .events = POLLIN } };
                 uint64_t buf;
                 int r;
 
@@ -245,7 +242,7 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                         continue;
 
                 /* lock if they aborted */
-                if (buf >= (uint64_t)BARRIER_ABORTION) {
+                if (buf >= (uint64_t) BARRIER_ABORTION) {
                         if (barrier_i_aborted(b))
                                 b->barriers = BARRIER_WE_ABORTED;
                         else
@@ -367,7 +364,7 @@ bool barrier_sync_next(Barrier *b) {
         if (barrier_is_aborted(b))
                 return false;
 
-        barrier_read(b, MAX((int64_t)0, b->barriers - 1));
+        barrier_read(b, MAX((int64_t) 0, b->barriers - 1));
         return !barrier_is_aborted(b);
 }
 

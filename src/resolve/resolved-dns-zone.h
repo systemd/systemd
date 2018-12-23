@@ -22,7 +22,8 @@ typedef enum DnsZoneItemState DnsZoneItemState;
 /* RFC 6762 Section 10. suggests a TTL of 120s by default */
 #define MDNS_DEFAULT_TTL (120)
 
-enum DnsZoneItemState {
+enum DnsZoneItemState
+{
         DNS_ZONE_ITEM_PROBING,
         DNS_ZONE_ITEM_ESTABLISHED,
         DNS_ZONE_ITEM_VERIFYING,
@@ -48,7 +49,7 @@ struct DnsZoneItem {
 void dns_zone_flush(DnsZone *z);
 
 int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe);
-DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr);
+DnsZoneItem *dns_zone_get(DnsZone *z, DnsResourceRecord *rr);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
 int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key);
 

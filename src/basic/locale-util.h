@@ -7,7 +7,8 @@
 
 #include "macro.h"
 
-typedef enum LocaleVariable {
+typedef enum LocaleVariable
+{
         /* We don't list LC_ALL here on purpose. People should be
          * using LANG instead. */
 
@@ -38,7 +39,8 @@ void init_gettext(void);
 
 bool is_locale_utf8(void);
 
-typedef enum {
+typedef enum
+{
         SPECIAL_GLYPH_TREE_VERTICAL,
         SPECIAL_GLYPH_TREE_BRANCH,
         SPECIAL_GLYPH_TREE_RIGHT,
@@ -65,7 +67,7 @@ typedef enum {
 
 const char *special_glyph(SpecialGlyph code) _const_;
 
-const char* locale_variable_to_string(LocaleVariable i) _const_;
+const char *locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;
 
 int get_keymaps(char ***l);
@@ -78,7 +80,7 @@ static inline void freelocalep(locale_t *p) {
         freelocale(*p);
 }
 
-void locale_variables_free(char* l[_VARIABLE_LC_MAX]);
-static inline void locale_variables_freep(char*(*l)[_VARIABLE_LC_MAX]) {
+void locale_variables_free(char *l[_VARIABLE_LC_MAX]);
+static inline void locale_variables_freep(char *(*l)[_VARIABLE_LC_MAX]) {
         locale_variables_free(*l);
 }

@@ -15,7 +15,7 @@
 static void test_deserialize_in_addr(void) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         _cleanup_free_ struct in6_addr *addresses6 = NULL;
-        struct in_addr  a, b, c;
+        struct in_addr a, b, c;
         struct in6_addr d, e, f;
         int size;
         const char *addresses_string = "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
@@ -102,12 +102,12 @@ static void test_deserialize_dhcp_routes(void) {
 
 static int test_load_config(Manager *manager) {
         int r;
-/*  TODO: should_reload, is false if the config dirs do not exist, so
- *        so we can't do this test here, move it to a test for paths_check_timestamps
- *        directly
- *
- *        assert_se(network_should_reload(manager) == true);
-*/
+        /*  TODO: should_reload, is false if the config dirs do not exist, so
+         *        so we can't do this test here, move it to a test for paths_check_timestamps
+         *        directly
+         *
+         *        assert_se(network_should_reload(manager) == true);
+         */
 
         r = manager_load_config(manager);
         if (r == -EPERM)
@@ -216,7 +216,6 @@ static void test_dhcp_hostname_shorten_overlong(void) {
                 assert_se(r == -EDOM);
                 assert_se(shortened == NULL);
         }
-
 }
 
 int main(void) {

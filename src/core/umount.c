@@ -35,8 +35,8 @@
 #include "util.h"
 #include "virt.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table *, mnt_free_table);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter *, mnt_free_iter);
 
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
@@ -105,13 +105,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * Even if there are duplicates later in mount_option_mangle()
                  * it shouldn't hurt anyways as they override each other.
                  */
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_vfs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_vfs_options(fs), NULL))
                         return log_oom();
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_fs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_fs_options(fs), NULL))
                         return log_oom();
 
                 /* Ignore mount points we can't unmount because they
@@ -121,9 +117,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * and hence not worth spending time on. Also, in
                  * unprivileged containers we might lack the rights to
                  * unmount these things, hence don't bother. */
-                if (mount_point_is_api(p) ||
-                    mount_point_ignore(p) ||
-                    PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
+                if (mount_point_is_api(p) || mount_point_ignore(p) || PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
                         continue;
 
                 /* If we are in a container, don't attempt to
@@ -136,11 +130,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * a "dirty fs") and could hang if the network is down.
                  * Note that umount2() is more careful and will not
                  * hang because of the network being down. */
-                try_remount_ro = detect_container() <= 0 &&
-                                 !fstype_is_network(fstype) &&
-                                 !fstype_is_api_vfs(fstype) &&
-                                 !fstype_is_ro(fstype) &&
-                                 !fstab_test_yes_no_option(options, "ro\0rw\0");
+                try_remount_ro = detect_container() <= 0 && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype) &&
+                        !fstype_is_ro(fstype) && !fstab_test_yes_no_option(options, "ro\0rw\0");
 
                 if (try_remount_ro) {
                         /* mount(2) states that mount flags and options need to be exactly the same
@@ -162,7 +153,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
                         /* MS_BIND is special. If it is provided it will only make the mount-point
                          * read-only. If left out, the super block itself is remounted, which we want. */
-                        remount_flags = (remount_flags|MS_REMOUNT|MS_RDONLY) & ~MS_BIND;
+                        remount_flags = (remount_flags | MS_REMOUNT | MS_RDONLY) & ~MS_BIND;
                 }
 
                 m = new0(MountPoint, 1);
@@ -267,11 +258,11 @@ static int loopback_list_get(MountPoint **head) {
                 if (!p)
                         return -ENOMEM;
 
-                lb = new(MountPoint, 1);
+                lb = new (MountPoint, 1);
                 if (!lb)
                         return -ENOMEM;
 
-                *lb = (MountPoint) {
+                *lb = (MountPoint){
                         .path = TAKE_PTR(p),
                 };
 
@@ -310,19 +301,18 @@ static int dm_list_get(MountPoint **head) {
                 MountPoint *m;
                 dev_t devnum;
 
-                if (sd_device_get_devnum(d, &devnum) < 0 ||
-                    sd_device_get_devname(d, &dn) < 0)
+                if (sd_device_get_devnum(d, &devnum) < 0 || sd_device_get_devname(d, &dn) < 0)
                         continue;
 
                 p = strdup(dn);
                 if (!p)
                         return -ENOMEM;
 
-                m = new(MountPoint, 1);
+                m = new (MountPoint, 1);
                 if (!m)
                         return -ENOMEM;
 
-                *m = (MountPoint) {
+                *m = (MountPoint){
                         .path = TAKE_PTR(p),
                         .devnum = devnum,
                 };
@@ -339,7 +329,7 @@ static int delete_loopback(const char *device) {
 
         assert(device);
 
-        fd = open(device, O_RDONLY|O_CLOEXEC);
+        fd = open(device, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -357,11 +347,7 @@ static int delete_loopback(const char *device) {
 static int delete_dm(dev_t devnum) {
 
         struct dm_ioctl dm = {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
+                .version = { DM_VERSION_MAJOR, DM_VERSION_MINOR, DM_VERSION_PATCHLEVEL },
                 .data_size = sizeof(dm),
                 .dev = devnum,
         };
@@ -370,7 +356,7 @@ static int delete_dm(dev_t devnum) {
 
         assert(major(devnum) != 0);
 
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        fd = open("/dev/mapper/control", O_RDWR | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -382,7 +368,7 @@ static int delete_dm(dev_t devnum) {
 
 static bool nonunmountable_path(const char *path) {
         return path_equal(path, "/")
-#if ! HAVE_SPLIT_USR
+#if !HAVE_SPLIT_USR
                 || path_equal(path, "/usr")
 #endif
                 || path_startswith(path, "/run/initramfs");
@@ -400,7 +386,7 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular remount
          * failed. */
-        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -438,7 +424,7 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular umount
          * failed. */
-        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -562,10 +548,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
                 int r;
                 struct stat loopback_st;
 
-                if (k >= 0 &&
-                    major(root_st.st_dev) != 0 &&
-                    lstat(m->path, &loopback_st) >= 0 &&
-                    root_st.st_dev == loopback_st.st_rdev) {
+                if (k >= 0 && major(root_st.st_dev) != 0 && lstat(m->path, &loopback_st) >= 0 && root_st.st_dev == loopback_st.st_rdev) {
                         n_failed++;
                         continue;
                 }
@@ -601,7 +584,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
 
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
-                        n_failed ++;
+                        n_failed++;
                         continue;
                 }
 

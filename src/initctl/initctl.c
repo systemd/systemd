@@ -23,7 +23,7 @@
 #include "process-util.h"
 
 #define SERVER_FD_MAX 16
-#define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))
+#define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC / USEC_PER_MSEC))
 
 typedef struct Fifo Fifo;
 
@@ -55,15 +55,11 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
                 const char *special;
                 bool isolate;
         } table[] = {
-                { '0', SPECIAL_POWEROFF_TARGET,   false },
-                { '1', SPECIAL_RESCUE_TARGET,     true  },
-                { 's', SPECIAL_RESCUE_TARGET,     true  },
-                { 'S', SPECIAL_RESCUE_TARGET,     true  },
-                { '2', SPECIAL_MULTI_USER_TARGET, true  },
-                { '3', SPECIAL_MULTI_USER_TARGET, true  },
-                { '4', SPECIAL_MULTI_USER_TARGET, true  },
-                { '5', SPECIAL_GRAPHICAL_TARGET,  true  },
-                { '6', SPECIAL_REBOOT_TARGET,     false },
+                { '0', SPECIAL_POWEROFF_TARGET, false },  { '1', SPECIAL_RESCUE_TARGET, true },
+                { 's', SPECIAL_RESCUE_TARGET, true },     { 'S', SPECIAL_RESCUE_TARGET, true },
+                { '2', SPECIAL_MULTI_USER_TARGET, true }, { '3', SPECIAL_MULTI_USER_TARGET, true },
+                { '4', SPECIAL_MULTI_USER_TARGET, true }, { '5', SPECIAL_GRAPHICAL_TARGET, true },
+                { '6', SPECIAL_REBOOT_TARGET, false },
         };
 
         unsigned i;
@@ -103,15 +99,16 @@ static int change_runlevel(Server *s, int runlevel) {
 
         log_debug("Running request %s/start/%s", target, mode);
 
-        r = sd_bus_call_method(
-                        s->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        &error,
-                        NULL,
-                        "ss", target, mode);
+        r = sd_bus_call_method(s->bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnit",
+                               &error,
+                               NULL,
+                               "ss",
+                               target,
+                               mode);
         if (r < 0)
                 return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, -r));
 
@@ -187,9 +184,7 @@ static int fifo_process(Fifo *f) {
         assert(f);
 
         errno = EIO;
-        l = read(f->fd,
-                 ((uint8_t*) &f->buffer) + f->bytes_read,
-                 sizeof(f->buffer) - f->bytes_read);
+        l = read(f->fd, ((uint8_t *) &f->buffer) + f->bytes_read, sizeof(f->buffer) - f->bytes_read);
         if (l <= 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -252,8 +247,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
-                r = log_error_errno(errno,
-                                    "Failed to create epoll object: %m");
+                r = log_error_errno(errno, "Failed to create epoll object: %m");
                 goto fail;
         }
 
@@ -262,7 +256,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 Fifo *f;
                 int fd;
 
-                fd = SD_LISTEN_FDS_START+i;
+                fd = SD_LISTEN_FDS_START + i;
 
                 r = sd_is_fifo(fd, NULL);
                 if (r < 0) {
@@ -323,10 +317,9 @@ static int process_event(Server *s, struct epoll_event *ev) {
         assert(s);
 
         if (!(ev->events & EPOLLIN))
-                return log_info_errno(SYNTHETIC_ERRNO(EIO),
-                                      "Got invalid event from epoll. (3)");
+                return log_info_errno(SYNTHETIC_ERRNO(EIO), "Got invalid event from epoll. (3)");
 
-        f = (Fifo*) ev->data.ptr;
+        f = (Fifo *) ev->data.ptr;
         r = fifo_process(f);
         if (r < 0) {
                 log_info_errno(r, "Got error on fifo: %m");
@@ -369,7 +362,7 @@ int main(int argc, char *argv[]) {
         if (server_init(&server, (unsigned) n) < 0)
                 return EXIT_FAILURE;
 
-        log_debug("systemd-initctl running as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-initctl running as pid " PID_FMT, getpid_cached());
 
         sd_notify(false,
                   "READY=1\n"
@@ -396,7 +389,7 @@ int main(int argc, char *argv[]) {
 
         r = EXIT_SUCCESS;
 
-        log_debug("systemd-initctl stopped as pid "PID_FMT, getpid_cached());
+        log_debug("systemd-initctl stopped as pid " PID_FMT, getpid_cached());
 
 fail:
         sd_notify(false,

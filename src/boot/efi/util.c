@@ -10,18 +10,18 @@
  * the (ESP)\loader\entries\<vendor>-<revision>.conf convention and the
  * associated EFI variables.
  */
-const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, {0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f} };
+const EFI_GUID loader_guid = { 0x4a67b082, 0x0a4c, 0x41cf, { 0xb6, 0xc7, 0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f } };
 
 #ifdef __x86_64__
 UINT64 ticks_read(VOID) {
         UINT64 a, d;
-        __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
+        __asm__ volatile("rdtsc" : "=a"(a), "=d"(d));
         return (d << 32) | a;
 }
 #elif defined(__i386__)
 UINT64 ticks_read(VOID) {
         UINT64 val;
-        __asm__ volatile ("rdtsc" : "=A" (val));
+        __asm__ volatile("rdtsc" : "=A"(val));
         return val;
 }
 #else
@@ -63,18 +63,14 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
-        if (strcmpa(v, (CHAR8 *)"1") == 0 ||
-            strcmpa(v, (CHAR8 *)"yes") == 0 ||
-            strcmpa(v, (CHAR8 *)"y") == 0 ||
-            strcmpa(v, (CHAR8 *)"true") == 0) {
+        if (strcmpa(v, (CHAR8 *) "1") == 0 || strcmpa(v, (CHAR8 *) "yes") == 0 || strcmpa(v, (CHAR8 *) "y") == 0 ||
+            strcmpa(v, (CHAR8 *) "true") == 0) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
 
-        if (strcmpa(v, (CHAR8 *)"0") == 0 ||
-            strcmpa(v, (CHAR8 *)"no") == 0 ||
-            strcmpa(v, (CHAR8 *)"n") == 0 ||
-            strcmpa(v, (CHAR8 *)"false") == 0) {
+        if (strcmpa(v, (CHAR8 *) "0") == 0 || strcmpa(v, (CHAR8 *) "no") == 0 || strcmpa(v, (CHAR8 *) "n") == 0 ||
+            strcmpa(v, (CHAR8 *) "false") == 0) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
@@ -85,15 +81,15 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent) {
         UINT32 flags;
 
-        flags = EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
+        flags = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
         if (persistent)
                 flags |= EFI_VARIABLE_NON_VOLATILE;
 
-        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, flags, size, (VOID*) buf);
+        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (VOID *) buf);
 }
 
 EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value)+1) * sizeof(CHAR16) : 0, persistent);
+        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
 }
 
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
@@ -118,8 +114,8 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
                 return EFI_INVALID_PARAMETER;
 
         /* Return buffer directly if it happens to be NUL terminated already */
-        if (size >= 2 && buf[size-2] == 0 && buf[size-1] == 0) {
-                *value = (CHAR16*) buf;
+        if (size >= 2 && buf[size - 2] == 0 && buf[size - 1] == 0) {
+                *value = (CHAR16 *) buf;
                 buf = NULL;
                 return EFI_SUCCESS;
         }
@@ -130,7 +126,7 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
                 return EFI_OUT_OF_RESOURCES;
 
         CopyMem(val, buf, size);
-        val[size/2] = 0; /* NUL terminate */
+        val[size / 2] = 0; /* NUL terminate */
 
         *value = val;
         return EFI_SUCCESS;
@@ -157,7 +153,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const CHAR16 *name, CHAR8 **bu
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(RT->GetVariable, 5, (CHAR16*) name, (EFI_GUID *)vendor, NULL, &l, buf);
+        err = uefi_call_wrapper(RT->GetVariable, 5, (CHAR16 *) name, (EFI_GUID *) vendor, NULL, &l, buf);
         if (!EFI_ERROR(err)) {
                 *buffer = buf;
                 buf = NULL;
@@ -284,7 +280,7 @@ CHAR16 *stra_to_path(CHAR8 *stra) {
 
                 if (str[strlen] == '/')
                         str[strlen] = '\\';
-                if (str[strlen] == '\\' && str[strlen-1] == '\\') {
+                if (str[strlen] == '\\' && str[strlen - 1] == '\\') {
                         /* skip double slashes */
                         i += utf8len;
                         continue;
@@ -310,7 +306,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;
 
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16*) name, EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, (CHAR16 *) name, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
@@ -318,7 +314,7 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN s
                 _cleanup_freepool_ EFI_FILE_INFO *info;
 
                 info = LibFileInfo(handle);
-                size = info->FileSize+1;
+                size = info->FileSize + 1;
         }
 
         if (off > 0) {

@@ -164,7 +164,7 @@ static void test_basic(void) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
-        int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
+        int a[2] = { -1, -1 }, b[2] = { -1, -1 }, d[2] = { -1, -1 }, k[2] = { -1, -1 };
         uint64_t event_now;
         int64_t priority;
 
@@ -213,8 +213,8 @@ static void test_basic(void) {
         assert_se(sd_event_source_set_prepare(z, prepare_handler) >= 0);
 
         /* Test for floating event sources */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+1, -1) >= 0);
-        assert_se(sd_event_add_signal(e, NULL, SIGRTMIN+1, NULL, NULL) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN + 1, -1) >= 0);
+        assert_se(sd_event_add_signal(e, NULL, SIGRTMIN + 1, NULL, NULL) >= 0);
 
         assert_se(write(a[1], &ch, 1) >= 0);
         assert_se(write(b[1], &ch, 1) >= 0);
@@ -302,18 +302,18 @@ static void test_rtqueue(void) {
 
         assert_se(sd_event_default(&e) >= 0);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2, -1) >= 0);
-        assert_se(sd_event_add_signal(e, &u, SIGRTMIN+2, rtqueue_handler, NULL) >= 0);
-        assert_se(sd_event_add_signal(e, &v, SIGRTMIN+3, rtqueue_handler, NULL) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN + 2, SIGRTMIN + 3, SIGUSR2, -1) >= 0);
+        assert_se(sd_event_add_signal(e, &u, SIGRTMIN + 2, rtqueue_handler, NULL) >= 0);
+        assert_se(sd_event_add_signal(e, &v, SIGRTMIN + 3, rtqueue_handler, NULL) >= 0);
         assert_se(sd_event_add_signal(e, &s, SIGUSR2, rtqueue_handler, NULL) >= 0);
 
         assert_se(sd_event_source_set_priority(v, -10) >= 0);
 
-        assert_se(sigqueue(getpid_cached(), SIGRTMIN+2, (union sigval) { .sival_int = 1 }) >= 0);
-        assert_se(sigqueue(getpid_cached(), SIGRTMIN+3, (union sigval) { .sival_int = 2 }) >= 0);
-        assert_se(sigqueue(getpid_cached(), SIGUSR2, (union sigval) { .sival_int = 3 }) >= 0);
-        assert_se(sigqueue(getpid_cached(), SIGRTMIN+3, (union sigval) { .sival_int = 4 }) >= 0);
-        assert_se(sigqueue(getpid_cached(), SIGUSR2, (union sigval) { .sival_int = 5 }) >= 0);
+        assert_se(sigqueue(getpid_cached(), SIGRTMIN + 2, (union sigval){ .sival_int = 1 }) >= 0);
+        assert_se(sigqueue(getpid_cached(), SIGRTMIN + 3, (union sigval){ .sival_int = 2 }) >= 0);
+        assert_se(sigqueue(getpid_cached(), SIGUSR2, (union sigval){ .sival_int = 3 }) >= 0);
+        assert_se(sigqueue(getpid_cached(), SIGRTMIN + 3, (union sigval){ .sival_int = 4 }) >= 0);
+        assert_se(sigqueue(getpid_cached(), SIGUSR2, (union sigval){ .sival_int = 5 }) >= 0);
 
         assert_se(n_rtqueue == 0);
         assert_se(last_rtqueue_sigval == 0);
@@ -444,11 +444,11 @@ static void test_inotify(unsigned n_create_events) {
 
         assert_se(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &p) >= 0);
 
-        assert_se(sd_event_add_inotify(e, &a, p, IN_CREATE|IN_ONLYDIR, inotify_handler, &context) >= 0);
-        assert_se(sd_event_add_inotify(e, &b, p, IN_CREATE|IN_DELETE|IN_DONT_FOLLOW, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(e, &a, p, IN_CREATE | IN_ONLYDIR, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(e, &b, p, IN_CREATE | IN_DELETE | IN_DONT_FOLLOW, inotify_handler, &context) >= 0);
         assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_IDLE) >= 0);
         assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_NORMAL) >= 0);
-        assert_se(sd_event_add_inotify(e, &c, p, IN_CREATE|IN_DELETE|IN_EXCL_UNLINK, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(e, &c, p, IN_CREATE | IN_DELETE | IN_EXCL_UNLINK, inotify_handler, &context) >= 0);
         assert_se(sd_event_source_set_priority(c, SD_EVENT_PRIORITY_IDLE) >= 0);
 
         assert_se(sd_event_source_set_description(a, "0") >= 0);
@@ -460,7 +460,7 @@ static void test_inotify(unsigned n_create_events) {
         assert_se(sd_event_add_inotify(e, &d, q, IN_DELETE_SELF, delete_self_handler, &context) >= 0);
 
         for (i = 0; i < n_create_events; i++) {
-                char buf[DECIMAL_STR_MAX(unsigned)+1];
+                char buf[DECIMAL_STR_MAX(unsigned) + 1];
                 _cleanup_free_ char *z;
 
                 xsprintf(buf, "%u", i);
@@ -488,7 +488,7 @@ int main(int argc, char *argv[]) {
         test_sd_event_now();
         test_rtqueue();
 
-        test_inotify(100); /* should work without overflow */
+        test_inotify(100);   /* should work without overflow */
         test_inotify(33000); /* should trigger a q overflow */
 
         return 0;

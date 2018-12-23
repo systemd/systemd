@@ -140,10 +140,7 @@ static int server(sd_bus *bus) {
 
                 sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
                 sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
-                log_info("Got message! member=%s pid="PID_FMT" label=%s",
-                         strna(sd_bus_message_get_member(m)),
-                         pid,
-                         strna(label));
+                log_info("Got message! member=%s pid=" PID_FMT " label=%s", strna(sd_bus_message_get_member(m)), pid, strna(label));
                 /* bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 
@@ -224,9 +221,7 @@ static int server(sd_bus *bus) {
 
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
 
-                        r = sd_bus_reply_method_error(
-                                        m,
-                                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
+                        r = sd_bus_reply_method_error(m, &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to send reply: %m");
                                 goto fail;
@@ -245,7 +240,7 @@ fail:
         return r;
 }
 
-static void* client1(void *p) {
+static void *client1(void *p) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -261,15 +256,7 @@ static void* client1(void *p) {
         }
 
         r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "LowerCase",
-                        &error,
-                        &reply,
-                        "s",
-                        "HELLO");
+                bus, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "LowerCase", &error, &reply, "s", "HELLO");
         if (r < 0) {
                 log_error_errno(r, "Failed to issue method call: %m");
                 goto finish;
@@ -283,7 +270,7 @@ static void* client1(void *p) {
 
         assert_se(streq(hello, "hello"));
 
-        if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
+        if (pipe2(pp, O_CLOEXEC | O_NONBLOCK) < 0) {
                 log_error_errno(errno, "Failed to allocate pipe: %m");
                 r = -errno;
                 goto finish;
@@ -292,15 +279,7 @@ static void* client1(void *p) {
         log_info("Sending fd=%d", pp[1]);
 
         r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "FileDescriptor",
-                        &error,
-                        NULL,
-                        "h",
-                        pp[1]);
+                bus, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "FileDescriptor", &error, NULL, "h", pp[1]);
         if (r < 0) {
                 log_error_errno(r, "Failed to issue method call: %m");
                 goto finish;
@@ -319,17 +298,11 @@ finish:
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
 
                 r = sd_bus_message_new_method_call(
-                                bus,
-                                &q,
-                                "org.freedesktop.systemd.test",
-                                "/",
-                                "org.freedesktop.systemd.test",
-                                "ExitClient1");
+                        bus, &q, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "ExitClient1");
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate method call: %m");
                 else
                         sd_bus_send(bus, q, NULL);
-
         }
 
         return INT_TO_PTR(r);
@@ -344,7 +317,7 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
         return 1;
 }
 
-static void* client2(void *p) {
+static void *client2(void *p) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -358,13 +331,7 @@ static void* client2(void *p) {
                 goto finish;
         }
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/foo/bar/waldo/piep",
-                        "org.object.test",
-                        "Foobar");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.systemd.test", "/foo/bar/waldo/piep", "org.object.test", "Foobar");
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate method call: %m");
                 goto finish;
@@ -378,12 +345,7 @@ static void* client2(void *p) {
 
         m = sd_bus_message_unref(m);
 
-        r = sd_bus_message_new_signal(
-                        bus,
-                        &m,
-                        "/foobar",
-                        "foo.bar",
-                        "Notify");
+        r = sd_bus_message_new_signal(bus, &m, "/foobar", "foo.bar", "Notify");
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate signal: %m");
                 goto finish;
@@ -397,13 +359,7 @@ static void* client2(void *p) {
 
         m = sd_bus_message_unref(m);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.DBus.Peer",
-                        "GetMachineId");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.systemd.test", "/", "org.freedesktop.DBus.Peer", "GetMachineId");
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate method call: %m");
                 goto finish;
@@ -425,13 +381,7 @@ static void* client2(void *p) {
 
         m = sd_bus_message_unref(m);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "Slow");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "Slow");
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate method call: %m");
                 goto finish;
@@ -447,13 +397,7 @@ static void* client2(void *p) {
 
         m = sd_bus_message_unref(m);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd.test",
-                        "/",
-                        "org.freedesktop.systemd.test",
-                        "Slow");
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "Slow");
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate method call: %m");
                 goto finish;
@@ -487,12 +431,7 @@ finish:
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
 
                 r = sd_bus_message_new_method_call(
-                                bus,
-                                &q,
-                                "org.freedesktop.systemd.test",
-                                "/",
-                                "org.freedesktop.systemd.test",
-                                "ExitClient2");
+                        bus, &q, "org.freedesktop.systemd.test", "/", "org.freedesktop.systemd.test", "ExitClient2");
                 if (r < 0) {
                         log_error_errno(r, "Failed to allocate method call: %m");
                         goto finish;

@@ -12,10 +12,11 @@ bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
-enum {
+enum
+{
         REPLACE_ENV_USE_ENVIRONMENT = 1u,
         REPLACE_ENV_ALLOW_BRACELESS = 2u,
-        REPLACE_ENV_ALLOW_EXTENDED  = 4u,
+        REPLACE_ENV_ALLOW_EXTENDED = 4u,
 };
 
 char *replace_env_n(const char *format, size_t n, char **env, unsigned flags);
@@ -35,7 +36,7 @@ bool strv_env_name_or_assignment_is_valid(char **l);
 char **strv_env_merge(size_t n_lists, ...);
 char **strv_env_delete(char **x, size_t n_lists, ...); /* New copy */
 
-char **strv_env_set(char **x, const char *p); /* New copy ... */
+char **strv_env_set(char **x, const char *p);   /* New copy ... */
 char **strv_env_unset(char **l, const char *p); /* In place ... */
 char **strv_env_unset_many(char **l, ...) _sentinel_;
 int strv_env_replace(char ***l, char *p); /* In place ... */

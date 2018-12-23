@@ -61,7 +61,7 @@ struct DnsStream {
         DnsQuery *query;                         /* when used by the DNS stub logic */
 
         /* used when DNS-over-TLS is enabled */
-        bool encrypted:1;
+        bool encrypted : 1;
 
         LIST_FIELDS(DnsStream, streams);
 };
@@ -73,7 +73,7 @@ int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 DnsStream *dns_stream_unref(DnsStream *s);
 DnsStream *dns_stream_ref(DnsStream *s);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream *, dns_stream_unref);
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p);
 ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags);

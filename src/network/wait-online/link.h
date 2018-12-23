@@ -23,4 +23,4 @@ Link *link_free(Link *l);
 int link_update_rtnl(Link *l, sd_netlink_message *m);
 int link_update_monitor(Link *l);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Link *, link_free);

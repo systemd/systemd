@@ -17,7 +17,7 @@
 
 static const char *arg_suffix = NULL;
 
-static const char* const path_table[_SD_PATH_MAX] = {
+static const char *const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY] = "temporary",
         [SD_PATH_TEMPORARY_LARGE] = "temporary-large",
         [SD_PATH_SYSTEM_BINARIES] = "system-binaries",
@@ -100,8 +100,7 @@ static int print_home(const char *n) {
                 }
         }
 
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Path %s not known.", n);
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Path %s not known.", n);
 }
 
 static int help(void) {
@@ -117,27 +116,25 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --suffix=SUFFIX    Suffix to append to paths\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_SUFFIX,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "suffix", required_argument, NULL, ARG_SUFFIX },
+                                                 {} };
 
         int c;
 
@@ -168,7 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int run(int argc, char* argv[]) {
+static int run(int argc, char *argv[]) {
         int r;
 
         log_parse_environment();

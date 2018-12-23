@@ -30,13 +30,13 @@ const char *net_get_name(sd_device *device) {
 
         /* fetch some persistent data unique (on this machine) to this device */
         FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
-                if (sd_device_get_property_value(device, field, &name) >= 0)
-                        return name;
+        if (sd_device_get_property_value(device, field, &name) >= 0)
+                return name;
 
         return NULL;
 }
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+#define HASH_KEY SD_ID128_MAKE(d3, 1e, 48, fa, 90, fe, 4b, 4c, 9d, af, d5, d7, a1, b1, 2e, 8a)
 
 int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         size_t l, sz = 0;
@@ -55,21 +55,20 @@ int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         v = alloca(sz);
 
         /* fetch some persistent data unique to this machine */
-        r = sd_id128_get_machine((sd_id128_t*) v);
+        r = sd_id128_get_machine((sd_id128_t *) v);
         if (r < 0)
-                 return r;
+                return r;
         memcpy(v + sizeof(sd_id128_t), name, l);
 
         /* Let's hash the machine ID plus the device name. We
-        * use a fixed, but originally randomly created hash
-        * key here. */
+         * use a fixed, but originally randomly created hash
+         * key here. */
         *result = htole64(siphash24(v, sz, HASH_KEY.bytes));
 
         return 0;
 }
 
-static bool net_condition_test_strv(char * const *raw_patterns,
-                                    const char *string) {
+static bool net_condition_test_strv(char *const *raw_patterns, const char *string) {
         if (strv_isempty(raw_patterns))
                 return true;
 
@@ -79,7 +78,7 @@ static bool net_condition_test_strv(char * const *raw_patterns,
                 size_t i, length;
 
                 length = strv_length(raw_patterns) + 1; /* Include the NULL. */
-                patterns = newa(char*, length);
+                patterns = newa(char *, length);
                 patterns[0] = raw_patterns[0] + 1; /* Skip the "!". */
                 for (i = 1; i < length; i++)
                         patterns[i] = raw_patterns[i];
@@ -91,10 +90,10 @@ static bool net_condition_test_strv(char * const *raw_patterns,
 }
 
 bool net_match_config(Set *match_mac,
-                      char * const *match_paths,
-                      char * const *match_drivers,
-                      char * const *match_types,
-                      char * const *match_names,
+                      char *const *match_paths,
+                      char *const *match_drivers,
+                      char *const *match_types,
+                      char *const *match_names,
                       Condition *match_host,
                       Condition *match_virt,
                       Condition *match_kernel_cmdline,
@@ -181,17 +180,16 @@ int config_parse_net_condition(const char *unit,
         return 0;
 }
 
-int config_parse_ifnames(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ifnames(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
 
         char ***sv = data;
         int r;
@@ -213,7 +211,8 @@ int config_parse_ifnames(
                         break;
 
                 if (!ifname_valid(word)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
                         return 0;
                 }
 
@@ -251,7 +250,8 @@ int config_parse_ifalias(const char *unit,
                 return log_oom();
 
         if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -343,7 +343,7 @@ int config_parse_hwaddrs(const char *unit,
                         return 0;
                 }
 
-                n = new(struct ether_addr, 1);
+                n = new (struct ether_addr, 1);
                 if (!n)
                         return log_oom();
 
@@ -371,17 +371,16 @@ int config_parse_hwaddrs(const char *unit,
         return 0;
 }
 
-int config_parse_bridge_port_priority(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_bridge_port_priority(const char *unit,
+                                      const char *filename,
+                                      unsigned line,
+                                      const char *section,
+                                      unsigned section_line,
+                                      const char *lvalue,
+                                      int ltype,
+                                      const char *rvalue,
+                                      void *data,
+                                      void *userdata) {
 
         uint16_t i;
         int r;
@@ -393,18 +392,23 @@ int config_parse_bridge_port_priority(
 
         r = safe_atou16(rvalue, &i);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse bridge port priority, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse bridge port priority, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Bridge port priority is larger than maximum %u, ignoring: %s", LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Bridge port priority is larger than maximum %u, ignoring: %s",
+                           LINK_BRIDGE_PORT_PRIORITY_MAX,
+                           rvalue);
                 return 0;
         }
 
-        *((uint16_t *)data) = i;
+        *((uint16_t *) data) = i;
 
         return 0;
 }
@@ -417,8 +421,7 @@ void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         assert(size);
 
         for (i = 0; i < size; i++)
-                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
-                        (i < (size - 1)) ? " ": "");
+                fprintf(f, "%s%s", inet_ntoa(addresses[i]), (i < (size - 1)) ? " " : "");
 }
 
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
@@ -467,7 +470,7 @@ void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size)
         for (i = 0; i < size; i++) {
                 char buffer[INET6_ADDRSTRLEN];
 
-                fputs(inet_ntop(AF_INET6, addresses+i, buffer, sizeof(buffer)), f);
+                fputs(inet_ntop(AF_INET6, addresses + i, buffer, sizeof(buffer)), f);
 
                 if (i < size - 1)
                         fputc(' ', f);
@@ -529,7 +532,7 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
                 assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
 
                 fprintf(f, "%s/%" PRIu8, inet_ntoa(dest), length);
-                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " ": "");
+                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " " : "");
         }
 
         fputs("\n", f);
@@ -544,7 +547,7 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
         assert(ret_allocated);
         assert(string);
 
-         /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
+        /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 char *tok, *tok_end;

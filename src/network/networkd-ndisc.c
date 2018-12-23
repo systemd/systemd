@@ -62,26 +62,24 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
         SET_FOREACH(address, link->addresses, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
-                        char buffer[INET6_ADDRSTRLEN];
+        if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
+                char buffer[INET6_ADDRSTRLEN];
 
-                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
-                        return 0;
-                }
+                log_link_debug(link,
+                               "No NDisc route added, gateway %s matches local address",
+                               inet_ntop(AF_INET6, &address->in_addr.in6, buffer, sizeof(buffer)));
+                return 0;
+        }
 
         SET_FOREACH(address, link->addresses_foreign, i)
-                if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
-                        char buffer[INET6_ADDRSTRLEN];
+        if (!memcmp(&gateway, &address->in_addr.in6, sizeof(address->in_addr.in6))) {
+                char buffer[INET6_ADDRSTRLEN];
 
-                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       inet_ntop(AF_INET6,
-                                                 &address->in_addr.in6,
-                                                 buffer, sizeof(buffer)));
-                        return 0;
-                }
+                log_link_debug(link,
+                               "No NDisc route added, gateway %s matches local address",
+                               inet_ntop(AF_INET6, &address->in_addr.in6, buffer, sizeof(buffer)));
+                return 0;
+        }
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
@@ -163,12 +161,12 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
         if (in_addr_is_null(AF_INET6, (const union in_addr_union *) &link->network->ipv6_token) == 0)
-                memcpy(((char *)&address->in_addr.in6) + 8, ((char *)&link->network->ipv6_token) + 8, 8);
+                memcpy(((char *) &address->in_addr.in6) + 8, ((char *) &link->network->ipv6_token) + 8, 8);
         else {
                 /* see RFC4291 section 2.5.1 */
-                address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
+                address->in_addr.in6.s6_addr[8] = link->mac.ether_addr_octet[0];
                 address->in_addr.in6.s6_addr[8] ^= 1 << 1;
-                address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
+                address->in_addr.in6.s6_addr[9] = link->mac.ether_addr_octet[1];
                 address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
                 address->in_addr.in6.s6_addr[11] = 0xff;
                 address->in_addr.in6.s6_addr[12] = 0xfe;
@@ -177,7 +175,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
         }
         address->prefixlen = prefixlen;
-        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+        address->flags = IFA_F_NOPREFIXROUTE | IFA_F_MANAGETEMPADDR;
         address->cinfo.ifa_prefered = lifetime_preferred;
 
         /* see RFC4862 section 5.5.3.e */
@@ -354,9 +352,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ NDiscRDNSS *x = NULL;
-                NDiscRDNSS d = {
-                        .address = a[i],
-                }, *y;
+                NDiscRDNSS d =
+                                   {
+                                           .address = a[i],
+                                   },
+                           *y;
 
                 if (lifetime == 0) {
                         (void) set_remove(link->ndisc_rdnss, &d);
@@ -381,11 +381,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_oom();
 
-                x = new(NDiscRDNSS, 1);
+                x = new (NDiscRDNSS, 1);
                 if (!x)
                         return log_oom();
 
-                *x = (NDiscRDNSS) {
+                *x = (NDiscRDNSS){
                         .address = a[i],
                         .valid_until = time_now + lifetime * USEC_PER_SEC,
                 };
@@ -648,16 +648,16 @@ void ndisc_vacuum(Link *link) {
         time_now = now(clock_boottime_or_monotonic());
 
         SET_FOREACH(r, link->ndisc_rdnss, i)
-                if (r->valid_until < time_now) {
-                        free(set_remove(link->ndisc_rdnss, r));
-                        link_dirty(link);
-                }
+        if (r->valid_until < time_now) {
+                free(set_remove(link->ndisc_rdnss, r));
+                link_dirty(link);
+        }
 
         SET_FOREACH(d, link->ndisc_dnssl, i)
-                if (d->valid_until < time_now) {
-                        free(set_remove(link->ndisc_dnssl, d));
-                        link_dirty(link);
-                }
+        if (d->valid_until < time_now) {
+                free(set_remove(link->ndisc_dnssl, d));
+                link_dirty(link);
+        }
 }
 
 void ndisc_flush(Link *link) {

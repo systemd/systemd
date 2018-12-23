@@ -26,11 +26,10 @@ void source_free(RemoteSource *source) {
  * Initialize zero-filled source with given values. On success, takes
  * ownership of fd, name, and writer, otherwise does not touch them.
  */
-RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer) {
+RemoteSource *source_new(int fd, bool passive_fd, char *name, Writer *writer) {
         RemoteSource *source;
 
-        log_debug("Creating source for %sfd:%d (%s)",
-                  passive_fd ? "passive " : "", fd, name);
+        log_debug("Creating source for %sfd:%d (%s)", passive_fd ? "passive " : "", fd, name);
 
         assert(fd >= 0);
 
@@ -58,8 +57,7 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 return r;
 
         /* We have a full event */
-        log_trace("Received full event from source@%p fd:%d (%s)",
-                  source, source->importer.fd, source->importer.name);
+        log_trace("Received full event from source@%p fd:%d (%s)", source, source->importer.fd, source->importer.name);
 
         if (source->importer.iovw.count == 0) {
                 log_warning("Entry with no payload, skipping");
@@ -73,12 +71,11 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 log_error_errno(r, "Entry is invalid, ignoring.");
                 r = 0;
         } else if (r < 0)
-                log_error_errno(r, "Failed to write entry of %zu bytes: %m",
-                                iovw_size(&source->importer.iovw));
+                log_error_errno(r, "Failed to write entry of %zu bytes: %m", iovw_size(&source->importer.iovw));
         else
                 r = 1;
 
- freeing:
+freeing:
         journal_importer_drop_iovw(&source->importer);
         return r;
 }

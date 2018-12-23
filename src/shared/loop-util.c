@@ -13,7 +13,7 @@
 
 int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         const struct loop_info64 info = {
-                .lo_flags = LO_FLAGS_AUTOCLEAR|LO_FLAGS_PARTSCAN|(open_flags == O_RDONLY ? LO_FLAGS_READ_ONLY : 0),
+                .lo_flags = LO_FLAGS_AUTOCLEAR | LO_FLAGS_PARTSCAN | (open_flags == O_RDONLY ? LO_FLAGS_READ_ONLY : 0),
         };
 
         _cleanup_close_ int control = -1, loop = -1;
@@ -42,7 +42,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 if (!d)
                         return -ENOMEM;
 
-                *d = (LoopDevice) {
+                *d = (LoopDevice){
                         .fd = copy,
                         .nr = -1,
                 };
@@ -56,7 +56,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         if (r < 0)
                 return r;
 
-        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        control = open("/dev/loop-control", O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
         if (control < 0)
                 return -errno;
 
@@ -67,7 +67,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
                 return -ENOMEM;
 
-        loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        loop = open(loopdev, O_CLOEXEC | O_NONBLOCK | O_NOCTTY | open_flags);
         if (loop < 0)
                 return -errno;
 
@@ -77,11 +77,11 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0)
                 return -errno;
 
-        d = new(LoopDevice, 1);
+        d = new (LoopDevice, 1);
         if (!d)
                 return -ENOMEM;
 
-        *d = (LoopDevice) {
+        *d = (LoopDevice){
                 .fd = TAKE_FD(loop),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
@@ -99,14 +99,14 @@ int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret)
         assert(ret);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        fd = open(path, O_CLOEXEC | O_NONBLOCK | O_NOCTTY | open_flags);
         if (fd < 0)
                 return -errno;
 
         return loop_device_make(fd, open_flags, ret);
 }
 
-LoopDevice* loop_device_unref(LoopDevice *d) {
+LoopDevice *loop_device_unref(LoopDevice *d) {
         if (!d)
                 return NULL;
 
@@ -115,7 +115,6 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 if (d->nr >= 0 && !d->relinquished) {
                         if (ioctl(d->fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
-
                 }
 
                 safe_close(d->fd);
@@ -124,7 +123,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
         if (d->nr >= 0 && !d->relinquished) {
                 _cleanup_close_ int control = -1;
 
-                control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                control = open("/dev/loop-control", O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (control < 0)
                         log_debug_errno(errno, "Failed to open loop control device: %m");
                 else {

@@ -29,7 +29,7 @@ bool hostname_is_set(void) {
         return true;
 }
 
-char* gethostname_malloc(void) {
+char *gethostname_malloc(void) {
         struct utsname u;
 
         /* This call tries to return something useful, either the actual hostname
@@ -70,11 +70,7 @@ int gethostname_strict(char **ret) {
 }
 
 bool valid_ldh_char(char c) {
-        return
-                (c >= 'a' && c <= 'z') ||
-                (c >= 'A' && c <= 'Z') ||
-                (c >= '0' && c <= '9') ||
-                c == '-';
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-';
 }
 
 /**
@@ -129,15 +125,15 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
         if (hyphen)
                 return false;
 
-        if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
-                                  * Linux, but DNS allows domain names
-                                  * up to 255 characters */
+        if (p - s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
+                                    * Linux, but DNS allows domain names
+                                    * up to 255 characters */
                 return false;
 
         return true;
 }
 
-char* hostname_cleanup(char *s) {
+char *hostname_cleanup(char *s) {
         char *p, *d;
         bool dot, hyphen;
 
@@ -181,14 +177,10 @@ bool is_localhost(const char *hostname) {
         /* This tries to identify local host and domain names
          * described in RFC6761 plus the redhatism of localdomain */
 
-        return strcaseeq(hostname, "localhost") ||
-               strcaseeq(hostname, "localhost.") ||
-               strcaseeq(hostname, "localhost.localdomain") ||
-               strcaseeq(hostname, "localhost.localdomain.") ||
-               endswith_no_case(hostname, ".localhost") ||
-               endswith_no_case(hostname, ".localhost.") ||
-               endswith_no_case(hostname, ".localhost.localdomain") ||
-               endswith_no_case(hostname, ".localhost.localdomain.");
+        return strcaseeq(hostname, "localhost") || strcaseeq(hostname, "localhost.") || strcaseeq(hostname, "localhost.localdomain") ||
+                strcaseeq(hostname, "localhost.localdomain.") || endswith_no_case(hostname, ".localhost") ||
+                endswith_no_case(hostname, ".localhost.") || endswith_no_case(hostname, ".localhost.localdomain") ||
+                endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
 bool is_gateway_hostname(const char *hostname) {
@@ -197,8 +189,7 @@ bool is_gateway_hostname(const char *hostname) {
         /* This tries to identify the valid syntaxes for the our
          * synthetic "gateway" host. */
 
-        return
-                strcaseeq(hostname, "_gateway") || strcaseeq(hostname, "_gateway.")
+        return strcaseeq(hostname, "_gateway") || strcaseeq(hostname, "_gateway.")
 #if ENABLE_COMPAT_GATEWAY_HOSTNAME
                 || strcaseeq(hostname, "gateway") || strcaseeq(hostname, "gateway.")
 #endif
@@ -304,5 +295,4 @@ int read_etc_hostname(const char *path, char **ret) {
                 return -errno;
 
         return read_etc_hostname_stream(f, ret);
-
 }

@@ -17,8 +17,8 @@
 #include "path-util.h"
 #include "set.h"
 
-#define MAKE_SET(s) ((Set*) s)
-#define MAKE_FDSET(s) ((FDSet*) s)
+#define MAKE_SET(s) ((Set *) s)
+#define MAKE_FDSET(s) ((FDSet *) s)
 
 FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
@@ -48,7 +48,7 @@ int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds) {
         return 0;
 }
 
-FDSet* fdset_free(FDSet *s) {
+FDSet *fdset_free(FDSet *s) {
         void *p;
 
         while ((p = set_steal_first(MAKE_SET(s)))) {
@@ -192,7 +192,7 @@ int fdset_new_listen_fds(FDSet **_s, bool unset) {
         }
 
         n = sd_listen_fds(unset);
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fdset_put(s, fd);
                 if (r < 0)
                         goto fail;
@@ -219,7 +219,7 @@ int fdset_close_others(FDSet *fds) {
         if (m > 0) {
                 a = newa(int, m);
                 SET_FOREACH(e, MAKE_SET(fds), i)
-                        a[j++] = PTR_TO_FD(e);
+                a[j++] = PTR_TO_FD(e);
         }
 
         assert(j == m);

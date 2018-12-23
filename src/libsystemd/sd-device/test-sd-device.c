@@ -66,7 +66,7 @@ static void test_sd_device_enumerator_devices(void) {
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
         FOREACH_DEVICE(e, d)
-                test_sd_device_one(d);
+        test_sd_device_one(d);
 }
 
 static void test_sd_device_enumerator_subsystems(void) {
@@ -78,7 +78,7 @@ static void test_sd_device_enumerator_subsystems(void) {
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
         FOREACH_SUBSYSTEM(e, d)
-                test_sd_device_one(d);
+        test_sd_device_one(d);
 }
 
 static void test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
@@ -138,7 +138,7 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
                 log_debug("Added subsystem:%s syspath:%s", subsystem, syspath);
         }
 
-        while ((h = hashmap_steal_first_key_and_value(subsystems, (void**) &s))) {
+        while ((h = hashmap_steal_first_key_and_value(subsystems, (void **) &s))) {
                 test_sd_device_enumerator_filter_subsystem_one(s, h);
                 hashmap_free(h);
                 free(s);

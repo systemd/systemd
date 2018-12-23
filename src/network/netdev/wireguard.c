@@ -31,11 +31,11 @@ static WireguardPeer *wireguard_peer_new(Wireguard *w, unsigned section) {
         if (w->last_peer_section == section && w->peers)
                 return w->peers;
 
-        peer = new(WireguardPeer, 1);
+        peer = new (WireguardPeer, 1);
         if (!peer)
                 return NULL;
 
-        *peer = (WireguardPeer) {
+        *peer = (WireguardPeer){
                 .flags = WGPEER_F_REPLACE_ALLOWEDIPS,
         };
 
@@ -113,16 +113,19 @@ static int set_wireguard_interface(NetDev *netdev) {
                                 if (r < 0)
                                         break;
 
-                                r = sd_netlink_message_append_u16(message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
+                                r = sd_netlink_message_append_u16(
+                                        message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
                                 if (r < 0)
                                         break;
 
                                 if (peer->endpoint.sa.sa_family == AF_INET) {
-                                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
+                                        r = sd_netlink_message_append_data(
+                                                message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
                                         if (r < 0)
                                                 break;
                                 } else if (peer->endpoint.sa.sa_family == AF_INET6) {
-                                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
+                                        r = sd_netlink_message_append_data(
+                                                message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
                                         if (r < 0)
                                                 break;
                                 }
@@ -167,7 +170,8 @@ static int set_wireguard_interface(NetDev *netdev) {
                         if (mask_start) {
                                 r = sd_netlink_message_cancel_array(message);
                                 if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not cancel wireguard allowed ip message attribute: %m");
+                                        return log_netdev_error_errno(
+                                                netdev, r, "Could not cancel wireguard allowed ip message attribute: %m");
                         }
                         r = sd_netlink_message_close_container(message);
                         if (r < 0)
@@ -198,7 +202,7 @@ static int set_wireguard_interface(NetDev *netdev) {
         return 0;
 }
 
-static WireguardEndpoint* wireguard_endpoint_free(WireguardEndpoint *e) {
+static WireguardEndpoint *wireguard_endpoint_free(WireguardEndpoint *e) {
         if (!e)
                 return NULL;
         e->host = mfree(e->host);
@@ -214,7 +218,7 @@ static void wireguard_endpoint_destroy_callback(WireguardEndpoint *e) {
         wireguard_endpoint_free(e);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(WireguardEndpoint*, wireguard_endpoint_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(WireguardEndpoint *, wireguard_endpoint_free);
 
 static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
         NetDev *netdev = userdata;
@@ -244,10 +248,7 @@ static int exponential_backoff_milliseconds(unsigned n_retries) {
         return (2 << MAX(n_retries, 7U)) * 100 * USEC_PER_MSEC;
 }
 
-static int wireguard_resolve_handler(sd_resolve_query *q,
-                                     int ret,
-                                     const struct addrinfo *ai,
-                                     WireguardEndpoint *e) {
+static int wireguard_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, WireguardEndpoint *e) {
         _cleanup_(netdev_unrefp) NetDev *netdev_will_unrefed = NULL;
         NetDev *netdev;
         Wireguard *w;
@@ -268,7 +269,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
                 log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", e->host, e->port, gai_strerror(ret));
                 LIST_PREPEND(endpoints, w->failed_endpoints, e);
                 (void) sd_resolve_query_set_destroy_callback(q, NULL); /* Avoid freeing endpoint by destroy callback. */
-                netdev_will_unrefed = netdev; /* But netdev needs to be unrefed. */
+                netdev_will_unrefed = netdev;                          /* But netdev needs to be unrefed. */
         } else if ((ai->ai_family == AF_INET && ai->ai_addrlen == sizeof(struct sockaddr_in)) ||
                    (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6)))
                 memcpy(&e->peer->endpoint, ai->ai_addr, ai->ai_addrlen);
@@ -311,11 +312,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
 }
 
 static void resolve_endpoints(NetDev *netdev) {
-        static const struct addrinfo hints = {
-                .ai_family = AF_UNSPEC,
-                .ai_socktype = SOCK_DGRAM,
-                .ai_protocol = IPPROTO_UDP
-        };
+        static const struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM, .ai_protocol = IPPROTO_UDP };
         WireguardEndpoint *endpoint;
         Wireguard *w;
         int r = 0;
@@ -412,8 +409,7 @@ static int parse_wireguard_key(const char *unit,
                 return 0;
         }
         if (len != WG_KEY_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Wireguard key is too short, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Wireguard key is too short, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -439,17 +435,7 @@ int config_parse_wireguard_private_key(const char *unit,
 
         assert(w);
 
-        return parse_wireguard_key(unit,
-                                   filename,
-                                   line,
-                                   section,
-                                   section_line,
-                                   lvalue,
-                                   ltype,
-                                   rvalue,
-                                   data,
-                                   &w->private_key);
-
+        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, &w->private_key);
 }
 
 int config_parse_wireguard_preshared_key(const char *unit,
@@ -475,16 +461,7 @@ int config_parse_wireguard_preshared_key(const char *unit,
         if (!peer)
                 return log_oom();
 
-        return parse_wireguard_key(unit,
-                                   filename,
-                                   line,
-                                   section,
-                                   section_line,
-                                   lvalue,
-                                   ltype,
-                                   rvalue,
-                                   data,
-                                   peer->preshared_key);
+        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->preshared_key);
 }
 
 int config_parse_wireguard_public_key(const char *unit,
@@ -510,16 +487,7 @@ int config_parse_wireguard_public_key(const char *unit,
         if (!peer)
                 return log_oom();
 
-        return parse_wireguard_key(unit,
-                                   filename,
-                                   line,
-                                   section,
-                                   section_line,
-                                   lvalue,
-                                   ltype,
-                                   rvalue,
-                                   data,
-                                   peer->public_key);
+        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->public_key);
 }
 
 int config_parse_wireguard_allowed_ips(const char *unit,
@@ -567,11 +535,11 @@ int config_parse_wireguard_allowed_ips(const char *unit,
                         return 0;
                 }
 
-                ipmask = new(WireguardIPmask, 1);
+                ipmask = new (WireguardIPmask, 1);
                 if (!ipmask)
                         return log_oom();
 
-                *ipmask = (WireguardIPmask) {
+                *ipmask = (WireguardIPmask){
                         .family = family,
                         .ip.in6 = addr.in6,
                         .cidr = prefixlen,
@@ -615,7 +583,8 @@ int config_parse_wireguard_endpoint(const char *unit,
                 begin = &rvalue[1];
                 end = strchr(rvalue, ']');
                 if (!end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Unable to find matching brace of endpoint, ignoring assignment: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Unable to find matching brace of endpoint, ignoring assignment: %s", rvalue);
                         return 0;
                 }
                 len = end - begin;
@@ -644,11 +613,11 @@ int config_parse_wireguard_endpoint(const char *unit,
         if (!port)
                 return log_oom();
 
-        endpoint = new(WireguardEndpoint, 1);
+        endpoint = new (WireguardEndpoint, 1);
         if (!endpoint)
                 return log_oom();
 
-        *endpoint = (WireguardEndpoint) {
+        *endpoint = (WireguardEndpoint){
                 .peer = TAKE_PTR(peer),
                 .host = TAKE_PTR(host),
                 .port = TAKE_PTR(port),
@@ -690,7 +659,13 @@ int config_parse_wireguard_keepalive(const char *unit,
         else {
                 r = safe_atou16(rvalue, &keepalive);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r, "The persistent keepalive interval must be 0-65535. Ignore assignment: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "The persistent keepalive interval must be 0-65535. Ignore assignment: %s",
+                                   rvalue);
         }
 
         peer->persistent_keepalive_interval = keepalive;

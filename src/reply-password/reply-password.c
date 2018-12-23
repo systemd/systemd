@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = log_error_errno(errno, "socket() failed: %m");
                 goto finish;

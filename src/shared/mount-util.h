@@ -13,22 +13,12 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
 int mount_move_root(const char *path);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE *, endmntent);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
 
-int mount_verbose(
-                int error_log_level,
-                const char *what,
-                const char *where,
-                const char *type,
-                unsigned long flags,
-                const char *options);
+int mount_verbose(int error_log_level, const char *what, const char *where, const char *type, unsigned long flags, const char *options);
 int umount_verbose(const char *where);
 
-int mount_option_mangle(
-                const char *options,
-                unsigned long mount_flags,
-                unsigned long *ret_mount_flags,
-                char **ret_remaining_options);
+int mount_option_mangle(const char *options, unsigned long mount_flags, unsigned long *ret_mount_flags, char **ret_remaining_options);
 
-const char* mode_to_inaccessible_node(mode_t mode);
+const char *mode_to_inaccessible_node(mode_t mode);

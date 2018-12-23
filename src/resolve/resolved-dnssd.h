@@ -9,7 +9,8 @@ typedef struct Manager Manager;
 typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
 
-enum {
+enum
+{
         DNS_TXT_ITEM_TEXT,
         DNS_TXT_ITEM_DATA
 };
@@ -40,7 +41,7 @@ struct DnssdService {
 
         Manager *manager;
 
-        bool withdrawn:1;
+        bool withdrawn : 1;
         uid_t originator;
 };
 
@@ -48,8 +49,8 @@ DnssdService *dnssd_service_free(DnssdService *service);
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data);
 DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService*, dnssd_service_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData*, dnssd_txtdata_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdService *, dnssd_service_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdTxtData *, dnssd_txtdata_free);
 
 int dnssd_render_instance_name(DnssdService *s, char **ret_name);
 int dnssd_load(Manager *manager);

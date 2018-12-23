@@ -22,7 +22,8 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < ELEMENTSOF(test_states); i++) {
                 s.state = test_states[i];
                 printf("\nWith collapsing for service state %s\n"
-                       "=========================================\n", service_state_to_string(s.state));
+                       "=========================================\n",
+                       service_state_to_string(s.state));
                 for (a = 0; a < _JOB_TYPE_MAX_MERGING; a++) {
                         for (b = 0; b < _JOB_TYPE_MAX_MERGING; b++) {
 
@@ -41,9 +42,8 @@ int main(int argc, char *argv[]) {
                                 for (c = 0; c < _JOB_TYPE_MAX_MERGING; c++) {
 
                                         /* Verify transitivity of mergeability of job types */
-                                        assert_se(!job_type_is_mergeable(a, b) ||
-                                               !job_type_is_mergeable(b, c) ||
-                                               job_type_is_mergeable(a, c));
+                                        assert_se(!job_type_is_mergeable(a, b) || !job_type_is_mergeable(b, c) ||
+                                                  job_type_is_mergeable(a, c));
 
                                         /* Verify that merged entries can be merged with the same entries
                                          * they can be merged with separately */
@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
 
                                         /* Verify that if a merged with b is not mergeable with c, then
                                          * either a or b is not mergeable with c either. */
-                                        assert_se(job_type_is_mergeable(ab, c) || !job_type_is_mergeable(a, c) || !job_type_is_mergeable(b, c));
+                                        assert_se(job_type_is_mergeable(ab, c) || !job_type_is_mergeable(a, c) ||
+                                                  !job_type_is_mergeable(b, c));
 
                                         bc = b;
                                         if (job_type_merge_and_collapse(&bc, c, u) >= 0) {
@@ -71,7 +72,11 @@ int main(int argc, char *argv[]) {
                                                 assert_se(ab_c == bc_a);
                                                 assert_se(ab_c == a_bc);
 
-                                                printf("%s + %s + %s = %s\n", job_type_to_string(a), job_type_to_string(b), job_type_to_string(c), job_type_to_string(ab_c));
+                                                printf("%s + %s + %s = %s\n",
+                                                       job_type_to_string(a),
+                                                       job_type_to_string(b),
+                                                       job_type_to_string(c),
+                                                       job_type_to_string(ab_c));
                                         }
                                 }
                         }

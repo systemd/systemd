@@ -6,7 +6,8 @@
 
 #include "sd-bus.h"
 
-enum {
+enum
+{
         BUS_MESSAGE_DUMP_WITH_HEADER = 1,
         BUS_MESSAGE_DUMP_SUBTREE_ONLY = 2,
 };

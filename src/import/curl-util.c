@@ -42,8 +42,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
                 action = 0;
 
         if (curl_multi_socket_action(g->curl, translated_fd, action, &k) != CURLM_OK)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to propagate IO event.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to propagate IO event.");
 
         curl_glue_check_finished(g);
         return 0;
@@ -96,7 +95,7 @@ static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, v
         else if (action == CURL_POLL_OUT)
                 events = EPOLLOUT;
         else if (action == CURL_POLL_INOUT)
-                events = EPOLLIN|EPOLLOUT;
+                events = EPOLLIN | EPOLLOUT;
 
         if (io) {
                 if (sd_event_source_set_io_events(io, events) < 0)
@@ -151,8 +150,7 @@ static int curl_glue_on_timer(sd_event_source *s, uint64_t usec, void *userdata)
         assert(g);
 
         if (curl_multi_socket_action(g->curl, CURL_SOCKET_TIMEOUT, 0, &k) != CURLM_OK)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to propagate timeout.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to propagate timeout.");
 
         curl_glue_check_finished(g);
         return 0;
@@ -238,11 +236,11 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
         if (!c)
                 return -ENOMEM;
 
-        g = new(CurlGlue, 1);
+        g = new (CurlGlue, 1);
         if (!g)
                 return -ENOMEM;
 
-        *g = (CurlGlue) {
+        *g = (CurlGlue){
                 .event = TAKE_PTR(e),
                 .curl = TAKE_PTR(c),
         };
@@ -333,7 +331,7 @@ struct curl_slist *curl_slist_new(const char *first, ...) {
                 struct curl_slist *n;
                 const char *i;
 
-                i = va_arg(ap, const char*);
+                i = va_arg(ap, const char *);
                 if (!i)
                         break;
 
@@ -359,7 +357,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         if (!p)
                 return 0;
 
-        sz -= p - (const char*) contents;
+        sz -= p - (const char *) contents;
 
         if (memchr(p, 0, sz))
                 return 0;
@@ -371,7 +369,7 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         }
 
         /* Truncate trailing whitespace */
-        while (sz > 0 && strchr(WHITESPACE, p[sz-1]))
+        while (sz > 0 && strchr(WHITESPACE, p[sz - 1]))
                 sz--;
 
         s = strndup(p, sz);

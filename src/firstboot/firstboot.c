@@ -14,7 +14,7 @@
  * MySQL, PostgreSQL, Perl and some other wide-spread packages do it the
  * same way since ages without any problems.
  */
-#  include <crypt.h>
+#include <crypt.h>
 #endif
 
 #include "sd-id128.h"
@@ -44,7 +44,7 @@
 #include "user-util.h"
 
 static char *arg_root = NULL;
-static char *arg_locale = NULL;  /* $LANG */
+static char *arg_locale = NULL; /* $LANG */
 static char *arg_keymap = NULL;
 static char *arg_locale_messages = NULL; /* $LC_MESSAGES */
 static char *arg_timezone = NULL;
@@ -94,8 +94,7 @@ static void print_welcome(void) {
 
         r = parse_os_release(arg_root, "PRETTY_NAME", &pretty_name, NULL);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to read os-release file, ignoring: %m");
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to read os-release file, ignoring: %m");
 
         printf("\nWelcome to your new installation of %s!\nPlease configure a few basic system settings:\n\n",
                isempty(pretty_name) ? "Linux" : pretty_name);
@@ -126,7 +125,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
 
         for (i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j ++) {
+                for (j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
@@ -180,9 +179,9 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
                                 continue;
                         }
 
-                        log_info("Selected '%s'.", l[u-1]);
+                        log_info("Selected '%s'.", l[u - 1]);
 
-                        c = strdup(l[u-1]);
+                        c = strdup(l[u - 1]);
                         if (!c)
                                 return log_oom();
 
@@ -242,7 +241,7 @@ static int prompt_locale(void) {
 
 static int process_locale(void) {
         const char *etc_localeconf;
-        char* locales[3];
+        char *locales[3];
         unsigned i = 0;
         int r;
 
@@ -311,8 +310,7 @@ static int prompt_keymap(void) {
 
         putchar('\n');
 
-        return prompt_loop("Please enter system keymap name or number",
-                           kmaps, keymap_is_valid, &arg_keymap);
+        return prompt_loop("Please enter system keymap name or number", kmaps, keymap_is_valid, &arg_keymap);
 }
 
 static int process_keymap(void) {
@@ -451,7 +449,8 @@ static int prompt_hostname(void) {
         for (;;) {
                 _cleanup_free_ char *h = NULL;
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                r = ask_string(
+                        &h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
 
@@ -490,8 +489,7 @@ static int process_hostname(void) {
                 return 0;
 
         mkdir_parents(etc_hostname, 0755);
-        r = write_string_file(etc_hostname, arg_hostname,
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC);
+        r = write_string_file(etc_hostname, arg_hostname, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_hostname);
 
@@ -512,8 +510,7 @@ static int process_machine_id(void) {
                 return 0;
 
         mkdir_parents(etc_machine_id, 0755);
-        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id),
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC);
+        r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write machine id: %m");
 
@@ -581,7 +578,7 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
         assert(p);
 
         RUN_WITH_UMASK(0777)
-                f = fopen(path, "wex");
+        f = fopen(path, "wex");
         if (!f)
                 return -errno;
 
@@ -601,7 +598,7 @@ static int process_root_password(void) {
                 "./";
 
         struct spwd item = {
-                .sp_namp = (char*) "root",
+                .sp_namp = (char *) "root",
                 .sp_min = -1,
                 .sp_max = -1,
                 .sp_warn = -1,
@@ -611,7 +608,7 @@ static int process_root_password(void) {
         };
 
         _cleanup_close_ int lock = -1;
-        char salt[3+16+1+1];
+        char salt[3 + 16 + 1 + 1];
         uint8_t raw[16];
         unsigned i;
         char *j;
@@ -723,17 +720,17 @@ static int help(void) {
                "     --copy-root-password      Copy root password from host\n"
                "     --copy                    Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
                 ARG_LOCALE,
@@ -758,32 +755,30 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SETUP_MACHINE_ID,
         };
 
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "locale",               required_argument, NULL, ARG_LOCALE               },
-                { "locale-messages",      required_argument, NULL, ARG_LOCALE_MESSAGES      },
-                { "keymap",               required_argument, NULL, ARG_KEYMAP               },
-                { "timezone",             required_argument, NULL, ARG_TIMEZONE             },
-                { "hostname",             required_argument, NULL, ARG_HOSTNAME             },
-                { "machine-id",           required_argument, NULL, ARG_MACHINE_ID           },
-                { "root-password",        required_argument, NULL, ARG_ROOT_PASSWORD        },
-                { "root-password-file",   required_argument, NULL, ARG_ROOT_PASSWORD_FILE   },
-                { "prompt",               no_argument,       NULL, ARG_PROMPT               },
-                { "prompt-locale",        no_argument,       NULL, ARG_PROMPT_LOCALE        },
-                { "prompt-keymap",        no_argument,       NULL, ARG_PROMPT_KEYMAP        },
-                { "prompt-timezone",      no_argument,       NULL, ARG_PROMPT_TIMEZONE      },
-                { "prompt-hostname",      no_argument,       NULL, ARG_PROMPT_HOSTNAME      },
-                { "prompt-root-password", no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD },
-                { "copy",                 no_argument,       NULL, ARG_COPY                 },
-                { "copy-locale",          no_argument,       NULL, ARG_COPY_LOCALE          },
-                { "copy-keymap",          no_argument,       NULL, ARG_COPY_KEYMAP          },
-                { "copy-timezone",        no_argument,       NULL, ARG_COPY_TIMEZONE        },
-                { "copy-root-password",   no_argument,       NULL, ARG_COPY_ROOT_PASSWORD   },
-                { "setup-machine-id",     no_argument,       NULL, ARG_SETUP_MACHINE_ID     },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "root", required_argument, NULL, ARG_ROOT },
+                                                 { "locale", required_argument, NULL, ARG_LOCALE },
+                                                 { "locale-messages", required_argument, NULL, ARG_LOCALE_MESSAGES },
+                                                 { "keymap", required_argument, NULL, ARG_KEYMAP },
+                                                 { "timezone", required_argument, NULL, ARG_TIMEZONE },
+                                                 { "hostname", required_argument, NULL, ARG_HOSTNAME },
+                                                 { "machine-id", required_argument, NULL, ARG_MACHINE_ID },
+                                                 { "root-password", required_argument, NULL, ARG_ROOT_PASSWORD },
+                                                 { "root-password-file", required_argument, NULL, ARG_ROOT_PASSWORD_FILE },
+                                                 { "prompt", no_argument, NULL, ARG_PROMPT },
+                                                 { "prompt-locale", no_argument, NULL, ARG_PROMPT_LOCALE },
+                                                 { "prompt-keymap", no_argument, NULL, ARG_PROMPT_KEYMAP },
+                                                 { "prompt-timezone", no_argument, NULL, ARG_PROMPT_TIMEZONE },
+                                                 { "prompt-hostname", no_argument, NULL, ARG_PROMPT_HOSTNAME },
+                                                 { "prompt-root-password", no_argument, NULL, ARG_PROMPT_ROOT_PASSWORD },
+                                                 { "copy", no_argument, NULL, ARG_COPY },
+                                                 { "copy-locale", no_argument, NULL, ARG_COPY_LOCALE },
+                                                 { "copy-keymap", no_argument, NULL, ARG_COPY_KEYMAP },
+                                                 { "copy-timezone", no_argument, NULL, ARG_COPY_TIMEZONE },
+                                                 { "copy-root-password", no_argument, NULL, ARG_COPY_ROOT_PASSWORD },
+                                                 { "setup-machine-id", no_argument, NULL, ARG_SETUP_MACHINE_ID },
+                                                 {} };
 
         int r, c;
 
@@ -808,8 +803,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LOCALE:
                         if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Locale %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale, optarg);
                         if (r < 0)
@@ -819,8 +813,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LOCALE_MESSAGES:
                         if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Locale %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_locale_messages, optarg);
                         if (r < 0)
@@ -830,8 +823,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_KEYMAP:
                         if (!keymap_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Keymap %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_keymap, optarg);
                         if (r < 0)
@@ -841,8 +833,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TIMEZONE:
                         if (!timezone_is_valid(optarg, LOG_ERR))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Timezone %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone %s is not valid.", optarg);
 
                         r = free_and_strdup(&arg_timezone, optarg);
                         if (r < 0)
@@ -867,8 +858,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_HOSTNAME:
                         if (!hostname_is_valid(optarg, true))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Host name %s is not valid.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Host name %s is not valid.", optarg);
 
                         hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
@@ -879,8 +869,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_MACHINE_ID:
                         if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse machine id %s.", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse machine id %s.", optarg);
 
                         break;
 

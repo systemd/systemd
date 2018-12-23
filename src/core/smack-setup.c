@@ -25,22 +25,22 @@
 
 #if ENABLE_SMACK
 
-static int write_access2_rules(const char* srcdir) {
+static int write_access2_rules(const char *srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
         int dfd = -1;
         int r = 0;
 
-        load2_fd = open("/sys/fs/smackfs/load2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (load2_fd < 0)  {
+        load2_fd = open("/sys/fs/smackfs/load2", O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (load2_fd < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/load2': %m");
                 return -errno; /* negative error */
         }
 
-        change_fd = open("/sys/fs/smackfs/change-rule", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (change_fd < 0)  {
+        change_fd = open("/sys/fs/smackfs/change-rule", O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (change_fd < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/change-rule': %m");
                 return -errno; /* negative error */
@@ -64,7 +64,7 @@ static int write_access2_rules(const char* srcdir) {
                 if (!dirent_is_file(entry))
                         continue;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
+                fd = openat(dfd, entry->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0) {
                         if (r == 0)
                                 r = -errno;
@@ -105,8 +105,11 @@ static int write_access2_rules(const char* srcdir) {
                         if (write(isempty(acc2) ? load2_fd : change_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '%s' in '%s': %m",
-                                                buf, isempty(acc2) ? "/sys/fs/smackfs/load2" : "/sys/fs/smackfs/change-rule", entry->d_name);
+                                log_error_errno(errno,
+                                                "Failed to write '%s' to '%s' in '%s': %m",
+                                                buf,
+                                                isempty(acc2) ? "/sys/fs/smackfs/load2" : "/sys/fs/smackfs/change-rule",
+                                                entry->d_name);
                         }
                 }
         }
@@ -114,15 +117,15 @@ static int write_access2_rules(const char* srcdir) {
         return r;
 }
 
-static int write_cipso2_rules(const char* srcdir) {
+static int write_cipso2_rules(const char *srcdir) {
         _cleanup_close_ int cipso2_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
         int dfd = -1;
         int r = 0;
 
-        cipso2_fd = open("/sys/fs/smackfs/cipso2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (cipso2_fd < 0)  {
+        cipso2_fd = open("/sys/fs/smackfs/cipso2", O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (cipso2_fd < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/cipso2': %m");
                 return -errno; /* negative error */
@@ -146,7 +149,7 @@ static int write_cipso2_rules(const char* srcdir) {
                 if (!dirent_is_file(entry))
                         continue;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
+                fd = openat(dfd, entry->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0) {
                         if (r == 0)
                                 r = -errno;
@@ -180,8 +183,7 @@ static int write_cipso2_rules(const char* srcdir) {
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m",
-                                                buf, entry->d_name);
+                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m", buf, entry->d_name);
                                 break;
                         }
                 }
@@ -190,7 +192,7 @@ static int write_cipso2_rules(const char* srcdir) {
         return r;
 }
 
-static int write_netlabel_rules(const char* srcdir) {
+static int write_netlabel_rules(const char *srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
@@ -198,7 +200,7 @@ static int write_netlabel_rules(const char* srcdir) {
         int r = 0;
 
         dst = fopen("/sys/fs/smackfs/netlabel", "we");
-        if (!dst)  {
+        if (!dst) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open /sys/fs/smackfs/netlabel: %m");
                 return -errno; /* negative error */
@@ -219,7 +221,7 @@ static int write_netlabel_rules(const char* srcdir) {
                 int fd;
                 _cleanup_fclose_ FILE *policy = NULL;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
+                fd = openat(dfd, entry->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0) {
                         if (r == 0)
                                 r = -errno;
@@ -309,7 +311,7 @@ static int write_onlycap_list(void) {
 
         list[len - 1] = 0;
 
-        onlycap_fd = open("/sys/fs/smackfs/onlycap", O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        onlycap_fd = open("/sys/fs/smackfs/onlycap", O_WRONLY | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
         if (onlycap_fd < 0) {
                 if (errno != ENOENT)
                         log_warning_errno(errno, "Failed to open '/sys/fs/smackfs/onlycap': %m");
@@ -334,7 +336,7 @@ int mac_smack_setup(bool *loaded_policy) {
         assert(loaded_policy);
 
         r = write_access2_rules("/etc/smack/accesses.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack is not enabled in the kernel.");
                 return 0;
@@ -356,8 +358,7 @@ int mac_smack_setup(bool *loaded_policy) {
         r = write_string_file("/sys/fs/smackfs/ambient", SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK ambient label \"" SMACK_RUN_LABEL "\": %m");
-        r = write_string_file("/sys/fs/smackfs/netlabel",
-                              "0.0.0.0/0 " SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file("/sys/fs/smackfs/netlabel", "0.0.0.0/0 " SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK netlabel rule \"0.0.0.0/0 " SMACK_RUN_LABEL "\": %m");
         r = write_string_file("/sys/fs/smackfs/netlabel", "127.0.0.1 -CIPSO", WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -366,7 +367,7 @@ int mac_smack_setup(bool *loaded_policy) {
 #endif
 
         r = write_cipso2_rules("/etc/smack/cipso.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack/CIPSO is not enabled in the kernel.");
                 return 0;
@@ -382,7 +383,7 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
         r = write_netlabel_rules("/etc/smack/netlabel.d/");
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack/CIPSO is not enabled in the kernel.");
                 return 0;
@@ -398,7 +399,7 @@ int mac_smack_setup(bool *loaded_policy) {
         }
 
         r = write_onlycap_list();
-        switch(r) {
+        switch (r) {
         case -ENOENT:
                 log_debug("Smack is not enabled in the kernel.");
                 break;

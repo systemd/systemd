@@ -34,7 +34,7 @@ int strcmp_ptr(const char *a, const char *b) {
         return 0;
 }
 
-char* endswith(const char *s, const char *postfix) {
+char *endswith(const char *s, const char *postfix) {
         size_t sl, pl;
 
         assert(s);
@@ -44,7 +44,7 @@ char* endswith(const char *s, const char *postfix) {
         pl = strlen(postfix);
 
         if (pl == 0)
-                return (char*) s + sl;
+                return (char *) s + sl;
 
         if (sl < pl)
                 return NULL;
@@ -52,10 +52,10 @@ char* endswith(const char *s, const char *postfix) {
         if (memcmp(s + sl - pl, postfix, pl) != 0)
                 return NULL;
 
-        return (char*) s + sl - pl;
+        return (char *) s + sl - pl;
 }
 
-char* endswith_no_case(const char *s, const char *postfix) {
+char *endswith_no_case(const char *s, const char *postfix) {
         size_t sl, pl;
 
         assert(s);
@@ -65,7 +65,7 @@ char* endswith_no_case(const char *s, const char *postfix) {
         pl = strlen(postfix);
 
         if (pl == 0)
-                return (char*) s + sl;
+                return (char *) s + sl;
 
         if (sl < pl)
                 return NULL;
@@ -73,10 +73,10 @@ char* endswith_no_case(const char *s, const char *postfix) {
         if (strcasecmp(s + sl - pl, postfix) != 0)
                 return NULL;
 
-        return (char*) s + sl - pl;
+        return (char *) s + sl - pl;
 }
 
-char* first_word(const char *s, const char *word) {
+char *first_word(const char *s, const char *word) {
         size_t sl, wl;
         const char *p;
 
@@ -94,27 +94,27 @@ char* first_word(const char *s, const char *word) {
                 return NULL;
 
         if (wl == 0)
-                return (char*) s;
+                return (char *) s;
 
         if (memcmp(s, word, wl) != 0)
                 return NULL;
 
         p = s + wl;
         if (*p == 0)
-                return (char*) p;
+                return (char *) p;
 
         if (!strchr(WHITESPACE, *p))
                 return NULL;
 
         p += strspn(p, WHITESPACE);
-        return (char*) p;
+        return (char *) p;
 }
 
 static size_t strcspn_escaped(const char *s, const char *reject) {
         bool escaped = false;
         int n;
 
-        for (n=0; s[n]; n++) {
+        for (n = 0; s[n]; n++) {
                 if (escaped)
                         escaped = false;
                 else if (s[n] == '\\')
@@ -128,7 +128,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
 }
 
 /* Split a string into words. */
-const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
+const char *split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
         const char *current;
 
         current = *state;
@@ -145,11 +145,10 @@ const char* split(const char **state, size_t *l, const char *separator, SplitFla
         }
 
         if (flags & SPLIT_QUOTES && strchr("\'\"", *current)) {
-                char quotechars[2] = {*current, '\0'};
+                char quotechars[2] = { *current, '\0' };
 
                 *l = strcspn_escaped(current + 1, quotechars);
-                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
-                    (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
+                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] || (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
                         if (flags & SPLIT_RELAX) {
                                 *state = current + *l + 1 + (current[*l + 1] != '\0');
@@ -195,13 +194,13 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
         if (b > ((size_t) -1) - a)
                 return NULL;
 
-        r = new(char, a+b+1);
+        r = new (char, a + b + 1);
         if (!r)
                 return NULL;
 
         memcpy(r, s, a);
-        memcpy(r+a, suffix, b);
-        r[a+b] = 0;
+        memcpy(r + a, suffix, b);
+        r[a + b] = 0;
 
         return r;
 }
@@ -241,7 +240,7 @@ char *strjoin_real(const char *x, ...) {
 
         va_end(ap);
 
-        r = new(char, l+1);
+        r = new (char, l + 1);
         if (!r)
                 return NULL;
 
@@ -489,7 +488,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
          * either for the UTF-8 encoded character or for three ASCII characters. */
         need_space = is_locale_utf8() ? 1 : 3;
 
-        t = new(char, new_length+3);
+        t = new (char, new_length + 3);
         if (!t)
                 return NULL;
 
@@ -557,7 +556,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                         break;
         }
 
-        for (j = s + old_length; j > i; ) {
+        for (j = s + old_length; j > i;) {
                 char32_t c;
                 int w;
                 const char *jj;
@@ -588,7 +587,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         len = i - s;
         len2 = s + old_length - j;
-        e = new(char, len + 3 + len2 + 1);
+        e = new (char, len + 3 + len2 + 1);
         if (!e)
                 return NULL;
 
@@ -670,7 +669,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         else
                 assert(i + 1 <= len);
 
- done:
+done:
         buf[i] = '\0';
         return buf;
 }
@@ -682,16 +681,16 @@ bool nulstr_contains(const char *nulstr, const char *needle) {
                 return false;
 
         NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return true;
+        if (streq(i, needle))
+                return true;
 
         return false;
 }
 
-char* strshorten(char *s, size_t l) {
+char *strshorten(char *s, size_t l) {
         assert(s);
 
-        if (strnlen(s, l+1) > l)
+        if (strnlen(s, l + 1) > l)
                 s[l] = 0;
 
         return s;
@@ -712,7 +711,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         new_len = strlen(new_string);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l+1))
+        if (!GREEDY_REALLOC(ret, allocated, l + 1))
                 return NULL;
 
         f = text;
@@ -754,7 +753,8 @@ static void advance_offsets(ssize_t diff, size_t offsets[2], size_t shift[2], si
 
 char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         const char *i, *begin = NULL;
-        enum {
+        enum
+        {
                 STATE_OTHER,
                 STATE_ESCAPE,
                 STATE_CSI,
@@ -829,13 +829,13 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                 case STATE_CSI:
 
-                        if (i >= *ibuf + isz || /* EOT … */
+                        if (i >= *ibuf + isz ||             /* EOT … */
                             !strchr("01234567890;m", *i)) { /* … or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc('[', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
                                 state = STATE_OTHER;
-                                i = begin-1;
+                                i = begin - 1;
                         } else if (*i == 'm')
                                 state = STATE_OTHER;
 
@@ -843,13 +843,13 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                 case STATE_CSO:
 
-                        if (i >= *ibuf + isz || /* EOT … */
+                        if (i >= *ibuf + isz ||                                          /* EOT … */
                             (*i != '\a' && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
                                 state = STATE_OTHER;
-                                i = begin-1;
+                                i = begin - 1;
                         } else if (*i == '\a')
                                 state = STATE_OTHER;
 
@@ -917,7 +917,7 @@ char *strextend_with_separator(char **x, const char *separator, ...) {
 
         need_separator = !isempty(*x);
 
-        r = realloc(*x, l+1);
+        r = realloc(*x, l + 1);
         if (!r)
                 return NULL;
 
@@ -1055,11 +1055,11 @@ int free_and_strndup(char **p, const char *s, size_t l) {
  * particular (such as memset, which it then might further "optimize")
  * This approach is inspired by openssl's crypto/mem_clr.c.
  */
-typedef void *(*memset_t)(void *,int,size_t);
+typedef void *(*memset_t)(void *, int, size_t);
 
 static volatile memset_t memset_func = memset;
 
-void* explicit_bzero_safe(void *p, size_t l) {
+void *explicit_bzero_safe(void *p, size_t l) {
         if (l > 0)
                 memset_func(p, '\0', l);
 
@@ -1067,7 +1067,7 @@ void* explicit_bzero_safe(void *p, size_t l) {
 }
 #endif
 
-char* string_erase(char *x) {
+char *string_erase(char *x) {
         if (!x)
                 return NULL;
 

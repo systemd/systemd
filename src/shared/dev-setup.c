@@ -15,11 +15,16 @@
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =
-                "-/proc/kcore\0"     "/dev/core\0"
-                "/proc/self/fd\0"    "/dev/fd\0"
-                "/proc/self/fd/0\0"  "/dev/stdin\0"
-                "/proc/self/fd/1\0"  "/dev/stdout\0"
-                "/proc/self/fd/2\0"  "/dev/stderr\0";
+                "-/proc/kcore\0"
+                "/dev/core\0"
+                "/proc/self/fd\0"
+                "/dev/fd\0"
+                "/proc/self/fd/0\0"
+                "/dev/stdin\0"
+                "/proc/self/fd/1\0"
+                "/dev/stdout\0"
+                "/proc/self/fd/2\0"
+                "/dev/stderr\0";
 
         const char *j, *k;
         int r;
@@ -61,11 +66,11 @@ int make_inaccessible_nodes(const char *root, uid_t uid, gid_t gid) {
                 const char *name;
                 mode_t mode;
         } table[] = {
-                { "/run/systemd",                   S_IFDIR  | 0755 },
-                { "/run/systemd/inaccessible",      S_IFDIR  | 0000 },
-                { "/run/systemd/inaccessible/reg",  S_IFREG  | 0000 },
-                { "/run/systemd/inaccessible/dir",  S_IFDIR  | 0000 },
-                { "/run/systemd/inaccessible/fifo", S_IFIFO  | 0000 },
+                { "/run/systemd", S_IFDIR | 0755 },
+                { "/run/systemd/inaccessible", S_IFDIR | 0000 },
+                { "/run/systemd/inaccessible/reg", S_IFREG | 0000 },
+                { "/run/systemd/inaccessible/dir", S_IFDIR | 0000 },
+                { "/run/systemd/inaccessible/fifo", S_IFIFO | 0000 },
                 { "/run/systemd/inaccessible/sock", S_IFSOCK | 0000 },
 
                 /* The following two are likely to fail if we lack the privs for it (for example in an userns
@@ -73,8 +78,8 @@ int make_inaccessible_nodes(const char *root, uid_t uid, gid_t gid) {
                  * device nodes to be created). But that's entirely fine. Consumers of these files should carry
                  * fallback to use a different node then, for example /run/systemd/inaccessible/sock, which is close
                  * enough in behaviour and semantics for most uses. */
-                { "/run/systemd/inaccessible/chr",  S_IFCHR  | 0000 },
-                { "/run/systemd/inaccessible/blk",  S_IFBLK  | 0000 },
+                { "/run/systemd/inaccessible/chr", S_IFCHR | 0000 },
+                { "/run/systemd/inaccessible/blk", S_IFBLK | 0000 },
         };
 
         _cleanup_umask_ mode_t u;

@@ -31,7 +31,8 @@ static int reset_environ(const char *new_environment, size_t length) {
 }
 
 int stub_pid1(sd_id128_t uuid) {
-        enum {
+        enum
+        {
                 STATE_RUNNING,
                 STATE_REBOOT,
                 STATE_POWEROFF,
@@ -80,16 +81,16 @@ int stub_pid1(sd_id128_t uuid) {
 
         assert_se(sigemptyset(&waitmask) >= 0);
         assert_se(sigset_add_many(&waitmask,
-                                  SIGCHLD,          /* posix: process died */
-                                  SIGINT,           /* sysv: ctrl-alt-del */
-                                  SIGRTMIN+3,       /* systemd: halt */
-                                  SIGRTMIN+4,       /* systemd: poweroff */
-                                  SIGRTMIN+5,       /* systemd: reboot */
-                                  SIGRTMIN+6,       /* systemd: kexec */
-                                  SIGRTMIN+13,      /* systemd: halt */
-                                  SIGRTMIN+14,      /* systemd: poweroff */
-                                  SIGRTMIN+15,      /* systemd: reboot */
-                                  SIGRTMIN+16,      /* systemd: kexec */
+                                  SIGCHLD,       /* posix: process died */
+                                  SIGINT,        /* sysv: ctrl-alt-del */
+                                  SIGRTMIN + 3,  /* systemd: halt */
+                                  SIGRTMIN + 4,  /* systemd: poweroff */
+                                  SIGRTMIN + 5,  /* systemd: reboot */
+                                  SIGRTMIN + 6,  /* systemd: kexec */
+                                  SIGRTMIN + 13, /* systemd: halt */
+                                  SIGRTMIN + 14, /* systemd: poweroff */
+                                  SIGRTMIN + 15, /* systemd: reboot */
+                                  SIGRTMIN + 16, /* systemd: kexec */
                                   -1) >= 0);
 
         /* Note that we ignore SIGTERM (sysv's reexec), SIGHUP (reload), and all other signals here, since we don't
@@ -100,7 +101,7 @@ int stub_pid1(sd_id128_t uuid) {
                 usec_t current_usec;
 
                 si.si_pid = 0;
-                r = waitid(P_ALL, 0, &si, WEXITED|WNOHANG);
+                r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         r = log_error_errno(errno, "Failed to reap children: %m");
                         goto finish;
@@ -156,18 +157,12 @@ int stub_pid1(sd_id128_t uuid) {
                 /* Would love to use a switch() statement here, but SIGRTMIN is actually a function call, not a
                  * constant… */
 
-                if (si.si_signo == SIGRTMIN+3 ||
-                    si.si_signo == SIGRTMIN+4 ||
-                    si.si_signo == SIGRTMIN+13 ||
-                    si.si_signo == SIGRTMIN+14)
+                if (si.si_signo == SIGRTMIN + 3 || si.si_signo == SIGRTMIN + 4 || si.si_signo == SIGRTMIN + 13 || si.si_signo == SIGRTMIN + 14)
 
                         state = STATE_POWEROFF;
 
-                else if (si.si_signo == SIGINT ||
-                         si.si_signo == SIGRTMIN+5 ||
-                         si.si_signo == SIGRTMIN+6 ||
-                         si.si_signo == SIGRTMIN+15 ||
-                         si.si_signo == SIGRTMIN+16)
+                else if (si.si_signo == SIGINT || si.si_signo == SIGRTMIN + 5 || si.si_signo == SIGRTMIN + 6 ||
+                         si.si_signo == SIGRTMIN + 15 || si.si_signo == SIGRTMIN + 16)
 
                         state = STATE_REBOOT;
                 else

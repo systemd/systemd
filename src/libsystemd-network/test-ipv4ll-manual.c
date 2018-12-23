@@ -25,7 +25,7 @@ static void ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         assert_se(ll);
 
         if (sd_ipv4ll_get_address(ll, &addr) >= 0)
-                assert_se(in_addr_to_string(AF_INET, (const union in_addr_union*) &addr, &address) >= 0);
+                assert_se(in_addr_to_string(AF_INET, (const union in_addr_union *) &addr, &address) >= 0);
 
         switch (event) {
         case SD_IPV4LL_EVENT_BIND:
@@ -103,8 +103,10 @@ int main(int argc, char *argv[]) {
         else if (argc == 3)
                 return test_ll(argv[1], argv[2]);
         else {
-                log_error("This program takes one or two arguments.\n"
-                          "\t %s <ifname> [<seed>]", program_invocation_short_name);
+                log_error(
+                        "This program takes one or two arguments.\n"
+                        "\t %s <ifname> [<seed>]",
+                        program_invocation_short_name);
                 return EXIT_FAILURE;
         }
 }

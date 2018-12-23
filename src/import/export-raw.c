@@ -24,7 +24,7 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
-#define COPY_BUFFER_SIZE (16*1024)
+#define COPY_BUFFER_SIZE (16 * 1024)
 
 struct RawExport {
         sd_event *event;
@@ -75,22 +75,18 @@ RawExport *raw_export_unref(RawExport *e) {
         return mfree(e);
 }
 
-int raw_export_new(
-                RawExport **ret,
-                sd_event *event,
-                RawExportFinished on_finished,
-                void *userdata) {
+int raw_export_new(RawExport **ret, sd_event *event, RawExportFinished on_finished, void *userdata) {
 
         _cleanup_(raw_export_unrefp) RawExport *e = NULL;
         int r;
 
         assert(ret);
 
-        e = new(RawExport, 1);
+        e = new (RawExport, 1);
         if (!e)
                 return -ENOMEM;
 
-        *e = (RawExport) {
+        *e = (RawExport){
                 .output_fd = -1,
                 .input_fd = -1,
                 .on_finished = on_finished,
@@ -213,7 +209,7 @@ static int raw_export_process(RawExport *e) {
         }
 
         assert((size_t) l <= e->buffer_size);
-        memmove(e->buffer, (uint8_t*) e->buffer + l, e->buffer_size - l);
+        memmove(e->buffer, (uint8_t *) e->buffer + l, e->buffer_size - l);
         e->buffer_size -= l;
         e->written_compressed += l;
 
@@ -250,7 +246,7 @@ static int raw_export_on_defer(sd_event_source *s, void *userdata) {
 static int reflink_snapshot(int fd, const char *path) {
         int new_fd, r;
 
-        new_fd = open_parent(path, O_TMPFILE|O_CLOEXEC|O_RDWR, 0600);
+        new_fd = open_parent(path, O_TMPFILE | O_CLOEXEC | O_RDWR, 0600);
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
@@ -258,7 +254,7 @@ static int reflink_snapshot(int fd, const char *path) {
                 if (r < 0)
                         return r;
 
-                new_fd = open(t, O_CLOEXEC|O_CREAT|O_NOCTTY|O_RDWR, 0600);
+                new_fd = open(t, O_CLOEXEC | O_CREAT | O_NOCTTY | O_RDWR, 0600);
                 if (new_fd < 0)
                         return -errno;
 
@@ -295,7 +291,7 @@ int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType 
         if (r < 0)
                 return r;
 
-        sfd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        sfd = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (sfd < 0)
                 return -errno;
 

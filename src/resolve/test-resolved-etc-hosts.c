@@ -27,17 +27,14 @@ static void test_parse_etc_hosts_system(void) {
         assert_se(etc_hosts_parse(&hosts, f) == 0);
 }
 
-#define address_equal_4(_addr, _address)                                \
-        ((_addr)->family == AF_INET &&                                  \
-         !memcmp(&(_addr)->address.in, &(struct in_addr) { .s_addr = (_address) }, 4))
+#define address_equal_4(_addr, _address) \
+        ((_addr)->family == AF_INET && !memcmp(&(_addr)->address.in, &(struct in_addr){ .s_addr = (_address) }, 4))
 
-#define address_equal_6(_addr, ...)                                     \
-        ((_addr)->family == AF_INET6 &&                                 \
-         !memcmp(&(_addr)->address.in6, &(struct in6_addr) { .s6_addr = __VA_ARGS__}, 16) )
+#define address_equal_6(_addr, ...) \
+        ((_addr)->family == AF_INET6 && !memcmp(&(_addr)->address.in6, &(struct in6_addr){ .s6_addr = __VA_ARGS__ }, 16))
 
 static void test_parse_etc_hosts(void) {
-        _cleanup_(unlink_tempfilep) char
-                t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";
 
         log_info("/* %s */", __func__);
 
@@ -66,7 +63,8 @@ static void test_parse_etc_hosts(void) {
               "::0 some.where some.other\n"
               "0.0.0.0 black.listed\n"
               "::5\t\t\t \tsome.where\tsome.other foobar.foo.foo\t\t\t\n"
-              "        \n", f);
+              "        \n",
+              f);
         assert_se(fflush_and_check(f) >= 0);
         rewind(f);
 
@@ -79,7 +77,7 @@ static void test_parse_etc_hosts(void) {
         assert_se(bn->n_allocated >= 3);
         assert_se(address_equal_4(bn->addresses[0], inet_addr("1.2.3.4")));
         assert_se(address_equal_4(bn->addresses[1], inet_addr("1.2.3.5")));
-        assert_se(address_equal_6(bn->addresses[2], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        assert_se(address_equal_6(bn->addresses[2], { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5 }));
 
         assert_se(bn = hashmap_get(hosts.by_name, "dash"));
         assert_se(bn->n_addresses == 1);
@@ -93,7 +91,7 @@ static void test_parse_etc_hosts(void) {
 
         /* See https://tools.ietf.org/html/rfc1035#section-2.3.1 */
         FOREACH_STRING(s, "bad-dash-", "-bad-dash", "-bad-dash.bad-")
-                assert_se(!hashmap_get(hosts.by_name, s));
+        assert_se(!hashmap_get(hosts.by_name, s));
 
         assert_se(bn = hashmap_get(hosts.by_name, "before.comment"));
         assert_se(bn->n_addresses == 4);
@@ -118,11 +116,11 @@ static void test_parse_etc_hosts(void) {
         assert_se(bn = hashmap_get(hosts.by_name, "some.other"));
         assert_se(bn->n_addresses == 1);
         assert_se(bn->n_allocated >= 1);
-        assert_se(address_equal_6(bn->addresses[0], {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}));
+        assert_se(address_equal_6(bn->addresses[0], { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5 }));
 
-        assert_se( set_contains(hosts.no_address, "some.where"));
-        assert_se( set_contains(hosts.no_address, "some.other"));
-        assert_se( set_contains(hosts.no_address, "black.listed"));
+        assert_se(set_contains(hosts.no_address, "some.where"));
+        assert_se(set_contains(hosts.no_address, "some.other"));
+        assert_se(set_contains(hosts.no_address, "black.listed"));
         assert_se(!set_contains(hosts.no_address, "foobar.foo.foo"));
 }
 

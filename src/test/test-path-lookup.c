@@ -32,7 +32,7 @@ static void test_paths(UnitFileScope scope) {
         assert_se(lookup_paths_reduce(&lp_with_env) >= 0);
         assert_se(strv_isempty(lp_with_env.search_path));
 
-        assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        assert_se(rm_rf(template, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 }
 
 static void test_user_and_global_paths(void) {
@@ -64,7 +64,7 @@ static void test_user_and_global_paths(void) {
                 k++;
         }
         STRV_FOREACH(p, u + k)
-                log_info("+ %s", *p);
+        log_info("+ %s", *p);
 }
 
 static void print_generator_binary_paths(UnitFileScope scope) {
@@ -75,7 +75,7 @@ static void print_generator_binary_paths(UnitFileScope scope) {
 
         paths = generator_binary_paths(scope);
         STRV_FOREACH(dir, paths)
-                log_info("        %s", *dir);
+        log_info("        %s", *dir);
 }
 
 int main(int argc, char **argv) {

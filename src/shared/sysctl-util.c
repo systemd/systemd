@@ -47,7 +47,7 @@ int sysctl_write(const char *property, const char *value) {
         log_debug("Setting '%s' to '%.*s'.", property, (int) strcspn(value, NEWLINE), value);
 
         p = strjoina("/proc/sys/", property);
-        fd = open(p, O_WRONLY|O_CLOEXEC);
+        fd = open(p, O_WRONLY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 

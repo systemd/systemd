@@ -7,7 +7,8 @@ typedef struct SessionDevice SessionDevice;
 #include "list.h"
 #include "logind.h"
 
-enum DeviceType {
+enum DeviceType
+{
         DEVICE_TYPE_UNKNOWN,
         DEVICE_TYPE_DRM,
         DEVICE_TYPE_EVDEV,
@@ -20,9 +21,9 @@ struct SessionDevice {
         dev_t dev;
         char *node;
         int fd;
-        DeviceType type:3;
-        bool active:1;
-        bool pushed_fd:1;
+        DeviceType type : 3;
+        bool active : 1;
+        bool pushed_fd : 1;
 
         LIST_FIELDS(struct SessionDevice, sd_by_device);
 };

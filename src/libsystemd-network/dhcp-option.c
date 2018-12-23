@@ -14,8 +14,7 @@
 
 #include "dhcp-internal.h"
 
-static int option_append(uint8_t options[], size_t size, size_t *offset,
-                         uint8_t code, size_t optlen, const void *optval) {
+static int option_append(uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
         assert(options);
         assert(offset);
 
@@ -39,13 +38,13 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 char **s;
 
                 STRV_FOREACH(s, (char **) optval)
-                        len += strlen(*s) + 1;
+                len += strlen(*s) + 1;
 
                 if (size < *offset + len + 2)
                         return -ENOBUFS;
 
                 options[*offset] = code;
-                options[*offset + 1] =  len;
+                options[*offset + 1] = len;
                 *offset += 2;
 
                 STRV_FOREACH(s, (char **) optval) {
@@ -78,10 +77,8 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
         return 0;
 }
 
-int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
-                       uint8_t overload,
-                       uint8_t code, size_t optlen, const void *optval) {
-        size_t file_offset = 0, sname_offset =0;
+int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_t overload, uint8_t code, size_t optlen, const void *optval) {
+        size_t file_offset = 0, sname_offset = 0;
         bool file, sname;
         int r;
 
@@ -149,15 +146,19 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
         return -ENOBUFS;
 }
 
-static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
-                         uint8_t *message_type, char **error_message, dhcp_option_callback_t cb,
+static int parse_options(const uint8_t options[],
+                         size_t buflen,
+                         uint8_t *overload,
+                         uint8_t *message_type,
+                         char **error_message,
+                         dhcp_option_callback_t cb,
                          void *userdata) {
         uint8_t code, len;
         const uint8_t *option;
         size_t offset = 0;
 
         while (offset < buflen) {
-                code = options[offset ++];
+                code = options[offset++];
 
                 switch (code) {
                 case SD_DHCP_OPTION_PAD:
@@ -170,7 +171,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                 if (buflen < offset + 1)
                         return -ENOBUFS;
 
-                len = options[offset ++];
+                len = options[offset++];
 
                 if (buflen < offset + len)
                         return -EINVAL;

@@ -84,7 +84,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                 local = "imported";
 
         if (path) {
-                open_fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                open_fd = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (open_fd < 0)
                         return log_error_errno(errno, "Failed to open tar image to import: %m");
 
@@ -105,7 +105,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = tar_import_new(&import, event, arg_image_root, on_tar_finished, event);
@@ -180,7 +180,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                 local = "imported";
 
         if (path) {
-                open_fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                open_fd = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (open_fd < 0)
                         return log_error_errno(errno, "Failed to open raw image to import: %m");
 
@@ -201,7 +201,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
 
         r = raw_import_new(&import, event, arg_image_root, on_raw_finished, event);
@@ -239,21 +239,20 @@ static int help(int argc, char *argv[], void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
                 ARG_IMAGE_ROOT,
                 ARG_READ_ONLY,
         };
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "force", no_argument, NULL, ARG_FORCE },
+                                                 { "image-root", required_argument, NULL, ARG_IMAGE_ROOT },
+                                                 { "read-only", no_argument, NULL, ARG_READ_ONLY },
+                                                 {} };
 
         int c;
 
@@ -294,10 +293,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
-                { "tar",  2,        3,        0, import_tar },
-                { "raw",  2,        3,        0, import_raw },
-                {}
+                { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, import_tar }, { "raw", 2, 3, 0, import_raw }, {}
         };
 
         return dispatch_verb(argc, argv, verbs, NULL);

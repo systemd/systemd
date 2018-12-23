@@ -34,13 +34,10 @@ bool mac_smack_use(void) {
         return cached_use;
 }
 
-static const char* const smack_attr_table[_SMACK_ATTR_MAX] = {
-        [SMACK_ATTR_ACCESS]     = "security.SMACK64",
-        [SMACK_ATTR_EXEC]       = "security.SMACK64EXEC",
-        [SMACK_ATTR_MMAP]       = "security.SMACK64MMAP",
-        [SMACK_ATTR_TRANSMUTE]  = "security.SMACK64TRANSMUTE",
-        [SMACK_ATTR_IPIN]       = "security.SMACK64IPIN",
-        [SMACK_ATTR_IPOUT]      = "security.SMACK64IPOUT",
+static const char *const smack_attr_table[_SMACK_ATTR_MAX] = {
+        [SMACK_ATTR_ACCESS] = "security.SMACK64",   [SMACK_ATTR_EXEC] = "security.SMACK64EXEC",
+        [SMACK_ATTR_MMAP] = "security.SMACK64MMAP", [SMACK_ATTR_TRANSMUTE] = "security.SMACK64TRANSMUTE",
+        [SMACK_ATTR_IPIN] = "security.SMACK64IPIN", [SMACK_ATTR_IPOUT] = "security.SMACK64IPOUT",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(smack_attr, SmackAttr);
@@ -122,7 +119,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         return r;
 }
 
-static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
+static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         const char *label;
         struct stat st;
@@ -169,8 +166,7 @@ static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                if (getxattr_malloc(procfs_path, "security.SMACK64", &old_label, false) >= 0 &&
-                    streq(old_label, label))
+                if (getxattr_malloc(procfs_path, "security.SMACK64", &old_label, false) >= 0 && streq(old_label, label))
                         return 0;
 
                 return log_debug_errno(r, "Unable to fix SMACK label of %s: %m", abspath);
@@ -189,7 +185,7 @@ int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
         if (!mac_smack_use())
                 return 0;
 
-        fd = openat(dirfd, path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = openat(dirfd, path, O_NOFOLLOW | O_CLOEXEC | O_PATH);
         if (fd < 0) {
                 if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
                         return 0;
@@ -221,7 +217,7 @@ int mac_smack_fix(const char *path, LabelFixFlags flags) {
         if (r < 0)
                 return r;
 
-        fd = open(abspath, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = open(abspath, O_NOFOLLOW | O_CLOEXEC | O_PATH);
         if (fd < 0) {
                 if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
                         return 0;

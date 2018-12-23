@@ -109,7 +109,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
 
         extra = strempty(extra);
 
-        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
+        t = new (char, strlen(p) + 2 + strlen(extra) + 6 + 1);
         if (!t)
                 return -ENOMEM;
 
@@ -146,7 +146,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 
         extra = strempty(extra);
 
-        t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
+        t = new (char, strlen(p) + 2 + strlen(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
@@ -186,7 +186,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         extra = strempty(extra);
 
-        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
+        t = new (char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
@@ -221,7 +221,7 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
         /* Try O_TMPFILE first, if it is supported */
-        fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
+        fd = open(directory, flags | O_TMPFILE | O_EXCL, S_IRUSR | S_IWUSR);
         if (fd >= 0)
                 return fd;
 
@@ -251,7 +251,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
          * which case "ret_path" will be returned as NULL. If not possible a the tempoary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
-        fd = open_parent(target, O_TMPFILE|flags, 0640);
+        fd = open_parent(target, O_TMPFILE | flags, 0640);
         if (fd >= 0) {
                 *ret_path = NULL;
                 return fd;
@@ -263,7 +263,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         if (r < 0)
                 return r;
 
-        fd = open(tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|flags, 0640);
+        fd = open(tmp, O_CREAT | O_EXCL | O_NOFOLLOW | O_NOCTTY | flags, 0640);
         if (fd < 0)
                 return -errno;
 

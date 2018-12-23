@@ -16,8 +16,7 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
         const char *on, *off;
 
         if (!pretty) {
-                printf(SD_ID128_FORMAT_STR "\n",
-                       SD_ID128_FORMAT_VAL(id));
+                printf(SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
                 return 0;
         }
 
@@ -31,13 +30,18 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
                 return log_oom();
 
         printf("As string:\n"
-               "%s" SD_ID128_FORMAT_STR "%s\n\n"
+               "%s" SD_ID128_FORMAT_STR
+               "%s\n\n"
                "As UUID:\n"
                "%s%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x%s\n\n"
                "As %s macro:\n"
                "%s#define MESSAGE_XYZ SD_ID128_MAKE(",
-               on, SD_ID128_FORMAT_VAL(id), off,
-               on, SD_ID128_FORMAT_VAL(id), off,
+               on,
+               SD_ID128_FORMAT_VAL(id),
+               off,
+               on,
+               SD_ID128_FORMAT_VAL(id),
+               off,
                man_link,
                on);
         for (i = 0; i < 16; i++)
@@ -48,7 +52,9 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
                ">>> import %s\n"
                ">>> %sMESSAGE_XYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
                mod_link,
-               on, SD_ID128_FORMAT_VAL(id), off);
+               on,
+               SD_ID128_FORMAT_VAL(id),
+               off);
 
         return 0;
 }

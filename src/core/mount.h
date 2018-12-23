@@ -7,7 +7,8 @@ typedef struct Mount Mount;
 #include "dynamic-user.h"
 #include "unit.h"
 
-typedef enum MountExecCommand {
+typedef enum MountExecCommand
+{
         MOUNT_EXEC_MOUNT,
         MOUNT_EXEC_UNMOUNT,
         MOUNT_EXEC_REMOUNT,
@@ -15,7 +16,8 @@ typedef enum MountExecCommand {
         _MOUNT_EXEC_COMMAND_INVALID = -1
 } MountExecCommand;
 
-typedef enum MountResult {
+typedef enum MountResult
+{
         MOUNT_SUCCESS,
         MOUNT_FAILURE_RESOURCES, /* a bit of a misnomer, just our catch-all error for errnos we didn't expect */
         MOUNT_FAILURE_TIMEOUT,
@@ -35,8 +37,9 @@ typedef struct MountParameters {
 } MountParameters;
 
 /* Used while looking for mount points that vanished or got added from/to /proc/self/mountinfo */
-typedef enum MountProcFlags {
-        MOUNT_PROC_IS_MOUNTED   = 1 << 0,
+typedef enum MountProcFlags
+{
+        MOUNT_PROC_IS_MOUNTED = 1 << 0,
         MOUNT_PROC_JUST_MOUNTED = 1 << 1,
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
@@ -49,8 +52,8 @@ struct Mount {
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
-        bool from_proc_self_mountinfo:1;
-        bool from_fragment:1;
+        bool from_proc_self_mountinfo : 1;
+        bool from_fragment : 1;
 
         MountProcFlags proc_flags;
 
@@ -77,7 +80,7 @@ struct Mount {
 
         MountState state, deserialized_state;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         MountExecCommand control_command_id;
         pid_t control_pid;
 
@@ -90,10 +93,10 @@ extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
 
-const char* mount_exec_command_to_string(MountExecCommand i) _const_;
+const char *mount_exec_command_to_string(MountExecCommand i) _const_;
 MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
-const char* mount_result_to_string(MountResult i) _const_;
+const char *mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(MOUNT, Mount);

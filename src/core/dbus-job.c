@@ -15,13 +15,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
 
 static int property_get_unit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
@@ -85,7 +79,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        for (i = 0; i < n; i ++) {
+        for (i = 0; i < n; i++) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(list[i]);
@@ -96,7 +90,8 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
                 if (!unit_path)
                         return -ENOMEM;
 
-                r = sd_bus_message_append(reply, "(usssoo)",
+                r = sd_bus_message_append(reply,
+                                          "(usssoo)",
                                           list[i]->id,
                                           list[i]->unit->id,
                                           job_type_to_string(list[i]->type),
@@ -139,12 +134,7 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(
-                        bus,
-                        &m,
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobNew");
+        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew");
         if (r < 0)
                 return r;
 
@@ -217,12 +207,7 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(
-                        bus,
-                        &m,
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved");
+        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved");
         if (r < 0)
                 return r;
 

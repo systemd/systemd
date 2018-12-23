@@ -5,11 +5,12 @@
 
 #include "util.h"
 
-typedef enum RemoveFlags {
+typedef enum RemoveFlags
+{
         REMOVE_ONLY_DIRECTORIES = 1 << 0,
-        REMOVE_ROOT             = 1 << 1,
-        REMOVE_PHYSICAL         = 1 << 2, /* if not set, only removes files on tmpfs, never physical file systems */
-        REMOVE_SUBVOLUME        = 1 << 3,
+        REMOVE_ROOT = 1 << 1,
+        REMOVE_PHYSICAL = 1 << 2, /* if not set, only removes files on tmpfs, never physical file systems */
+        REMOVE_SUBVOLUME = 1 << 3,
 } RemoveFlags;
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
@@ -18,15 +19,15 @@ int rm_rf(const char *path, RemoveFlags flags);
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
 static inline void rm_rf_physical_and_free(char *p) {
         PROTECT_ERRNO;
-        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL);
         free(p);
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_physical_and_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char *, rm_rf_physical_and_free);
 
 /* Similar as above, but also has magic btrfs subvolume powers */
 static inline void rm_rf_subvolume_and_free(char *p) {
         PROTECT_ERRNO;
-        (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+        (void) rm_rf(p, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
         free(p);
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rm_rf_subvolume_and_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char *, rm_rf_subvolume_and_free);

@@ -178,7 +178,7 @@ static void test_fdset_steal_first(void) {
 }
 
 static void test_fdset_new_array(void) {
-        int fds[] = {10, 11, 12, 13};
+        int fds[] = { 10, 11, 12, 13 };
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
         assert_se(fdset_new_array(&fdset, fds, 4) >= 0);

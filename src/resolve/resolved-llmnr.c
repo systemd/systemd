@@ -100,7 +100,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
                 if (t)
                         dns_transaction_process_reply(t, p);
 
-        } else if (dns_packet_validate_query(p) > 0)  {
+        } else if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got LLMNR UDP query packet for id %u", DNS_PACKET_ID(p));
 
                 dns_scope_process_query(scope, NULL, p);
@@ -123,7 +123,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         if (m->llmnr_ipv4_udp_fd >= 0)
                 return m->llmnr_ipv4_udp_fd;
 
-        s = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to create socket: %m");
 
@@ -159,7 +159,8 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to bind socket: %m");
 
-                log_warning("LLMNR-IPv4(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "LLMNR-IPv4(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
@@ -198,7 +199,7 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         if (m->llmnr_ipv6_udp_fd >= 0)
                 return m->llmnr_ipv6_udp_fd;
 
-        s = socket(AF_INET6, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to create socket: %m");
 
@@ -233,7 +234,8 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to bind socket: %m");
 
-                log_warning("LLMNR-IPv6(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "LLMNR-IPv6(UDP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
@@ -287,7 +289,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
         Manager *m = userdata;
         int cfd, r;
 
-        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (cfd < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
@@ -318,7 +320,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         if (m->llmnr_ipv4_tcp_fd >= 0)
                 return m->llmnr_ipv4_tcp_fd;
 
-        s = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to create socket: %m");
 
@@ -346,7 +348,8 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to bind socket: %m");
 
-                log_warning("LLMNR-IPv4(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "LLMNR-IPv4(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
@@ -389,7 +392,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         if (m->llmnr_ipv6_tcp_fd >= 0)
                 return m->llmnr_ipv6_tcp_fd;
 
-        s = socket(AF_INET6, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        s = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to create socket: %m");
 
@@ -416,7 +419,8 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 if (errno != EADDRINUSE)
                         return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to bind socket: %m");
 
-                log_warning("LLMNR-IPv6(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
+                log_warning(
+                        "LLMNR-IPv6(TCP): There appears to be another LLMNR responder running, or previously systemd-resolved crashed with some outstanding transfers.");
 
                 /* try again with SO_REUSEADDR */
                 r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);

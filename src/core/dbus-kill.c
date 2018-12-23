@@ -14,7 +14,7 @@ const sd_bus_vtable bus_kill_vtable[] = {
         SD_BUS_PROPERTY("KillSignal", "i", bus_property_get_int, offsetof(KillContext, kill_signal), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FinalKillSignal", "i", bus_property_get_int, offsetof(KillContext, final_kill_signal), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SendSIGKILL", "b", bus_property_get_bool, offsetof(KillContext, send_sigkill), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SendSIGHUP", "b", bus_property_get_bool,  offsetof(KillContext, send_sighup), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SendSIGHUP", "b", bus_property_get_bool, offsetof(KillContext, send_sighup), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WatchdogSignal", "i", bus_property_get_int, offsetof(KillContext, watchdog_signal), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
@@ -25,12 +25,7 @@ static BUS_DEFINE_SET_TRANSIENT_TO_STRING(final_kill_signal, "i", int32_t, int, 
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(watchdog_signal, "i", int32_t, int, "%" PRIi32, signal_to_string_with_check);
 
 int bus_kill_context_set_transient_property(
-                Unit *u,
-                KillContext *c,
-                const char *name,
-                sd_bus_message *message,
-                UnitWriteFlags flags,
-                sd_bus_error *error) {
+        Unit *u, KillContext *c, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         assert(u);
         assert(c);

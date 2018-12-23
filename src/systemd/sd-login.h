@@ -218,10 +218,10 @@ typedef struct sd_login_monitor sd_login_monitor;
 /* Create a new monitor. Category must be NULL, "seat", "session",
  * "uid", or "machine" to get monitor events for the specific category
  * (or all). */
-int sd_login_monitor_new(const char *category, sd_login_monitor** ret);
+int sd_login_monitor_new(const char *category, sd_login_monitor **ret);
 
 /* Destroys the passed monitor. Returns NULL. */
-sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m);
+sd_login_monitor *sd_login_monitor_unref(sd_login_monitor *m);
 
 /* Flushes the monitor */
 int sd_login_monitor_flush(sd_login_monitor *m);

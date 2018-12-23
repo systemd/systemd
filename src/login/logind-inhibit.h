@@ -3,7 +3,8 @@
 
 typedef struct Inhibitor Inhibitor;
 
-typedef enum InhibitWhat {
+typedef enum InhibitWhat
+{
         INHIBIT_SHUTDOWN = 1,
         INHIBIT_SLEEP = 2,
         INHIBIT_IDLE = 4,
@@ -15,7 +16,8 @@ typedef enum InhibitWhat {
         _INHIBIT_WHAT_INVALID = -1
 } InhibitWhat;
 
-typedef enum InhibitMode {
+typedef enum InhibitMode
+{
         INHIBIT_BLOCK,
         INHIBIT_DELAY,
         _INHIBIT_MODE_MAX,
@@ -48,7 +50,7 @@ struct Inhibitor {
         int fifo_fd;
 };
 
-Inhibitor* inhibitor_new(Manager *m, const char *id);
+Inhibitor *inhibitor_new(Manager *m, const char *id);
 void inhibitor_free(Inhibitor *i);
 
 int inhibitor_save(Inhibitor *i);
@@ -61,7 +63,14 @@ int inhibitor_create_fifo(Inhibitor *i);
 void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
+bool manager_is_inhibited(Manager *m,
+                          InhibitWhat w,
+                          InhibitMode mm,
+                          dual_timestamp *since,
+                          bool ignore_inactive,
+                          bool ignore_uid,
+                          uid_t uid,
+                          Inhibitor **offending);
 
 const char *inhibit_what_to_string(InhibitWhat k);
 InhibitWhat inhibit_what_from_string(const char *s);

@@ -14,10 +14,7 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
-        [SLICE_DEAD] = UNIT_INACTIVE,
-        [SLICE_ACTIVE] = UNIT_ACTIVE
-};
+static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = { [SLICE_DEAD] = UNIT_INACTIVE, [SLICE_ACTIVE] = UNIT_ACTIVE };
 
 static void slice_init(Unit *u) {
         assert(u);
@@ -37,10 +34,7 @@ static void slice_set_state(Slice *t, SliceState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(t)->id,
-                          slice_state_to_string(old_state),
-                          slice_state_to_string(state));
+                log_debug("%s changed %s -> %s", UNIT(t)->id, slice_state_to_string(old_state), slice_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -76,10 +70,7 @@ static int slice_add_default_dependencies(Slice *s) {
                 return 0;
 
         /* Make sure slices are unloaded on shutdown */
-        r = unit_add_two_dependencies_by_name(
-                        UNIT(s),
-                        UNIT_BEFORE, UNIT_CONFLICTS,
-                        SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -211,9 +202,7 @@ static void slice_dump(Unit *u, FILE *f, const char *prefix) {
         assert(t);
         assert(f);
 
-        fprintf(f,
-                "%sSlice State: %s\n",
-                prefix, slice_state_to_string(t->state));
+        fprintf(f, "%sSlice State: %s\n", prefix, slice_state_to_string(t->state));
 
         cgroup_context_dump(&t->cgroup_context, f, prefix);
 }
@@ -386,12 +375,15 @@ const UnitVTable slice_vtable = {
 
         .enumerate_perpetual = slice_enumerate_perpetual,
 
-        .status_message_formats = {
-                .finished_start_job = {
-                        [JOB_DONE]       = "Created slice %s.",
+        .status_message_formats =
+                {
+                        .finished_start_job =
+                                {
+                                        [JOB_DONE] = "Created slice %s.",
+                                },
+                        .finished_stop_job =
+                                {
+                                        [JOB_DONE] = "Removed slice %s.",
+                                },
                 },
-                .finished_stop_job = {
-                        [JOB_DONE]       = "Removed slice %s.",
-                },
-        },
 };

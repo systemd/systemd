@@ -35,7 +35,7 @@ struct udev_enumerate {
         struct udev *udev;
         unsigned n_ref;
         struct udev_list devices_list;
-        bool devices_uptodate:1;
+        bool devices_uptodate : 1;
 
         sd_device_enumerator *enumerator;
 };
@@ -61,11 +61,11 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         if (r < 0)
                 return_with_errno(NULL, r);
 
-        udev_enumerate = new(struct udev_enumerate, 1);
+        udev_enumerate = new (struct udev_enumerate, 1);
         if (!udev_enumerate)
                 return_with_errno(NULL, ENOMEM);
 
-        *udev_enumerate = (struct udev_enumerate) {
+        *udev_enumerate = (struct udev_enumerate){
                 .udev = udev,
                 .n_ref = 1,
                 .enumerator = TAKE_PTR(e),

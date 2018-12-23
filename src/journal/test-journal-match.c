@@ -24,8 +24,8 @@ int main(int argc, char *argv[]) {
         assert_se(sd_journal_add_match(j, "", 0) < 0);
         assert_se(sd_journal_add_match(j, "=", 0) < 0);
         assert_se(sd_journal_add_match(j, "=xxxxx", 0) < 0);
-        assert_se(sd_journal_add_match(j, (uint8_t[4]){'A', '=', '\1', '\2'}, 4) >= 0);
-        assert_se(sd_journal_add_match(j, (uint8_t[5]){'B', '=', 'C', '\0', 'D'}, 5) >= 0);
+        assert_se(sd_journal_add_match(j, (uint8_t[4]){ 'A', '=', '\1', '\2' }, 4) >= 0);
+        assert_se(sd_journal_add_match(j, (uint8_t[5]){ 'B', '=', 'C', '\0', 'D' }, 5) >= 0);
         assert_se(sd_journal_add_match(j, "HALLO=WALDO", 0) >= 0);
         assert_se(sd_journal_add_match(j, "QUUX=mmmm", 0) >= 0);
         assert_se(sd_journal_add_match(j, "QUUX=xxxxx", 0) >= 0);
@@ -56,7 +56,9 @@ int main(int argc, char *argv[]) {
 
         printf("resulting match expression is: %s\n", t);
 
-        assert_se(streq(t, "(((L3=ok OR L3=yes) OR ((L4_2=ok OR L4_2=yes) AND (L4_1=ok OR L4_1=yes))) AND ((TWO=two AND (ONE=two OR ONE=one)) OR (PIFF=paff AND (QUUX=yyyyy OR QUUX=xxxxx OR QUUX=mmmm) AND (HALLO= OR HALLO=WALDO) AND B=C\\000D AND A=\\001\\002)))"));
+        assert_se(streq(
+                t,
+                "(((L3=ok OR L3=yes) OR ((L4_2=ok OR L4_2=yes) AND (L4_1=ok OR L4_1=yes))) AND ((TWO=two AND (ONE=two OR ONE=one)) OR (PIFF=paff AND (QUUX=yyyyy OR QUUX=xxxxx OR QUUX=mmmm) AND (HALLO= OR HALLO=WALDO) AND B=C\\000D AND A=\\001\\002)))"));
 
         return 0;
 }

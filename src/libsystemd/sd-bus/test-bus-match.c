@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 
         zero(mask);
         assert_se(bus_match_run(NULL, &root, m) == 0);
-        assert_se(mask_contains((unsigned[]) { 9, 8, 7, 5, 10, 12, 13, 14, 15, 16, 17 }, 11));
+        assert_se(mask_contains((unsigned[]){ 9, 8, 7, 5, 10, 12, 13, 14, 15, 16, 17 }, 11));
 
         assert_se(bus_match_remove(&root, &slots[8].match_callback) >= 0);
         assert_se(bus_match_remove(&root, &slots[13].match_callback) >= 0);
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 
         zero(mask);
         assert_se(bus_match_run(NULL, &root, m) == 0);
-        assert_se(mask_contains((unsigned[]) { 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
+        assert_se(mask_contains((unsigned[]){ 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
 
         for (i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {
                 char buf[32];

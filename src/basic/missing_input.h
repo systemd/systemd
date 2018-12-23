@@ -28,14 +28,14 @@ struct input_mask {
 
 /* linux@500d4160abe9a2e88b12e319c13ae3ebd1e18108 (4.0) */
 #ifndef INPUT_PROP_ACCELEROMETER
-#define INPUT_PROP_ACCELEROMETER  0x06
+#define INPUT_PROP_ACCELEROMETER 0x06
 #endif
 
 /* linux@d09bbfd2a8408a995419dff0d2ba906013cf4cc9 (3.11) */
 #ifndef BTN_DPAD_UP
-#define BTN_DPAD_UP    0x220
-#define BTN_DPAD_DOWN  0x221
-#define BTN_DPAD_LEFT  0x222
+#define BTN_DPAD_UP 0x220
+#define BTN_DPAD_DOWN 0x221
+#define BTN_DPAD_LEFT 0x222
 #define BTN_DPAD_RIGHT 0x223
 #endif
 

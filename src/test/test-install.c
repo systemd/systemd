@@ -19,7 +19,7 @@ static void dump_changes(UnitFileChange *c, unsigned n) {
         }
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         Hashmap *h;
         UnitFileList *p;
         Iterator i;
@@ -41,24 +41,21 @@ int main(int argc, char* argv[]) {
 
                 r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, basename(p->path), &s);
 
-                assert_se((r < 0 && p->state == UNIT_FILE_BAD) ||
-                          (p->state == s));
+                assert_se((r < 0 && p->state == UNIT_FILE_BAD) || (p->state == s));
 
-                fprintf(stderr, "%s (%s)\n",
-                        p->path,
-                        unit_file_state_to_string(p->state));
+                fprintf(stderr, "%s (%s)\n", p->path, unit_file_state_to_string(p->state));
         }
 
         unit_file_list_free(h);
 
         log_info("/*** enable **/");
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         log_info("/*** enable2 **/");
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -72,7 +69,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -86,10 +83,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** mask2 ***/");
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -103,10 +100,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** unmask2 ***/");
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -120,7 +117,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_mask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -134,10 +131,10 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
         log_info("/*** disable2 ***/");
-        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -151,7 +148,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, &changes, &n_changes);
+        r = unit_file_unmask(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -165,7 +162,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_enable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -192,7 +189,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -219,7 +216,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_link(UNIT_FILE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -233,7 +230,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_reenable(UNIT_FILE_SYSTEM, 0, NULL, (char**) files2, &changes, &n_changes);
+        r = unit_file_reenable(UNIT_FILE_SYSTEM, 0, NULL, (char **) files2, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);
@@ -259,7 +256,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        r = unit_file_preset(UNIT_FILE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
+        r = unit_file_preset(UNIT_FILE_SYSTEM, 0, NULL, (char **) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes);
         assert_se(r >= 0);
 
         dump_changes(changes, n_changes);

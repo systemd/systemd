@@ -31,7 +31,7 @@ int is_symlink(const char *path) {
         return !!S_ISLNK(info.st_mode);
 }
 
-int is_dir(const char* path, bool follow) {
+int is_dir(const char *path, bool follow) {
         struct stat st;
         int r;
 
@@ -76,7 +76,7 @@ int dir_is_empty(const char *path) {
                 return -errno;
 
         FOREACH_DIRENT(de, d, return -errno)
-                return 0;
+        return 0;
 
         return 1;
 }
@@ -150,8 +150,7 @@ int files_same(const char *filea, const char *fileb, int flags) {
         if (fstatat(AT_FDCWD, fileb, &b, flags) < 0)
                 return -errno;
 
-        return a.st_dev == b.st_dev &&
-               a.st_ino == b.st_ino;
+        return a.st_dev == b.st_dev && a.st_ino == b.st_ino;
 }
 
 bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
@@ -173,7 +172,7 @@ int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
 int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
+        fd = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -181,19 +180,13 @@ int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
 }
 
 bool is_temporary_fs(const struct statfs *s) {
-        return is_fs_type(s, TMPFS_MAGIC) ||
-                is_fs_type(s, RAMFS_MAGIC);
+        return is_fs_type(s, TMPFS_MAGIC) || is_fs_type(s, RAMFS_MAGIC);
 }
 
 bool is_network_fs(const struct statfs *s) {
-        return is_fs_type(s, CIFS_MAGIC_NUMBER) ||
-                is_fs_type(s, CODA_SUPER_MAGIC) ||
-                is_fs_type(s, NCP_SUPER_MAGIC) ||
-                is_fs_type(s, NFS_SUPER_MAGIC) ||
-                is_fs_type(s, SMB_SUPER_MAGIC) ||
-                is_fs_type(s, V9FS_MAGIC) ||
-                is_fs_type(s, AFS_SUPER_MAGIC) ||
-                is_fs_type(s, OCFS2_SUPER_MAGIC);
+        return is_fs_type(s, CIFS_MAGIC_NUMBER) || is_fs_type(s, CODA_SUPER_MAGIC) || is_fs_type(s, NCP_SUPER_MAGIC) ||
+                is_fs_type(s, NFS_SUPER_MAGIC) || is_fs_type(s, SMB_SUPER_MAGIC) || is_fs_type(s, V9FS_MAGIC) ||
+                is_fs_type(s, AFS_SUPER_MAGIC) || is_fs_type(s, OCFS2_SUPER_MAGIC);
 }
 
 int fd_is_temporary_fs(int fd) {
@@ -263,7 +256,7 @@ int fd_is_network_ns(int fd) {
 int path_is_temporary_fs(const char *path) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
+        fd = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY | O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -338,7 +331,6 @@ int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret) {
                 return -ENOMEM;
 
         return 0;
-
 }
 
 int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {

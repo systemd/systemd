@@ -25,8 +25,9 @@ struct acpi_table_header {
         uint32_t asl_compiler_revision;
 };
 
-enum {
-        ACPI_FPDT_TYPE_BOOT =   0,
+enum
+{
+        ACPI_FPDT_TYPE_BOOT = 0,
         ACPI_FPDT_TYPE_S3PERF = 1,
 };
 
@@ -43,10 +44,11 @@ struct acpi_fpdt_boot_header {
         uint32_t length;
 };
 
-enum {
-        ACPI_FPDT_S3PERF_RESUME_REC =   0,
-        ACPI_FPDT_S3PERF_SUSPEND_REC =  1,
-        ACPI_FPDT_BOOT_REC =            2,
+enum
+{
+        ACPI_FPDT_S3PERF_RESUME_REC = 0,
+        ACPI_FPDT_S3PERF_SUSPEND_REC = 1,
+        ACPI_FPDT_BOOT_REC = 2,
 };
 
 struct acpi_fpdt_boot {
@@ -79,7 +81,7 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         if (l < sizeof(struct acpi_table_header) + sizeof(struct acpi_fpdt_header))
                 return -EINVAL;
 
-        tbl = (struct acpi_table_header *)buf;
+        tbl = (struct acpi_table_header *) buf;
         if (l != tbl->length)
                 return -EINVAL;
 
@@ -87,9 +89,8 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
                 return -EINVAL;
 
         /* find Firmware Basic Boot Performance Pointer Record */
-        for (rec = (struct acpi_fpdt_header *)(buf + sizeof(struct acpi_table_header));
-             (char *)rec < buf + l;
-             rec = (struct acpi_fpdt_header *)((char *)rec + rec->length)) {
+        for (rec = (struct acpi_fpdt_header *) (buf + sizeof(struct acpi_table_header)); (char *) rec < buf + l;
+             rec = (struct acpi_fpdt_header *) ((char *) rec + rec->length)) {
                 if (rec->length <= 0)
                         break;
                 if (rec->type != ACPI_FPDT_TYPE_BOOT)
@@ -105,7 +106,7 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
                 return -ENODATA;
 
         /* read Firmware Basic Boot Performance Data Record */
-        fd = open("/dev/mem", O_CLOEXEC|O_RDONLY);
+        fd = open("/dev/mem", O_CLOEXEC | O_RDONLY);
         if (fd < 0)
                 return -errno;
 

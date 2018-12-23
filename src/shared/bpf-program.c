@@ -77,7 +77,7 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
                 return 0;
         }
 
-        attr = (union bpf_attr) {
+        attr = (union bpf_attr){
                 .prog_type = p->prog_type,
                 .insns = PTR_TO_UINT64(p->instructions),
                 .insn_cnt = p->n_instructions,
@@ -108,7 +108,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
                 return -EINVAL;
 
         /* We need to track which cgroup the program is attached to, and we can only track one attachment, hence let's
-        * refuse this early. */
+         * refuse this early. */
         if (p->attached_path) {
                 if (!path_equal(p->attached_path, path))
                         return -EBUSY;
@@ -136,11 +136,11 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (!copy)
                 return -ENOMEM;
 
-        fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = open(path, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        attr = (union bpf_attr) {
+        attr = (union bpf_attr){
                 .attach_type = type,
                 .target_fd = fd,
                 .attach_bpf_fd = p->kernel_fd,
@@ -165,7 +165,7 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         if (!p->attached_path)
                 return -EUNATCH;
 
-        fd = open(p->attached_path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = open(p->attached_path, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
         if (fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
@@ -176,7 +176,7 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         } else {
                 union bpf_attr attr;
 
-                attr = (union bpf_attr) {
+                attr = (union bpf_attr){
                         .attach_type = p->attached_type,
                         .target_fd = fd,
                         .attach_bpf_fd = p->kernel_fd,

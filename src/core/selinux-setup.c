@@ -16,8 +16,7 @@
 #include "util.h"
 
 #if HAVE_SELINUX
-_printf_(2,3)
-static int null_log(int type, const char *fmt, ...) {
+_printf_(2, 3) static int null_log(int type, const char *fmt, ...) {
         return 0;
 }
 #endif

@@ -121,24 +121,22 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
          * %v `uname -r` of the running system
          */
 
-        const Specifier table[] = {
-                { 'n', specifier_name,                NULL },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_instance,            NULL },
-                { 'j', specifier_last_component,      NULL },
+        const Specifier table[] = { { 'n', specifier_name, NULL },
+                                    { 'N', specifier_prefix_and_instance, NULL },
+                                    { 'p', specifier_prefix, NULL },
+                                    { 'i', specifier_instance, NULL },
+                                    { 'j', specifier_last_component, NULL },
 
-                { 'g', specifier_group_name,          NULL },
-                { 'G', specifier_group_id,            NULL },
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
+                                    { 'g', specifier_group_name, NULL },
+                                    { 'G', specifier_group_id, NULL },
+                                    { 'U', specifier_user_id, NULL },
+                                    { 'u', specifier_user_name, NULL },
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'v', specifier_kernel_release,      NULL },
-                {}
-        };
+                                    { 'm', specifier_machine_id, NULL },
+                                    { 'H', specifier_host_name, NULL },
+                                    { 'b', specifier_boot_id, NULL },
+                                    { 'v', specifier_kernel_release, NULL },
+                                    {} };
 
         assert(i);
         assert(format);

@@ -23,11 +23,11 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         assert_return(ret, -EINVAL);
 
-        rtnl = new(sd_netlink, 1);
+        rtnl = new (sd_netlink, 1);
         if (!rtnl)
                 return -ENOMEM;
 
-        *rtnl = (sd_netlink) {
+        *rtnl = (sd_netlink){
                 .n_ref = REFCNT_INIT,
                 .fd = -1,
                 .sockaddr.nl.nl_family = AF_NETLINK,
@@ -43,8 +43,7 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
-        if (!greedy_realloc((void**)&rtnl->rbuffer, &rtnl->rbuffer_allocated,
-                            sizeof(struct nlmsghdr), sizeof(uint8_t)))
+        if (!greedy_realloc((void **) &rtnl->rbuffer, &rtnl->rbuffer_allocated, sizeof(struct nlmsghdr), sizeof(uint8_t)))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(rtnl);
@@ -192,16 +191,14 @@ static void rtnl_seal_message(sd_netlink *rtnl, sd_netlink_message *m) {
 
         /* don't use seq == 0, as that is used for broadcasts, so we
            would get confused by replies to such messages */
-        m->hdr->nlmsg_seq = rtnl->serial++ ? : rtnl->serial++;
+        m->hdr->nlmsg_seq = rtnl->serial++ ?: rtnl->serial++;
 
         rtnl_message_seal(m);
 
         return;
 }
 
-int sd_netlink_send(sd_netlink *nl,
-                    sd_netlink_message *message,
-                    uint32_t *serial) {
+int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *serial) {
         int r;
 
         assert_return(nl, -EINVAL);
@@ -225,9 +222,7 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
         if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "rtnl: exhausted the read queue size (%d)",
-                                       RTNL_RQUEUE_MAX);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS), "rtnl: exhausted the read queue size (%d)", RTNL_RQUEUE_MAX);
 
         if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
                 return -ENOMEM;
@@ -239,12 +234,9 @@ int rtnl_rqueue_partial_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
         if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
-                                       "rtnl: exhausted the partial read queue size (%d)",
-                                       RTNL_RQUEUE_MAX);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS), "rtnl: exhausted the partial read queue size (%d)", RTNL_RQUEUE_MAX);
 
-        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated,
-                            rtnl->rqueue_partial_size + 1))
+        if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated, rtnl->rqueue_partial_size + 1))
                 return -ENOMEM;
 
         return 0;
@@ -270,7 +262,7 @@ static int dispatch_rqueue(sd_netlink *rtnl, sd_netlink_message **message) {
         /* Dispatch a queued message */
         *message = rtnl->rqueue[0];
         rtnl->rqueue_size--;
-        memmove(rtnl->rqueue, rtnl->rqueue + 1, sizeof(sd_netlink_message*) * rtnl->rqueue_size);
+        memmove(rtnl->rqueue, rtnl->rqueue + 1, sizeof(sd_netlink_message *) * rtnl->rqueue_size);
 
         return 1;
 }
@@ -304,7 +296,8 @@ static int process_timeout(sd_netlink *rtnl) {
 
         r = c->callback(rtnl, m, slot->userdata);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: timedout callback %s%s%sfailed: %m",
+                log_debug_errno(r,
+                                "sd-netlink: timedout callback %s%s%sfailed: %m",
                                 slot->description ? "'" : "",
                                 strempty(slot->description),
                                 slot->description ? "' " : "");
@@ -346,7 +339,8 @@ static int process_reply(sd_netlink *rtnl, sd_netlink_message *m) {
 
         r = c->callback(rtnl, m, slot->userdata);
         if (r < 0)
-                log_debug_errno(r, "sd-netlink: reply callback %s%s%sfailed: %m",
+                log_debug_errno(r,
+                                "sd-netlink: reply callback %s%s%sfailed: %m",
                                 slot->description ? "'" : "",
                                 strempty(slot->description),
                                 slot->description ? "' " : "");
@@ -377,7 +371,8 @@ static int process_match(sd_netlink *rtnl, sd_netlink_message *m) {
                         r = c->callback(rtnl, m, slot->userdata);
                         if (r != 0) {
                                 if (r < 0)
-                                        log_debug_errno(r, "sd-netlink: match callback %s%s%sfailed: %m",
+                                        log_debug_errno(r,
+                                                        "sd-netlink: match callback %s%s%sfailed: %m",
                                                         slot->description ? "'" : "",
                                                         strempty(slot->description),
                                                         slot->description ? "' " : "");
@@ -522,15 +517,14 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
-int sd_netlink_call_async(
-                sd_netlink *nl,
-                sd_netlink_slot **ret_slot,
-                sd_netlink_message *m,
-                sd_netlink_message_handler_t callback,
-                sd_netlink_destroy_t destroy_callback,
-                void *userdata,
-                uint64_t usec,
-                const char *description) {
+int sd_netlink_call_async(sd_netlink *nl,
+                          sd_netlink_slot **ret_slot,
+                          sd_netlink_message *m,
+                          sd_netlink_message_handler_t callback,
+                          sd_netlink_destroy_t destroy_callback,
+                          void *userdata,
+                          uint64_t usec,
+                          const char *description) {
         _cleanup_free_ sd_netlink_slot *slot = NULL;
         uint32_t s;
         int r, k;
@@ -586,10 +580,7 @@ int sd_netlink_call_async(
         return k;
 }
 
-int sd_netlink_call(sd_netlink *rtnl,
-                sd_netlink_message *message,
-                uint64_t usec,
-                sd_netlink_message **ret) {
+int sd_netlink_call(sd_netlink *rtnl, sd_netlink_message *message, uint64_t usec, sd_netlink_message **ret) {
         usec_t timeout;
         uint32_t serial;
         int r;
@@ -620,8 +611,7 @@ int sd_netlink_call(sd_netlink *rtnl,
                                 incoming = rtnl->rqueue[i];
 
                                 /* found a match, remove from rqueue and return it */
-                                memmove(rtnl->rqueue + i,rtnl->rqueue + i + 1,
-                                        sizeof(sd_netlink_message*) * (rtnl->rqueue_size - i - 1));
+                                memmove(rtnl->rqueue + i, rtnl->rqueue + i + 1, sizeof(sd_netlink_message *) * (rtnl->rqueue_size - i - 1));
                                 rtnl->rqueue_size--;
 
                                 r = sd_netlink_message_get_errno(incoming);
@@ -828,14 +818,13 @@ int sd_netlink_detach_event(sd_netlink *rtnl) {
         return 0;
 }
 
-int sd_netlink_add_match(
-                sd_netlink *rtnl,
-                sd_netlink_slot **ret_slot,
-                uint16_t type,
-                sd_netlink_message_handler_t callback,
-                sd_netlink_destroy_t destroy_callback,
-                void *userdata,
-                const char *description) {
+int sd_netlink_add_match(sd_netlink *rtnl,
+                         sd_netlink_slot **ret_slot,
+                         uint16_t type,
+                         sd_netlink_message_handler_t callback,
+                         sd_netlink_destroy_t destroy_callback,
+                         void *userdata,
+                         const char *description) {
         _cleanup_free_ sd_netlink_slot *slot = NULL;
         int r;
 
@@ -851,46 +840,46 @@ int sd_netlink_add_match(
         slot->match_callback.type = type;
 
         switch (type) {
-                case RTM_NEWLINK:
-                case RTM_DELLINK:
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_LINK);
-                        if (r < 0)
-                                return r;
+        case RTM_NEWLINK:
+        case RTM_DELLINK:
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_LINK);
+                if (r < 0)
+                        return r;
 
-                        break;
-                case RTM_NEWADDR:
-                case RTM_DELADDR:
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_IFADDR);
-                        if (r < 0)
-                                return r;
+                break;
+        case RTM_NEWADDR:
+        case RTM_DELADDR:
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_IFADDR);
+                if (r < 0)
+                        return r;
 
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_IFADDR);
-                        if (r < 0)
-                                return r;
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_IFADDR);
+                if (r < 0)
+                        return r;
 
-                        break;
-                case RTM_NEWROUTE:
-                case RTM_DELROUTE:
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_ROUTE);
-                        if (r < 0)
-                                return r;
+                break;
+        case RTM_NEWROUTE:
+        case RTM_DELROUTE:
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_ROUTE);
+                if (r < 0)
+                        return r;
 
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_ROUTE);
-                        if (r < 0)
-                                return r;
-                        break;
-                case RTM_NEWRULE:
-                case RTM_DELRULE:
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_RULE);
-                        if (r < 0)
-                                return r;
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_ROUTE);
+                if (r < 0)
+                        return r;
+                break;
+        case RTM_NEWRULE:
+        case RTM_DELRULE:
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV4_RULE);
+                if (r < 0)
+                        return r;
 
-                        r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_RULE);
-                        if (r < 0)
-                                return r;
-                        break;
-                default:
-                        return -EOPNOTSUPP;
+                r = socket_broadcast_group_ref(rtnl, RTNLGRP_IPV6_RULE);
+                if (r < 0)
+                        return r;
+                break;
+        default:
+                return -EOPNOTSUPP;
         }
 
         LIST_PREPEND(match_callbacks, rtnl->match_callbacks, &slot->match_callback);

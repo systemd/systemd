@@ -71,7 +71,7 @@ void network_apply_anonymize_if_set(Network *network) {
          clients MUST use client identifiers based solely
          on the link-layer address */
         /* NOTE: Using MAC, as it does not reveal extra information,
-        * and some servers might not answer if this option is not sent */
+         * and some servers might not answer if this option is not sent */
         network->dhcp_client_identifier = DHCP_CLIENT_ID_MAC;
         /* RFC 7844 3.10:
          SHOULD NOT use the Vendor Class Identifier option */
@@ -84,16 +84,16 @@ void network_apply_anonymize_if_set(Network *network) {
          PRL by option code number (lowest to highest).
         */
         /* NOTE: dhcp_use_mtu is false by default,
-        * though it was not initiallized to any value in network_load_one.
-        * Maybe there should be another var called *send*?
-        * (to use the MTU sent by the server but to do not send
-        * the option in the PRL). */
+         * though it was not initiallized to any value in network_load_one.
+         * Maybe there should be another var called *send*?
+         * (to use the MTU sent by the server but to do not send
+         * the option in the PRL). */
         network->dhcp_use_mtu = false;
         /* NOTE: when Anonymize=yes, the PRL route options are sent by default,
          * but this is needed to use them. */
         network->dhcp_use_routes = true;
         /* RFC7844 section 3.6.
-        * same comments as previous option */
+         * same comments as previous option */
         network->dhcp_use_timezone = false;
 }
 
@@ -122,11 +122,11 @@ int network_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        network = new(Network, 1);
+        network = new (Network, 1);
         if (!network)
                 return log_oom();
 
-        *network = (Network) {
+        *network = (Network){
                 .manager = manager,
 
                 .required_for_online = true,
@@ -206,7 +206,9 @@ int network_load_one(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(network->name, ".network.d");
 
-        r = config_parse_many(filename, network_dirs, dropin_dirname,
+        r = config_parse_many(filename,
+                              network_dirs,
+                              dropin_dirname,
                               "Match\0"
                               "Link\0"
                               "Network\0"
@@ -226,8 +228,10 @@ int network_load_one(Manager *manager, const char *filename) {
                               "IPv6PrefixDelegation\0"
                               "IPv6Prefix\0"
                               "CAN\0",
-                              config_item_perf_lookup, network_network_gperf_lookup,
-                              CONFIG_PARSE_WARN, network);
+                              config_item_perf_lookup,
+                              network_network_gperf_lookup,
+                              CONFIG_PARSE_WARN,
+                              network);
         if (r < 0)
                 return r;
 
@@ -238,8 +242,10 @@ int network_load_one(Manager *manager, const char *filename) {
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
-                log_warning("MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set in %s. "
-                            "Disabling UseMTU=.", filename);
+                log_warning(
+                        "MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set in %s. "
+                        "Disabling UseMTU=.",
+                        filename);
                 network->dhcp_use_mtu = false;
         }
 
@@ -255,16 +261,20 @@ int network_load_one(Manager *manager, const char *filename) {
 
         LIST_FOREACH(routes, route, network->static_routes) {
                 if (!route->family) {
-                        log_warning("Route section without Gateway field configured in %s. "
-                                    "Ignoring", filename);
+                        log_warning(
+                                "Route section without Gateway field configured in %s. "
+                                "Ignoring",
+                                filename);
                         return 0;
                 }
         }
 
         LIST_FOREACH(addresses, address, network->static_addresses) {
                 if (!address->family) {
-                        log_warning("Address section without Address field configured in %s. "
-                                    "Ignoring", filename);
+                        log_warning(
+                                "Address section without Address field configured in %s. "
+                                "Ignoring",
+                                filename);
                         return 0;
                 }
         }
@@ -417,9 +427,7 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         return 0;
 }
 
-int network_get(Manager *manager, sd_device *device,
-                const char *ifname, const struct ether_addr *address,
-                Network **ret) {
+int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *address, Network **ret) {
         const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
         sd_device *parent;
         Network *network;
@@ -439,13 +447,22 @@ int network_get(Manager *manager, sd_device *device,
         }
 
         LIST_FOREACH(networks, network, manager->networks) {
-                if (net_match_config(network->match_mac, network->match_path,
-                                     network->match_driver, network->match_type,
-                                     network->match_name, network->match_host,
-                                     network->match_virt, network->match_kernel_cmdline,
-                                     network->match_kernel_version, network->match_arch,
-                                     address, path, parent_driver, driver,
-                                     devtype, ifname)) {
+                if (net_match_config(network->match_mac,
+                                     network->match_path,
+                                     network->match_driver,
+                                     network->match_type,
+                                     network->match_name,
+                                     network->match_host,
+                                     network->match_virt,
+                                     network->match_kernel_cmdline,
+                                     network->match_kernel_version,
+                                     network->match_arch,
+                                     address,
+                                     path,
+                                     parent_driver,
+                                     driver,
+                                     devtype,
+                                     ifname)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
@@ -455,7 +472,8 @@ int network_get(Manager *manager, sd_device *device,
 
                                 if (name_assign_type == NET_NAME_ENUM)
                                         log_warning("%s: found matching network '%s', based on potentially unpredictable ifname",
-                                                    ifname, network->filename);
+                                                    ifname,
+                                                    network->filename);
                                 else
                                         log_debug("%s: found matching network '%s'", ifname, network->filename);
                         } else
@@ -499,9 +517,7 @@ int network_apply(Network *network, Link *link) {
                 route->protocol = RTPROT_STATIC;
         }
 
-        if (network->n_dns > 0 ||
-            !strv_isempty(network->ntp) ||
-            !strv_isempty(network->search_domains) ||
+        if (network->n_dns > 0 || !strv_isempty(network->ntp) || !strv_isempty(network->search_domains) ||
             !strv_isempty(network->route_domains))
                 link_dirty(link);
 
@@ -522,15 +538,15 @@ bool network_has_static_ipv6_addresses(Network *network) {
 }
 
 int config_parse_netdev(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
         Network *network = userdata;
         _cleanup_free_ char *kind_string = NULL;
         char *p;
@@ -610,17 +626,16 @@ int config_parse_netdev(const char *unit,
         return 0;
 }
 
-int config_parse_domains(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_domains(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
 
         const char *p;
         Network *n = data;
@@ -668,7 +683,13 @@ int config_parse_domains(
                         domain = normalized;
 
                         if (is_localhost(domain)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "'localhost' domain names may not be configure as search or route domains, ignoring assignment: %s", domain);
+                                log_syntax(unit,
+                                           LOG_ERR,
+                                           filename,
+                                           line,
+                                           0,
+                                           "'localhost' domain names may not be configure as search or route domains, ignoring assignment: %s",
+                                           domain);
                                 continue;
                         }
                 }
@@ -722,8 +743,7 @@ int config_parse_tunnel(const char *unit,
                     NETDEV_KIND_VTI,
                     NETDEV_KIND_VTI6,
                     NETDEV_KIND_IP6TNL)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -742,17 +762,16 @@ int config_parse_tunnel(const char *unit,
         return 0;
 }
 
-int config_parse_ipv4ll(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ipv4ll(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
 
         AddressFamilyBoolean *link_local = data;
 
@@ -770,17 +789,16 @@ int config_parse_ipv4ll(
         return 0;
 }
 
-int config_parse_dhcp(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dhcp(const char *unit,
+                      const char *filename,
+                      unsigned line,
+                      const char *section,
+                      unsigned section_line,
+                      const char *lvalue,
+                      int ltype,
+                      const char *rvalue,
+                      void *data,
+                      void *userdata) {
 
         AddressFamilyBoolean *dhcp = data, s;
 
@@ -817,26 +835,28 @@ int config_parse_dhcp(
         return 0;
 }
 
-static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
+static const char *const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
         [DHCP_CLIENT_ID_MAC] = "mac",
         [DHCP_CLIENT_ID_DUID] = "duid",
         [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DHCPClientIdentifier, "Failed to parse client identifier type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier,
+                         dhcp_client_identifier,
+                         DHCPClientIdentifier,
+                         "Failed to parse client identifier type");
 
-int config_parse_ipv6token(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ipv6token(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                           void *data,
+                           void *userdata) {
 
         union in_addr_union buffer;
         struct in6_addr *token = data;
@@ -869,7 +889,7 @@ int config_parse_ipv6token(
         return 0;
 }
 
-static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
+static const char *const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
         [IPV6_PRIVACY_EXTENSIONS_NO] = "no",
         [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
         [IPV6_PRIVACY_EXTENSIONS_YES] = "yes",
@@ -877,17 +897,16 @@ static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_
 
 DEFINE_STRING_TABLE_LOOKUP(ipv6_privacy_extensions, IPv6PrivacyExtensions);
 
-int config_parse_ipv6_privacy_extensions(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ipv6_privacy_extensions(const char *unit,
+                                         const char *filename,
+                                         unsigned line,
+                                         const char *section,
+                                         unsigned section_line,
+                                         const char *lvalue,
+                                         int ltype,
+                                         const char *rvalue,
+                                         void *data,
+                                         void *userdata) {
 
         IPv6PrivacyExtensions *ipv6_privacy_extensions = data;
         int k;
@@ -914,7 +933,8 @@ int config_parse_ipv6_privacy_extensions(
                         if (streq(rvalue, "kernel"))
                                 s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
                         else {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
+                                log_syntax(
+                                        unit, LOG_ERR, filename, line, 0, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
                                 return 0;
                         }
                 }
@@ -925,17 +945,16 @@ int config_parse_ipv6_privacy_extensions(
         return 0;
 }
 
-int config_parse_hostname(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_hostname(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
 
         _cleanup_free_ char *hn = NULL;
         char **hostname = data;
@@ -967,17 +986,16 @@ int config_parse_hostname(
         return free_and_replace(*hostname, hn);
 }
 
-int config_parse_timezone(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_timezone(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
 
         _cleanup_free_ char *tz = NULL;
         char **datap = data;
@@ -999,17 +1017,16 @@ int config_parse_timezone(
         return free_and_replace(*datap, tz);
 }
 
-int config_parse_dhcp_server_dns(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dhcp_server_dns(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
 
         Network *n = data;
         const char *p = rvalue;
@@ -1049,17 +1066,16 @@ int config_parse_dhcp_server_dns(
         return 0;
 }
 
-int config_parse_radv_dns(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_radv_dns(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
 
         Network *n = data;
         const char *p = rvalue;
@@ -1095,23 +1111,21 @@ int config_parse_radv_dns(
 
                 } else
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
-
         }
 
         return 0;
 }
 
-int config_parse_radv_search_domains(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_radv_search_domains(const char *unit,
+                                     const char *filename,
+                                     unsigned line,
+                                     const char *section,
+                                     unsigned section_line,
+                                     const char *lvalue,
+                                     int ltype,
+                                     const char *rvalue,
+                                     void *data,
+                                     void *userdata) {
 
         Network *n = data;
         const char *p = rvalue;
@@ -1153,17 +1167,16 @@ int config_parse_radv_search_domains(
         return 0;
 }
 
-int config_parse_dhcp_server_ntp(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dhcp_server_ntp(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
 
         Network *n = data;
         const char *p = rvalue;
@@ -1201,17 +1214,16 @@ int config_parse_dhcp_server_ntp(
         }
 }
 
-int config_parse_dns(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dns(const char *unit,
+                     const char *filename,
+                     unsigned line,
+                     const char *section,
+                     unsigned section_line,
+                     const char *lvalue,
+                     int ltype,
+                     const char *rvalue,
+                     void *data,
+                     void *userdata) {
 
         Network *n = userdata;
         int r;
@@ -1246,7 +1258,7 @@ int config_parse_dns(
                 if (!m)
                         return log_oom();
 
-                m[n->n_dns++] = (struct in_addr_data) {
+                m[n->n_dns++] = (struct in_addr_data){
                         .family = family,
                         .address = a,
                 };
@@ -1257,17 +1269,16 @@ int config_parse_dns(
         return 0;
 }
 
-int config_parse_dnssec_negative_trust_anchors(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dnssec_negative_trust_anchors(const char *unit,
+                                               const char *filename,
+                                               unsigned line,
+                                               const char *section,
+                                               unsigned section_line,
+                                               const char *lvalue,
+                                               int ltype,
+                                               const char *rvalue,
+                                               void *data,
+                                               void *userdata) {
 
         const char *p = rvalue;
         Network *n = data;
@@ -1313,17 +1324,16 @@ int config_parse_dnssec_negative_trust_anchors(
         return 0;
 }
 
-int config_parse_ntp(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_ntp(const char *unit,
+                     const char *filename,
+                     unsigned line,
+                     const char *section,
+                     unsigned section_line,
+                     const char *lvalue,
+                     int ltype,
+                     const char *rvalue,
+                     void *data,
+                     void *userdata) {
 
         char ***l = data;
         int r;
@@ -1366,17 +1376,16 @@ int config_parse_ntp(
         return 0;
 }
 
-int config_parse_dhcp_user_class(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
+int config_parse_dhcp_user_class(const char *unit,
+                                 const char *filename,
+                                 unsigned line,
+                                 const char *section,
+                                 unsigned section_line,
+                                 const char *lvalue,
+                                 int ltype,
+                                 const char *rvalue,
+                                 void *data,
+                                 void *userdata) {
 
         char ***l = data;
         int r;
@@ -1439,8 +1448,7 @@ int config_parse_dhcp_route_table(const char *unit,
 
         r = safe_atou32(rvalue, &rt);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Unable to read RouteTable, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Unable to read RouteTable, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -1452,7 +1460,7 @@ int config_parse_dhcp_route_table(const char *unit,
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse DHCP use domains setting");
 
-static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
+static const char *const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
         [DHCP_USE_DOMAINS_NO] = "no",
         [DHCP_USE_DOMAINS_ROUTE] = "route",
         [DHCP_USE_DOMAINS_YES] = "yes",
@@ -1462,7 +1470,7 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_U
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_lldp_mode, lldp_mode, LLDPMode, "Failed to parse LLDP= setting.");
 
-static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
+static const char *const lldp_mode_table[_LLDP_MODE_MAX] = {
         [LLDP_MODE_NO] = "no",
         [LLDP_MODE_YES] = "yes",
         [LLDP_MODE_ROUTERS_ONLY] = "routers-only",
@@ -1491,8 +1499,7 @@ int config_parse_iaid(const char *unit,
 
         r = safe_atou32(rvalue, &iaid);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Unable to read IAID, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Unable to read IAID, ignoring assignment: %s", rvalue);
                 return 0;
         }
 

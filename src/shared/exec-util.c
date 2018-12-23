@@ -41,7 +41,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG, &_pid);
+        r = safe_fork("(direxec)", FORK_DEATHSIG | FORK_LOG, &_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -56,11 +56,11 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 (void) rlimit_nofile_safe();
 
                 if (!argv) {
-                        _argv[0] = (char*) path;
+                        _argv[0] = (char *) path;
                         _argv[1] = NULL;
                         argv = _argv;
                 } else
-                        argv[0] = (char*) path;
+                        argv[0] = (char *) path;
 
                 execv(path, argv);
                 log_error_errno(errno, "Failed to execute %s: %m", path);
@@ -71,14 +71,13 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
         return 1;
 }
 
-static int do_execute(
-                char **directories,
-                usec_t timeout,
-                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
-                int output_fd,
-                char *argv[],
-                char *envp[]) {
+static int do_execute(char **directories,
+                      usec_t timeout,
+                      gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                      void *const callback_args[_STDOUT_CONSUME_MAX],
+                      int output_fd,
+                      char *argv[],
+                      char *envp[]) {
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
@@ -91,7 +90,8 @@ static int do_execute(
          * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
          */
 
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
+        r = conf_files_list_strv(
+                &paths, NULL, NULL, CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, (const char *const *) directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 
@@ -108,8 +108,8 @@ static int do_execute(
                 alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
         STRV_FOREACH(e, envp)
-                if (putenv(*e) != 0)
-                        return log_error_errno(errno, "Failed to set environment variable: %m");
+        if (putenv(*e) != 0)
+                return log_error_errno(errno, "Failed to set environment variable: %m");
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
@@ -172,15 +172,14 @@ static int do_execute(
         return 0;
 }
 
-int execute_directories(
-                const char* const* directories,
-                usec_t timeout,
-                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
-                void* const callback_args[_STDOUT_CONSUME_MAX],
-                char *argv[],
-                char *envp[]) {
+int execute_directories(const char *const *directories,
+                        usec_t timeout,
+                        gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                        void *const callback_args[_STDOUT_CONSUME_MAX],
+                        char *argv[],
+                        char *envp[]) {
 
-        char **dirs = (char**) directories;
+        char **dirs = (char **) directories;
         _cleanup_close_ int fd = -1;
         char *name;
         int r;
@@ -205,7 +204,7 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

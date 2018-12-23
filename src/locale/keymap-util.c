@@ -29,12 +29,12 @@ static bool startswith_comma(const char *s, const char *prefix) {
         return IN_SET(*s, ',', '\0');
 }
 
-static const char* strnulldash(const char *s) {
+static const char *strnulldash(const char *s) {
         return isempty(s) || streq(s, "-") ? NULL : s;
 }
 
-static const char* systemd_kbd_model_map(void) {
-        const char* s;
+static const char *systemd_kbd_model_map(void) {
+        const char *s;
 
         s = getenv("SYSTEMD_KBD_MODEL_MAP");
         if (s)
@@ -43,8 +43,8 @@ static const char* systemd_kbd_model_map(void) {
         return SYSTEMD_KBD_MODEL_MAP;
 }
 
-static const char* systemd_language_fallback_map(void) {
-        const char* s;
+static const char *systemd_language_fallback_map(void) {
+        const char *s;
 
         s = getenv("SYSTEMD_LANGUAGE_FALLBACK_MAP");
         if (s)
@@ -87,7 +87,7 @@ void context_clear(Context *c) {
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
         int p;
 
-        for (p = VARIABLE_LANG+1; p < _VARIABLE_LC_MAX; p++)
+        for (p = VARIABLE_LANG + 1; p < _VARIABLE_LC_MAX; p++)
                 if (isempty(locale[p]) || streq_ptr(locale[VARIABLE_LANG], locale[p]))
                         locale[p] = mfree(locale[p]);
 }
@@ -120,21 +120,36 @@ int locale_read_data(Context *c, sd_bus_message *m) {
                 c->locale_mtime = t;
                 context_free_locale(c);
 
-                r = parse_env_file(NULL, "/etc/locale.conf",
-                                   "LANG",              &c->locale[VARIABLE_LANG],
-                                   "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
-                                   "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
-                                   "LC_NUMERIC",        &c->locale[VARIABLE_LC_NUMERIC],
-                                   "LC_TIME",           &c->locale[VARIABLE_LC_TIME],
-                                   "LC_COLLATE",        &c->locale[VARIABLE_LC_COLLATE],
-                                   "LC_MONETARY",       &c->locale[VARIABLE_LC_MONETARY],
-                                   "LC_MESSAGES",       &c->locale[VARIABLE_LC_MESSAGES],
-                                   "LC_PAPER",          &c->locale[VARIABLE_LC_PAPER],
-                                   "LC_NAME",           &c->locale[VARIABLE_LC_NAME],
-                                   "LC_ADDRESS",        &c->locale[VARIABLE_LC_ADDRESS],
-                                   "LC_TELEPHONE",      &c->locale[VARIABLE_LC_TELEPHONE],
-                                   "LC_MEASUREMENT",    &c->locale[VARIABLE_LC_MEASUREMENT],
-                                   "LC_IDENTIFICATION", &c->locale[VARIABLE_LC_IDENTIFICATION]);
+                r = parse_env_file(NULL,
+                                   "/etc/locale.conf",
+                                   "LANG",
+                                   &c->locale[VARIABLE_LANG],
+                                   "LANGUAGE",
+                                   &c->locale[VARIABLE_LANGUAGE],
+                                   "LC_CTYPE",
+                                   &c->locale[VARIABLE_LC_CTYPE],
+                                   "LC_NUMERIC",
+                                   &c->locale[VARIABLE_LC_NUMERIC],
+                                   "LC_TIME",
+                                   &c->locale[VARIABLE_LC_TIME],
+                                   "LC_COLLATE",
+                                   &c->locale[VARIABLE_LC_COLLATE],
+                                   "LC_MONETARY",
+                                   &c->locale[VARIABLE_LC_MONETARY],
+                                   "LC_MESSAGES",
+                                   &c->locale[VARIABLE_LC_MESSAGES],
+                                   "LC_PAPER",
+                                   &c->locale[VARIABLE_LC_PAPER],
+                                   "LC_NAME",
+                                   &c->locale[VARIABLE_LC_NAME],
+                                   "LC_ADDRESS",
+                                   &c->locale[VARIABLE_LC_ADDRESS],
+                                   "LC_TELEPHONE",
+                                   &c->locale[VARIABLE_LC_TELEPHONE],
+                                   "LC_MEASUREMENT",
+                                   &c->locale[VARIABLE_LC_MEASUREMENT],
+                                   "LC_IDENTIFICATION",
+                                   &c->locale[VARIABLE_LC_IDENTIFICATION]);
                 if (r < 0)
                         return r;
         } else {
@@ -191,9 +206,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf",
-                           "KEYMAP",        &c->vc_keymap,
-                           "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
+        r = parse_env_file(NULL, "/etc/vconsole.conf", "KEYMAP", &c->vc_keymap, "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
         if (r < 0)
                 return r;
 
@@ -368,7 +381,7 @@ int vconsole_write_data(Context *c) {
 
         if (isempty(c->vc_keymap_toggle))
                 l = strv_env_unset(l, "KEYMAP_TOGGLE");
-        else  {
+        else {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
@@ -407,10 +420,7 @@ int x11_write_data(Context *c) {
         struct stat st;
         int r;
 
-        if (isempty(c->x11_layout) &&
-            isempty(c->x11_model) &&
-            isempty(c->x11_variant) &&
-            isempty(c->x11_options)) {
+        if (isempty(c->x11_layout) && isempty(c->x11_model) && isempty(c->x11_variant) && isempty(c->x11_options)) {
 
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
@@ -433,7 +443,8 @@ int x11_write_data(Context *c) {
               "# instruct systemd-localed to update it.\n"
               "Section \"InputClass\"\n"
               "        Identifier \"system-keyboard\"\n"
-              "        MatchIsKeyboard \"on\"\n", f);
+              "        MatchIsKeyboard \"on\"\n",
+              f);
 
         if (!isempty(c->x11_layout))
                 fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", c->x11_layout);
@@ -470,9 +481,7 @@ fail:
         return r;
 }
 
-static int read_next_mapping(const char* filename,
-                             unsigned min_fields, unsigned max_fields,
-                             FILE *f, unsigned *n, char ***a) {
+static int read_next_mapping(const char *filename, unsigned min_fields, unsigned max_fields, FILE *f, unsigned *n, char ***a) {
         assert(f);
         assert(n);
         assert(a);
@@ -504,7 +513,6 @@ static int read_next_mapping(const char* filename,
                         log_error("Invalid line %s:%u, ignoring.", filename, *n);
                         strv_free(b);
                         continue;
-
                 }
 
                 *a = b;
@@ -521,11 +529,7 @@ int vconsole_convert_to_x11(Context *c) {
         map = systemd_kbd_model_map();
 
         if (isempty(c->vc_keymap)) {
-                modified =
-                        !isempty(c->x11_layout) ||
-                        !isempty(c->x11_model) ||
-                        !isempty(c->x11_variant) ||
-                        !isempty(c->x11_options);
+                modified = !isempty(c->x11_layout) || !isempty(c->x11_model) || !isempty(c->x11_variant) || !isempty(c->x11_options);
 
                 context_free_x11(c);
         } else {
@@ -549,10 +553,8 @@ int vconsole_convert_to_x11(Context *c) {
                         if (!streq(c->vc_keymap, a[0]))
                                 continue;
 
-                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
-                            !streq_ptr(c->x11_model, strnulldash(a[2])) ||
-                            !streq_ptr(c->x11_variant, strnulldash(a[3])) ||
-                            !streq_ptr(c->x11_options, strnulldash(a[4]))) {
+                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) || !streq_ptr(c->x11_model, strnulldash(a[2])) ||
+                            !streq_ptr(c->x11_variant, strnulldash(a[3])) || !streq_ptr(c->x11_options, strnulldash(a[4]))) {
 
                                 if (free_and_strdup(&c->x11_layout, strnulldash(a[1])) < 0 ||
                                     free_and_strdup(&c->x11_model, strnulldash(a[2])) < 0 ||
@@ -574,8 +576,7 @@ int vconsole_convert_to_x11(Context *c) {
                          strempty(c->x11_variant),
                          strempty(c->x11_options));
         else if (modified < 0)
-                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".",
-                           c->vc_keymap);
+                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".", c->vc_keymap);
         else
                 log_debug("X11 keyboard layout did not need to be modified.");
 
@@ -604,8 +605,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
 
                 uncompressed = access(p, F_OK) == 0;
                 if (uncompressed || access(pz, F_OK) == 0) {
-                        log_debug("Found converted keymap %s at %s",
-                                  n, uncompressed ? p : pz);
+                        log_debug("Found converted keymap %s at %s", n, uncompressed ? p : pz);
 
                         *new_keymap = TAKE_PTR(n);
                         return 1;
@@ -651,7 +651,7 @@ int find_legacy_keymap(Context *c, char **ret) {
                          * but the first layout stripped off. */
                         if (startswith_comma(c->x11_layout, a[1]))
                                 matching = 5;
-                        else  {
+                        else {
                                 char *x;
 
                                 /* If that didn't work, strip off the
@@ -677,8 +677,7 @@ int find_legacy_keymap(Context *c, char **ret) {
 
                 /* The best matching entry so far, then let's save that */
                 if (matching >= MAX(best_matching, 1u)) {
-                        log_debug("Found legacy keymap %s with score %u",
-                                  a[0], matching);
+                        log_debug("Found legacy keymap %s with score %u", a[0], matching);
 
                         if (matching > best_matching) {
                                 best_matching = matching;
@@ -747,9 +746,7 @@ int x11_convert_to_vconsole(Context *c) {
         bool modified = false;
 
         if (isempty(c->x11_layout)) {
-                modified =
-                        !isempty(c->vc_keymap) ||
-                        !isempty(c->vc_keymap_toggle);
+                modified = !isempty(c->vc_keymap) || !isempty(c->vc_keymap_toggle);
 
                 context_free_vconsole(c);
         } else {
@@ -768,8 +765,7 @@ int x11_convert_to_vconsole(Context *c) {
                         /* We search for layout-variant match first, but then we also look
                          * for anything which matches just the layout. So it's accurate to say
                          * that we couldn't find anything which matches the layout. */
-                        log_notice("No conversion to virtual console map found for \"%s\".",
-                                   c->x11_layout);
+                        log_notice("No conversion to virtual console map found for \"%s\".", c->x11_layout);
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
                         free_and_replace(c->vc_keymap, new_keymap);
@@ -779,8 +775,7 @@ int x11_convert_to_vconsole(Context *c) {
         }
 
         if (modified)
-                log_info("Changing virtual console keymap to '%s' toggle '%s'",
-                         strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+                log_info("Changing virtual console keymap to '%s' toggle '%s'", strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
         else
                 log_debug("Virtual console keymap was not modified.");
 

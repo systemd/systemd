@@ -18,8 +18,8 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
-#define STATE_DIR   "/var/lib/systemd/timesync"
-#define CLOCK_FILE  STATE_DIR "/clock"
+#define STATE_DIR "/var/lib/systemd/timesync"
+#define CLOCK_FILE STATE_DIR "/clock"
 
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
@@ -34,7 +34,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * systems lacking a battery backed RTC. We also will adjust
          * the time to at least the build time of systemd. */
 
-        fd = open(CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
+        fd = open(CLOCK_FILE, O_RDWR | O_CLOEXEC, 0644);
         if (fd >= 0) {
                 struct stat st;
                 usec_t stamp;
@@ -56,8 +56,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
         } else {
-                r = mkdir_safe_label(STATE_DIR, 0755, uid, gid,
-                                     MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
+                r = mkdir_safe_label(STATE_DIR, 0755, uid, gid, MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to create state directory, ignoring: %m");
                         goto settime;
@@ -133,8 +132,9 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Could not connect to bus: %m");
 
         if (clock_is_localtime(NULL) > 0) {
-                log_info("The system is configured to read the RTC time in the local time zone. "
-                         "This mode cannot be fully supported. All system time to RTC updates are disabled.");
+                log_info(
+                        "The system is configured to read the RTC time in the local time zone. "
+                        "This mode cannot be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;
         }
 
@@ -148,9 +148,10 @@ static int run(int argc, char *argv[]) {
 
         log_debug("systemd-timesyncd running as pid " PID_FMT, getpid_cached());
 
-        notify_message = notify_start("READY=1\n"
-                                      "STATUS=Daemon is running",
-                                      NOTIFY_STOPPING);
+        notify_message = notify_start(
+                "READY=1\n"
+                "STATUS=Daemon is running",
+                NOTIFY_STOPPING);
 
         if (network_is_online()) {
                 r = manager_connect(m);

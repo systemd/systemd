@@ -27,9 +27,9 @@
 #if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
 /* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
  * and we can't restrict it hence via seccomp. */
-#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
+#define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
 #else
-#  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
+#define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 0
 #endif
 
 static void test_seccomp_arch_to_string(void) {
@@ -73,7 +73,7 @@ static void test_architecture_table(void) {
 
                 assert_se(seccomp_arch_from_string(n, &c) >= 0);
                 n2 = seccomp_arch_to_string(c);
-                log_info("seccomp-arch: %s → 0x%"PRIx32" → %s", n, c, n2);
+                log_info("seccomp-arch: %s → 0x%" PRIx32 " → %s", n, c, n2);
                 assert_se(streq_ptr(n, n2));
         }
 }
@@ -126,7 +126,7 @@ static void test_filter_sets(void) {
                                 _exit(EXIT_FAILURE);
 
                         /* Test the sycall filter with one random system call */
-                        fd = eventfd(0, EFD_NONBLOCK|EFD_CLOEXEC);
+                        fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
                         if (IN_SET(i, SYSCALL_FILTER_SET_IO_EVENT, SYSCALL_FILTER_SET_DEFAULT))
                                 assert_se(fd < 0 && errno == EUCLEAN);
                         else {
@@ -157,16 +157,13 @@ static void test_filter_sets_ordered(void) {
                 assert_se(!isempty(syscall_filter_sets[0].help));
 
                 /* Make sure the groups are ordered alphabetically, except for the first entry */
-                assert_se(i < 2 || strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
+                assert_se(i < 2 || strcmp(syscall_filter_sets[i - 1].name, syscall_filter_sets[i].name) < 0);
 
                 NULSTR_FOREACH(k, syscall_filter_sets[i].value) {
 
                         /* Ensure each syscall list is in itself ordered, but groups before names */
-                        assert_se(!p ||
-                                  (*p == '@' && *k != '@') ||
-                                  (((*p == '@' && *k == '@') ||
-                                    (*p != '@' && *k != '@')) &&
-                                   strcmp(p, k) < 0));
+                        assert_se(!p || (*p == '@' && *k != '@') ||
+                                  (((*p == '@' && *k == '@') || (*p != '@' && *k != '@')) && strcmp(p, k) < 0));
 
                         p = k;
                 }
@@ -189,7 +186,7 @@ static void test_restrict_namespace(void) {
         s = mfree(s);
         assert_se(namespace_flags_to_string(CLONE_NEWNS, &s) == 0 && streq(s, "mnt"));
         s = mfree(s);
-        assert_se(namespace_flags_to_string(CLONE_NEWNS|CLONE_NEWIPC, &s) == 0 && streq(s, "ipc mnt"));
+        assert_se(namespace_flags_to_string(CLONE_NEWNS | CLONE_NEWIPC, &s) == 0 && streq(s, "ipc mnt"));
         s = mfree(s);
         assert_se(namespace_flags_to_string(CLONE_NEWCGROUP, &s) == 0 && streq(s, "cgroup"));
         s = mfree(s);
@@ -198,7 +195,7 @@ static void test_restrict_namespace(void) {
         assert_se(namespace_flags_from_string(NULL, &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("", &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("uts", &ul) == 0 && ul == CLONE_NEWUTS);
-        assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 && ul == (CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC));
+        assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 && ul == (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC));
 
         assert_se(namespace_flags_to_string(CLONE_NEWUTS, &s) == 0 && streq(s, "uts"));
         assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == CLONE_NEWUTS);
@@ -226,7 +223,7 @@ static void test_restrict_namespace(void) {
 
         if (pid == 0) {
 
-                assert_se(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET) >= 0);
+                assert_se(seccomp_restrict_namespaces(CLONE_NEWNS | CLONE_NEWNET) >= 0);
 
                 assert_se(unshare(CLONE_NEWNS) == 0);
                 assert_se(unshare(CLONE_NEWNET) == 0);
@@ -234,7 +231,7 @@ static void test_restrict_namespace(void) {
                 assert_se(errno == EPERM);
                 assert_se(unshare(CLONE_NEWIPC) == -1);
                 assert_se(errno == EPERM);
-                assert_se(unshare(CLONE_NEWNET|CLONE_NEWUTS) == -1);
+                assert_se(unshare(CLONE_NEWNET | CLONE_NEWUTS) == -1);
                 assert_se(errno == EPERM);
 
                 /* We use fd 0 (stdin) here, which of course will fail with EINVAL on setns(). Except of course our
@@ -247,7 +244,7 @@ static void test_restrict_namespace(void) {
                 assert_se(errno == EPERM);
                 assert_se(setns(0, CLONE_NEWIPC) == -1);
                 assert_se(errno == EPERM);
-                assert_se(setns(0, CLONE_NEWNET|CLONE_NEWUTS) == -1);
+                assert_se(setns(0, CLONE_NEWNET | CLONE_NEWUTS) == -1);
                 assert_se(errno == EPERM);
                 assert_se(setns(0, 0) == -1);
                 assert_se(errno == EPERM);
@@ -266,7 +263,7 @@ static void test_restrict_namespace(void) {
                 pid = raw_clone(CLONE_NEWIPC);
                 assert_se(pid < 0);
                 assert_se(errno == EPERM);
-                pid = raw_clone(CLONE_NEWNET|CLONE_NEWUTS);
+                pid = raw_clone(CLONE_NEWNET | CLONE_NEWUTS);
                 assert_se(pid < 0);
                 assert_se(errno == EPERM);
 
@@ -431,21 +428,21 @@ static void test_restrict_realtime(void) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param){ .sched_priority = 1 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param){ .sched_priority = 1 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param){}) >= 0);
 
                 assert_se(seccomp_restrict_realtime() >= 0);
 
-                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param){}) >= 0);
 
-                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0);
+                assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param){ .sched_priority = 1 }) < 0);
                 assert_se(errno == EPERM);
-                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param) { .sched_priority = 1 }) < 0);
+                assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param){ .sched_priority = 1 }) < 0);
                 assert_se(errno == EPERM);
 
                 _exit(EXIT_SUCCESS);
@@ -474,17 +471,17 @@ static void test_memory_deny_write_execute_mmap(void) {
         if (pid == 0) {
                 void *p;
 
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                p = mmap(NULL, page_size(), PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                p = mmap(NULL, page_size(), PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                p = mmap(NULL, page_size(), PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
@@ -493,7 +490,7 @@ static void test_memory_deny_write_execute_mmap(void) {
                 assert_se(munmap(p, page_size()) >= 0);
 #endif
 
-                p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
+                p = mmap(NULL, page_size(), PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
@@ -581,7 +578,7 @@ static void test_restrict_archs(void) {
                 assert_se(s = set_new(NULL));
 
 #ifdef __x86_64__
-                assert_se(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)) >= 0);
+                assert_se(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86 + 1)) >= 0);
 #endif
                 assert_se(seccomp_restrict_archs(s) >= 0);
 

@@ -24,12 +24,7 @@
  * with large file handles anyway. */
 #define ORIGINAL_MAX_HANDLE_SZ 128
 
-int name_to_handle_at_loop(
-                int fd,
-                const char *path,
-                struct file_handle **ret_handle,
-                int *ret_mnt_id,
-                int flags) {
+int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags) {
 
         _cleanup_free_ struct file_handle *h = NULL;
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
@@ -98,7 +93,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         if ((flags & AT_EMPTY_PATH) && isempty(filename))
                 xsprintf(path, "/proc/self/fdinfo/%i", fd);
         else {
-                subfd = openat(fd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_FOLLOW ? 0 : O_NOFOLLOW));
+                subfd = openat(fd, filename, O_CLOEXEC | O_PATH | (flags & AT_SYMLINK_FOLLOW ? 0 : O_NOFOLLOW));
                 if (subfd < 0)
                         return -errno;
 
@@ -197,8 +192,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * assume this is the root directory, which is a mount
          * point. */
 
-        if (h->handle_bytes == h_parent->handle_bytes &&
-            h->handle_type == h_parent->handle_type &&
+        if (h->handle_bytes == h_parent->handle_bytes && h->handle_type == h_parent->handle_type &&
             memcmp(h->f_handle, h_parent->f_handle, h->handle_bytes) == 0)
                 return 1;
 
@@ -241,8 +235,7 @@ fallback_fstat:
 
         /* A directory with same device and inode as its parent? Must
          * be the root directory */
-        if (a.st_dev == b.st_dev &&
-            a.st_ino == b.st_ino)
+        if (a.st_dev == b.st_dev && a.st_ino == b.st_ino)
                 return 1;
 
         return check_st_dev && (a.st_dev != b.st_dev);
@@ -272,7 +265,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
                 t = canonical;
         }
 
-        fd = open_parent(t, O_PATH|O_CLOEXEC, 0);
+        fd = open_parent(t, O_PATH | O_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
@@ -283,7 +276,8 @@ int path_get_mnt_id(const char *path, int *ret) {
         int r;
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
-        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access, or untriggered mount, or name_to_handle_at() is flaky */
+        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access,
+                                                                                      or untriggered mount, or name_to_handle_at() is flaky */
                 return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
 
         return r;
@@ -339,18 +333,11 @@ bool fstype_is_api_vfs(const char *fstype) {
 
 bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
-        return STR_IN_SET(fstype,
-                          "DM_verity_hash",
-                          "iso9660",
-                          "squashfs");
+        return STR_IN_SET(fstype, "DM_verity_hash", "iso9660", "squashfs");
 }
 
 bool fstype_can_discard(const char *fstype) {
-        return STR_IN_SET(fstype,
-                          "btrfs",
-                          "ext4",
-                          "vfat",
-                          "xfs");
+        return STR_IN_SET(fstype, "btrfs", "ext4", "vfat", "xfs");
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
@@ -358,15 +345,7 @@ bool fstype_can_uid_gid(const char *fstype) {
         /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
          * current and future. */
 
-        return STR_IN_SET(fstype,
-                          "adfs",
-                          "fat",
-                          "hfs",
-                          "hpfs",
-                          "iso9660",
-                          "msdos",
-                          "ntfs",
-                          "vfat");
+        return STR_IN_SET(fstype, "adfs", "fat", "hfs", "hpfs", "iso9660", "msdos", "ntfs", "vfat");
 }
 
 int dev_is_devtmpfs(void) {
@@ -414,7 +393,7 @@ int dev_is_devtmpfs(void) {
 
 const char *mount_propagation_flags_to_string(unsigned long flags) {
 
-        switch (flags & (MS_SHARED|MS_SLAVE|MS_PRIVATE)) {
+        switch (flags & (MS_SHARED | MS_SLAVE | MS_PRIVATE)) {
         case 0:
                 return "";
         case MS_SHARED:

@@ -4,9 +4,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-typedef enum LabelFixFlags {
+typedef enum LabelFixFlags
+{
         LABEL_IGNORE_ENOENT = 1 << 0,
-        LABEL_IGNORE_EROFS  = 1 << 1,
+        LABEL_IGNORE_EROFS = 1 << 1,
 } LabelFixFlags;
 
 int label_fix(const char *path, LabelFixFlags flags);

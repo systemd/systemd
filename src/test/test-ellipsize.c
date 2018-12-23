@@ -25,9 +25,11 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
 
         /* Report out inputs. We duplicate the data so that cellescape
          * can properly report truncated multibyte sequences. */
-        log_info("%s \"%s\" old_length=%zu/%zu new_length=%zu", __func__,
+        log_info("%s \"%s\" old_length=%zu/%zu new_length=%zu",
+                 __func__,
                  cellescape(buf, sizeof buf, n),
-                 old_length, utf8_console_width(n),
+                 old_length,
+                 utf8_console_width(n),
                  new_length);
 
         /* To keep this test simple, any case with wide chars starts with this glyph */
@@ -70,12 +72,12 @@ static void test_ellipsize_mem(void) {
                        "_XXXXXXXXXXX_", /* ASCII */
                        "_aąęółśćńżźć_", /* two-byte utf-8 */
                        "გამარჯობა",     /* multi-byte utf-8 */
-                       "你好世界",       /* wide characters */
-                       "你გą世óoó界")    /* a mix */
+                       "你好世界",      /* wide characters */
+                       "你გą世óoó界")   /* a mix */
 
-                for (l = strlen(s); l >= 0; l--)
-                        for (k = strlen(s) + 1; k >= 0; k--)
-                                test_ellipsize_mem_one(s, l, k);
+        for (l = strlen(s); l >= 0; l--)
+                for (k = strlen(s) + 1; k >= 0; k--)
+                        test_ellipsize_mem_one(s, l, k);
 }
 
 static void test_ellipsize_one(const char *p) {
@@ -111,11 +113,14 @@ static void test_ellipsize_one(const char *p) {
 static void test_ellipsize(void) {
         test_ellipsize_one(DIGITS LETTERS DIGITS LETTERS);
         test_ellipsize_one("한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어한국어");
-        test_ellipsize_one("-日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国");
-        test_ellipsize_one("中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国-中国中国中国中国中国中国中国中国中国中国中国中国中国");
+        test_ellipsize_one(
+                "-日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国日本国");
+        test_ellipsize_one(
+                "中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国中国-中国中国中国中国中国中国中国中国中国中国中国中国中国");
         test_ellipsize_one("sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd sÿstëmd");
         test_ellipsize_one("🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮");
-        test_ellipsize_one("Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
+        test_ellipsize_one(
+                "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
         test_ellipsize_one("shórt");
 }
 

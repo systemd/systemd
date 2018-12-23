@@ -57,7 +57,7 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
         printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u));
-        if (expect != (usec_t)-1)
+        if (expect != (usec_t) -1)
                 assert_se(r >= 0 && u == expect);
         else
                 assert(r == -ENOENT);
@@ -102,11 +102,11 @@ static void test_hourly_bug_4031(void) {
         n = now(CLOCK_REALTIME);
         assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
 
-        printf("Now: %s (%"PRIu64")\n", format_timestamp_us(buf, sizeof buf, n), n);
-        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u), u);
+        printf("Now: %s (%" PRIu64 ")\n", format_timestamp_us(buf, sizeof buf, n), n);
+        printf("Next hourly: %s (%" PRIu64 ")\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u), u);
 
         assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
-        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w), w);
+        printf("Next hourly: %s (%" PRIu64 ")\n", r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w), w);
 
         assert_se(n < u);
         assert_se(u <= n + USEC_PER_HOUR);
@@ -116,7 +116,7 @@ static void test_hourly_bug_4031(void) {
         calendar_spec_free(c);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
         CalendarSpec *c;
 
         test_one("Sat,Thu,Mon-Wed,Sat-Sun", "Mon..Thu,Sat,Sun *-*-* 00:00:00");

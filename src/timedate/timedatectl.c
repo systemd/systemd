@@ -68,7 +68,7 @@ static void print_status_info(const StatusInfo *i) {
                 tzset();
 
         if (i->time != 0) {
-                sec = (time_t) (i->time / USEC_PER_SEC);
+                sec = (time_t)(i->time / USEC_PER_SEC);
                 have_time = true;
         } else if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
                 sec = time(NULL);
@@ -90,7 +90,7 @@ static void print_status_info(const StatusInfo *i) {
         if (i->rtc_time > 0) {
                 time_t rtc_sec;
 
-                rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
+                rtc_sec = (time_t)(i->rtc_time / USEC_PER_SEC);
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
                 printf("                 RTC time: %s\n", n > 0 ? a : "n/a");
         } else
@@ -113,7 +113,8 @@ static void print_status_info(const StatusInfo *i) {
                "System clock synchronized: %s\n"
                "              NTP service: %s\n"
                "          RTC in local TZ: %s\n",
-               strna(i->timezone), have_time && n > 0 ? a : "n/a",
+               strna(i->timezone),
+               have_time && n > 0 ? a : "n/a",
                yes_no(i->ntp_synced),
                i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
                yes_no(i->rtc_local));
@@ -125,21 +126,21 @@ static void print_status_info(const StatusInfo *i) {
                        "         with time zone changes and daylight saving time adjustments. The RTC\n"
                        "         time is never updated, it relies on external facilities to maintain it.\n"
                        "         If at all possible, use RTC in UTC by calling\n"
-                       "         'timedatectl set-local-rtc 0'.%s\n", ansi_highlight(), ansi_normal());
+                       "         'timedatectl set-local-rtc 0'.%s\n",
+                       ansi_highlight(),
+                       ansi_normal());
 }
 
 static int show_status(int argc, char **argv, void *userdata) {
         StatusInfo info = {};
-        static const struct bus_properties_map map[]  = {
-                { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone)    },
-                { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local)   },
-                { "NTP",             "b", NULL, offsetof(StatusInfo, ntp_active)  },
-                { "CanNTP",          "b", NULL, offsetof(StatusInfo, ntp_capable) },
-                { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced)  },
-                { "TimeUSec",        "t", NULL, offsetof(StatusInfo, time)        },
-                { "RTCTimeUSec",     "t", NULL, offsetof(StatusInfo, rtc_time)    },
-                {}
-        };
+        static const struct bus_properties_map map[] = { { "Timezone", "s", NULL, offsetof(StatusInfo, timezone) },
+                                                         { "LocalRTC", "b", NULL, offsetof(StatusInfo, rtc_local) },
+                                                         { "NTP", "b", NULL, offsetof(StatusInfo, ntp_active) },
+                                                         { "CanNTP", "b", NULL, offsetof(StatusInfo, ntp_capable) },
+                                                         { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced) },
+                                                         { "TimeUSec", "t", NULL, offsetof(StatusInfo, time) },
+                                                         { "RTCTimeUSec", "t", NULL, offsetof(StatusInfo, rtc_time) },
+                                                         {} };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -148,14 +149,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.timedate1",
-                                   "/org/freedesktop/timedate1",
-                                   map,
-                                   BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   &m,
-                                   &info);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.timedate1", "/org/freedesktop/timedate1", map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));
 
@@ -170,14 +165,8 @@ static int show_properties(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = bus_print_all_properties(bus,
-                                     "org.freedesktop.timedate1",
-                                     "/org/freedesktop/timedate1",
-                                     NULL,
-                                     arg_property,
-                                     arg_value,
-                                     arg_all,
-                                     NULL);
+        r = bus_print_all_properties(
+                bus, "org.freedesktop.timedate1", "/org/freedesktop/timedate1", NULL, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -204,7 +193,10 @@ static int set_time(int argc, char **argv, void *userdata) {
                                "SetTime",
                                &error,
                                NULL,
-                               "xbb", (int64_t) t, relative, interactive);
+                               "xbb",
+                               (int64_t) t,
+                               relative,
+                               interactive);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
@@ -225,7 +217,9 @@ static int set_timezone(int argc, char **argv, void *userdata) {
                                "SetTimezone",
                                &error,
                                NULL,
-                               "sb", argv[1], arg_ask_password);
+                               "sb",
+                               argv[1],
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time zone: %s", bus_error_message(&error, r));
 
@@ -250,7 +244,10 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
                                "SetLocalRTC",
                                &error,
                                NULL,
-                               "bbb", b, arg_adjust_system_clock, arg_ask_password);
+                               "bbb",
+                               b,
+                               arg_adjust_system_clock,
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set local RTC: %s", bus_error_message(&error, r));
 
@@ -275,7 +272,9 @@ static int set_ntp(int argc, char **argv, void *userdata) {
                                "SetNTP",
                                &error,
                                NULL,
-                               "bb", b, arg_ask_password);
+                               "bb",
+                               b,
+                               arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
@@ -287,19 +286,12 @@ static int list_timezones(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
-        char** zones;
+        char **zones;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "ListTimezones",
-                               &error,
-                               &reply,
-                               NULL);
+        r = sd_bus_call_method(
+                bus, "org.freedesktop.timedate1", "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "ListTimezones", &error, &reply, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to request list of time zones: %s",
-                                       bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to request list of time zones: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read_strv(reply, &zones);
         if (r < 0)
@@ -337,7 +329,7 @@ static void ntp_status_info_clear(NTPStatusInfo *p) {
         p->server_address = mfree(p->server_address);
 }
 
-static const char * const ntp_leap_table[4] = {
+static const char *const ntp_leap_table[4] = {
         [0] = "normal",
         [1] = "last minute of the day has 61 seconds",
         [2] = "last minute of the day has 59 seconds",
@@ -368,8 +360,7 @@ static void print_ntp_status_info(NTPStatusInfo *i) {
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
 
-        printf("       Server: %s (%s)\n",
-               i->server_address, i->server_name);
+        printf("       Server: %s (%s)\n", i->server_address, i->server_name);
         printf("Poll interval: %s (min: %s; max %s)\n",
                format_timespan(ts, sizeof(ts), i->poll_interval, 0),
                format_timespan(tmin, sizeof(tmin), i->poll_min, 0),
@@ -395,7 +386,8 @@ static void print_ntp_status_info(NTPStatusInfo *i) {
         root_distance = i->root_delay / 2 + i->root_dispersion;
 
         printf("         Leap: %s\n"
-               "      Version: %" PRIu32 "\n"
+               "      Version: %" PRIu32
+               "\n"
                "      Stratum: %" PRIu32 "\n",
                ntp_leap_to_string(i->leap),
                i->version,
@@ -405,23 +397,18 @@ static void print_ntp_status_info(NTPStatusInfo *i) {
         else
                 printf("    Reference: %" PRIX32 "\n", be32toh(i->reference.val));
         printf("    Precision: %s (%" PRIi32 ")\n",
-               format_timespan(ts, sizeof(ts), DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
+               format_timespan(ts, sizeof(ts), DIV_ROUND_UP((nsec_t)(exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
                i->precision);
         printf("Root distance: %s (max: %s)\n",
                format_timespan(ts, sizeof(ts), root_distance, 0),
                format_timespan(tmax, sizeof(tmax), i->root_distance_max, 0));
-        printf("       Offset: %s%s\n",
-               offset_sign ? "+" : "-",
-               format_timespan(ts, sizeof(ts), offset, 0));
-        printf("        Delay: %s\n",
-               format_timespan(ts, sizeof(ts), delay, 0));
-        printf("       Jitter: %s\n",
-               format_timespan(ts, sizeof(ts), i->jitter, 0));
+        printf("       Offset: %s%s\n", offset_sign ? "+" : "-", format_timespan(ts, sizeof(ts), offset, 0));
+        printf("        Delay: %s\n", format_timespan(ts, sizeof(ts), delay, 0));
+        printf("       Jitter: %s\n", format_timespan(ts, sizeof(ts), i->jitter, 0));
         printf(" Packet count: %" PRIu64 "\n", i->packet_count);
 
         if (!i->spike)
-                printf("    Frequency: %+.3fppm\n",
-                       (double) i->freq / 0x10000);
+                printf("    Frequency: %+.3fppm\n", (double) i->freq / 0x10000);
 }
 
 static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -454,12 +441,10 @@ static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m
         }
 
         if (!IN_SET(family, AF_INET, AF_INET6))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Unknown address family %i", family);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown address family %i", family);
 
         if (sz != FAMILY_ADDRESS_SIZE(family))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid address size");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid address size");
 
         r = in_addr_to_string(family, d, p);
         if (r < 0)
@@ -481,9 +466,8 @@ static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, s
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(m, "uuuuitt",
-                                &p->leap, &p->version, &p->mode, &p->stratum, &p->precision,
-                                &p->root_delay, &p->root_dispersion);
+        r = sd_bus_message_read(
+                m, "uuuuitt", &p->leap, &p->version, &p->mode, &p->stratum, &p->precision, &p->root_delay, &p->root_dispersion);
         if (r < 0)
                 return r;
 
@@ -491,9 +475,7 @@ static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, s
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(m, "ttttbtt",
-                                &p->origin, &p->recv, &p->trans, &p->dest,
-                                &b, &p->packet_count, &p->jitter);
+        r = sd_bus_message_read(m, "ttttbtt", &p->origin, &p->recv, &p->trans, &p->dest, &b, &p->packet_count, &p->jitter);
         if (r < 0)
                 return r;
 
@@ -512,15 +494,15 @@ static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, s
 }
 
 static int show_timesync_status_once(sd_bus *bus) {
-        static const struct bus_properties_map map_timesync[]  = {
-                { "ServerName",           "s",                  NULL,               offsetof(NTPStatusInfo, server_name)       },
-                { "ServerAddress",        "(iay)",              map_server_address, offsetof(NTPStatusInfo, server_address)    },
-                { "PollIntervalUSec",     "t",                  NULL,               offsetof(NTPStatusInfo, poll_interval)     },
-                { "PollIntervalMinUSec",  "t",                  NULL,               offsetof(NTPStatusInfo, poll_min)          },
-                { "PollIntervalMaxUSec",  "t",                  NULL,               offsetof(NTPStatusInfo, poll_max)          },
-                { "RootDistanceMaxUSec",  "t",                  NULL,               offsetof(NTPStatusInfo, root_distance_max) },
-                { "NTPMessage",           "(uuuuittayttttbtt)", map_ntp_message,    0                                          },
-                { "Frequency",            "x",                  NULL,               offsetof(NTPStatusInfo, freq)              },
+        static const struct bus_properties_map map_timesync[] = {
+                { "ServerName", "s", NULL, offsetof(NTPStatusInfo, server_name) },
+                { "ServerAddress", "(iay)", map_server_address, offsetof(NTPStatusInfo, server_address) },
+                { "PollIntervalUSec", "t", NULL, offsetof(NTPStatusInfo, poll_interval) },
+                { "PollIntervalMinUSec", "t", NULL, offsetof(NTPStatusInfo, poll_min) },
+                { "PollIntervalMaxUSec", "t", NULL, offsetof(NTPStatusInfo, poll_max) },
+                { "RootDistanceMaxUSec", "t", NULL, offsetof(NTPStatusInfo, root_distance_max) },
+                { "NTPMessage", "(uuuuittayttttbtt)", map_ntp_message, 0 },
+                { "Frequency", "x", NULL, offsetof(NTPStatusInfo, freq) },
                 {}
         };
         _cleanup_(ntp_status_info_clear) NTPStatusInfo info = {};
@@ -530,14 +512,8 @@ static int show_timesync_status_once(sd_bus *bus) {
 
         assert(bus);
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.timesync1",
-                                   "/org/freedesktop/timesync1",
-                                   map_timesync,
-                                   BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   &m,
-                                   &info);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.timesync1", "/org/freedesktop/timesync1", map_timesync, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));
 
@@ -589,7 +565,8 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
                                 "/org/freedesktop/timesync1",
                                 "org.freedesktop.DBus.Properties",
                                 "PropertiesChanged",
-                                on_properties_changed, NULL);
+                                on_properties_changed,
+                                NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
 
@@ -635,30 +612,21 @@ static int print_timesync_property(const char *name, const char *expected_value,
                                 fputc('=', stdout);
                         }
 
-                        printf("{ Leap=%u, Version=%u, Mode=%u, Stratum=%u, Precision=%i,",
-                               i.leap, i.version, i.mode, i.stratum, i.precision);
-                        printf(" RootDelay=%s,",
-                               format_timespan(ts, sizeof(ts), i.root_delay, 0));
-                        printf(" RootDispersion=%s,",
-                               format_timespan(ts, sizeof(ts), i.root_dispersion, 0));
+                        printf("{ Leap=%u, Version=%u, Mode=%u, Stratum=%u, Precision=%i,", i.leap, i.version, i.mode, i.stratum, i.precision);
+                        printf(" RootDelay=%s,", format_timespan(ts, sizeof(ts), i.root_delay, 0));
+                        printf(" RootDispersion=%s,", format_timespan(ts, sizeof(ts), i.root_dispersion, 0));
 
                         if (i.stratum == 1)
                                 printf(" Reference=%s,", i.reference.str);
                         else
                                 printf(" Reference=%" PRIX32 ",", be32toh(i.reference.val));
 
-                        printf(" OriginateTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.origin));
-                        printf(" ReceiveTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.recv));
-                        printf(" TransmitTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.trans));
-                        printf(" DestinationTimestamp=%s,",
-                               format_timestamp(stamp, sizeof(stamp), i.dest));
-                        printf(" Ignored=%s PacketCount=%" PRIu64 ",",
-                               yes_no(i.spike), i.packet_count);
-                        printf(" Jitter=%s }\n",
-                               format_timespan(ts, sizeof(ts), i.jitter, 0));
+                        printf(" OriginateTimestamp=%s,", format_timestamp(stamp, sizeof(stamp), i.origin));
+                        printf(" ReceiveTimestamp=%s,", format_timestamp(stamp, sizeof(stamp), i.recv));
+                        printf(" TransmitTimestamp=%s,", format_timestamp(stamp, sizeof(stamp), i.trans));
+                        printf(" DestinationTimestamp=%s,", format_timestamp(stamp, sizeof(stamp), i.dest));
+                        printf(" Ignored=%s PacketCount=%" PRIu64 ",", yes_no(i.spike), i.packet_count);
+                        printf(" Jitter=%s }\n", format_timespan(ts, sizeof(ts), i.jitter, 0));
 
                         return 1;
 
@@ -686,14 +654,8 @@ static int show_timesync(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = bus_print_all_properties(bus,
-                                     "org.freedesktop.timesync1",
-                                     "/org/freedesktop/timesync1",
-                                     print_timesync_property,
-                                     arg_property,
-                                     arg_value,
-                                     arg_all,
-                                     NULL);
+        r = bus_print_all_properties(
+                bus, "org.freedesktop.timesync1", "/org/freedesktop/timesync1", print_timesync_property, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -734,10 +696,9 @@ static int help(void) {
                "systemd-timesyncd Commands:\n"
                "  timesync-status          Show status of systemd-timesyncd\n"
                "  show-timesync            Show properties of systemd-timesyncd\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -748,7 +709,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_ADJUST_SYSTEM_CLOCK,
@@ -757,20 +719,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VALUE,
         };
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "machine",             required_argument, NULL, 'M'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
-                { "monitor",             no_argument,       NULL, ARG_MONITOR             },
-                { "property",            required_argument, NULL, 'p'                     },
-                { "all",                 no_argument,       NULL, 'a'                     },
-                { "value",               no_argument,       NULL, ARG_VALUE               },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                                                 { "host", required_argument, NULL, 'H' },
+                                                 { "machine", required_argument, NULL, 'M' },
+                                                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                                                 { "adjust-system-clock", no_argument, NULL, ARG_ADJUST_SYSTEM_CLOCK },
+                                                 { "monitor", no_argument, NULL, ARG_MONITOR },
+                                                 { "property", required_argument, NULL, 'p' },
+                                                 { "all", no_argument, NULL, 'a' },
+                                                 { "value", no_argument, NULL, ARG_VALUE },
+                                                 {} };
 
         int c, r;
 
@@ -844,19 +804,17 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
-                { "show",            VERB_ANY, 1,        0,            show_properties      },
-                { "set-time",        2,        2,        0,            set_time             },
-                { "set-timezone",    2,        2,        0,            set_timezone         },
-                { "list-timezones",  VERB_ANY, 1,        0,            list_timezones       },
-                { "set-local-rtc",   2,        2,        0,            set_local_rtc        },
-                { "set-ntp",         2,        2,        0,            set_ntp              },
-                { "timesync-status", VERB_ANY, 1,        0,            show_timesync_status },
-                { "show-timesync",   VERB_ANY, 1,        0,            show_timesync        },
-                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            }, /* Not documented, but supported since it is created. */
-                {}
-        };
+        static const Verb verbs[] = { { "status", VERB_ANY, 1, VERB_DEFAULT, show_status },
+                                      { "show", VERB_ANY, 1, 0, show_properties },
+                                      { "set-time", 2, 2, 0, set_time },
+                                      { "set-timezone", 2, 2, 0, set_timezone },
+                                      { "list-timezones", VERB_ANY, 1, 0, list_timezones },
+                                      { "set-local-rtc", 2, 2, 0, set_local_rtc },
+                                      { "set-ntp", 2, 2, 0, set_ntp },
+                                      { "timesync-status", VERB_ANY, 1, 0, show_timesync_status },
+                                      { "show-timesync", VERB_ANY, 1, 0, show_timesync },
+                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help }, /* Not documented, but supported since it is created. */
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, bus);
 }

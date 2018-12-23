@@ -24,9 +24,7 @@ static int flush_acl(acl_t acl) {
 
         assert(acl);
 
-        for (found = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
-             found > 0;
-             found = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+        for (found = acl_get_entry(acl, ACL_FIRST_ENTRY, &i); found > 0; found = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
 
                 acl_tag_t tag;
 
@@ -48,10 +46,7 @@ static int flush_acl(acl_t acl) {
         return changed;
 }
 
-int devnode_acl(const char *path,
-                bool flush,
-                bool del, uid_t old_uid,
-                bool add, uid_t new_uid) {
+int devnode_acl(const char *path, bool flush, bool del, uid_t old_uid, bool add, uid_t new_uid) {
 
         acl_t acl;
         int r = 0;
@@ -103,8 +98,7 @@ int devnode_acl(const char *path,
                                 goto finish;
                         }
 
-                        if (acl_set_tag_type(entry, ACL_USER) < 0 ||
-                            acl_set_qualifier(entry, &new_uid) < 0) {
+                        if (acl_set_tag_type(entry, ACL_USER) < 0 || acl_set_qualifier(entry, &new_uid) < 0) {
                                 r = -errno;
                                 goto finish;
                         }
@@ -129,7 +123,7 @@ int devnode_acl(const char *path,
 
                 if (!rd || !wt) {
 
-                        if (acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0) {
+                        if (acl_add_perm(permset, ACL_READ | ACL_WRITE) < 0) {
                                 r = -errno;
                                 goto finish;
                         }
@@ -159,10 +153,7 @@ finish:
         return r;
 }
 
-int devnode_acl_all(const char *seat,
-                    bool flush,
-                    bool del, uid_t old_uid,
-                    bool add, uid_t new_uid) {
+int devnode_acl_all(const char *seat, bool flush, bool del, uid_t old_uid, bool add, uid_t new_uid) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_set_free_free_ Set *nodes = NULL;
@@ -239,9 +230,13 @@ int devnode_acl_all(const char *seat,
         SET_FOREACH(n, nodes, i) {
                 int k;
 
-                log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"→"UID_FMT"%s%s)",
-                          n, seat, old_uid, new_uid,
-                          del ? " del" : "", add ? " add" : "");
+                log_debug("Changing ACLs at %s for seat %s (uid " UID_FMT "→" UID_FMT "%s%s)",
+                          n,
+                          seat,
+                          old_uid,
+                          new_uid,
+                          del ? " del" : "",
+                          add ? " add" : "");
 
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);
                 if (k == -ENOENT)

@@ -47,15 +47,16 @@ static int run(int argc, char *argv[]) {
         if (getuid() == 0) {
 
                 /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
-                r = drop_privileges(uid, gid,
-                                    (UINT64_C(1) << CAP_NET_RAW)|          /* needed for SO_BINDTODEVICE */
-                                    (UINT64_C(1) << CAP_NET_BIND_SERVICE)| /* needed to bind on port 53 */
-                                    (UINT64_C(1) << CAP_SETPCAP)           /* needed in order to drop the caps later */);
+                r = drop_privileges(uid,
+                                    gid,
+                                    (UINT64_C(1) << CAP_NET_RAW) |                  /* needed for SO_BINDTODEVICE */
+                                            (UINT64_C(1) << CAP_NET_BIND_SERVICE) | /* needed to bind on port 53 */
+                                            (UINT64_C(1) << CAP_SETPCAP) /* needed in order to drop the caps later */);
                 if (r < 0)
                         return log_error_errno(r, "Failed to drop privileges: %m");
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGUSR1, SIGUSR2, SIGRTMIN+1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGUSR1, SIGUSR2, SIGRTMIN + 1, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

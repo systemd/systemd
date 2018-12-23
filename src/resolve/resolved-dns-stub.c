@@ -7,17 +7,12 @@
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
  * IP and UDP header sizes */
-#define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
+#define ADVERTISE_DATAGRAM_SIZE_MAX (65536U - 14U - 20U - 8U)
 
 static int manager_dns_stub_udp_fd(Manager *m);
 static int manager_dns_stub_tcp_fd(Manager *m);
 
-static int dns_stub_make_reply_packet(
-                DnsPacket **p,
-                size_t max_size,
-                DnsQuestion *q,
-                DnsAnswer *answer,
-                bool *ret_truncated) {
+static int dns_stub_make_reply_packet(DnsPacket **p, size_t max_size, DnsQuestion *q, DnsAnswer *answer, bool *ret_truncated) {
 
         bool truncated = false;
         DnsResourceRecord *rr;
@@ -78,14 +73,13 @@ static int dns_stub_make_reply_packet(
         return 0;
 }
 
-static int dns_stub_finish_reply_packet(
-                DnsPacket *p,
-                uint16_t id,
-                int rcode,
-                bool tc,        /* set the Truncated bit? */
-                bool add_opt,   /* add an OPT RR to this packet? */
-                bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
-                bool ad) {      /* set the DNSSEC authenticated data bit? */
+static int dns_stub_finish_reply_packet(DnsPacket *p,
+                                        uint16_t id,
+                                        int rcode,
+                                        bool tc,       /* set the Truncated bit? */
+                                        bool add_opt,  /* add an OPT RR to this packet? */
+                                        bool edns0_do, /* set the EDNS0 DNSSEC OK bit? */
+                                        bool ad) {     /* set the DNSSEC authenticated data bit? */
 
         int r;
 
@@ -107,15 +101,7 @@ static int dns_stub_finish_reply_packet(
         DNS_PACKET_HEADER(p)->id = id;
 
         DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                                                              1  /* qr */,
-                                                              0  /* opcode */,
-                                                              0  /* aa */,
-                                                              tc /* tc */,
-                                                              1  /* rd */,
-                                                              1  /* ra */,
-                                                              ad /* ad */,
-                                                              0  /* cd */,
-                                                              rcode));
+                1 /* qr */, 0 /* opcode */, 0 /* aa */, tc /* tc */, 1 /* rd */, 1 /* ra */, ad /* ad */, 0 /* cd */, rcode));
 
         if (add_opt) {
                 r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
@@ -191,7 +177,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_SUCCESS: {
                 bool truncated;
 
-                r = dns_stub_make_reply_packet(&q->reply_dns_packet, DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_dns_packet), q->question_idna, q->answer, &truncated);
+                r = dns_stub_make_reply_packet(
+                        &q->reply_dns_packet, DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_dns_packet), q->question_idna, q->answer, &truncated);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to build reply packet: %m");
                         break;
@@ -209,14 +196,13 @@ static void dns_stub_query_complete(DnsQuery *q) {
                 if (r == DNS_QUERY_RESTARTED)
                         return;
 
-                r = dns_stub_finish_reply_packet(
-                                q->reply_dns_packet,
-                                DNS_PACKET_ID(q->request_dns_packet),
-                                q->answer_rcode,
-                                truncated,
-                                !!q->request_dns_packet->opt,
-                                DNS_PACKET_DO(q->request_dns_packet),
-                                dns_query_fully_authenticated(q));
+                r = dns_stub_finish_reply_packet(q->reply_dns_packet,
+                                                 DNS_PACKET_ID(q->request_dns_packet),
+                                                 q->answer_rcode,
+                                                 truncated,
+                                                 !!q->request_dns_packet->opt,
+                                                 DNS_PACKET_DO(q->request_dns_packet),
+                                                 dns_query_fully_authenticated(q));
                 if (r < 0) {
                         log_debug_errno(r, "Failed to finish reply packet: %m");
                         break;
@@ -227,11 +213,13 @@ static void dns_stub_query_complete(DnsQuery *q) {
         }
 
         case DNS_TRANSACTION_RCODE_FAILURE:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_failure(
+                        q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode, dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_NOT_FOUND:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_failure(
+                        q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN, dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_TIMEOUT:
@@ -291,8 +279,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
 
         /* Takes ownership of the *s stream object */
 
-        if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
-            in_addr_is_localhost(p->family, &p->destination) <= 0) {
+        if (in_addr_is_localhost(p->family, &p->sender) <= 0 || in_addr_is_localhost(p->family, &p->destination) <= 0) {
                 log_error("Got packet on unexpected IP range, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 goto fail;
@@ -323,7 +310,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 goto fail;
         }
 
-        if (!DNS_PACKET_RD(p))  {
+        if (!DNS_PACKET_RD(p)) {
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_REFUSED, false);
@@ -336,7 +323,7 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 goto fail;
         }
 
-        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL | SD_RESOLVED_NO_SEARCH);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
@@ -404,7 +391,7 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (m->dns_stub_udp_fd >= 0)
                 return m->dns_stub_udp_fd;
 
-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
@@ -463,7 +450,7 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
         Manager *m = userdata;
         int cfd, r;
 
-        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (cfd < 0) {
                 if (IN_SET(errno, EAGAIN, EINTR))
                         return 0;
@@ -497,7 +484,7 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (m->dns_stub_tcp_fd >= 0)
                 return m->dns_stub_tcp_fd;
 
-        fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
@@ -546,15 +533,14 @@ int manager_dns_stub_start(Manager *m) {
                 log_debug("Not creating stub listener.");
         else
                 log_debug("Creating stub listener using %s.",
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ? "UDP" :
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
-                          "UDP/TCP");
+                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ?
+                                  "UDP" :
+                                  m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" : "UDP/TCP");
 
         if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP))
                 r = manager_dns_stub_udp_fd(m);
 
-        if (r >= 0 &&
-            IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+        if (r >= 0 && IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
                 t = "TCP";
                 r = manager_dns_stub_tcp_fd(m);
         }
@@ -563,11 +549,13 @@ int manager_dns_stub_start(Manager *m) {
                 if (r == -EADDRINUSE)
                         log_warning_errno(r,
                                           "Another process is already listening on %s socket 127.0.0.53:53.\n"
-                                          "Turning off local DNS stub support.", t);
+                                          "Turning off local DNS stub support.",
+                                          t);
                 else
                         log_warning_errno(r,
                                           "Failed to listen on %s socket 127.0.0.53:53: %m.\n"
-                                          "Turning off local DNS stub support.", t);
+                                          "Turning off local DNS stub support.",
+                                          t);
                 manager_dns_stub_stop(m);
         } else if (r < 0)
                 return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);

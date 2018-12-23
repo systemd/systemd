@@ -55,8 +55,7 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
         if (r >= 0)
                 assert_se(socket_address_print(&a, &out) >= 0);
 
-        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in,
-                 r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in, r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
         assert_se(r == ret);
         if (r >= 0) {
                 assert_se(a.sockaddr.sa.sa_family == family);
@@ -95,8 +94,7 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[a:b:1]:8888", -EINVAL, 0, NULL);
 
         test_socket_address_parse_one("8888", 0, default_family, "[::]:8888");
-        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6,
-                                      "[2001:db8:0:85a3::ac1f:8001]:8888");
+        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6, "[2001:db8:0:85a3::ac1f:8001]:8888");
         test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
@@ -125,9 +123,10 @@ static void test_socket_address_parse(void) {
 static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
         _cleanup_free_ char *out = NULL, *c = NULL;
 
-        SocketAddress a = { .sockaddr = { .un = { .sun_family = AF_UNIX } },
-                            .size = offsetof(struct sockaddr_un, sun_path) + len_in,
-                            .type = SOCK_STREAM,
+        SocketAddress a = {
+                .sockaddr = { .un = { .sun_family = AF_UNIX } },
+                .size = offsetof(struct sockaddr_un, sun_path) + len_in,
+                .type = SOCK_STREAM,
         };
         memcpy(a.sockaddr.un.sun_path, in, len_in);
 
@@ -147,12 +146,18 @@ static void test_socket_print_unix(void) {
         test_socket_print_unix_one("\n", 2, "\\n");
         test_socket_print_unix_one("", 1, "<unnamed>");
         test_socket_print_unix_one("\0", 1, "<unnamed>");
-        test_socket_print_unix_one("\0_________________________there's 108 characters in this string_____________________________________________", 108,
-                                   "@_________________________there\\'s 108 characters in this string_____________________________________________");
-        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 108,
-                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
-        test_socket_print_unix_one("////////////////////////////////////////////////////////////////////////////////////////////////////////////", 109,
-                                   "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one(
+                "\0_________________________there's 108 characters in this string_____________________________________________",
+                108,
+                "@_________________________there\\'s 108 characters in this string_____________________________________________");
+        test_socket_print_unix_one(
+                "////////////////////////////////////////////////////////////////////////////////////////////////////////////",
+                108,
+                "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
+        test_socket_print_unix_one(
+                "////////////////////////////////////////////////////////////////////////////////////////////////////////////",
+                109,
+                "////////////////////////////////////////////////////////////////////////////////////////////////////////////");
         test_socket_print_unix_one("\0\a\b\n\255", 6, "@\\a\\b\\n\\255\\000");
 }
 
@@ -315,8 +320,10 @@ static void test_in_addr_prefix_intersect(void) {
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.127", 25, 1);
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.255", 25, 0);
 
-        test_in_addr_prefix_intersect_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe", 128, 0);
-        test_in_addr_prefix_intersect_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1);
+        test_in_addr_prefix_intersect_one(
+                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe", 128, 0);
+        test_in_addr_prefix_intersect_one(
+                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1);
         test_in_addr_prefix_intersect_one(AF_INET6, "::", 0, "beef:beef:beef:beef:beef:beef:beef:beef", 128, 1);
 
         test_in_addr_prefix_intersect_one(AF_INET6, "1::2", 64, "1::2", 64, 1);
@@ -406,7 +413,8 @@ static void test_in_addr_ifindex_to_string(void) {
 
         test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
         test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
-        test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_ifindex_to_string_one(
+                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
         test_in_addr_ifindex_to_string_one(AF_INET6, "::1", 11, "::1");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 12, "fe80::%12");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 0, "fe80::");
@@ -516,7 +524,7 @@ static void test_getpeercred_getpeergroups(void) {
 
         log_info("/* %s */", __func__);
 
-        r = safe_fork("(getpeercred)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(getpeercred)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -531,7 +539,7 @@ static void test_getpeercred_getpeergroups(void) {
                 if (geteuid() == 0) {
                         test_uid = 1;
                         test_gid = 2;
-                        test_gids = (gid_t*) gids;
+                        test_gids = (gid_t *) gids;
                         n_test_gids = ELEMENTSOF(gids);
 
                         assert_se(setgroups(n_test_gids, test_gids) >= 0);
@@ -588,7 +596,7 @@ static void test_passfd_read(void) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(passfd_read)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -613,7 +621,7 @@ static void test_passfd_read(void) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_INIT(buf, sizeof(buf) - 1);
         _cleanup_close_ int fd = -1;
 
         pair[1] = safe_close(pair[1]);
@@ -621,7 +629,7 @@ static void test_passfd_read(void) {
         assert_se(receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd) == 0);
 
         assert_se(fd >= 0);
-        r = read(fd, buf, sizeof(buf)-1);
+        r = read(fd, buf, sizeof(buf) - 1);
         assert_se(r >= 0);
         buf[r] = 0;
         assert_se(streq(buf, file_contents));
@@ -637,7 +645,7 @@ static void test_passfd_contents_read(void) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -663,7 +671,7 @@ static void test_passfd_contents_read(void) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_INIT(buf, sizeof(buf) - 1);
         _cleanup_close_ int fd = -1;
         ssize_t k;
 
@@ -675,7 +683,7 @@ static void test_passfd_contents_read(void) {
         assert_se(streq(buf, wire_contents));
 
         assert_se(fd >= 0);
-        r = read(fd, buf, sizeof(buf)-1);
+        r = read(fd, buf, sizeof(buf) - 1);
         assert_se(r >= 0);
         buf[r] = 0;
         assert_se(streq(buf, file_contents));
@@ -690,7 +698,7 @@ static void test_receive_nopassfd(void) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -705,7 +713,7 @@ static void test_receive_nopassfd(void) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_INIT(buf, sizeof(buf) - 1);
         int fd = -999;
         ssize_t k;
 
@@ -728,7 +736,7 @@ static void test_send_nodata_nofd(void) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -741,7 +749,7 @@ static void test_send_nodata_nofd(void) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_INIT(buf, sizeof(buf) - 1);
         int fd = -999;
         ssize_t k;
 
@@ -763,12 +771,12 @@ static void test_send_emptydata(void) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_emptydata)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(send_emptydata)", FORK_DEATHSIG | FORK_LOG | FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
                 /* Child */
-                struct iovec iov = IOVEC_INIT_STRING("");  /* zero-length iov */
+                struct iovec iov = IOVEC_INIT_STRING(""); /* zero-length iov */
                 assert_se(iov.iov_len == 0);
 
                 pair[0] = safe_close(pair[0]);
@@ -780,7 +788,7 @@ static void test_send_emptydata(void) {
 
         /* Parent */
         char buf[64];
-        struct iovec iov = IOVEC_INIT(buf, sizeof(buf)-1);
+        struct iovec iov = IOVEC_INIT(buf, sizeof(buf) - 1);
         int fd = -999;
         ssize_t k;
 

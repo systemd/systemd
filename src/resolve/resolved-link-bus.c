@@ -14,13 +14,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dn
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 
 static int property_get_dns_over_tls_mode(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
 
@@ -31,13 +25,7 @@ static int property_get_dns_over_tls_mode(
 }
 
 static int property_get_dns(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
         DnsServer *s;
@@ -60,13 +48,7 @@ static int property_get_dns(
 }
 
 static int property_get_current_dns_server(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         DnsServer *s;
 
@@ -79,13 +61,7 @@ static int property_get_current_dns_server(
 }
 
 static int property_get_domains(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
         DnsSearchDomain *d;
@@ -108,13 +84,7 @@ static int property_get_domains(
 }
 
 static int property_get_default_route(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
 
@@ -133,13 +103,7 @@ static int property_get_default_route(
 }
 
 static int property_get_scopes_mask(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
         uint64_t mask;
@@ -147,23 +111,15 @@ static int property_get_scopes_mask(
         assert(reply);
         assert(l);
 
-        mask =  (l->unicast_scope ? SD_RESOLVED_DNS : 0) |
-                (l->llmnr_ipv4_scope ? SD_RESOLVED_LLMNR_IPV4 : 0) |
-                (l->llmnr_ipv6_scope ? SD_RESOLVED_LLMNR_IPV6 : 0) |
-                (l->mdns_ipv4_scope ? SD_RESOLVED_MDNS_IPV4 : 0) |
+        mask = (l->unicast_scope ? SD_RESOLVED_DNS : 0) | (l->llmnr_ipv4_scope ? SD_RESOLVED_LLMNR_IPV4 : 0) |
+                (l->llmnr_ipv6_scope ? SD_RESOLVED_LLMNR_IPV6 : 0) | (l->mdns_ipv4_scope ? SD_RESOLVED_MDNS_IPV4 : 0) |
                 (l->mdns_ipv6_scope ? SD_RESOLVED_MDNS_IPV6 : 0);
 
         return sd_bus_message_append(reply, "t", mask);
 }
 
 static int property_get_ntas(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Link *l = userdata;
         const char *name;
@@ -248,7 +204,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 if (r < 0)
                         return r;
 
-                if (!GREEDY_REALLOC(dns, allocated, n+1))
+                if (!GREEDY_REALLOC(dns, allocated, n + 1))
                         return -ENOMEM;
 
                 dns[n].family = family;
@@ -273,7 +229,6 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                         if (r < 0)
                                 goto clear;
                 }
-
         }
 
         dns_server_unlink_marked(l->dns_servers);
@@ -679,7 +634,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         assert(m);
         assert(nodes);
 
-        l = new0(char*, hashmap_size(m->links) + 1);
+        l = new0(char *, hashmap_size(m->links) + 1);
         if (!l)
                 return -ENOMEM;
 

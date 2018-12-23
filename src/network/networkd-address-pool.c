@@ -6,12 +6,7 @@
 #include "set.h"
 #include "string-util.h"
 
-int address_pool_new(
-                Manager *m,
-                AddressPool **ret,
-                int family,
-                const union in_addr_union *u,
-                unsigned prefixlen) {
+int address_pool_new(Manager *m, AddressPool **ret, int family, const union in_addr_union *u, unsigned prefixlen) {
 
         AddressPool *p;
 
@@ -19,11 +14,11 @@ int address_pool_new(
         assert(ret);
         assert(u);
 
-        p = new(AddressPool, 1);
+        p = new (AddressPool, 1);
         if (!p)
                 return -ENOMEM;
 
-        *p = (AddressPool) {
+        *p = (AddressPool){
                 .manager = m,
                 .family = family,
                 .prefixlen = prefixlen,
@@ -36,12 +31,7 @@ int address_pool_new(
         return 0;
 }
 
-int address_pool_new_from_string(
-                Manager *m,
-                AddressPool **ret,
-                int family,
-                const char *p,
-                unsigned prefixlen) {
+int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, const char *p, unsigned prefixlen) {
 
         union in_addr_union u;
         int r;
@@ -68,10 +58,7 @@ void address_pool_free(AddressPool *p) {
         free(p);
 }
 
-static bool address_pool_prefix_is_taken(
-                AddressPool *p,
-                const union in_addr_union *u,
-                unsigned prefixlen) {
+static bool address_pool_prefix_is_taken(AddressPool *p, const union in_addr_union *u, unsigned prefixlen) {
 
         Iterator i;
         Link *l;

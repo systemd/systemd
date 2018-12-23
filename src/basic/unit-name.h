@@ -8,11 +8,12 @@
 
 #define UNIT_NAME_MAX 256
 
-typedef enum UnitNameFlags {
-        UNIT_NAME_PLAIN = 1,      /* Allow foo.service */
-        UNIT_NAME_INSTANCE = 2,   /* Allow foo@bar.service */
-        UNIT_NAME_TEMPLATE = 4,   /* Allow foo@.service */
-        UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE,
+typedef enum UnitNameFlags
+{
+        UNIT_NAME_PLAIN = 1,    /* Allow foo.service */
+        UNIT_NAME_INSTANCE = 2, /* Allow foo@bar.service */
+        UNIT_NAME_TEMPLATE = 4, /* Allow foo@.service */
+        UNIT_NAME_ANY = UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE,
 } UnitNameFlags;
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) _pure_;
@@ -49,7 +50,8 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret);
 int unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix, char **ret);
 int unit_name_to_path(const char *name, char **ret);
 
-typedef enum UnitNameMangle {
+typedef enum UnitNameMangle
+{
         UNIT_NAME_MANGLE_GLOB = 1,
         UNIT_NAME_MANGLE_WARN = 2,
 } UnitNameMangle;

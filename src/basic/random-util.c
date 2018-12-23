@@ -14,13 +14,13 @@
 #include <sys/time.h>
 
 #if HAVE_SYS_AUXV_H
-#  include <sys/auxv.h>
+#include <sys/auxv.h>
 #endif
 
 #if USE_SYS_RANDOM_H
-#  include <sys/random.h>
+#include <sys/random.h>
 #else
-#  include <linux/random.h>
+#include <linux/random.h>
 #endif
 
 #include "fd-util.h"
@@ -54,10 +54,10 @@ int rdrand(unsigned long *ret) {
         if (have_rdrand == 0)
                 return -EOPNOTSUPP;
 
-        asm volatile("rdrand %0;"
-                     "setc %1"
-                     : "=r" (*ret),
-                       "=qm" (err));
+        asm volatile(
+                "rdrand %0;"
+                "setc %1"
+                : "=r"(*ret), "=qm"(err));
 
 #if HAS_FEATURE_MEMORY_SANITIZER
         __msan_unpoison(&err, sizeof(err));
@@ -111,7 +111,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                         m = MIN(sizeof(u), n);
                         memcpy(p, &u, m);
 
-                        p = (uint8_t*) p + m;
+                        p = (uint8_t *) p + m;
                         n -= m;
 
                         if (n == 0)
@@ -132,7 +132,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                         return 0; /* Yay, success! */
 
                                 assert((size_t) r < n);
-                                p = (uint8_t*) p + r;
+                                p = (uint8_t *) p + r;
                                 n -= r;
 
                                 if (FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
@@ -184,7 +184,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                 }
         }
 
-        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (fd < 0)
                 return errno == ENOENT ? -ENOSYS : -errno;
 
@@ -207,7 +207,7 @@ void initialize_srand(void) {
          * try to make use of that to seed the pseudo-random generator. It's
          * better than nothing... */
 
-        auxv = (const void*) getauxval(AT_RANDOM);
+        auxv = (const void *) getauxval(AT_RANDOM);
         if (auxv) {
                 assert_cc(sizeof(x) <= 16);
                 memcpy(&x, auxv, sizeof(x));
@@ -227,10 +227,10 @@ void initialize_srand(void) {
 
 /* INT_MAX gives us only 31 bits, so use 24 out of that. */
 #if RAND_MAX >= INT_MAX
-#  define RAND_STEP 3
+#define RAND_STEP 3
 #else
 /* SHORT_INT_MAX or lower gives at most 15 bits, we just just 8 out of that. */
-#  define RAND_STEP 1
+#define RAND_STEP 1
 #endif
 
 void pseudo_random_bytes(void *p, size_t n) {
@@ -238,17 +238,17 @@ void pseudo_random_bytes(void *p, size_t n) {
 
         initialize_srand();
 
-        for (q = p; q < (uint8_t*) p + n; q += RAND_STEP) {
+        for (q = p; q < (uint8_t *) p + n; q += RAND_STEP) {
                 unsigned rr;
 
                 rr = (unsigned) rand();
 
 #if RAND_STEP >= 3
-                if ((size_t) (q - (uint8_t*) p + 2) < n)
+                if ((size_t)(q - (uint8_t *) p + 2) < n)
                         q[2] = rr >> 16;
 #endif
 #if RAND_STEP >= 2
-                if ((size_t) (q - (uint8_t*) p + 1) < n)
+                if ((size_t)(q - (uint8_t *) p + 1) < n)
                         q[1] = rr >> 8;
 #endif
                 q[0] = rr;
@@ -257,7 +257,7 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_DONT_DRAIN|RANDOM_ALLOW_RDRAND) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO | RANDOM_DONT_DRAIN | RANDOM_ALLOW_RDRAND) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */

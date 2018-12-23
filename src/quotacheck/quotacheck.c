@@ -47,7 +47,8 @@ static void test_files(void) {
 
 #if HAVE_SYSV_COMPAT
         if (access("/forcequotacheck", F_OK) >= 0) {
-                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system.");
+                log_error(
+                        "Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system.");
                 arg_force = true;
         }
 #endif
@@ -59,8 +60,7 @@ static int run(int argc, char *argv[]) {
         log_setup_service();
 
         if (argc > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         umask(0022);
 
@@ -78,19 +78,15 @@ static int run(int argc, char *argv[]) {
                         return 0;
         }
 
-        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
+        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_WAIT | FORK_LOG, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
-                static const char * const cmdline[] = {
-                        QUOTACHECK,
-                        "-anug",
-                        NULL
-                };
+                static const char *const cmdline[] = { QUOTACHECK, "-anug", NULL };
 
                 /* Child */
 
-                execv(cmdline[0], (char**) cmdline);
+                execv(cmdline[0], (char **) cmdline);
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 

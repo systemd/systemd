@@ -22,13 +22,15 @@
 #include "udevadm.h"
 #include "udevadm-util.h"
 
-typedef enum ActionType {
+typedef enum ActionType
+{
         ACTION_QUERY,
         ACTION_ATTRIBUTE_WALK,
         ACTION_DEVICE_ID_FILE,
 } ActionType;
 
-typedef enum QueryType {
+typedef enum QueryType
+{
         QUERY_NAME,
         QUERY_PATH,
         QUERY_SYMLINK,
@@ -41,14 +43,8 @@ static bool arg_export = false;
 static const char *arg_export_prefix = NULL;
 
 static bool skip_attribute(const char *name) {
-        static const char* const skip[] = {
-                "uevent",
-                "dev",
-                "modalias",
-                "resource",
-                "driver",
-                "subsystem",
-                "module",
+        static const char *const skip[] = {
+                "uevent", "dev", "modalias", "resource", "driver", "subsystem", "module",
         };
         unsigned i;
 
@@ -73,7 +69,7 @@ static void print_all_attributes(sd_device *device, const char *key) {
 
                 /* skip nonprintable attributes */
                 len = strlen(value);
-                while (len > 0 && isprint(value[len-1]))
+                while (len > 0 && isprint(value[len - 1]))
                         len--;
                 if (len > 0)
                         continue;
@@ -145,7 +141,7 @@ static int print_record(sd_device *device) {
         }
 
         FOREACH_DEVICE_PROPERTY(device, str, val)
-                printf("E: %s=%s\n", str, val);
+        printf("E: %s=%s\n", str, val);
 
         puts("");
         return 0;
@@ -162,8 +158,10 @@ static int stat_device(const char *name, bool export, const char *prefix) {
                         prefix = "INFO_";
                 printf("%sMAJOR=%u\n"
                        "%sMINOR=%u\n",
-                       prefix, major(statbuf.st_dev),
-                       prefix, minor(statbuf.st_dev));
+                       prefix,
+                       major(statbuf.st_dev),
+                       prefix,
+                       minor(statbuf.st_dev));
         } else
                 printf("%u:%u\n", major(statbuf.st_dev), minor(statbuf.st_dev));
         return 0;
@@ -187,7 +185,7 @@ static int export_devices(void) {
                 return r;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                print_record(d);
+        print_record(d);
 
         return 0;
 }
@@ -210,9 +208,9 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                 if (S_ISDIR(stats.st_mode)) {
                         _cleanup_closedir_ DIR *dir2 = NULL;
 
-                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC));
                         if (dir2)
-                                cleanup_dir(dir2, mask, depth-1);
+                                cleanup_dir(dir2, mask, depth - 1);
 
                         (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
@@ -246,12 +244,12 @@ static void cleanup_db(void) {
                 cleanup_dir(dir5, 0, 1);
 }
 
-static int query_device(QueryType query, sd_device* device) {
+static int query_device(QueryType query, sd_device *device) {
         int r;
 
         assert(device);
 
-        switch(query) {
+        switch (query) {
         case QUERY_NAME: {
                 const char *node;
 
@@ -293,10 +291,10 @@ static int query_device(QueryType query, sd_device* device) {
                 const char *key, *value;
 
                 FOREACH_DEVICE_PROPERTY(device, key, value)
-                        if (arg_export)
-                                printf("%s%s='%s'\n", strempty(arg_export_prefix), key, value);
-                        else
-                                printf("%s=%s\n", key, value);
+                if (arg_export)
+                        printf("%s%s='%s'\n", strempty(arg_export_prefix), key, value);
+                else
+                        printf("%s=%s\n", key, value);
                 return 0;
         }
 
@@ -328,8 +326,8 @@ static int help(void) {
                "  -x --export                 Export key/value pairs\n"
                "  -P --export-prefix          Export the key name with a prefix\n"
                "  -e --export-db              Export the content of the udev database\n"
-               "  -c --cleanup-db             Clean up the udev database\n"
-               , program_invocation_short_name);
+               "  -c --cleanup-db             Clean up the udev database\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -339,21 +337,19 @@ int info_main(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *name = NULL;
         int c, r;
 
-        static const struct option options[] = {
-                { "name",              required_argument, NULL, 'n' },
-                { "path",              required_argument, NULL, 'p' },
-                { "query",             required_argument, NULL, 'q' },
-                { "attribute-walk",    no_argument,       NULL, 'a' },
-                { "cleanup-db",        no_argument,       NULL, 'c' },
-                { "export-db",         no_argument,       NULL, 'e' },
-                { "root",              no_argument,       NULL, 'r' },
-                { "device-id-of-file", required_argument, NULL, 'd' },
-                { "export",            no_argument,       NULL, 'x' },
-                { "export-prefix",     required_argument, NULL, 'P' },
-                { "version",           no_argument,       NULL, 'V' },
-                { "help",              no_argument,       NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "name", required_argument, NULL, 'n' },
+                                                 { "path", required_argument, NULL, 'p' },
+                                                 { "query", required_argument, NULL, 'q' },
+                                                 { "attribute-walk", no_argument, NULL, 'a' },
+                                                 { "cleanup-db", no_argument, NULL, 'c' },
+                                                 { "export-db", no_argument, NULL, 'e' },
+                                                 { "root", no_argument, NULL, 'r' },
+                                                 { "device-id-of-file", required_argument, NULL, 'd' },
+                                                 { "export", no_argument, NULL, 'x' },
+                                                 { "export-prefix", required_argument, NULL, 'P' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         ActionType action = ACTION_QUERY;
         QueryType query = QUERY_ALL;
@@ -428,8 +424,7 @@ int info_main(int argc, char *argv[], void *userdata) {
 
         if (action == ACTION_DEVICE_ID_FILE) {
                 if (argv[optind])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Positional arguments are not allowed with -d/--device-id-of-file.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Positional arguments are not allowed with -d/--device-id-of-file.");
                 assert(name);
                 return stat_device(name, arg_export, arg_export_prefix);
         }
@@ -439,11 +434,9 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to build argument list: %m");
 
         if (strv_isempty(devices))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A device name or path is required");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A device name or path is required");
         if (action == ACTION_ATTRIBUTE_WALK && strv_length(devices) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Only one device may be specified with -a/--attribute-walk");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only one device may be specified with -a/--attribute-walk");
 
         char **p;
         STRV_FOREACH(p, devices) {
@@ -453,7 +446,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (r == -EINVAL)
                         return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
                 if (r < 0)
-                        return log_error_errno(r, "Unknown device \"%s\": %m",  *p);
+                        return log_error_errno(r, "Unknown device \"%s\": %m", *p);
 
                 if (action == ACTION_QUERY)
                         r = query_device(query, device);

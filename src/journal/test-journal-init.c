@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
                 assert_se(j == NULL);
         }
 
-        assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        assert_se(rm_rf(t, REMOVE_ROOT | REMOVE_PHYSICAL) >= 0);
 
         return 0;
 }

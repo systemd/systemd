@@ -79,7 +79,7 @@ static int parse_field(const void *data, size_t length, const char *field, size_
 
         nl = length - field_len;
 
-        buf = newdup_suffix0(char, (const char*) data + field_len, nl);
+        buf = newdup_suffix0(char, (const char *) data + field_len, nl);
         if (!buf)
                 return log_oom();
 
@@ -147,15 +147,14 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static bool print_multiline(
-                FILE *f,
-                unsigned prefix,
-                unsigned n_columns,
-                OutputFlags flags,
-                int priority,
-                const char* message,
-                size_t message_len,
-                size_t highlight[2]) {
+static bool print_multiline(FILE *f,
+                            unsigned prefix,
+                            unsigned n_columns,
+                            OutputFlags flags,
+                            int priority,
+                            const char *message,
+                            size_t message_len,
+                            size_t highlight[2]) {
 
         const char *color_on = "", *color_off = "", *highlight_on = "";
         const char *pos, *end;
@@ -183,9 +182,7 @@ static bool print_multiline(
         if (message_len == 0)
                 fputs("\n", f);
 
-        for (pos = message;
-             pos < message + message_len;
-             pos = end + 1, line++) {
+        for (pos = message; pos < message + message_len; pos = end + 1, line++) {
                 bool continuation = line > 0;
                 bool tail_line;
                 int len;
@@ -199,34 +196,19 @@ static bool print_multiline(
                  * at the end of the line, instead of putting dots in the middle
                  * or not at all.
                  */
-                tail_line =
-                        line + 1 == PRINT_LINE_THRESHOLD ||
-                        end + 1 >= message + PRINT_CHAR_THRESHOLD;
+                tail_line = line + 1 == PRINT_LINE_THRESHOLD || end + 1 >= message + PRINT_CHAR_THRESHOLD;
 
-                if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) ||
-                    (prefix + len + 1 < n_columns && !tail_line)) {
-                        if (highlight &&
-                            (size_t) (pos - message) <= highlight[0] &&
-                            highlight[0] < (size_t) len) {
+                if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) || (prefix + len + 1 < n_columns && !tail_line)) {
+                        if (highlight && (size_t)(pos - message) <= highlight[0] && highlight[0] < (size_t) len) {
 
-                                fprintf(f, "%*s%s%.*s",
-                                        continuation * prefix, "",
-                                        color_on, (int) highlight[0], pos);
-                                fprintf(f, "%s%.*s",
-                                        highlight_on,
-                                        (int) (MIN((size_t) len, highlight[1]) - highlight[0]),
-                                        pos + highlight[0]);
+                                fprintf(f, "%*s%s%.*s", continuation * prefix, "", color_on, (int) highlight[0], pos);
+                                fprintf(f, "%s%.*s", highlight_on, (int) (MIN((size_t) len, highlight[1]) - highlight[0]), pos + highlight[0]);
                                 if ((size_t) len > highlight[1])
-                                        fprintf(f, "%s%.*s",
-                                                color_on,
-                                                (int) (len - highlight[1]),
-                                                pos + highlight[1]);
+                                        fprintf(f, "%s%.*s", color_on, (int) (len - highlight[1]), pos + highlight[1]);
                                 fprintf(f, "%s\n", color_off);
 
                         } else
-                                fprintf(f, "%*s%s%.*s%s\n",
-                                        continuation * prefix, "",
-                                        color_on, len, pos, color_off);
+                                fprintf(f, "%*s%s%.*s%s\n", continuation * prefix, "", color_on, len, pos, color_off);
                         continue;
                 }
 
@@ -235,22 +217,15 @@ static bool print_multiline(
 
                 if (prefix < n_columns && n_columns - prefix >= 3) {
                         if (n_columns - prefix > (unsigned) len + 3)
-                                fprintf(f, "%*s%s%.*s...%s\n",
-                                        continuation * prefix, "",
-                                        color_on, len, pos, color_off);
+                                fprintf(f, "%*s%s%.*s...%s\n", continuation * prefix, "", color_on, len, pos, color_off);
                         else {
                                 _cleanup_free_ char *e;
 
-                                e = ellipsize_mem(pos, len, n_columns - prefix,
-                                                  tail_line ? 100 : 90);
+                                e = ellipsize_mem(pos, len, n_columns - prefix, tail_line ? 100 : 90);
                                 if (!e)
-                                        fprintf(f, "%*s%s%.*s%s\n",
-                                                continuation * prefix, "",
-                                                color_on, len, pos, color_off);
+                                        fprintf(f, "%*s%s%.*s%s\n", continuation * prefix, "", color_on, len, pos, color_off);
                                 else
-                                        fprintf(f, "%*s%s%s%s\n",
-                                                continuation * prefix, "",
-                                                color_on, e, color_off);
+                                        fprintf(f, "%*s%s%s%s\n", continuation * prefix, "", color_on, e, color_off);
                         }
                 } else
                         fputs("...\n", f);
@@ -278,7 +253,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
         if (r < 0)
                 return log_error_errno(r, "Failed to get monotonic timestamp: %m");
 
-        fprintf(f, "[%5"PRI_USEC".%06"PRI_USEC"]", t / USEC_PER_SEC, t % USEC_PER_SEC);
+        fprintf(f, "[%5" PRI_USEC ".%06" PRI_USEC "]", t / USEC_PER_SEC, t % USEC_PER_SEC);
         return 1 + 5 + 1 + 6 + 1;
 }
 
@@ -308,33 +283,30 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 else
                         k = format_timestamp(buf, sizeof(buf), x);
                 if (!k)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to format timestamp: %" PRIu64, x);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format timestamp: %" PRIu64, x);
 
         } else {
                 char usec[7];
 
                 gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
-                t = (time_t) (x / USEC_PER_SEC);
+                t = (time_t)(x / USEC_PER_SEC);
 
                 switch (mode) {
 
                 case OUTPUT_SHORT_UNIX:
-                        xsprintf(buf, "%10"PRI_TIME".%06"PRIu64, t, x % USEC_PER_SEC);
+                        xsprintf(buf, "%10" PRI_TIME ".%06" PRIu64, t, x % USEC_PER_SEC);
                         break;
 
                 case OUTPUT_SHORT_ISO:
                         if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format ISO time");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format ISO time");
                         break;
 
                 case OUTPUT_SHORT_ISO_PRECISE:
                         /* No usec in strftime, so we leave space and copy over */
                         if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format ISO-precise time");
-                        xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format ISO-precise time");
+                        xsprintf(usec, "%06" PRI_USEC, x % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
 
@@ -342,8 +314,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 case OUTPUT_SHORT_PRECISE:
 
                         if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format syslog time");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format syslog time");
 
                         if (mode == OUTPUT_SHORT_PRECISE) {
                                 size_t k;
@@ -351,10 +322,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                 assert(sizeof(buf) > strlen(buf));
                                 k = sizeof(buf) - strlen(buf);
 
-                                r = snprintf(buf + strlen(buf), k, ".%06"PRIu64, x % USEC_PER_SEC);
+                                r = snprintf(buf + strlen(buf), k, ".%06" PRIu64, x % USEC_PER_SEC);
                                 if (r <= 0 || (size_t) r >= k) /* too long? */
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to format precise time");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to format precise time");
                         }
                         break;
 
@@ -368,20 +338,16 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
 }
 
 static int output_short(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) {
 
         int r;
         const void *data;
         size_t length;
         size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *unit = NULL, *user_unit = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, unit_len = 0, user_unit_len = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL,
+                            *realtime = NULL, *monotonic = NULL, *priority = NULL, *unit = NULL, *user_unit = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0,
+               monotonic_len = 0, priority_len = 0, unit_len = 0, user_unit_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false;
         const ParseFieldVec fields[] = {
@@ -397,7 +363,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
         };
-        size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
+        size_t highlight_shifted[] = { highlight ? highlight[0] : 0, highlight ? highlight[1] : 0 };
 
         assert(f);
         assert(j);
@@ -408,7 +374,7 @@ static int output_short(
          * we won't output a misleading line without any indication of
          * truncation.
          */
-        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
+        sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL | OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
@@ -452,7 +418,8 @@ static int output_short(
                 n += hostname_len + 1;
         }
 
-        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) || (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
+        if (mode == OUTPUT_WITH_UNIT &&
+            ((unit && shall_print(unit, unit_len, flags)) || (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
                 if (unit) {
                         fprintf(f, " %.*s", (int) unit_len, unit);
                         n += unit_len + 1;
@@ -486,10 +453,7 @@ static int output_short(
                 fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else {
                 fputs(": ", f);
-                ellipsized |=
-                        print_multiline(f, n + 2, n_columns, flags, p,
-                                        message, message_len,
-                                        highlight_shifted);
+                ellipsized |= print_multiline(f, n + 2, n_columns, flags, p, message, message_len, highlight_shifted);
         }
 
         if (flags & OUTPUT_CATALOG)
@@ -499,13 +463,7 @@ static int output_short(
 }
 
 static int output_verbose(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) {
 
         const void *data;
         size_t length;
@@ -528,9 +486,7 @@ static int output_verbose(
         else {
                 _cleanup_free_ char *value = NULL;
 
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=",
-                                STRLEN("_SOURCE_REALTIME_TIMESTAMP="), &value,
-                                NULL);
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", STRLEN("_SOURCE_REALTIME_TIMESTAMP="), &value, NULL);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -550,11 +506,8 @@ static int output_verbose(
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = flags & OUTPUT_UTC ? format_timestamp_us_utc(ts, sizeof ts, realtime)
-                                       : format_timestamp_us(ts, sizeof ts, realtime);
-        fprintf(f, "%s [%s]\n",
-                timestamp ?: "(no timestamp)",
-                cursor);
+        timestamp = flags & OUTPUT_UTC ? format_timestamp_us_utc(ts, sizeof ts, realtime) : format_timestamp_us(ts, sizeof ts, realtime);
+        fprintf(f, "%s [%s]\n", timestamp ?: "(no timestamp)", cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *c;
@@ -563,9 +516,8 @@ static int output_verbose(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
-                fieldlen = c - (const char*) data;
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+                fieldlen = c - (const char *) data;
 
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
@@ -579,18 +531,18 @@ static int output_verbose(
                 }
 
                 if ((flags & OUTPUT_SHOW_ALL) ||
-                    (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
-                     && utf8_is_printable(data, length))) {
-                        fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
+                    (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH) && utf8_is_printable(data, length))) {
+                        fprintf(f, "    %s%.*s=", on, fieldlen, (const char *) data);
                         print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1, NULL);
                         fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
 
-                        fprintf(f, "    %s%.*s=[%s blob data]%s\n",
+                        fprintf(f,
+                                "    %s%.*s=[%s blob data]%s\n",
                                 on,
-                                (int) (c - (const char*) data),
-                                (const char*) data,
+                                (int) (c - (const char *) data),
+                                (const char *) data,
                                 format_bytes(bytes, sizeof(bytes), length - (c - (const char *) data) - 1),
                                 off);
                 }
@@ -606,13 +558,7 @@ static int output_verbose(
 }
 
 static int output_export(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) {
 
         sd_id128_t boot_id;
         char sid[33];
@@ -640,8 +586,10 @@ static int output_export(
 
         fprintf(f,
                 "__CURSOR=%s\n"
-                "__REALTIME_TIMESTAMP="USEC_FMT"\n"
-                "__MONOTONIC_TIMESTAMP="USEC_FMT"\n"
+                "__REALTIME_TIMESTAMP=" USEC_FMT
+                "\n"
+                "__MONOTONIC_TIMESTAMP=" USEC_FMT
+                "\n"
                 "_BOOT_ID=%s\n",
                 cursor,
                 realtime,
@@ -657,8 +605,7 @@ static int output_export(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
                 r = field_set_test(output_fields, data, c - (const char *) data);
                 if (r < 0)
@@ -671,11 +618,11 @@ static int output_export(
                 else {
                         uint64_t le64;
 
-                        fwrite(data, c - (const char*) data, 1, f);
+                        fwrite(data, c - (const char *) data, 1, f);
                         fputc('\n', f);
-                        le64 = htole64(length - (c - (const char*) data) - 1);
+                        le64 = htole64(length - (c - (const char *) data) - 1);
                         fwrite(&le64, sizeof(le64), 1, f);
-                        fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
+                        fwrite(c + 1, length - (c - (const char *) data) - 1, 1, f);
                 }
 
                 fputc('\n', f);
@@ -693,11 +640,7 @@ static int output_export(
         return 0;
 }
 
-void json_escape(
-                FILE *f,
-                const char* p,
-                size_t l,
-                OutputFlags flags) {
+void json_escape(FILE *f, const char *p, size_t l, OutputFlags flags) {
 
         assert(f);
         assert(p);
@@ -746,17 +689,12 @@ void json_escape(
 }
 
 struct json_data {
-        JsonVariant* name;
+        JsonVariant *name;
         size_t n_values;
-        JsonVariant* values[];
+        JsonVariant *values[];
 };
 
-static int update_json_data(
-                Hashmap *h,
-                OutputFlags flags,
-                const char *name,
-                const void *value,
-                size_t size) {
+static int update_json_data(Hashmap *h, OutputFlags flags, const char *name, const void *value, size_t size) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         struct json_data *d;
@@ -775,7 +713,7 @@ static int update_json_data(
         if (d) {
                 struct json_data *w;
 
-                w = realloc(d, offsetof(struct json_data, values) + sizeof(JsonVariant*) * (d->n_values + 1));
+                w = realloc(d, offsetof(struct json_data, values) + sizeof(JsonVariant *) * (d->n_values + 1));
                 if (!w)
                         return log_oom();
 
@@ -788,7 +726,7 @@ static int update_json_data(
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate JSON name variant: %m");
 
-                d = malloc0(offsetof(struct json_data, values) + sizeof(JsonVariant*));
+                d = malloc0(offsetof(struct json_data, values) + sizeof(JsonVariant *));
                 if (!d)
                         return log_oom();
 
@@ -805,12 +743,7 @@ static int update_json_data(
         return 0;
 }
 
-static int update_json_data_split(
-                Hashmap *h,
-                OutputFlags flags,
-                Set *output_fields,
-                const void *data,
-                size_t size) {
+static int update_json_data_split(Hashmap *h, OutputFlags flags, Set *output_fields, const void *data, size_t size) {
 
         const char *eq;
         char *name;
@@ -828,21 +761,15 @@ static int update_json_data_split(
         if (eq == data)
                 return 0;
 
-        name = strndupa(data, eq - (const char*) data);
+        name = strndupa(data, eq - (const char *) data);
         if (output_fields && !set_get(output_fields, name))
                 return 0;
 
-        return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
+        return update_json_data(h, flags, name, eq + 1, size - (eq - (const char *) data) - 1);
 }
 
 static int output_json(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
@@ -917,7 +844,7 @@ static int output_json(
                         goto finish;
         }
 
-        array = new(JsonVariant*, hashmap_size(h)*2);
+        array = new (JsonVariant *, hashmap_size(h) * 2);
         if (!array) {
                 r = log_oom();
                 goto finish;
@@ -949,10 +876,7 @@ static int output_json(
                 goto finish;
         }
 
-        json_variant_dump(object,
-                          output_mode_to_json_format_flags(mode) |
-                          (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
-                          f, NULL);
+        json_variant_dump(object, output_mode_to_json_format_flags(mode) | (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0), f, NULL);
 
         r = 0;
 
@@ -976,13 +900,7 @@ finish:
 }
 
 static int output_cat(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) {
 
         const void *data;
         size_t l;
@@ -1018,26 +936,20 @@ static int output_cat(
                 assert(highlight[0] <= highlight[1]);
                 assert(highlight[1] <= l - 8);
 
-                fwrite((const char*) data + 8, 1, highlight[0], f);
+                fwrite((const char *) data + 8, 1, highlight[0], f);
                 fwrite(highlight_on, 1, strlen(highlight_on), f);
-                fwrite((const char*) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
+                fwrite((const char *) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
                 fwrite(highlight_off, 1, strlen(highlight_off), f);
-                fwrite((const char*) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
+                fwrite((const char *) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
         } else
-                fwrite((const char*) data + 8, 1, l - 8, f);
+                fwrite((const char *) data + 8, 1, l - 8, f);
         fputc('\n', f);
 
         return 0;
 }
 
 static int (*output_funcs[_OUTPUT_MODE_MAX])(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                Set *output_fields,
-                const size_t highlight[2]) = {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, OutputFlags flags, Set *output_fields, const size_t highlight[2]) = {
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
@@ -1056,15 +968,14 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_WITH_UNIT] = output_short,
 };
 
-int show_journal_entry(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                char **output_fields,
-                const size_t highlight[2],
-                bool *ellipsized) {
+int show_journal_entry(FILE *f,
+                       sd_journal *j,
+                       OutputMode mode,
+                       unsigned n_columns,
+                       OutputFlags flags,
+                       char **output_fields,
+                       const size_t highlight[2],
+                       bool *ellipsized) {
 
         int ret;
         _cleanup_set_free_free_ Set *fields = NULL;
@@ -1108,14 +1019,7 @@ static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
 }
 
 int show_journal(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                usec_t not_before,
-                unsigned how_many,
-                OutputFlags flags,
-                bool *ellipsized) {
+        FILE *f, sd_journal *j, OutputMode mode, unsigned n_columns, usec_t not_before, unsigned how_many, OutputFlags flags, bool *ellipsized) {
 
         int r;
         unsigned line = 0;
@@ -1192,7 +1096,8 @@ int show_journal(
 
                         if (r > 0 && not_before < cutoff) {
                                 maybe_print_begin_newline(f, &flags);
-                                fprintf(f, "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
+                                fprintf(f,
+                                        "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
                         }
 
                         warn_cutoff = false;
@@ -1204,7 +1109,6 @@ int show_journal(
                 r = sd_journal_wait(j, USEC_INFINITY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for journal: %m");
-
         }
 
         return 0;
@@ -1222,26 +1126,19 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         m3 = strjoina("UNIT=", unit);
         m4 = strjoina("OBJECT_SYSTEMD_UNIT=", unit);
 
-        (void)(
-            /* Look for messages from the service itself */
-            (r = sd_journal_add_match(j, m1, 0)) ||
+        (void) (
+                /* Look for messages from the service itself */
+                (r = sd_journal_add_match(j, m1, 0)) ||
 
-            /* Look for coredumps of the service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0)) ||
-            (r = sd_journal_add_match(j, "_UID=0", 0)) ||
-            (r = sd_journal_add_match(j, m2, 0)) ||
+                /* Look for coredumps of the service */
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0)) ||
+                (r = sd_journal_add_match(j, "_UID=0", 0)) || (r = sd_journal_add_match(j, m2, 0)) ||
 
-             /* Look for messages from PID 1 about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_PID=1", 0)) ||
-            (r = sd_journal_add_match(j, m3, 0)) ||
+                /* Look for messages from PID 1 about this service */
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, "_PID=1", 0)) || (r = sd_journal_add_match(j, m3, 0)) ||
 
-            /* Look for messages from authorized daemons about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_UID=0", 0)) ||
-            (r = sd_journal_add_match(j, m4, 0))
-        );
+                /* Look for messages from authorized daemons about this service */
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, "_UID=0", 0)) || (r = sd_journal_add_match(j, m4, 0)));
 
         if (r == 0 && endswith(unit, ".slice")) {
                 const char *m5;
@@ -1249,10 +1146,7 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
                 m5 = strjoina("_SYSTEMD_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
-                (void)(
-                        (r = sd_journal_add_disjunction(j)) ||
-                        (r = sd_journal_add_match(j, m5, 0))
-                        );
+                (void) ((r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, m5, 0)));
         }
 
         return r;
@@ -1270,30 +1164,22 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         m2 = strjoina("USER_UNIT=", unit);
         m3 = strjoina("COREDUMP_USER_UNIT=", unit);
         m4 = strjoina("OBJECT_SYSTEMD_USER_UNIT=", unit);
-        sprintf(muid, "_UID="UID_FMT, uid);
+        sprintf(muid, "_UID=" UID_FMT, uid);
 
         (void) (
                 /* Look for messages from the user service itself */
-                (r = sd_journal_add_match(j, m1, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = sd_journal_add_match(j, m1, 0)) || (r = sd_journal_add_match(j, muid, 0)) ||
 
                 /* Look for messages from systemd about this service */
-                (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m2, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, m2, 0)) || (r = sd_journal_add_match(j, muid, 0)) ||
 
                 /* Look for coredumps of the service */
-                (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m3, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, m3, 0)) || (r = sd_journal_add_match(j, muid, 0)) ||
                 (r = sd_journal_add_match(j, "_UID=0", 0)) ||
 
                 /* Look for messages from authorized daemons about this service */
-                (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m4, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
-                (r = sd_journal_add_match(j, "_UID=0", 0))
-        );
+                (r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, m4, 0)) || (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = sd_journal_add_match(j, "_UID=0", 0)));
 
         if (r == 0 && endswith(unit, ".slice")) {
                 const char *m5;
@@ -1301,11 +1187,8 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
                 m5 = strjoina("_SYSTEMD_SLICE=", unit);
 
                 /* Show all messages belonging to a slice */
-                (void)(
-                        (r = sd_journal_add_disjunction(j)) ||
-                        (r = sd_journal_add_match(j, m5, 0)) ||
-                        (r = sd_journal_add_match(j, muid, 0))
-                        );
+                (void) ((r = sd_journal_add_disjunction(j)) || (r = sd_journal_add_match(j, m5, 0)) ||
+                        (r = sd_journal_add_match(j, muid, 0)));
         }
 
         return r;
@@ -1336,8 +1219,8 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
-                           pidnsfd, mntnsfd, -1, -1, rootfd, &child);
+        r = namespace_fork(
+                "(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, -1, rootfd, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1345,7 +1228,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
                 pair[0] = safe_close(pair[0]);
 
-                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY | O_CLOEXEC | O_NOCTTY);
                 if (fd < 0)
                         _exit(EXIT_FAILURE);
 
@@ -1382,7 +1265,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 }
 
 int add_match_this_boot(sd_journal *j, const char *machine) {
-        char match[9+32+1] = "_BOOT_ID=";
+        char match[9 + 32 + 1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1410,18 +1293,17 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
         return 0;
 }
 
-int show_journal_by_unit(
-                FILE *f,
-                const char *unit,
-                OutputMode mode,
-                unsigned n_columns,
-                usec_t not_before,
-                unsigned how_many,
-                uid_t uid,
-                OutputFlags flags,
-                int journal_open_flags,
-                bool system_unit,
-                bool *ellipsized) {
+int show_journal_by_unit(FILE *f,
+                         const char *unit,
+                         OutputMode mode,
+                         unsigned n_columns,
+                         usec_t not_before,
+                         unsigned how_many,
+                         uid_t uid,
+                         OutputFlags flags,
+                         int journal_open_flags,
+                         bool system_unit,
+                         bool *ellipsized) {
 
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;

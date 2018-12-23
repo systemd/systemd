@@ -120,7 +120,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
         if (!IN_SET(rt->preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))
                 rt->preference = SD_NDISC_PREFERENCE_MEDIUM;
 
-        p = (const uint8_t*) NDISC_ROUTER_RAW(rt) + sizeof(struct nd_router_advert);
+        p = (const uint8_t *) NDISC_ROUTER_RAW(rt) + sizeof(struct nd_router_advert);
         left = rt->raw_size - sizeof(struct nd_router_advert);
 
         for (;;) {
@@ -151,7 +151,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION:
 
-                        if (length != 4*8) {
+                        if (length != 4 * 8) {
                                 log_ndisc("Prefix option of invalid size, ignoring datagram.");
                                 return -EBADMSG;
                         }
@@ -176,7 +176,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                                 return -EBADMSG;
                         }
 
-                        m = be32toh(*(uint32_t*) (p + 4));
+                        m = be32toh(*(uint32_t *) (p + 4));
                         if (m >= IPV6_MIN_MTU) /* ignore invalidly small MTUs */
                                 rt->mtu = m;
 
@@ -185,7 +185,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                 }
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
-                        if (length < 1*8 || length > 3*8) {
+                        if (length < 1 * 8 || length > 3 * 8) {
                                 log_ndisc("Route information option of invalid size, ignoring datagram.");
                                 return -EBADMSG;
                         }
@@ -198,7 +198,7 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
-                        if (length < 3*8 || (length % (2*8)) != 1*8) {
+                        if (length < 3 * 8 || (length % (2 * 8)) != 1 * 8) {
                                 log_ndisc("RDNSS option has invalid size.");
                                 return -EBADMSG;
                         }
@@ -212,25 +212,20 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                                 break;
                         }
 
-                        if (length < 1*8) {
+                        if (length < 1 * 8) {
                                 log_ndisc("Flags extension option has invalid size.");
                                 return -EBADMSG;
                         }
 
                         /* Add in the additional flags bits */
-                        rt->flags |=
-                                ((uint64_t) p[2] << 8) |
-                                ((uint64_t) p[3] << 16) |
-                                ((uint64_t) p[4] << 24) |
-                                ((uint64_t) p[5] << 32) |
-                                ((uint64_t) p[6] << 40) |
-                                ((uint64_t) p[7] << 48);
+                        rt->flags |= ((uint64_t) p[2] << 8) | ((uint64_t) p[3] << 16) | ((uint64_t) p[4] << 24) | ((uint64_t) p[5] << 32) |
+                                ((uint64_t) p[6] << 40) | ((uint64_t) p[7] << 48);
 
                         has_flag_extension = true;
                         break;
 
                 case SD_NDISC_OPTION_DNSSL:
-                        if (length < 2*8) {
+                        if (length < 2 * 8) {
                                 log_ndisc("DNSSL option has invalid size.");
                                 return -EBADMSG;
                         }
@@ -359,7 +354,7 @@ _public_ int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **re
         if (rt->rindex + length > rt->raw_size)
                 return -EBADMSG;
 
-        *ret = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
+        *ret = (uint8_t *) NDISC_ROUTER_RAW(rt) + rt->rindex;
         *size = length;
 
         return 0;
@@ -383,7 +378,7 @@ static int get_prefix_info(sd_ndisc_router *rt, struct nd_opt_prefix_info **ret)
         if (length != sizeof(struct nd_opt_prefix_info))
                 return -EBADMSG;
 
-        ri = (struct nd_opt_prefix_info*) ((uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex);
+        ri = (struct nd_opt_prefix_info *) ((uint8_t *) NDISC_ROUTER_RAW(rt) + rt->rindex);
         if (ri->nd_opt_pi_prefix_len > 128)
                 return -EBADMSG;
 
@@ -492,10 +487,10 @@ static int get_route_info(sd_ndisc_router *rt, uint8_t **ret) {
                 return -EMEDIUMTYPE;
 
         length = NDISC_ROUTER_OPTION_LENGTH(rt);
-        if (length < 1*8 || length > 3*8)
+        if (length < 1 * 8 || length > 3 * 8)
                 return -EBADMSG;
 
-        ri = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
+        ri = (uint8_t *) NDISC_ROUTER_RAW(rt) + rt->rindex;
 
         if (ri[2] > 128)
                 return -EBADMSG;
@@ -515,7 +510,7 @@ _public_ int sd_ndisc_router_route_get_lifetime(sd_ndisc_router *rt, uint32_t *r
         if (r < 0)
                 return r;
 
-        *ret = be32toh(*(uint32_t*) (ri + 4));
+        *ret = be32toh(*(uint32_t *) (ri + 4));
         return 0;
 }
 
@@ -583,10 +578,10 @@ static int get_rdnss_info(sd_ndisc_router *rt, uint8_t **ret) {
                 return -EMEDIUMTYPE;
 
         length = NDISC_ROUTER_OPTION_LENGTH(rt);
-        if (length < 3*8 || (length % (2*8)) != 1*8)
+        if (length < 3 * 8 || (length % (2 * 8)) != 1 * 8)
                 return -EBADMSG;
 
-        *ret = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
+        *ret = (uint8_t *) NDISC_ROUTER_RAW(rt) + rt->rindex;
         return 0;
 }
 
@@ -601,7 +596,7 @@ _public_ int sd_ndisc_router_rdnss_get_addresses(sd_ndisc_router *rt, const stru
         if (r < 0)
                 return r;
 
-        *ret = (const struct in6_addr*) (ri + 8);
+        *ret = (const struct in6_addr *) (ri + 8);
         return (NDISC_ROUTER_OPTION_LENGTH(rt) - 8) / 16;
 }
 
@@ -616,7 +611,7 @@ _public_ int sd_ndisc_router_rdnss_get_lifetime(sd_ndisc_router *rt, uint32_t *r
         if (r < 0)
                 return r;
 
-        *ret = be32toh(*(uint32_t*) (ri + 4));
+        *ret = be32toh(*(uint32_t *) (ri + 4));
         return 0;
 }
 
@@ -634,10 +629,10 @@ static int get_dnssl_info(sd_ndisc_router *rt, uint8_t **ret) {
                 return -EMEDIUMTYPE;
 
         length = NDISC_ROUTER_OPTION_LENGTH(rt);
-        if (length < 2*8)
+        if (length < 2 * 8)
                 return -EBADMSG;
 
-        *ret = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
+        *ret = (uint8_t *) NDISC_ROUTER_RAW(rt) + rt->rindex;
         return 0;
 }
 
@@ -681,8 +676,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                                         return r;
 
                                 /* Ignore the root domain name or "localhost" and friends */
-                                if (!is_localhost(normalized) &&
-                                    !dns_name_is_root(normalized)) {
+                                if (!is_localhost(normalized) && !dns_name_is_root(normalized)) {
 
                                         if (strv_push(&l, normalized) < 0)
                                                 return -ENOMEM;
@@ -713,7 +707,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 else
                         e[n++] = '.';
 
-                r = dns_label_escape((char*) p+1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
+                r = dns_label_escape((char *) p + 1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
                 if (r < 0)
                         return r;
 
@@ -744,6 +738,6 @@ _public_ int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *r
         if (r < 0)
                 return r;
 
-        *ret_sec = be32toh(*(uint32_t*) (ri + 4));
+        *ret_sec = be32toh(*(uint32_t *) (ri + 4));
         return 0;
 }

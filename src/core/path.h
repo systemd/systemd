@@ -6,7 +6,8 @@ typedef struct PathSpec PathSpec;
 
 #include "unit.h"
 
-typedef enum PathType {
+typedef enum PathType
+{
         PATH_EXISTS,
         PATH_EXISTS_GLOB,
         PATH_DIRECTORY_NOT_EMPTY,
@@ -41,7 +42,8 @@ static inline bool path_spec_owns_inotify_fd(PathSpec *s, int fd) {
         return s->inotify_fd == fd;
 }
 
-typedef enum PathResult {
+typedef enum PathResult
+{
         PATH_SUCCESS,
         PATH_FAILURE_RESOURCES,
         PATH_FAILURE_START_LIMIT_HIT,
@@ -68,10 +70,10 @@ void path_free_specs(Path *p);
 
 extern const UnitVTable path_vtable;
 
-const char* path_type_to_string(PathType i) _const_;
+const char *path_type_to_string(PathType i) _const_;
 PathType path_type_from_string(const char *s) _pure_;
 
-const char* path_result_to_string(PathResult i) _const_;
+const char *path_result_to_string(PathResult i) _const_;
 PathResult path_result_from_string(const char *s) _pure_;
 
 DEFINE_CAST(PATH, Path);

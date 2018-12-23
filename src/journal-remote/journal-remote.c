@@ -31,7 +31,7 @@
 
 #define filename_escape(s) xescape((s), "/ ")
 
-static int open_output(RemoteServer *s, Writer *w, const char* host) {
+static int open_output(RemoteServer *s, Writer *w, const char *host) {
         _cleanup_free_ char *_filename = NULL;
         const char *filename;
         int r;
@@ -62,12 +62,8 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 assert_not_reached("what?");
         }
 
-        r = journal_file_open_reliably(filename,
-                                       O_RDWR|O_CREAT, 0640,
-                                       s->compress, (uint64_t) -1, s->seal,
-                                       &w->metrics,
-                                       w->mmap, NULL,
-                                       NULL, &w->journal);
+        r = journal_file_open_reliably(
+                filename, O_RDWR | O_CREAT, 0640, s->compress, (uint64_t) -1, s->seal, &w->metrics, w->mmap, NULL, NULL, &w->journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
 
@@ -80,7 +76,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
  **********************************************************************/
 
 static int init_writer_hashmap(RemoteServer *s) {
-        static const struct hash_ops* const hash_ops[] = {
+        static const struct hash_ops *const hash_ops[] = {
                 [JOURNAL_WRITE_SPLIT_NONE] = NULL,
                 [JOURNAL_WRITE_SPLIT_HOST] = &string_hash_ops,
         };
@@ -100,7 +96,7 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         const void *key;
         int r;
 
-        switch(s->split_mode) {
+        switch (s->split_mode) {
         case JOURNAL_WRITE_SPLIT_NONE:
                 key = "one and only";
                 break;
@@ -149,21 +145,12 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
 /* This should go away as soon as µhttpd allows state to be passed around. */
 RemoteServer *journal_remote_server_global;
 
-static int dispatch_raw_source_event(sd_event_source *event,
-                                     int fd,
-                                     uint32_t revents,
-                                     void *userdata);
-static int dispatch_raw_source_until_block(sd_event_source *event,
-                                           void *userdata);
-static int dispatch_blocking_source_event(sd_event_source *event,
-                                          void *userdata);
-static int dispatch_raw_connection_event(sd_event_source *event,
-                                         int fd,
-                                         uint32_t revents,
-                                         void *userdata);
+static int dispatch_raw_source_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
+static int dispatch_raw_source_until_block(sd_event_source *event, void *userdata);
+static int dispatch_blocking_source_event(sd_event_source *event, void *userdata);
+static int dispatch_raw_connection_event(sd_event_source *event, int fd, uint32_t revents, void *userdata);
 
-static int get_source_for_fd(RemoteServer *s,
-                             int fd, char *name, RemoteSource **source) {
+static int get_source_for_fd(RemoteServer *s, int fd, char *name, RemoteSource **source) {
         Writer *writer;
         int r;
 
@@ -177,8 +164,7 @@ static int get_source_for_fd(RemoteServer *s,
 
         r = journal_remote_get_writer(s, name, &writer);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get writer for source %s: %m",
-                                         name);
+                return log_warning_errno(r, "Failed to get writer for source %s: %m", name);
 
         if (s->sources[fd] == NULL) {
                 s->sources[fd] = source_new(fd, false, name, writer);
@@ -211,7 +197,7 @@ static int remove_source(RemoteServer *s, int fd) {
         return 0;
 }
 
-int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name) {
+int journal_remote_add_source(RemoteServer *s, int fd, char *name, bool own_name) {
         RemoteSource *source = NULL;
         int r;
 
@@ -229,32 +215,26 @@ int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name
 
         r = get_source_for_fd(s, fd, name, &source);
         if (r < 0) {
-                log_error_errno(r, "Failed to create source for fd:%d (%s): %m",
-                                fd, name);
+                log_error_errno(r, "Failed to create source for fd:%d (%s): %m", fd, name);
                 free(name);
                 return r;
         }
 
-        r = sd_event_add_io(s->events, &source->event,
-                            fd, EPOLLIN|EPOLLRDHUP|EPOLLPRI,
-                            dispatch_raw_source_event, source);
+        r = sd_event_add_io(s->events, &source->event, fd, EPOLLIN | EPOLLRDHUP | EPOLLPRI, dispatch_raw_source_event, source);
         if (r == 0) {
                 /* Add additional source for buffer processing. It will be
                  * enabled later. */
-                r = sd_event_add_defer(s->events, &source->buffer_event,
-                                       dispatch_raw_source_until_block, source);
+                r = sd_event_add_defer(s->events, &source->buffer_event, dispatch_raw_source_until_block, source);
                 if (r == 0)
                         sd_event_source_set_enabled(source->buffer_event, SD_EVENT_OFF);
         } else if (r == -EPERM) {
                 log_debug("Falling back to sd_event_add_defer for fd:%d (%s)", fd, name);
-                r = sd_event_add_defer(s->events, &source->event,
-                                       dispatch_blocking_source_event, source);
+                r = sd_event_add_defer(s->events, &source->event, dispatch_blocking_source_event, source);
                 if (r == 0)
                         sd_event_source_set_enabled(source->event, SD_EVENT_ON);
         }
         if (r < 0) {
-                log_error_errno(r, "Failed to register event source for fd:%d: %m",
-                                fd);
+                log_error_errno(r, "Failed to register event source for fd:%d: %m", fd);
                 goto error;
         }
 
@@ -266,7 +246,7 @@ int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name
 
         return 1; /* work to do */
 
- error:
+error:
         remove_source(s, fd);
         return r;
 }
@@ -278,9 +258,7 @@ int journal_remote_add_raw_socket(RemoteServer *s, int fd) {
 
         assert(fd >= 0);
 
-        r = sd_event_add_io(s->events, &s->listen_event,
-                            fd, EPOLLIN,
-                            dispatch_raw_connection_event, s);
+        r = sd_event_add_io(s->events, &s->listen_event, fd, EPOLLIN, dispatch_raw_connection_event, s);
         if (r < 0)
                 return r;
 
@@ -299,12 +277,7 @@ int journal_remote_add_raw_socket(RemoteServer *s, int fd) {
  **********************************************************************
  **********************************************************************/
 
-int journal_remote_server_init(
-                RemoteServer *s,
-                const char *output,
-                JournalWriteSplitMode split_mode,
-                bool compress,
-                bool seal) {
+int journal_remote_server_init(RemoteServer *s, const char *output, JournalWriteSplitMode split_mode, bool compress, bool seal) {
 
         int r;
 
@@ -376,11 +349,7 @@ void journal_remote_server_destroy(RemoteServer *s) {
  **********************************************************************
  **********************************************************************/
 
-int journal_remote_handle_raw_source(
-                sd_event_source *event,
-                int fd,
-                uint32_t revents,
-                RemoteServer *s) {
+int journal_remote_handle_raw_source(sd_event_source *event, int fd, uint32_t revents, RemoteServer *s) {
 
         RemoteSource *source;
         int r;
@@ -397,8 +366,7 @@ int journal_remote_handle_raw_source(
         if (journal_importer_eof(&source->importer)) {
                 size_t remaining;
 
-                log_debug("EOF reached with source %s (fd=%d)",
-                          source->importer.name, source->importer.fd);
+                log_debug("EOF reached with source %s (fd=%d)", source->importer.name, source->importer.fd);
 
                 remaining = journal_importer_bytes_remaining(&source->importer);
                 if (remaining > 0)
@@ -419,8 +387,7 @@ int journal_remote_handle_raw_source(
                 return 1;
 }
 
-static int dispatch_raw_source_until_block(sd_event_source *event,
-                                           void *userdata) {
+static int dispatch_raw_source_until_block(sd_event_source *event, void *userdata) {
         RemoteSource *source = userdata;
         int r;
 
@@ -437,10 +404,7 @@ static int dispatch_raw_source_until_block(sd_event_source *event,
         return r;
 }
 
-static int dispatch_raw_source_event(sd_event_source *event,
-                                     int fd,
-                                     uint32_t revents,
-                                     void *userdata) {
+static int dispatch_raw_source_event(sd_event_source *event, int fd, uint32_t revents, void *userdata) {
         RemoteSource *source = userdata;
         int r;
 
@@ -456,23 +420,21 @@ static int dispatch_raw_source_event(sd_event_source *event,
         return r;
 }
 
-static int dispatch_blocking_source_event(sd_event_source *event,
-                                          void *userdata) {
+static int dispatch_blocking_source_event(sd_event_source *event, void *userdata) {
         RemoteSource *source = userdata;
 
         return journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
 }
 
-static int accept_connection(const char* type, int fd,
-                             SocketAddress *addr, char **hostname) {
+static int accept_connection(const char *type, int fd, SocketAddress *addr, char **hostname) {
         int fd2, r;
 
         log_debug("Accepting new %s connection on fd:%d", type, fd);
-        fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        fd2 = accept4(fd, &addr->sockaddr.sa, &addr->size, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (fd2 < 0)
                 return log_error_errno(errno, "accept() on fd:%d failed: %m", fd);
 
-        switch(socket_address_family(addr)) {
+        switch (socket_address_family(addr)) {
         case AF_INET:
         case AF_INET6: {
                 _cleanup_free_ char *a = NULL;
@@ -492,28 +454,21 @@ static int accept_connection(const char* type, int fd,
                         return r;
                 }
 
-                log_debug("Accepted %s %s connection from %s",
-                          type,
-                          socket_address_family(addr) == AF_INET ? "IP" : "IPv6",
-                          a);
+                log_debug("Accepted %s %s connection from %s", type, socket_address_family(addr) == AF_INET ? "IP" : "IPv6", a);
 
                 *hostname = b;
 
                 return fd2;
         };
         default:
-                log_error("Rejected %s connection with unsupported family %d",
-                          type, socket_address_family(addr));
+                log_error("Rejected %s connection with unsupported family %d", type, socket_address_family(addr));
                 close(fd2);
 
                 return -EINVAL;
         }
 }
 
-static int dispatch_raw_connection_event(sd_event_source *event,
-                                         int fd,
-                                         uint32_t revents,
-                                         void *userdata) {
+static int dispatch_raw_connection_event(sd_event_source *event, int fd, uint32_t revents, void *userdata) {
         RemoteServer *s = userdata;
         int fd2;
         SocketAddress addr = {

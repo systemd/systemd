@@ -9,12 +9,13 @@ typedef struct Device Device;
  * asynchronously from each other at various places. For example, in very common case a device might already be mounted
  * before udev finished probing it (think: a script setting up a loopback block device, formatting it and mounting it
  * in quick succession). Hence we need to track precisely where it is already visible and where not. */
-typedef enum DeviceFound {
-        DEVICE_NOT_FOUND   = 0,
-        DEVICE_FOUND_UDEV  = 1 << 0, /* The device has shown up in the udev database */
+typedef enum DeviceFound
+{
+        DEVICE_NOT_FOUND = 0,
+        DEVICE_FOUND_UDEV = 1 << 0,  /* The device has shown up in the udev database */
         DEVICE_FOUND_MOUNT = 1 << 1, /* The device has shown up in /proc/self/mountinfo */
-        DEVICE_FOUND_SWAP  = 1 << 2, /* The device has shown up in /proc/swaps */
-        DEVICE_FOUND_MASK  = DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP,
+        DEVICE_FOUND_SWAP = 1 << 2,  /* The device has shown up in /proc/swaps */
+        DEVICE_FOUND_MASK = DEVICE_FOUND_UDEV | DEVICE_FOUND_MOUNT | DEVICE_FOUND_SWAP,
 } DeviceFound;
 
 struct Device {

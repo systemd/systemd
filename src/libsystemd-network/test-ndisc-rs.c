@@ -16,9 +16,7 @@
 #include "ndisc-internal.h"
 #include "tests.h"
 
-static struct ether_addr mac_addr = {
-        .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
-};
+static struct ether_addr mac_addr = { .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' } };
 
 static bool verbose = false;
 static sd_event_source *test_hangcheck;
@@ -55,14 +53,11 @@ static void router_dump(sd_ndisc_router *rt) {
                 log_info("Hop limit: %u", hop_limit);
 
         assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
-        log_info("Flags: <%s|%s>",
-                 flags & ND_RA_FLAG_OTHER ? "OTHER" : "",
-                 flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
+        log_info("Flags: <%s|%s>", flags & ND_RA_FLAG_OTHER ? "OTHER" : "", flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
 
         assert_se(sd_ndisc_router_get_preference(rt, &preference) >= 0);
         log_info("Preference: %s",
-                 preference == SD_NDISC_PREFERENCE_LOW ? "low" :
-                 preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
+                 preference == SD_NDISC_PREFERENCE_LOW ? "low" : preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
 
         assert_se(sd_ndisc_router_get_lifetime(rt, &lifetime) >= 0);
         log_info("Lifetime: %" PRIu16, lifetime);
@@ -95,7 +90,7 @@ static void router_dump(sd_ndisc_router *rt) {
 
                         assert_se(sd_ndisc_router_option_get_raw(rt, &p, &n) >= 0);
                         assert_se(n > 2);
-                        assert_se(c = hexmem((uint8_t*) p + 2, n - 2));
+                        assert_se(c = hexmem((uint8_t *) p + 2, n - 2));
 
                         log_info("Address: %s", c);
                         break;
@@ -115,9 +110,7 @@ static void router_dump(sd_ndisc_router *rt) {
                         log_info("Preferred Lifetime: %" PRIu32, lifetime_preferred);
 
                         assert_se(sd_ndisc_router_prefix_get_flags(rt, &pfl) >= 0);
-                        log_info("Flags: <%s|%s>",
-                                 pfl & ND_OPT_PI_FLAG_ONLINK ? "ONLINK" : "",
-                                 pfl & ND_OPT_PI_FLAG_AUTO ? "AUTO" : "");
+                        log_info("Flags: <%s|%s>", pfl & ND_OPT_PI_FLAG_ONLINK ? "ONLINK" : "", pfl & ND_OPT_PI_FLAG_AUTO ? "AUTO" : "");
 
                         assert_se(sd_ndisc_router_prefix_get_prefixlen(rt, &prefix_len) >= 0);
                         log_info("Prefix Length: %u", prefix_len);
@@ -160,14 +153,14 @@ static void router_dump(sd_ndisc_router *rt) {
                         assert_se(sd_ndisc_router_dnssl_get_lifetime(rt, &lt) >= 0);
                         log_info("Lifetime: %" PRIu32, lt);
                         break;
-                }}
+                }
+                }
 
                 r = sd_ndisc_router_option_next(rt);
         }
 }
 
-static int test_rs_hangcheck(sd_event_source *s, uint64_t usec,
-                             void *userdata) {
+static int test_rs_hangcheck(sd_event_source *s, uint64_t usec, void *userdata) {
         assert_se(false);
 
         return 0;
@@ -187,9 +180,8 @@ int icmp6_bind_router_advertisement(int index) {
         return -ENOSYS;
 }
 
-int icmp6_receive(int fd, void *iov_base, size_t iov_len,
-                  struct in6_addr *dst, triple_timestamp *timestamp) {
-        assert_se(read (fd, iov_base, iov_len) == (ssize_t)iov_len);
+int icmp6_receive(int fd, void *iov_base, size_t iov_len, struct in6_addr *dst, triple_timestamp *timestamp) {
+        assert_se(read(fd, iov_base, iov_len) == (ssize_t) iov_len);
 
         if (timestamp)
                 triple_timestamp_get(timestamp);
@@ -199,25 +191,17 @@ int icmp6_receive(int fd, void *iov_base, size_t iov_len,
 
 static int send_ra(uint8_t flags) {
         uint8_t advertisement[] = {
-                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4,
-                0x00, 0x00, 0x01, 0xb8, 0x00, 0x00, 0x00, 0x00,
-                0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
-                0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-                0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
-                0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74,
-                0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
+                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x04,
+                0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4, 0x00, 0x00, 0x01, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x20, 0x01, 0x0d, 0xb8,
+                0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x03, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x3c, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74, 0x72, 0x61,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
         };
 
         advertisement[5] = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
-               sizeof(advertisement));
+        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) == sizeof(advertisement));
 
         if (verbose)
                 printf("  sent RA with flag 0x%02x\n", flags);
@@ -235,13 +219,7 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
 static void test_callback(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *rt, void *userdata) {
         sd_event *e = userdata;
         static unsigned idx = 0;
-        uint64_t flags_array[] = {
-                0,
-                0,
-                0,
-                ND_RA_FLAG_OTHER,
-                ND_RA_FLAG_MANAGED
-        };
+        uint64_t flags_array[] = { 0, 0, 0, ND_RA_FLAG_OTHER, ND_RA_FLAG_MANAGED };
         uint64_t flags;
         uint32_t mtu;
 
@@ -290,9 +268,8 @@ static void test_rs(void) {
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
 
-        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                 time_now + 2 *USEC_PER_SEC, 0,
-                                 test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(
+                          e, &test_hangcheck, clock_boottime_or_monotonic(), time_now + 2 * USEC_PER_SEC, 0, test_rs_hangcheck, NULL) >= 0);
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -329,10 +306,8 @@ static int test_timeout_value(uint8_t flags) {
 
         if (last == 0) {
                 /* initial RT = IRT + RAND*IRT  */
-                min = NDISC_ROUTER_SOLICITATION_INTERVAL -
-                        NDISC_ROUTER_SOLICITATION_INTERVAL / 10;
-                max = NDISC_ROUTER_SOLICITATION_INTERVAL +
-                        NDISC_ROUTER_SOLICITATION_INTERVAL / 10;
+                min = NDISC_ROUTER_SOLICITATION_INTERVAL - NDISC_ROUTER_SOLICITATION_INTERVAL / 10;
+                max = NDISC_ROUTER_SOLICITATION_INTERVAL + NDISC_ROUTER_SOLICITATION_INTERVAL / 10;
         } else {
                 /* next RT = 2*RTprev + RAND*RTprev */
                 min = 2 * last - last / 10;
@@ -341,23 +316,20 @@ static int test_timeout_value(uint8_t flags) {
 
         /* final RT > MRT */
         if (last * 2 > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL) {
-                min = NDISC_MAX_ROUTER_SOLICITATION_INTERVAL -
-                        NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 10;
-                max = NDISC_MAX_ROUTER_SOLICITATION_INTERVAL +
-                        NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 10;
+                min = NDISC_MAX_ROUTER_SOLICITATION_INTERVAL - NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 10;
+                max = NDISC_MAX_ROUTER_SOLICITATION_INTERVAL + NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 10;
         }
 
-        format_timespan(time_string_min, FORMAT_TIMESPAN_MAX,
-                        min, USEC_PER_MSEC);
-        format_timespan(time_string_nd, FORMAT_TIMESPAN_MAX,
-                        nd->retransmit_time, USEC_PER_MSEC);
-        format_timespan(time_string_max, FORMAT_TIMESPAN_MAX,
-                        max, USEC_PER_MSEC);
+        format_timespan(time_string_min, FORMAT_TIMESPAN_MAX, min, USEC_PER_MSEC);
+        format_timespan(time_string_nd, FORMAT_TIMESPAN_MAX, nd->retransmit_time, USEC_PER_MSEC);
+        format_timespan(time_string_max, FORMAT_TIMESPAN_MAX, max, USEC_PER_MSEC);
 
         log_info("backoff timeout interval %2d %s%s <= %s <= %s",
                  count,
-                 (last * 2 > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL)? "(max) ": "",
-                 time_string_min, time_string_nd, time_string_max);
+                 (last * 2 > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL) ? "(max) " : "",
+                 time_string_min,
+                 time_string_nd,
+                 time_string_max);
 
         assert_se(min <= nd->retransmit_time);
         assert_se(max >= nd->retransmit_time);
@@ -391,9 +363,8 @@ static void test_timeout(void) {
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
 
-        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                 time_now + 2U * USEC_PER_SEC, 0,
-                                 test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(
+                          e, &test_hangcheck, clock_boottime_or_monotonic(), time_now + 2U * USEC_PER_SEC, 0, test_rs_hangcheck, NULL) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 

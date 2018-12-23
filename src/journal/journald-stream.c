@@ -37,7 +37,8 @@
 
 #define STDOUT_STREAMS_MAX 4096
 
-typedef enum StdoutStreamState {
+typedef enum StdoutStreamState
+{
         STDOUT_STREAM_IDENTIFIER,
         STDOUT_STREAM_UNIT_ID,
         STDOUT_STREAM_PRIORITY,
@@ -51,7 +52,8 @@ typedef enum StdoutStreamState {
 /* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
  * was reached, or the end of the stream was reached */
 
-typedef enum LineBreak {
+typedef enum LineBreak
+{
         LINE_BREAK_NEWLINE,
         LINE_BREAK_NUL,
         LINE_BREAK_LINE_MAX,
@@ -69,13 +71,13 @@ struct StdoutStream {
         char *identifier;
         char *unit_id;
         int priority;
-        bool level_prefix:1;
-        bool forward_to_syslog:1;
-        bool forward_to_kmsg:1;
-        bool forward_to_console:1;
+        bool level_prefix : 1;
+        bool forward_to_syslog : 1;
+        bool forward_to_kmsg : 1;
+        bool forward_to_console : 1;
 
-        bool fdstore:1;
-        bool in_notify_queue:1;
+        bool fdstore : 1;
+        bool in_notify_queue : 1;
 
         char *buffer;
         size_t length;
@@ -125,7 +127,7 @@ void stdout_stream_free(StdoutStream *s) {
         free(s);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream*, stdout_stream_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(StdoutStream *, stdout_stream_free);
 
 void stdout_stream_destroy(StdoutStream *s) {
         if (!s)
@@ -304,9 +306,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
                 /* If this log message was generated due to an uncommon line break then mention this in the log
                  * entry */
 
-                c =     line_break == LINE_BREAK_NUL ?      "_LINE_BREAK=nul" :
-                        line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" :
-                                                            "_LINE_BREAK=eof";
+                c = line_break == LINE_BREAK_NUL ? "_LINE_BREAK=nul" :
+                                                   line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" : "_LINE_BREAK=eof";
                 iovec[n++] = IOVEC_MAKE_STRING(c);
         }
 
@@ -347,8 +348,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                 return 0;
 
         case STDOUT_STREAM_UNIT_ID:
-                if (s->ucred.uid == 0 &&
-                    unit_name_is_valid(p, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+                if (s->ucred.uid == 0 && unit_name_is_valid(p, UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE)) {
 
                         s->unit_id = strdup(p);
                         if (!s->unit_id)
@@ -440,7 +440,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
                 char *end1, *end2;
 
                 end1 = memchr(p, '\n', remaining);
-                end2 = memchr(p, 0, end1 ? (size_t) (end1 - p) : remaining);
+                end2 = memchr(p, 0, end1 ? (size_t)(end1 - p) : remaining);
 
                 if (end2) {
                         /* We found a NUL terminator */
@@ -493,8 +493,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         assert(s);
 
-        if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
-                log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
+        if ((revents | EPOLLIN | EPOLLHUP) != (EPOLLIN | EPOLLHUP)) {
+                log_error("Got invalid event from epoll for stdout stream: %" PRIx32, revents);
                 goto terminate;
         }
 
@@ -573,7 +573,7 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add stream to event loop: %m");
 
-        r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL + 5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust stdout event source priority: %m");
 
@@ -599,11 +599,9 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         assert(s);
 
         if (revents != EPOLLIN)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Got invalid event from epoll for stdout server fd: %" PRIx32,
-                                       revents);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got invalid event from epoll for stdout server fd: %" PRIx32, revents);
 
-        fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (fd < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -635,13 +633,8 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 }
 
 static int stdout_stream_load(StdoutStream *stream, const char *fname) {
-        _cleanup_free_ char
-                *priority = NULL,
-                *level_prefix = NULL,
-                *forward_to_syslog = NULL,
-                *forward_to_kmsg = NULL,
-                *forward_to_console = NULL,
-                *stream_id = NULL;
+        _cleanup_free_ char *priority = NULL, *level_prefix = NULL, *forward_to_syslog = NULL, *forward_to_kmsg = NULL,
+                            *forward_to_console = NULL, *stream_id = NULL;
         int r;
 
         assert(stream);
@@ -653,15 +646,24 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
                         return log_oom();
         }
 
-        r = parse_env_file(NULL, stream->state_file,
-                           "PRIORITY", &priority,
-                           "LEVEL_PREFIX", &level_prefix,
-                           "FORWARD_TO_SYSLOG", &forward_to_syslog,
-                           "FORWARD_TO_KMSG", &forward_to_kmsg,
-                           "FORWARD_TO_CONSOLE", &forward_to_console,
-                           "IDENTIFIER", &stream->identifier,
-                           "UNIT", &stream->unit_id,
-                           "STREAM_ID", &stream_id);
+        r = parse_env_file(NULL,
+                           stream->state_file,
+                           "PRIORITY",
+                           &priority,
+                           "LEVEL_PREFIX",
+                           &level_prefix,
+                           "FORWARD_TO_SYSLOG",
+                           &forward_to_syslog,
+                           "FORWARD_TO_KMSG",
+                           &forward_to_kmsg,
+                           "FORWARD_TO_CONSOLE",
+                           &forward_to_console,
+                           "IDENTIFIER",
+                           &stream->identifier,
+                           "UNIT",
+                           &stream->unit_id,
+                           "STREAM_ID",
+                           &stream_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to read: %s", stream->state_file);
 
@@ -772,8 +774,7 @@ int server_restore_streams(Server *s, FDSet *fds) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m",
-                                                  de->d_name);
+                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m", de->d_name);
                         continue;
                 }
 
@@ -800,7 +801,7 @@ int server_open_stdout_socket(Server *s) {
         assert(s);
 
         if (s->stdout_fd < 0) {
-                s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                s->stdout_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
                 if (s->stdout_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
@@ -821,7 +822,7 @@ int server_open_stdout_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add stdout server fd to event source: %m");
 
-        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL + 5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust priority of stdout server event source: %m");
 
@@ -830,7 +831,7 @@ int server_open_stdout_socket(Server *s) {
 
 void stdout_stream_send_notify(StdoutStream *s) {
         struct iovec iovec = {
-                .iov_base = (char*) "FDSTORE=1",
+                .iov_base = (char *) "FDSTORE=1",
                 .iov_len = STRLEN("FDSTORE=1"),
         };
         struct msghdr msghdr = {
@@ -859,7 +860,7 @@ void stdout_stream_send_notify(StdoutStream *s) {
 
         memcpy(CMSG_DATA(cmsg), &s->fd, sizeof(int));
 
-        l = sendmsg(s->server->notify_fd, &msghdr, MSG_DONTWAIT|MSG_NOSIGNAL);
+        l = sendmsg(s->server->notify_fd, &msghdr, MSG_DONTWAIT | MSG_NOSIGNAL);
         if (l < 0) {
                 if (errno == EAGAIN)
                         return;
@@ -872,5 +873,4 @@ void stdout_stream_send_notify(StdoutStream *s) {
 
         LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
         s->in_notify_queue = false;
-
 }

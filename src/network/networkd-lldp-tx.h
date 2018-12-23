@@ -4,7 +4,8 @@
 #include "conf-parser.h"
 #include "networkd-link.h"
 
-typedef enum LLDPEmit {
+typedef enum LLDPEmit
+{
         LLDP_EMIT_NO,
         LLDP_EMIT_NEAREST_BRIDGE,
         LLDP_EMIT_NON_TPMR_BRIDGE,

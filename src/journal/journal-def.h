@@ -30,7 +30,8 @@ typedef struct HashItem HashItem;
 typedef struct FSSHeader FSSHeader;
 
 /* Object types */
-typedef enum ObjectType {
+typedef enum ObjectType
+{
         OBJECT_UNUSED, /* also serves as "any type" or "additional context" */
         OBJECT_DATA,
         OBJECT_FIELD,
@@ -43,7 +44,8 @@ typedef enum ObjectType {
 } ObjectType;
 
 /* Object flags */
-enum {
+enum
+{
         OBJECT_COMPRESSED_XZ = 1 << 0,
         OBJECT_COMPRESSED_LZ4 = 1 << 1,
         _OBJECT_COMPRESSED_MAX
@@ -109,7 +111,7 @@ struct EntryArrayObject {
         le64_t items[];
 } _packed_;
 
-#define TAG_LENGTH (256/8)
+#define TAG_LENGTH (256 / 8)
 
 struct TagObject {
         ObjectHeader object;
@@ -128,7 +130,8 @@ union Object {
         TagObject tag;
 };
 
-enum {
+enum
+{
         STATE_OFFLINE = 0,
         STATE_ONLINE = 1,
         STATE_ARCHIVED = 2,
@@ -136,35 +139,37 @@ enum {
 };
 
 /* Header flags */
-enum {
+enum
+{
         HEADER_INCOMPATIBLE_COMPRESSED_XZ = 1 << 0,
         HEADER_INCOMPATIBLE_COMPRESSED_LZ4 = 1 << 1,
 };
 
-#define HEADER_INCOMPATIBLE_ANY (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
+#define HEADER_INCOMPATIBLE_ANY (HEADER_INCOMPATIBLE_COMPRESSED_XZ | HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
 
 #if HAVE_XZ && HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
+#define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
 #elif HAVE_XZ
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_XZ
+#define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_XZ
 #elif HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_LZ4
+#define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_LZ4
 #else
-#  define HEADER_INCOMPATIBLE_SUPPORTED 0
+#define HEADER_INCOMPATIBLE_SUPPORTED 0
 #endif
 
-enum {
+enum
+{
         HEADER_COMPATIBLE_SEALED = 1
 };
 
 #define HEADER_COMPATIBLE_ANY HEADER_COMPATIBLE_SEALED
 #if HAVE_GCRYPT
-#  define HEADER_COMPATIBLE_SUPPORTED HEADER_COMPATIBLE_SEALED
+#define HEADER_COMPATIBLE_SUPPORTED HEADER_COMPATIBLE_SEALED
 #else
-#  define HEADER_COMPATIBLE_SUPPORTED 0
+#define HEADER_COMPATIBLE_SUPPORTED 0
 #endif
 
-#define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
+#define HEADER_SIGNATURE ((char[]){ 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
 struct Header {
         uint8_t signature[8]; /* "LPKSHHRH" */
@@ -174,7 +179,7 @@ struct Header {
         uint8_t reserved[7];
         sd_id128_t file_id;
         sd_id128_t machine_id;
-        sd_id128_t boot_id;    /* last writer */
+        sd_id128_t boot_id; /* last writer */
         sd_id128_t seqnum_id;
         le64_t header_size;
         le64_t arena_size;
@@ -201,14 +206,14 @@ struct Header {
         /* Size: 240 */
 } _packed_;
 
-#define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+#define FSS_HEADER_SIGNATURE ((char[]){ 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
 struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
         sd_id128_t machine_id;
-        sd_id128_t boot_id;    /* last writer */
+        sd_id128_t boot_id; /* last writer */
         le64_t header_size;
         le64_t start_usec;
         le64_t interval_usec;

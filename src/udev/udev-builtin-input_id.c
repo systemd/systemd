@@ -25,11 +25,11 @@
 
 /* we must use this kernel-compatible implementation */
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)
-#define NBITS(x) ((((x)-1)/BITS_PER_LONG)+1)
-#define OFF(x)  ((x)%BITS_PER_LONG)
-#define BIT(x)  (1UL<<OFF(x))
-#define LONG(x) ((x)/BITS_PER_LONG)
-#define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
+#define NBITS(x) ((((x) -1) / BITS_PER_LONG) + 1)
+#define OFF(x) ((x) % BITS_PER_LONG)
+#define BIT(x) (1UL << OFF(x))
+#define LONG(x) ((x) / BITS_PER_LONG)
+#define test_bit(bit, array) ((array[LONG(bit)] >> OFF(bit)) & 1)
 
 struct range {
         unsigned start;
@@ -37,10 +37,7 @@ struct range {
 };
 
 /* key code ranges above BTN_MISC (start is inclusive, stop is exclusive)*/
-static const struct range high_key_blocks[] = {
-        { KEY_OK, BTN_DPAD_UP },
-        { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }
-};
+static const struct range high_key_blocks[] = { { KEY_OK, BTN_DPAD_UP }, { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY } };
 
 static inline int abs_size_mm(const struct input_absinfo *absinfo) {
         /* Resolution is defined to be in units/mm for ABS_X/Y */
@@ -52,12 +49,11 @@ static void extract_info(sd_device *dev, const char *devpath, bool test) {
         struct input_absinfo xabsinfo = {}, yabsinfo = {};
         _cleanup_close_ int fd = -1;
 
-        fd = open(devpath, O_RDONLY|O_CLOEXEC);
+        fd = open(devpath, O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return;
 
-        if (ioctl(fd, EVIOCGABS(ABS_X), &xabsinfo) < 0 ||
-            ioctl(fd, EVIOCGABS(ABS_Y), &yabsinfo) < 0)
+        if (ioctl(fd, EVIOCGABS(ABS_X), &xabsinfo) < 0 || ioctl(fd, EVIOCGABS(ABS_Y), &yabsinfo) < 0)
                 return;
 
         if (xabsinfo.resolution <= 0 || yabsinfo.resolution <= 0)
@@ -76,13 +72,11 @@ static void extract_info(sd_device *dev, const char *devpath, bool test) {
  * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
-static void get_cap_mask(sd_device *pdev, const char* attr,
-                         unsigned long *bitmask, size_t bitmask_size,
-                         bool test) {
+static void get_cap_mask(sd_device *pdev, const char *attr, unsigned long *bitmask, size_t bitmask_size, bool test) {
         const char *v;
         char text[4096];
         unsigned i;
-        char* word;
+        char *word;
         unsigned long val;
 
         if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
@@ -94,7 +88,7 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
         memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
-                val = strtoul(word+1, NULL, 16);
+                val = strtoul(word + 1, NULL, 16);
                 if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
@@ -102,7 +96,7 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
                 *word = '\0';
                 ++i;
         }
-        val = strtoul (text, NULL, 16);
+        val = strtoul(text, NULL, 16);
         if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
@@ -110,12 +104,11 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
-                xsprintf(text, "  bit %%4u: %%0%zulX\n",
-                         2 * sizeof(unsigned long));
+                xsprintf(text, "  bit %%4u: %%0%zulX\n", 2 * sizeof(unsigned long));
                 log_device_debug(pdev, "%s decoded bit map:", attr);
-                val = bitmask_size / sizeof (unsigned long);
+                val = bitmask_size / sizeof(unsigned long);
                 /* skip over leading zeros */
-                while (bitmask[val-1] == 0 && val > 0)
+                while (bitmask[val - 1] == 0 && val > 0)
                         --val;
                 for (i = 0; i < val; ++i) {
                         DISABLE_WARNING_FORMAT_NONLITERAL;
@@ -127,11 +120,11 @@ static void get_cap_mask(sd_device *pdev, const char* attr,
 
 /* pointer devices */
 static bool test_pointers(sd_device *dev,
-                          const unsigned long* bitmask_ev,
-                          const unsigned long* bitmask_abs,
-                          const unsigned long* bitmask_key,
-                          const unsigned long* bitmask_rel,
-                          const unsigned long* bitmask_props,
+                          const unsigned long *bitmask_ev,
+                          const unsigned long *bitmask_abs,
+                          const unsigned long *bitmask_key,
+                          const unsigned long *bitmask_rel,
+                          const unsigned long *bitmask_props,
                           bool test) {
         int button, axis;
         bool has_abs_coordinates = false;
@@ -151,7 +144,7 @@ static bool test_pointers(sd_device *dev,
         bool is_tablet = false;
         bool is_joystick = false;
         bool is_accelerometer = false;
-        bool is_pointing_stick= false;
+        bool is_pointing_stick = false;
 
         has_keys = test_bit(EV_KEY, bitmask_ev);
         has_abs_coordinates = test_bit(ABS_X, bitmask_abs) && test_bit(ABS_Y, bitmask_abs);
@@ -225,10 +218,8 @@ static bool test_pointers(sd_device *dev,
                         is_touchscreen = true;
         }
 
-        if (!is_tablet && !is_touchpad && !is_joystick &&
-            has_mouse_button &&
-            (has_rel_coordinates ||
-            !has_abs_coordinates)) /* mouse buttons and no axis */
+        if (!is_tablet && !is_touchpad && !is_joystick && has_mouse_button &&
+            (has_rel_coordinates || !has_abs_coordinates)) /* mouse buttons and no axis */
                 is_mouse = true;
 
         if (is_pointing_stick)
@@ -248,10 +239,7 @@ static bool test_pointers(sd_device *dev,
 }
 
 /* key like devices */
-static bool test_key(sd_device *dev,
-                     const unsigned long* bitmask_ev,
-                     const unsigned long* bitmask_key,
-                     bool test) {
+static bool test_key(sd_device *dev, const unsigned long *bitmask_ev, const unsigned long *bitmask_key, bool test) {
         unsigned i;
         unsigned long found;
         unsigned long mask;
@@ -265,9 +253,9 @@ static bool test_key(sd_device *dev,
 
         /* only consider KEY_* here, not BTN_* */
         found = 0;
-        for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
+        for (i = 0; i < BTN_MISC / BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
+                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long) i * BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher blocks */
         if (!found) {
@@ -314,7 +302,7 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
-        for (pdev = dev; pdev; ) {
+        for (pdev = dev; pdev;) {
                 const char *s;
 
                 if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
@@ -336,9 +324,7 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
                 get_cap_mask(pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
                 get_cap_mask(pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
                 get_cap_mask(pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
-                is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs,
-                                           bitmask_key, bitmask_rel,
-                                           bitmask_props, test);
+                is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, bitmask_props, test);
                 is_key = test_key(dev, bitmask_ev, bitmask_key, test);
                 /* Some evdev nodes have only a scrollwheel */
                 if (!is_pointer && !is_key && test_bit(EV_REL, bitmask_ev) &&
@@ -346,12 +332,9 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_INPUT_KEY", "1");
                 if (test_bit(EV_SW, bitmask_ev))
                         udev_builtin_add_property(dev, test, "ID_INPUT_SWITCH", "1");
-
         }
 
-        if (sd_device_get_devname(dev, &devnode) >= 0 &&
-            sd_device_get_sysname(dev, &sysname) >= 0 &&
-            startswith(sysname, "event"))
+        if (sd_device_get_devname(dev, &devnode) >= 0 && sd_device_get_sysname(dev, &sysname) >= 0 && startswith(sysname, "event"))
                 extract_info(dev, devnode, test);
 
         return 0;

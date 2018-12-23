@@ -97,8 +97,8 @@ static int context_add_ntp_service(Context *c, const char *s) {
 
         /* Do not add this if it is already listed */
         LIST_FOREACH(units, u, c->units)
-                if (streq(u->name, s))
-                        return 0;
+        if (streq(u->name, s))
+                return 0;
 
         u = new0(UnitStatusInfo, 1);
         if (!u)
@@ -160,7 +160,7 @@ static int context_ntp_service_is_active(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += streq_ptr(info->active_state, "active");
+        count += streq_ptr(info->active_state, "active");
 
         return count;
 }
@@ -174,7 +174,7 @@ static int context_ntp_service_is_enabled(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += STRPTR_IN_SET(info->unit_file_state, "enabled", "enabled-runtime");
+        count += STRPTR_IN_SET(info->unit_file_state, "enabled", "enabled-runtime");
 
         return count;
 }
@@ -188,7 +188,7 @@ static int context_ntp_service_exists(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += streq_ptr(info->load_state, "loaded");
+        count += streq_ptr(info->load_state, "loaded");
 
         return count;
 }
@@ -268,7 +268,7 @@ static int context_write_data_local_rtc(Context *c) {
                         ++p;
                         prepend = "0\n";
                 } else {
-                        p = strchr(p+1, '\n');
+                        p = strchr(p + 1, '\n');
                         if (!p) {
                                 /* only two lines, no \n terminator */
                                 prepend = "\n";
@@ -287,11 +287,11 @@ static int context_write_data_local_rtc(Context *c) {
                 a = p - s;
                 b = strlen(e);
 
-                w = new(char, a + (c->local_rtc ? 5 : 3) + strlen(prepend) + b + 1);
+                w = new (char, a + (c->local_rtc ? 5 : 3) + strlen(prepend) + b + 1);
                 if (!w)
                         return -ENOMEM;
 
-                *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *(char *) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         if (unlink("/etc/adjtime") < 0)
@@ -307,12 +307,10 @@ static int context_write_data_local_rtc(Context *c) {
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
-        static const struct bus_properties_map map[] = {
-                { "LoadState",     "s", NULL, offsetof(UnitStatusInfo, load_state)      },
-                { "ActiveState",   "s", NULL, offsetof(UnitStatusInfo, active_state)    },
-                { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
-                {}
-        };
+        static const struct bus_properties_map map[] = { { "LoadState", "s", NULL, offsetof(UnitStatusInfo, load_state) },
+                                                         { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                                                         { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
+                                                         {} };
         UnitStatusInfo *u;
         int r;
 
@@ -338,15 +336,7 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 if (!path)
                         return -ENOMEM;
 
-                r = bus_map_all_properties(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                map,
-                                BUS_MAP_STRDUP,
-                                &error,
-                                NULL,
-                                u);
+                r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, map, BUS_MAP_STRDUP, &error, NULL, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
         }
@@ -371,13 +361,14 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         LIST_FOREACH(units, u, c->units)
-                if (streq_ptr(path, u->path))
-                        u->path = mfree(u->path);
-                else
-                        n += !!u->path;
+        if (streq_ptr(path, u->path))
+                u->path = mfree(u->path);
+        else
+                n += !!u->path;
 
         if (n == 0) {
-                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
+                (void) sd_bus_emit_properties_changed(
+                        sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
 
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
         }
@@ -394,17 +385,16 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
         assert(bus);
         assert(error);
 
-        r = sd_bus_call_method(
-                bus,
-                "org.freedesktop.systemd1",
-                "/org/freedesktop/systemd1",
-                "org.freedesktop.systemd1.Manager",
-                start ? "StartUnit" : "StopUnit",
-                error,
-                &reply,
-                "ss",
-                u->name,
-                "replace");
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               start ? "StartUnit" : "StopUnit",
+                               error,
+                               &reply,
+                               "ss",
+                               u->name,
+                               "replace");
         if (r < 0)
                 return r;
 
@@ -432,41 +422,35 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                 return 0;
 
         if (enable)
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "EnableUnitFiles",
-                                error,
-                                NULL,
-                                "asbb", 1,
-                                u->name,
-                                false, true);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "EnableUnitFiles",
+                                       error,
+                                       NULL,
+                                       "asbb",
+                                       1,
+                                       u->name,
+                                       false,
+                                       true);
         else
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "DisableUnitFiles",
-                                error,
-                                NULL,
-                                "asb", 1,
-                                u->name,
-                                false);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "DisableUnitFiles",
+                                       error,
+                                       NULL,
+                                       "asb",
+                                       1,
+                                       u->name,
+                                       false);
         if (r < 0)
                 return r;
 
         r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload",
-                        error,
-                        NULL,
-                        NULL);
+                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload", error, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -477,13 +461,7 @@ static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_ntp_sync, "b", ntp_synced());
 
 static int property_get_rtc_time(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         struct tm tm;
         usec_t t;
@@ -492,7 +470,8 @@ static int property_get_rtc_time(
         zero(tm);
         r = clock_get_hwclock(&tm);
         if (r == -EBUSY) {
-                log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
+                log_warning(
+                        "/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
         } else if (r == -ENOENT) {
                 log_debug("/dev/rtc not found.");
@@ -506,13 +485,7 @@ static int property_get_rtc_time(
 }
 
 static int property_get_can_ntp(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -531,13 +504,7 @@ static int property_get_can_ntp(
 }
 
 static int property_get_ntp(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -574,14 +541,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
-                        m,
-                        CAP_SYS_TIME,
-                        "org.freedesktop.timedate1.set-timezone",
-                        NULL,
-                        interactive,
-                        UID_INVALID,
-                        &c->polkit_registry,
-                        error);
+                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-timezone", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -621,12 +581,16 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIMEZONE_CHANGE_STR,
-                   "TIMEZONE=%s", c->zone,
-                   "TIMEZONE_SHORTNAME=%s", tzname[daylight],
-                   "DAYLIGHT=%i", daylight,
+                   "TIMEZONE=%s",
+                   c->zone,
+                   "TIMEZONE_SHORTNAME=%s",
+                   tzname[daylight],
+                   "DAYLIGHT=%i",
+                   daylight,
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
+        (void) sd_bus_emit_properties_changed(
+                sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -648,14 +612,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
-                        m,
-                        CAP_SYS_TIME,
-                        "org.freedesktop.timedate1.set-local-rtc",
-                        NULL,
-                        interactive,
-                        UID_INVALID,
-                        &c->polkit_registry,
-                        error);
+                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-local-rtc", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -718,7 +675,8 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
+        (void) sd_bus_emit_properties_changed(
+                sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -761,8 +719,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 n = now(CLOCK_REALTIME);
                 x = n + utc;
 
-                if ((utc > 0 && x < n) ||
-                    (utc < 0 && x > n))
+                if ((utc > 0 && x < n) || (utc < 0 && x > n))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
 
                 timespec_store(&ts, x);
@@ -770,14 +727,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 timespec_store(&ts, (usec_t) utc);
 
         r = bus_verify_polkit_async(
-                        m,
-                        CAP_SYS_TIME,
-                        "org.freedesktop.timedate1.set-time",
-                        NULL,
-                        interactive,
-                        UID_INVALID,
-                        &c->polkit_registry,
-                        error);
+                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-time", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -809,7 +759,8 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
-                   "REALTIME="USEC_FMT, timespec_load(&ts),
+                   "REALTIME=" USEC_FMT,
+                   timespec_load(&ts),
                    LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)));
 
         return sd_bus_reply_method_return(m, NULL);
@@ -838,14 +789,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
 
         r = bus_verify_polkit_async(
-                        m,
-                        CAP_SYS_TIME,
-                        "org.freedesktop.timedate1.set-ntp",
-                        NULL,
-                        interactive,
-                        UID_INVALID,
-                        &c->polkit_registry,
-                        error);
+                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-ntp", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -853,17 +797,18 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
         /* This method may be called frequently. Forget the previous job if it has not completed yet. */
         LIST_FOREACH(units, u, c->units)
-                u->path = mfree(u->path);
+        u->path = mfree(u->path);
 
         if (!c->slot_job_removed) {
-                r = sd_bus_match_signal_async(
-                                bus,
-                                &slot,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "JobRemoved",
-                                match_job_removed, NULL, c);
+                r = sd_bus_match_signal_async(bus,
+                                              &slot,
+                                              "org.freedesktop.systemd1",
+                                              "/org/freedesktop/systemd1",
+                                              "org.freedesktop.systemd1.Manager",
+                                              "JobRemoved",
+                                              match_job_removed,
+                                              NULL,
+                                              c);
                 if (r < 0)
                         return r;
         }
@@ -897,8 +842,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
         else
                 LIST_FOREACH(units, u, c->units) {
-                        if (!streq(u->load_state, "loaded") ||
-                            !streq(u->unit_file_state, "enabled"))
+                        if (!streq(u->load_state, "loaded") || !streq(u->unit_file_state, "enabled"))
                                 continue;
 
                         r = unit_start_or_stop(u, bus, error, enable);

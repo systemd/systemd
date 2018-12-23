@@ -55,7 +55,7 @@ int import_url_change_last_component(const char *url, const char *suffix, char *
         if (e <= url)
                 return -EINVAL;
 
-        s = new(char, (e - url) + strlen(suffix) + 1);
+        s = new (char, (e - url) + strlen(suffix) + 1);
         if (!s)
                 return -ENOMEM;
 
@@ -64,7 +64,7 @@ int import_url_change_last_component(const char *url, const char *suffix, char *
         return 0;
 }
 
-static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
+static const char *const import_verify_table[_IMPORT_VERIFY_MAX] = {
         [IMPORT_VERIFY_NO] = "no",
         [IMPORT_VERIFY_CHECKSUM] = "checksum",
         [IMPORT_VERIFY_SIGNATURE] = "signature",
@@ -143,8 +143,10 @@ int import_assign_pool_quota_and_warn(const char *path) {
         int r;
 
         r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
-        if (r == -ENOTTY)  {
-                log_debug_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, as directory is not on btrfs or not a subvolume. Ignoring.");
+        if (r == -ENOTTY) {
+                log_debug_errno(
+                        r,
+                        "Failed to set up default quota hierarchy for /var/lib/machines, as directory is not on btrfs or not a subvolume. Ignoring.");
                 return 0;
         }
         if (r < 0)
@@ -154,7 +156,8 @@ int import_assign_pool_quota_and_warn(const char *path) {
 
         r = btrfs_subvol_auto_qgroup(path, 0, true);
         if (r == -ENOTTY) {
-                log_debug_errno(r, "Failed to set up quota hierarchy for %s, as directory is not on btrfs or not a subvolume. Ignoring.", path);
+                log_debug_errno(
+                        r, "Failed to set up quota hierarchy for %s, as directory is not on btrfs or not a subvolume. Ignoring.", path);
                 return 0;
         }
         if (r < 0)

@@ -43,10 +43,9 @@ static int resolvconf_help(void) {
                "implementations are not supported and will cause the invocation to fail: -u,\n"
                "-I, -i, -l, -R, -r, -v, -V, --enable-updates, --disable-updates,\n"
                "--updates-are-enabled.\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
@@ -99,25 +98,25 @@ static int parse_search_domain(const char *string) {
 
 int resolvconf_parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
                 ARG_ENABLE_UPDATES,
                 ARG_DISABLE_UPDATES,
                 ARG_UPDATES_ARE_ENABLED,
         };
 
-        static const struct option options[] = {
-                { "help",                no_argument, NULL, 'h'                     },
-                { "version",             no_argument, NULL, ARG_VERSION             },
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
 
-                /* The following are specific to Debian's original resolvconf */
-                { "enable-updates",      no_argument, NULL, ARG_ENABLE_UPDATES      },
-                { "disable-updates",     no_argument, NULL, ARG_DISABLE_UPDATES     },
-                { "updates-are-enabled", no_argument, NULL, ARG_UPDATES_ARE_ENABLED },
-                {}
-        };
+                                                 /* The following are specific to Debian's original resolvconf */
+                                                 { "enable-updates", no_argument, NULL, ARG_ENABLE_UPDATES },
+                                                 { "disable-updates", no_argument, NULL, ARG_DISABLE_UPDATES },
+                                                 { "updates-are-enabled", no_argument, NULL, ARG_UPDATES_ARE_ENABLED },
+                                                 {} };
 
-        enum {
+        enum
+        {
                 TYPE_REGULAR,
                 TYPE_PRIVATE,   /* -p: Not supported, treated identically to TYPE_REGULAR */
                 TYPE_EXCLUSIVE, /* -x */
@@ -137,7 +136,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
         arg_mode = _MODE_INVALID;
 
         while ((c = getopt_long(argc, argv, "hadxpfm:uIi:l:Rr:vV", options, NULL)) >= 0)
-                switch(c) {
+                switch (c) {
 
                 case 'h':
                         return resolvconf_help();
@@ -183,19 +182,15 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 case 'r':
                 case 'v':
                 case 'V':
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Switch -%c not supported.", c);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch -%c not supported.", c);
 
                 /* The Debian resolvconf commands we don't support. */
                 case ARG_ENABLE_UPDATES:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Switch --enable-updates not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --enable-updates not supported.");
                 case ARG_DISABLE_UPDATES:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Switch --disable-updates not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --disable-updates not supported.");
                 case ARG_UPDATES_ARE_ENABLED:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Switch --updates-are-enabled not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --updates-are-enabled not supported.");
 
                 case '?':
                         return -EINVAL;
@@ -205,12 +200,10 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_mode == _MODE_INVALID)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Expected either -a or -d on the command line.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected either -a or -d on the command line.");
 
-        if (optind+1 != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Expected interface name as argument.");
+        if (optind + 1 != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected interface name as argument.");
 
         r = ifname_mangle(argv[optind]);
         if (r <= 0)
@@ -267,8 +260,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         log_debug("Private DNS server data not supported, ignoring.");
 
                 if (!arg_set_dns)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "No DNS servers specified, refusing operation.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No DNS servers specified, refusing operation.");
         }
 
         return 1; /* work to do */

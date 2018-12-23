@@ -68,14 +68,18 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
                 return r;
 
         match = strjoina(
-                        "sender='org.freedesktop.DBus',"
-                        "type='signal',"
-                        "interface='org.freedesktop.DBus',"
-                        "member='NameOwnerChanged',"
-                        "path='/org/freedesktop/DBus',"
-                        "arg0='", name, "',",
-                        "arg1='", unique, "',",
-                        "arg2=''");
+                "sender='org.freedesktop.DBus',"
+                "type='signal',"
+                "interface='org.freedesktop.DBus',"
+                "member='NameOwnerChanged',"
+                "path='/org/freedesktop/DBus',"
+                "arg0='",
+                name,
+                "',",
+                "arg1='",
+                unique,
+                "',",
+                "arg2=''");
 
         r = sd_bus_add_match_async(bus, NULL, match, name_owner_change_callback, NULL, e);
         if (r < 0)
@@ -88,13 +92,7 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         return 0;
 }
 
-int bus_event_loop_with_idle(
-                sd_event *e,
-                sd_bus *bus,
-                const char *name,
-                usec_t timeout,
-                check_idle_t check_idle,
-                void *userdata) {
+int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t timeout, check_idle_t check_idle, void *userdata) {
         bool exiting = false;
         int r, code;
 
@@ -168,15 +166,8 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
         assert(c);
         assert(name);
 
-        r = sd_bus_call_method(c,
-                               "org.freedesktop.DBus",
-                               "/org/freedesktop/dbus",
-                               "org.freedesktop.DBus",
-                               "NameHasOwner",
-                               error,
-                               &rep,
-                               "s",
-                               name);
+        r = sd_bus_call_method(
+                c, "org.freedesktop.DBus", "/org/freedesktop/dbus", "org.freedesktop.DBus", "NameHasOwner", error, &rep, "s", name);
         if (r < 0)
                 return r;
 
@@ -212,13 +203,7 @@ static int check_good_user(sd_bus_message *m, uid_t good_user) {
 }
 
 int bus_test_polkit(
-                sd_bus_message *call,
-                int capability,
-                const char *action,
-                const char **details,
-                uid_t good_user,
-                bool *_challenge,
-                sd_bus_error *e) {
+        sd_bus_message *call, int capability, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e) {
 
         int r;
 
@@ -247,21 +232,16 @@ int bus_test_polkit(
                 if (!sender)
                         return -EBADMSG;
 
-                r = sd_bus_message_new_method_call(
-                                call->bus,
-                                &request,
-                                "org.freedesktop.PolicyKit1",
-                                "/org/freedesktop/PolicyKit1/Authority",
-                                "org.freedesktop.PolicyKit1.Authority",
-                                "CheckAuthorization");
+                r = sd_bus_message_new_method_call(call->bus,
+                                                   &request,
+                                                   "org.freedesktop.PolicyKit1",
+                                                   "/org/freedesktop/PolicyKit1/Authority",
+                                                   "org.freedesktop.PolicyKit1.Authority",
+                                                   "CheckAuthorization");
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(
-                                request,
-                                "(sa{sv})s",
-                                "system-bus-name", 1, "name", "s", sender,
-                                action);
+                r = sd_bus_message_append(request, "(sa{sv})s", "system-bus-name", 1, "name", "s", sender, action);
                 if (r < 0)
                         return r;
 
@@ -369,15 +349,14 @@ finish:
 
 #endif
 
-int bus_verify_polkit_async(
-                sd_bus_message *call,
-                int capability,
-                const char *action,
-                const char **details,
-                bool interactive,
-                uid_t good_user,
-                Hashmap **registry,
-                sd_bus_error *error) {
+int bus_verify_polkit_async(sd_bus_message *call,
+                            int capability,
+                            const char *action,
+                            const char **details,
+                            bool interactive,
+                            uid_t good_user,
+                            Hashmap **registry,
+                            sd_bus_error *error) {
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
@@ -432,7 +411,8 @@ int bus_verify_polkit_async(
                         return 1;
 
                 if (challenge)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+                        return sd_bus_error_set(
+                                error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
 
                 return -EACCES;
         }
@@ -468,21 +448,16 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        call->bus,
-                        &pk,
-                        "org.freedesktop.PolicyKit1",
-                        "/org/freedesktop/PolicyKit1/Authority",
-                        "org.freedesktop.PolicyKit1.Authority",
-                        "CheckAuthorization");
+        r = sd_bus_message_new_method_call(call->bus,
+                                           &pk,
+                                           "org.freedesktop.PolicyKit1",
+                                           "/org/freedesktop/PolicyKit1/Authority",
+                                           "org.freedesktop.PolicyKit1.Authority",
+                                           "CheckAuthorization");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(
-                        pk,
-                        "(sa{sv})s",
-                        "system-bus-name", 1, "name", "s", sender,
-                        action);
+        r = sd_bus_message_append(pk, "(sa{sv})s", "system-bus-name", 1, "name", "s", sender, action);
         if (r < 0)
                 return r;
 
@@ -782,12 +757,11 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
 
                 else if ((STR_IN_SET(name, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit") && u == CGROUP_LIMIT_MAX) ||
                          (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == (uint64_t) -1) ||
-                         (startswith(name, "Limit") && u == (uint64_t) -1) ||
-                         (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
+                         (startswith(name, "Limit") && u == (uint64_t) -1) || (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
 
                         bus_print_property_value(name, expected_value, value, "%s", "infinity");
                 else
-                        bus_print_property_value(name, expected_value, value, "%"PRIu64, u);
+                        bus_print_property_value(name, expected_value, value, "%" PRIu64, u);
 
                 return 1;
         }
@@ -799,7 +773,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_value(name, expected_value, value, "%"PRIi64, i);
+                bus_print_property_value(name, expected_value, value, "%" PRIi64, i);
                 return 1;
         }
 
@@ -817,14 +791,14 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         if (u == UID_INVALID)
                                 bus_print_property_value(name, expected_value, value, "%s", "[not set]");
                         else
-                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_value(name, expected_value, value, "%" PRIu32, u);
                 } else if (streq(name, "GID")) {
                         if (u == GID_INVALID)
                                 bus_print_property_value(name, expected_value, value, "%s", "[not set]");
                         else
-                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_value(name, expected_value, value, "%" PRIu32, u);
                 } else
-                        bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
+                        bus_print_property_value(name, expected_value, value, "%" PRIu32, u);
 
                 return 1;
         }
@@ -836,7 +810,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                 if (r < 0)
                         return r;
 
-                bus_print_property_value(name, expected_value, value, "%"PRIi32, i);
+                bus_print_property_value(name, expected_value, value, "%" PRIi32, i);
                 return 1;
         }
 
@@ -892,7 +866,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         const uint8_t *u;
                         size_t n;
 
-                        r = sd_bus_message_read_array(m, SD_BUS_TYPE_BYTE, (const void**) &u, &n);
+                        r = sd_bus_message_read_array(m, SD_BUS_TYPE_BYTE, (const void **) &u, &n);
                         if (r < 0)
                                 return r;
 
@@ -914,7 +888,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         uint32_t *u;
                         size_t n;
 
-                        r = sd_bus_message_read_array(m, SD_BUS_TYPE_UINT32, (const void**) &u, &n);
+                        r = sd_bus_message_read_array(m, SD_BUS_TYPE_UINT32, (const void **) &u, &n);
                         if (r < 0)
                                 return r;
 
@@ -939,13 +913,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
         return 0;
 }
 
-int bus_message_print_all_properties(
-                sd_bus_message *m,
-                bus_message_print_t func,
-                char **filter,
-                bool value,
-                bool all,
-                Set **found_properties) {
+int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties) {
 
         int r;
 
@@ -977,8 +945,7 @@ int bus_message_print_all_properties(
                 if (!name_with_equal)
                         return log_oom();
 
-                if (!filter || strv_find(filter, name) ||
-                    (expected_value = strv_find_startswith(filter, name_with_equal))) {
+                if (!filter || strv_find(filter, name) || (expected_value = strv_find_startswith(filter, name_with_equal))) {
                         r = sd_bus_message_peek_type(m, NULL, &contents);
                         if (r < 0)
                                 return r;
@@ -1026,14 +993,7 @@ int bus_message_print_all_properties(
 }
 
 int bus_print_all_properties(
-                sd_bus *bus,
-                const char *dest,
-                const char *path,
-                bus_message_print_t func,
-                char **filter,
-                bool value,
-                bool all,
-                Set **found_properties) {
+        sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1042,14 +1002,7 @@ int bus_print_all_properties(
         assert(bus);
         assert(path);
 
-        r = sd_bus_call_method(bus,
-                        dest,
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
+        r = sd_bus_call_method(bus, dest, path, "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", "");
         if (r < 0)
                 return r;
 
@@ -1123,9 +1076,9 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
                         return r;
 
                 if (flags & BUS_MAP_BOOLEAN_AS_BOOL)
-                        *(bool*) userdata = b;
+                        *(bool *) userdata = b;
                 else
-                        *(int*) userdata = b;
+                        *(int *) userdata = b;
 
                 return 0;
         }
@@ -1163,17 +1116,13 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
 
                 *p = d;
                 return 0;
-        }}
+        }
+        }
 
         return -EOPNOTSUPP;
 }
 
-int bus_message_map_all_properties(
-                sd_bus_message *m,
-                const struct bus_properties_map *map,
-                unsigned flags,
-                sd_bus_error *error,
-                void *userdata) {
+int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, unsigned flags, sd_bus_error *error, void *userdata) {
 
         int r;
 
@@ -1210,7 +1159,7 @@ int bus_message_map_all_properties(
                         if (r < 0)
                                 return r;
 
-                        v = (uint8_t *)userdata + prop->offset;
+                        v = (uint8_t *) userdata + prop->offset;
                         if (map[i].set)
                                 r = prop->set(sd_bus_message_get_bus(m), member, m, error, v);
                         else
@@ -1237,15 +1186,14 @@ int bus_message_map_all_properties(
         return sd_bus_message_exit_container(m);
 }
 
-int bus_map_all_properties(
-                sd_bus *bus,
-                const char *destination,
-                const char *path,
-                const struct bus_properties_map *map,
-                unsigned flags,
-                sd_bus_error *error,
-                sd_bus_message **reply,
-                void *userdata) {
+int bus_map_all_properties(sd_bus *bus,
+                           const char *destination,
+                           const char *path,
+                           const struct bus_properties_map *map,
+                           unsigned flags,
+                           sd_bus_error *error,
+                           sd_bus_message **reply,
+                           void *userdata) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1256,15 +1204,7 @@ int bus_map_all_properties(
         assert(map);
         assert(reply || (flags & BUS_MAP_STRDUP));
 
-        r = sd_bus_call_method(
-                        bus,
-                        destination,
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        error,
-                        &m,
-                        "s", "");
+        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "GetAll", error, &m, "s", "");
         if (r < 0)
                 return r;
 
@@ -1368,27 +1308,15 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
 }
 
 int bus_property_get_bool(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
-        int b = *(bool*) userdata;
+        int b = *(bool *) userdata;
 
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
 int bus_property_set_bool(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *value,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
 
         int b, r;
 
@@ -1396,18 +1324,12 @@ int bus_property_set_bool(
         if (r < 0)
                 return r;
 
-        *(bool*) userdata = b;
+        *(bool *) userdata = b;
         return 0;
 }
 
 int bus_property_get_id128(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         sd_id128_t *id = userdata;
 
@@ -1419,15 +1341,9 @@ int bus_property_get_id128(
 
 #if __SIZEOF_SIZE_T__ != 8
 int bus_property_get_size(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
-        uint64_t sz = *(size_t*) userdata;
+        uint64_t sz = *(size_t *) userdata;
 
         return sd_bus_message_append_basic(reply, 't', &sz);
 }
@@ -1435,29 +1351,17 @@ int bus_property_get_size(
 
 #if __SIZEOF_LONG__ != 8
 int bus_property_get_long(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
-        int64_t l = *(long*) userdata;
+        int64_t l = *(long *) userdata;
 
         return sd_bus_message_append_basic(reply, 'x', &l);
 }
 
 int bus_property_get_ulong(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
-        uint64_t ul = *(unsigned long*) userdata;
+        uint64_t ul = *(unsigned long *) userdata;
 
         return sd_bus_message_append_basic(reply, 't', &ul);
 }
@@ -1524,7 +1428,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
         }
 
         if (!external_id) {
-                xsprintf(external_buf, "%"PRIu64, ++b->cookie);
+                xsprintf(external_buf, "%" PRIu64, ++b->cookie);
                 external_id = external_buf;
         }
 
@@ -1599,13 +1503,7 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
 }
 
 int bus_property_get_rlimit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
+        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
 
         const char *is_soft;
         struct rlimit *rl;
@@ -1618,7 +1516,7 @@ int bus_property_get_rlimit(
 
         is_soft = endswith(property, "Soft");
 
-        rl = *(struct rlimit**) userdata;
+        rl = *(struct rlimit **) userdata;
         if (rl)
                 x = is_soft ? rl->rlim_cur : rl->rlim_max;
         else {
@@ -1700,7 +1598,7 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
         if (r < 0)
                 return r;
 
-        r = sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS);
+        r = sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS);
         if (r < 0)
                 return r;
 

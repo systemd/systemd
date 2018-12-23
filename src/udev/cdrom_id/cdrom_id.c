@@ -55,7 +55,7 @@ static unsigned cd_media_cd_rw;
 static unsigned cd_media_dvd_rom;
 static unsigned cd_media_dvd_r;
 static unsigned cd_media_dvd_rw;
-static unsigned cd_media_dvd_rw_ro; /* restricted overwrite mode */
+static unsigned cd_media_dvd_rw_ro;  /* restricted overwrite mode */
 static unsigned cd_media_dvd_rw_seq; /* sequential mode */
 static unsigned cd_media_dvd_ram;
 static unsigned cd_media_dvd_plus_r;
@@ -80,10 +80,10 @@ static unsigned cd_media_track_count_data;
 static unsigned cd_media_track_count_audio;
 static unsigned long long int cd_media_session_last_offset;
 
-#define ERRCODE(s)        ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
-#define SK(errcode)        (((errcode) >> 16) & 0xF)
-#define ASC(errcode)        (((errcode) >> 8) & 0xFF)
-#define ASCQ(errcode)        ((errcode) & 0xFF)
+#define ERRCODE(s) ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
+#define SK(errcode) (((errcode) >> 16) & 0xF)
+#define ASC(errcode) (((errcode) >> 8) & 0xFF)
+#define ASCQ(errcode) ((errcode) &0xFF)
 
 static bool is_mounted(const char *device) {
         struct stat statbuf;
@@ -368,10 +368,10 @@ static void feature_profile_media(int cur_profile) {
 static int feature_profiles(const unsigned char *profiles, size_t size) {
         unsigned i;
 
-        for (i = 0; i+4 <= size; i += 4) {
+        for (i = 0; i + 4 <= size; i += 4) {
                 int profile;
 
-                profile = profiles[i] << 8 | profiles[i+1];
+                profile = profiles[i] << 8 | profiles[i + 1];
                 switch (profile) {
                 case 0x03:
                 case 0x04:
@@ -544,7 +544,7 @@ static int cd_profiles(int fd) {
         /* Now get the full feature buffer */
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, 0x46);
-        scsi_cmd_set(&sc, 7, ( len >> 8 ) & 0xff);
+        scsi_cmd_set(&sc, 7, (len >> 8) & 0xff);
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         err = scsi_cmd_run(&sc, fd, features, len);
@@ -563,18 +563,18 @@ static int cd_profiles(int fd) {
         }
 
         /* device features */
-        for (i = 8; i+4 < len; i += (4 + features[i+3])) {
+        for (i = 8; i + 4 < len; i += (4 + features[i + 3])) {
                 unsigned feature;
 
-                feature = features[i] << 8 | features[i+1];
+                feature = features[i] << 8 | features[i + 1];
 
                 switch (feature) {
                 case 0x00:
-                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
-                        feature_profiles(&features[i]+4, MIN(features[i+3], len - i - 4));
+                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i + 3] / 4);
+                        feature_profiles(&features[i] + 4, MIN(features[i + 3], len - i - 4));
                         break;
                 default:
-                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
+                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i + 3]);
                         break;
                 }
         }
@@ -585,12 +585,7 @@ out:
 static int cd_media_info(int fd) {
         struct scsi_cmd sc;
         unsigned char header[32];
-        static const char *media_status[] = {
-                "blank",
-                "appendable",
-                "complete",
-                "other"
-        };
+        static const char *media_status[] = { "blank", "appendable", "complete", "other" };
         int err;
 
         scsi_cmd_init(&sc);
@@ -664,8 +659,8 @@ static int cd_media_info(int fd) {
                                 return -1;
                         }
 
-                        switch(format[8] & 3) {
-                            case 1:
+                        switch (format[8] & 3) {
+                        case 1:
                                 log_debug("unformatted DVD-RAM media inserted");
                                 /* This means that last format was interrupted
                                  * or failed, blank dvd-ram discs are factory
@@ -674,12 +669,12 @@ static int cd_media_info(int fd) {
                                  * not automatically started */
                                 goto determined;
 
-                            case 2:
+                        case 2:
                                 log_debug("formatted DVD-RAM media inserted");
                                 break;
 
-                            case 3:
-                                cd_media = 0; //return no media
+                        case 3:
+                                cd_media = 0; // return no media
                                 log_debug("format capacities returned no media");
                                 return -1;
                         }
@@ -706,14 +701,14 @@ static int cd_media_info(int fd) {
                  * is assumed non-blank */
 
                 for (offset = 32768; offset < (32768 + 2048); offset++) {
-                        if (buffer [offset]) {
+                        if (buffer[offset]) {
                                 log_debug("data in block 16, assuming complete");
                                 goto determined;
                         }
                 }
 
                 for (offset = 0; offset < 2048; offset++) {
-                        if (buffer [offset]) {
+                        if (buffer[offset]) {
                                 log_debug("data in block 0, assuming complete");
                                 goto determined;
                         }
@@ -781,15 +776,14 @@ static int cd_media_toc(int fd) {
         /* Take care to not iterate beyond the last valid track as specified in
          * the TOC, but also avoid going beyond the TOC length, just in case
          * the last track number is invalidly large */
-        for (p = toc+4, i = 4; i < len-8 && num_tracks > 0; i += 8, p += 8, --num_tracks) {
+        for (p = toc + 4, i = 4; i < len - 8 && num_tracks > 0; i += 8, p += 8, --num_tracks) {
                 unsigned block;
                 unsigned is_data_track;
 
                 is_data_track = (p[1] & 0x04) != 0;
 
                 block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-                log_debug("track=%u info=0x%x(%s) start_block=%u",
-                     p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
+                log_debug("track=%u info=0x%x(%s) start_block=%u", p[2], p[1] & 0x0f, is_data_track ? "data" : "audio", block);
 
                 if (is_data_track)
                         cd_media_track_count_data++;
@@ -807,21 +801,16 @@ static int cd_media_toc(int fd) {
                 info_scsi_cmd_err("READ TOC (multi session)", err);
                 return -1;
         }
-        len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
-        log_debug("last track %u starts at block %u", header[4+2], len);
-        cd_media_session_last_offset = (unsigned long long int)len * 2048;
+        len = header[4 + 4] << 24 | header[4 + 5] << 16 | header[4 + 6] << 8 | header[4 + 7];
+        log_debug("last track %u starts at block %u", header[4 + 2], len);
+        cd_media_session_last_offset = (unsigned long long int) len * 2048;
         return 0;
 }
 
 int main(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "lock-media", no_argument, NULL, 'l' },
-                { "unlock-media", no_argument, NULL, 'u' },
-                { "eject-media", no_argument, NULL, 'e' },
-                { "debug", no_argument, NULL, 'd' },
-                { "help", no_argument, NULL, 'h' },
-                {}
-        };
+        static const struct option options[] = { { "lock-media", no_argument, NULL, 'l' },  { "unlock-media", no_argument, NULL, 'u' },
+                                                 { "eject-media", no_argument, NULL, 'e' }, { "debug", no_argument, NULL, 'd' },
+                                                 { "help", no_argument, NULL, 'h' },        {} };
         bool eject = false;
         bool lock = false;
         bool unlock = false;
@@ -882,7 +871,7 @@ int main(int argc, char *argv[]) {
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
-                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|(is_mounted(node) ? 0 : O_EXCL));
+                fd = open(node, O_RDONLY | O_NONBLOCK | O_CLOEXEC | (is_mounted(node) ? 0 : O_EXCL));
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;

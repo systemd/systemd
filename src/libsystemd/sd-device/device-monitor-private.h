@@ -3,7 +3,8 @@
 
 #include "sd-device.h"
 
-typedef enum MonitorNetlinkGroup {
+typedef enum MonitorNetlinkGroup
+{
         MONITOR_GROUP_NONE,
         MONITOR_GROUP_KERNEL,
         MONITOR_GROUP_UDEV,

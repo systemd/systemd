@@ -25,8 +25,7 @@ static const char conf_file_dirs[] = CONF_PATHS_NULSTR("modules-load.d");
 
 STATIC_DESTRUCTOR_REGISTER(arg_proc_cmdline_modules, strv_freep);
 
-static void systemd_kmod_log(void *data, int priority, const char *file, int line,
-                             const char *fn, const char *format, va_list args) {
+static void systemd_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(priority, 0, file, line, fn, format, args);
@@ -115,25 +114,21 @@ static int help(void) {
                "Loads statically configured kernel modules.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "\nSee the %s for details.\n"
-               , program_invocation_short_name
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
         };
 
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, {} };
 
         int c;
 

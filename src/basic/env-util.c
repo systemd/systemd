@@ -17,9 +17,7 @@
 #include "strv.h"
 #include "utf8.h"
 
-#define VALID_CHARS_ENV_NAME                    \
-        DIGITS LETTERS                          \
-        "_"
+#define VALID_CHARS_ENV_NAME DIGITS LETTERS "_"
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
         const char *p;
@@ -113,8 +111,8 @@ bool strv_env_is_valid(char **e) {
                 /* Check if there are duplicate assignments */
                 k = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
-                        if (strneq(*p, *q, k) && (*q)[k] == '=')
-                                return false;
+                if (strneq(*p, *q, k) && (*q)[k] == '=')
+                        return false;
         }
 
         return true;
@@ -200,12 +198,12 @@ char **strv_env_merge(size_t n_lists, ...) {
 
         va_start(ap, n_lists);
         for (i = 0; i < n_lists; i++) {
-                l = va_arg(ap, char**);
+                l = va_arg(ap, char **);
                 n += strv_length(l);
         }
         va_end(ap);
 
-        ret = new(char*, n+1);
+        ret = new (char *, n + 1);
         if (!ret)
                 return NULL;
 
@@ -214,7 +212,7 @@ char **strv_env_merge(size_t n_lists, ...) {
 
         va_start(ap, n_lists);
         for (i = 0; i < n_lists; i++) {
-                l = va_arg(ap, char**);
+                l = va_arg(ap, char **);
                 if (env_append(ret, &k, l) < 0) {
                         va_end(ap);
                         return NULL;
@@ -274,7 +272,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
 
         n = strv_length(x);
 
-        r = new(char*, n+1);
+        r = new (char *, n + 1);
         if (!r)
                 return NULL;
 
@@ -285,10 +283,10 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                 for (v = 0; v < n_lists; v++) {
                         char **l, **j;
 
-                        l = va_arg(ap, char**);
+                        l = va_arg(ap, char **);
                         STRV_FOREACH(j, l)
-                                if (env_match(*k, *j))
-                                        goto skip;
+                        if (env_match(*k, *j))
+                                goto skip;
                 }
                 va_end(ap);
 
@@ -354,7 +352,7 @@ char **strv_env_unset_many(char **l, ...) {
 
                 va_start(ap, l);
 
-                while ((p = va_arg(ap, const char*))) {
+                while ((p = va_arg(ap, const char *))) {
                         if (env_match(*f, p)) {
                                 found = true;
                                 break;
@@ -393,11 +391,11 @@ int strv_env_replace(char ***l, char *p) {
         name = strndupa(p, t - p);
 
         STRV_FOREACH(f, *l)
-                if (env_entry_has_name(*f, name)) {
-                        free_and_replace(*f, p);
-                        strv_env_unset(f + 1, *f);
-                        return 0;
-                }
+        if (env_entry_has_name(*f, name)) {
+                free_and_replace(*f, p);
+                strv_env_unset(f + 1, *f);
+                return 0;
+        }
 
         /* We didn't find a match, we need to append p or create a new strv */
         r = strv_push(l, p);
@@ -420,7 +418,7 @@ char **strv_env_set(char **x, const char *p) {
         if (m < n) /* overflow? */
                 return NULL;
 
-        ret = new(char*, m);
+        ret = new (char *, m);
         if (!ret)
                 return NULL;
 
@@ -445,9 +443,8 @@ char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
                 return NULL;
 
         STRV_FOREACH_BACKWARDS(i, l)
-                if (strneq(*i, name, k) &&
-                    (*i)[k] == '=')
-                        return *i + k + 1;
+        if (strneq(*i, name, k) && (*i)[k] == '=')
+                return *i + k + 1;
 
         if (flags & REPLACE_ENV_USE_ENVIRONMENT) {
                 const char *t;
@@ -482,10 +479,10 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
 
                 n = strcspn(*p, "=");
                 STRV_FOREACH(q, p + 1)
-                        if (strneq(*p, *q, n) && (*q)[n] == '=') {
-                                duplicate = true;
-                                break;
-                        }
+                if (strneq(*p, *q, n) && (*q)[n] == '=') {
+                        duplicate = true;
+                        break;
+                }
 
                 if (duplicate) {
                         free(*p);
@@ -502,7 +499,8 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
 }
 
 char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
-        enum {
+        enum
+        {
                 WORD,
                 CURLY,
                 VARIABLE,
@@ -520,7 +518,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
         assert(format);
 
-        for (e = format, i = 0; *e && i < n; e ++, i ++)
+        for (e = format, i = 0; *e && i < n; e++, i++)
                 switch (state) {
 
                 case WORD:
@@ -530,33 +528,33 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                 case CURLY:
                         if (*e == '{') {
-                                k = strnappend(r, word, e-word-1);
+                                k = strnappend(r, word, e - word - 1);
                                 if (!k)
                                         return NULL;
 
                                 free_and_replace(r, k);
 
-                                word = e-1;
+                                word = e - 1;
                                 state = VARIABLE;
                                 nest++;
                         } else if (*e == '$') {
-                                k = strnappend(r, word, e-word);
+                                k = strnappend(r, word, e - word);
                                 if (!k)
                                         return NULL;
 
                                 free_and_replace(r, k);
 
-                                word = e+1;
+                                word = e + 1;
                                 state = WORD;
 
                         } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_CHARS_ENV_NAME, *e)) {
-                                k = strnappend(r, word, e-word-1);
+                                k = strnappend(r, word, e - word - 1);
                                 if (!k)
                                         return NULL;
 
                                 free_and_replace(r, k);
 
-                                word = e-1;
+                                word = e - 1;
                                 state = VARIABLE_RAW;
 
                         } else
@@ -567,7 +565,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                         if (*e == '}') {
                                 const char *t;
 
-                                t = strv_env_get_n(env, word+2, e-word-2, flags);
+                                t = strv_env_get_n(env, word + 2, e - word - 2, flags);
 
                                 k = strappend(r, t);
                                 if (!k)
@@ -575,14 +573,14 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 free_and_replace(r, k);
 
-                                word = e+1;
+                                word = e + 1;
                                 state = WORD;
                         } else if (*e == ':') {
                                 if (!(flags & REPLACE_ENV_ALLOW_EXTENDED))
                                         /* Treat this as unsupported syntax, i.e. do no replacement */
                                         state = WORD;
                                 else {
-                                        len = e-word-2;
+                                        len = e - word - 2;
                                         state = TEST;
                                 }
                         }
@@ -598,7 +596,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 break;
                         }
 
-                        test_value = e+1;
+                        test_value = e + 1;
                         break;
 
                 case DEFAULT_VALUE: /* fall through */
@@ -618,12 +616,12 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 const char *t;
                                 _cleanup_free_ char *v = NULL;
 
-                                t = strv_env_get_n(env, word+2, len, flags);
+                                t = strv_env_get_n(env, word + 2, len, flags);
 
                                 if (t && state == ALTERNATE_VALUE)
-                                        t = v = replace_env_n(test_value, e-test_value, env, flags);
+                                        t = v = replace_env_n(test_value, e - test_value, env, flags);
                                 else if (!t && state == DEFAULT_VALUE)
-                                        t = v = replace_env_n(test_value, e-test_value, env, flags);
+                                        t = v = replace_env_n(test_value, e - test_value, env, flags);
 
                                 k = strappend(r, t);
                                 if (!k)
@@ -631,7 +629,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                                 free_and_replace(r, k);
 
-                                word = e+1;
+                                word = e + 1;
                                 state = WORD;
                         }
                         break;
@@ -642,7 +640,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                         if (!strchr(VALID_CHARS_ENV_NAME, *e)) {
                                 const char *t;
 
-                                t = strv_env_get_n(env, word+1, e-word-1, flags);
+                                t = strv_env_get_n(env, word + 1, e - word - 1, flags);
 
                                 k = strappend(r, t);
                                 if (!k)
@@ -662,10 +660,10 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
                 assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
 
-                t = strv_env_get_n(env, word+1, e-word-1, flags);
+                t = strv_env_get_n(env, word + 1, e - word - 1, flags);
                 return strappend(r, t);
         } else
-                return strnappend(r, word, e-word);
+                return strnappend(r, word, e - word);
 }
 
 char **replace_env_argv(char **argv, char **env) {
@@ -674,7 +672,7 @@ char **replace_env_argv(char **argv, char **env) {
 
         l = strv_length(argv);
 
-        ret = new(char*, l+1);
+        ret = new (char *, l + 1);
         if (!ret)
                 return NULL;
 
@@ -686,11 +684,11 @@ char **replace_env_argv(char **argv, char **env) {
                         char **w, **m = NULL;
                         size_t q;
 
-                        e = strv_env_get(env, *i+1);
+                        e = strv_env_get(env, *i + 1);
                         if (e) {
                                 int r;
 
-                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_QUOTES);
+                                r = strv_split_extract(&m, e, WHITESPACE, EXTRACT_RELAX | EXTRACT_QUOTES);
                                 if (r < 0) {
                                         ret[k] = NULL;
                                         strv_free(ret);
@@ -712,7 +710,7 @@ char **replace_env_argv(char **argv, char **env) {
 
                         ret = w;
                         if (m) {
-                                memcpy(ret + k, m, q * sizeof(char*));
+                                memcpy(ret + k, m, q * sizeof(char *));
                                 free(m);
                         }
 

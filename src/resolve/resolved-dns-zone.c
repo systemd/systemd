@@ -35,7 +35,7 @@ static void dns_zone_item_free(DnsZoneItem *i) {
         free(i);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsZoneItem*, dns_zone_item_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsZoneItem *, dns_zone_item_free);
 
 static void dns_zone_item_remove_and_free(DnsZone *z, DnsZoneItem *i) {
         DnsZoneItem *first;
@@ -77,15 +77,15 @@ void dns_zone_flush(DnsZone *z) {
         z->by_name = hashmap_free(z->by_name);
 }
 
-DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
+DnsZoneItem *dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
         DnsZoneItem *i;
 
         assert(z);
         assert(rr);
 
         LIST_FOREACH(by_key, i, hashmap_get(z->by_key, rr->key))
-                if (dns_resource_record_equal(i->rr, rr) > 0)
-                        return i;
+        if (dns_resource_record_equal(i->rr, rr) > 0)
+                return i;
 
         return NULL;
 }
@@ -112,7 +112,7 @@ int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key) {
                 return r;
 
         DNS_ANSWER_FOREACH(rr, answer)
-                dns_zone_remove_rr(z, rr);
+        dns_zone_remove_rr(z, rr);
 
         return 0;
 }
@@ -160,7 +160,7 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
         return 0;
 }
 
-static int dns_zone_item_probe_start(DnsZoneItem *i)  {
+static int dns_zone_item_probe_start(DnsZoneItem *i) {
         DnsTransaction *t;
         int r;
 
@@ -169,7 +169,8 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
         if (i->probe_transaction)
                 return 0;
 
-        t = dns_scope_find_transaction(i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
+        t = dns_scope_find_transaction(
+                i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
@@ -296,9 +297,8 @@ static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int i
          * and to responses generated as a result of receiving query messages."
          * So, set the cache-flush bit for mDNS answers except for DNS-SD
          * service enumeration PTRs described in RFC 6763, Section 4.1. */
-        if (i->scope->protocol == DNS_PROTOCOL_MDNS &&
-            !dns_resource_key_is_dnssd_ptr(i->rr->key))
-                flags = DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHE_FLUSH;
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS && !dns_resource_key_is_dnssd_ptr(i->rr->key))
+                flags = DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHE_FLUSH;
         else
                 flags = DNS_ANSWER_AUTHENTICATED;
 
@@ -343,7 +343,6 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                                 n_answer++;
                                 added = true;
                         }
-
                 }
 
                 if (found && !added)
@@ -537,9 +536,12 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                         we_lost = true;
                 } else if (i->probe_transaction->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         assert(i->probe_transaction->received);
-                        we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
+                        we_lost = memcmp(&i->probe_transaction->received->sender,
+                                         &i->probe_transaction->received->destination,
+                                         FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
                         if (we_lost)
-                                log_debug("Got a successful probe reply for an established RR, and we have a lexicographically larger IP address and thus lost.");
+                                log_debug(
+                                        "Got a successful probe reply for an established RR, and we have a lexicographically larger IP address and thus lost.");
                 }
 
                 if (we_lost) {
@@ -646,7 +648,7 @@ void dns_zone_verify_all(DnsZone *zone) {
                 DnsZoneItem *j;
 
                 LIST_FOREACH(by_key, j, i)
-                        dns_zone_item_verify(j);
+                dns_zone_item_verify(j);
         }
 }
 

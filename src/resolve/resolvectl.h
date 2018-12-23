@@ -5,7 +5,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-typedef enum ExecutionMode {
+typedef enum ExecutionMode
+{
         MODE_RESOLVE_HOST,
         MODE_RESOLVE_RECORD,
         MODE_RESOLVE_SERVICE,

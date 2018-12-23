@@ -53,12 +53,12 @@ int procfs_tasks_get_limit(uint64_t *ret) {
                 return r;
 
         /* Subtract one from pid_max, since PID 0 is not a valid PID */
-        *ret = MIN(pid_max-1, threads_max);
+        *ret = MIN(pid_max - 1, threads_max);
         return 0;
 }
 
 int procfs_tasks_set_limit(uint64_t limit) {
-        char buffer[DECIMAL_STR_MAX(uint64_t)+1];
+        char buffer[DECIMAL_STR_MAX(uint64_t) + 1];
         _cleanup_free_ char *value = NULL;
         uint64_t pid_max;
         int r;
@@ -83,8 +83,8 @@ int procfs_tasks_set_limit(uint64_t limit) {
 
         /* As pid_max is about the numeric pid_t range we'll bump it if necessary, but only ever increase it, never
          * decrease it, as threads-max is the much more relevant sysctl. */
-        if (limit > pid_max-1) {
-                sprintf(buffer, "%" PRIu64, limit+1); /* Add one, since PID 0 is not a valid PID */
+        if (limit > pid_max - 1) {
+                sprintf(buffer, "%" PRIu64, limit + 1); /* Add one, since PID 0 is not a valid PID */
                 r = write_string_file("/proc/sys/kernel/pid_max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
                         return r;
@@ -105,7 +105,7 @@ int procfs_tasks_set_limit(uint64_t limit) {
                 if (safe_atou64(value, &threads_max) < 0)
                         return r; /* return original error */
 
-                if (MIN(pid_max-1, threads_max) != limit)
+                if (MIN(pid_max - 1, threads_max) != limit)
                         return r; /* return original error */
 
                 /* Yay! Value set already matches what we were trying to set, hence consider this a success. */
@@ -155,8 +155,7 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
 
 int procfs_cpu_get_usage(nsec_t *ret) {
         _cleanup_free_ char *first_line = NULL;
-        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks,
-                guest_ticks = 0, guest_nice_ticks = 0;
+        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks, guest_ticks = 0, guest_nice_ticks = 0;
         long ticks_per_second;
         uint64_t sum, gcd, a, b;
         const char *p;
@@ -172,7 +171,8 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         if (!p)
                 return -EINVAL;
 
-        if (sscanf(p, "%lu %lu %lu %*u %*u %lu %lu %*u %lu %lu",
+        if (sscanf(p,
+                   "%lu %lu %lu %*u %*u %lu %lu %*u %lu %lu",
                    &user_ticks,
                    &nice_ticks,
                    &system_ticks,
@@ -183,12 +183,11 @@ int procfs_cpu_get_usage(nsec_t *ret) {
                 return -EINVAL;
 
         ticks_per_second = sysconf(_SC_CLK_TCK);
-        if (ticks_per_second  < 0)
+        if (ticks_per_second < 0)
                 return -errno;
         assert(ticks_per_second > 0);
 
-        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks +
-                (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
+        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks + (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
                 (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
 
         /* Let's reduce this fraction before we apply it to avoid overflows when converting this to µsec */

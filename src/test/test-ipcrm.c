@@ -8,7 +8,7 @@
 int main(int argc, char *argv[]) {
         uid_t uid;
         int r;
-        const char* name = argv[1] ?: NOBODY_USER_NAME;
+        const char *name = argv[1] ?: NOBODY_USER_NAME;
 
         test_setup_logging(LOG_INFO);
 
@@ -21,5 +21,5 @@ int main(int argc, char *argv[]) {
         }
 
         r = clean_ipc_by_uid(uid);
-        return  r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -15,6 +15,6 @@ typedef struct RemoteSource {
         sd_event_source *buffer_event;
 } RemoteSource;
 
-RemoteSource* source_new(int fd, bool passive_fd, char *name, Writer *writer);
+RemoteSource *source_new(int fd, bool passive_fd, char *name, Writer *writer);
 void source_free(RemoteSource *source);
 int process_source(RemoteSource *source, bool compress, bool seal);

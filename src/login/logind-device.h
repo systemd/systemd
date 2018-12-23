@@ -20,6 +20,6 @@ struct Device {
         LIST_HEAD(SessionDevice, session_devices);
 };
 
-Device* device_new(Manager *m, const char *sysfs, bool master);
+Device *device_new(Manager *m, const char *sysfs, bool master);
 void device_free(Device *d);
 void device_attach(Device *d, Seat *s);

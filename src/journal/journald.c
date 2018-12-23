@@ -40,11 +40,8 @@ int main(int argc, char *argv[]) {
         server_flush_to_var(&server, true);
         server_flush_dev_kmsg(&server);
 
-        log_debug("systemd-journald running as pid "PID_FMT, getpid_cached());
-        server_driver_message(&server, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_START_STR,
-                              LOG_MESSAGE("Journal started"),
-                              NULL);
+        log_debug("systemd-journald running as pid " PID_FMT, getpid_cached());
+        server_driver_message(&server, 0, "MESSAGE_ID=" SD_MESSAGE_JOURNAL_START_STR, LOG_MESSAGE("Journal started"), NULL);
 
         /* Make sure to send the usage message *after* flushing the
          * journal so entries from the runtime journals are ordered
@@ -99,11 +96,8 @@ int main(int argc, char *argv[]) {
                 server_maybe_warn_forward_syslog_missed(&server);
         }
 
-        log_debug("systemd-journald stopped as pid "PID_FMT, getpid_cached());
-        server_driver_message(&server, 0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_STOP_STR,
-                              LOG_MESSAGE("Journal stopped"),
-                              NULL);
+        log_debug("systemd-journald stopped as pid " PID_FMT, getpid_cached());
+        server_driver_message(&server, 0, "MESSAGE_ID=" SD_MESSAGE_JOURNAL_STOP_STR, LOG_MESSAGE("Journal stopped"), NULL);
 
 finish:
         server_done(&server);

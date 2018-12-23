@@ -27,15 +27,23 @@ int bus_image_path(Image *image, char **ret);
  * images. Hence, when requesting a bus object we need to refuse references by file system path, but still allow
  * references by image name. Depending on the operation to execute potentially we need to authenticate in all cases. */
 
-typedef enum ImageAcquireMode {
-        BUS_IMAGE_REFUSE_BY_PATH,            /* allow by name  + prohibit by path */
-        BUS_IMAGE_AUTHENTICATE_BY_PATH,      /* allow by name  + polkit by path */
-        BUS_IMAGE_AUTHENTICATE_ALL,          /* polkit by name + polkit by path */
+typedef enum ImageAcquireMode
+{
+        BUS_IMAGE_REFUSE_BY_PATH,       /* allow by name  + prohibit by path */
+        BUS_IMAGE_AUTHENTICATE_BY_PATH, /* allow by name  + polkit by path */
+        BUS_IMAGE_AUTHENTICATE_ALL,     /* polkit by name + polkit by path */
         _BUS_IMAGE_ACQUIRE_MODE_MAX,
         _BUS_IMAGE_ACQUIRE_MODE_INVALID = -1
 } ImageAcquireMode;
 
-int bus_image_acquire(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, ImageAcquireMode mode, const char *polkit_action, Image **ret, sd_bus_error *error);
+int bus_image_acquire(Manager *m,
+                      sd_bus_message *message,
+                      const char *name_or_path,
+                      Image *image,
+                      ImageAcquireMode mode,
+                      const char *polkit_action,
+                      Image **ret,
+                      sd_bus_error *error);
 
 int bus_image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);

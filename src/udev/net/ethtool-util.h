@@ -11,14 +11,16 @@ struct link_config;
 
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */
-typedef enum Duplex {
+typedef enum Duplex
+{
         DUP_HALF = DUPLEX_HALF,
         DUP_FULL = DUPLEX_FULL,
         _DUP_MAX,
         _DUP_INVALID = -1
 } Duplex;
 
-typedef enum WakeOnLan {
+typedef enum WakeOnLan
+{
         WOL_PHY,
         WOL_UCAST,
         WOL_MCAST,
@@ -31,7 +33,8 @@ typedef enum WakeOnLan {
         _WOL_INVALID = -1
 } WakeOnLan;
 
-typedef enum NetDevFeature {
+typedef enum NetDevFeature
+{
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
         NET_DEV_FEAT_LRO,
@@ -41,21 +44,22 @@ typedef enum NetDevFeature {
         _NET_DEV_FEAT_INVALID = -1
 } NetDevFeature;
 
-typedef enum NetDevPort {
-        NET_DEV_PORT_TP     = 0x00,
-        NET_DEV_PORT_AUI    = 0x01,
-        NET_DEV_PORT_MII    = 0x02,
-        NET_DEV_PORT_FIBRE  = 0x03,
-        NET_DEV_PORT_BNC    = 0x04,
-        NET_DEV_PORT_DA     = 0x05,
-        NET_DEV_PORT_NONE   = 0xef,
-        NET_DEV_PORT_OTHER  = 0xff,
+typedef enum NetDevPort
+{
+        NET_DEV_PORT_TP = 0x00,
+        NET_DEV_PORT_AUI = 0x01,
+        NET_DEV_PORT_MII = 0x02,
+        NET_DEV_PORT_FIBRE = 0x03,
+        NET_DEV_PORT_BNC = 0x04,
+        NET_DEV_PORT_DA = 0x05,
+        NET_DEV_PORT_NONE = 0xef,
+        NET_DEV_PORT_OTHER = 0xff,
         _NET_DEV_PORT_MAX,
         _NET_DEV_PORT_INVALID = -1
 } NetDevPort;
 
-#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
-#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES  (4 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)
+#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32 (SCHAR_MAX)
+#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES (4 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)
 
 /* layout of the struct passed from/to userland */
 struct ethtool_link_usettings {

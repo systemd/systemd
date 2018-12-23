@@ -10,7 +10,7 @@
 #include "missing_capability.h"
 #include "util.h"
 
-#define CAP_ALL (uint64_t) -1
+#define CAP_ALL (uint64_t) - 1
 
 unsigned long cap_last_cap(void);
 int have_effective_cap(int value);
@@ -43,7 +43,7 @@ bool ambient_capabilities_supported(void);
 
 /* Identical to linux/capability.h's CAP_TO_MASK(), but uses an unsigned 1U instead of a signed 1 for shifting left, in
  * order to avoid complaints about shifting a signed int left by 31 bits, which would make it negative. */
-#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
+#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) &31U))
 
 typedef struct CapabilityQuintet {
         /* Stores all five types of capabilities in one go. Note that we use (uint64_t) -1 for unset here. This hence
@@ -57,14 +57,12 @@ typedef struct CapabilityQuintet {
 
 assert_cc(CAP_LAST_CAP < 64);
 
-#define CAPABILITY_QUINTET_NULL { (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1 }
+#define CAPABILITY_QUINTET_NULL \
+        { (uint64_t) - 1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1, (uint64_t) -1 }
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
-        return q->effective != (uint64_t) -1 ||
-                q->bounding != (uint64_t) -1 ||
-                q->inheritable != (uint64_t) -1 ||
-                q->permitted != (uint64_t) -1 ||
-                q->ambient != (uint64_t) -1;
+        return q->effective != (uint64_t) -1 || q->bounding != (uint64_t) -1 || q->inheritable != (uint64_t) -1 ||
+                q->permitted != (uint64_t) -1 || q->ambient != (uint64_t) -1;
 }
 
 int capability_quintet_enforce(const CapabilityQuintet *q);

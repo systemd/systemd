@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;
         int r, fd;
 
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        fd = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
         if (fd < 0)
                 log_error_errno(errno, "Failed to open root directory: %m");
         else {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_snapshot("/etc", "/etc2", BTRFS_SNAPSHOT_READ_ONLY|BTRFS_SNAPSHOT_FALLBACK_COPY);
+        r = btrfs_subvol_snapshot("/etc", "/etc2", BTRFS_SNAPSHOT_READ_ONLY | BTRFS_SNAPSHOT_FALLBACK_COPY);
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
@@ -121,11 +121,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to snapshot subvolume: %m");
 
-        r = btrfs_subvol_remove("/xxxrectest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
+        r = btrfs_subvol_remove("/xxxrectest", BTRFS_REMOVE_QUOTA | BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
                 log_error_errno(r, "Failed to recursively remove subvolume: %m");
 
-        r = btrfs_subvol_remove("/xxxrectest2", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
+        r = btrfs_subvol_remove("/xxxrectest2", BTRFS_REMOVE_QUOTA | BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
                 log_error_errno(r, "Failed to recursively remove subvolume: %m");
 
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to set up quota limit: %m");
 
-        r = btrfs_subvol_snapshot("/xxxquotatest", "/xxxquotatest2", BTRFS_SNAPSHOT_RECURSIVE|BTRFS_SNAPSHOT_QUOTA);
+        r = btrfs_subvol_snapshot("/xxxquotatest", "/xxxquotatest2", BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
         if (r < 0)
                 log_error_errno(r, "Failed to setup snapshot: %m");
 
@@ -169,11 +169,11 @@ int main(int argc, char *argv[]) {
 
         assert_se(quota.referenced_max == 5ULL * 1024 * 1024 * 1024);
 
-        r = btrfs_subvol_remove("/xxxquotatest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
+        r = btrfs_subvol_remove("/xxxquotatest", BTRFS_REMOVE_QUOTA | BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
                 log_error_errno(r, "Failed remove subvolume: %m");
 
-        r = btrfs_subvol_remove("/xxxquotatest2", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
+        r = btrfs_subvol_remove("/xxxquotatest2", BTRFS_REMOVE_QUOTA | BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
                 log_error_errno(r, "Failed remove subvolume: %m");
 

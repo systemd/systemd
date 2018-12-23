@@ -12,21 +12,19 @@ static void help(void) {
                "Report whether we are connected to an external power source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n"
-               , program_invocation_short_name);
+               "  -v --verbose          Show state as text\n",
+               program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
+        enum
+        {
                 ARG_VERSION = 0x100,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "verbose", no_argument, NULL, 'v'         },
-                {}
+                { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, { "verbose", no_argument, NULL, 'v' }, {}
         };
 
         int c;
@@ -57,9 +55,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no arguments.",
-                                       program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         return 1;
 }

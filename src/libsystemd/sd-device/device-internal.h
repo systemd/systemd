@@ -16,7 +16,7 @@ struct sd_device {
 
         OrderedHashmap *properties;
         Iterator properties_iterator;
-        uint64_t properties_generation; /* changes whenever the properties are changed */
+        uint64_t properties_generation;          /* changes whenever the properties are changed */
         uint64_t properties_iterator_generation; /* generation when iteration was started */
 
         /* the subset of the properties that should be written to the db */
@@ -29,12 +29,12 @@ struct sd_device {
 
         Set *tags;
         Iterator tags_iterator;
-        uint64_t tags_generation; /* changes whenever the tags are changed */
+        uint64_t tags_generation;          /* changes whenever the tags are changed */
         uint64_t tags_iterator_generation; /* generation when iteration was started */
 
         Set *devlinks;
         Iterator devlinks_iterator;
-        uint64_t devlinks_generation; /* changes whenever the devlinks are changed */
+        uint64_t devlinks_generation;          /* changes whenever the devlinks are changed */
         uint64_t devlinks_iterator_generation; /* generation when iteration was started */
         int devlink_priority;
 
@@ -43,7 +43,7 @@ struct sd_device {
         char *devname;
         dev_t devnum;
 
-        char **properties_strv; /* the properties hashmap as a strv */
+        char **properties_strv;     /* the properties hashmap as a strv */
         uint8_t *properties_nulstr; /* the same as a nulstr */
         size_t properties_nulstr_len;
 
@@ -64,24 +64,25 @@ struct sd_device {
         uid_t devuid;
         gid_t devgid;
 
-        bool parent_set:1; /* no need to try to reload parent */
-        bool sysattrs_read:1; /* don't try to re-read sysattrs once read */
-        bool property_tags_outdated:1; /* need to update TAGS= property */
-        bool property_devlinks_outdated:1; /* need to update DEVLINKS= property */
-        bool properties_buf_outdated:1; /* need to reread hashmap */
-        bool sysname_set:1; /* don't reread sysname */
-        bool subsystem_set:1; /* don't reread subsystem */
-        bool driver_subsystem_set:1; /* don't reread subsystem */
-        bool driver_set:1; /* don't reread driver */
-        bool uevent_loaded:1; /* don't reread uevent */
-        bool db_loaded; /* don't reread db */
+        bool parent_set : 1;                 /* no need to try to reload parent */
+        bool sysattrs_read : 1;              /* don't try to re-read sysattrs once read */
+        bool property_tags_outdated : 1;     /* need to update TAGS= property */
+        bool property_devlinks_outdated : 1; /* need to update DEVLINKS= property */
+        bool properties_buf_outdated : 1;    /* need to reread hashmap */
+        bool sysname_set : 1;                /* don't reread sysname */
+        bool subsystem_set : 1;              /* don't reread subsystem */
+        bool driver_subsystem_set : 1;       /* don't reread subsystem */
+        bool driver_set : 1;                 /* don't reread driver */
+        bool uevent_loaded : 1;              /* don't reread uevent */
+        bool db_loaded;                      /* don't reread db */
 
-        bool is_initialized:1;
-        bool sealed:1; /* don't read more information from uevent/db */
-        bool db_persist:1; /* don't clean up the db when switching from initrd to real root */
+        bool is_initialized : 1;
+        bool sealed : 1;     /* don't read more information from uevent/db */
+        bool db_persist : 1; /* don't clean up the db when switching from initrd to real root */
 };
 
-typedef enum DeviceAction {
+typedef enum DeviceAction
+{
         DEVICE_ACTION_ADD,
         DEVICE_ACTION_REMOVE,
         DEVICE_ACTION_CHANGE,

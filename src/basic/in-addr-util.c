@@ -88,21 +88,13 @@ int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_
                 return a->in.s_addr == b->in.s_addr;
 
         if (family == AF_INET6)
-                return
-                        a->in6.s6_addr32[0] == b->in6.s6_addr32[0] &&
-                        a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
-                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] &&
-                        a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
+                return a->in6.s6_addr32[0] == b->in6.s6_addr32[0] && a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
+                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] && a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
 
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_intersect(
-                int family,
-                const union in_addr_union *a,
-                unsigned aprefixlen,
-                const union in_addr_union *b,
-                unsigned bprefixlen) {
+int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen) {
 
         unsigned m;
 
@@ -188,7 +180,7 @@ int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) 
                         prefixlen = 128;
 
                 /* First calculate what we have to add */
-                add.s6_addr[(prefixlen-1) / 8] = 1 << (7 - (prefixlen-1) % 8);
+                add.s6_addr[(prefixlen - 1) / 8] = 1 << (7 - (prefixlen - 1) % 8);
 
                 for (i = 16; i > 0; i--) {
                         unsigned j = i - 1;
@@ -221,7 +213,7 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         else
                 return -EAFNOSUPPORT;
 
-        x = new(char, l);
+        x = new (char, l);
         if (!x)
                 return -ENOMEM;
 
@@ -258,7 +250,7 @@ int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifin
                 goto fallback;
 
         l = INET6_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(ifindex) + 1;
-        x = new(char, l);
+        x = new (char, l);
         if (!x)
                 return -ENOMEM;
 
@@ -365,7 +357,7 @@ unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr) {
         return 32U - u32ctz(be32toh(addr->s_addr));
 }
 
-struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
+struct in_addr *in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen) {
         assert(addr);
         assert(prefixlen <= 32);
 
@@ -379,7 +371,7 @@ struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned cha
 }
 
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen) {
-        uint8_t msb_octet = *(uint8_t*) addr;
+        uint8_t msb_octet = *(uint8_t *) addr;
 
         /* addr may not be aligned, so make sure we only access it byte-wise */
 
@@ -453,10 +445,7 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_covers(int family,
-                          const union in_addr_union *prefix,
-                          unsigned char prefixlen,
-                          const union in_addr_union *address) {
+int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address) {
 
         union in_addr_union masked_prefix, masked_address;
         int r;
@@ -496,11 +485,7 @@ int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
 }
 
 int in_addr_prefix_from_string_internal(
-                const char *p,
-                bool use_default_prefixlen,
-                int family,
-                union in_addr_union *ret_prefix,
-                unsigned char *ret_prefixlen) {
+        const char *p, bool use_default_prefixlen, int family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen) {
 
         _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;
@@ -528,7 +513,7 @@ int in_addr_prefix_from_string_internal(
                 return r;
 
         if (e) {
-                r = in_addr_parse_prefixlen(family, e+1, &k);
+                r = in_addr_parse_prefixlen(family, e + 1, &k);
                 if (r < 0)
                         return r;
         } else if (use_default_prefixlen) {
@@ -550,11 +535,7 @@ int in_addr_prefix_from_string_internal(
 }
 
 int in_addr_prefix_from_string_auto_internal(
-                const char *p,
-                bool use_default_prefixlen,
-                int *ret_family,
-                union in_addr_union *ret_prefix,
-                unsigned char *ret_prefixlen) {
+        const char *p, bool use_default_prefixlen, int *ret_family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen) {
 
         _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;
@@ -579,7 +560,7 @@ int in_addr_prefix_from_string_auto_internal(
                 return r;
 
         if (e) {
-                r = in_addr_parse_prefixlen(family, e+1, &k);
+                r = in_addr_parse_prefixlen(family, e + 1, &k);
                 if (r < 0)
                         return r;
         } else if (use_default_prefixlen) {
@@ -600,7 +581,6 @@ int in_addr_prefix_from_string_auto_internal(
                 *ret_prefixlen = k;
 
         return 0;
-
 }
 
 static void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state) {

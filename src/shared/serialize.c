@@ -122,8 +122,7 @@ int serialize_strv(FILE *f, const char *key, char **l) {
 
         STRV_FOREACH(i, l) {
                 r = serialize_item_escaped(f, key, *i);
-                if ((ret >= 0 && r < 0) ||
-                    (ret == 0 && r > 0))
+                if ((ret >= 0 && r < 0) || (ret == 0 && r > 0))
                         ret = r;
         }
 
@@ -159,9 +158,7 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
 
         r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
         if (r != 2)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to parse dual timestamp value \"%s\".",
-                                       value);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse dual timestamp value \"%s\".", value);
 
         if (value[pos] != '\0')
                 /* trailing garbage */
@@ -202,7 +199,7 @@ int open_serialization_fd(const char *ident) {
                 const char *path;
 
                 path = getpid_cached() == 1 ? "/run/systemd" : "/tmp";
-                fd = open_tmpfile_unlinkable(path, O_RDWR|O_CLOEXEC);
+                fd = open_tmpfile_unlinkable(path, O_RDWR | O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 

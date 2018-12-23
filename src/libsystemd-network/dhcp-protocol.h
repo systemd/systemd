@@ -41,57 +41,63 @@ struct DHCPPacket {
 
 typedef struct DHCPPacket DHCPPacket;
 
-#define DHCP_IP_SIZE            (int32_t)(sizeof(struct iphdr))
-#define DHCP_IP_UDP_SIZE        (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
-#define DHCP_MESSAGE_SIZE       (int32_t)(sizeof(DHCPMessage))
-#define DHCP_DEFAULT_MIN_SIZE   576 /* the minimum internet hosts must be able to receive */
-#define DHCP_MIN_OPTIONS_SIZE   (DHCP_DEFAULT_MIN_SIZE - DHCP_IP_UDP_SIZE - DHCP_MESSAGE_SIZE)
-#define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
+#define DHCP_IP_SIZE (int32_t)(sizeof(struct iphdr))
+#define DHCP_IP_UDP_SIZE (int32_t)(sizeof(struct udphdr) + DHCP_IP_SIZE)
+#define DHCP_MESSAGE_SIZE (int32_t)(sizeof(DHCPMessage))
+#define DHCP_DEFAULT_MIN_SIZE 576 /* the minimum internet hosts must be able to receive */
+#define DHCP_MIN_OPTIONS_SIZE (DHCP_DEFAULT_MIN_SIZE - DHCP_IP_UDP_SIZE - DHCP_MESSAGE_SIZE)
+#define DHCP_MAGIC_COOKIE (uint32_t)(0x63825363)
 
-enum {
-        DHCP_PORT_SERVER                        = 67,
-        DHCP_PORT_CLIENT                        = 68,
+enum
+{
+        DHCP_PORT_SERVER = 67,
+        DHCP_PORT_CLIENT = 68,
 };
 
-enum DHCPState {
-        DHCP_STATE_INIT                         = 0,
-        DHCP_STATE_SELECTING                    = 1,
-        DHCP_STATE_INIT_REBOOT                  = 2,
-        DHCP_STATE_REBOOTING                    = 3,
-        DHCP_STATE_REQUESTING                   = 4,
-        DHCP_STATE_BOUND                        = 5,
-        DHCP_STATE_RENEWING                     = 6,
-        DHCP_STATE_REBINDING                    = 7,
-        DHCP_STATE_STOPPED                      = 8,
+enum DHCPState
+{
+        DHCP_STATE_INIT = 0,
+        DHCP_STATE_SELECTING = 1,
+        DHCP_STATE_INIT_REBOOT = 2,
+        DHCP_STATE_REBOOTING = 3,
+        DHCP_STATE_REQUESTING = 4,
+        DHCP_STATE_BOUND = 5,
+        DHCP_STATE_RENEWING = 6,
+        DHCP_STATE_REBINDING = 7,
+        DHCP_STATE_STOPPED = 8,
 };
 
 typedef enum DHCPState DHCPState;
 
-enum {
-        BOOTREQUEST                             = 1,
-        BOOTREPLY                               = 2,
+enum
+{
+        BOOTREQUEST = 1,
+        BOOTREPLY = 2,
 };
 
-enum {
-        DHCP_DISCOVER                           = 1,
-        DHCP_OFFER                              = 2,
-        DHCP_REQUEST                            = 3,
-        DHCP_DECLINE                            = 4,
-        DHCP_ACK                                = 5,
-        DHCP_NAK                                = 6,
-        DHCP_RELEASE                            = 7,
-        DHCP_INFORM                             = 8,
-        DHCP_FORCERENEW                         = 9,
+enum
+{
+        DHCP_DISCOVER = 1,
+        DHCP_OFFER = 2,
+        DHCP_REQUEST = 3,
+        DHCP_DECLINE = 4,
+        DHCP_ACK = 5,
+        DHCP_NAK = 6,
+        DHCP_RELEASE = 7,
+        DHCP_INFORM = 8,
+        DHCP_FORCERENEW = 9,
 };
 
-enum {
-        DHCP_OVERLOAD_FILE                      = 1,
-        DHCP_OVERLOAD_SNAME                     = 2,
+enum
+{
+        DHCP_OVERLOAD_FILE = 1,
+        DHCP_OVERLOAD_SNAME = 2,
 };
 
 #define DHCP_MAX_FQDN_LENGTH 255
 
-enum {
+enum
+{
         DHCP_FQDN_FLAG_S = (1 << 0),
         DHCP_FQDN_FLAG_O = (1 << 1),
         DHCP_FQDN_FLAG_E = (1 << 2),

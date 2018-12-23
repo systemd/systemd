@@ -11,13 +11,13 @@
 #include "string-util.h"
 #include "tests.h"
 
-static void assert_iovec_entry(const struct iovec *iovec, const char* content) {
+static void assert_iovec_entry(const struct iovec *iovec, const char *content) {
         assert_se(strlen(content) == iovec->iov_len);
         assert_se(memcmp(content, iovec->iov_base, iovec->iov_len) == 0);
 }
 
-#define COREDUMP_PROC_GROUP                                             \
-        "COREDUMP_PROC_CGROUP=1:name=systemd:/\n"                       \
+#define COREDUMP_PROC_GROUP                       \
+        "COREDUMP_PROC_CGROUP=1:name=systemd:/\n" \
         "0::/user.slice/user-1002.slice/user@1002.service/gnome-terminal-server.service\n"
 
 static void test_basic_parsing(void) {
@@ -26,7 +26,7 @@ static void test_basic_parsing(void) {
         int r;
 
         journal_data_path = path_join(get_testdata_dir(), "journal-data/journal-1.txt");
-        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
+        imp.fd = open(journal_data_path, O_RDONLY | O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do
@@ -57,7 +57,7 @@ static void test_bad_input(void) {
         int r;
 
         journal_data_path = path_join(get_testdata_dir(), "journal-data/journal-2.txt");
-        imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
+        imp.fd = open(journal_data_path, O_RDONLY | O_CLOEXEC);
         assert_se(imp.fd >= 0);
 
         do

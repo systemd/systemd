@@ -17,12 +17,11 @@ int utmp_put_runlevel(int runlevel, int previous);
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status);
 int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user);
 
-int utmp_wall(
-        const char *message,
-        const char *username,
-        const char *origin_tty,
-        bool (*match_tty)(const char *tty, void *userdata),
-        void *userdata);
+int utmp_wall(const char *message,
+              const char *username,
+              const char *origin_tty,
+              bool (*match_tty)(const char *tty, void *userdata),
+              void *userdata);
 
 #else /* ENABLE_UTMP */
 
@@ -44,12 +43,11 @@ static inline int utmp_put_dead_process(const char *id, pid_t pid, int code, int
 static inline int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
         return 0;
 }
-static inline int utmp_wall(
-                const char *message,
-                const char *username,
-                const char *origin_tty,
-                bool (*match_tty)(const char *tty, void *userdata),
-                void *userdata) {
+static inline int utmp_wall(const char *message,
+                            const char *username,
+                            const char *origin_tty,
+                            bool (*match_tty)(const char *tty, void *userdata),
+                            void *userdata) {
         return 0;
 }
 

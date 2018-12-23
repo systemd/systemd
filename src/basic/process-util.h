@@ -17,17 +17,17 @@
 #include "macro.h"
 #include "time-util.h"
 
-#define procfs_file_alloca(pid, field)                                  \
-        ({                                                              \
-                pid_t _pid_ = (pid);                                    \
-                const char *_r_;                                        \
-                if (_pid_ == 0) {                                       \
-                        _r_ = ("/proc/self/" field);                    \
-                } else {                                                \
+#define procfs_file_alloca(pid, field)                                                               \
+        ({                                                                                           \
+                pid_t _pid_ = (pid);                                                                 \
+                const char *_r_;                                                                     \
+                if (_pid_ == 0) {                                                                    \
+                        _r_ = ("/proc/self/" field);                                                 \
+                } else {                                                                             \
                         _r_ = alloca(STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
-                }                                                       \
-                _r_;                                                    \
+                        sprintf((char *) _r_, "/proc/" PID_FMT "/" field, _pid_);                    \
+                }                                                                                    \
+                _r_;                                                                                 \
         })
 
 int get_process_state(pid_t pid);
@@ -44,12 +44,13 @@ int get_process_ppid(pid_t pid, pid_t *ppid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
-typedef enum WaitFlags {
-        WAIT_LOG_ABNORMAL             = 1 << 0,
+typedef enum WaitFlags
+{
+        WAIT_LOG_ABNORMAL = 1 << 0,
         WAIT_LOG_NON_ZERO_EXIT_STATUS = 1 << 1,
 
         /* A shortcut for requesting the most complete logging */
-        WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
+        WAIT_LOG = WAIT_LOG_ABNORMAL | WAIT_LOG_NON_ZERO_EXIT_STATUS,
 } WaitFlags;
 
 int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
@@ -99,11 +100,11 @@ int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
 static inline pid_t PTR_TO_PID(const void *p) {
-        return (pid_t) ((uintptr_t) p);
+        return (pid_t)((uintptr_t) p);
 }
 
-static inline void* PID_TO_PTR(pid_t pid) {
-        return (void*) ((uintptr_t) pid);
+static inline void *PID_TO_PTR(pid_t pid) {
+        return (void *) ((uintptr_t) pid);
 }
 
 void valgrind_summary_hack(void);
@@ -141,16 +142,17 @@ void reset_cached_pid(void);
 
 int must_be_root(void);
 
-typedef enum ForkFlags {
-        FORK_RESET_SIGNALS      = 1 << 0, /* Reset all signal handlers and signal mask */
-        FORK_CLOSE_ALL_FDS      = 1 << 1, /* Close all open file descriptors in the child, except for 0,1,2 */
-        FORK_DEATHSIG           = 1 << 2, /* Set PR_DEATHSIG in the child */
-        FORK_NULL_STDIO         = 1 << 3, /* Connect 0,1,2 to /dev/null */
-        FORK_REOPEN_LOG         = 1 << 4, /* Reopen log connection */
-        FORK_LOG                = 1 << 5, /* Log above LOG_DEBUG log level about failures */
-        FORK_WAIT               = 1 << 6, /* Wait until child exited */
-        FORK_NEW_MOUNTNS        = 1 << 7, /* Run child in its own mount namespace */
-        FORK_MOUNTNS_SLAVE      = 1 << 8, /* Make child's mount namespace MS_SLAVE */
+typedef enum ForkFlags
+{
+        FORK_RESET_SIGNALS = 1 << 0,      /* Reset all signal handlers and signal mask */
+        FORK_CLOSE_ALL_FDS = 1 << 1,      /* Close all open file descriptors in the child, except for 0,1,2 */
+        FORK_DEATHSIG = 1 << 2,           /* Set PR_DEATHSIG in the child */
+        FORK_NULL_STDIO = 1 << 3,         /* Connect 0,1,2 to /dev/null */
+        FORK_REOPEN_LOG = 1 << 4,         /* Reopen log connection */
+        FORK_LOG = 1 << 5,                /* Log above LOG_DEBUG log level about failures */
+        FORK_WAIT = 1 << 6,               /* Wait until child exited */
+        FORK_NEW_MOUNTNS = 1 << 7,        /* Run child in its own mount namespace */
+        FORK_MOUNTNS_SLAVE = 1 << 8,      /* Make child's mount namespace MS_SLAVE */
         FORK_RLIMIT_NOFILE_SAFE = 1 << 9, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
 } ForkFlags;
 
@@ -160,7 +162,17 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
+int namespace_fork(const char *outer_name,
+                   const char *inner_name,
+                   const int except_fds[],
+                   size_t n_except_fds,
+                   ForkFlags flags,
+                   int pidns_fd,
+                   int mntns_fd,
+                   int netns_fd,
+                   int userns_fd,
+                   int root_fd,
+                   pid_t *ret_pid);
 
 int fork_agent(const char *name, const int except[], size_t n_except, pid_t *pid, const char *path, ...) _sentinel_;
 
@@ -186,9 +198,9 @@ int set_oom_score_adjust(int value);
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
 
 /* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
-#define TAKE_PID(pid)                           \
-        ({                                      \
-                pid_t _pid_ = (pid);            \
-                (pid) = 0;                      \
-                _pid_;                          \
+#define TAKE_PID(pid)                \
+        ({                           \
+                pid_t _pid_ = (pid); \
+                (pid) = 0;           \
+                _pid_;               \
         })

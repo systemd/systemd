@@ -78,9 +78,7 @@ static void test_shell_escape(void) {
         test_shell_escape_one("foo:bar,baz", ",:", "foo\\:bar\\,baz");
 }
 
-static void test_shell_maybe_quote_one(const char *s,
-                                       EscapeStyle style,
-                                       const char *expected) {
+static void test_shell_maybe_quote_one(const char *s, EscapeStyle style, const char *expected) {
         _cleanup_free_ char *ret = NULL;
 
         assert_se(ret = shell_maybe_quote(s, style));

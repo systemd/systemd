@@ -21,8 +21,8 @@ char *strv_find(char **l, const char *name) {
         assert(name);
 
         STRV_FOREACH(i, l)
-                if (streq(*i, name))
-                        return *i;
+        if (streq(*i, name))
+                return *i;
 
         return NULL;
 }
@@ -33,8 +33,8 @@ char *strv_find_prefix(char **l, const char *name) {
         assert(name);
 
         STRV_FOREACH(i, l)
-                if (startswith(*i, name))
-                        return *i;
+        if (startswith(*i, name))
+                return *i;
 
         return NULL;
 }
@@ -77,15 +77,15 @@ char **strv_free_erase(char **l) {
         char **i;
 
         STRV_FOREACH(i, l)
-                string_erase(*i);
+        string_erase(*i);
 
         return strv_free(l);
 }
 
-char **strv_copy(char * const *l) {
+char **strv_copy(char *const *l) {
         char **r, **k;
 
-        k = r = new(char*, strv_length(l) + 1);
+        k = r = new (char *, strv_length(l) + 1);
         if (!r)
                 return NULL;
 
@@ -102,7 +102,7 @@ char **strv_copy(char * const *l) {
         return r;
 }
 
-size_t strv_length(char * const *l) {
+size_t strv_length(char *const *l) {
         size_t n = 0;
 
         if (!l)
@@ -129,7 +129,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                 n = x == STRV_IGNORE ? 0 : 1;
 
                 va_copy(aq, ap);
-                while ((s = va_arg(aq, const char*))) {
+                while ((s = va_arg(aq, const char *))) {
                         if (s == STRV_IGNORE)
                                 continue;
 
@@ -139,7 +139,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                 va_end(aq);
         }
 
-        a = new(char*, n+1);
+        a = new (char *, n + 1);
         if (!a)
                 return NULL;
 
@@ -151,7 +151,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                         i++;
                 }
 
-                while ((s = va_arg(ap, const char*))) {
+                while ((s = va_arg(ap, const char *))) {
 
                         if (s == STRV_IGNORE)
                                 continue;
@@ -204,12 +204,12 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
                 if (filter_duplicates && strv_contains(t, *s))
                         continue;
 
-                t[p+i] = strdup(*s);
-                if (!t[p+i])
+                t[p + i] = strdup(*s);
+                if (!t[p + i])
                         goto rollback;
 
                 i++;
-                t[p+i] = NULL;
+                t[p + i] = NULL;
         }
 
         assert(i <= q);
@@ -258,13 +258,13 @@ char **strv_split_full(const char *s, const char *separator, SplitFlags flags) {
 
         s += strspn(s, separator);
         if (isempty(s))
-                return new0(char*, 1);
+                return new0(char *, 1);
 
         n = 0;
         _FOREACH_WORD(word, l, s, separator, flags, state)
-                n++;
+        n++;
 
-        r = new(char*, n+1);
+        r = new (char *, n + 1);
         if (!r)
                 return NULL;
 
@@ -332,7 +332,7 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
         }
 
         if (!l) {
-                l = new0(char*, 1);
+                l = new0(char *, 1);
                 if (!l)
                         return -ENOMEM;
         }
@@ -360,7 +360,7 @@ char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
                 n += m + strlen(*s);
         }
 
-        r = new(char, n+1);
+        r = new (char, n + 1);
         if (!r)
                 return NULL;
 
@@ -394,12 +394,12 @@ int strv_push(char ***l, char *value) {
         if (m < n)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        c = reallocarray(*l, m, sizeof(char *));
         if (!c)
                 return -ENOMEM;
 
         c[n] = value;
-        c[n+1] = NULL;
+        c[n + 1] = NULL;
 
         *l = c;
         return 0;
@@ -419,7 +419,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
         if (m < n)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        c = reallocarray(*l, m, sizeof(char *));
         if (!c)
                 return -ENOMEM;
 
@@ -448,7 +448,7 @@ int strv_insert(char ***l, size_t position, char *value) {
         if (m < n)
                 return -ENOMEM;
 
-        c = new(char*, m);
+        c = new (char *, m);
         if (!c)
                 return -ENOMEM;
 
@@ -456,9 +456,9 @@ int strv_insert(char ***l, size_t position, char *value) {
                 c[i] = (*l)[i];
         c[position] = value;
         for (i = position; i < n; i++)
-                c[i+1] = (*l)[i];
+                c[i + 1] = (*l)[i];
 
-        c[n+1] = NULL;
+        c[n + 1] = NULL;
 
         free(*l);
         *l = c;
@@ -533,15 +533,15 @@ int strv_extend_front(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        c = reallocarray(*l, m, sizeof(char *));
         if (!c) {
                 free(v);
                 return -ENOMEM;
         }
 
-        memmove(c+1, c, n * sizeof(char*));
+        memmove(c + 1, c, n * sizeof(char *));
         c[0] = v;
-        c[n+1] = NULL;
+        c[n + 1] = NULL;
 
         *l = c;
         return 0;
@@ -554,7 +554,7 @@ char **strv_uniq(char **l) {
          * kept, the others dropped */
 
         STRV_FOREACH(i, l)
-                strv_remove(i+1, *i);
+        strv_remove(i + 1, *i);
 
         return l;
 }
@@ -563,8 +563,8 @@ bool strv_is_uniq(char **l) {
         char **i;
 
         STRV_FOREACH(i, l)
-                if (strv_find(i+1, *i))
-                        return false;
+        if (strv_find(i + 1, *i))
+                return false;
 
         return true;
 }
@@ -609,16 +609,16 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         assert(s || l <= 0);
 
         if (l <= 0)
-                return new0(char*, 1);
+                return new0(char *, 1);
 
         for (p = s; p < s + l; p++)
                 if (*p == 0)
                         c++;
 
-        if (s[l-1] != 0)
+        if (s[l - 1] != 0)
                 c++;
 
-        v = new0(char*, c+1);
+        v = new0(char *, c + 1);
         if (!v)
                 return NULL;
 
@@ -652,10 +652,10 @@ char **strv_split_nulstr(const char *s) {
         char **r = NULL;
 
         NULSTR_FOREACH(i, s)
-                if (strv_extend(&r, i) < 0) {
-                        strv_free(r);
-                        return NULL;
-                }
+        if (strv_extend(&r, i) < 0) {
+                strv_free(r);
+                return NULL;
+        }
 
         if (!r)
                 return strv_new(NULL);
@@ -712,13 +712,13 @@ bool strv_overlap(char **a, char **b) {
         char **i;
 
         STRV_FOREACH(i, a)
-                if (strv_contains(b, *i))
-                        return true;
+        if (strv_contains(b, *i))
+                return true;
 
         return false;
 }
 
-static int str_compare(char * const *a, char * const *b) {
+static int str_compare(char *const *a, char *const *b) {
         return strcmp(*a, *b);
 }
 
@@ -735,7 +735,7 @@ bool strv_equal(char **a, char **b) {
         if (strv_isempty(b))
                 return false;
 
-        for ( ; *a || *b; ++a, ++b)
+        for (; *a || *b; ++a, ++b)
                 if (!streq_ptr(*a, *b))
                         return false;
 
@@ -746,7 +746,7 @@ void strv_print(char **l) {
         char **s;
 
         STRV_FOREACH(s, l)
-                puts(*s);
+        puts(*s);
 }
 
 int strv_extendf(char ***l, const char *format, ...) {
@@ -772,7 +772,7 @@ char **strv_reverse(char **l) {
                 return l;
 
         for (i = 0; i < n / 2; i++)
-                SWAP_TWO(l[i], l[n-1-i]);
+                SWAP_TWO(l[i], l[n - 1 - i]);
 
         return l;
 }
@@ -797,12 +797,12 @@ char **strv_shell_escape(char **l, const char *bad) {
         return l;
 }
 
-bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
-        char* const* p;
+bool strv_fnmatch(char *const *patterns, const char *s, int flags) {
+        char *const *p;
 
         STRV_FOREACH(p, patterns)
-                if (fnmatch(*p, s, flags) == 0)
-                        return true;
+        if (fnmatch(*p, s, flags) == 0)
+                return true;
 
         return false;
 }

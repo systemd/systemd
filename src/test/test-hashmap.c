@@ -4,7 +4,7 @@
 #include "util.h"
 
 unsigned custom_counter = 0;
-static void custom_destruct(void* p) {
+static void custom_destruct(void *p) {
         custom_counter--;
         free(p);
 }
@@ -23,9 +23,9 @@ static void test_ordered_hashmap_next(void) {
 
         assert_se(m = ordered_hashmap_new(NULL));
         for (i = -2; i <= 2; i++)
-                assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i+10)) == 1);
+                assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i + 10)) == 1);
         for (i = -2; i <= 1; i++)
-                assert_se(ordered_hashmap_next(m, INT_TO_PTR(i)) == INT_TO_PTR(i+11));
+                assert_se(ordered_hashmap_next(m, INT_TO_PTR(i)) == INT_TO_PTR(i + 11));
         assert_se(!ordered_hashmap_next(m, INT_TO_PTR(2)));
         assert_se(!ordered_hashmap_next(NULL, INT_TO_PTR(1)));
         assert_se(!ordered_hashmap_next(m, INT_TO_PTR(3)));

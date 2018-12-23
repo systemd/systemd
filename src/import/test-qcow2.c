@@ -14,13 +14,13 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        sfd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        sfd = open(argv[1], O_RDONLY | O_CLOEXEC | O_NOCTTY);
         if (sfd < 0) {
                 log_error_errno(errno, "Can't open source file: %m");
                 return EXIT_FAILURE;
         }
 
-        dfd = open(argv[2], O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666);
+        dfd = open(argv[2], O_WRONLY | O_CREAT | O_CLOEXEC | O_NOCTTY, 0666);
         if (dfd < 0) {
                 log_error_errno(errno, "Can't open destination file: %m");
                 return EXIT_FAILURE;

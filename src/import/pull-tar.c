@@ -29,7 +29,8 @@
 #include "util.h"
 #include "web-util.h"
 
-typedef enum TarProgress {
+typedef enum TarProgress
+{
         TAR_DOWNLOADING,
         TAR_VERIFYING,
         TAR_FINALIZING,
@@ -65,7 +66,7 @@ struct TarPull {
         ImportVerify verify;
 };
 
-TarPull* tar_pull_unref(TarPull *i) {
+TarPull *tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
@@ -83,7 +84,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         sd_event_unref(i->event);
 
         if (i->temp_path) {
-                (void) rm_rf(i->temp_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf(i->temp_path, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME);
                 free(i->temp_path);
         }
 
@@ -100,12 +101,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         return mfree(i);
 }
 
-int tar_pull_new(
-                TarPull **ret,
-                sd_event *event,
-                const char *image_root,
-                TarPullFinished on_finished,
-                void *userdata) {
+int tar_pull_new(TarPull **ret, sd_event *event, const char *image_root, TarPullFinished on_finished, void *userdata) {
 
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -131,11 +127,11 @@ int tar_pull_new(
         if (r < 0)
                 return r;
 
-        i = new(TarPull, 1);
+        i = new (TarPull, 1);
         if (!i)
                 return -ENOMEM;
 
-        *i = (TarPull) {
+        *i = (TarPull){
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
@@ -352,8 +348,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 i->temp_path = mfree(i->temp_path);
 
-                if (i->settings_job &&
-                    i->settings_job->error == 0) {
+                if (i->settings_job && i->settings_job->error == 0) {
 
                         /* Also move the settings file into place, if it exists. Note that we do so only if we also
                          * moved the tar file in place, to keep things strictly in sync. */
@@ -449,7 +444,7 @@ static int tar_pull_job_on_open_disk_settings(PullJob *j) {
 
         mkdir_parents_label(i->settings_temp_path, 0700);
 
-        j->disk_fd = open(i->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        j->disk_fd = open(i->settings_temp_path, O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_CLOEXEC, 0664);
         if (j->disk_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", i->settings_temp_path);
 
@@ -467,13 +462,7 @@ static void tar_pull_job_on_progress(PullJob *j) {
         tar_pull_report_progress(i, TAR_DOWNLOADING);
 }
 
-int tar_pull_start(
-                TarPull *i,
-                const char *url,
-                const char *local,
-                bool force_local,
-                ImportVerify verify,
-                bool settings) {
+int tar_pull_start(TarPull *i, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings) {
 
         int r;
 

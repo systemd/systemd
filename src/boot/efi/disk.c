@@ -22,11 +22,11 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[37]) {
                                 continue;
                         if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
                                 continue;
-                        drive = (HARDDRIVE_DEVICE_PATH *)path;
+                        drive = (HARDDRIVE_DEVICE_PATH *) path;
                         if (drive->SignatureType != SIGNATURE_TYPE_GUID)
                                 continue;
 
-                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
+                        GuidToString(uuid, (EFI_GUID *) &drive->Signature);
                         return EFI_SUCCESS;
                 }
         }

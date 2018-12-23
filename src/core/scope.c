@@ -17,14 +17,12 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
-        [SCOPE_DEAD] = UNIT_INACTIVE,
-        [SCOPE_RUNNING] = UNIT_ACTIVE,
-        [SCOPE_ABANDONED] = UNIT_ACTIVE,
-        [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
-        [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SCOPE_FAILED] = UNIT_FAILED
-};
+static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = { [SCOPE_DEAD] = UNIT_INACTIVE,
+                                                                           [SCOPE_RUNNING] = UNIT_ACTIVE,
+                                                                           [SCOPE_ABANDONED] = UNIT_ACTIVE,
+                                                                           [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
+                                                                           [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
+                                                                           [SCOPE_FAILED] = UNIT_FAILED };
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 
@@ -65,12 +63,7 @@ static int scope_arm_timer(Scope *s, usec_t usec) {
         if (usec == USEC_INFINITY)
                 return 0;
 
-        r = sd_event_add_time(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        scope_dispatch_timer, s);
+        r = sd_event_add_time(UNIT(s)->manager->event, &s->timer_event_source, CLOCK_MONOTONIC, usec, 0, scope_dispatch_timer, s);
         if (r < 0)
                 return r;
 
@@ -112,11 +105,7 @@ static int scope_add_default_dependencies(Scope *s) {
                 return 0;
 
         /* Make sure scopes are unloaded on shutdown */
-        r = unit_add_two_dependencies_by_name(
-                        UNIT(s),
-                        UNIT_BEFORE, UNIT_CONFLICTS,
-                        SPECIAL_SHUTDOWN_TARGET, true,
-                        UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -129,9 +118,7 @@ static int scope_verify(Scope *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (set_isempty(UNIT(s)->pids) &&
-            !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
-            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
+        if (set_isempty(UNIT(s)->pids) && !MANAGER_IS_RELOADING(UNIT(s)->manager) && !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -ENOENT;
         }
@@ -231,8 +218,10 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sScope State: %s\n"
                 "%sResult: %s\n",
-                prefix, scope_state_to_string(s->state),
-                prefix, scope_result_to_string(s->result));
+                prefix,
+                scope_state_to_string(s->state),
+                prefix,
+                scope_result_to_string(s->result));
 
         cgroup_context_dump(&s->cgroup_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -272,13 +261,12 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         if (skip_signal)
                 r = 1; /* wait */
         else {
-                r = unit_kill_context(
-                                UNIT(s),
-                                &s->kill_context,
-                                state != SCOPE_STOP_SIGTERM ? KILL_KILL :
-                                s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
-                                                              KILL_TERMINATE,
-                                -1, -1, false);
+                r = unit_kill_context(UNIT(s),
+                                      &s->kill_context,
+                                      state != SCOPE_STOP_SIGTERM ? KILL_KILL : s->was_abandoned ? KILL_TERMINATE_AND_LOG : KILL_TERMINATE,
+                                      -1,
+                                      -1,
+                                      false);
                 if (r < 0)
                         goto fail;
         }
@@ -552,7 +540,7 @@ static void scope_enumerate_perpetual(Manager *m) {
         u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
+                if (r < 0) {
                         log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
                         return;
                 }
@@ -566,7 +554,7 @@ static void scope_enumerate_perpetual(Manager *m) {
         unit_add_to_dbus_queue(u);
 }
 
-static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {
+static const char *const scope_result_table[_SCOPE_RESULT_MAX] = {
         [SCOPE_SUCCESS] = "success",
         [SCOPE_FAILURE_RESOURCES] = "resources",
         [SCOPE_FAILURE_TIMEOUT] = "timeout",

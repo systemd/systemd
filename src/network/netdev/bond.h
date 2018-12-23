@@ -12,7 +12,8 @@
  */
 #define NETDEV_BOND_ARP_TARGETS_MAX 16
 
-typedef enum BondMode {
+typedef enum BondMode
+{
         NETDEV_BOND_MODE_BALANCE_RR,
         NETDEV_BOND_MODE_ACTIVE_BACKUP,
         NETDEV_BOND_MODE_BALANCE_XOR,
@@ -24,7 +25,8 @@ typedef enum BondMode {
         _NETDEV_BOND_MODE_INVALID = -1
 } BondMode;
 
-typedef enum BondXmitHashPolicy {
+typedef enum BondXmitHashPolicy
+{
         NETDEV_BOND_XMIT_HASH_POLICY_LAYER2,
         NETDEV_BOND_XMIT_HASH_POLICY_LAYER34,
         NETDEV_BOND_XMIT_HASH_POLICY_LAYER23,
@@ -34,14 +36,16 @@ typedef enum BondXmitHashPolicy {
         _NETDEV_BOND_XMIT_HASH_POLICY_INVALID = -1
 } BondXmitHashPolicy;
 
-typedef enum BondLacpRate {
+typedef enum BondLacpRate
+{
         NETDEV_BOND_LACP_RATE_SLOW,
         NETDEV_BOND_LACP_RATE_FAST,
         _NETDEV_BOND_LACP_RATE_MAX,
         _NETDEV_BOND_LACP_RATE_INVALID = -1,
 } BondLacpRate;
 
-typedef enum BondAdSelect {
+typedef enum BondAdSelect
+{
         NETDEV_BOND_AD_SELECT_STABLE,
         NETDEV_BOND_AD_SELECT_BANDWIDTH,
         NETDEV_BOND_AD_SELECT_COUNT,
@@ -49,7 +53,8 @@ typedef enum BondAdSelect {
         _NETDEV_BOND_AD_SELECT_INVALID = -1,
 } BondAdSelect;
 
-typedef enum BondFailOverMac {
+typedef enum BondFailOverMac
+{
         NETDEV_BOND_FAIL_OVER_MAC_NONE,
         NETDEV_BOND_FAIL_OVER_MAC_ACTIVE,
         NETDEV_BOND_FAIL_OVER_MAC_FOLLOW,
@@ -57,7 +62,8 @@ typedef enum BondFailOverMac {
         _NETDEV_BOND_FAIL_OVER_MAC_INVALID = -1,
 } BondFailOverMac;
 
-typedef enum BondArpValidate {
+typedef enum BondArpValidate
+{
         NETDEV_BOND_ARP_VALIDATE_NONE,
         NETDEV_BOND_ARP_VALIDATE_ACTIVE,
         NETDEV_BOND_ARP_VALIDATE_BACKUP,
@@ -66,14 +72,16 @@ typedef enum BondArpValidate {
         _NETDEV_BOND_ARP_VALIDATE_INVALID = -1,
 } BondArpValidate;
 
-typedef enum BondArpAllTargets {
+typedef enum BondArpAllTargets
+{
         NETDEV_BOND_ARP_ALL_TARGETS_ANY,
         NETDEV_BOND_ARP_ALL_TARGETS_ALL,
         _NETDEV_BOND_ARP_ALL_TARGETS_MAX,
         _NETDEV_BOND_ARP_ALL_TARGETS_INVALID = -1,
 } BondArpAllTargets;
 
-typedef enum BondPrimaryReselect {
+typedef enum BondPrimaryReselect
+{
         NETDEV_BOND_PRIMARY_RESELECT_ALWAYS,
         NETDEV_BOND_PRIMARY_RESELECT_BETTER,
         NETDEV_BOND_PRIMARY_RESELECT_FAILURE,
