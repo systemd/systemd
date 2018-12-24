@@ -354,6 +354,11 @@ JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
 mkdir -p "\$JOURNALD_CONF_DIR"
 printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
 
+# 90s isn't enough for some services to finish when literally everything is run
+# under ASan+UBSan in containers, which, in turn, are run in VMs.
+mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
+printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/timeout.conf
+
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
 EOF
