@@ -17,24 +17,28 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-_dns_protocol() {
+(( $+functions[_systemd-resolve_protocols] )) ||
+_systemd-resolve_protocols() {
     local -a _protocol
     _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
     _values 'protocol' "$_protocol[@]"
 }
 
-_dns_type() {
+(( $+functions[_systemd-resolve_types] )) ||
+_systemd-resolve_types() {
     local -a _type
     _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
     _values 'type' "$_type[@]"
 }
 
-_dns_class() {
+(( $+functions[_systemd-resolve_classes] )) ||
+_systemd-resolve_classes() {
     local -a _class
     _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
     _values 'class' "$_class[@]"
 }
 
+(( $+functions[_systemd-resolve_none] )) ||
 _systemd-resolve_none() {
     _alternative : \
         'domain:DNS address:' \
@@ -48,9 +52,9 @@ _arguments \
     '-4[Resolve IPv4 addresses]' \
     '-6[Resolve IPv6 addresses]' \
     {-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
-    {-p+,--protocol=}'[Look via protocol]:protocol:_dns_protocol' \
-    {-t+,--type=}'[Query RR with DNS type]:type:_dns_type' \
-    {-c+,--class=}'[Query RR with DNS class]:class:_dns_class' \
+    {-p+,--protocol=}'[Look via protocol]:protocol:_systemd-resolve_protocols' \
+    {-t+,--type=}'[Query RR with DNS type]:type:_systemd-resolve_types' \
+    {-c+,--class=}'[Query RR with DNS class]:class:_systemd-resolve_classes' \
     '--service[Resolve services]' \
     '--service-address=no[Do not resolve address for services]' \
     '--service-txt=no[Do not resolve TXT records for services]' \

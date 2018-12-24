@@ -1,7 +1,8 @@
 #compdef journalctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-_list_fields() {
+(( $+functions[_journalctl_fields] )) ||
+_journalctl_fields() {
     local -a journal_fields
     journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                     ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
@@ -16,12 +17,13 @@ _list_fields() {
                     __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
     case $_jrnl_none in
         yes) _values -s '=' 'possible fields' \
-                "${journal_fields[@]}:value:_journal_fields ${words[CURRENT]%%=*}" ;;
+                "${journal_fields[@]}:value:_journalctl_field_values ${words[CURRENT]%%=*}" ;;
         *)  _describe 'possible fields' journal_fields ;;
     esac
 }
 
-_journal_none() {
+(( $+functions[_journalctl_none] )) ||
+_journalctl_none() {
     local -a _commands _files _jrnl_none
     # Setting use-cache will slow this down considerably
     _commands=( ${"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
@@ -29,10 +31,11 @@ _journal_none() {
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
         "commands:commands:($_commands[@])" \
-        'fields:fields:_list_fields'
+        'fields:fields:_journalctl_fields'
 }
 
-_journal_fields() {
+(( $+functions[_journalctl_field_values] )) ||
+_journalctl_field_values() {
     local -a _fields cmd
     cmd=("journalctl $_sys_service_mgr" "-F ${@[-1]}" "2>/dev/null" )
     _fields=$(_call_program fields $cmd[@])
@@ -43,7 +46,8 @@ _journal_fields() {
     _describe 'possible values' _fields
 }
 
-_journal_boots() {
+(( $+functions[_journalctl_boots] )) ||
+_journalctl_boots() {
   local -a _bootid _previousboots
   _bootid=( ${(f)"$(_call_program bootid "$service -F _BOOT_ID")"}  )
   _previousboots=( -{1..${#_bootid}} )
@@ -92,18 +96,18 @@ _arguments -s \
     {-x,--catalog}'[Show explanatory texts with each log line]' \
     {-q,--quiet}"[Don't show privilege warning]" \
     {-m,--merge}'[Show entries from all available journals]' \
-    {-b+,--boot=}'[Show data only from the specified boot or offset]::boot id or offset:_journal_boots' \
+    {-b+,--boot=}'[Show data only from the specified boot or offset]::boot id or offset:_journalctl_boots' \
     '--list-boots[List boots ordered by time]' \
     {-k,--dmesg}'[Show only kernel messages from the current boot]' \
-    {-u+,--unit=}'[Show data only from the specified unit]:units:_journal_fields _SYSTEMD_UNIT' \
-    '--user-unit=[Show data only from the specified user session unit]:units:_journal_fields USER_UNIT' \
-    {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journal_fields PRIORITY' \
-    {-t+,--identifier=}'[Show only messages with the specified syslog identifier]:identifier:_journal_fields SYSLOG_IDENTIFIER' \
-    {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journal_fields __CURSORS' \
-    '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journal_fields __CURSORS' \
+    {-u+,--unit=}'[Show data only from the specified unit]:units:_journalctl_field_values _SYSTEMD_UNIT' \
+    '--user-unit=[Show data only from the specified user session unit]:units:_journalctl_field_values USER_UNIT' \
+    {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journalctl_field_values PRIORITY' \
+    {-t+,--identifier=}'[Show only messages with the specified syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
+    {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
+    '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
-    {-F,--field=}'[List all values a certain field takes]:Fields:_list_fields' \
+    {-F,--field=}'[List all values a certain field takes]:Fields:_journalctl_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
     '(--directory -D -M --machine --root --file)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
@@ -121,4 +125,4 @@ _arguments -s \
     '--interval=[Time interval for changing the FSS sealing key]:time interval' \
     '--verify[Verify journal file consistency]' \
     '--verify-key=[Specify FSS verification key]:FSS key' \
-    '*::default: _journal_none'
+    '*::default: _journalctl_none'

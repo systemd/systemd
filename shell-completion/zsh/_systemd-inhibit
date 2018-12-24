@@ -1,7 +1,8 @@
 #compdef systemd-inhibit
 # SPDX-License-Identifier: LGPL-2.1+
 
-_systemd_inhibit_command(){
+(( $+functions[_systemd-inhibit_commands] )) ||
+_systemd-inhibit_commands(){
     if (( CURRENT == 1 )); then
         compset -q
         _normal
@@ -17,7 +18,8 @@ _systemd_inhibit_command(){
     fi
 }
 
-_inhibit_what() {
+(( $+functions[_systemd-inhibit_what] )) ||
+_systemd-inhibit_what() {
     local _inhibit
     _inhibit=(shutdown sleep idle handle-power-key handle-suspend-key handle-hibernate-key handle-lid-switch)
     _values -s : "${_inhibit[@]}"
@@ -31,4 +33,4 @@ _arguments \
     '--why=[A descriptive string why is being inhibited]:reason for the lock:' \
     '--mode=[One of block or delay]:lock mode:( block delay )' \
     '--list[List active inhibitors]' \
-    '*:commands:_systemd_inhibit_command'
+    '*:commands:_systemd-inhibit_commands'

@@ -1,20 +1,23 @@
 #compdef systemd-run
 # SPDX-License-Identifier: LGPL-2.1+
 
+# @todo _systemctl has a helper with the same name, so we must redefine
 __systemctl() {
         local -a _modes
         _modes=("--user" "--system")
         systemctl ${words:*_modes} --full --no-legend --no-pager "$@" 2>/dev/null
 }
 
-__get_slices () {
+(( $+functions[__systemd-run_get_slices] )) ||
+__systemd-run_get_slices () {
         __systemctl list-units --all -t slice \
         | { while read -r a b; do echo $a; done; };
 }
 
-__slices () {
+(( $+functions[__systemd-run_slices] )) ||
+__systemd-run_slices () {
         local -a _slices
-        _slices=(${(fo)"$(__get_slices)"})
+        _slices=(${(fo)"$(__systemd-run_get_slices)"})
         typeset -U _slices
         _describe 'slices' _slices
 }
@@ -43,7 +46,7 @@ _arguments \
                 ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment= \
                 ))' \
         '--description=[Description for unit]:description' \
-        '--slice=[Run in the specified slice]:slices:__slices' \
+        '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
         {-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
         '--send-sighup[Send SIGHUP when terminating]' \
         '--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \

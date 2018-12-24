@@ -1,7 +1,8 @@
 #compdef networkctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-_networkctl_command(){
+(( $+functions[_networkctl_commands] )) ||
+_networkctl_commands(){
     local -a _networkctl_cmds
     _networkctl_cmds=(
             'list:List existing links'
@@ -34,4 +35,4 @@ _arguments \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
-    '*::networkctl commands:_networkctl_command'
+    '*::networkctl commands:_networkctl_commands'
