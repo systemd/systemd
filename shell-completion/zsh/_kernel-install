@@ -1,7 +1,8 @@
 #compdef kernel-install
 # SPDX-License-Identifier: LGPL-2.1+
 
-_images(){
+(( $+functions[_kernel-install_images] )) ||
+_kernel-install_images(){
     if [[ "$words[2]" == "remove" ]]; then
         _message 'No more options'
     else
@@ -9,7 +10,8 @@ _images(){
     fi
 }
 
-_kernels(){
+(( $+functions[_kernel-install_kernels] )) ||
+_kernel-install_kernels(){
     read _MACHINE_ID < /etc/machine-id
     _kernel=( /lib/modules/[0-9]* )
     if [[ "$cmd" == "remove" && -n "$_MACHINE_ID" ]]; then
@@ -21,7 +23,7 @@ _kernels(){
 
 _arguments \
     '1::add or remove:(add remove)' \
-    '2::kernel versions:_kernels' \
-    '3::kernel images:_images'
+    '2::kernel versions:_kernel-install_kernels' \
+    '3::kernel images:_kernel-install_images'
 
 #vim: set ft=zsh sw=4 ts=4 et

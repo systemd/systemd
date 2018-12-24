@@ -1,7 +1,8 @@
 #compdef coredumpctl
 # SPDX-License-Identifier: LGPL-2.1+
 
-_coredumpctl_command(){
+(( $+functions[_coredumpctl_commands] )) ||
+_coredumpctl_commands(){
     local -a _coredumpctl_cmds
     _coredumpctl_cmds=(
             'list:List available coredumps'
@@ -42,4 +43,4 @@ _arguments \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \
     {-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
     {-q,--quiet}'[Do not show info messages and privilege warning]' \
-    '*::coredumpctl commands:_coredumpctl_command'
+    '*::coredumpctl commands:_coredumpctl_commands'

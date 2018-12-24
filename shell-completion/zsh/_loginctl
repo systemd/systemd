@@ -1,6 +1,7 @@
 #compdef loginctl
 # SPDX-License-Identifier: LGPL-2.1+
 
+(( $+functions[_loginctl_all_sessions] )) ||
 _loginctl_all_sessions() {
   local session description
   loginctl --no-legend list-sessions | while read -r session description; do
@@ -9,6 +10,7 @@ _loginctl_all_sessions() {
   done
 }
 
+(( $+functions[_loginctl_all_users] )) ||
 _loginctl_all_users() {
   local uid description
   loginctl --no-legend list-users | while read -r uid description; do
@@ -17,6 +19,7 @@ _loginctl_all_users() {
   done
 }
 
+(( $+functions[_loginctl_all_seats] )) ||
 _loginctl_all_seats() {
   local seat description
   loginctl --no-legend list-seats | while read -r seat description; do
@@ -107,7 +110,7 @@ done
 # no loginctl completion for:
 # [STANDALONE]='list-sessions list-users list-seats flush-devices'
 
-(( $+functions[_loginctl_command] )) || _loginctl_command()
+(( $+functions[_loginctl_commands] )) || _loginctl_commands()
 {
   local -a _loginctl_cmds
   _loginctl_cmds=(
@@ -170,4 +173,4 @@ _arguments -s \
     '--no-ask-password[Do not ask for system passwords]' \
     {-n+,--lines=}'[Number of journal entries to show]' \
     {-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
-    '*::loginctl command:_loginctl_command'
+    '*::loginctl command:_loginctl_commands'

@@ -1,7 +1,8 @@
 #compdef systemd-nspawn
 # SPDX-License-Identifier: LGPL-2.1+
 
-_nspawn-caps(){
+(( $+functions[_systemd-nspawn_caps] )) ||
+_systemd-nspawn_caps(){
     local -a _caps
     _caps=( CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
             CAP_FOWNER CAP_FSETID CAP_IPC_OWNER CAP_KILL CAP_LEASE CAP_LINUX_IMMUTABLE
@@ -33,8 +34,8 @@ _arguments \
     {--port=,-p+}'[Expose a container IP port on the host.]: : _message port' \
     {--selinux-context=,-Z+}'[Sets the SELinux security context to be used to label processes in the container.]: : _message "SELinux context"' \
     {--selinux-apifs-context=,-L+}'[Sets the SELinux security context to be used to label files in the virtual API file systems in the container.]: : _message "SELinux context"' \
-    '--capability=[List one or more additional capabilities to grant the container.]:capabilities:_nspawn-caps' \
-    '--drop-capability=[Specify one or more additional capabilities to drop for the containerm]:capabilities:_nspawn-caps' \
+    '--capability=[List one or more additional capabilities to grant the container.]:capabilities:_systemd-nspawn_caps' \
+    '--drop-capability=[Specify one or more additional capabilities to drop for the containerm]:capabilities:_systemd-nspawn_caps' \
     "--link-journal=[Control whether the container's journal shall be made visible to the host system.]:options:(no host guest auto)" \
     '-j[Equivalent to --link-journal=guest.]' \
     '--read-only[Mount the root file system read only for the container.]' \
