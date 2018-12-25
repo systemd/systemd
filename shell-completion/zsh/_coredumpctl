@@ -40,4 +40,5 @@ _arguments \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \
+    {-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
     '*::coredumpctl commands:_coredumpctl_command'
