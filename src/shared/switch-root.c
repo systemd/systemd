@@ -83,7 +83,7 @@ int switch_root(const char *new_root,
                         (void) mkdir_p_label(chased, 0755);
 
                 if (mount(i, chased, NULL, mount_flags, NULL) < 0)
-                        return log_error_errno(r, "Failed to mount %s to %s: %m", i, chased);
+                        return log_error_errno(errno, "Failed to mount %s to %s: %m", i, chased);
         }
 
         /* Do not fail if base_filesystem_create() fails. Not all switch roots are like base_filesystem_create() wants
