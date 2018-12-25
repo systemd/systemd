@@ -459,6 +459,35 @@ EOF
     fi
 }
 
+check_asan_reports() {
+    local ret=0
+    local root="$1"
+
+    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+        ls -l "$root"
+        if [[ -e "$root/systemd.asan.log.1" ]]; then
+            cat "$root/systemd.asan.log.1"
+            ret=$(($ret+1))
+        fi
+
+	journald_report=$(find "$root" -name "systemd-journald.asan.log*" -exec cat {} \;)
+	if [[ ! -z "$journald_report" ]]; then
+            printf "%s" "$journald_report"
+            ret=$(($ret+1))
+	fi
+
+	pids=$("$BUILD_DIR/journalctl" -D "$root/var/log/journal" | perl -alne 'print $1 if /\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/')
+	if [[ ! -z "$pids" ]]; then
+            ret=$(($ret+1))
+            for pid in $pids; do
+                "$BUILD_DIR/journalctl" -D "$root/var/log/journal" _PID=$pid --no-pager
+            done
+	fi
+    fi
+
+    return $ret
+}
+
 check_result_nspawn() {
     local ret=1
     local journald_report=""
@@ -470,28 +499,7 @@ check_result_nspawn() {
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
-    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
-        ls -l "$TESTDIR/$1"
-        if [[ -e "$TESTDIR/$1/systemd.asan.log.1" ]]; then
-            cat "$TESTDIR/$1/systemd.asan.log.1"
-            ret=$(($ret+1))
-        fi
-
-	journald_report=$(find "$TESTDIR/$1" -name "systemd-journald.asan.log*" -exec cat {} \;)
-	if [[ ! -z "$journald_report" ]]; then
-            printf "%s" "$journald_report"
-            ret=$(($ret+1))
-	fi
-
-	pids=$("$BUILD_DIR/journalctl" -D "$TESTDIR/$1/var/log/journal" | perl -alne 'print $1 if /\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/')
-	if [[ ! -z "$pids" ]]; then
-            ret=$(($ret+1))
-            for pid in $pids; do
-                "$BUILD_DIR/journalctl" -D "$TESTDIR/$1/var/log/journal" _PID=$pid --no-pager
-            done
-	fi
-    fi
-
+    check_asan_reports "$TESTDIR/$1" || ret=$(($ret+1))
     return $ret
 }
 
@@ -503,6 +511,7 @@ check_result_qemu() {
     [[ -e $TESTDIR/root/testok ]] && ret=0
     [[ -f $TESTDIR/root/failed ]] && cp -a $TESTDIR/root/failed $TESTDIR
     cp -a $TESTDIR/root/var/log/journal $TESTDIR
+    check_asan_reports "$TESTDIR/root" || ret=$(($ret+1))
     umount $TESTDIR/root
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
