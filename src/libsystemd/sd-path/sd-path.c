@@ -518,17 +518,38 @@ static int get_search(uint64_t type, char ***list) {
                                                NULL);
 
         case SD_PATH_SEARCH_SHARED:
-                return search_from_environment(
-                        list, "XDG_DATA_HOME", ".local/share", "XDG_DATA_DIRS", false, "/usr/local/share", "/usr/share", NULL);
+                return search_from_environment(list,
+                                               "XDG_DATA_HOME",
+                                               ".local/share",
+                                               "XDG_DATA_DIRS",
+                                               false,
+                                               "/usr/local/share",
+                                               "/usr/share",
+                                               NULL);
 
         case SD_PATH_SEARCH_CONFIGURATION_FACTORY:
-                return search_from_environment(list, NULL, NULL, NULL, false, "/usr/local/share/factory/etc", "/usr/share/factory/etc", NULL);
+                return search_from_environment(list,
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               false,
+                                               "/usr/local/share/factory/etc",
+                                               "/usr/share/factory/etc",
+                                               NULL);
 
         case SD_PATH_SEARCH_STATE_FACTORY:
-                return search_from_environment(list, NULL, NULL, NULL, false, "/usr/local/share/factory/var", "/usr/share/factory/var", NULL);
+                return search_from_environment(list,
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               false,
+                                               "/usr/local/share/factory/var",
+                                               "/usr/share/factory/var",
+                                               NULL);
 
         case SD_PATH_SEARCH_CONFIGURATION:
-                return search_from_environment(list, "XDG_CONFIG_HOME", ".config", "XDG_CONFIG_DIRS", false, "/etc", NULL);
+                return search_from_environment(
+                        list, "XDG_CONFIG_HOME", ".config", "XDG_CONFIG_DIRS", false, "/etc", NULL);
 
         case SD_PATH_SEARCH_BINARIES_DEFAULT: {
                 char **t;
@@ -595,7 +616,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
                 return -ENOMEM;
 
         j = n;
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
 
                 if (endswith(*i, "/"))
                         *j = strappend(*i, suffix);

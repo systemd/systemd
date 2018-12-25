@@ -40,7 +40,8 @@ static int raw_verify(const char *fn, const char *verification_key) {
         JournalFile *f;
         int r;
 
-        r = journal_file_open(-1, fn, O_RDONLY, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f);
+        r = journal_file_open(
+                -1, fn, O_RDONLY, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -73,9 +74,18 @@ int main(int argc, char *argv[]) {
 
         log_info("Generating...");
 
-        assert_se(journal_file_open(
-                          -1, "test.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f) ==
-                  0);
+        assert_se(journal_file_open(-1,
+                                    "test.journal",
+                                    O_RDWR | O_CREAT,
+                                    0666,
+                                    true,
+                                    (uint64_t) -1,
+                                    !!verification_key,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &f) == 0);
 
         for (n = 0; n < N_ENTRIES; n++) {
                 struct iovec iovec;
@@ -97,8 +107,18 @@ int main(int argc, char *argv[]) {
 
         log_info("Verifying...");
 
-        assert_se(journal_file_open(
-                          -1, "test.journal", O_RDONLY, 0666, true, (uint64_t) -1, !!verification_key, NULL, NULL, NULL, NULL, &f) == 0);
+        assert_se(journal_file_open(-1,
+                                    "test.journal",
+                                    O_RDONLY,
+                                    0666,
+                                    true,
+                                    (uint64_t) -1,
+                                    !!verification_key,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &f) == 0);
         /* journal_file_print_header(f); */
         journal_file_dump(f);
 
@@ -123,8 +143,9 @@ int main(int argc, char *argv[]) {
                         log_info("[ %" PRIu64 "+%" PRIu64 "]", p / 8, p % 8);
 
                         if (raw_verify("test.journal", verification_key) >= 0)
-                                log_notice(ANSI_HIGHLIGHT_RED ">>>> %" PRIu64 " (bit %" PRIu64
-                                                              ") can be toggled without detection." ANSI_NORMAL,
+                                log_notice(ANSI_HIGHLIGHT_RED
+                                           ">>>> %" PRIu64 " (bit %" PRIu64
+                                           ") can be toggled without detection." ANSI_NORMAL,
                                            p / 8,
                                            p % 8);
 

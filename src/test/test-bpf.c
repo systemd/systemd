@@ -70,18 +70,66 @@ int main(int argc, char *argv[]) {
 
         cc->ip_accounting = true;
 
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "10.0.1.0/24", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressAllow", 0, "127.0.0.2", &cc->ip_address_allow, NULL) == 0);
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.3", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "10.0.3.2/24", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.1/25", &cc->ip_address_deny, NULL) == 0);
-        assert_se(config_parse_ip_address_access(
-                          u->id, "filename", 1, "Service", 1, "IPAddressDeny", 0, "127.0.0.4", &cc->ip_address_deny, NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressAllow",
+                                                 0,
+                                                 "10.0.1.0/24",
+                                                 &cc->ip_address_allow,
+                                                 NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressAllow",
+                                                 0,
+                                                 "127.0.0.2",
+                                                 &cc->ip_address_allow,
+                                                 NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressDeny",
+                                                 0,
+                                                 "127.0.0.3",
+                                                 &cc->ip_address_deny,
+                                                 NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressDeny",
+                                                 0,
+                                                 "10.0.3.2/24",
+                                                 &cc->ip_address_deny,
+                                                 NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressDeny",
+                                                 0,
+                                                 "127.0.0.1/25",
+                                                 &cc->ip_address_deny,
+                                                 NULL) == 0);
+        assert_se(config_parse_ip_address_access(u->id,
+                                                 "filename",
+                                                 1,
+                                                 "Service",
+                                                 1,
+                                                 "IPAddressDeny",
+                                                 0,
+                                                 "127.0.0.4",
+                                                 &cc->ip_address_deny,
+                                                 NULL) == 0);
 
         assert(cc->ip_address_allow);
         assert(cc->ip_address_allow->items_next);
@@ -124,7 +172,8 @@ int main(int argc, char *argv[]) {
 
         r = bpf_firewall_compile(u);
         if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
-                return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
+                return log_tests_skipped(
+                        "Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);
@@ -157,7 +206,8 @@ int main(int argc, char *argv[]) {
                   SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.status == EXIT_SUCCESS);
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.code != CLD_EXITED ||
-                  SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status != EXIT_SUCCESS);
+                  SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status !=
+                          EXIT_SUCCESS);
 
         return 0;
 }

@@ -157,8 +157,14 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         for (i = 0; i < (int) ELEMENTSOF(link->features); i++)
                 link->features[i] = -1;
 
-        r = config_parse(
-                NULL, filename, file, "Match\0Link\0Ethernet\0", config_item_perf_lookup, link_config_gperf_lookup, CONFIG_PARSE_WARN, link);
+        r = config_parse(NULL,
+                         filename,
+                         file,
+                         "Match\0Link\0Ethernet\0",
+                         config_item_perf_lookup,
+                         link_config_gperf_lookup,
+                         CONFIG_PARSE_WARN,
+                         link);
         if (r < 0)
                 return r;
         else
@@ -223,7 +229,8 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         assert(ret);
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char *address = NULL, *id_path = NULL, *parent_driver = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
+                const char *address = NULL, *id_path = NULL, *parent_driver = NULL, *id_net_driver = NULL,
+                           *devtype = NULL, *sysname = NULL;
                 sd_device *parent;
 
                 (void) sd_device_get_sysattr_value(device, "address", &address);
@@ -266,9 +273,10 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
 
                                         return 0;
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
-                                        log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
-                                                    link->filename,
-                                                    sysname);
+                                        log_warning(
+                                                "Config file %s matches device based on renamed interface name '%s', ignoring",
+                                                link->filename,
+                                                sysname);
 
                                         continue;
                                 }
@@ -373,34 +381,41 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, sd_device *devi
         if (r < 0) {
 
                 if (config->port != _NET_DEV_PORT_INVALID)
-                        log_warning_errno(r, "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
+                        log_warning_errno(
+                                r, "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
 
                 if (!eqzero(config->advertise))
-                        log_warning_errno(r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */
+                        log_warning_errno(
+                                r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */
 
                 if (config->speed) {
                         speed = DIV_ROUND_UP(config->speed, 1000000);
                         if (r == -EOPNOTSUPP) {
                                 r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
                                 if (r < 0)
-                                        log_warning_errno(r, "Could not set speed of %s to %u Mbps: %m", old_name, speed);
+                                        log_warning_errno(
+                                                r, "Could not set speed of %s to %u Mbps: %m", old_name, speed);
                         }
                 }
 
                 if (config->duplex != _DUP_INVALID)
-                        log_warning_errno(r, "Could not set duplex of %s to (%s): %m", old_name, duplex_to_string(config->duplex));
+                        log_warning_errno(r,
+                                          "Could not set duplex of %s to (%s): %m",
+                                          old_name,
+                                          duplex_to_string(config->duplex));
         }
 
         r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
         if (r < 0)
-                log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m", old_name, wol_to_string(config->wol));
+                log_warning_errno(
+                        r, "Could not set WakeOnLan of %s to %s: %m", old_name, wol_to_string(config->wol));
 
         r = ethtool_set_features(&ctx->ethtool_fd, old_name, config->features);
         if (r < 0)
                 log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
 
-        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set ||
-            config->channels.combined_count_set) {
+        if (config->channels.rx_count_set || config->channels.tx_count_set ||
+            config->channels.other_count_set || config->channels.combined_count_set) {
                 r = ethtool_set_channels(&ctx->ethtool_fd, old_name, &config->channels);
                 if (r < 0)
                         log_warning_errno(r, "Could not set channels of %s: %m", old_name);
@@ -419,7 +434,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, sd_device *devi
                                 respect_predictable = true;
                                 break;
                         case NAMEPOLICY_DATABASE:
-                                (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &new_name);
+                                (void) sd_device_get_property_value(
+                                        device, "ID_NET_NAME_FROM_DATABASE", &new_name);
                                 break;
                         case NAMEPOLICY_ONBOARD:
                                 (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &new_name);
@@ -447,7 +463,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, sd_device *devi
                 if (mac_is_random(device)) {
                         r = get_mac(device, false, &generated_mac);
                         if (r == -ENOENT) {
-                                log_warning_errno(r, "Could not generate persistent MAC address for %s: %m", old_name);
+                                log_warning_errno(
+                                        r, "Could not generate persistent MAC address for %s: %m", old_name);
                                 break;
                         } else if (r < 0)
                                 return r;
@@ -458,7 +475,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, sd_device *devi
                 if (!mac_is_random(device)) {
                         r = get_mac(device, true, &generated_mac);
                         if (r == -ENOENT) {
-                                log_warning_errno(r, "Could not generate random MAC address for %s: %m", old_name);
+                                log_warning_errno(
+                                        r, "Could not generate random MAC address for %s: %m", old_name);
                                 break;
                         } else if (r < 0)
                                 return r;
@@ -501,11 +519,19 @@ static const char *const mac_policy_table[_MACPOLICY_MAX] = { [MACPOLICY_PERSIST
                                                               [MACPOLICY_NONE] = "none" };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy, "Failed to parse MAC address policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy,
+                         mac_policy,
+                         MACPolicy,
+                         "Failed to parse MAC address policy");
 
-static const char *const name_policy_table[_NAMEPOLICY_MAX] = { [NAMEPOLICY_KERNEL] = "kernel",   [NAMEPOLICY_DATABASE] = "database",
-                                                                [NAMEPOLICY_ONBOARD] = "onboard", [NAMEPOLICY_SLOT] = "slot",
-                                                                [NAMEPOLICY_PATH] = "path",       [NAMEPOLICY_MAC] = "mac" };
+static const char *const name_policy_table[_NAMEPOLICY_MAX] = {
+        [NAMEPOLICY_KERNEL] = "kernel", [NAMEPOLICY_DATABASE] = "database", [NAMEPOLICY_ONBOARD] = "onboard",
+        [NAMEPOLICY_SLOT] = "slot",     [NAMEPOLICY_PATH] = "path",         [NAMEPOLICY_MAC] = "mac"
+};
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
-DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy, _NAMEPOLICY_INVALID, "Failed to parse interface name policy");
+DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy,
+                          name_policy,
+                          NamePolicy,
+                          _NAMEPOLICY_INVALID,
+                          "Failed to parse interface name policy");

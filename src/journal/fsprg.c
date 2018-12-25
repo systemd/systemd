@@ -84,8 +84,9 @@ static void uint64_export(void *buf, size_t buflen, uint64_t x) {
 
 _pure_ static uint64_t uint64_import(const void *buf, size_t buflen) {
         assert(buflen == 8);
-        return (uint64_t)(((uint8_t *) buf)[0]) << 56 | (uint64_t)(((uint8_t *) buf)[1]) << 48 | (uint64_t)(((uint8_t *) buf)[2]) << 40 |
-                (uint64_t)(((uint8_t *) buf)[3]) << 32 | (uint64_t)(((uint8_t *) buf)[4]) << 24 | (uint64_t)(((uint8_t *) buf)[5]) << 16 |
+        return (uint64_t)(((uint8_t *) buf)[0]) << 56 | (uint64_t)(((uint8_t *) buf)[1]) << 48 |
+                (uint64_t)(((uint8_t *) buf)[2]) << 40 | (uint64_t)(((uint8_t *) buf)[3]) << 32 |
+                (uint64_t)(((uint8_t *) buf)[4]) << 24 | (uint64_t)(((uint8_t *) buf)[5]) << 16 |
                 (uint64_t)(((uint8_t *) buf)[6]) << 8 | (uint64_t)(((uint8_t *) buf)[7]) << 0;
 }
 
@@ -182,7 +183,8 @@ static gcry_mpi_t twopowmodphi(uint64_t m, const gcry_mpi_t p) {
 }
 
 /* Decompose $x \in Z_n$ into $(xp,xq) \in Z_p \times Z_q$ using Chinese Remainder Theorem */
-static void CRT_decompose(gcry_mpi_t *xp, gcry_mpi_t *xq, const gcry_mpi_t x, const gcry_mpi_t p, const gcry_mpi_t q) {
+static void CRT_decompose(
+        gcry_mpi_t *xp, gcry_mpi_t *xq, const gcry_mpi_t x, const gcry_mpi_t p, const gcry_mpi_t q) {
         *xp = gcry_mpi_new(0);
         *xq = gcry_mpi_new(0);
         gcry_mpi_mod(*xp, x, p);
@@ -190,7 +192,8 @@ static void CRT_decompose(gcry_mpi_t *xp, gcry_mpi_t *xq, const gcry_mpi_t x, co
 }
 
 /* Compose $(xp,xq) \in Z_p \times Z_q$ into $x \in Z_n$ using Chinese Remainder Theorem */
-static void CRT_compose(gcry_mpi_t *x, const gcry_mpi_t xp, const gcry_mpi_t xq, const gcry_mpi_t p, const gcry_mpi_t q) {
+static void CRT_compose(
+        gcry_mpi_t *x, const gcry_mpi_t xp, const gcry_mpi_t xq, const gcry_mpi_t p, const gcry_mpi_t q) {
         gcry_mpi_t a, u;
 
         a = gcry_mpi_new(0);

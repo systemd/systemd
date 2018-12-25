@@ -45,7 +45,8 @@ static void test_set_free_with_destructor(void) {
         assert_se(items[3].seen == 0);
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        item_hash_ops, void, trivial_hash_func, trivial_compare_func, Item, item_seen);
 
 static void test_set_free_with_hash_ops(void) {
         Set *m;

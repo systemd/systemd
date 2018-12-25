@@ -203,7 +203,8 @@ Job *job_install(Job *j) {
                 else {
                         /* not conflicting, i.e. mergeable */
 
-                        if (uj->state == JOB_WAITING || (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
+                        if (uj->state == JOB_WAITING ||
+                            (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
                                 job_merge_into_installed(uj, j);
                                 log_unit_debug(uj->unit,
                                                "Merged into installed job %s/%s as %u",
@@ -234,7 +235,11 @@ Job *job_install(Job *j) {
         j->installed = true;
 
         j->manager->n_installed_jobs++;
-        log_unit_debug(j->unit, "Installed new job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+        log_unit_debug(j->unit,
+                       "Installed new job %s/%s as %u",
+                       j->unit->id,
+                       job_type_to_string(j->type),
+                       (unsigned) j->id);
 
         job_add_to_gc_queue(j);
 
@@ -251,17 +256,22 @@ int job_install_deserialized(Job *j) {
         assert(!j->installed);
 
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
-                return log_unit_debug_errno(
-                        j->unit, SYNTHETIC_ERRNO(EINVAL), "Invalid job type %s in deserialization.", strna(job_type_to_string(j->type)));
+                return log_unit_debug_errno(j->unit,
+                                            SYNTHETIC_ERRNO(EINVAL),
+                                            "Invalid job type %s in deserialization.",
+                                            strna(job_type_to_string(j->type)));
 
         pj = (j->type == JOB_NOP) ? &j->unit->nop_job : &j->unit->job;
         if (*pj)
                 return log_unit_debug_errno(
-                        j->unit, SYNTHETIC_ERRNO(EEXIST), "Unit already has a job installed. Not installing deserialized job.");
+                        j->unit,
+                        SYNTHETIC_ERRNO(EEXIST),
+                        "Unit already has a job installed. Not installing deserialized job.");
 
         r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
-                return log_unit_debug_errno(j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
+                return log_unit_debug_errno(
+                        j->unit, r, "Job ID %" PRIu32 " already used, cannot deserialize job.", j->id);
         if (r < 0)
                 return log_unit_debug_errno(j->unit, r, "Failed to insert job into jobs hash table: %m");
 
@@ -271,7 +281,11 @@ int job_install_deserialized(Job *j) {
         if (j->state == JOB_RUNNING)
                 j->unit->manager->n_running_jobs++;
 
-        log_unit_debug(j->unit, "Reinstalled deserialized job %s/%s as %u", j->unit->id, job_type_to_string(j->type), (unsigned) j->id);
+        log_unit_debug(j->unit,
+                       "Reinstalled deserialized job %s/%s as %u",
+                       j->unit->id,
+                       job_type_to_string(j->type),
+                       (unsigned) j->id);
         return 0;
 }
 
@@ -517,8 +531,12 @@ static bool job_is_runnable(Job *j) {
 static void job_change_type(Job *j, JobType newtype) {
         assert(j);
 
-        log_unit_debug(
-                j->unit, "Converting job %s/%s -> %s/%s", j->unit->id, job_type_to_string(j->type), j->unit->id, job_type_to_string(newtype));
+        log_unit_debug(j->unit,
+                       "Converting job %s/%s -> %s/%s",
+                       j->unit->id,
+                       job_type_to_string(j->type),
+                       j->unit->id,
+                       job_type_to_string(newtype));
 
         j->type = newtype;
 }
@@ -585,7 +603,8 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
         REENABLE_WARNING;
 
         mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
-                               t == JOB_STOP ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR : "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
+                               t == JOB_STOP ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STOPPING_STR :
+                                               "MESSAGE_ID=" SD_MESSAGE_UNIT_RELOADING_STR;
 
         /* Note that we deliberately use LOG_MESSAGE() instead of
          * LOG_UNIT_MESSAGE() here, since this is supposed to mimic
@@ -654,9 +673,9 @@ static int job_perform_on_unit(Job **j) {
                 assert_not_reached("Invalid job type");
         }
 
-        /* Log if the job still exists and the start/stop/reload function actually did something. Note that this means
-         * for units for which there's no 'activating' phase (i.e. because we transition directly from 'inactive' to
-         * 'active') we'll possibly skip the "Starting..." message. */
+        /* Log if the job still exists and the start/stop/reload function actually did something. Note that
+         * this means for units for which there's no 'activating' phase (i.e. because we transition directly
+         * from 'inactive' to 'active') we'll possibly skip the "Starting..." message. */
         *j = manager_get_job(m, id);
         if (*j && r > 0)
                 job_emit_begin_status_message(u, id, t);
@@ -724,8 +743,10 @@ int job_run_and_invalidate(Job *j) {
 
         if (j) {
                 if (r == -EAGAIN)
-                        job_set_state(j, JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
-                else if (r == -EALREADY)               /* already being executed */
+                        job_set_state(
+                                j,
+                                JOB_WAITING); /* Hmm, not ready after all, let's return to JOB_WAITING state */
+                else if (r == -EALREADY)      /* already being executed */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, true);
                 else if (r == -ECOMM) /* condition failed, but all is good */
                         r = job_finish_and_invalidate(j, JOB_DONE, true, false);
@@ -841,7 +862,9 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
                 return;
 
         if (log_get_show_color())
-                status = strjoina(job_print_done_status_messages[result].color, job_print_done_status_messages[result].word, ANSI_NORMAL);
+                status = strjoina(job_print_done_status_messages[result].color,
+                                  job_print_done_status_messages[result].word,
+                                  ANSI_NORMAL);
         else
                 status = job_print_done_status_messages[result].word;
 
@@ -856,7 +879,11 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
                 _cleanup_free_ char *quoted;
 
                 quoted = shell_maybe_quote(u->id, ESCAPE_BACKSLASH);
-                manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL, "See 'systemctl status %s' for details.", strna(quoted));
+                manager_status_printf(u->manager,
+                                      STATUS_TYPE_NORMAL,
+                                      NULL,
+                                      "See 'systemctl status %s' for details.",
+                                      strna(quoted));
         }
 }
 
@@ -864,9 +891,10 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         const char *format, *mid;
         char buf[LINE_MAX];
         static const int job_result_log_level[_JOB_RESULT_MAX] = {
-                [JOB_DONE] = LOG_INFO,           [JOB_CANCELED] = LOG_INFO,  [JOB_TIMEOUT] = LOG_ERR,  [JOB_FAILED] = LOG_ERR,
-                [JOB_DEPENDENCY] = LOG_WARNING,  [JOB_SKIPPED] = LOG_NOTICE, [JOB_INVALID] = LOG_INFO, [JOB_ASSERT] = LOG_WARNING,
-                [JOB_UNSUPPORTED] = LOG_WARNING, [JOB_COLLECTED] = LOG_INFO, [JOB_ONCE] = LOG_ERR,
+                [JOB_DONE] = LOG_INFO,      [JOB_CANCELED] = LOG_INFO,      [JOB_TIMEOUT] = LOG_ERR,
+                [JOB_FAILED] = LOG_ERR,     [JOB_DEPENDENCY] = LOG_WARNING, [JOB_SKIPPED] = LOG_NOTICE,
+                [JOB_INVALID] = LOG_INFO,   [JOB_ASSERT] = LOG_WARNING,     [JOB_UNSUPPORTED] = LOG_WARNING,
+                [JOB_COLLECTED] = LOG_INFO, [JOB_ONCE] = LOG_ERR,
         };
 
         assert(u);
@@ -995,7 +1023,12 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         j->result = result;
 
-        log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s", j->id, u->id, job_type_to_string(t), job_result_to_string(result));
+        log_unit_debug(u,
+                       "Job %" PRIu32 " %s/%s finished, result=%s",
+                       j->id,
+                       u->id,
+                       job_type_to_string(t),
+                       job_result_to_string(result));
 
         /* If this job did nothing to respective unit we don't log the status message */
         if (!already)
@@ -1041,8 +1074,11 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                            "JOB_RESULT=%s",
                            job_result_to_string(result),
                            LOG_UNIT_ID(u),
-                           LOG_UNIT_MESSAGE(
-                                   u, "Job %s/%s failed with result '%s'.", u->id, job_type_to_string(t), job_result_to_string(result)));
+                           LOG_UNIT_MESSAGE(u,
+                                            "Job %s/%s failed with result '%s'.",
+                                            u->id,
+                                            job_type_to_string(t),
+                                            job_result_to_string(result)));
 
                 unit_start_on_failure(u);
         }
@@ -1124,7 +1160,13 @@ int job_start_timer(Job *j, bool job_running) {
                 timeout_time = usec_add(j->begin_usec, j->unit->job_timeout);
         }
 
-        r = sd_event_add_time(j->manager->event, &j->timer_event_source, CLOCK_MONOTONIC, timeout_time, 0, job_dispatch_timer, j);
+        r = sd_event_add_time(j->manager->event,
+                              &j->timer_event_source,
+                              CLOCK_MONOTONIC,
+                              timeout_time,
+                              0,
+                              job_dispatch_timer,
+                              j);
         if (r < 0)
                 return r;
 
@@ -1323,14 +1365,21 @@ int job_coldplug(Job *j) {
                 timeout_time = usec_add(j->begin_usec, j->unit->job_timeout);
 
         if (j->begin_running_usec > 0 && j->unit->job_running_timeout != USEC_INFINITY)
-                timeout_time = MIN(timeout_time, usec_add(j->begin_running_usec, j->unit->job_running_timeout));
+                timeout_time = MIN(timeout_time,
+                                   usec_add(j->begin_running_usec, j->unit->job_running_timeout));
 
         if (timeout_time == USEC_INFINITY)
                 return 0;
 
         j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
-        r = sd_event_add_time(j->manager->event, &j->timer_event_source, CLOCK_MONOTONIC, timeout_time, 0, job_dispatch_timer, j);
+        r = sd_event_add_time(j->manager->event,
+                              &j->timer_event_source,
+                              CLOCK_MONOTONIC,
+                              timeout_time,
+                              0,
+                              job_dispatch_timer,
+                              j);
         if (r < 0)
                 log_debug_errno(r, "Failed to restart timeout for job: %m");
 
@@ -1401,9 +1450,9 @@ bool job_may_gc(Job *j) {
 
         assert(j);
 
-        /* Checks whether this job should be GC'ed away. We only do this for jobs of units that have no effect on their
-         * own and just track external state. For now the only unit type that qualifies for this are .device units.
-         * Returns true if the job can be collected. */
+        /* Checks whether this job should be GC'ed away. We only do this for jobs of units that have no
+         * effect on their own and just track external state. For now the only unit type that qualifies for
+         * this are .device units. Returns true if the job can be collected. */
 
         if (!UNIT_VTABLE(j->unit)->gc_jobs)
                 return false;
@@ -1411,10 +1460,11 @@ bool job_may_gc(Job *j) {
         if (sd_bus_track_count(j->bus_track) > 0)
                 return false;
 
-        /* FIXME: So this is a bit ugly: for now we don't properly track references made via private bus connections
-         * (because it's nasty, as sd_bus_track doesn't apply to it). We simply remember that the job was once
-         * referenced by one, and reset this whenever we notice that no private bus connections are around. This means
-         * the GC is a bit too conservative when it comes to jobs created by private bus connections. */
+        /* FIXME: So this is a bit ugly: for now we don't properly track references made via private bus
+         * connections (because it's nasty, as sd_bus_track doesn't apply to it). We simply remember that the
+         * job was once referenced by one, and reset this whenever we notice that no private bus connections
+         * are around. This means the GC is a bit too conservative when it comes to jobs created by private
+         * bus connections. */
         if (j->ref_by_private_bus) {
                 if (set_isempty(j->unit->manager->private_buses))
                         j->ref_by_private_bus = false;
@@ -1425,8 +1475,8 @@ bool job_may_gc(Job *j) {
         if (j->type == JOB_NOP)
                 return false;
 
-        /* If a job is ordered after ours, and is to be started, then it needs to wait for us, regardless if we stop or
-         * start, hence let's not GC in that case. */
+        /* If a job is ordered after ours, and is to be started, then it needs to wait for us, regardless if
+         * we stop or start, hence let's not GC in that case. */
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
                 if (!other->job)
                         continue;
@@ -1450,8 +1500,8 @@ bool job_may_gc(Job *j) {
                         return false;
                 }
 
-        /* The logic above is kinda the inverse of the job_is_runnable() logic. Specifically, if the job "we" is
-         * ordered before the job "other":
+        /* The logic above is kinda the inverse of the job_is_runnable() logic. Specifically, if the job "we"
+         * is ordered before the job "other":
          *
          *  we start + other start → stay
          *  we start + other stop  → gc

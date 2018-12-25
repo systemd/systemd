@@ -11,7 +11,8 @@ int generator_add_symlink(const char *root, const char *dst, const char *dep_typ
 
 int generator_write_fsck_deps(FILE *f, const char *dir, const char *what, const char *where, const char *type);
 
-int generator_write_timeouts(const char *dir, const char *what, const char *where, const char *opts, char **filtered);
+int generator_write_timeouts(
+        const char *dir, const char *what, const char *where, const char *opts, char **filtered);
 
 int generator_write_device_deps(const char *dir, const char *what, const char *where, const char *opts);
 
@@ -24,12 +25,13 @@ int generator_hook_up_growfs(const char *dir, const char *where, const char *tar
 void log_setup_generator(void);
 
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
-#define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                                                                               \
-        _DEFINE_MAIN_FUNCTION(({                                                                                           \
-                                      log_setup_generator();                                                               \
-                                      if (argc > 1 && argc != 4)                                                           \
-                                              return log_error_errno(SYNTHETIC_ERRNO(EINVAL),                              \
-                                                                     "This program takes zero or three arguments.");       \
-                              }),                                                                                          \
-                              impl(argc > 1 ? argv[1] : "/tmp", argc > 1 ? argv[2] : "/tmp", argc > 1 ? argv[3] : "/tmp"), \
-                              r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)
+#define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                                                                 \
+        _DEFINE_MAIN_FUNCTION(                                                                               \
+                ({                                                                                           \
+                        log_setup_generator();                                                               \
+                        if (argc > 1 && argc != 4)                                                           \
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),                              \
+                                                       "This program takes zero or three arguments.");       \
+                }),                                                                                          \
+                impl(argc > 1 ? argv[1] : "/tmp", argc > 1 ? argv[2] : "/tmp", argc > 1 ? argv[3] : "/tmp"), \
+                r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)

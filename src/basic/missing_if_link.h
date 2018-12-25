@@ -93,14 +93,16 @@ enum ipvlan_mode
 #if !HAVE_IFLA_EVENT /* linux@3d3ea5af5c0b382bc9d9aed378fd814fb5d4a011 (4.13) */
 #define IFLA_EVENT 44
 #endif
-#if !HAVE_IFLA_IF_NETNSID /* linux@6621dd29eb9b5e6774ec7a9a75161352fdea47fc, 79e1ad148c844f5c8b9d76b36b26e3886dca95ae (4.15) */
+#if !HAVE_IFLA_IF_NETNSID /* linux@6621dd29eb9b5e6774ec7a9a75161352fdea47fc, \
+                             79e1ad148c844f5c8b9d76b36b26e3886dca95ae (4.15) */
 #define IFLA_IF_NETNSID 45
 #define IFLA_NEW_NETNSID 46
 #endif
 #if !HAVE_IFLA_TARGET_NETNSID /* linux@19d8f1ad12fd746e60707a58d954980013c7a35a (4.20) */
 #define IFLA_TARGET_NETNSID IFLA_IF_NETNSID
 #endif
-#if !HAVE_IFLA_NEW_IFINDEX /* linux@b2d3bcfa26a7a8de41f358a6cae8b848673b3c6e, 38e01b30563a5b5ade7b54e5d739d16a2b02fe82 (4.16) */
+#if !HAVE_IFLA_NEW_IFINDEX /* linux@b2d3bcfa26a7a8de41f358a6cae8b848673b3c6e, \
+                              38e01b30563a5b5ade7b54e5d739d16a2b02fe82 (4.16) */
 #define IFLA_CARRIER_UP_COUNT 47
 #define IFLA_CARRIER_DOWN_COUNT 48
 #define IFLA_NEW_IFINDEX 49
@@ -156,7 +158,8 @@ enum ipvlan_mode
 #define IFLA_VXLAN_UDP_ZERO_CSUM6_TX 19
 #define IFLA_VXLAN_UDP_ZERO_CSUM6_RX 20
 #endif
-#if !HAVE_IFLA_VXLAN_REMCSUM_NOPARTIAL /* linux@dfd8645ea1bd91277f841e74c33e1f4dbbede808..0ace2ca89cbd6bcdf2b9d2df1fa0fa24ea9d1653 (4.0) */
+#if !HAVE_IFLA_VXLAN_REMCSUM_NOPARTIAL /* linux@dfd8645ea1bd91277f841e74c33e1f4dbbede808..0ace2ca89cbd6bcdf2b9d2df1fa0fa24ea9d1653 \
+                                          (4.0) */
 #define IFLA_VXLAN_REMCSUM_TX 21
 #define IFLA_VXLAN_REMCSUM_RX 22
 #define IFLA_VXLAN_GBP 23
@@ -280,7 +283,8 @@ enum
 #define IFLA_BR_STP_STATE 5
 #define IFLA_BR_PRIORITY 6
 #endif
-#if !HAVE_IFLA_BR_VLAN_PROTOCOL /* linux@a7854037da006a7472c48773e3190db55217ec9b, d2d427b3927bd7a0348fc7f323d0e291f79a2779 (4.3) */
+#if !HAVE_IFLA_BR_VLAN_PROTOCOL /* linux@a7854037da006a7472c48773e3190db55217ec9b, \
+                                   d2d427b3927bd7a0348fc7f323d0e291f79a2779 (4.3) */
 #define IFLA_BR_VLAN_FILTERING 7
 #define IFLA_BR_VLAN_PROTOCOL 8
 #endif
@@ -317,14 +321,16 @@ enum
 #define IFLA_BR_NF_CALL_ARPTABLES 38
 #define IFLA_BR_VLAN_DEFAULT_PVID 39
 #endif
-#if !HAVE_IFLA_BR_VLAN_STATS_ENABLED /* linux@12a0faa3bd76157b9dc096758d6818ff535e4586, 6dada9b10a0818ba72c249526a742c8c41274a73 (4.7) */
+#if !HAVE_IFLA_BR_VLAN_STATS_ENABLED /* linux@12a0faa3bd76157b9dc096758d6818ff535e4586, \
+                                        6dada9b10a0818ba72c249526a742c8c41274a73 (4.7) */
 #define IFLA_BR_PAD 40
 #define IFLA_BR_VLAN_STATS_ENABLED 41
 #endif
 #if !HAVE_IFLA_BR_MCAST_STATS_ENABLED /* linux@1080ab95e3c7bdd77870e209aff83c763fdcf439 (4.8) */
 #define IFLA_BR_MCAST_STATS_ENABLED 42
 #endif
-#if !HAVE_IFLA_BR_MCAST_MLD_VERSION /* linux@5e9235853d652a295d5f56cb8652950b6b5bf56b, aa2ae3e71c74cc00ec22f133dc900b3817415785 (4.10) */
+#if !HAVE_IFLA_BR_MCAST_MLD_VERSION /* linux@5e9235853d652a295d5f56cb8652950b6b5bf56b, \
+                                       aa2ae3e71c74cc00ec22f133dc900b3817415785 (4.10) */
 #define IFLA_BR_MCAST_IGMP_VERSION 43
 #define IFLA_BR_MCAST_MLD_VERSION 44
 #endif
@@ -336,14 +342,16 @@ enum
 #endif
 #endif
 
-#if !HAVE_IFLA_BRPORT_LEARNING_SYNC /* linux@958501163ddd6ea22a98f94fa0e7ce6d4734e5c4, efacacdaf7cb5a0592ed772e3731636b2742e34a (3.19)*/
+#if !HAVE_IFLA_BRPORT_LEARNING_SYNC /* linux@958501163ddd6ea22a98f94fa0e7ce6d4734e5c4, \
+                                       efacacdaf7cb5a0592ed772e3731636b2742e34a (3.19)*/
 #define IFLA_BRPORT_PROXYARP 10
 #define IFLA_BRPORT_LEARNING_SYNC 11
 #endif
 #if !HAVE_IFLA_BRPORT_PROXYARP_WIFI /* linux@842a9ae08a25671db3d4f689eed68b4d64be15b5 (4.1) */
 #define IFLA_BRPORT_PROXYARP_WIFI 12
 #endif
-#if !HAVE_IFLA_BRPORT_MULTICAST_ROUTER /* linux@4ebc7660ab4559cad10b6595e05f70562bb26dc5..5d6ae479ab7ddf77bb22bdf739268581453ff886 (4.4) */
+#if !HAVE_IFLA_BRPORT_MULTICAST_ROUTER /* linux@4ebc7660ab4559cad10b6595e05f70562bb26dc5..5d6ae479ab7ddf77bb22bdf739268581453ff886 \
+                                          (4.4) */
 #define IFLA_BRPORT_ROOT_ID 13
 #define IFLA_BRPORT_BRIDGE_ID 14
 #define IFLA_BRPORT_DESIGNATED_PORT 15
@@ -364,14 +372,16 @@ enum
 #if !HAVE_IFLA_BRPORT_MCAST_FLOOD /* linux@b6cb5ac8331b6bcfe9ce38c7f7f58db6e1d6270a (4.9) */
 #define IFLA_BRPORT_MCAST_FLOOD 27
 #endif
-#if !HAVE_IFLA_BRPORT_VLAN_TUNNEL /* linux@6db6f0eae6052b70885562e1733896647ec1d807, b3c7ef0adadc5768e0baa786213c6bd1ce521a77 (4.11) */
+#if !HAVE_IFLA_BRPORT_VLAN_TUNNEL /* linux@6db6f0eae6052b70885562e1733896647ec1d807, \
+                                     b3c7ef0adadc5768e0baa786213c6bd1ce521a77 (4.11) */
 #define IFLA_BRPORT_MCAST_TO_UCAST 28
 #define IFLA_BRPORT_VLAN_TUNNEL 29
 #endif
 #if !HAVE_IFLA_BRPORT_BCAST_FLOOD /* linux@99f906e9ad7b6e79ffeda30f45906a8448b9d6a2 (4.12) */
 #define IFLA_BRPORT_BCAST_FLOOD 30
 #endif
-#if !HAVE_IFLA_BRPORT_NEIGH_SUPPRESS /* linux@5af48b59f35cf712793badabe1a574a0d0ce3bd3, 821f1b21cabb46827ce39ddf82e2789680b5042a (4.15) */
+#if !HAVE_IFLA_BRPORT_NEIGH_SUPPRESS /* linux@5af48b59f35cf712793badabe1a574a0d0ce3bd3, \
+                                        821f1b21cabb46827ce39ddf82e2789680b5042a (4.15) */
 #define IFLA_BRPORT_GROUP_FWD_MASK 31
 #define IFLA_BRPORT_NEIGH_SUPPRESS 32
 #endif

@@ -40,7 +40,8 @@ static inline int utmp_put_runlevel(int runlevel, int previous) {
 static inline int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         return 0;
 }
-static inline int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
+static inline int utmp_put_init_process(
+        const char *id, pid_t pid, pid_t sid, const char *line, int ut_type, const char *user) {
         return 0;
 }
 static inline int utmp_wall(const char *message,

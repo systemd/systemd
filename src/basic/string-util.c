@@ -148,7 +148,8 @@ const char *split(const char **state, size_t *l, const char *separator, SplitFla
                 char quotechars[2] = { *current, '\0' };
 
                 *l = strcspn_escaped(current + 1, quotechars);
-                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] || (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
+                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
+                    (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
                         /* right quote missing or garbage at the end */
                         if (flags & SPLIT_RELAX) {
                                 *state = current + *l + 1 + (current[*l + 1] != '\0');
@@ -483,9 +484,9 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
                 break;
         }
 
-        /* Calculate how much space the ellipsis will take up. If we are in UTF-8 mode we only need space for one
-         * character ("…"), otherwise for three characters ("..."). Note that in both cases we need 3 bytes of storage,
-         * either for the UTF-8 encoded character or for three ASCII characters. */
+        /* Calculate how much space the ellipsis will take up. If we are in UTF-8 mode we only need space for
+         * one character ("…"), otherwise for three characters ("..."). Note that in both cases we need 3
+         * bytes of storage, either for the UTF-8 encoded character or for three ASCII characters. */
         need_space = is_locale_utf8() ? 1 : 3;
 
         t = new (char, new_length + 3);
@@ -512,16 +513,17 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         char *e;
         int r;
 
-        /* Note that 'old_length' refers to bytes in the string, while 'new_length' refers to character cells taken up
-         * on screen. This distinction doesn't matter for ASCII strings, but it does matter for non-ASCII UTF-8
-         * strings.
+        /* Note that 'old_length' refers to bytes in the string, while 'new_length' refers to character cells
+         * taken up on screen. This distinction doesn't matter for ASCII strings, but it does matter for
+         * non-ASCII UTF-8 strings.
          *
          * Ellipsation is done in a locale-dependent way:
-         * 1. If the string passed in is fully ASCII and the current locale is not UTF-8, three dots are used ("...")
+         * 1. If the string passed in is fully ASCII and the current locale is not UTF-8, three dots are used
+         * ("...")
          * 2. Otherwise, a unicode ellipsis is used ("…")
          *
-         * In other words: you'll get a unicode ellipsis as soon as either the string contains non-ASCII characters or
-         * the current locale is UTF-8.
+         * In other words: you'll get a unicode ellipsis as soon as either the string contains non-ASCII
+         * characters or the current locale is UTF-8.
          */
 
         assert(s);
@@ -629,8 +631,8 @@ char *cellescape(char *buf, size_t len, const char *s) {
                         goto done;
 
                 w = cescape_char(*s, four);
-                if (i + w + 1 > len) /* This character doesn't fit into the buffer anymore? In that case let's
-                                      * ellipsize at the previous location */
+                if (i + w + 1 > len) /* This character doesn't fit into the buffer anymore? In that case
+                                      * let's ellipsize at the previous location */
                         break;
 
                 /* OK, there was space, let's add this escaped character to the buffer */
@@ -773,9 +775,9 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
          * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
          *
-         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as are any
-         * other special characters. Truncated ANSI sequences are left-as is too. This call is supposed to suppress the
-         * most basic formatting noise, but nothing else.
+         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as
+         * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
+         * supposed to suppress the most basic formatting noise, but nothing else.
          *
          * Why care for CSO sequences? Well, to undo what terminal_urlify() and friends generate. */
 
@@ -785,8 +787,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         if (!f)
                 return NULL;
 
-        /* Note we turn off internal locking on f for performance reasons.  It's safe to do so since we created f here
-         * and it doesn't leave our scope. */
+        /* Note we turn off internal locking on f for performance reasons.  It's safe to do so since we
+         * created f here and it doesn't leave our scope. */
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
@@ -843,8 +845,9 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                 case STATE_CSO:
 
-                        if (i >= *ibuf + isz ||                                          /* EOT … */
-                            (*i != '\a' && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
+                        if (i >= *ibuf + isz || /* EOT … */
+                            (*i != '\a' && (uint8_t) *i < 32U) ||
+                            (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc(']', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);

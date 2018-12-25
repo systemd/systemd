@@ -11,8 +11,9 @@
 
 #define snprintf_ok(buf, len, fmt, ...) ((size_t) snprintf(buf, len, fmt, __VA_ARGS__) < (len))
 
-#define xsprintf(buf, fmt, ...) \
-        assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__), "xsprintf: " #buf "[] must be big enough")
+#define xsprintf(buf, fmt, ...)                                                \
+        assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, __VA_ARGS__), \
+                          "xsprintf: " #buf "[] must be big enough")
 
 #define VA_FORMAT_ADVANCE(format, ap)                                                  \
         do {                                                                           \

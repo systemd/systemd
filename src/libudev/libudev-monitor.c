@@ -270,7 +270,9 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype) {
+_public_ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor,
+                                                             const char *subsystem,
+                                                             const char *devtype) {
         assert_return(udev_monitor, -EINVAL);
 
         return sd_device_monitor_filter_add_match_subsystem_devtype(udev_monitor->monitor, subsystem, devtype);

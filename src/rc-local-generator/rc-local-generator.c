@@ -12,11 +12,11 @@
 
 static const char *arg_dest = NULL;
 
-/* So you are reading this, and might wonder: why is this implemented as a generator rather than as a plain, statically
- * enabled service that carries appropriate ConditionFileIsExecutable= lines? The answer is this: conditions bypass
- * execution of a service's binary, but they have no influence on unit dependencies. Thus, a service that is
- * conditioned out will still act as synchronization point in the dependency tree, and we'd rather not have that for
- * these two legacy scripts. */
+/* So you are reading this, and might wonder: why is this implemented as a generator rather than as a plain,
+ * statically enabled service that carries appropriate ConditionFileIsExecutable= lines? The answer is this:
+ * conditions bypass execution of a service's binary, but they have no influence on unit dependencies. Thus,
+ * a service that is conditioned out will still act as synchronization point in the dependency tree, and we'd
+ * rather not have that for these two legacy scripts. */
 
 static int add_symlink(const char *service, const char *where) {
         const char *from, *to;
@@ -48,7 +48,8 @@ static int check_executable(const char *path) {
                 if (errno == EACCES)
                         return log_info_errno(errno, "%s is not marked executable, skipping.", path);
 
-                return log_warning_errno(errno, "Couldn't determine if %s exists and is executable, skipping: %m", path);
+                return log_warning_errno(
+                        errno, "Couldn't determine if %s exists and is executable, skipping: %m", path);
         }
 
         return 0;

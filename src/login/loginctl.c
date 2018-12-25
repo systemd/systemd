@@ -54,7 +54,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
 static OutputFlags get_output_flags(void) {
 
-        return arg_all * OUTPUT_SHOW_ALL | (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH | colors_enabled() * OUTPUT_COLOR;
+        return arg_all * OUTPUT_SHOW_ALL | (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                colors_enabled() * OUTPUT_COLOR;
 }
 
 static int get_session_path(sd_bus *bus, const char *session_id, sd_bus_error *error, char **path) {
@@ -100,7 +101,10 @@ static int show_table(Table *table, const char *word) {
                 table_set_header(table, arg_legend);
 
                 if (OUTPUT_MODE_IS_JSON(arg_output))
-                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+                        r = table_print_json(table,
+                                             NULL,
+                                             output_mode_to_json_format_flags(arg_output) |
+                                                     JSON_FORMAT_COLOR_AUTO);
                 else
                         r = table_print(table, NULL);
                 if (r < 0)
@@ -129,8 +133,14 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "ListSessions", &error, &reply, NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "ListSessions",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
 
@@ -158,18 +168,36 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property(
-                        bus, "org.freedesktop.login1", object, "org.freedesktop.login1.Session", "TTY", &error_tty, &reply_tty, "s");
+                r = sd_bus_get_property(bus,
+                                        "org.freedesktop.login1",
+                                        object,
+                                        "org.freedesktop.login1.Session",
+                                        "TTY",
+                                        &error_tty,
+                                        &reply_tty,
+                                        "s");
                 if (r < 0)
-                        log_warning_errno(r, "Failed to get TTY for session %s: %s", id, bus_error_message(&error_tty, r));
+                        log_warning_errno(r,
+                                          "Failed to get TTY for session %s: %s",
+                                          id,
+                                          bus_error_message(&error_tty, r));
                 else {
                         r = sd_bus_message_read(reply_tty, "s", &tty);
                         if (r < 0)
                                 return bus_log_parse_error(r);
                 }
 
-                r = table_add_many(
-                        table, TABLE_STRING, id, TABLE_UINT32, uid, TABLE_STRING, user, TABLE_STRING, seat, TABLE_STRING, strna(tty));
+                r = table_add_many(table,
+                                   TABLE_STRING,
+                                   id,
+                                   TABLE_UINT32,
+                                   uid,
+                                   TABLE_STRING,
+                                   user,
+                                   TABLE_STRING,
+                                   seat,
+                                   TABLE_STRING,
+                                   strna(tty));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
         }
@@ -193,8 +221,14 @@ static int list_users(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "ListUsers", &error, &reply, NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "ListUsers",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list users: %s", bus_error_message(&error, r));
 
@@ -242,8 +276,14 @@ static int list_seats(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "ListSeats", &error, &reply, NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.login1",
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               "ListSeats",
+                               &error,
+                               &reply,
+                               NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list seats: %s", bus_error_message(&error, r));
 
@@ -309,7 +349,8 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
                 if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                         return 0;
 
-                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, &leader, leader > 0, get_output_flags());
+                show_cgroup_and_extra(
+                        SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, &leader, leader > 0, get_output_flags());
         } else if (r < 0)
                 return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
 
@@ -368,7 +409,8 @@ static void seat_status_info_clear(SeatStatusInfo *info) {
         }
 }
 
-static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int prop_map_first_of_struct(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         const char *contents;
         int r;
 
@@ -395,7 +437,8 @@ static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_mess
         return 0;
 }
 
-static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int prop_map_sessions_strv(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         const char *name;
         int r;
 
@@ -419,26 +462,28 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
 
 static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
-        static const struct bus_properties_map map[] = { { "Id", "s", NULL, offsetof(SessionStatusInfo, id) },
-                                                         { "Name", "s", NULL, offsetof(SessionStatusInfo, name) },
-                                                         { "TTY", "s", NULL, offsetof(SessionStatusInfo, tty) },
-                                                         { "Display", "s", NULL, offsetof(SessionStatusInfo, display) },
-                                                         { "RemoteHost", "s", NULL, offsetof(SessionStatusInfo, remote_host) },
-                                                         { "RemoteUser", "s", NULL, offsetof(SessionStatusInfo, remote_user) },
-                                                         { "Service", "s", NULL, offsetof(SessionStatusInfo, service) },
-                                                         { "Desktop", "s", NULL, offsetof(SessionStatusInfo, desktop) },
-                                                         { "Type", "s", NULL, offsetof(SessionStatusInfo, type) },
-                                                         { "Class", "s", NULL, offsetof(SessionStatusInfo, class) },
-                                                         { "Scope", "s", NULL, offsetof(SessionStatusInfo, scope) },
-                                                         { "State", "s", NULL, offsetof(SessionStatusInfo, state) },
-                                                         { "VTNr", "u", NULL, offsetof(SessionStatusInfo, vtnr) },
-                                                         { "Leader", "u", NULL, offsetof(SessionStatusInfo, leader) },
-                                                         { "Remote", "b", NULL, offsetof(SessionStatusInfo, remote) },
-                                                         { "Timestamp", "t", NULL, offsetof(SessionStatusInfo, timestamp.realtime) },
-                                                         { "TimestampMonotonic", "t", NULL, offsetof(SessionStatusInfo, timestamp.monotonic) },
-                                                         { "User", "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid) },
-                                                         { "Seat", "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat) },
-                                                         {} };
+        static const struct bus_properties_map map[] = {
+                { "Id", "s", NULL, offsetof(SessionStatusInfo, id) },
+                { "Name", "s", NULL, offsetof(SessionStatusInfo, name) },
+                { "TTY", "s", NULL, offsetof(SessionStatusInfo, tty) },
+                { "Display", "s", NULL, offsetof(SessionStatusInfo, display) },
+                { "RemoteHost", "s", NULL, offsetof(SessionStatusInfo, remote_host) },
+                { "RemoteUser", "s", NULL, offsetof(SessionStatusInfo, remote_user) },
+                { "Service", "s", NULL, offsetof(SessionStatusInfo, service) },
+                { "Desktop", "s", NULL, offsetof(SessionStatusInfo, desktop) },
+                { "Type", "s", NULL, offsetof(SessionStatusInfo, type) },
+                { "Class", "s", NULL, offsetof(SessionStatusInfo, class) },
+                { "Scope", "s", NULL, offsetof(SessionStatusInfo, scope) },
+                { "State", "s", NULL, offsetof(SessionStatusInfo, state) },
+                { "VTNr", "u", NULL, offsetof(SessionStatusInfo, vtnr) },
+                { "Leader", "u", NULL, offsetof(SessionStatusInfo, leader) },
+                { "Remote", "b", NULL, offsetof(SessionStatusInfo, remote) },
+                { "Timestamp", "t", NULL, offsetof(SessionStatusInfo, timestamp.realtime) },
+                { "TimestampMonotonic", "t", NULL, offsetof(SessionStatusInfo, timestamp.monotonic) },
+                { "User", "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid) },
+                { "Seat", "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat) },
+                {}
+        };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -448,7 +493,8 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         SessionStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -558,16 +604,18 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
 static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
-        static const struct bus_properties_map map[] = { { "Name", "s", NULL, offsetof(UserStatusInfo, name) },
-                                                         { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
-                                                         { "Slice", "s", NULL, offsetof(UserStatusInfo, slice) },
-                                                         { "State", "s", NULL, offsetof(UserStatusInfo, state) },
-                                                         { "UID", "u", NULL, offsetof(UserStatusInfo, uid) },
-                                                         { "Timestamp", "t", NULL, offsetof(UserStatusInfo, timestamp.realtime) },
-                                                         { "TimestampMonotonic", "t", NULL, offsetof(UserStatusInfo, timestamp.monotonic) },
-                                                         { "Display", "(so)", prop_map_first_of_struct, offsetof(UserStatusInfo, display) },
-                                                         { "Sessions", "a(so)", prop_map_sessions_strv, offsetof(UserStatusInfo, sessions) },
-                                                         {} };
+        static const struct bus_properties_map map[] = {
+                { "Name", "s", NULL, offsetof(UserStatusInfo, name) },
+                { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
+                { "Slice", "s", NULL, offsetof(UserStatusInfo, slice) },
+                { "State", "s", NULL, offsetof(UserStatusInfo, state) },
+                { "UID", "u", NULL, offsetof(UserStatusInfo, uid) },
+                { "Timestamp", "t", NULL, offsetof(UserStatusInfo, timestamp.realtime) },
+                { "TimestampMonotonic", "t", NULL, offsetof(UserStatusInfo, timestamp.monotonic) },
+                { "Display", "(so)", prop_map_first_of_struct, offsetof(UserStatusInfo, display) },
+                { "Sessions", "a(so)", prop_map_sessions_strv, offsetof(UserStatusInfo, sessions) },
+                {}
+        };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -577,7 +625,8 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
+        r = bus_map_all_properties(
+                bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -706,7 +755,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         case SD_BUS_TYPE_STRUCT:
 
-                if (contents[0] == SD_BUS_TYPE_STRING && STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                if (contents[0] == SD_BUS_TYPE_STRING &&
+                    STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
                         const char *s;
 
                         r = sd_bus_message_read(m, "(so)", &s, NULL);
@@ -726,7 +776,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (!uid_is_valid(uid))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user ID: " UID_FMT, uid);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Invalid user ID: " UID_FMT, uid);
 
                         bus_print_property_value(name, expected_value, value, UID_FMT, uid);
                         return 1;
@@ -781,7 +832,8 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, print_property, arg_property, arg_value, arg_all, NULL);
+        r = bus_print_all_properties(
+                bus, "org.freedesktop.login1", path, print_property, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -814,7 +866,8 @@ static int show_session(int argc, char *argv[], void *userdata) {
                 if (session) {
                         r = get_session_path(bus, session, &error, &path);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
+                                return log_error_errno(
+                                        r, "Failed to get session path: %s", bus_error_message(&error, r));
 
                         p = path;
                 }
@@ -825,7 +878,8 @@ static int show_session(int argc, char *argv[], void *userdata) {
         for (i = 1; i < argc; i++) {
                 r = get_session_path(bus, argv[i], &error, &path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
+                        return log_error_errno(
+                                r, "Failed to get session path: %s", bus_error_message(&error, r));
 
                 if (properties)
                         r = show_properties(bus, path, &new_line);
@@ -985,13 +1039,15 @@ static int activate(int argc, char *argv[], void *userdata) {
                                                "LockSession" :
                                                streq(argv[0], "unlock-session") ?
                                                "UnlockSession" :
-                                               streq(argv[0], "terminate-session") ? "TerminateSession" : "ActivateSession",
+                                               streq(argv[0], "terminate-session") ? "TerminateSession" :
+                                                                                     "ActivateSession",
                                        &error,
                                        NULL,
                                        "s",
                                        argv[i]);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+                        return log_error_errno(
+                                r, "Failed to issue method call: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1111,7 +1167,8 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
                                        "u",
                                        (uint32_t) uid);
                 if (r < 0)
-                        return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, -r));
+                        return log_error_errno(
+                                r, "Could not terminate user: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1256,7 +1313,8 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
                                        "s",
                                        argv[i]);
                 if (r < 0)
-                        return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, -r));
+                        return log_error_errno(
+                                r, "Could not terminate seat: %s", bus_error_message(&error, -r));
         }
 
         return 0;
@@ -1396,7 +1454,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         if (safe_atou(optarg, &arg_lines) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse lines '%s'", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Failed to parse lines '%s'", optarg);
                         break;
 
                 case 'o':
@@ -1438,7 +1497,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse signal string %s.", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Failed to parse signal string %s.", optarg);
                         break;
 
                 case 'H':

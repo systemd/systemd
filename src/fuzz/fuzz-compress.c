@@ -6,7 +6,8 @@
 #include "compress.h"
 #include "fuzz.h"
 
-static int compress(int alg, const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size) {
+static int compress(
+        int alg, const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size) {
 
         if (alg == OBJECT_COMPRESSED_LZ4)
                 return compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);

@@ -390,9 +390,10 @@ static int session_load_devices(Session *s, const char *devices) {
 }
 
 int session_load(Session *s) {
-        _cleanup_free_ char *remote = NULL, *seat = NULL, *tty_validity = NULL, *vtnr = NULL, *state = NULL, *position = NULL,
-                            *leader = NULL, *type = NULL, *class = NULL, *uid = NULL, *realtime = NULL, *monotonic = NULL,
-                            *controller = NULL, *active = NULL, *devices = NULL, *is_display = NULL;
+        _cleanup_free_ char *remote = NULL, *seat = NULL, *tty_validity = NULL, *vtnr = NULL, *state = NULL,
+                            *position = NULL, *leader = NULL, *type = NULL, *class = NULL, *uid = NULL,
+                            *realtime = NULL, *monotonic = NULL, *controller = NULL, *active = NULL,
+                            *devices = NULL, *is_display = NULL;
 
         int k, r;
 
@@ -459,7 +460,8 @@ int session_load(Session *s) {
                 User *user;
 
                 if (!uid)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "UID not specified for session %s", s->id);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOENT), "UID not specified for session %s", s->id);
 
                 r = parse_uid(uid, &u);
                 if (r < 0) {
@@ -571,9 +573,9 @@ int session_load(Session *s) {
         }
 
         if (is_display) {
-                /* Note that when enumerating users are loaded before sessions, hence the display session to use is
-                 * something we have to store along with the session and not the user, as in that case we couldn't
-                 * apply it at the time we load the user. */
+                /* Note that when enumerating users are loaded before sessions, hence the display session to
+                 * use is something we have to store along with the session and not the user, as in that case
+                 * we couldn't apply it at the time we load the user. */
 
                 k = parse_boolean(is_display);
                 if (k < 0)
@@ -654,7 +656,8 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                         s->user->slice,
                                         description,
                                         STRV_MAKE(s->user->runtime_dir_service,
-                                                  s->user->service), /* These two have StopWhenUnneeded= set, hence add a dep towards them */
+                                                  s->user->service), /* These two have StopWhenUnneeded= set,
+                                                                        hence add a dep towards them */
                                         STRV_MAKE("systemd-logind.service",
                                                   "systemd-user-sessions.service",
                                                   s->user->runtime_dir_service,
@@ -664,7 +667,8 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                         error,
                                         &s->scope_job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to start session scope %s: %s", scope, bus_error_message(error, r));
+                        return log_error_errno(
+                                r, "Failed to start session scope %s: %s", scope, bus_error_message(error, r));
 
                 s->scope = TAKE_PTR(scope);
         }
@@ -743,12 +747,13 @@ static int session_stop_scope(Session *s, bool force) {
         if (!s->scope)
                 return 0;
 
-        /* Let's always abandon the scope first. This tells systemd that we are not interested anymore, and everything
-         * that is left in the scope is "left-over". Informing systemd about this has the benefit that it will log
-         * when killing any processes left after this point. */
+        /* Let's always abandon the scope first. This tells systemd that we are not interested anymore, and
+         * everything that is left in the scope is "left-over". Informing systemd about this has the benefit
+         * that it will log when killing any processes left after this point. */
         r = manager_abandon_scope(s->manager, s->scope, &error);
         if (r < 0) {
-                log_warning_errno(r, "Failed to abandon session scope, ignoring: %s", bus_error_message(&error, r));
+                log_warning_errno(
+                        r, "Failed to abandon session scope, ignoring: %s", bus_error_message(&error, r));
                 sd_bus_error_free(&error);
         }
 
@@ -760,9 +765,12 @@ static int session_stop_scope(Session *s, bool force) {
                 r = manager_stop_unit(s->manager, s->scope, &error, &s->scope_job);
                 if (r < 0) {
                         if (force)
-                                return log_error_errno(r, "Failed to stop session scope: %s", bus_error_message(&error, r));
+                                return log_error_errno(
+                                        r, "Failed to stop session scope: %s", bus_error_message(&error, r));
 
-                        log_warning_errno(r, "Failed to stop session scope, ignoring: %s", bus_error_message(&error, r));
+                        log_warning_errno(r,
+                                          "Failed to stop session scope, ignoring: %s",
+                                          bus_error_message(&error, r));
                 }
         } else {
 
@@ -787,10 +795,11 @@ int session_stop(Session *s, bool force) {
 
         assert(s);
 
-        /* This is called whenever we begin with tearing down a session record. It's called in four cases: explicit API
-         * request via the bus (either directly for the session object or for the seat or user object this session
-         * belongs to; 'force' is true), or due to automatic GC (i.e. scope vanished; 'force' is false), or because the
-         * session FIFO saw an EOF ('force' is false), or because the release timer hit ('force' is false). */
+        /* This is called whenever we begin with tearing down a session record. It's called in four cases:
+         * explicit API request via the bus (either directly for the session object or for the seat or user
+         * object this session belongs to; 'force' is true), or due to automatic GC (i.e. scope vanished;
+         * 'force' is false), or because the session FIFO saw an EOF ('force' is false), or because the
+         * release timer hit ('force' is false). */
 
         if (!s->user)
                 return -ESTALE;
@@ -1073,12 +1082,13 @@ int session_create_fifo(Session *s) {
         }
 
         if (!s->fifo_event_source) {
-                r = sd_event_add_io(s->manager->event, &s->fifo_event_source, s->fifo_fd, 0, session_dispatch_fifo, s);
+                r = sd_event_add_io(
+                        s->manager->event, &s->fifo_event_source, s->fifo_fd, 0, session_dispatch_fifo, s);
                 if (r < 0)
                         return r;
 
-                /* Let's make sure we noticed dead sessions before we process new bus requests (which might create new
-                 * sessions). */
+                /* Let's make sure we noticed dead sessions before we process new bus requests (which might
+                 * create new sessions). */
                 r = sd_event_source_set_priority(s->fifo_event_source, SD_EVENT_PRIORITY_NORMAL - 10);
                 if (r < 0)
                         return r;
@@ -1138,8 +1148,10 @@ bool session_may_gc(Session *s, bool drop_not_started) {
 
                 r = manager_unit_is_active(s->manager, s->scope, &error);
                 if (r < 0)
-                        log_debug_errno(
-                                r, "Failed to determine whether unit '%s' is active, ignoring: %s", s->scope, bus_error_message(&error, r));
+                        log_debug_errno(r,
+                                        "Failed to determine whether unit '%s' is active, ignoring: %s",
+                                        s->scope,
+                                        bus_error_message(&error, r));
                 if (r != 0)
                         return false;
         }
@@ -1267,7 +1279,9 @@ static void session_restore_vt(Session *s) {
          *
          * If the controlling process already exited, getting a fresh handle to the
          * virtual terminal reset the hung-up state. */
-        r = safe_fork("(logind)", FORK_REOPEN_LOG | FORK_CLOSE_ALL_FDS | FORK_RESET_SIGNALS | FORK_WAIT | FORK_LOG, &pid);
+        r = safe_fork("(logind)",
+                      FORK_REOPEN_LOG | FORK_CLOSE_ALL_FDS | FORK_RESET_SIGNALS | FORK_WAIT | FORK_LOG,
+                      &pid);
         if (r == 0) {
                 char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
                 int vt;
@@ -1424,9 +1438,10 @@ void session_drop_controller(Session *s) {
         session_restore_vt(s);
 }
 
-static const char *const session_state_table[_SESSION_STATE_MAX] = {
-        [SESSION_OPENING] = "opening", [SESSION_ONLINE] = "online", [SESSION_ACTIVE] = "active", [SESSION_CLOSING] = "closing"
-};
+static const char *const session_state_table[_SESSION_STATE_MAX] = { [SESSION_OPENING] = "opening",
+                                                                     [SESSION_ONLINE] = "online",
+                                                                     [SESSION_ACTIVE] = "active",
+                                                                     [SESSION_CLOSING] = "closing" };
 
 DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
 
@@ -1437,9 +1452,10 @@ static const char *const session_type_table[_SESSION_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
-static const char *const session_class_table[_SESSION_CLASS_MAX] = {
-        [SESSION_USER] = "user", [SESSION_GREETER] = "greeter", [SESSION_LOCK_SCREEN] = "lock-screen", [SESSION_BACKGROUND] = "background"
-};
+static const char *const session_class_table[_SESSION_CLASS_MAX] = { [SESSION_USER] = "user",
+                                                                     [SESSION_GREETER] = "greeter",
+                                                                     [SESSION_LOCK_SCREEN] = "lock-screen",
+                                                                     [SESSION_BACKGROUND] = "background" };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
 

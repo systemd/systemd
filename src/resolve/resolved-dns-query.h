@@ -38,18 +38,19 @@ struct DnsQuery {
         unsigned n_auxiliary_queries;
         int auxiliary_result;
 
-        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note that even
-         * on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names (in contrast to their
-         * domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference between these two fields is mostly
-         * relevant only for explicit *hostname* lookups as well as the domain suffixes of service lookups. */
+        /* The question, formatted in IDNA for use on classic DNS, and as UTF8 for use in LLMNR or mDNS. Note
+         * that even on classic DNS some labels might use UTF8 encoding. Specifically, DNS-SD service names
+         * (in contrast to their domain suffixes) use UTF-8 encoding even on DNS. Thus, the difference
+         * between these two fields is mostly relevant only for explicit *hostname* lookups as well as the
+         * domain suffixes of service lookups. */
         DnsQuestion *question_idna;
         DnsQuestion *question_utf8;
 
         uint64_t flags;
         int ifindex;
 
-        /* If true, A or AAAA RR lookups will be suppressed on links with no routable address of the matching address
-         * family */
+        /* If true, A or AAAA RR lookups will be suppressed on links with no routable address of the matching
+         * address family */
         bool suppress_unroutable_family;
 
         /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
@@ -105,7 +106,12 @@ enum
 DnsQueryCandidate *dns_query_candidate_free(DnsQueryCandidate *c);
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
-int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, int family, uint64_t flags);
+int dns_query_new(Manager *m,
+                  DnsQuery **q,
+                  DnsQuestion *question_utf8,
+                  DnsQuestion *question_idna,
+                  int family,
+                  uint64_t flags);
 DnsQuery *dns_query_free(DnsQuery *q);
 
 int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for);

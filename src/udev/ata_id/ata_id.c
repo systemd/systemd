@@ -377,7 +377,9 @@ int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;
         uint16_t word;
         int is_packet_device = 0;
-        static const struct option options[] = { { "export", no_argument, NULL, 'x' }, { "help", no_argument, NULL, 'h' }, {} };
+        static const struct option options[] = { { "export", no_argument, NULL, 'x' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -432,16 +434,17 @@ int main(int argc, char *argv[]) {
                 disk_identify_fixup_uint16(identify.byte, 85);     /* command set supported */
                 disk_identify_fixup_uint16(identify.byte, 86);     /* command set supported */
                 disk_identify_fixup_uint16(identify.byte, 87);     /* command set supported */
-                disk_identify_fixup_uint16(identify.byte, 89);     /* time required for SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16(identify.byte, 90);     /* time required for enhanced SECURITY ERASE UNIT */
-                disk_identify_fixup_uint16(identify.byte, 91);     /* current APM values */
-                disk_identify_fixup_uint16(identify.byte, 94);     /* current AAM value */
-                disk_identify_fixup_uint16(identify.byte, 108);    /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 109);    /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 110);    /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 111);    /* WWN */
-                disk_identify_fixup_uint16(identify.byte, 128);    /* device lock function */
-                disk_identify_fixup_uint16(identify.byte, 217);    /* nominal media rotation rate */
+                disk_identify_fixup_uint16(identify.byte, 89); /* time required for SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16(identify.byte,
+                                           90); /* time required for enhanced SECURITY ERASE UNIT */
+                disk_identify_fixup_uint16(identify.byte, 91);  /* current APM values */
+                disk_identify_fixup_uint16(identify.byte, 94);  /* current AAM value */
+                disk_identify_fixup_uint16(identify.byte, 108); /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 109); /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 110); /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 111); /* WWN */
+                disk_identify_fixup_uint16(identify.byte, 128); /* device lock function */
+                disk_identify_fixup_uint16(identify.byte, 217); /* nominal media rotation rate */
                 memcpy(&id, identify.byte, sizeof id);
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
@@ -517,7 +520,8 @@ int main(int argc, char *argv[]) {
                 }
                 if (id.command_set_1 & (1 << 1)) {
                         printf("ID_ATA_FEATURE_SET_SECURITY=1\n");
-                        printf("ID_ATA_FEATURE_SET_SECURITY_ENABLED=%d\n", (id.cfs_enable_1 & (1 << 1)) ? 1 : 0);
+                        printf("ID_ATA_FEATURE_SET_SECURITY_ENABLED=%d\n",
+                               (id.cfs_enable_1 & (1 << 1)) ? 1 : 0);
                         printf("ID_ATA_FEATURE_SET_SECURITY_ERASE_UNIT_MIN=%d\n", id.trseuc * 2);
                         if ((id.cfs_enable_1 & (1 << 1))) /* enabled */ {
                                 if (id.dlf & (1 << 8))
@@ -526,7 +530,8 @@ int main(int argc, char *argv[]) {
                                         printf("ID_ATA_FEATURE_SET_SECURITY_LEVEL=high\n");
                         }
                         if (id.dlf & (1 << 5))
-                                printf("ID_ATA_FEATURE_SET_SECURITY_ENHANCED_ERASE_UNIT_MIN=%d\n", id.trsEuc * 2);
+                                printf("ID_ATA_FEATURE_SET_SECURITY_ENHANCED_ERASE_UNIT_MIN=%d\n",
+                                       id.trsEuc * 2);
                         if (id.dlf & (1 << 4))
                                 printf("ID_ATA_FEATURE_SET_SECURITY_EXPIRE=1\n");
                         if (id.dlf & (1 << 3))
@@ -588,9 +593,9 @@ int main(int argc, char *argv[]) {
                         printf("ID_ATA_ROTATION_RATE_RPM=%d\n", word);
 
                 /*
-                 * Words 108-111 contain a mandatory World Wide Name (WWN) in the NAA IEEE Registered identifier
-                 * format. Word 108 bits (15:12) shall contain 5h, indicating that the naming authority is IEEE.
-                 * All other values are reserved.
+                 * Words 108-111 contain a mandatory World Wide Name (WWN) in the NAA IEEE Registered
+                 * identifier format. Word 108 bits (15:12) shall contain 5h, indicating that the naming
+                 * authority is IEEE. All other values are reserved.
                  */
                 word = identify.wyde[108];
                 if ((word & 0xf000) == 0x5000) {

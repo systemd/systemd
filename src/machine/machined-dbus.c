@@ -32,8 +32,13 @@
 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_pool_path, "s", "/var/lib/machines");
 
-static int property_get_pool_usage(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_pool_usage(sd_bus *bus,
+                                   const char *path,
+                                   const char *interface,
+                                   const char *property,
+                                   sd_bus_message *reply,
+                                   void *userdata,
+                                   sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
@@ -52,8 +57,13 @@ static int property_get_pool_usage(
         return sd_bus_message_append(reply, "t", usage);
 }
 
-static int property_get_pool_limit(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_pool_limit(sd_bus *bus,
+                                   const char *path,
+                                   const char *interface,
+                                   const char *property,
+                                   sd_bus_message *reply,
+                                   void *userdata,
+                                   sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
@@ -158,7 +168,10 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
         if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_MACHINE_FOR_PID, "PID " PID_FMT " does not belong to any known machine", pid);
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_NO_MACHINE_FOR_PID,
+                                         "PID " PID_FMT " does not belong to any known machine",
+                                         pid);
 
         p = machine_bus_path(machine);
         if (!p)
@@ -192,8 +205,12 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
                 if (!p)
                         return -ENOMEM;
 
-                r = sd_bus_message_append(
-                        reply, "(ssso)", machine->name, strempty(machine_class_to_string(machine->class)), machine->service, p);
+                r = sd_bus_message_append(reply,
+                                          "(ssso)",
+                                          machine->name,
+                                          strempty(machine_class_to_string(machine->class)),
+                                          machine->service,
+                                          p);
                 if (r < 0)
                         return sd_bus_error_set_errno(error, r);
         }
@@ -205,7 +222,8 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
+static int method_create_or_register_machine(
+        Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
         const char *name, *service, *class, *root_directory;
         const int32_t *netif = NULL;
         MachineClass c;
@@ -251,7 +269,10 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
 
                 for (i = 0; i < n_netif; i++) {
                         if (netif[i] <= 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid network interface index %i", netif[i]);
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid network interface index %i",
+                                                         netif[i]);
                 }
         }
 
@@ -260,14 +281,16 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         else {
                 c = machine_class_from_string(class);
                 if (c < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
         if (leader == 1)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (!isempty(root_directory) && !path_is_absolute(root_directory))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
         if (leader == 0) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -330,7 +353,10 @@ fail:
         return r;
 }
 
-static int method_create_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_create_machine_internal(sd_bus_message *message,
+                                          bool read_network,
+                                          void *userdata,
+                                          sd_bus_error *error) {
         Manager *manager = userdata;
         Machine *m = NULL;
         int r;
@@ -366,7 +392,10 @@ static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus
         return method_create_machine_internal(message, false, userdata, error);
 }
 
-static int method_register_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_register_machine_internal(sd_bus_message *message,
+                                            bool read_network,
+                                            void *userdata,
+                                            sd_bus_error *error) {
         Manager *manager = userdata;
         _cleanup_free_ char *p = NULL;
         Machine *m = NULL;
@@ -381,7 +410,8 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         r = cg_pid_get_unit(m->leader, &m->unit);
         if (r < 0) {
-                r = sd_bus_error_set_errnof(error, r, "Failed to determine unit of process " PID_FMT " : %m", m->leader);
+                r = sd_bus_error_set_errnof(
+                        error, r, "Failed to determine unit of process " PID_FMT " : %m", m->leader);
                 goto fail;
         }
 
@@ -410,7 +440,10 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
         return method_register_machine_internal(message, false, userdata, error);
 }
 
-static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
+static int redirect_method_to_machine(sd_bus_message *message,
+                                      Manager *m,
+                                      sd_bus_error *error,
+                                      sd_bus_message_handler_t method) {
         Machine *machine;
         const char *name;
         int r;
@@ -528,7 +561,10 @@ static int method_get_machine_uid_shift(sd_bus_message *message, void *userdata,
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_uid_shift);
 }
 
-static int redirect_method_to_image(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
+static int redirect_method_to_image(sd_bus_message *message,
+                                    Manager *m,
+                                    sd_bus_error *error,
+                                    sd_bus_message_handler_t method) {
         _cleanup_(image_unrefp) Image *i = NULL;
         const char *name;
         int r;
@@ -638,8 +674,8 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        /* On success the resulting temporary file will contain a list of image names that were removed followed by
-         * their size on disk. Let's read that and turn it into a bus message. */
+        /* On success the resulting temporary file will contain a list of image names that were removed
+         * followed by their size on disk. Let's read that and turn it into a bus message. */
         for (;;) {
                 _cleanup_free_ char *name = NULL;
                 uint64_t size;
@@ -698,8 +734,14 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         else
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mode '%s'.", mm);
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -708,9 +750,9 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
         if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        /* Create a temporary file we can dump information about deleted images into. We use a temporary file for this
-         * instead of a pipe or so, since this might grow quit large in theory and we don't want to process this
-         * continuously */
+        /* Create a temporary file we can dump information about deleted images into. We use a temporary file
+         * for this instead of a pipe or so, since this might grow quit large in theory and we don't want to
+         * process this continuously */
         result_fd = open_tmpfile_unlinkable(NULL, O_RDWR | O_CLOEXEC);
         if (result_fd < 0)
                 return -errno;
@@ -760,7 +802,8 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                         if (r == -EBUSY) /* keep images that are currently being used. */
                                 continue;
                         if (r < 0) {
-                                /* If the operation failed, let's override everything we wrote, and instead write there at which image we failed. */
+                                /* If the operation failed, let's override everything we wrote, and instead
+                                 * write there at which image we failed. */
                                 success = false;
                                 (void) ftruncate(result_fd, 0);
                                 (void) lseek(result_fd, 0, SEEK_SET);
@@ -822,8 +865,14 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -838,7 +887,8 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
         if (r == -ENOTTY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
@@ -869,7 +919,8 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
 
         p = procfs_file_alloca(machine->leader, "uid_map");
         f = fopen(p, "re");
@@ -896,12 +947,14 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
 
                 converted = uid - uid_base + uid_shift;
                 if (!uid_is_valid(converted))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
 
                 return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
         }
 
-        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "Machine '%s' has no matching user mappings.", name);
+        return sd_bus_error_setf(
+                error, BUS_ERROR_NO_SUCH_USER_MAPPING, "Machine '%s' has no matching user mappings.", name);
 }
 
 static int method_map_to_machine_user(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -917,7 +970,10 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
         if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
         if (uid < 0x10000)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "User " UID_FMT " belongs to host UID range", uid);
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_NO_SUCH_USER_MAPPING,
+                                         "User " UID_FMT " belongs to host UID range",
+                                         uid);
 
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -958,17 +1014,20 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
 
                         converted = (uid - uid_shift + uid_base);
                         if (!uid_is_valid(converted))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user ID " UID_FMT, uid);
 
                         o = machine_bus_path(machine);
                         if (!o)
                                 return -ENOMEM;
 
-                        return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
+                        return sd_bus_reply_method_return(
+                                message, "sou", machine->name, o, (uint32_t) converted);
                 }
         }
 
-        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_USER_MAPPING, "No matching user mapping for " UID_FMT ".", uid);
+        return sd_bus_error_setf(
+                error, BUS_ERROR_NO_SUCH_USER_MAPPING, "No matching user mapping for " UID_FMT ".", uid);
 }
 
 static int method_map_from_machine_group(sd_bus_message *message, void *groupdata, sd_bus_error *error) {
@@ -991,7 +1050,8 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
         if (machine->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Not supported for non-container machines.");
 
         p = procfs_file_alloca(machine->leader, "gid_map");
         f = fopen(p, "re");
@@ -1018,12 +1078,14 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
 
                 converted = gid - gid_base + gid_shift;
                 if (!gid_is_valid(converted))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
 
                 return sd_bus_reply_method_return(message, "u", (uint32_t) converted);
         }
 
-        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Machine '%s' has no matching group mappings.", name);
+        return sd_bus_error_setf(
+                error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Machine '%s' has no matching group mappings.", name);
 }
 
 static int method_map_to_machine_group(sd_bus_message *message, void *groupdata, sd_bus_error *error) {
@@ -1039,7 +1101,10 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
         if (!gid_is_valid(gid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
         if (gid < 0x10000)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "Group " GID_FMT " belongs to host GID range", gid);
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_NO_SUCH_GROUP_MAPPING,
+                                         "Group " GID_FMT " belongs to host GID range",
+                                         gid);
 
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -1080,17 +1145,20 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
 
                         converted = (gid - gid_shift + gid_base);
                         if (!gid_is_valid(converted))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group ID " GID_FMT, gid);
 
                         o = machine_bus_path(machine);
                         if (!o)
                                 return -ENOMEM;
 
-                        return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
+                        return sd_bus_reply_method_return(
+                                message, "sou", machine->name, o, (uint32_t) converted);
                 }
         }
 
-        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "No matching group mapping for " GID_FMT ".", gid);
+        return sd_bus_error_setf(
+                error, BUS_ERROR_NO_SUCH_GROUP_MAPPING, "No matching group mapping for " GID_FMT ".", gid);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -1109,15 +1177,22 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RegisterMachineWithNetwork", "sayssusai", "o", method_register_machine_with_network, 0),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenMachinePTY", "s", "hs", method_open_machine_pty, 0),
         SD_BUS_METHOD("OpenMachineLogin", "s", "hs", method_open_machine_login, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("OpenMachineShell", "sssasas", "hs", method_open_machine_shell, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "OpenMachineShell", "sssasas", "hs", method_open_machine_shell, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("BindMountMachine", "sssbb", NULL, method_bind_mount_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFromMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyToMachine", "sss", NULL, method_copy_machine, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("OpenMachineRootDirectory", "s", "h", method_open_machine_root_directory, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenMachineRootDirectory",
+                      "s",
+                      "h",
+                      method_open_machine_root_directory,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineUIDShift", "s", "u", method_get_machine_uid_shift, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RenameImage", "ss", NULL, method_rename_image, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1125,14 +1200,17 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("MarkImageReadOnly", "sb", NULL, method_mark_image_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageHostname", "s", "s", method_get_image_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageMachineID", "s", "ay", method_get_image_machine_id, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageMachineInfo", "s", "a{ss}", method_get_image_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetImageMachineInfo", "s", "a{ss}", method_get_image_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPoolLimit", "t", NULL, method_set_pool_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetImageLimit", "st", NULL, method_set_image_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CleanPool", "s", "a(st)", method_clean_pool, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapFromMachineUser", "su", "u", method_map_from_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapToMachineUser", "u", "sou", method_map_to_machine_user, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("MapFromMachineGroup", "su", "u", method_map_from_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "MapFromMachineGroup", "su", "u", method_map_from_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("MapToMachineGroup", "u", "sou", method_map_to_machine_group, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
@@ -1168,7 +1246,11 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         else {
                                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
-                                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
+                                sd_bus_error_setf(&e,
+                                                  BUS_ERROR_JOB_FAILED,
+                                                  "Start job for unit %s failed with '%s'",
+                                                  unit,
+                                                  result);
 
                                 machine_send_create_reply(machine, &e);
                         }
@@ -1396,7 +1478,8 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                                unit,
                                "fail");
         if (r < 0) {
-                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) || sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
+                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
 
                         if (job)
                                 *job = NULL;
@@ -1457,13 +1540,21 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
         if (!path)
                 return -ENOMEM;
 
-        r = sd_bus_get_property(
-                manager->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "ActiveState", &error, &reply, "s");
+        r = sd_bus_get_property(manager->bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit",
+                                "ActiveState",
+                                &error,
+                                &reply,
+                                "s");
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
                         return true;
 
-                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) || sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
                         return false;
 
                 return r;
@@ -1484,10 +1575,17 @@ int manager_job_is_active(Manager *manager, const char *path) {
         assert(manager);
         assert(path);
 
-        r = sd_bus_get_property(
-                manager->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Job", "State", &error, &reply, "s");
+        r = sd_bus_get_property(manager->bus,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Job",
+                                "State",
+                                &error,
+                                &reply,
+                                "s");
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))
                         return true;
 
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))

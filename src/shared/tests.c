@@ -119,8 +119,8 @@ bool have_namespaces(void) {
         siginfo_t si = {};
         pid_t pid;
 
-        /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
-         * do so in a child process in order not to affect our own process. */
+        /* Checks whether namespaces are available. In some cases they aren't. We do this by calling
+         * unshare(), and we do so in a child process in order not to affect our own process. */
 
         pid = fork();
         assert_se(pid >= 0);

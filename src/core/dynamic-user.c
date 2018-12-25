@@ -20,7 +20,8 @@
 #include "user-util.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
-#define UID_CLAMP_INTO_RANGE(rnd) (((uid_t)(rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
+#define UID_CLAMP_INTO_RANGE(rnd) \
+        (((uid_t)(rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
 
 DEFINE_PRIVATE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
 
@@ -78,31 +79,33 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser **ret)
         assert(m);
         assert(name);
 
-        /* Return the DynamicUser structure for a specific user name. Note that this won't actually allocate a UID for
-         * it, but just prepare the data structure for it. The UID is allocated only on demand, when it's really
-         * needed, and in the child process we fork off, since allocation involves NSS checks which are not OK to do
-         * from PID 1. To allow the children and PID 1 share information about allocated UIDs we use an anonymous
-         * AF_UNIX/SOCK_DGRAM socket (called the "storage socket") that contains at most one datagram with the
-         * allocated UID number, plus an fd referencing the lock file for the UID
-         * (i.e. /run/systemd/dynamic-uid/$UID). Why involve the socket pair? So that PID 1 and all its children can
-         * share the same storage for the UID and lock fd, simply by inheriting the storage socket fds. The socket pair
-         * may exist in three different states:
+        /* Return the DynamicUser structure for a specific user name. Note that this won't actually allocate
+         * a UID for it, but just prepare the data structure for it. The UID is allocated only on demand,
+         * when it's really needed, and in the child process we fork off, since allocation involves NSS
+         * checks which are not OK to do from PID 1. To allow the children and PID 1 share information about
+         * allocated UIDs we use an anonymous AF_UNIX/SOCK_DGRAM socket (called the "storage socket") that
+         * contains at most one datagram with the allocated UID number, plus an fd referencing the lock file
+         * for the UID (i.e. /run/systemd/dynamic-uid/$UID). Why involve the socket pair? So that PID 1 and
+         * all its children can share the same storage for the UID and lock fd, simply by inheriting the
+         * storage socket fds. The socket pair may exist in three different states:
          *
-         * a) no datagram stored. This is the initial state. In this case the dynamic user was never realized.
+         * a) no datagram stored. This is the initial state. In this case the dynamic user was never
+         * realized.
          *
-         * b) a datagram containing a UID stored, but no lock fd attached to it. In this case there was already a
-         *    statically assigned UID by the same name, which we are reusing.
+         * b) a datagram containing a UID stored, but no lock fd attached to it. In this case there was
+         * already a statically assigned UID by the same name, which we are reusing.
          *
-         * c) a datagram containing a UID stored, and a lock fd is attached to it. In this case we allocated a dynamic
-         *    UID and locked it in the file system, using the lock fd.
+         * c) a datagram containing a UID stored, and a lock fd is attached to it. In this case we allocated
+         * a dynamic UID and locked it in the file system, using the lock fd.
          *
-         * As PID 1 and various children might access the socket pair simultaneously, and pop the datagram or push it
-         * back in any time, we also maintain a lock on the socket pair. Note one peculiarity regarding locking here:
-         * the UID lock on disk is protected via a BSD file lock (i.e. an fd-bound lock), so that the lock is kept in
-         * place as long as there's a reference to the fd open. The lock on the storage socket pair however is a POSIX
-         * file lock (i.e. a process-bound lock), as all users share the same fd of this (after all it is anonymous,
-         * nobody else could get any access to it except via our own fd) and we want to synchronize access between all
-         * processes that have access to it. */
+         * As PID 1 and various children might access the socket pair simultaneously, and pop the datagram or
+         * push it back in any time, we also maintain a lock on the socket pair. Note one peculiarity
+         * regarding locking here: the UID lock on disk is protected via a BSD file lock (i.e. an fd-bound
+         * lock), so that the lock is kept in place as long as there's a reference to the fd open. The lock
+         * on the storage socket pair however is a POSIX file lock (i.e. a process-bound lock), as all users
+         * share the same fd of this (after all it is anonymous, nobody else could get any access to it
+         * except via our own fd) and we want to synchronize access between all processes that have access to
+         * it. */
 
         d = hashmap_get(m->dynamic_users, name);
         if (d) {
@@ -140,12 +143,13 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
         const char *path2;
         int r = 0, k;
 
-        /* Add direct additional symlinks for direct lookups of dynamic UIDs and their names by userspace code. The
-         * only reason we have this is because dbus-daemon cannot use D-Bus for resolving users and groups (since it
-         * would be its own client then). We hence keep these world-readable symlinks in place, so that the
-         * unprivileged dbus user can read the mappings when it needs them via these symlinks instead of having to go
-         * via the bus. Ideally, we'd use the lock files we keep for this anyway, but we can't since we use BSD locks
-         * on them and as those may be taken by any user with read access we can't make them world-readable. */
+        /* Add direct additional symlinks for direct lookups of dynamic UIDs and their names by userspace
+         * code. The only reason we have this is because dbus-daemon cannot use D-Bus for resolving users and
+         * groups (since it would be its own client then). We hence keep these world-readable symlinks in
+         * place, so that the unprivileged dbus user can read the mappings when it needs them via these
+         * symlinks instead of having to go via the bus. Ideally, we'd use the lock files we keep for this
+         * anyway, but we can't since we use BSD locks on them and as those may be taken by any user with
+         * read access we can't make them world-readable. */
 
         xsprintf(path1, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
         if (unlink(path1) < 0 && errno != ENOENT)
@@ -177,18 +181,19 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
         /* Find a suitable free UID. We use the following strategy to find a suitable UID:
          *
-         * 1. Initially, we try to read the UID of a number of specified paths. If any of these UIDs works, we use
-         *    them. We use in order to increase the chance of UID reuse, if StateDirectory=, CacheDirectory= or
-         *    LogsDirectory= are used, as reusing the UID these directories are owned by saves us from having to
-         *    recursively chown() them to new users.
+         * 1. Initially, we try to read the UID of a number of specified paths. If any of these UIDs works,
+         * we use them. We use in order to increase the chance of UID reuse, if StateDirectory=,
+         * CacheDirectory= or LogsDirectory= are used, as reusing the UID these directories are owned by
+         * saves us from having to recursively chown() them to new users.
          *
-         * 2. If that didn't yield a currently unused UID, we hash the user name, and try to use that. This should be
-         *    pretty good, as the use ris by default derived from the unit name, and hence the same service and same
-         *    user should usually get the same UID as long as our hashing doesn't clash.
+         * 2. If that didn't yield a currently unused UID, we hash the user name, and try to use that. This
+         * should be pretty good, as the use ris by default derived from the unit name, and hence the same
+         * service and same user should usually get the same UID as long as our hashing doesn't clash.
          *
          * 3. Finally, if that didn't work, we randomly pick UIDs, until we find one that is empty.
          *
-         * Since the dynamic UID space is relatively small we'll stop trying after 100 iterations, giving up. */
+         * Since the dynamic UID space is relatively small we'll stop trying after 100 iterations, giving up.
+         */
 
         enum
         {
@@ -197,7 +202,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 PHASE_RANDOM,    /* the last phase, randomly picking UIDs */
         } phase = PHASE_SUGGESTED;
 
-        static const uint8_t hash_key[] = { 0x37, 0x53, 0x7e, 0x31, 0xcf, 0xce, 0x48, 0xf5, 0x8a, 0xbb, 0x39, 0x57, 0x8d, 0xd9, 0xec, 0x59 };
+        static const uint8_t hash_key[] = { 0x37, 0x53, 0x7e, 0x31, 0xcf, 0xce, 0x48, 0xf5,
+                                            0x8a, 0xbb, 0x39, 0x57, 0x8d, 0xd9, 0xec, 0x59 };
 
         unsigned n_tries = 100, current_suggested = 0;
         int r;
@@ -232,8 +238,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 case PHASE_HASHED:
-                        /* A static user by this name does not exist yet. Let's find a free ID then, and use that. We
-                         * start with a UID generated as hash from the user name. */
+                        /* A static user by this name does not exist yet. Let's find a free ID then, and use
+                         * that. We start with a UID generated as hash from the user name. */
                         candidate = UID_CLAMP_INTO_RANGE(siphash24(name, strlen(name), hash_key));
 
                         /* If this one fails, we should proceed with random tries */
@@ -264,7 +270,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                         if (lock_fd < 0)
                                 return -errno;
 
-                        r = flock(lock_fd, LOCK_EX | LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
+                        r = flock(lock_fd,
+                                  LOCK_EX | LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
                         if (r < 0) {
                                 if (IN_SET(errno, EBUSY, EAGAIN))
                                         goto next; /* already in use */
@@ -277,13 +284,14 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                         if (st.st_nlink > 0)
                                 break;
 
-                        /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened it and
-                         * got the lock. Close it, and try again. */
+                        /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened
+                         * it and got the lock. Close it, and try again. */
                         lock_fd = safe_close(lock_fd);
                 }
 
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
-                if (getpwuid(candidate) || getgrgid((gid_t) candidate) || search_ipc(candidate, (gid_t) candidate) != 0) {
+                if (getpwuid(candidate) || getgrgid((gid_t) candidate) ||
+                    search_ipc(candidate, (gid_t) candidate) != 0) {
                         (void) unlink(lock_path);
                         continue;
                 }
@@ -322,8 +330,8 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         assert(ret_uid);
         assert(ret_lock_fd);
 
-        /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with the lock
-         * on the socket taken. */
+        /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with
+         * the lock on the socket taken. */
 
         k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
         if (k < 0)
@@ -370,7 +378,8 @@ static void unlockfp(int *fd_lock) {
         *fd_lock = -1;
 }
 
-static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *ret_uid, gid_t *ret_gid, bool is_user) {
+static int dynamic_user_realize(
+        DynamicUser *d, char **suggested_dirs, uid_t *ret_uid, gid_t *ret_gid, bool is_user) {
 
         _cleanup_(unlockfp) int storage_socket0_lock = -1;
         _cleanup_close_ int uid_lock_fd = -1;
@@ -384,8 +393,8 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
         assert(is_user == !!ret_uid);
         assert(ret_gid);
 
-        /* Acquire a UID for the user name. This will allocate a UID for the user name if the user doesn't exist
-         * yet. If it already exists its existing UID/GID will be reused. */
+        /* Acquire a UID for the user name. This will allocate a UID for the user name if the user doesn't
+         * exist yet. If it already exists its existing UID/GID will be reused. */
 
         r = lockfp(d->storage_socket[0], &storage_socket0_lock);
         if (r < 0)
@@ -399,13 +408,13 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                 if (r != -EAGAIN)
                         return r;
 
-                /* OK, nothing stored yet, let's try to find something useful. While we are working on this release the
-                 * lock however, so that nobody else blocks on our NSS lookups. */
+                /* OK, nothing stored yet, let's try to find something useful. While we are working on this
+                 * release the lock however, so that nobody else blocks on our NSS lookups. */
                 unlockfp(&storage_socket0_lock);
 
                 /* Let's see if a proper, static user or group by this name exists. Try to take the lock on
-                 * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
-                 * take the lock, given that users can't be added there anyway in this case. */
+                 * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we
+                 * don't take the lock, given that users can't be added there anyway in this case. */
                 etc_passwd_lock_fd = take_etc_passwd_lock(NULL);
                 if (etc_passwd_lock_fd < 0 && etc_passwd_lock_fd != -EROFS)
                         return etc_passwd_lock_fd;
@@ -468,8 +477,8 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                         /* Great! Nothing is stored here, still. Store our newly acquired data. */
                         flush_cache = true;
                 } else {
-                        /* Hmm, so as it appears there's now something stored in the storage socket. Throw away what we
-                         * acquired, and use what's stored now. */
+                        /* Hmm, so as it appears there's now something stored in the storage socket. Throw
+                         * away what we acquired, and use what's stored now. */
 
                         unlink_uid_lock(uid_lock_fd, num, d->name);
                         safe_close(uid_lock_fd);
@@ -489,17 +498,17 @@ static int dynamic_user_realize(DynamicUser *d, char **suggested_dirs, uid_t *re
                 gid = p->pw_gid;
         }
 
-        /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was already
-         * allocated statically, push the UID back too, but do not push the lock fd in. If we allocated the UID
-         * dynamically right here, push that in along with the lock fd for it. */
+        /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was
+         * already allocated statically, push the UID back too, but do not push the lock fd in. If we
+         * allocated the UID dynamically right here, push that in along with the lock fd for it. */
         r = dynamic_user_push(d, num, uid_lock_fd);
         if (r < 0)
                 return r;
 
         if (flush_cache) {
-                /* If we allocated a new dynamic UID, refresh nscd, so that it forgets about potentially cached
-                 * negative entries. But let's do so after we release the /etc/passwd lock, so that there's no
-                 * potential for nscd wanting to lock that for completing the invalidation. */
+                /* If we allocated a new dynamic UID, refresh nscd, so that it forgets about potentially
+                 * cached negative entries. But let's do so after we release the /etc/passwd lock, so that
+                 * there's no potential for nscd wanting to lock that for completing the invalidation. */
                 etc_passwd_lock_fd = safe_close(etc_passwd_lock_fd);
                 (void) nscd_flush_cache(STRV_MAKE("passwd", "group"));
         }
@@ -522,7 +531,8 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         assert(d);
         assert(ret);
 
-        /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the storage socket, and pushes it back in right-away. */
+        /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the
+         * storage socket, and pushes it back in right-away. */
 
         r = lockfp(d->storage_socket[0], &storage_socket0_lock);
         if (r < 0)
@@ -544,9 +554,9 @@ static DynamicUser *dynamic_user_unref(DynamicUser *d) {
         if (!d)
                 return NULL;
 
-        /* Note that this doesn't actually release any resources itself. If a dynamic user should be fully destroyed
-         * and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may contain entries
-         * with no references, which is commonly the case right before a daemon reload. */
+        /* Note that this doesn't actually release any resources itself. If a dynamic user should be fully
+         * destroyed and its UID released, use dynamic_user_destroy() instead. NB: the dynamic user table may
+         * contain entries with no references, which is commonly the case right before a daemon reload. */
 
         assert(d->n_ref > 0);
         d->n_ref--;
@@ -560,8 +570,8 @@ static int dynamic_user_close(DynamicUser *d) {
         uid_t uid;
         int r;
 
-        /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the user is
-         * unrealized again, much like it was after it the DynamicUser object was first allocated. */
+        /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the
+         * user is unrealized again, much like it was after it the DynamicUser object was first allocated. */
 
         r = lockfp(d->storage_socket[0], &storage_socket0_lock);
         if (r < 0)
@@ -586,9 +596,9 @@ static DynamicUser *dynamic_user_destroy(DynamicUser *d) {
                 return NULL;
 
         /* Drop a reference to a DynamicUser object, and destroy the user completely if this was the last
-         * reference. This is called whenever a service is shut down and wants its dynamic UID gone. Note that
-         * dynamic_user_unref() is what is called whenever a service is simply freed, for example during a reload
-         * cycle, where the dynamic users should not be destroyed, but our datastructures should. */
+         * reference. This is called whenever a service is shut down and wants its dynamic UID gone. Note
+         * that dynamic_user_unref() is what is called whenever a service is simply freed, for example during
+         * a reload cycle, where the dynamic users should not be destroyed, but our datastructures should. */
 
         dynamic_user_unref(d);
 
@@ -614,11 +624,13 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
                 copy0 = fdset_put_dup(fds, d->storage_socket[0]);
                 if (copy0 < 0)
-                        return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
+                        return log_error_errno(copy0,
+                                               "Failed to add dynamic user storage fd to serialization: %m");
 
                 copy1 = fdset_put_dup(fds, d->storage_socket[1]);
                 if (copy1 < 0)
-                        return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
+                        return log_error_errno(copy1,
+                                               "Failed to add dynamic user storage fd to serialization: %m");
 
                 (void) serialize_item_format(f, "dynamic-user", "%s %i %i", d->name, copy0, copy1);
         }
@@ -668,9 +680,9 @@ void dynamic_user_vacuum(Manager *m, bool close_user) {
 
         assert(m);
 
-        /* Empty the dynamic user database, optionally cleaning up orphaned dynamic users, i.e. destroy and free users
-         * to which no reference exist. This is called after a daemon reload finished, in order to destroy users which
-         * might not be referenced anymore. */
+        /* Empty the dynamic user database, optionally cleaning up orphaned dynamic users, i.e. destroy and
+         * free users to which no reference exist. This is called after a daemon reload finished, in order to
+         * destroy users which might not be referenced anymore. */
 
         HASHMAP_FOREACH(d, m->dynamic_users, i) {
                 if (d->n_ref > 0)
@@ -745,9 +757,9 @@ int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, con
         assert(creds);
         assert(m);
 
-        /* A DynamicUser object encapsulates an allocation of both a UID and a GID for a specific name. However, some
-         * services use different user and groups. For cases like that there's DynamicCreds containing a pair of user
-         * and group. This call allocates a pair. */
+        /* A DynamicUser object encapsulates an allocation of both a UID and a GID for a specific name.
+         * However, some services use different user and groups. For cases like that there's DynamicCreds
+         * containing a pair of user and group. This call allocates a pair. */
 
         if (!creds->user && user) {
                 r = dynamic_user_acquire(m, user, &creds->user);

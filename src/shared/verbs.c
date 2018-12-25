@@ -14,14 +14,14 @@
 #include "verbs.h"
 #include "virt.h"
 
-/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so external
- * processes can reliably force this on.
+/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so
+ * external processes can reliably force this on.
  */
 bool running_in_chroot_or_offline(void) {
         int r;
 
-        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset", but
-         * not "start"/"restart" for example.
+        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute
+         * "preset", but not "start"/"restart" for example.
          *
          * See docs/ENVIRONMENT.md for docs.
          */
@@ -31,11 +31,12 @@ bool running_in_chroot_or_offline(void) {
         else if (r >= 0)
                 return r > 0;
 
-        /* We've had this condition check for a long time which basically checks for legacy chroot case like Fedora's
-         * "mock", which is used for package builds.  We don't want to try to start systemd services there, since
-         * without --new-chroot we don't even have systemd running, and even if we did, adding a concept of background
-         * daemons to builds would be an enormous change, requiring considering things like how the journal output is
-         * handled, etc.  And there's really not a use case today for a build talking to a service.
+        /* We've had this condition check for a long time which basically checks for legacy chroot case like
+         * Fedora's "mock", which is used for package builds.  We don't want to try to start systemd services
+         * there, since without --new-chroot we don't even have systemd running, and even if we did, adding a
+         * concept of background daemons to builds would be an enormous change, requiring considering things
+         * like how the journal output is handled, etc.  And there's really not a use case today for a build
+         * talking to a service.
          *
          * Note this call itself also looks for a different variable SYSTEMD_IGNORE_CHROOT=1.
          */

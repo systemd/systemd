@@ -27,7 +27,9 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
                 DT_LNK :
                 S_ISFIFO(st.st_mode) ?
                 DT_FIFO :
-                S_ISSOCK(st.st_mode) ? DT_SOCK : S_ISCHR(st.st_mode) ? DT_CHR : S_ISBLK(st.st_mode) ? DT_BLK : DT_UNKNOWN;
+                S_ISSOCK(st.st_mode) ?
+                DT_SOCK :
+                S_ISCHR(st.st_mode) ? DT_CHR : S_ISBLK(st.st_mode) ? DT_BLK : DT_UNKNOWN;
 
         return 0;
 }

@@ -42,10 +42,10 @@ static const char *arg_host = NULL;
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
 
-        /* If the specified name is a valid image name, we pass it as-is to portabled, which will search for it in the
-         * usual search directories. Otherwise we presume it's a path, and will normalize it on the client's side
-         * (among other things, to make the path independent of the client's working directory) before passing it
-         * over. */
+        /* If the specified name is a valid image name, we pass it as-is to portabled, which will search for
+         * it in the usual search directories. Otherwise we presume it's a path, and will normalize it on the
+         * client's side (among other things, to make the path independent of the client's working directory)
+         * before passing it over. */
 
         if (image_name_is_valid(image)) {
                 char *c;
@@ -65,8 +65,9 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
         }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Operations on images by path not supported when connecting to remote systems.");
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EOPNOTSUPP),
+                        "Operations on images by path not supported when connecting to remote systems.");
 
         r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret);
         if (r < 0)
@@ -116,9 +117,9 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
         _cleanup_strv_free_ char **k = NULL;
         int r;
 
-        /* Determine the matches to apply. If the list is empty we derive the match from the image name. If the list
-         * contains exactly the "-" we return a wildcard list (which is the empty list), but only if this is expressly
-         * permitted. */
+        /* Determine the matches to apply. If the list is empty we derive the match from the image name. If
+         * the list contains exactly the "-" we return a wildcard list (which is the empty list), but only if
+         * this is expressly permitted. */
 
         if (strv_isempty(l)) {
                 char *prefix;
@@ -192,8 +193,12 @@ static int maybe_reload(sd_bus **bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                *bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload");
+        r = sd_bus_message_new_method_call(*bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -229,8 +234,12 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "GetImageMetadata");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.portable1",
+                                           "/org/freedesktop/portable1",
+                                           "org.freedesktop.portable1.Manager",
+                                           "GetImageMetadata");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -270,7 +279,12 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
-                r = parse_env_file(f, "/etc/os-release", "PORTABLE_PRETTY_NAME", &pretty_portable, "PRETTY_NAME", &pretty_os);
+                r = parse_env_file(f,
+                                   "/etc/os-release",
+                                   "PORTABLE_PRETTY_NAME",
+                                   &pretty_portable,
+                                   "PRETTY_NAME",
+                                   &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
@@ -399,8 +413,12 @@ static int attach_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "AttachImage");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.portable1",
+                                           "/org/freedesktop/portable1",
+                                           "org.freedesktop.portable1.Manager",
+                                           "AttachImage");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -499,7 +517,8 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 bool ro_bool;
                 int ro_int;
 
-                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
+                r = sd_bus_message_read(
+                        reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -729,10 +748,16 @@ static int dump_profiles(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_property_strv(
-                bus, "org.freedesktop.portable1", "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", "Profiles", &error, &l);
+        r = sd_bus_get_property_strv(bus,
+                                     "org.freedesktop.portable1",
+                                     "/org/freedesktop/portable1",
+                                     "org.freedesktop.portable1.Manager",
+                                     "Profiles",
+                                     &error,
+                                     &l);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire list of profiles: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to acquire list of profiles: %s", bus_error_message(&error, r));
 
         if (arg_legend)
                 log_info("Available unit profiles:");
@@ -867,7 +892,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 return dump_profiles();
 
                         if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unit profile name not valid: %s", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Unit profile name not valid: %s", optarg);
 
                         arg_profile = optarg;
                         break;
@@ -883,7 +909,9 @@ static int parse_argv(int argc, char *argv[]) {
                                      "symlink");
                                 return 0;
                         } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --copy= argument: %s", optarg);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse --copy= argument: %s",
+                                                       optarg);
 
                         break;
 
@@ -911,11 +939,16 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },      { "list", VERB_ANY, 1, VERB_DEFAULT, list_images },
-                                      { "attach", 2, VERB_ANY, 0, attach_image },   { "detach", 2, 2, 0, detach_image },
-                                      { "inspect", 2, VERB_ANY, 0, inspect_image }, { "is-attached", 2, 2, 0, is_image_attached },
-                                      { "read-only", 2, 3, 0, read_only_image },    { "remove", 2, VERB_ANY, 0, remove_image },
-                                      { "set-limit", 3, 3, 0, set_limit },          {} };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "list", VERB_ANY, 1, VERB_DEFAULT, list_images },
+                                      { "attach", 2, VERB_ANY, 0, attach_image },
+                                      { "detach", 2, 2, 0, detach_image },
+                                      { "inspect", 2, VERB_ANY, 0, inspect_image },
+                                      { "is-attached", 2, 2, 0, is_image_attached },
+                                      { "read-only", 2, 3, 0, read_only_image },
+                                      { "remove", 2, VERB_ANY, 0, remove_image },
+                                      { "set-limit", 3, 3, 0, set_limit },
+                                      {} };
 
         int r;
 

@@ -105,7 +105,9 @@ void address_free(Address *address) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
 
-                if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
+                if (in_addr_equal(AF_INET6,
+                                  &address->in_addr,
+                                  (const union in_addr_union *) &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
         }
 
@@ -210,7 +212,8 @@ static int address_establish(Address *address, Link *link) {
         assert(address);
         assert(link);
 
-        masq = link->network && link->network->ip_masquerade && address->family == AF_INET && address->scope < RT_SCOPE_LINK;
+        masq = link->network && link->network->ip_masquerade && address->family == AF_INET &&
+                address->scope < RT_SCOPE_LINK;
 
         /* Add firewall entry if this is requested */
         if (address->ip_masquerade_done != masq) {
@@ -227,8 +230,12 @@ static int address_establish(Address *address, Link *link) {
         return 0;
 }
 
-static int address_add_internal(
-        Link *link, Set **addresses, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+static int address_add_internal(Link *link,
+                                Set **addresses,
+                                int family,
+                                const union in_addr_union *in_addr,
+                                unsigned char prefixlen,
+                                Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
         int r;
 
@@ -264,11 +271,13 @@ static int address_add_internal(
         return 0;
 }
 
-int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+int address_add_foreign(
+        Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         return address_add_internal(link, &link->addresses_foreign, family, in_addr, prefixlen, ret);
 }
 
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+int address_add(
+        Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         Address *address;
         int r;
 
@@ -346,7 +355,8 @@ int address_update(Address *address, unsigned char flags, unsigned char scope, c
                 link_check_ready(address->link);
 
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union *) &address->link->ipv6ll_address) > 0) {
+                    in_addr_is_null(AF_INET6, (const union in_addr_union *) &address->link->ipv6ll_address) >
+                            0) {
 
                         r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
                         if (r < 0)
@@ -377,7 +387,8 @@ int address_drop(Address *address) {
         return 0;
 }
 
-int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+int address_get(
+        Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
 
         Address address, *existing;
 
@@ -457,7 +468,12 @@ int address_remove(Address *address, Link *link, link_netlink_message_handler_t 
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: address_remove_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl,
+                               NULL,
+                               req,
+                               callback ?: address_remove_handler,
+                               link_netlink_destroy_callback,
+                               link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -552,7 +568,8 @@ int address_configure(Address *address, Link *link, link_netlink_message_handler
         if (update)
                 r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req, link->ifindex, address->family);
         else
-                r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR, link->ifindex, address->family);
+                r = sd_rtnl_message_new_addr(
+                        link->manager->rtnl, &req, RTM_NEWADDR, link->ifindex, address->family);
         if (r < 0)
                 return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
 
@@ -610,7 +627,8 @@ int address_configure(Address *address, Link *link, link_netlink_message_handler
                         if (address->prefixlen <= 30) {
                                 r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                                 if (r < 0)
-                                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
+                                        return log_error_errno(
+                                                r, "Could not append IFA_BROADCAST attribute: %m");
                         }
                 }
         }
@@ -672,13 +690,20 @@ int config_parse_broadcast(const char *unit,
                 return r;
 
         if (n->family == AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union *) &n->broadcast);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Broadcast is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -724,12 +749,19 @@ int config_parse_address(const char *unit,
         /* Address=address/prefixlen */
         r = in_addr_default_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
 
         if (n->family != AF_UNSPEC && f != n->family) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Address is incompatible, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Address is incompatible, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -775,7 +807,13 @@ int config_parse_label(const char *unit,
                 return r;
 
         if (!address_label_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is too long or invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Interface label is too long or invalid, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -822,12 +860,19 @@ int config_parse_lifetime(const char *unit,
 
         r = safe_atou(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PreferredLifetime, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse PreferredLifetime, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
         if (k != 0)
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid PreferredLifetime value, ignoring: %d", k);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, 0, "Invalid PreferredLifetime value, ignoring: %d", k);
         else {
                 n->cinfo.ifa_prefered = k;
                 n = NULL;
@@ -862,7 +907,8 @@ int config_parse_address_flags(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -913,7 +959,13 @@ int config_parse_address_scope(const char *unit,
         else {
                 r = safe_atou8(rvalue, &n->scope);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Could not parse address scope \"%s\", ignoring assignment: %m",
+                                   rvalue);
                         return 0;
                 }
         }

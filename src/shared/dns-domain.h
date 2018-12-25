@@ -26,7 +26,7 @@
 
 typedef enum DNSLabelFlags
 {
-        DNS_LABEL_LDH = 1 << 0,        /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
+        DNS_LABEL_LDH = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
         DNS_LABEL_NO_ESCAPES = 1 << 1, /* Do not treat backslashes specially */
 } DNSLabelFlags;
 

@@ -48,16 +48,18 @@ static inline int PARTITION_VERITY_OF(int p) {
 typedef enum DissectImageFlags
 {
         DISSECT_IMAGE_READ_ONLY = 1 << 0,
-        DISSECT_IMAGE_DISCARD_ON_LOOP = 1 << 1,   /* Turn on "discard" if on a loop device and file system supports it */
-        DISSECT_IMAGE_DISCARD = 1 << 2,           /* Turn on "discard" if file system supports it, on all block devices */
+        DISSECT_IMAGE_DISCARD_ON_LOOP = 1
+                << 1, /* Turn on "discard" if on a loop device and file system supports it */
+        DISSECT_IMAGE_DISCARD = 1 << 2, /* Turn on "discard" if file system supports it, on all block devices */
         DISSECT_IMAGE_DISCARD_ON_CRYPTO = 1 << 3, /* Turn on "discard" also on crypto devices */
-        DISSECT_IMAGE_DISCARD_ANY = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD | DISSECT_IMAGE_DISCARD_ON_CRYPTO,
+        DISSECT_IMAGE_DISCARD_ANY = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD |
+                DISSECT_IMAGE_DISCARD_ON_CRYPTO,
         DISSECT_IMAGE_GPT_ONLY = 1 << 4,            /* Only recognize images with GPT partition tables */
         DISSECT_IMAGE_REQUIRE_ROOT = 1 << 5,        /* Don't accept disks without root partition */
         DISSECT_IMAGE_MOUNT_ROOT_ONLY = 1 << 6,     /* Mount only the root partition */
         DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7, /* Mount only non-root partitions */
-        DISSECT_IMAGE_VALIDATE_OS = 1 << 8,         /* Refuse mounting images that aren't identifyable as OS images */
-        DISSECT_IMAGE_NO_UDEV = 1 << 9,             /* Don't wait for udev initializing things */
+        DISSECT_IMAGE_VALIDATE_OS = 1 << 8, /* Refuse mounting images that aren't identifyable as OS images */
+        DISSECT_IMAGE_NO_UDEV = 1 << 9,     /* Don't wait for udev initializing things */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -74,9 +76,14 @@ struct DissectedImage {
 };
 
 int probe_filesystem(const char *node, char **ret_fstype);
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
-int dissect_image_and_warn(
-        int fd, const char *name, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image(
+        int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_and_warn(int fd,
+                           const char *name,
+                           const void *root_hash,
+                           size_t root_hash_size,
+                           DissectImageFlags flags,
+                           DissectedImage **ret);
 
 DissectedImage *dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage *, dissected_image_unref);

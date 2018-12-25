@@ -20,8 +20,8 @@
 #include "strv.h"
 #include "util.h"
 
-/* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that systemd
- * might not have respected */
+/* Goes through /etc/fstab and remounts all API file systems, applying options that are in /etc/fstab that
+ * systemd might not have respected */
 
 static int track_pid(Hashmap **h, const char *path, pid_t pid) {
         _cleanup_free_ char *c = NULL;
@@ -78,7 +78,9 @@ static int run(int argc, char *argv[]) {
                         if (path_equal(me->mnt_dir, "/"))
                                 has_root = true;
 
-                        r = safe_fork("(remount)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+                        r = safe_fork("(remount)",
+                                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                                      &pid);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
@@ -96,9 +98,9 @@ static int run(int argc, char *argv[]) {
         }
 
         if (!has_root) {
-                /* The $SYSTEMD_REMOUNT_ROOT_RW environment variable is set by systemd-gpt-auto-generator to tell us
-                 * whether to remount things. We honour it only if there's no explicit line in /etc/fstab configured
-                 * which takes precedence. */
+                /* The $SYSTEMD_REMOUNT_ROOT_RW environment variable is set by systemd-gpt-auto-generator to
+                 * tell us whether to remount things. We honour it only if there's no explicit line in
+                 * /etc/fstab configured which takes precedence. */
 
                 r = getenv_bool("SYSTEMD_REMOUNT_ROOT_RW");
                 if (r > 0) {
@@ -141,7 +143,9 @@ static int run(int argc, char *argv[]) {
                         if (si.si_code == CLD_EXITED)
                                 log_error(MOUNT_PATH " for %s exited with exit status %i.", s, si.si_status);
                         else
-                                log_error(MOUNT_PATH " for %s terminated by signal %s.", s, signal_to_string(si.si_status));
+                                log_error(MOUNT_PATH " for %s terminated by signal %s.",
+                                          s,
+                                          signal_to_string(si.si_status));
 
                         r = -ENOEXEC;
                 }

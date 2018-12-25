@@ -28,7 +28,9 @@ static inline char *replace_env(const char *format, char **env, unsigned flags) 
 
 bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
-char **strv_env_clean_with_callback(char **l, void (*invalid_callback)(const char *p, void *userdata), void *userdata);
+char **strv_env_clean_with_callback(char **l,
+                                    void (*invalid_callback)(const char *p, void *userdata),
+                                    void *userdata);
 
 bool strv_env_name_is_valid(char **l);
 bool strv_env_name_or_assignment_is_valid(char **l);

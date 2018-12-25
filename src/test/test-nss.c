@@ -91,7 +91,11 @@ static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
                         xsprintf(ifname, "%i", it->scopeid);
                 };
 
-                log_info("        \"%s\" %s %s %%%s", it->name, af_to_string(it->family, family_name, sizeof family_name), a, ifname);
+                log_info("        \"%s\" %s %s %%%s",
+                         it->name,
+                         af_to_string(it->family, family_name, sizeof family_name),
+                         a,
+                         ifname);
                 n++;
         }
         return n;
@@ -141,17 +145,18 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
 
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
-                log_info("%s(\"%s\") → status=%s%-20spat=buffer+0x%tx errno=%d/%s h_errno=%d/%s ttl=%" PRIi32,
-                         fname,
-                         name,
-                         nss_status_to_string(status, pretty_status, sizeof pretty_status),
-                         "\n",
-                         pat ? (char *) pat - buffer : 0,
-                         errno1,
-                         errno_to_name(errno1) ?: "---",
-                         errno2,
-                         hstrerror(errno2),
-                         ttl);
+                log_info(
+                        "%s(\"%s\") → status=%s%-20spat=buffer+0x%tx errno=%d/%s h_errno=%d/%s ttl=%" PRIi32,
+                        fname,
+                        name,
+                        nss_status_to_string(status, pretty_status, sizeof pretty_status),
+                        "\n",
+                        pat ? (char *) pat - buffer : 0,
+                        errno1,
+                        errno_to_name(errno1) ?: "---",
+                        errno2,
+                        hstrerror(errno2),
+                        ttl);
                 n = print_gaih_addrtuples(pat);
         } else {
                 log_info("%s(\"%s\") → status=%s%-20spat=0x%p errno=%d/%s h_errno=%d/%s",
@@ -394,7 +399,8 @@ static int make_addresses(struct local_address **addresses) {
         return 0;
 }
 
-static int test_one_module(const char *dir, const char *module, char **names, struct local_address *addresses, int n_addresses) {
+static int test_one_module(
+        const char *dir, const char *module, char **names, struct local_address *addresses, int n_addresses) {
         void *handle;
         char **name;
         int i;
@@ -409,14 +415,23 @@ static int test_one_module(const char *dir, const char *module, char **names, st
                 test_byname(handle, module, *name);
 
         for (i = 0; i < n_addresses; i++)
-                test_byaddr(handle, module, &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family), addresses[i].family);
+                test_byaddr(handle,
+                            module,
+                            &addresses[i].address,
+                            FAMILY_ADDRESS_SIZE(addresses[i].family),
+                            addresses[i].family);
 
         log_info(" ");
         dlclose(handle);
         return 0;
 }
 
-static int parse_argv(int argc, char **argv, char ***the_modules, char ***the_names, struct local_address **the_addresses, int *n_addresses) {
+static int parse_argv(int argc,
+                      char **argv,
+                      char ***the_modules,
+                      char ***the_names,
+                      struct local_address **the_addresses,
+                      int *n_addresses) {
 
         int r, n = 0;
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;

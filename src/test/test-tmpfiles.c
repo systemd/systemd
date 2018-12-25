@@ -18,7 +18,8 @@
 #include "util.h"
 
 int main(int argc, char **argv) {
-        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
+        _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL,
+                            *line = NULL;
         _cleanup_close_ int fd = -1, fd2 = -1;
         const char *p = argv[1] ?: "/tmp";
         char *pattern;

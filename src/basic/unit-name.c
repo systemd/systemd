@@ -651,8 +651,8 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const c
                          name,
                          s);
 
-        /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow "foo.*" as a
-         * valid glob. */
+        /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow
+         * "foo.*" as a valid glob. */
         if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
                 strcat(s, suffix);
 

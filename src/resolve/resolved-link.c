@@ -108,9 +108,9 @@ void link_allocate_scopes(Link *l) {
 
         assert(l);
 
-        /* If a link that used to be relevant is no longer, or a link that did not use to be relevant now becomes
-         * relevant, let's reinit the learnt global DNS server information, since we might talk to different servers
-         * now, even if they have the same addresses as before. */
+        /* If a link that used to be relevant is no longer, or a link that did not use to be relevant now
+         * becomes relevant, let's reinit the learnt global DNS server information, since we might talk to
+         * different servers now, even if they have the same addresses as before. */
 
         unicast_relevant = link_relevant(l, AF_UNSPEC, false);
         if (unicast_relevant != l->unicast_relevant) {
@@ -119,14 +119,14 @@ void link_allocate_scopes(Link *l) {
                 dns_server_reset_features_all(l->manager->fallback_dns_servers);
                 dns_server_reset_features_all(l->manager->dns_servers);
 
-                /* Also, flush the global unicast scope, to deal with split horizon setups, where talking through one
-                 * interface reveals different DNS zones than through others. */
+                /* Also, flush the global unicast scope, to deal with split horizon setups, where talking
+                 * through one interface reveals different DNS zones than through others. */
                 if (l->manager->unicast_scope)
                         dns_cache_flush(&l->manager->unicast_scope->cache);
         }
 
-        /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which we don't
-         * need anymore */
+        /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which
+         * we don't need anymore */
 
         if (unicast_relevant && l->dns_servers) {
                 if (!l->unicast_scope) {
@@ -139,7 +139,8 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->unicast_scope = dns_scope_free(l->unicast_scope);
 
-        if (link_relevant(l, AF_INET, true) && l->llmnr_support != RESOLVE_SUPPORT_NO && l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET, true) && l->llmnr_support != RESOLVE_SUPPORT_NO &&
+            l->manager->llmnr_support != RESOLVE_SUPPORT_NO) {
                 if (!l->llmnr_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv4_scope, l, DNS_PROTOCOL_LLMNR, AF_INET);
                         if (r < 0)
@@ -148,8 +149,8 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv4_scope = dns_scope_free(l->llmnr_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6, true) && l->llmnr_support != RESOLVE_SUPPORT_NO && l->manager->llmnr_support != RESOLVE_SUPPORT_NO &&
-            socket_ipv6_is_supported()) {
+        if (link_relevant(l, AF_INET6, true) && l->llmnr_support != RESOLVE_SUPPORT_NO &&
+            l->manager->llmnr_support != RESOLVE_SUPPORT_NO && socket_ipv6_is_supported()) {
                 if (!l->llmnr_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->llmnr_ipv6_scope, l, DNS_PROTOCOL_LLMNR, AF_INET6);
                         if (r < 0)
@@ -158,7 +159,8 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->llmnr_ipv6_scope = dns_scope_free(l->llmnr_ipv6_scope);
 
-        if (link_relevant(l, AF_INET, true) && l->mdns_support != RESOLVE_SUPPORT_NO && l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET, true) && l->mdns_support != RESOLVE_SUPPORT_NO &&
+            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv4_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
@@ -167,7 +169,8 @@ void link_allocate_scopes(Link *l) {
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
 
-        if (link_relevant(l, AF_INET6, true) && l->mdns_support != RESOLVE_SUPPORT_NO && l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
+        if (link_relevant(l, AF_INET6, true) && l->mdns_support != RESOLVE_SUPPORT_NO &&
+            l->manager->mdns_support != RESOLVE_SUPPORT_NO) {
                 if (!l->mdns_ipv6_scope) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
@@ -184,7 +187,8 @@ void link_add_rrs(Link *l, bool force_remove) {
         LIST_FOREACH(addresses, a, l->addresses)
         link_address_add_rrs(a, force_remove);
 
-        if (!force_remove && l->mdns_support == RESOLVE_SUPPORT_YES && l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+        if (!force_remove && l->mdns_support == RESOLVE_SUPPORT_YES &&
+            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
@@ -424,8 +428,8 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
         if ((l->dnssec_mode == _DNSSEC_MODE_INVALID) || (l->dnssec_mode == DNSSEC_NO && mode != DNSSEC_NO) ||
             (l->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && mode == DNSSEC_YES)) {
 
-                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching from the
-                 * allow-downgrade mode to full DNSSEC mode, flush it too. */
+                /* When switching from non-DNSSEC mode to DNSSEC mode, flush the cache. Also when switching
+                 * from the allow-downgrade mode to full DNSSEC mode, flush it too. */
                 if (l->unicast_scope)
                         dns_cache_flush(&l->unicast_scope->cache);
         }
@@ -616,7 +620,8 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
+                log_warning_errno(
+                        r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
@@ -624,7 +629,9 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
+                log_warning_errno(r,
+                                  "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m",
+                                  l->name);
 
         r = link_update_search_domains(l);
         if (r < 0)
@@ -632,7 +639,9 @@ static void link_read_settings(Link *l) {
 
         r = link_update_default_route(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->name);
+                log_warning_errno(r,
+                                  "Failed to read default route setting for interface %s, proceeding anyway: %m",
+                                  l->name);
 }
 
 int link_update(Link *l) {
@@ -670,8 +679,8 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
         /* A link is relevant for local multicast traffic if it isn't a loopback device, has a link
          * beat, can do multicast and has at least one link-local (or better) IP address.
          *
-         * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
-         * least one routable address. */
+         * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and
+         * has at least one routable address. */
 
         if (l->flags & (IFF_LOOPBACK | IFF_DORMANT))
                 return false;
@@ -866,7 +875,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET) {
 
                 if (!force_remove && link_address_relevant(a, true) && a->link->llmnr_ipv4_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES && a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv4_key) {
                                 a->link->manager->llmnr_host_ipv4_key = dns_resource_key_new(
@@ -878,7 +888,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_address_rr) {
-                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->llmnr_host_ipv4_key);
+                                a->llmnr_address_rr = dns_resource_record_new(
+                                        a->link->manager->llmnr_host_ipv4_key);
                                 if (!a->llmnr_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -889,25 +900,34 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(
-                                        &a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
+                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr,
+                                                                    a->family,
+                                                                    &a->in_addr,
+                                                                    a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
                                 a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_address_rr, true);
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone,
+                                         a->link->llmnr_ipv4_scope,
+                                         a->llmnr_address_rr,
+                                         true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add A record to LLMNR zone: %m");
 
-                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone, a->link->llmnr_ipv4_scope, a->llmnr_ptr_rr, false);
+                        r = dns_zone_put(&a->link->llmnr_ipv4_scope->zone,
+                                         a->link->llmnr_ipv4_scope,
+                                         a->llmnr_ptr_rr,
+                                         false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv4 PTR record to LLMNR zone: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv4_scope)
-                                        dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone, a->llmnr_address_rr);
+                                        dns_zone_remove_rr(&a->link->llmnr_ipv4_scope->zone,
+                                                           a->llmnr_address_rr);
                                 a->llmnr_address_rr = dns_resource_record_unref(a->llmnr_address_rr);
                         }
 
@@ -919,7 +939,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove && link_address_relevant(a, true) && a->link->mdns_ipv4_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES && a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
                         if (!a->link->manager->mdns_host_ipv4_key) {
                                 a->link->manager->mdns_host_ipv4_key = dns_resource_key_new(
                                         DNS_CLASS_IN, DNS_TYPE_A, a->link->manager->mdns_hostname);
@@ -930,7 +951,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->mdns_address_rr) {
-                                a->mdns_address_rr = dns_resource_record_new(a->link->manager->mdns_host_ipv4_key);
+                                a->mdns_address_rr = dns_resource_record_new(
+                                        a->link->manager->mdns_host_ipv4_key);
                                 if (!a->mdns_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -941,24 +963,34 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->mdns_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->mdns_ptr_rr, a->family, &a->in_addr, a->link->manager->mdns_hostname);
+                                r = dns_resource_record_new_reverse(&a->mdns_ptr_rr,
+                                                                    a->family,
+                                                                    &a->in_addr,
+                                                                    a->link->manager->mdns_hostname);
                                 if (r < 0)
                                         goto fail;
 
                                 a->mdns_ptr_rr->ttl = MDNS_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->mdns_ipv4_scope->zone, a->link->mdns_ipv4_scope, a->mdns_address_rr, true);
+                        r = dns_zone_put(&a->link->mdns_ipv4_scope->zone,
+                                         a->link->mdns_ipv4_scope,
+                                         a->mdns_address_rr,
+                                         true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add A record to MDNS zone: %m");
 
-                        r = dns_zone_put(&a->link->mdns_ipv4_scope->zone, a->link->mdns_ipv4_scope, a->mdns_ptr_rr, false);
+                        r = dns_zone_put(&a->link->mdns_ipv4_scope->zone,
+                                         a->link->mdns_ipv4_scope,
+                                         a->mdns_ptr_rr,
+                                         false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv4 PTR record to MDNS zone: %m");
                 } else {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv4_scope)
-                                        dns_zone_remove_rr(&a->link->mdns_ipv4_scope->zone, a->mdns_address_rr);
+                                        dns_zone_remove_rr(&a->link->mdns_ipv4_scope->zone,
+                                                           a->mdns_address_rr);
                                 a->mdns_address_rr = dns_resource_record_unref(a->mdns_address_rr);
                         }
 
@@ -973,7 +1005,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
         if (a->family == AF_INET6) {
 
                 if (!force_remove && link_address_relevant(a, true) && a->link->llmnr_ipv6_scope &&
-                    a->link->llmnr_support == RESOLVE_SUPPORT_YES && a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
+                    a->link->llmnr_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->llmnr_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->llmnr_host_ipv6_key) {
                                 a->link->manager->llmnr_host_ipv6_key = dns_resource_key_new(
@@ -985,7 +1018,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_address_rr) {
-                                a->llmnr_address_rr = dns_resource_record_new(a->link->manager->llmnr_host_ipv6_key);
+                                a->llmnr_address_rr = dns_resource_record_new(
+                                        a->link->manager->llmnr_host_ipv6_key);
                                 if (!a->llmnr_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -996,25 +1030,34 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->llmnr_ptr_rr) {
-                                r = dns_resource_record_new_reverse(
-                                        &a->llmnr_ptr_rr, a->family, &a->in_addr, a->link->manager->llmnr_hostname);
+                                r = dns_resource_record_new_reverse(&a->llmnr_ptr_rr,
+                                                                    a->family,
+                                                                    &a->in_addr,
+                                                                    a->link->manager->llmnr_hostname);
                                 if (r < 0)
                                         goto fail;
 
                                 a->llmnr_ptr_rr->ttl = LLMNR_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_address_rr, true);
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone,
+                                         a->link->llmnr_ipv6_scope,
+                                         a->llmnr_address_rr,
+                                         true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add AAAA record to LLMNR zone: %m");
 
-                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone, a->link->llmnr_ipv6_scope, a->llmnr_ptr_rr, false);
+                        r = dns_zone_put(&a->link->llmnr_ipv6_scope->zone,
+                                         a->link->llmnr_ipv6_scope,
+                                         a->llmnr_ptr_rr,
+                                         false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv6 PTR record to LLMNR zone: %m");
                 } else {
                         if (a->llmnr_address_rr) {
                                 if (a->link->llmnr_ipv6_scope)
-                                        dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone, a->llmnr_address_rr);
+                                        dns_zone_remove_rr(&a->link->llmnr_ipv6_scope->zone,
+                                                           a->llmnr_address_rr);
                                 a->llmnr_address_rr = dns_resource_record_unref(a->llmnr_address_rr);
                         }
 
@@ -1026,7 +1069,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                 }
 
                 if (!force_remove && link_address_relevant(a, true) && a->link->mdns_ipv6_scope &&
-                    a->link->mdns_support == RESOLVE_SUPPORT_YES && a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+                    a->link->mdns_support == RESOLVE_SUPPORT_YES &&
+                    a->link->manager->mdns_support == RESOLVE_SUPPORT_YES) {
 
                         if (!a->link->manager->mdns_host_ipv6_key) {
                                 a->link->manager->mdns_host_ipv6_key = dns_resource_key_new(
@@ -1038,7 +1082,8 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->mdns_address_rr) {
-                                a->mdns_address_rr = dns_resource_record_new(a->link->manager->mdns_host_ipv6_key);
+                                a->mdns_address_rr = dns_resource_record_new(
+                                        a->link->manager->mdns_host_ipv6_key);
                                 if (!a->mdns_address_rr) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -1049,24 +1094,34 @@ void link_address_add_rrs(LinkAddress *a, bool force_remove) {
                         }
 
                         if (!a->mdns_ptr_rr) {
-                                r = dns_resource_record_new_reverse(&a->mdns_ptr_rr, a->family, &a->in_addr, a->link->manager->mdns_hostname);
+                                r = dns_resource_record_new_reverse(&a->mdns_ptr_rr,
+                                                                    a->family,
+                                                                    &a->in_addr,
+                                                                    a->link->manager->mdns_hostname);
                                 if (r < 0)
                                         goto fail;
 
                                 a->mdns_ptr_rr->ttl = MDNS_DEFAULT_TTL;
                         }
 
-                        r = dns_zone_put(&a->link->mdns_ipv6_scope->zone, a->link->mdns_ipv6_scope, a->mdns_address_rr, true);
+                        r = dns_zone_put(&a->link->mdns_ipv6_scope->zone,
+                                         a->link->mdns_ipv6_scope,
+                                         a->mdns_address_rr,
+                                         true);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add AAAA record to MDNS zone: %m");
 
-                        r = dns_zone_put(&a->link->mdns_ipv6_scope->zone, a->link->mdns_ipv6_scope, a->mdns_ptr_rr, false);
+                        r = dns_zone_put(&a->link->mdns_ipv6_scope->zone,
+                                         a->link->mdns_ipv6_scope,
+                                         a->mdns_ptr_rr,
+                                         false);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to add IPv6 PTR record to MDNS zone: %m");
                 } else {
                         if (a->mdns_address_rr) {
                                 if (a->link->mdns_ipv6_scope)
-                                        dns_zone_remove_rr(&a->link->mdns_ipv6_scope->zone, a->mdns_address_rr);
+                                        dns_zone_remove_rr(&a->link->mdns_ipv6_scope->zone,
+                                                           a->mdns_address_rr);
                                 a->mdns_address_rr = dns_resource_record_unref(a->mdns_address_rr);
                         }
 
@@ -1121,8 +1176,8 @@ static bool link_needs_save(Link *l) {
         if (l->is_managed)
                 return false;
 
-        if (l->llmnr_support != RESOLVE_SUPPORT_YES || l->mdns_support != RESOLVE_SUPPORT_NO || l->dnssec_mode != _DNSSEC_MODE_INVALID ||
-            l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+        if (l->llmnr_support != RESOLVE_SUPPORT_YES || l->mdns_support != RESOLVE_SUPPORT_NO ||
+            l->dnssec_mode != _DNSSEC_MODE_INVALID || l->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
                 return true;
 
         if (l->dns_servers || l->search_domains)
@@ -1254,8 +1309,8 @@ fail:
 }
 
 int link_load_user(Link *l) {
-        _cleanup_free_ char *llmnr = NULL, *mdns = NULL, *dnssec = NULL, *servers = NULL, *domains = NULL, *ntas = NULL,
-                            *default_route = NULL;
+        _cleanup_free_ char *llmnr = NULL, *mdns = NULL, *dnssec = NULL, *servers = NULL, *domains = NULL,
+                            *ntas = NULL, *default_route = NULL;
 
         ResolveSupport s;
         const char *p;

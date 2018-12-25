@@ -114,7 +114,8 @@ static void journal_rate_limit_vacuum(JournalRateLimit *r, usec_t ts) {
                 journal_rate_limit_group_free(r->lru_tail);
 }
 
-static JournalRateLimitGroup *journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
+static JournalRateLimitGroup *
+        journal_rate_limit_group_new(JournalRateLimit *r, const char *id, usec_t interval, usec_t ts) {
         JournalRateLimitGroup *g;
 
         assert(r);
@@ -176,7 +177,12 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
         return burst;
 }
 
-int journal_rate_limit_test(JournalRateLimit *r, const char *id, usec_t rl_interval, unsigned rl_burst, int priority, uint64_t available) {
+int journal_rate_limit_test(JournalRateLimit *r,
+                            const char *id,
+                            usec_t rl_interval,
+                            unsigned rl_burst,
+                            int priority,
+                            uint64_t available) {
         uint64_t h;
         JournalRateLimitGroup *g;
         JournalRateLimitPool *p;

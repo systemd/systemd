@@ -204,7 +204,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 case 'S':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, false);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to add negative subsystem match '%s': %m", optarg);
                         break;
                 case 'a':
                         buf = keyval(optarg, &key, &val);
@@ -220,7 +221,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_oom();
                         r = sd_device_enumerator_add_match_sysattr(e, key, val, false);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", key, val);
+                                return log_error_errno(
+                                        r, "Failed to add negative sysattr match '%s=%s': %m", key, val);
                         break;
                 case 'p':
                         buf = keyval(optarg, &key, &val);

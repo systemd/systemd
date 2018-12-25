@@ -399,11 +399,17 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
 }
 
 _public_ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions) {
-        return uid_get_array(uid, require_active == 0 ? "ONLINE_SESSIONS" : require_active > 0 ? "ACTIVE_SESSIONS" : "SESSIONS", sessions);
+        return uid_get_array(uid,
+                             require_active == 0 ? "ONLINE_SESSIONS" :
+                                                   require_active > 0 ? "ACTIVE_SESSIONS" : "SESSIONS",
+                             sessions);
 }
 
 _public_ int sd_uid_get_seats(uid_t uid, int require_active, char ***seats) {
-        return uid_get_array(uid, require_active == 0 ? "ONLINE_SEATS" : require_active > 0 ? "ACTIVE_SEATS" : "SEATS", seats);
+        return uid_get_array(uid,
+                             require_active == 0 ? "ONLINE_SEATS" :
+                                                   require_active > 0 ? "ACTIVE_SEATS" : "SEATS",
+                             seats);
 }
 
 static int file_of_session(const char *session, char **_p) {

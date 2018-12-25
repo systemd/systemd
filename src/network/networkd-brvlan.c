@@ -42,8 +42,11 @@ static int find_next_bit(int i, uint32_t x) {
         return j ? j + i : 0;
 }
 
-static int append_vlan_info_data(
-        Link *const link, sd_netlink_message *req, uint16_t pvid, const uint32_t *br_vid_bitmap, const uint32_t *br_untagged_bitmap) {
+static int append_vlan_info_data(Link *const link,
+                                 sd_netlink_message *req,
+                                 uint16_t pvid,
+                                 const uint32_t *br_vid_bitmap,
+                                 const uint32_t *br_untagged_bitmap) {
         struct bridge_vlan_info br_vlan;
         int i, j, k, r, done, cnt;
         uint16_t begin, end;
@@ -99,24 +102,36 @@ static int append_vlan_info_data(
                                         if (begin == pvid)
                                                 br_vlan.flags |= BRIDGE_VLAN_INFO_PVID;
 
-                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        r = sd_netlink_message_append_data(
+                                                req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return log_link_error_errno(
+                                                        link,
+                                                        r,
+                                                        "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
                                 } else {
                                         br_vlan.vid = begin;
                                         br_vlan.flags |= BRIDGE_VLAN_INFO_RANGE_BEGIN;
 
-                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        r = sd_netlink_message_append_data(
+                                                req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return log_link_error_errno(
+                                                        link,
+                                                        r,
+                                                        "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
 
                                         br_vlan.vid = end;
                                         br_vlan.flags &= ~BRIDGE_VLAN_INFO_RANGE_BEGIN;
                                         br_vlan.flags |= BRIDGE_VLAN_INFO_RANGE_END;
 
-                                        r = sd_netlink_message_append_data(req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
+                                        r = sd_netlink_message_append_data(
+                                                req, IFLA_BRIDGE_VLAN_INFO, &br_vlan, sizeof(br_vlan));
                                         if (r < 0)
-                                                return log_link_error_errno(link, r, "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
+                                                return log_link_error_errno(
+                                                        link,
+                                                        r,
+                                                        "Could not append IFLA_BRIDGE_VLAN_INFO attribute: %m");
                                 }
 
                                 if (done)

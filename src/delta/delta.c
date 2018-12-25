@@ -87,7 +87,13 @@ static int notify_override_masked(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_MASKED))
                 return 0;
 
-        printf("%s%s%s     %s %s %s\n", ansi_highlight_red(), "[MASKED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s     %s %s %s\n",
+               ansi_highlight_red(),
+               "[MASKED]",
+               ansi_normal(),
+               top,
+               special_glyph(SPECIAL_GLYPH_ARROW),
+               bottom);
         return 1;
 }
 
@@ -95,7 +101,13 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EQUIVALENT))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n", ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n",
+               ansi_highlight_green(),
+               "[EQUIVALENT]",
+               ansi_normal(),
+               top,
+               special_glyph(SPECIAL_GLYPH_ARROW),
+               bottom);
         return 1;
 }
 
@@ -103,7 +115,13 @@ static int notify_override_redirected(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_REDIRECTED))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n", ansi_highlight(), "[REDIRECTED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n",
+               ansi_highlight(),
+               "[REDIRECTED]",
+               ansi_normal(),
+               top,
+               special_glyph(SPECIAL_GLYPH_ARROW),
+               bottom);
         return 1;
 }
 
@@ -111,7 +129,13 @@ static int notify_override_overridden(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_OVERRIDDEN))
                 return 0;
 
-        printf("%s%s%s %s %s %s\n", ansi_highlight(), "[OVERRIDDEN]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s %s %s %s\n",
+               ansi_highlight(),
+               "[OVERRIDDEN]",
+               ansi_normal(),
+               top,
+               special_glyph(SPECIAL_GLYPH_ARROW),
+               bottom);
         return 1;
 }
 
@@ -119,7 +143,13 @@ static int notify_override_extended(const char *top, const char *bottom) {
         if (!(arg_flags & SHOW_EXTENDED))
                 return 0;
 
-        printf("%s%s%s   %s %s %s\n", ansi_highlight(), "[EXTENDED]", ansi_normal(), top, special_glyph(SPECIAL_GLYPH_ARROW), bottom);
+        printf("%s%s%s   %s %s %s\n",
+               ansi_highlight(),
+               "[EXTENDED]",
+               ansi_normal(),
+               top,
+               special_glyph(SPECIAL_GLYPH_ARROW),
+               bottom);
         return 1;
 }
 
@@ -158,7 +188,10 @@ static int found_override(const char *top, const char *bottom) {
 
         fflush(stdout);
 
-        r = safe_fork("(diff)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork("(diff)",
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE |
+                              FORK_LOG,
+                      &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -174,7 +207,11 @@ static int found_override(const char *top, const char *bottom) {
         return r;
 }
 
-static int enumerate_dir_d(OrderedHashmap *top, OrderedHashmap *bottom, OrderedHashmap *drops, const char *toppath, const char *drop) {
+static int enumerate_dir_d(OrderedHashmap *top,
+                           OrderedHashmap *bottom,
+                           OrderedHashmap *drops,
+                           const char *toppath,
+                           const char *drop) {
 
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
@@ -206,7 +243,7 @@ static int enumerate_dir_d(OrderedHashmap *top, OrderedHashmap *bottom, OrderedH
 
         strv_sort(list);
 
-        STRV_FOREACH(file, list) {
+        STRV_FOREACH (file, list) {
                 OrderedHashmap *h;
                 int k;
                 char *p;
@@ -271,7 +308,8 @@ static int enumerate_dir_d(OrderedHashmap *top, OrderedHashmap *bottom, OrderedH
         return 0;
 }
 
-static int enumerate_dir(OrderedHashmap *top, OrderedHashmap *bottom, OrderedHashmap *drops, const char *path, bool dropins) {
+static int enumerate_dir(
+        OrderedHashmap *top, OrderedHashmap *bottom, OrderedHashmap *drops, const char *path, bool dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -323,13 +361,13 @@ static int enumerate_dir(OrderedHashmap *top, OrderedHashmap *bottom, OrderedHas
         strv_sort(dirs);
         strv_sort(files);
 
-        STRV_FOREACH(t, dirs) {
+        STRV_FOREACH (t, dirs) {
                 r = enumerate_dir_d(top, bottom, drops, path, *t);
                 if (r < 0)
                         return r;
         }
 
-        STRV_FOREACH(t, files) {
+        STRV_FOREACH (t, files) {
                 _cleanup_free_ char *p = NULL;
 
                 p = strjoin(path, "/", *t);
@@ -587,7 +625,8 @@ static int parse_argv(int argc, char *argv[]) {
                         int f;
                         f = parse_flags(optarg, arg_flags);
                         if (f < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse flags field.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse flags field.");
                         arg_flags = f;
                         break;
                 }
@@ -600,7 +639,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 b = parse_boolean(optarg);
                                 if (b < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse diff boolean.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse diff boolean.");
 
                                 arg_diff = b;
                         }

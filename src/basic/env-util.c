@@ -102,7 +102,7 @@ bool env_assignment_is_valid(const char *e) {
 bool strv_env_is_valid(char **e) {
         char **p, **q;
 
-        STRV_FOREACH(p, e) {
+        STRV_FOREACH (p, e) {
                 size_t k;
 
                 if (!env_assignment_is_valid(*p))
@@ -110,9 +110,9 @@ bool strv_env_is_valid(char **e) {
 
                 /* Check if there are duplicate assignments */
                 k = strcspn(*p, "=");
-                STRV_FOREACH(q, p + 1)
-                if (strneq(*p, *q, k) && (*q)[k] == '=')
-                        return false;
+                STRV_FOREACH (q, p + 1)
+                        if (strneq(*p, *q, k) && (*q)[k] == '=')
+                                return false;
         }
 
         return true;
@@ -121,7 +121,7 @@ bool strv_env_is_valid(char **e) {
 bool strv_env_name_is_valid(char **l) {
         char **p;
 
-        STRV_FOREACH(p, l) {
+        STRV_FOREACH (p, l) {
                 if (!env_name_is_valid(*p))
                         return false;
 
@@ -135,7 +135,7 @@ bool strv_env_name_is_valid(char **l) {
 bool strv_env_name_or_assignment_is_valid(char **l) {
         char **p;
 
-        STRV_FOREACH(p, l) {
+        STRV_FOREACH (p, l) {
                 if (!env_assignment_is_valid(*p) && !env_name_is_valid(*p))
                         return false;
 
@@ -276,7 +276,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
         if (!r)
                 return NULL;
 
-        STRV_FOREACH(k, x) {
+        STRV_FOREACH (k, x) {
                 size_t v;
 
                 va_start(ap, n_lists);
@@ -284,9 +284,9 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                         char **l, **j;
 
                         l = va_arg(ap, char **);
-                        STRV_FOREACH(j, l)
-                        if (env_match(*k, *j))
-                                goto skip;
+                        STRV_FOREACH (j, l)
+                                if (env_match(*k, *j))
+                                        goto skip;
                 }
                 va_end(ap);
 
@@ -380,8 +380,8 @@ int strv_env_replace(char ***l, char *p) {
 
         assert(p);
 
-        /* Replace first occurrence of the env var or add a new one in the string list. Drop other occurrences. Edits
-         * in-place. Does not copy p.  p must be a valid key=value assignment.
+        /* Replace first occurrence of the env var or add a new one in the string list. Drop other
+         * occurrences. Edits in-place. Does not copy p.  p must be a valid key=value assignment.
          */
 
         t = strchr(p, '=');
@@ -390,12 +390,12 @@ int strv_env_replace(char ***l, char *p) {
 
         name = strndupa(p, t - p);
 
-        STRV_FOREACH(f, *l)
-        if (env_entry_has_name(*f, name)) {
-                free_and_replace(*f, p);
-                strv_env_unset(f + 1, *f);
-                return 0;
-        }
+        STRV_FOREACH (f, *l)
+                if (env_entry_has_name(*f, name)) {
+                        free_and_replace(*f, p);
+                        strv_env_unset(f + 1, *f);
+                        return 0;
+                }
 
         /* We didn't find a match, we need to append p or create a new strv */
         r = strv_push(l, p);
@@ -442,9 +442,9 @@ char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
         if (k <= 0)
                 return NULL;
 
-        STRV_FOREACH_BACKWARDS(i, l)
-        if (strneq(*i, name, k) && (*i)[k] == '=')
-                return *i + k + 1;
+        STRV_FOREACH_BACKWARDS (i, l)
+                if (strneq(*i, name, k) && (*i)[k] == '=')
+                        return *i + k + 1;
 
         if (flags & REPLACE_ENV_USE_ENVIRONMENT) {
                 const char *t;
@@ -462,11 +462,13 @@ char *strv_env_get(char **l, const char *name) {
         return strv_env_get_n(l, name, strlen(name), 0);
 }
 
-char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const char *p, void *userdata), void *userdata) {
+char **strv_env_clean_with_callback(char **e,
+                                    void (*invalid_callback)(const char *p, void *userdata),
+                                    void *userdata) {
         char **p, **q;
         int k = 0;
 
-        STRV_FOREACH(p, e) {
+        STRV_FOREACH (p, e) {
                 size_t n;
                 bool duplicate = false;
 
@@ -478,11 +480,11 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
                 }
 
                 n = strcspn(*p, "=");
-                STRV_FOREACH(q, p + 1)
-                if (strneq(*p, *q, n) && (*q)[n] == '=') {
-                        duplicate = true;
-                        break;
-                }
+                STRV_FOREACH (q, p + 1)
+                        if (strneq(*p, *q, n) && (*q)[n] == '=') {
+                                duplicate = true;
+                                break;
+                        }
 
                 if (duplicate) {
                         free(*p);
@@ -676,7 +678,7 @@ char **replace_env_argv(char **argv, char **env) {
         if (!ret)
                 return NULL;
 
-        STRV_FOREACH(i, argv) {
+        STRV_FOREACH (i, argv) {
 
                 /* If $FOO appears as single word, replace it by the split up variable */
                 if ((*i)[0] == '$' && !IN_SET((*i)[1], '{', '$')) {

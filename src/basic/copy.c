@@ -34,12 +34,13 @@
 
 #define COPY_BUFFER_SIZE (16U * 1024U)
 
-/* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
- * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
- * case of bind mount cycles and suchlike. */
+/* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which
+ * means the deepest valid path one can build is around 2048, which we hence use as a safety net here, to not
+ * spin endlessly in case of bind mount cycles and suchlike. */
 #define COPY_DEPTH_MAX 2048U
 
-static ssize_t try_copy_file_range(int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned flags) {
+static ssize_t try_copy_file_range(
+        int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned flags) {
 
         static int have = -1;
         ssize_t r;
@@ -98,21 +99,22 @@ int copy_bytes_full(int fdf,
         assert(fdf >= 0);
         assert(fdt >= 0);
 
-        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
-         * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
-         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. If the copy fails for some
-         * reason but we read but didn't yet write some data an ret_remains/ret_remains_size is not NULL, then it will
-         * be initialized with an allocated buffer containing this "remaining" data. Note that these two parameters are
-         * initialized with a valid buffer only on failure and only if there's actually data already read. Otherwise
-         * these parameters if non-NULL are set to NULL. */
+        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a
+         * maximum of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied.
+         * Returns negative on error, zero if EOF is hit before the bytes limit is hit and positive
+         * otherwise. If the copy fails for some reason but we read but didn't yet write some data an
+         * ret_remains/ret_remains_size is not NULL, then it will be initialized with an allocated buffer
+         * containing this "remaining" data. Note that these two parameters are initialized with a valid
+         * buffer only on failure and only if there's actually data already read. Otherwise these parameters
+         * if non-NULL are set to NULL. */
 
         if (ret_remains)
                 *ret_remains = NULL;
         if (ret_remains_size)
                 *ret_remains_size = 0;
 
-        /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
-         * source and destination first. */
+        /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file
+         * offsets of source and destination first. */
         if ((copy_flags & COPY_REFLINK)) {
                 off_t foffset;
 
@@ -126,24 +128,29 @@ int copy_bytes_full(int fdf,
                                 if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
                                         r = btrfs_reflink(fdf, fdt); /* full file reflink */
                                 else
-                                        r = btrfs_clone_range(
-                                                fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
+                                        r = btrfs_clone_range(fdf,
+                                                              foffset,
+                                                              fdt,
+                                                              toffset,
+                                                              max_bytes == UINT64_MAX ?
+                                                                      0 :
+                                                                      max_bytes); /* partial reflink */
                                 if (r >= 0) {
                                         off_t t;
 
                                         /* This worked, yay! Now — to be fully correct — let's adjust the file pointers */
                                         if (max_bytes == UINT64_MAX) {
 
-                                                /* We cloned to the end of the source file, let's position the read
-                                                 * pointer there, and query it at the same time. */
+                                                /* We cloned to the end of the source file, let's position
+                                                 * the read pointer there, and query it at the same time. */
                                                 t = lseek(fdf, 0, SEEK_END);
                                                 if (t < 0)
                                                         return -errno;
                                                 if (t < foffset)
                                                         return -ESPIPE;
 
-                                                /* Let's adjust the destination file write pointer by the same number
-                                                 * of bytes. */
+                                                /* Let's adjust the destination file write pointer by the
+                                                 * same number of bytes. */
                                                 t = lseek(fdt, toffset + (t - foffset), SEEK_SET);
                                                 if (t < 0)
                                                         return -errno;
@@ -158,7 +165,8 @@ int copy_bytes_full(int fdf,
                                                 if (t < 0)
                                                         return -errno;
 
-                                                return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
+                                                return 1; /* we copied only some number of bytes, which worked,
+                                                             but this means we didn't hit EOF, return 1 */
                                         }
                                 }
                         }
@@ -211,14 +219,14 @@ int copy_bytes_full(int fdf,
 
                         /* splice()'s asynchronous I/O support is a bit weird. When it encounters a pipe file
                          * descriptor, then it will ignore its O_NONBLOCK flag and instead only honour the
-                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour here, and
-                         * check if either of the specified fds are a pipe, and if so, let's pass the flag
-                         * automatically, depending on O_NONBLOCK being set.
+                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour
+                         * here, and check if either of the specified fds are a pipe, and if so, let's pass
+                         * the flag automatically, depending on O_NONBLOCK being set.
                          *
-                         * Here's a twist though: when we use it to move data between two pipes of which one has
-                         * O_NONBLOCK set and the other has not, then we have no individual control over O_NONBLOCK
-                         * behaviour. Hence in that case we can't use splice() and still guarantee systematic
-                         * O_NONBLOCK behaviour, hence don't. */
+                         * Here's a twist though: when we use it to move data between two pipes of which one
+                         * has O_NONBLOCK set and the other has not, then we have no individual control over
+                         * O_NONBLOCK behaviour. Hence in that case we can't use splice() and still guarantee
+                         * systematic O_NONBLOCK behaviour, hence don't. */
 
                         if (nonblock_pipe < 0) {
                                 int a, b;
@@ -232,19 +240,22 @@ int copy_bytes_full(int fdf,
                                 if (b < 0)
                                         return b;
 
-                                if ((a == FD_IS_NO_PIPE && b == FD_IS_NO_PIPE) || (a == FD_IS_BLOCKING_PIPE && b == FD_IS_NONBLOCKING_PIPE) ||
+                                if ((a == FD_IS_NO_PIPE && b == FD_IS_NO_PIPE) ||
+                                    (a == FD_IS_BLOCKING_PIPE && b == FD_IS_NONBLOCKING_PIPE) ||
                                     (a == FD_IS_NONBLOCKING_PIPE && b == FD_IS_BLOCKING_PIPE))
 
-                                        /* splice() only works if one of the fds is a pipe. If neither is, let's skip
-                                         * this step right-away. As mentioned above, if one of the two fds refers to a
-                                         * blocking pipe and the other to a non-blocking pipe, we can't use splice()
-                                         * either, hence don't try either. This hence means we can only use splice() if
-                                         * either only one of the two fds is a pipe, or if both are pipes with the same
-                                         * nonblocking flag setting. */
+                                        /* splice() only works if one of the fds is a pipe. If neither is,
+                                         * let's skip this step right-away. As mentioned above, if one of the
+                                         * two fds refers to a blocking pipe and the other to a non-blocking
+                                         * pipe, we can't use splice() either, hence don't try either. This
+                                         * hence means we can only use splice() if either only one of the two
+                                         * fds is a pipe, or if both are pipes with the same nonblocking flag
+                                         * setting. */
 
                                         try_splice = false;
                                 else
-                                        nonblock_pipe = a == FD_IS_NONBLOCKING_PIPE || b == FD_IS_NONBLOCKING_PIPE;
+                                        nonblock_pipe = a == FD_IS_NONBLOCKING_PIPE ||
+                                                b == FD_IS_NONBLOCKING_PIPE;
                         }
                 }
 
@@ -326,8 +337,14 @@ int copy_bytes_full(int fdf,
         return 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
-static int fd_copy_symlink(
-        int df, const char *from, const struct stat *st, int dt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+static int fd_copy_symlink(int df,
+                           const char *from,
+                           const struct stat *st,
+                           int dt,
+                           const char *to,
+                           uid_t override_uid,
+                           gid_t override_gid,
+                           CopyFlags copy_flags) {
 
         _cleanup_free_ char *target = NULL;
         int r;
@@ -376,7 +393,8 @@ static int fd_copy_regular(int df,
         if (fdf < 0)
                 return -errno;
 
-        fdt = openat(dt, to, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW, st->st_mode & 07777);
+        fdt = openat(
+                dt, to, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW, st->st_mode & 07777);
         if (fdt < 0)
                 return -errno;
 
@@ -386,7 +404,9 @@ static int fd_copy_regular(int df,
                 return r;
         }
 
-        if (fchown(fdt, uid_is_valid(override_uid) ? override_uid : st->st_uid, gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
+        if (fchown(fdt,
+                   uid_is_valid(override_uid) ? override_uid : st->st_uid,
+                   gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
                 r = -errno;
 
         if (fchmod(fdt, st->st_mode & 07777) < 0)
@@ -408,8 +428,14 @@ static int fd_copy_regular(int df,
         return r;
 }
 
-static int fd_copy_fifo(
-        int df, const char *from, const struct stat *st, int dt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+static int fd_copy_fifo(int df,
+                        const char *from,
+                        const struct stat *st,
+                        int dt,
+                        const char *to,
+                        uid_t override_uid,
+                        gid_t override_gid,
+                        CopyFlags copy_flags) {
         int r;
 
         assert(from);
@@ -433,8 +459,14 @@ static int fd_copy_fifo(
         return r;
 }
 
-static int fd_copy_node(
-        int df, const char *from, const struct stat *st, int dt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags) {
+static int fd_copy_node(int df,
+                        const char *from,
+                        const struct stat *st,
+                        int dt,
+                        const char *to,
+                        uid_t override_uid,
+                        gid_t override_gid,
+                        CopyFlags copy_flags) {
         int r;
 
         assert(from);
@@ -538,22 +570,23 @@ static int fd_copy_directory(int df,
 
                 if (S_ISDIR(buf.st_mode)) {
                         /*
-                         * Don't descend into directories on other file systems, if this is requested. We do a simple
-                         * .st_dev check here, which basically comes for free. Note that we do this check only on
-                         * directories, not other kind of file system objects, for two reason:
+                         * Don't descend into directories on other file systems, if this is requested. We do
+                         * a simple .st_dev check here, which basically comes for free. Note that we do this
+                         * check only on directories, not other kind of file system objects, for two reason:
                          *
-                         * • The kernel's overlayfs pseudo file system that overlays multiple real file systems
-                         *   propagates the .st_dev field of the file system a file originates from all the way up
-                         *   through the stack to stat(). It doesn't do that for directories however. This means that
-                         *   comparing .st_dev on non-directories suggests that they all are mount points. To avoid
-                         *   confusion we hence avoid relying on this check for regular files.
+                         * • The kernel's overlayfs pseudo file system that overlays multiple real file
+                         * systems propagates the .st_dev field of the file system a file originates from all
+                         * the way up through the stack to stat(). It doesn't do that for directories
+                         * however. This means that comparing .st_dev on non-directories suggests that they
+                         * all are mount points. To avoid confusion we hence avoid relying on this check for
+                         * regular files.
                          *
-                         * • The main reason we do this check at all is to protect ourselves from bind mount cycles,
-                         *   where we really want to avoid descending down in all eternity. However the .st_dev check
-                         *   is usually not sufficient for this protection anyway, as bind mount cycles from the same
-                         *   file system onto itself can't be detected that way. (Note we also do a recursion depth
-                         *   check, which is probably the better protection in this regard, which is why
-                         *   COPY_SAME_MOUNT is optional).
+                         * • The main reason we do this check at all is to protect ourselves from bind mount
+                         * cycles, where we really want to avoid descending down in all eternity. However the
+                         * .st_dev check is usually not sufficient for this protection anyway, as bind mount
+                         * cycles from the same file system onto itself can't be detected that way. (Note we
+                         * also do a recursion depth check, which is probably the better protection in this
+                         * regard, which is why COPY_SAME_MOUNT is optional).
                          */
 
                         if (FLAGS_SET(copy_flags, COPY_SAME_MOUNT)) {
@@ -582,14 +615,25 @@ static int fd_copy_directory(int df,
                                               progress_bytes,
                                               userdata);
                 } else if (S_ISREG(buf.st_mode))
-                        q = fd_copy_regular(
-                                dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags, progress_bytes, userdata);
+                        q = fd_copy_regular(dirfd(d),
+                                            de->d_name,
+                                            &buf,
+                                            fdt,
+                                            de->d_name,
+                                            override_uid,
+                                            override_gid,
+                                            copy_flags,
+                                            progress_bytes,
+                                            userdata);
                 else if (S_ISLNK(buf.st_mode))
-                        q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
+                        q = fd_copy_symlink(
+                                dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISFIFO(buf.st_mode))
-                        q = fd_copy_fifo(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
+                        q = fd_copy_fifo(
+                                dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISBLK(buf.st_mode) || S_ISCHR(buf.st_mode) || S_ISSOCK(buf.st_mode))
-                        q = fd_copy_node(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
+                        q = fd_copy_node(
+                                dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else
                         q = -EOPNOTSUPP;
 
@@ -638,7 +682,8 @@ int copy_tree_at_full(int fdf,
                 return -errno;
 
         if (S_ISREG(st.st_mode))
-                return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, progress_bytes, userdata);
+                return fd_copy_regular(
+                        fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags, progress_bytes, userdata);
         else if (S_ISDIR(st.st_mode))
                 return fd_copy_directory(fdf,
                                          from,
@@ -732,7 +777,11 @@ int copy_directory_full(const char *from,
                                  userdata);
 }
 
-int copy_file_fd_full(const char *from, int fdt, CopyFlags copy_flags, copy_progress_bytes_t progress_bytes, void *userdata) {
+int copy_file_fd_full(const char *from,
+                      int fdt,
+                      CopyFlags copy_flags,
+                      copy_progress_bytes_t progress_bytes,
+                      void *userdata) {
 
         _cleanup_close_ int fdf = -1;
         int r;
@@ -805,11 +854,11 @@ int copy_file_atomic_full(const char *from,
         assert(from);
         assert(to);
 
-        /* We try to use O_TMPFILE here to create the file if we can. Note that that only works if COPY_REPLACE is not
-         * set though as we need to use linkat() for linking the O_TMPFILE file into the file system but that system
-         * call can't replace existing files. Hence, if COPY_REPLACE is set we create a temporary name in the file
-         * system right-away and unconditionally which we then can renameat() to the right name after we completed
-         * writing it. */
+        /* We try to use O_TMPFILE here to create the file if we can. Note that that only works if
+         * COPY_REPLACE is not set though as we need to use linkat() for linking the O_TMPFILE file into the
+         * file system but that system call can't replace existing files. Hence, if COPY_REPLACE is set we
+         * create a temporary name in the file system right-away and unconditionally which we then can
+         * renameat() to the right name after we completed writing it. */
 
         if (copy_flags & COPY_REPLACE) {
                 r = tempfn_random(to, NULL, &t);

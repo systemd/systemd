@@ -43,7 +43,10 @@ static int sd_netlink_new(sd_netlink **ret) {
 
         /* We guarantee that the read buffer has at least space for
          * a message header */
-        if (!greedy_realloc((void **) &rtnl->rbuffer, &rtnl->rbuffer_allocated, sizeof(struct nlmsghdr), sizeof(uint8_t)))
+        if (!greedy_realloc((void **) &rtnl->rbuffer,
+                            &rtnl->rbuffer_allocated,
+                            sizeof(struct nlmsghdr),
+                            sizeof(uint8_t)))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(rtnl);
@@ -222,7 +225,9 @@ int rtnl_rqueue_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
         if (rtnl->rqueue_size >= RTNL_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS), "rtnl: exhausted the read queue size (%d)", RTNL_RQUEUE_MAX);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "rtnl: exhausted the read queue size (%d)",
+                                       RTNL_RQUEUE_MAX);
 
         if (!GREEDY_REALLOC(rtnl->rqueue, rtnl->rqueue_allocated, rtnl->rqueue_size + 1))
                 return -ENOMEM;
@@ -234,7 +239,9 @@ int rtnl_rqueue_partial_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
         if (rtnl->rqueue_partial_size >= RTNL_RQUEUE_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS), "rtnl: exhausted the partial read queue size (%d)", RTNL_RQUEUE_MAX);
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                       "rtnl: exhausted the partial read queue size (%d)",
+                                       RTNL_RQUEUE_MAX);
 
         if (!GREEDY_REALLOC(rtnl->rqueue_partial, rtnl->rqueue_partial_allocated, rtnl->rqueue_partial_size + 1))
                 return -ENOMEM;
@@ -544,7 +551,8 @@ int sd_netlink_call_async(sd_netlink *nl,
                         return r;
         }
 
-        r = netlink_slot_allocate(nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), userdata, description, &slot);
+        r = netlink_slot_allocate(
+                nl, !ret_slot, NETLINK_REPLY_CALLBACK, sizeof(struct reply_callback), userdata, description, &slot);
         if (r < 0)
                 return r;
 
@@ -562,7 +570,8 @@ int sd_netlink_call_async(sd_netlink *nl,
                 return r;
 
         if (slot->reply_callback.timeout != 0) {
-                r = prioq_put(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
+                r = prioq_put(
+                        nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
                 if (r < 0) {
                         (void) hashmap_remove(nl->reply_callbacks, &slot->reply_callback.serial);
                         return r;
@@ -611,7 +620,9 @@ int sd_netlink_call(sd_netlink *rtnl, sd_netlink_message *message, uint64_t usec
                                 incoming = rtnl->rqueue[i];
 
                                 /* found a match, remove from rqueue and return it */
-                                memmove(rtnl->rqueue + i, rtnl->rqueue + i + 1, sizeof(sd_netlink_message *) * (rtnl->rqueue_size - i - 1));
+                                memmove(rtnl->rqueue + i,
+                                        rtnl->rqueue + i + 1,
+                                        sizeof(sd_netlink_message *) * (rtnl->rqueue_size - i - 1));
                                 rtnl->rqueue_size--;
 
                                 r = sd_netlink_message_get_errno(incoming);
@@ -786,7 +797,8 @@ int sd_netlink_attach_event(sd_netlink *rtnl, sd_event *event, int64_t priority)
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_time(rtnl->event, &rtnl->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, rtnl);
+        r = sd_event_add_time(
+                rtnl->event, &rtnl->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, rtnl);
         if (r < 0)
                 goto fail;
 
@@ -832,7 +844,13 @@ int sd_netlink_add_match(sd_netlink *rtnl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
 
-        r = netlink_slot_allocate(rtnl, !ret_slot, NETLINK_MATCH_CALLBACK, sizeof(struct match_callback), userdata, description, &slot);
+        r = netlink_slot_allocate(rtnl,
+                                  !ret_slot,
+                                  NETLINK_MATCH_CALLBACK,
+                                  sizeof(struct match_callback),
+                                  userdata,
+                                  description,
+                                  &slot);
         if (r < 0)
                 return r;
 

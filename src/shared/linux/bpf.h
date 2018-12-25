@@ -702,18 +702,22 @@ union bpf_attr {
  *	@pt_regs: pointer to struct pt_regs
  *	@rc: the return value to set
  */
-#define __BPF_FUNC_MAPPER(FN)                                                                                                             \
-        FN(unspec), FN(map_lookup_elem), FN(map_update_elem), FN(map_delete_elem), FN(probe_read), FN(ktime_get_ns), FN(trace_printk),    \
-                FN(get_prandom_u32), FN(get_smp_processor_id), FN(skb_store_bytes), FN(l3_csum_replace), FN(l4_csum_replace),             \
-                FN(tail_call), FN(clone_redirect), FN(get_current_pid_tgid), FN(get_current_uid_gid), FN(get_current_comm),               \
-                FN(get_cgroup_classid), FN(skb_vlan_push), FN(skb_vlan_pop), FN(skb_get_tunnel_key), FN(skb_set_tunnel_key),              \
-                FN(perf_event_read), FN(redirect), FN(get_route_realm), FN(perf_event_output), FN(skb_load_bytes), FN(get_stackid),       \
-                FN(csum_diff), FN(skb_get_tunnel_opt), FN(skb_set_tunnel_opt), FN(skb_change_proto), FN(skb_change_type),                 \
-                FN(skb_under_cgroup), FN(get_hash_recalc), FN(get_current_task), FN(probe_write_user), FN(current_task_under_cgroup),     \
-                FN(skb_change_tail), FN(skb_pull_data), FN(csum_update), FN(set_hash_invalid), FN(get_numa_node_id), FN(skb_change_head), \
-                FN(xdp_adjust_head), FN(probe_read_str), FN(get_socket_cookie), FN(get_socket_uid), FN(set_hash), FN(setsockopt),         \
-                FN(skb_adjust_room), FN(redirect_map), FN(sk_redirect_map), FN(sock_map_update), FN(xdp_adjust_meta),                     \
-                FN(perf_event_read_value), FN(perf_prog_read_value), FN(getsockopt), FN(override_return), FN(sock_ops_cb_flags_set),
+#define __BPF_FUNC_MAPPER(FN)                                                                             \
+        FN(unspec), FN(map_lookup_elem), FN(map_update_elem), FN(map_delete_elem), FN(probe_read),        \
+                FN(ktime_get_ns), FN(trace_printk), FN(get_prandom_u32), FN(get_smp_processor_id),        \
+                FN(skb_store_bytes), FN(l3_csum_replace), FN(l4_csum_replace), FN(tail_call),             \
+                FN(clone_redirect), FN(get_current_pid_tgid), FN(get_current_uid_gid),                    \
+                FN(get_current_comm), FN(get_cgroup_classid), FN(skb_vlan_push), FN(skb_vlan_pop),        \
+                FN(skb_get_tunnel_key), FN(skb_set_tunnel_key), FN(perf_event_read), FN(redirect),        \
+                FN(get_route_realm), FN(perf_event_output), FN(skb_load_bytes), FN(get_stackid),          \
+                FN(csum_diff), FN(skb_get_tunnel_opt), FN(skb_set_tunnel_opt), FN(skb_change_proto),      \
+                FN(skb_change_type), FN(skb_under_cgroup), FN(get_hash_recalc), FN(get_current_task),     \
+                FN(probe_write_user), FN(current_task_under_cgroup), FN(skb_change_tail),                 \
+                FN(skb_pull_data), FN(csum_update), FN(set_hash_invalid), FN(get_numa_node_id),           \
+                FN(skb_change_head), FN(xdp_adjust_head), FN(probe_read_str), FN(get_socket_cookie),      \
+                FN(get_socket_uid), FN(set_hash), FN(setsockopt), FN(skb_adjust_room), FN(redirect_map),  \
+                FN(sk_redirect_map), FN(sock_map_update), FN(xdp_adjust_meta), FN(perf_event_read_value), \
+                FN(perf_prog_read_value), FN(getsockopt), FN(override_return), FN(sock_ops_cb_flags_set),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call

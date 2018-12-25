@@ -316,8 +316,8 @@ char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
 
         assert(s);
 
-        /* Input length is in bytes, i.e. the shortest possible character takes 2 bytes. Each unicode character may
-         * take up to 4 bytes in UTF-8. Let's also account for a trailing NUL byte. */
+        /* Input length is in bytes, i.e. the shortest possible character takes 2 bytes. Each unicode
+         * character may take up to 4 bytes in UTF-8. Let's also account for a trailing NUL byte. */
         if (length * 2 < length)
                 return NULL; /* overflow */
 

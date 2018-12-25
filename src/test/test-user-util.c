@@ -149,17 +149,31 @@ static void test_valid_home(void) {
         assert_se(valid_home("/home/foo"));
 }
 
-static void test_get_user_creds_one(const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
+static void test_get_user_creds_one(
+        const char *id, const char *name, uid_t uid, gid_t gid, const char *home, const char *shell) {
         const char *rhome = NULL;
         const char *rshell = NULL;
         uid_t ruid = UID_INVALID;
         gid_t rgid = GID_INVALID;
         int r;
 
-        log_info("/* %s(\"%s\", \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\") */", __func__, id, name, uid, gid, home, shell);
+        log_info("/* %s(\"%s\", \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\") */",
+                 __func__,
+                 id,
+                 name,
+                 uid,
+                 gid,
+                 home,
+                 shell);
 
         r = get_user_creds(&id, &ruid, &rgid, &rhome, &rshell, 0);
-        log_info_errno(r, "got \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\": %m", id, ruid, rgid, strnull(rhome), strnull(rshell));
+        log_info_errno(r,
+                       "got \"%s\", " UID_FMT ", " GID_FMT ", \"%s\", \"%s\": %m",
+                       id,
+                       ruid,
+                       rgid,
+                       strnull(rhome),
+                       strnull(rshell));
         if (!synthesize_nobody() && streq(name, NOBODY_USER_NAME)) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
@@ -203,7 +217,8 @@ int main(int argc, char *argv[]) {
 
         test_get_user_creds_one("root", "root", 0, 0, "/root", "/bin/sh");
         test_get_user_creds_one("0", "root", 0, 0, "/root", "/bin/sh");
-        test_get_user_creds_one(NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
+        test_get_user_creds_one(
+                NOBODY_USER_NAME, NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
         test_get_user_creds_one("65534", NOBODY_USER_NAME, UID_NOBODY, GID_NOBODY, "/", "/sbin/nologin");
 
         test_get_group_creds_one("root", "root", 0);

@@ -52,8 +52,8 @@ typedef struct triple_timestamp {
 #define USEC_PER_YEAR ((usec_t)(31557600ULL * USEC_PER_SEC))
 #define NSEC_PER_YEAR ((nsec_t)(31557600ULL * NSEC_PER_SEC))
 
-/* We assume a maximum timezone length of 6. TZNAME_MAX is not defined on Linux, but glibc internally initializes this
- * to 6. Let's rely on that. */
+/* We assume a maximum timezone length of 6. TZNAME_MAX is not defined on Linux, but glibc internally
+ * initializes this to 6. Let's rely on that. */
 #define FORMAT_TIMESTAMP_MAX (3 + 1 + 10 + 1 + 8 + 1 + 6 + 1 + 6 + 1)
 #define FORMAT_TIMESTAMP_WIDTH 28 /* when outputting, assume this width */
 #define FORMAT_TIMESTAMP_RELATIVE_MAX 256
@@ -81,11 +81,13 @@ triple_timestamp *triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
         IN_SET(clock, CLOCK_REALTIME, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM)
 
 static inline bool dual_timestamp_is_set(const dual_timestamp *ts) {
-        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) || (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY));
+        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
+                (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY));
 }
 
 static inline bool triple_timestamp_is_set(const triple_timestamp *ts) {
-        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) || (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY) ||
+        return ((ts->realtime > 0 && ts->realtime != USEC_INFINITY) ||
+                (ts->monotonic > 0 && ts->monotonic != USEC_INFINITY) ||
                 (ts->boottime > 0 && ts->boottime != USEC_INFINITY));
 }
 
@@ -135,8 +137,8 @@ bool in_utc_timezone(void);
 static inline usec_t usec_add(usec_t a, usec_t b) {
         usec_t c;
 
-        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output, and doesn't
-         * overflow. */
+        /* Adds two time values, and makes sure USEC_INFINITY as input results as USEC_INFINITY in output,
+         * and doesn't overflow. */
 
         c = a + b;
         if (c < a || c < b) /* overflow check */
@@ -163,8 +165,8 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 }
 
 #if SIZEOF_TIME_T == 8
-/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit year
- * territory. However, since we want to stay away from this in all timezones we take one day off. */
+/* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
+ * year territory. However, since we want to stay away from this in all timezones we take one day off. */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 253402214399000000)
 #elif SIZEOF_TIME_T == 4
 /* With a 32bit time_t we can't go beyond 2038... */

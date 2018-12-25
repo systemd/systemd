@@ -217,7 +217,7 @@ int path_strv_make_absolute_cwd(char **l) {
          * absolute. This works in place and won't rollback any
          * changes on failure. */
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 char *t;
 
                 r = path_make_absolute_cwd(*s, &t);
@@ -244,7 +244,7 @@ char **path_strv_resolve(char **l, const char *root) {
          * the path. This works in place and won't rollback any
          * changes on failure. */
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 _cleanup_free_ char *orig = NULL;
                 char *t, *u;
 
@@ -488,13 +488,13 @@ char *path_join_internal(const char *first, ...) {
         bool slash;
         size_t sz;
 
-        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings end/begin
-         * already with one so that it is unnecessary. Note that slashes which are already duplicate won't be
-         * removed. The string returned is hence always equal to or longer than the sum of the lengths of each
-         * individual string.
+        /* Joins all listed strings until the sentinel and places a "/" between them unless the strings
+         * end/begin already with one so that it is unnecessary. Note that slashes which are already
+         * duplicate won't be removed. The string returned is hence always equal to or longer than the sum of
+         * the lengths of each individual string.
          *
-         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of which some
-         * are optional.
+         * Note: any listed empty string is simply skipped. This can be useful for concatenating strings of
+         * which some are optional.
          *
          * Examples:
          *
@@ -610,7 +610,7 @@ bool paths_check_timestamp(const char *const *paths, usec_t *timestamp, bool upd
         if (!paths)
                 return false;
 
-        STRV_FOREACH(i, paths) {
+        STRV_FOREACH (i, paths) {
                 struct stat stats;
                 usec_t u;
 
@@ -927,25 +927,26 @@ bool hidden_or_backup_file(const char *filename) {
 
         assert(filename);
 
-        if (filename[0] == '.' || streq(filename, "lost+found") || streq(filename, "aquota.user") || streq(filename, "aquota.group") ||
-            endswith(filename, "~"))
+        if (filename[0] == '.' || streq(filename, "lost+found") || streq(filename, "aquota.user") ||
+            streq(filename, "aquota.group") || endswith(filename, "~"))
                 return true;
 
         p = strrchr(filename, '.');
         if (!p)
                 return false;
 
-        /* Please, let's not add more entries to the list below. If external projects think it's a good idea to come up
-         * with always new suffixes and that everybody else should just adjust to that, then it really should be on
-         * them. Hence, in future, let's not add any more entries. Instead, let's ask those packages to instead adopt
-         * one of the generic suffixes/prefixes for hidden files or backups, possibly augmented with an additional
-         * string. Specifically: there's now:
+        /* Please, let's not add more entries to the list below. If external projects think it's a good idea
+         * to come up with always new suffixes and that everybody else should just adjust to that, then it
+         * really should be on them. Hence, in future, let's not add any more entries. Instead, let's ask
+         * those packages to instead adopt one of the generic suffixes/prefixes for hidden files or backups,
+         * possibly augmented with an additional string. Specifically: there's now:
          *
          *    The generic suffixes "~" and ".bak" for backup files
          *    The generic prefix "." for hidden files
          *
-         * Thus, if a new package manager "foopkg" wants its own set of ".foopkg-new", ".foopkg-old", ".foopkg-dist"
-         * or so registered, let's refuse that and ask them to use ".foopkg.new", ".foopkg.old" or ".foopkg~" instead.
+         * Thus, if a new package manager "foopkg" wants its own set of ".foopkg-new", ".foopkg-old",
+         * ".foopkg-dist" or so registered, let's refuse that and ask them to use ".foopkg.new",
+         * ".foopkg.old" or ".foopkg~" instead.
          */
 
         return STR_IN_SET(p + 1,
@@ -977,8 +978,8 @@ bool is_device_path(const char *path) {
 
 bool valid_device_node_path(const char *path) {
 
-        /* Some superficial checks whether the specified path is a valid device node path, all without looking at the
-         * actual device node. */
+        /* Some superficial checks whether the specified path is a valid device node path, all without
+         * looking at the actual device node. */
 
         if (!PATH_STARTSWITH_SET(path, "/dev/", "/run/systemd/inaccessible/"))
                 return false;
@@ -992,8 +993,8 @@ bool valid_device_node_path(const char *path) {
 bool valid_device_allow_pattern(const char *path) {
         assert(path);
 
-        /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and DeviceDeny=
-         * accept it */
+        /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and
+         * DeviceDeny= accept it */
 
         if (STARTSWITH_SET(path, "block-", "char-"))
                 return true;
@@ -1037,7 +1038,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 assert_se(c = endswith(path, "*.so"));
                 *c = '\0'; /* truncate the glob part */
 
-                STRV_FOREACH(name, names) {
+                STRV_FOREACH (name, names) {
                         /* This is most likely to run only once, hence let's not optimize anything. */
                         char *t, *t2;
                         unsigned version;
@@ -1054,7 +1055,10 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
 
                         r = safe_atou(t, &version);
                         if (r < 0) {
-                                log_debug_errno(r, "Found libsystemd shared at \"%s.so\", but failed to parse version: %m", *name);
+                                log_debug_errno(
+                                        r,
+                                        "Found libsystemd shared at \"%s.so\", but failed to parse version: %m",
+                                        *name);
                                 continue;
                         }
 
@@ -1085,8 +1089,8 @@ bool dot_or_dot_dot(const char *path) {
 
 bool empty_or_root(const char *root) {
 
-        /* For operations relative to some root directory, returns true if the specified root directory is redundant,
-         * i.e. either / or NULL or the empty string or any equivalent. */
+        /* For operations relative to some root directory, returns true if the specified root directory is
+         * redundant, i.e. either / or NULL or the empty string or any equivalent. */
 
         if (!root)
                 return true;
@@ -1094,7 +1098,8 @@ bool empty_or_root(const char *root) {
         return root[strspn(root, "/")] == 0;
 }
 
-int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue) {
+int path_simplify_and_warn(
+        char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue) {
 
         bool absolute, fatal = flag & PATH_CHECK_FATAL;
 
@@ -1109,13 +1114,28 @@ int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const ch
                 absolute = path_is_absolute(path);
 
                 if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
-                        log_syntax(
-                                unit, LOG_ERR, filename, line, 0, "%s= path is not absolute%s: %s", lvalue, fatal ? "" : ", ignoring", path);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "%s= path is not absolute%s: %s",
+                                   lvalue,
+                                   fatal ? "" : ", ignoring",
+                                   path);
                         return -EINVAL;
                 }
 
                 if (absolute && (flag & PATH_CHECK_RELATIVE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "%s= path is absolute%s: %s", lvalue, fatal ? "" : ", ignoring", path);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "%s= path is absolute%s: %s",
+                                   lvalue,
+                                   fatal ? "" : ", ignoring",
+                                   path);
                         return -EINVAL;
                 }
         }
@@ -1123,7 +1143,15 @@ int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const ch
         path_simplify(path, true);
 
         if (!path_is_normalized(path)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "%s= path is not normalized%s: %s", lvalue, fatal ? "" : ", ignoring", path);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "%s= path is not normalized%s: %s",
+                           lvalue,
+                           fatal ? "" : ", ignoring",
+                           path);
                 return -EINVAL;
         }
 

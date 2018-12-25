@@ -131,7 +131,8 @@ int change_uid_gid(const char *user, char **_home) {
         h++;
         x = strchr(h, ':');
         if (!x)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "/etc/passwd entry has invalid home directory field.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "/etc/passwd entry has invalid home directory field.");
 
         *x = 0;
 

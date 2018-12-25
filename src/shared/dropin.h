@@ -10,7 +10,9 @@ int drop_in_file(const char *dir, const char *unit, unsigned level, const char *
 
 int write_drop_in(const char *dir, const char *unit, unsigned level, const char *name, const char *data);
 
-int write_drop_in_format(const char *dir, const char *unit, unsigned level, const char *name, const char *format, ...) _printf_(5, 6);
+int write_drop_in_format(
+        const char *dir, const char *unit, unsigned level, const char *name, const char *format, ...)
+        _printf_(5, 6);
 
 int unit_file_find_dropin_paths(const char *original_root,
                                 char **lookup_path,
@@ -20,8 +22,9 @@ int unit_file_find_dropin_paths(const char *original_root,
                                 Set *names,
                                 char ***paths);
 
-static inline int
-        unit_file_find_dropin_conf_paths(const char *original_root, char **lookup_path, Set *unit_path_cache, Set *names, char ***paths) {
+static inline int unit_file_find_dropin_conf_paths(
+        const char *original_root, char **lookup_path, Set *unit_path_cache, Set *names, char ***paths) {
 
-        return unit_file_find_dropin_paths(original_root, lookup_path, unit_path_cache, ".d", ".conf", names, paths);
+        return unit_file_find_dropin_paths(
+                original_root, lookup_path, unit_path_cache, ".d", ".conf", names, paths);
 }

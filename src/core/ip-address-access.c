@@ -45,7 +45,8 @@ int config_parse_ip_address_access(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         break;
                 }
 
@@ -118,7 +119,13 @@ int config_parse_ip_address_access(const char *unit,
                 } else {
                         r = in_addr_prefix_from_string_auto(word, &a->family, &a->address, &a->prefixlen);
                         if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r, "Address prefix is invalid, ignoring assignment: %s", word);
+                                log_syntax(unit,
+                                           LOG_WARNING,
+                                           filename,
+                                           line,
+                                           r,
+                                           "Address prefix is invalid, ignoring assignment: %s",
+                                           word);
                                 return 0;
                         }
                 }
@@ -168,8 +175,8 @@ IPAddressAccessItem *ip_address_access_reduce(IPAddressAccessItem *first) {
         IPAddressAccessItem *a, *b, *tmp;
         int r;
 
-        /* Drops all entries from the list that are covered by another entry in full, thus removing all redundant
-         * entries. */
+        /* Drops all entries from the list that are covered by another entry in full, thus removing all
+         * redundant entries. */
 
         LIST_FOREACH_SAFE(items, a, tmp, first) {
 

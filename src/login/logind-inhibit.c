@@ -194,8 +194,22 @@ int inhibitor_load(Inhibitor *i) {
         char *cc;
         int r;
 
-        r = parse_env_file(
-                NULL, i->state_file, "WHAT", &what, "UID", &uid, "PID", &pid, "WHO", &who, "WHY", &why, "MODE", &mode, "FIFO", &i->fifo_path);
+        r = parse_env_file(NULL,
+                           i->state_file,
+                           "WHAT",
+                           &what,
+                           "UID",
+                           &uid,
+                           "PID",
+                           &pid,
+                           "WHO",
+                           &who,
+                           "WHY",
+                           &why,
+                           "MODE",
+                           &mode,
+                           "FIFO",
+                           &i->fifo_path);
         if (r < 0)
                 return r;
 
@@ -287,7 +301,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
         }
 
         if (!i->event_source) {
-                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
+                r = sd_event_add_io(
+                        i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 
@@ -454,6 +469,7 @@ InhibitWhat inhibit_what_from_string(const char *s) {
         return what;
 }
 
-static const char *const inhibit_mode_table[_INHIBIT_MODE_MAX] = { [INHIBIT_BLOCK] = "block", [INHIBIT_DELAY] = "delay" };
+static const char *const inhibit_mode_table[_INHIBIT_MODE_MAX] = { [INHIBIT_BLOCK] = "block",
+                                                                   [INHIBIT_DELAY] = "delay" };
 
 DEFINE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);

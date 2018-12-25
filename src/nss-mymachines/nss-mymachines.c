@@ -77,8 +77,13 @@ static bool avoid_deadlock(void) {
                 streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
 }
 
-enum nss_status _nss_mymachines_gethostbyname4_r(
-        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+enum nss_status _nss_mymachines_gethostbyname4_r(const char *name,
+                                                 struct gaih_addrtuple **pat,
+                                                 char *buffer,
+                                                 size_t buflen,
+                                                 int *errnop,
+                                                 int *h_errnop,
+                                                 int32_t *ttlp)
 {
 
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
@@ -191,7 +196,9 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 }
 
                 r_tuple = (struct gaih_addrtuple *) (buffer + idx);
-                r_tuple->next = i == c - 1 ? NULL : (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
+                r_tuple->next = i == c - 1 ?
+                        NULL :
+                        (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
                 r_tuple->scopeid = n_ifindices == 1 ? ifindices[0] : 0;
@@ -230,8 +237,15 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
-enum nss_status _nss_mymachines_gethostbyname3_r(
-        const char *name, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+enum nss_status _nss_mymachines_gethostbyname3_r(const char *name,
+                                                 int af,
+                                                 struct hostent *result,
+                                                 char *buffer,
+                                                 size_t buflen,
+                                                 int *errnop,
+                                                 int *h_errnop,
+                                                 int32_t *ttlp,
+                                                 char **canonp)
 {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -397,7 +411,8 @@ fail:
 
 NSS_GETHOSTBYNAME_FALLBACKS(mymachines);
 
-enum nss_status _nss_mymachines_getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+enum nss_status _nss_mymachines_getpwnam_r(
+        const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
 {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -435,9 +450,9 @@ enum nss_status _nss_mymachines_getpwnam_r(const char *name, struct passwd *pwd,
                 return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                /* Make sure we can't deadlock if we are invoked by dbus-daemon. This way, it won't be able to resolve
-                 * these UIDs, but that should be unproblematic as containers should never be able to connect to a bus
-                 * running on the host. */
+                /* Make sure we can't deadlock if we are invoked by dbus-daemon. This way, it won't be able
+                 * to resolve these UIDs, but that should be unproblematic as containers should never be able
+                 * to connect to a bus running on the host. */
                 return NSS_STATUS_NOTFOUND;
 
         if (avoid_deadlock()) {
@@ -574,7 +589,8 @@ fail:
 
 #pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
 
-enum nss_status _nss_mymachines_getgrnam_r(const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
+enum nss_status _nss_mymachines_getgrnam_r(
+        const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
 {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -729,7 +745,8 @@ enum nss_status _nss_mymachines_getgrgid_r(gid_t gid, struct group *gr, char *bu
         }
 
         memzero(buffer, sizeof(char *));
-        if (snprintf(buffer + sizeof(char *), buflen - sizeof(char *), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
+        if (snprintf(buffer + sizeof(char *), buflen - sizeof(char *), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >=
+            (int) buflen) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }

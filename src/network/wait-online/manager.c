@@ -166,11 +166,13 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, on_rtnl_event, NULL, m, "wait-online-on-NEWLINK");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_NEWLINK, on_rtnl_event, NULL, m, "wait-online-on-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, on_rtnl_event, NULL, m, "wait-online-on-DELLINK");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_DELLINK, on_rtnl_event, NULL, m, "wait-online-on-DELLINK");
         if (r < 0)
                 return r;
 
@@ -267,7 +269,8 @@ int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout)
 
                 usec = now(clock_boottime_or_monotonic()) + timeout;
 
-                r = sd_event_add_time(m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                r = sd_event_add_time(
+                        m->event, NULL, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return r;
         }

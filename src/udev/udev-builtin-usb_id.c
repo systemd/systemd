@@ -186,7 +186,12 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 if (desc->bDescriptorType != USB_DT_INTERFACE)
                         continue;
 
-                if (snprintf(if_str, 8, ":%02x%02x%02x", desc->bInterfaceClass, desc->bInterfaceSubClass, desc->bInterfaceProtocol) != 7)
+                if (snprintf(if_str,
+                             8,
+                             ":%02x%02x%02x",
+                             desc->bInterfaceClass,
+                             desc->bInterfaceSubClass,
+                             desc->bInterfaceProtocol) != 7)
                         continue;
 
                 if (strstr(ifs_str, if_str) != NULL)
@@ -276,7 +281,8 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = sd_device_get_sysattr_value(dev_interface, "bInterfaceClass", &if_class);
         if (r < 0)
-                return log_device_debug_errno(dev_interface, r, "Failed to get bInterfaceClass attribute: %m");
+                return log_device_debug_errno(
+                        dev_interface, r, "Failed to get bInterfaceClass attribute: %m");
 
         if_class_num = strtoul(if_class, NULL, 16);
         if (if_class_num == 8) {

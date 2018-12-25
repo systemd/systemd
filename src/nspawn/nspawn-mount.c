@@ -104,9 +104,9 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         size_t i;
         int r;
 
-        /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
-         * parent process, so that we know the temporary directories to remove on exit before we fork off the
-         * children. */
+        /* Prepare all custom mounts. This will make source we know all temporary directories. This is called
+         * in the parent process, so that we know the temporary directories to remove on exit before we fork
+         * off the children. */
 
         assert(l || n == 0);
 
@@ -274,22 +274,23 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
         if (k < 2)
                 return -EADDRNOTAVAIL;
         if (k == 2) {
-                /* If two parameters are specified, the first one is the lower, the second one the upper directory. And
-                 * we'll also define the destination mount point the same as the upper. */
+                /* If two parameters are specified, the first one is the lower, the second one the upper
+                 * directory. And we'll also define the destination mount point the same as the upper. */
 
                 if (!source_path_is_valid(lower[0]) || !source_path_is_valid(lower[1]))
                         return -EINVAL;
 
                 upper = TAKE_PTR(lower[1]);
 
-                destination = strdup(upper[0] == '+' ? upper + 1 : upper); /* take the destination without "+" prefix */
+                destination = strdup(upper[0] == '+' ? upper + 1 :
+                                                       upper); /* take the destination without "+" prefix */
                 if (!destination)
                         return -ENOMEM;
         } else {
                 char **i;
 
-                /* If more than two parameters are specified, the last one is the destination, the second to last one
-                 * the "upper", and all before that the "lower" directories. */
+                /* If more than two parameters are specified, the last one is the destination, the second to
+                 * last one the "upper", and all before that the "lower" directories. */
 
                 destination = lower[k - 1];
                 upper = TAKE_PTR(lower[k - 2]);
@@ -298,8 +299,8 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                         if (!source_path_is_valid(*i))
                                 return -EINVAL;
 
-                /* If the upper directory is unspecified, then let's create it automatically as a throw-away directory
-                 * in /var/tmp */
+                /* If the upper directory is unspecified, then let's create it automatically as a throw-away
+                 * directory in /var/tmp */
                 if (isempty(upper))
                         upper = NULL;
                 else if (!source_path_is_valid(upper))
@@ -326,7 +327,12 @@ int tmpfs_patch_options(const char *options, uid_t uid_shift, const char *selinu
         char *buf = NULL;
 
         if (uid_shift != UID_INVALID) {
-                if (asprintf(&buf, "%s%suid=" UID_FMT ",gid=" UID_FMT, strempty(options), options ? "," : "", uid_shift, uid_shift) < 0)
+                if (asprintf(&buf,
+                             "%s%suid=" UID_FMT ",gid=" UID_FMT,
+                             strempty(options),
+                             options ? "," : "",
+                             uid_shift,
+                             uid_shift) < 0)
                         return -ENOMEM;
 
                 options = buf;
@@ -378,7 +384,8 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (mount_settings & MOUNT_APPLY_APIVFS_RO)
                 extra_flags |= MS_RDONLY;
 
-        r = mount_verbose(LOG_ERR, "sysfs", full, "sysfs", MS_NOSUID | MS_NOEXEC | MS_NODEV | extra_flags, NULL);
+        r = mount_verbose(
+                LOG_ERR, "sysfs", full, "sysfs", MS_NOSUID | MS_NOEXEC | MS_NODEV | extra_flags, NULL);
         if (r < 0)
                 return r;
 
@@ -399,7 +406,12 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
                 if (r < 0)
                         return r;
 
-                r = mount_verbose(LOG_ERR, NULL, to, NULL, MS_BIND | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT | extra_flags, NULL);
+                r = mount_verbose(LOG_ERR,
+                                  NULL,
+                                  to,
+                                  NULL,
+                                  MS_BIND | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT | extra_flags,
+                                  NULL);
                 if (r < 0)
                         return r;
         }
@@ -417,7 +429,12 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         x = prefix_roota(top, "/fs/cgroup");
         (void) mkdir_p(x, 0755);
 
-        return mount_verbose(LOG_ERR, NULL, top, NULL, MS_BIND | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT | extra_flags, NULL);
+        return mount_verbose(LOG_ERR,
+                             NULL,
+                             top,
+                             NULL,
+                             MS_BIND | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT | extra_flags,
+                             NULL);
 }
 
 static int mkdir_userns(const char *path, mode_t mode, uid_t uid_shift) {
@@ -473,20 +490,30 @@ static int mkdir_userns_p(const char *prefix, const char *path, mode_t mode, uid
         return mkdir_userns(path, mode, uid_shift);
 }
 
-int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, const char *selinux_apifs_context) {
+int mount_all(const char *dest,
+              MountSettingsMask mount_settings,
+              uid_t uid_shift,
+              const char *selinux_apifs_context) {
 
-#define PROC_INACCESSIBLE(path)                                                                                \
-        { NULL, (path), NULL, NULL, MS_BIND, MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO | MOUNT_INACCESSIBLE_REG }, /* Bind mount first ... */                                                                                                            \
-        {                                                                                                      \
-                NULL, (path), NULL, NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT, \
-                        MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO                                                \
+#define PROC_INACCESSIBLE(path)                                                                 \
+        {                                                                                       \
+                NULL, (path),  NULL,                                                            \
+                NULL, MS_BIND, MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO | MOUNT_INACCESSIBLE_REG \
+        }, /* Bind mount first ... */                                                           \
+        {                                                                                       \
+                NULL, (path), NULL, NULL,                                                       \
+                        MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT,    \
+                        MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO                                 \
         } /* Then, make it r/o */
 
-#define PROC_READ_ONLY(path)                                                                                         \
-        { (path), (path), NULL, NULL, MS_BIND, MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */ \
-        {                                                                                                            \
-                NULL, (path), NULL, NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT,       \
-                        MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO                                                      \
+#define PROC_READ_ONLY(path)                                                                 \
+        {                                                                                    \
+                (path), (path), NULL, NULL, MS_BIND, MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO \
+        }, /* Bind mount first ... */                                                        \
+        {                                                                                    \
+                NULL, (path), NULL, NULL,                                                    \
+                        MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT, \
+                        MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO                              \
         } /* Then, make it r/o */
 
         typedef struct MountPoint {
@@ -502,14 +529,20 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
                 /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
                 { "proc", "/proc", "proc", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, MOUNT_FATAL | MOUNT_IN_USERNS },
 
-                { "/proc/sys", "/proc/sys", NULL, NULL, MS_BIND, MOUNT_FATAL | MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */
+                { "/proc/sys",
+                  "/proc/sys",
+                  NULL,
+                  NULL,
+                  MS_BIND,
+                  MOUNT_FATAL | MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */
 
                 { "/proc/sys/net",
                   "/proc/sys/net",
                   NULL,
                   NULL,
                   MS_BIND,
-                  MOUNT_FATAL | MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO | MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
+                  MOUNT_FATAL | MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO |
+                          MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
 
                 { NULL,
                   "/proc/sys",
@@ -518,16 +551,16 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
                   MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT,
                   MOUNT_FATAL | MOUNT_IN_USERNS | MOUNT_APPLY_APIVFS_RO }, /* ... then, make it r/o */
 
-                /* Make these files inaccessible to container payloads: they potentially leak information about kernel
-                 * internals or the host's execution environment to the container */
+                /* Make these files inaccessible to container payloads: they potentially leak information
+                 * about kernel internals or the host's execution environment to the container */
                 PROC_INACCESSIBLE("/proc/kallsyms"),
                 PROC_INACCESSIBLE("/proc/kcore"),
                 PROC_INACCESSIBLE("/proc/keys"),
                 PROC_INACCESSIBLE("/proc/sysrq-trigger"),
                 PROC_INACCESSIBLE("/proc/timer_list"),
 
-                /* Make these directories read-only to container payloads: they show hardware information, and in some
-                 * cases contain tunables the container really shouldn't have access to. */
+                /* Make these directories read-only to container payloads: they show hardware information,
+                 * and in some cases contain tunables the container really shouldn't have access to. */
                 PROC_READ_ONLY("/proc/acpi"),
                 PROC_READ_ONLY("/proc/apm"),
                 PROC_READ_ONLY("/proc/asound"),
@@ -537,15 +570,30 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
                 PROC_READ_ONLY("/proc/scsi"),
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
-                { "tmpfs", "/tmp", "tmpfs", "mode=1777", MS_NOSUID | MS_NODEV | MS_STRICTATIME, MOUNT_FATAL | MOUNT_APPLY_TMPFS_TMP },
-                { "tmpfs", "/sys", "tmpfs", "mode=555", MS_NOSUID | MS_NOEXEC | MS_NODEV, MOUNT_FATAL | MOUNT_APPLY_APIVFS_NETNS },
+                { "tmpfs",
+                  "/tmp",
+                  "tmpfs",
+                  "mode=1777",
+                  MS_NOSUID | MS_NODEV | MS_STRICTATIME,
+                  MOUNT_FATAL | MOUNT_APPLY_TMPFS_TMP },
+                { "tmpfs",
+                  "/sys",
+                  "tmpfs",
+                  "mode=555",
+                  MS_NOSUID | MS_NOEXEC | MS_NODEV,
+                  MOUNT_FATAL | MOUNT_APPLY_APIVFS_NETNS },
                 { "sysfs",
                   "/sys",
                   "sysfs",
                   NULL,
                   MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV,
-                  MOUNT_FATAL | MOUNT_APPLY_APIVFS_RO },                                           /* skipped if above was mounted */
-                { "sysfs", "/sys", "sysfs", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, MOUNT_FATAL }, /* skipped if above was mounted */
+                  MOUNT_FATAL | MOUNT_APPLY_APIVFS_RO }, /* skipped if above was mounted */
+                { "sysfs",
+                  "/sys",
+                  "sysfs",
+                  NULL,
+                  MS_NOSUID | MS_NOEXEC | MS_NODEV,
+                  MOUNT_FATAL }, /* skipped if above was mounted */
                 { "tmpfs", "/dev", "tmpfs", "mode=755", MS_NOSUID | MS_STRICTATIME, MOUNT_FATAL },
                 { "tmpfs", "/dev/shm", "tmpfs", "mode=1777", MS_NOSUID | MS_NODEV | MS_STRICTATIME, MOUNT_FATAL },
                 { "tmpfs", "/run", "tmpfs", "mode=755", MS_NOSUID | MS_NODEV | MS_STRICTATIME, MOUNT_FATAL },
@@ -553,7 +601,12 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL, NULL, MS_BIND, 0 }, /* Bind mount first */
-                { NULL, "/sys/fs/selinux", NULL, NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT, 0 }, /* Then, make it r/o */
+                { NULL,
+                  "/sys/fs/selinux",
+                  NULL,
+                  NULL,
+                  MS_BIND | MS_RDONLY | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_REMOUNT,
+                  0 }, /* Then, make it r/o */
 #endif
         };
 
@@ -594,11 +647,13 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
 
                                 r = tempfn_random_child(NULL, "inaccessible", &np);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to generate inaccessible file node path: %m");
+                                        return log_error_errno(
+                                                r, "Failed to generate inaccessible file node path: %m");
 
                                 r = touch_file(np, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0000);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to create inaccessible file node '%s': %m", np);
+                                        return log_error_errno(
+                                                r, "Failed to create inaccessible file node '%s': %m", np);
 
                                 inaccessible = TAKE_PTR(np);
                         }
@@ -637,7 +692,8 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
                                 o = options;
                 }
 
-                r = mount_verbose(fatal ? LOG_ERR : LOG_DEBUG, what, where, mount_table[k].type, mount_table[k].flags, o);
+                r = mount_verbose(
+                        fatal ? LOG_ERR : LOG_DEBUG, what, where, mount_table[k].type, mount_table[k].flags, o);
                 if (r < 0 && fatal)
                         return r;
         }
@@ -666,10 +722,16 @@ static int mount_bind(const char *dest, CustomMount *m) {
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind mount directory %s on file %s.", m->source, where);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot bind mount directory %s on file %s.",
+                                               m->source,
+                                               where);
 
                 if (!S_ISDIR(source_st.st_mode) && S_ISDIR(dest_st.st_mode))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind mount file %s on directory %s.", m->source, where);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot bind mount file %s on directory %s.",
+                                               m->source,
+                                               where);
 
         } else { /* Path doesn't exist yet? */
                 r = mkdir_parents_label(where, 0755);
@@ -701,7 +763,12 @@ static int mount_bind(const char *dest, CustomMount *m) {
         return 0;
 }
 
-static int mount_tmpfs(const char *dest, CustomMount *m, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
+static int mount_tmpfs(const char *dest,
+                       CustomMount *m,
+                       bool userns,
+                       uid_t uid_shift,
+                       uid_t uid_range,
+                       const char *selinux_apifs_context) {
 
         const char *options;
         _cleanup_free_ char *buf = NULL, *where = NULL;
@@ -719,7 +786,8 @@ static int mount_tmpfs(const char *dest, CustomMount *m, bool userns, uid_t uid_
                         return log_error_errno(r, "Creating mount point for tmpfs %s failed: %m", where);
         }
 
-        r = tmpfs_patch_options(m->options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
+        r = tmpfs_patch_options(
+                m->options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
         options = r > 0 ? buf : m->options;
@@ -779,14 +847,20 @@ static int mount_overlay(const char *dest, CustomMount *m) {
                 if (!escaped_work_dir)
                         return log_oom();
 
-                options = strjoina("lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
+                options = strjoina(
+                        "lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
         }
 
         return mount_verbose(LOG_ERR, "overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options);
 }
 
-int mount_custom(
-        const char *dest, CustomMount *mounts, size_t n, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
+int mount_custom(const char *dest,
+                 CustomMount *mounts,
+                 size_t n,
+                 bool userns,
+                 uid_t uid_shift,
+                 uid_t uid_range,
+                 const char *selinux_apifs_context) {
 
         size_t i;
         int r;
@@ -821,8 +895,12 @@ int mount_custom(
         return 0;
 }
 
-int setup_volatile_state(
-        const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
+int setup_volatile_state(const char *directory,
+                         VolatileMode mode,
+                         bool userns,
+                         uid_t uid_shift,
+                         uid_t uid_range,
+                         const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL;
         const char *p, *options;
@@ -855,7 +933,12 @@ int setup_volatile_state(
         return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
-int setup_volatile(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context) {
+int setup_volatile(const char *directory,
+                   VolatileMode mode,
+                   bool userns,
+                   uid_t uid_shift,
+                   uid_t uid_range,
+                   const char *selinux_apifs_context) {
 
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";

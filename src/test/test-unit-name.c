@@ -61,7 +61,10 @@ static void test_unit_name_is_valid(void) {
         assert_se(!unit_name_is_valid("user@1000.slice", UNIT_NAME_TEMPLATE));
 }
 
-static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
+static void test_unit_name_replace_instance_one(const char *pattern,
+                                                const char *repl,
+                                                const char *expected,
+                                                int ret) {
         _cleanup_free_ char *t = NULL;
         assert_se(unit_name_replace_instance(pattern, repl, &t) == ret);
         puts(strna(t));
@@ -107,7 +110,8 @@ static void test_unit_name_from_path(void) {
         test_unit_name_from_path_one("/foo/./bar", ".mount", NULL, -EINVAL);
 }
 
-static void test_unit_name_from_path_instance_one(const char *pattern, const char *path, const char *suffix, const char *expected, int ret) {
+static void test_unit_name_from_path_instance_one(
+        const char *pattern, const char *path, const char *suffix, const char *expected, int ret) {
         _cleanup_free_ char *t = NULL;
 
         assert_se(unit_name_from_path_instance(pattern, path, suffix, &t) == ret);
@@ -127,7 +131,8 @@ static void test_unit_name_from_path_instance(void) {
         puts("-------------------------------------------------");
 
         test_unit_name_from_path_instance_one("waldo", "/waldo", ".mount", "waldo@waldo.mount", 0);
-        test_unit_name_from_path_instance_one("waldo", "/waldo////quuix////", ".mount", "waldo@waldo-quuix.mount", 0);
+        test_unit_name_from_path_instance_one(
+                "waldo", "/waldo////quuix////", ".mount", "waldo@waldo-quuix.mount", 0);
         test_unit_name_from_path_instance_one("waldo", "/", ".mount", "waldo@-.mount", 0);
         test_unit_name_from_path_instance_one("waldo", "", ".mount", "waldo@-.mount", 0);
         test_unit_name_from_path_instance_one("waldo", "///", ".mount", "waldo@-.mount", 0);
@@ -157,7 +162,8 @@ static void test_unit_name_to_path(void) {
 static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, const char *expect, int ret) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(unit_name_mangle(pattern, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &t) == ret);
+        assert_se(unit_name_mangle(
+                          pattern, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &t) == ret);
         puts(strna(t));
         assert_se(streq_ptr(t, expect));
 
@@ -166,7 +172,8 @@ static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, con
 
                 assert_se(unit_name_is_valid(t, UNIT_NAME_ANY) || (allow_globs && string_is_glob(t)));
 
-                assert_se(unit_name_mangle(t, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &k) == 0);
+                assert_se(unit_name_mangle(
+                                  t, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &k) == 0);
                 assert_se(streq_ptr(t, k));
         }
 }
@@ -178,10 +185,14 @@ static void test_unit_name_mangle(void) {
         test_unit_name_mangle_one(false, "/dev/sda", "dev-sda.device", 1);
         test_unit_name_mangle_one(false, "üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
         test_unit_name_mangle_one(false, "foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
-        test_unit_name_mangle_one(false, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
         test_unit_name_mangle_one(
-                false, "_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one(false, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
+                false, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(false,
+                                  "_____##@;;;,,,##----.....service",
+                                  "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service",
+                                  1);
+        test_unit_name_mangle_one(
+                false, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
         test_unit_name_mangle_one(false, "", NULL, -EINVAL);
 
         test_unit_name_mangle_one(true, "foo.service", "foo.service", 0);
@@ -191,8 +202,8 @@ static void test_unit_name_mangle(void) {
 }
 
 static int test_unit_printf(void) {
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL, *shell = NULL,
-                            *home = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL,
+                            *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         int r;
@@ -530,18 +541,25 @@ static void test_unit_name_from_dbus_path(void) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dbus_2esocket", 0, "dbus.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/_2d_2emount", 0, "-.mount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/_2d_2eslice", 0, "-.slice");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/accounts_2ddaemon_2eservice", 0, "accounts-daemon.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/auditd_2eservice", 0, "auditd.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/accounts_2ddaemon_2eservice", 0, "accounts-daemon.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/auditd_2eservice", 0, "auditd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/basic_2etarget", 0, "basic.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/bluetooth_2etarget", 0, "bluetooth.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/boot_2eautomount", 0, "boot.automount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/bluetooth_2etarget", 0, "bluetooth.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/boot_2eautomount", 0, "boot.automount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/boot_2emount", 0, "boot.mount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/btrfs_2emount", 0, "btrfs.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/cryptsetup_2dpre_2etarget", 0, "cryptsetup-pre.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/cryptsetup_2etarget", 0, "cryptsetup.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/cryptsetup_2dpre_2etarget", 0, "cryptsetup-pre.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/cryptsetup_2etarget", 0, "cryptsetup.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dbus_2eservice", 0, "dbus.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dbus_2esocket", 0, "dbus.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dcdrom_2edevice", 0, "dev-cdrom.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dcdrom_2edevice", 0, "dev-cdrom.device");
         test_unit_name_from_dbus_path_one(
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2data_5cx2dINTEL_5fSSDSA2M120G2GC_5fCVPO044405HH120QGN_2edevice",
                 0,
@@ -570,9 +588,10 @@ static void test_unit_name_from_dbus_path(void) {
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2data_5cx2dTSSTcorp_5fCDDVDW_5fTS_5cx2dL633C_5fR6176GLZB14646_2edevice",
                 0,
                 "dev-disk-by\\x2did-ata\\x2dTSSTcorp_CDDVDW_TS\\x2dL633C_R6176GLZB14646.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x50015179591245ae_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2did-wwn\\x2d0x50015179591245ae.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x50015179591245ae_2edevice",
+                0,
+                "dev-disk-by\\x2did-wwn\\x2d0x50015179591245ae.device");
         test_unit_name_from_dbus_path_one(
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x50015179591245ae_5cx2dpart1_2edevice",
                 0,
@@ -585,9 +604,10 @@ static void test_unit_name_from_dbus_path(void) {
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x50015179591245ae_5cx2dpart3_2edevice",
                 0,
                 "dev-disk-by\\x2did-wwn\\x2d0x50015179591245ae\\x2dpart3.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x500151795946eab5_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2did-wwn\\x2d0x500151795946eab5.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x500151795946eab5_2edevice",
+                0,
+                "dev-disk-by\\x2did-wwn\\x2d0x500151795946eab5.device");
         test_unit_name_from_dbus_path_one(
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2dwwn_5cx2d0x500151795946eab5_5cx2dpart1_2edevice",
                 0,
@@ -596,18 +616,22 @@ static void test_unit_name_from_dbus_path(void) {
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dlabel_2d_5cxe3_5cx82_5cxb7_5cxe3_5cx82_5cxb9_5cxe3_5cx83_5cx86_5cxe3_5cx83_5cxa0_5cxe3_5cx81_5cxa7_5cxe4_5cxba_5cx88_5cxe7_5cxb4_5cx84_5cxe6_5cxb8_5cx88_5cxe3_5cx81_5cxbf_2edevice",
                 0,
                 "dev-disk-by\\x2dlabel-\\xe3\\x82\\xb7\\xe3\\x82\\xb9\\xe3\\x83\\x86\\xe3\\x83\\xa0\\xe3\\x81\\xa7\\xe4\\xba\\x88\\xe7\\xb4\\x84\\xe6\\xb8\\x88\\xe3\\x81\\xbf.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d59834e50_5cx2d01_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2dpartuuid-59834e50\\x2d01.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d01_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d01.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d02_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d02.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d03_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d03.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d59834e50_5cx2d01_2edevice",
+                0,
+                "dev-disk-by\\x2dpartuuid-59834e50\\x2d01.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d01_2edevice",
+                0,
+                "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d01.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d02_2edevice",
+                0,
+                "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d02.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpartuuid_2d63e2a7b3_5cx2d03_2edevice",
+                0,
+                "dev-disk-by\\x2dpartuuid-63e2a7b3\\x2d03.device");
         test_unit_name_from_dbus_path_one(
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpath_2dpci_5cx2d0000_3a00_3a1f_2e2_5cx2data_5cx2d1_2edevice",
                 0,
@@ -636,140 +660,261 @@ static void test_unit_name_from_dbus_path(void) {
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2dpath_2dpci_5cx2d0000_3a00_3a1f_2e2_5cx2data_5cx2d6_5cx2dpart1_2edevice",
                 0,
                 "dev-disk-by\\x2dpath-pci\\x2d0000:00:1f.2\\x2data\\x2d6\\x2dpart1.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2d1A34E3F034E3CD37_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2duuid-1A34E3F034E3CD37.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2dB670EBFE70EBC2EB_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2duuid-B670EBFE70EBC2EB.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2dFCD4F509D4F4C6C4_2edevice",
-                                          0,
-                                          "dev-disk-by\\x2duuid-FCD4F509D4F4C6C4.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2d1A34E3F034E3CD37_2edevice",
+                0,
+                "dev-disk-by\\x2duuid-1A34E3F034E3CD37.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2dB670EBFE70EBC2EB_2edevice",
+                0,
+                "dev-disk-by\\x2duuid-B670EBFE70EBC2EB.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2dFCD4F509D4F4C6C4_2edevice",
+                0,
+                "dev-disk-by\\x2duuid-FCD4F509D4F4C6C4.device");
         test_unit_name_from_dbus_path_one(
                 "/org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2duuid_2db49ead57_5cx2d907c_5cx2d446c_5cx2db405_5cx2d5ca6cd865f5e_2edevice",
                 0,
                 "dev-disk-by\\x2duuid-b49ead57\\x2d907c\\x2d446c\\x2db405\\x2d5ca6cd865f5e.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dhugepages_2emount", 0, "dev-hugepages.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dmqueue_2emount", 0, "dev-mqueue.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2drfkill_2edevice", 0, "dev-rfkill.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsda1_2edevice", 0, "dev-sda1.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsda2_2edevice", 0, "dev-sda2.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsda3_2edevice", 0, "dev-sda3.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsda_2edevice", 0, "dev-sda.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsdb1_2edevice", 0, "dev-sdb1.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsdb_2edevice", 0, "dev-sdb.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dsr0_2edevice", 0, "dev-sr0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS0_2edevice", 0, "dev-ttyS0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS10_2edevice", 0, "dev-ttyS10.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS11_2edevice", 0, "dev-ttyS11.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS12_2edevice", 0, "dev-ttyS12.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS13_2edevice", 0, "dev-ttyS13.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS14_2edevice", 0, "dev-ttyS14.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS15_2edevice", 0, "dev-ttyS15.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS16_2edevice", 0, "dev-ttyS16.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS17_2edevice", 0, "dev-ttyS17.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS18_2edevice", 0, "dev-ttyS18.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS19_2edevice", 0, "dev-ttyS19.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS1_2edevice", 0, "dev-ttyS1.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS20_2edevice", 0, "dev-ttyS20.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS21_2edevice", 0, "dev-ttyS21.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS22_2edevice", 0, "dev-ttyS22.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS23_2edevice", 0, "dev-ttyS23.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS24_2edevice", 0, "dev-ttyS24.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS25_2edevice", 0, "dev-ttyS25.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS26_2edevice", 0, "dev-ttyS26.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS27_2edevice", 0, "dev-ttyS27.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS28_2edevice", 0, "dev-ttyS28.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS29_2edevice", 0, "dev-ttyS29.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS2_2edevice", 0, "dev-ttyS2.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS30_2edevice", 0, "dev-ttyS30.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS31_2edevice", 0, "dev-ttyS31.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS3_2edevice", 0, "dev-ttyS3.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS4_2edevice", 0, "dev-ttyS4.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS5_2edevice", 0, "dev-ttyS5.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS6_2edevice", 0, "dev-ttyS6.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS7_2edevice", 0, "dev-ttyS7.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS8_2edevice", 0, "dev-ttyS8.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dev_2dttyS9_2edevice", 0, "dev-ttyS9.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dcmdline_2eservice", 0, "dracut-cmdline.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dinitqueue_2eservice", 0, "dracut-initqueue.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dmount_2eservice", 0, "dracut-mount.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dmount_2eservice", 0, "dracut-pre-mount.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dpivot_2eservice", 0, "dracut-pre-pivot.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/dracut_2dpre_2dtrigger_2eservice", 0, "dracut-pre-trigger.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dudev_2eservice", 0, "dracut-pre-udev.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dshutdown_2eservice", 0, "dracut-shutdown.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/ebtables_2eservice", 0, "ebtables.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/emergency_2eservice", 0, "emergency.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/emergency_2etarget", 0, "emergency.target");
+                "/org/freedesktop/systemd1/unit/dev_2dhugepages_2emount", 0, "dev-hugepages.mount");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/fedora_2dimport_2dstate_2eservice", 0, "fedora-import-state.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/fedora_2dreadonly_2eservice", 0, "fedora-readonly.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/firewalld_2eservice", 0, "firewalld.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/getty_2dpre_2etarget", 0, "getty-pre.target");
+                "/org/freedesktop/systemd1/unit/dev_2dmqueue_2emount", 0, "dev-mqueue.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2drfkill_2edevice", 0, "dev-rfkill.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsda1_2edevice", 0, "dev-sda1.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsda2_2edevice", 0, "dev-sda2.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsda3_2edevice", 0, "dev-sda3.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsda_2edevice", 0, "dev-sda.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsdb1_2edevice", 0, "dev-sdb1.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsdb_2edevice", 0, "dev-sdb.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dsr0_2edevice", 0, "dev-sr0.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS0_2edevice", 0, "dev-ttyS0.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS10_2edevice", 0, "dev-ttyS10.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS11_2edevice", 0, "dev-ttyS11.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS12_2edevice", 0, "dev-ttyS12.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS13_2edevice", 0, "dev-ttyS13.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS14_2edevice", 0, "dev-ttyS14.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS15_2edevice", 0, "dev-ttyS15.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS16_2edevice", 0, "dev-ttyS16.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS17_2edevice", 0, "dev-ttyS17.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS18_2edevice", 0, "dev-ttyS18.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS19_2edevice", 0, "dev-ttyS19.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS1_2edevice", 0, "dev-ttyS1.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS20_2edevice", 0, "dev-ttyS20.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS21_2edevice", 0, "dev-ttyS21.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS22_2edevice", 0, "dev-ttyS22.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS23_2edevice", 0, "dev-ttyS23.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS24_2edevice", 0, "dev-ttyS24.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS25_2edevice", 0, "dev-ttyS25.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS26_2edevice", 0, "dev-ttyS26.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS27_2edevice", 0, "dev-ttyS27.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS28_2edevice", 0, "dev-ttyS28.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS29_2edevice", 0, "dev-ttyS29.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS2_2edevice", 0, "dev-ttyS2.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS30_2edevice", 0, "dev-ttyS30.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS31_2edevice", 0, "dev-ttyS31.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS3_2edevice", 0, "dev-ttyS3.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS4_2edevice", 0, "dev-ttyS4.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS5_2edevice", 0, "dev-ttyS5.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS6_2edevice", 0, "dev-ttyS6.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS7_2edevice", 0, "dev-ttyS7.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS8_2edevice", 0, "dev-ttyS8.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dev_2dttyS9_2edevice", 0, "dev-ttyS9.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dracut_2dcmdline_2eservice", 0, "dracut-cmdline.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dracut_2dinitqueue_2eservice", 0, "dracut-initqueue.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dracut_2dmount_2eservice", 0, "dracut-mount.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dmount_2eservice",
+                                          0,
+                                          "dracut-pre-mount.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dpivot_2eservice",
+                                          0,
+                                          "dracut-pre-pivot.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/dracut_2dpre_2dtrigger_2eservice",
+                                          0,
+                                          "dracut-pre-trigger.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dracut_2dpre_2dudev_2eservice", 0, "dracut-pre-udev.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/dracut_2dshutdown_2eservice", 0, "dracut-shutdown.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/ebtables_2eservice", 0, "ebtables.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/emergency_2eservice", 0, "emergency.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/emergency_2etarget", 0, "emergency.target");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/fedora_2dimport_2dstate_2eservice",
+                                          0,
+                                          "fedora-import-state.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/fedora_2dreadonly_2eservice", 0, "fedora-readonly.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/firewalld_2eservice", 0, "firewalld.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/getty_2dpre_2etarget", 0, "getty-pre.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/getty_2etarget", 0, "getty.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/getty_40tty1_2eservice", 0, "getty@tty1.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/graphical_2etarget", 0, "graphical.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/getty_40tty1_2eservice", 0, "getty@tty1.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/graphical_2etarget", 0, "graphical.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/home_2emount", 0, "home.mount");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/init_2escope", 0, "init.scope");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dcleanup_2eservice", 0, "initrd-cleanup.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dfs_2etarget", 0, "initrd-fs.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dparse_2detc_2eservice", 0, "initrd-parse-etc.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2droot_2ddevice_2etarget", 0, "initrd-root-device.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2droot_2dfs_2etarget", 0, "initrd-root-fs.target");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/initrd_2dswitch_2droot_2eservice", 0, "initrd-switch-root.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dswitch_2droot_2etarget", 0, "initrd-switch-root.target");
+                "/org/freedesktop/systemd1/unit/initrd_2dcleanup_2eservice", 0, "initrd-cleanup.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/initrd_2dudevadm_2dcleanup_2ddb_2eservice", 0, "initrd-udevadm-cleanup-db.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2etarget", 0, "initrd.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/ip6tables_2eservice", 0, "ip6tables.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/ipset_2eservice", 0, "ipset.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/iptables_2eservice", 0, "iptables.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/irqbalance_2eservice", 0, "irqbalance.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/kmod_2dstatic_2dnodes_2eservice", 0, "kmod-static-nodes.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/ldconfig_2eservice", 0, "ldconfig.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/lightdm_2eservice", 0, "lightdm.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/livesys_2dlate_2eservice", 0, "livesys-late.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/lm_5fsensors_2eservice", 0, "lm_sensors.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/local_2dfs_2dpre_2etarget", 0, "local-fs-pre.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/local_2dfs_2etarget", 0, "local-fs.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/machines_2etarget", 0, "machines.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/mcelog_2eservice", 0, "mcelog.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/multi_2duser_2etarget", 0, "multi-user.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/network_2dpre_2etarget", 0, "network-pre.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/network_2etarget", 0, "network.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/nss_2dlookup_2etarget", 0, "nss-lookup.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/nss_2duser_2dlookup_2etarget", 0, "nss-user-lookup.target");
+                "/org/freedesktop/systemd1/unit/initrd_2dfs_2etarget", 0, "initrd-fs.target");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dparse_2detc_2eservice",
+                                          0,
+                                          "initrd-parse-etc.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2droot_2ddevice_2etarget",
+                                          0,
+                                          "initrd-root-device.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/initrd_2droot_2dfs_2etarget", 0, "initrd-root-fs.target");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dswitch_2droot_2eservice",
+                                          0,
+                                          "initrd-switch-root.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/initrd_2dswitch_2droot_2etarget",
+                                          0,
+                                          "initrd-switch-root.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/initrd_2dudevadm_2dcleanup_2ddb_2eservice",
+                0,
+                "initrd-udevadm-cleanup-db.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/initrd_2etarget", 0, "initrd.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/ip6tables_2eservice", 0, "ip6tables.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/ipset_2eservice", 0, "ipset.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/iptables_2eservice", 0, "iptables.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/irqbalance_2eservice", 0, "irqbalance.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/kmod_2dstatic_2dnodes_2eservice",
+                                          0,
+                                          "kmod-static-nodes.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/ldconfig_2eservice", 0, "ldconfig.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/lightdm_2eservice", 0, "lightdm.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/livesys_2dlate_2eservice", 0, "livesys-late.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/lm_5fsensors_2eservice", 0, "lm_sensors.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/local_2dfs_2dpre_2etarget", 0, "local-fs-pre.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/local_2dfs_2etarget", 0, "local-fs.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/machines_2etarget", 0, "machines.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/mcelog_2eservice", 0, "mcelog.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/multi_2duser_2etarget", 0, "multi-user.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/network_2dpre_2etarget", 0, "network-pre.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/network_2etarget", 0, "network.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/nss_2dlookup_2etarget", 0, "nss-lookup.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/nss_2duser_2dlookup_2etarget", 0, "nss-user-lookup.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/paths_2etarget", 0, "paths.target");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/plymouth_2dquit_2dwait_2eservice",
+                                          0,
+                                          "plymouth-quit-wait.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/plymouth_2dquit_2dwait_2eservice", 0, "plymouth-quit-wait.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/plymouth_2dquit_2eservice", 0, "plymouth-quit.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/plymouth_2dstart_2eservice", 0, "plymouth-start.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/polkit_2eservice", 0, "polkit.service");
+                "/org/freedesktop/systemd1/unit/plymouth_2dquit_2eservice", 0, "plymouth-quit.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount", 0, "proc-sys-fs-binfmt_misc.automount");
+                "/org/freedesktop/systemd1/unit/plymouth_2dstart_2eservice", 0, "plymouth-start.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2emount", 0, "proc-sys-fs-binfmt_misc.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/rc_2dlocal_2eservice", 0, "rc-local.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dcryptsetup_2etarget", 0, "remote-cryptsetup.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dfs_2dpre_2etarget", 0, "remote-fs-pre.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/remote_2dfs_2etarget", 0, "remote-fs.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/rescue_2eservice", 0, "rescue.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/rescue_2etarget", 0, "rescue.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/run_2duser_2d1000_2emount", 0, "run-user-1000.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/session_2d2_2escope", 0, "session-2.scope");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/shutdown_2etarget", 0, "shutdown.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/slices_2etarget", 0, "slices.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/smartd_2eservice", 0, "smartd.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sockets_2etarget", 0, "sockets.target");
+                "/org/freedesktop/systemd1/unit/polkit_2eservice", 0, "polkit.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount",
+                0,
+                "proc-sys-fs-binfmt_misc.automount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2emount",
+                0,
+                "proc-sys-fs-binfmt_misc.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/rc_2dlocal_2eservice", 0, "rc-local.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/remote_2dcryptsetup_2etarget", 0, "remote-cryptsetup.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/remote_2dfs_2dpre_2etarget", 0, "remote-fs-pre.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/remote_2dfs_2etarget", 0, "remote-fs.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/rescue_2eservice", 0, "rescue.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/rescue_2etarget", 0, "rescue.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/run_2duser_2d1000_2emount", 0, "run-user-1000.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/session_2d2_2escope", 0, "session-2.scope");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/shutdown_2etarget", 0, "shutdown.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/slices_2etarget", 0, "slices.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/smartd_2eservice", 0, "smartd.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sockets_2etarget", 0, "sockets.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sound_2etarget", 0, "sound.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2dkeygen_2etarget", 0, "sshd-keygen.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2dkeygen_40ecdsa_2eservice", 0, "sshd-keygen@ecdsa.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/sshd_2dkeygen_40ed25519_2eservice", 0, "sshd-keygen@ed25519.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2dkeygen_40rsa_2eservice", 0, "sshd-keygen@rsa.service");
+                "/org/freedesktop/systemd1/unit/sshd_2dkeygen_2etarget", 0, "sshd-keygen.target");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2dkeygen_40ecdsa_2eservice",
+                                          0,
+                                          "sshd-keygen@ecdsa.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2dkeygen_40ed25519_2eservice",
+                                          0,
+                                          "sshd-keygen@ed25519.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sshd_2dkeygen_40rsa_2eservice", 0, "sshd-keygen@rsa.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sshd_2eservice", 0, "sshd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/swap_2etarget", 0, "swap.target");
         test_unit_name_from_dbus_path_one(
@@ -824,227 +969,361 @@ static void test_unit_name_from_dbus_path(void) {
                 "/org/freedesktop/systemd1/unit/sys_2ddevices_2dpci0000_3a00_2d0000_3a00_3a1f_2e2_2data6_2dhost5_2dtarget5_3a0_3a0_2d5_3a0_3a0_3a0_2dblock_2dsdb_2edevice",
                 0,
                 "sys-devices-pci0000:00-0000:00:1f.2-ata6-host5-target5:0:0-5:0:0:0-block-sdb.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS0_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS10_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS10.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS11_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS11.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS12_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS12.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS13_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS13.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS14_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS14.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS15_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS15.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS16_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS16.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS17_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS17.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS18_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS18.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS19_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS19.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS1_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS1.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS20_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS20.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS21_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS21.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS22_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS22.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS23_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS23.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS24_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS24.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS25_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS25.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS26_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS26.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS27_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS27.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS28_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS28.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS29_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS29.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS2_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS2.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS30_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS30.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS31_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS31.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS3_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS3.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS4_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS4.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS5_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS5.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS6_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS6.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS7_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS7.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS8_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS8.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS9_2edevice",
-                                          0,
-                                          "sys-devices-platform-serial8250-tty-ttyS9.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2ddevices_2dvirtual_2dmisc_2drfkill_2edevice",
-                                          0,
-                                          "sys-devices-virtual-misc-rfkill.device");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/sys_2dfs_2dfuse_2dconnections_2emount", 0, "sys-fs-fuse-connections.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dkernel_2dconfig_2emount", 0, "sys-kernel-config.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dkernel_2ddebug_2emount", 0, "sys-kernel-debug.mount");
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS0_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS0.device");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/sys_2dmodule_2dconfigfs_2edevice", 0, "sys-module-configfs.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dbluetooth_2ddevices_2dhci0_2edevice",
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS10_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS10.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS11_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS11.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS12_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS12.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS13_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS13.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS14_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS14.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS15_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS15.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS16_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS16.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS17_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS17.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS18_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS18.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS19_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS19.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS1_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS1.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS20_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS20.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS21_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS21.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS22_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS22.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS23_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS23.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS24_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS24.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS25_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS25.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS26_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS26.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS27_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS27.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS28_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS28.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS29_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS29.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS2_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS2.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS30_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS30.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS31_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS31.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS3_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS3.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS4_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS4.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS5_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS5.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS6_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS6.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS7_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS7.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS8_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS8.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dplatform_2dserial8250_2dtty_2dttyS9_2edevice",
+                0,
+                "sys-devices-platform-serial8250-tty-ttyS9.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2ddevices_2dvirtual_2dmisc_2drfkill_2edevice",
+                0,
+                "sys-devices-virtual-misc-rfkill.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dfs_2dfuse_2dconnections_2emount",
+                0,
+                "sys-fs-fuse-connections.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dkernel_2dconfig_2emount", 0, "sys-kernel-config.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dkernel_2ddebug_2emount", 0, "sys-kernel-debug.mount");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dmodule_2dconfigfs_2edevice",
                                           0,
-                                          "sys-subsystem-bluetooth-devices-hci0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dnet_2ddevices_2denp4s0_2edevice",
+                                          "sys-module-configfs.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dbluetooth_2ddevices_2dhci0_2edevice",
+                0,
+                "sys-subsystem-bluetooth-devices-hci0.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dnet_2ddevices_2denp4s0_2edevice",
+                0,
+                "sys-subsystem-net-devices-enp4s0.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dnet_2ddevices_2dwlp2s0_2edevice",
+                0,
+                "sys-subsystem-net-devices-wlp2s0.device");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sysinit_2etarget", 0, "sysinit.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/syslog_2eservice", 0, "syslog.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/syslog_2esocket", 0, "syslog.socket");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/syslog_2etarget", 0, "syslog.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/sysroot_2emount", 0, "sysroot.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/system_2dgetty_2eslice", 0, "system-getty.slice");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/system_2dsshd_5cx2dkeygen_2eslice",
                                           0,
-                                          "sys-subsystem-net-devices-enp4s0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sys_2dsubsystem_2dnet_2ddevices_2dwlp2s0_2edevice",
-                                          0,
-                                          "sys-subsystem-net-devices-wlp2s0.device");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sysinit_2etarget", 0, "sysinit.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/syslog_2eservice", 0, "syslog.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/syslog_2esocket", 0, "syslog.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/syslog_2etarget", 0, "syslog.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/sysroot_2emount", 0, "sysroot.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/system_2dgetty_2eslice", 0, "system-getty.slice");
+                                          "system-sshd\\x2dkeygen.slice");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/system_2dsshd_5cx2dkeygen_2eslice", 0, "system-sshd\\x2dkeygen.slice");
+                "/org/freedesktop/systemd1/unit/system_2dsystemd_5cx2dbacklight_2eslice",
+                0,
+                "system-systemd\\x2dbacklight.slice");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/system_2dsystemd_5cx2dbacklight_2eslice", 0, "system-systemd\\x2dbacklight.slice");
+                "/org/freedesktop/systemd1/unit/system_2dsystemd_5cx2dcoredump_2eslice",
+                0,
+                "system-systemd\\x2dcoredump.slice");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/system_2dsystemd_5cx2dcoredump_2eslice", 0, "system-systemd\\x2dcoredump.slice");
-        test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/system_2duser_5cx2druntime_5cx2ddir_2eslice", 0, "system-user\\x2druntime\\x2ddir.slice");
+                "/org/freedesktop/systemd1/unit/system_2duser_5cx2druntime_5cx2ddir_2eslice",
+                0,
+                "system-user\\x2druntime\\x2ddir.slice");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/system_2eslice", 0, "system.slice");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dconsole_2epath", 0, "systemd-ask-password-console.path");
+                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dconsole_2epath",
+                0,
+                "systemd-ask-password-console.path");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dconsole_2eservice", 0, "systemd-ask-password-console.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dconsole_2eservice",
+                0,
+                "systemd-ask-password-console.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dwall_2epath", 0, "systemd-ask-password-wall.path");
+                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dwall_2epath",
+                0,
+                "systemd-ask-password-wall.path");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dwall_2eservice", 0, "systemd-ask-password-wall.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dbacklight_40backlight_3aacpi_5fvideo0_2eservice",
+                "/org/freedesktop/systemd1/unit/systemd_2dask_2dpassword_2dwall_2eservice",
+                0,
+                "systemd-ask-password-wall.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dbacklight_40backlight_3aacpi_5fvideo0_2eservice",
+                0,
+                "systemd-backlight@backlight:acpi_video0.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dbacklight_40backlight_3aintel_5fbacklight_2eservice",
+                0,
+                "systemd-backlight@backlight:intel_backlight.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dbinfmt_2eservice", 0, "systemd-binfmt.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dcoredump_2esocket", 0, "systemd-coredump.socket");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dcoredump_400_2eservice",
                                           0,
-                                          "systemd-backlight@backlight:acpi_video0.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dbacklight_40backlight_3aintel_5fbacklight_2eservice",
+                                          "systemd-coredump@0.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfirstboot_2eservice",
                                           0,
-                                          "systemd-backlight@backlight:intel_backlight.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dbinfmt_2eservice", 0, "systemd-binfmt.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dcoredump_2esocket", 0, "systemd-coredump.socket");
-        test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dcoredump_400_2eservice", 0, "systemd-coredump@0.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfirstboot_2eservice", 0, "systemd-firstboot.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfsck_2droot_2eservice", 0, "systemd-fsck-root.service");
-        test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dhwdb_2dupdate_2eservice", 0, "systemd-hwdb-update.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2eservice", 0, "systemd-initctl.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dinitctl_2esocket", 0, "systemd-initctl.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournal_2dcatalog_2dupdate_2eservice",
+                                          "systemd-firstboot.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dfsck_2droot_2eservice",
                                           0,
-                                          "systemd-journal-catalog-update.service");
+                                          "systemd-fsck-root.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dhwdb_2dupdate_2eservice",
+                                          0,
+                                          "systemd-hwdb-update.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2djournal_2dflush_2eservice", 0, "systemd-journal-flush.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dinitctl_2eservice", 0, "systemd-initctl.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2djournald_2daudit_2esocket", 0, "systemd-journald-audit.socket");
+                "/org/freedesktop/systemd1/unit/systemd_2dinitctl_2esocket", 0, "systemd-initctl.socket");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2djournald_2ddev_2dlog_2esocket", 0, "systemd-journald-dev-log.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournald_2eservice", 0, "systemd-journald.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournald_2esocket", 0, "systemd-journald.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dlogind_2eservice", 0, "systemd-logind.service");
+                "/org/freedesktop/systemd1/unit/systemd_2djournal_2dcatalog_2dupdate_2eservice",
+                0,
+                "systemd-journal-catalog-update.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dmachine_2did_2dcommit_2eservice", 0, "systemd-machine-id-commit.service");
+                "/org/freedesktop/systemd1/unit/systemd_2djournal_2dflush_2eservice",
+                0,
+                "systemd-journal-flush.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dmodules_2dload_2eservice", 0, "systemd-modules-load.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2eservice", 0, "systemd-networkd.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2esocket", 0, "systemd-networkd.socket");
+                "/org/freedesktop/systemd1/unit/systemd_2djournald_2daudit_2esocket",
+                0,
+                "systemd-journald-audit.socket");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2drandom_2dseed_2eservice", 0, "systemd-random-seed.service");
+                "/org/freedesktop/systemd1/unit/systemd_2djournald_2ddev_2dlog_2esocket",
+                0,
+                "systemd-journald-dev-log.socket");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dremount_2dfs_2eservice", 0, "systemd-remount-fs.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dresolved_2eservice", 0, "systemd-resolved.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2drfkill_2eservice", 0, "systemd-rfkill.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2drfkill_2esocket", 0, "systemd-rfkill.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dsysctl_2eservice", 0, "systemd-sysctl.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dsysusers_2eservice", 0, "systemd-sysusers.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dtimesyncd_2eservice", 0, "systemd-timesyncd.service");
+                "/org/freedesktop/systemd1/unit/systemd_2djournald_2eservice", 0, "systemd-journald.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2eservice", 0, "systemd-tmpfiles-clean.service");
+                "/org/freedesktop/systemd1/unit/systemd_2djournald_2esocket", 0, "systemd-journald.socket");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer", 0, "systemd-tmpfiles-clean.timer");
+                "/org/freedesktop/systemd1/unit/systemd_2dlogind_2eservice", 0, "systemd-logind.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2ddev_2eservice", 0, "systemd-tmpfiles-setup-dev.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dmachine_2did_2dcommit_2eservice",
+                0,
+                "systemd-machine-id-commit.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2eservice", 0, "systemd-tmpfiles-setup.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dmodules_2dload_2eservice",
+                0,
+                "systemd-modules-load.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dudev_2dtrigger_2eservice", 0, "systemd-udev-trigger.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2eservice", 0, "systemd-networkd.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dudevd_2dcontrol_2esocket", 0, "systemd-udevd-control.socket");
+                "/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2esocket", 0, "systemd-networkd.socket");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2drandom_2dseed_2eservice",
+                                          0,
+                                          "systemd-random-seed.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dremount_2dfs_2eservice",
+                                          0,
+                                          "systemd-remount-fs.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dudevd_2dkernel_2esocket", 0, "systemd-udevd-kernel.socket");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2eservice", 0, "systemd-udevd.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dresolved_2eservice", 0, "systemd-resolved.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dupdate_2ddone_2eservice", 0, "systemd-update-done.service");
+                "/org/freedesktop/systemd1/unit/systemd_2drfkill_2eservice", 0, "systemd-rfkill.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2drunlevel_2eservice", 0, "systemd-update-utmp-runlevel.service");
+                "/org/freedesktop/systemd1/unit/systemd_2drfkill_2esocket", 0, "systemd-rfkill.socket");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2eservice", 0, "systemd-update-utmp.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dsysctl_2eservice", 0, "systemd-sysctl.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2duser_2dsessions_2eservice", 0, "systemd-user-sessions.service");
+                "/org/freedesktop/systemd1/unit/systemd_2dsysusers_2eservice", 0, "systemd-sysusers.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dtimesyncd_2eservice",
+                                          0,
+                                          "systemd-timesyncd.service");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/systemd_2dvconsole_2dsetup_2eservice", 0, "systemd-vconsole-setup.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/time_2dsync_2etarget", 0, "time-sync.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/timers_2etarget", 0, "timers.target");
+                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2eservice",
+                0,
+                "systemd-tmpfiles-clean.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer",
+                0,
+                "systemd-tmpfiles-clean.timer");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2ddev_2eservice",
+                0,
+                "systemd-tmpfiles-setup-dev.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dsetup_2eservice",
+                0,
+                "systemd-tmpfiles-setup.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dudev_2dtrigger_2eservice",
+                0,
+                "systemd-udev-trigger.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dudevd_2dcontrol_2esocket",
+                0,
+                "systemd-udevd-control.socket");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dudevd_2dkernel_2esocket",
+                                          0,
+                                          "systemd-udevd-kernel.socket");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dudevd_2eservice", 0, "systemd-udevd.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2ddone_2eservice",
+                                          0,
+                                          "systemd-update-done.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2drunlevel_2eservice",
+                0,
+                "systemd-update-utmp-runlevel.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dupdate_2dutmp_2eservice",
+                                          0,
+                                          "systemd-update-utmp.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2duser_2dsessions_2eservice",
+                0,
+                "systemd-user-sessions.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/systemd_2dvconsole_2dsetup_2eservice",
+                0,
+                "systemd-vconsole-setup.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/time_2dsync_2etarget", 0, "time-sync.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/timers_2etarget", 0, "timers.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/tmp_2emount", 0, "tmp.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/umount_2etarget", 0, "umount.target");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/unbound_2danchor_2eservice", 0, "unbound-anchor.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/unbound_2danchor_2etimer", 0, "unbound-anchor.timer");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/upower_2eservice", 0, "upower.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/user_2d1000_2eslice", 0, "user-1000.slice");
         test_unit_name_from_dbus_path_one(
-                "/org/freedesktop/systemd1/unit/user_2druntime_2ddir_401000_2eservice", 0, "user-runtime-dir@1000.service");
+                "/org/freedesktop/systemd1/unit/umount_2etarget", 0, "umount.target");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/unbound_2danchor_2eservice", 0, "unbound-anchor.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/unbound_2danchor_2etimer", 0, "unbound-anchor.timer");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/upower_2eservice", 0, "upower.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/user_2d1000_2eslice", 0, "user-1000.slice");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/user_2druntime_2ddir_401000_2eservice",
+                0,
+                "user-runtime-dir@1000.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/user_2eslice", 0, "user.slice");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/user_401000_2eservice", 0, "user@1000.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/usr_2dlocal_2dtexlive_2emount", 0, "usr-local-texlive.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/var_2dlib_2dmachines_2emount", 0, "var-lib-machines.mount");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/wpa_5fsupplicant_2eservice", 0, "wpa_supplicant.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/user_401000_2eservice", 0, "user@1000.service");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/usr_2dlocal_2dtexlive_2emount", 0, "usr-local-texlive.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/var_2dlib_2dmachines_2emount", 0, "var-lib-machines.mount");
+        test_unit_name_from_dbus_path_one(
+                "/org/freedesktop/systemd1/unit/wpa_5fsupplicant_2eservice", 0, "wpa_supplicant.service");
 }
 
 int main(int argc, char *argv[]) {

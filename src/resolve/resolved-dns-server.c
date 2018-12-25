@@ -17,7 +17,13 @@
 /* The number of times we will attempt a certain feature set before degrading */
 #define DNS_SERVER_FEATURE_RETRY_ATTEMPTS 3
 
-int dns_server_new(Manager *m, DnsServer **ret, DnsServerType type, Link *l, int family, const union in_addr_union *in_addr, int ifindex) {
+int dns_server_new(Manager *m,
+                   DnsServer **ret,
+                   DnsServerType type,
+                   Link *l,
+                   int family,
+                   const union in_addr_union *in_addr,
+                   int ifindex) {
 
         DnsServer *s;
 
@@ -82,7 +88,8 @@ int dns_server_new(Manager *m, DnsServer **ret, DnsServerType type, Link *l, int
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
-        if (type != DNS_SERVER_FALLBACK && m->current_dns_server && m->current_dns_server->type == DNS_SERVER_FALLBACK)
+        if (type != DNS_SERVER_FALLBACK && m->current_dns_server &&
+            m->current_dns_server->type == DNS_SERVER_FALLBACK)
                 manager_set_dns_server(m, NULL);
 
         if (ret)
@@ -222,16 +229,16 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->packet_truncated = false;
         s->verified_usec = 0;
 
-        /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
-         * grace period ends, but not when lowering the possible feature level, as a lower level feature level should
-         * not make RRSIGs appear or OPT appear, but rather make them disappear. If the reappear anyway, then that's
-         * indication for a differently broken OPT/RRSIG implementation, and we really don't want to support that
-         * either.
+        /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only
+         * when the grace period ends, but not when lowering the possible feature level, as a lower level
+         * feature level should not make RRSIGs appear or OPT appear, but rather make them disappear. If the
+         * reappear anyway, then that's indication for a differently broken OPT/RRSIG implementation, and we
+         * really don't want to support that either.
          *
-         * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
-         * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
-         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
-         * incomplete. */
+         * This is particularly important to deal with certain Belkin routers which break OPT for certain
+         * lookups (A), but pass traffic through for others (AAAA). If we detect the broken behaviour on one
+         * lookup we should not reenable it for another, because we cannot validate things anyway, given that
+         * the RRSIG/OPT data will be incomplete. */
 }
 
 void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size) {
@@ -255,7 +262,8 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
 
         /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
         if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
         /* If the OPT RR got lost, then we can only validate UDP at max */
         if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
@@ -310,8 +318,9 @@ void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) 
 
         /* If the RRSIG RRs are missing, we have to downgrade what we previously verified */
         if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
-                                                                                     DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ?
+                        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                        DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
         s->packet_rrsig_missing = true;
 }
@@ -332,9 +341,9 @@ void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level) {
 void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level) {
         assert(s);
 
-        /* Invoked whenever we got a FORMERR, SERVFAIL or NOTIMP rcode from a server and downgrading the feature level
-         * for the transaction made it go away. In this case we immediately downgrade to the feature level that made
-         * things work. */
+        /* Invoked whenever we got a FORMERR, SERVFAIL or NOTIMP rcode from a server and downgrading the
+         * feature level for the transaction made it go away. In this case we immediately downgrade to the
+         * feature level that made things work. */
 
         if (s->verified_feature_level > level)
                 s->verified_feature_level = level;
@@ -344,7 +353,8 @@ void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level
                 dns_server_reset_counters(s);
         }
 
-        log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", dns_server_string(s));
+        log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.",
+                  dns_server_string(s));
 }
 
 static bool dns_server_grace_period_expired(DnsServer *s) {
@@ -361,7 +371,8 @@ static bool dns_server_grace_period_expired(DnsServer *s) {
         if (s->verified_usec + s->features_grace_period_usec > ts)
                 return false;
 
-        s->features_grace_period_usec = MIN(s->features_grace_period_usec * 2, DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC);
+        s->features_grace_period_usec = MIN(s->features_grace_period_usec * 2,
+                                            DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC);
 
         return true;
 }
@@ -371,17 +382,19 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
         assert(s);
 
-        /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
-         * better than EDNS0, hence don't even try. */
+        /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using
+         * anything better than EDNS0, hence don't even try. */
         if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
-                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ? DNS_SERVER_FEATURE_LEVEL_LARGE :
-                                                                                DNS_SERVER_FEATURE_LEVEL_TLS_DO;
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
+                        DNS_SERVER_FEATURE_LEVEL_LARGE :
+                        DNS_SERVER_FEATURE_LEVEL_TLS_DO;
         else
-                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ? DNS_SERVER_FEATURE_LEVEL_EDNS0 :
-                                                                                DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
+                        DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
 
-        /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
-         * time, hence let's downgrade if we are still at a higher level. */
+        /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since
+         * the last time, hence let's downgrade if we are still at a higher level. */
         if (s->possible_feature_level > best)
                 s->possible_feature_level = best;
 
@@ -405,44 +418,49 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         else {
                 DnsServerFeatureLevel p = s->possible_feature_level;
 
-                if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS && s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP) {
+                if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
+                    s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP) {
 
-                        /* We are at the TCP (lowest) level, and we tried a couple of TCP connections, and it didn't
-                         * work. Upgrade back to UDP again. */
-                        log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
+                        /* We are at the TCP (lowest) level, and we tried a couple of TCP connections, and it
+                         * didn't work. Upgrade back to UDP again. */
+                        log_debug(
+                                "Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
                 } else if (s->n_failed_tls > 0 && DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
 
-                        /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
-                         * if we don't require DNS-over-TLS */
+                        /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext
+                         * UDP if we don't require DNS-over-TLS */
 
                         log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
                         s->possible_feature_level--;
                 } else if (s->packet_bad_opt && s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
 
-                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to below
-                         * EDNS0 levels. After all, some records generate different responses with and without OPT RR
-                         * in the request. Example:
+                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to
+                         * below EDNS0 levels. After all, some records generate different responses with and
+                         * without OPT RR in the request. Example:
                          * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
 
                         log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
 
-                } else if (s->packet_rrsig_missing && s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
+                } else if (s->packet_rrsig_missing &&
+                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
 
-                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server doesn't
-                         * augment responses with DNSSEC RRs. If so, let's better not ask the server for it anymore,
-                         * after all some servers generate different replies depending if an OPT RR is in the query or
-                         * not. */
+                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server
+                         * doesn't augment responses with DNSSEC RRs. If so, let's better not ask the server
+                         * for it anymore, after all some servers generate different replies depending if an
+                         * OPT RR is in the query or not. */
 
-                        log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
+                        log_debug(
+                                "Detected server responses lack RRSIG records, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ?
                                 DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                           s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE :
-                                                                                                       DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ?
+                                                                 DNS_SERVER_FEATURE_LEVEL_LARGE :
+                                                                 DNS_SERVER_FEATURE_LEVEL_UDP)) {
 
                         /* We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If the
                          * packets are lost, maybe the server cannot parse them, hence downgrading sounds like a good
@@ -456,16 +474,19 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         s->possible_feature_level--;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS && s->packet_truncated &&
-                           s->possible_feature_level > (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE :
-                                                                                                      DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           s->possible_feature_level > (dns_server_get_dnssec_mode(s) == DNSSEC_YES ?
+                                                                DNS_SERVER_FEATURE_LEVEL_LARGE :
+                                                                DNS_SERVER_FEATURE_LEVEL_UDP)) {
 
-                        /* We got too many TCP connection failures in a row, we had at least one truncated packet, and
-                         * are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or EDNS0
-                         * data we hope to make the packet smaller, so that it still works via UDP given that TCP
-                         * appears not to be a fallback. Note that if we are already at the lowest UDP level, we don't
-                         * go further down, since that's TCP, and TCP failed too often after all. */
+                        /* We got too many TCP connection failures in a row, we had at least one truncated
+                         * packet, and are on a feature level above UDP. By downgrading things and getting
+                         * rid of DNSSEC or EDNS0 data we hope to make the packet smaller, so that it still
+                         * works via UDP given that TCP appears not to be a fallback. Note that if we are
+                         * already at the lowest UDP level, we don't go further down, since that's TCP, and
+                         * TCP failed too often after all. */
 
-                        log_debug("Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
+                        log_debug(
+                                "Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
                         s->possible_feature_level--;
                 }
 
@@ -528,7 +549,8 @@ const char *dns_server_string(DnsServer *server) {
         assert(server);
 
         if (!server->server_string)
-                (void) in_addr_ifindex_to_string(server->family, &server->address, dns_server_ifindex(server), &server->server_string);
+                (void) in_addr_ifindex_to_string(
+                        server->family, &server->address, dns_server_ifindex(server), &server->server_string);
 
         return strna(server->server_string);
 }
@@ -562,7 +584,8 @@ void dns_server_warn_downgrade(DnsServer *server) {
 
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_DNSSEC_DOWNGRADE_STR,
-                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", dns_server_string(server)),
+                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.",
+                               dns_server_string(server)),
                    "DNS_SERVER=%s",
                    dns_server_string(server),
                    "DNS_SERVER_FEATURE_LEVEL=%s",
@@ -666,7 +689,9 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to %s DNS server %s.", dns_server_type_to_string(s->type), dns_server_string(s));
+                log_debug("Switching to %s DNS server %s.",
+                          dns_server_type_to_string(s->type),
+                          dns_server_string(s));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
@@ -866,9 +891,10 @@ void dns_server_unref_stream(DnsServer *s) {
 
         assert(s);
 
-        /* Detaches the default stream of this server. Some special care needs to be taken here, as that stream and
-         * this server reference each other. First, take the stream out of the server. It's destructor will check if it
-         * is registered with us, hence let's invalidate this separatly, so that it is already unregistered. */
+        /* Detaches the default stream of this server. Some special care needs to be taken here, as that
+         * stream and this server reference each other. First, take the stream out of the server. It's
+         * destructor will check if it is registered with us, hence let's invalidate this separatly, so that
+         * it is already unregistered. */
         ref = TAKE_PTR(s->stream);
 
         /* And then, unref it */

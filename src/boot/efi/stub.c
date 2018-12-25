@@ -21,7 +21,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ CHAR8 *b = NULL;
         UINTN size;
         BOOLEAN secure = FALSE;
-        CHAR8 *sections[] = { (UINT8 *) ".cmdline", (UINT8 *) ".linux", (UINT8 *) ".initrd", (UINT8 *) ".splash", NULL };
+        CHAR8 *sections[] = {
+                (UINT8 *) ".cmdline", (UINT8 *) ".linux", (UINT8 *) ".initrd", (UINT8 *) ".splash", NULL
+        };
         UINTN addrs[ELEMENTSOF(sections) - 1] = {};
         UINTN offs[ELEMENTSOF(sections) - 1] = {};
         UINTN szs[ELEMENTSOF(sections) - 1] = {};
@@ -32,8 +34,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(
-                BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **) &loaded_image, image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = uefi_call_wrapper(BS->OpenProtocol,
+                                6,
+                                image,
+                                &LoadedImageProtocol,
+                                (VOID **) &loaded_image,
+                                image,
+                                NULL,
+                                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
                 Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
@@ -98,7 +106,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
-                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                s = PoolPrint(L"%s %d.%02d",
+                              ST->FirmwareVendor,
+                              ST->FirmwareRevision >> 16,
+                              ST->FirmwareRevision & 0xffff);
                 efivar_set(L"LoaderFirmwareInfo", s, FALSE);
         }
 

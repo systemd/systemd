@@ -88,12 +88,33 @@ int sd_event_new(sd_event **e);
 sd_event *sd_event_ref(sd_event *e);
 sd_event *sd_event_unref(sd_event *e);
 
-int sd_event_add_io(sd_event *e, sd_event_source **s, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata);
-int sd_event_add_time(
-        sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
-int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_signal_handler_t callback, void *userdata);
-int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
-int sd_event_add_inotify(sd_event *e, sd_event_source **s, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
+int sd_event_add_io(sd_event *e,
+                    sd_event_source **s,
+                    int fd,
+                    uint32_t events,
+                    sd_event_io_handler_t callback,
+                    void *userdata);
+int sd_event_add_time(sd_event *e,
+                      sd_event_source **s,
+                      clockid_t clock,
+                      uint64_t usec,
+                      uint64_t accuracy,
+                      sd_event_time_handler_t callback,
+                      void *userdata);
+int sd_event_add_signal(
+        sd_event *e, sd_event_source **s, int sig, sd_event_signal_handler_t callback, void *userdata);
+int sd_event_add_child(sd_event *e,
+                       sd_event_source **s,
+                       pid_t pid,
+                       int options,
+                       sd_event_child_handler_t callback,
+                       void *userdata);
+int sd_event_add_inotify(sd_event *e,
+                         sd_event_source **s,
+                         const char *path,
+                         uint32_t mask,
+                         sd_event_inotify_handler_t callback,
+                         void *userdata);
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);

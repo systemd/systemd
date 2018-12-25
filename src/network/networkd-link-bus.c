@@ -10,16 +10,20 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_operational_state, link_operstate, LinkOperationalState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_administrative_state, link_state, LinkState);
 
-const sd_bus_vtable link_vtable[] = {
-        SD_BUS_VTABLE_START(0),
+const sd_bus_vtable link_vtable[] = { SD_BUS_VTABLE_START(0),
 
-        SD_BUS_PROPERTY(
-                "OperationalState", "s", property_get_operational_state, offsetof(Link, operstate), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY(
-                "AdministrativeState", "s", property_get_administrative_state, offsetof(Link, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+                                      SD_BUS_PROPERTY("OperationalState",
+                                                      "s",
+                                                      property_get_operational_state,
+                                                      offsetof(Link, operstate),
+                                                      SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+                                      SD_BUS_PROPERTY("AdministrativeState",
+                                                      "s",
+                                                      property_get_administrative_state,
+                                                      offsetof(Link, state),
+                                                      SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_VTABLE_END
-};
+                                      SD_BUS_VTABLE_END };
 
 static char *link_bus_path(Link *link) {
         _cleanup_free_ char *ifindex = NULL;
@@ -71,7 +75,12 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         return 1;
 }
 
-int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int link_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error) {
         _cleanup_free_ char *identifier = NULL;
         Manager *m = userdata;
         Link *link;

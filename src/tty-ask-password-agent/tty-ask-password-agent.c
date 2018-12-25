@@ -49,7 +49,8 @@ static bool arg_plymouth = false;
 static bool arg_console = false;
 static const char *arg_device = NULL;
 
-static int ask_password_plymouth(const char *message, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret) {
+static int ask_password_plymouth(
+        const char *message, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret) {
 
         static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_close_ int fd = -1, notify = -1;
@@ -166,7 +167,8 @@ static int ask_password_plymouth(const char *message, usec_t until, AskPasswordF
                                  * with a normal password request */
                                 packet = mfree(packet);
 
-                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0) {
+                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) <
+                                    0) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -290,7 +292,14 @@ static int parse_password(const char *filename, char **wall) {
 
         assert(filename);
 
-        r = config_parse(NULL, filename, NULL, NULL, config_item_table_lookup, items, CONFIG_PARSE_RELAXED | CONFIG_PARSE_WARN, NULL);
+        r = config_parse(NULL,
+                         filename,
+                         NULL,
+                         NULL,
+                         config_item_table_lookup,
+                         items,
+                         CONFIG_PARSE_RELAXED | CONFIG_PARSE_WARN,
+                         NULL);
         if (r < 0)
                 return r;
 
@@ -334,7 +343,11 @@ static int parse_password(const char *filename, char **wall) {
                 }
 
                 if (arg_plymouth)
-                        r = ask_password_plymouth(message, not_after, accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0, filename, &passwords);
+                        r = ask_password_plymouth(message,
+                                                  not_after,
+                                                  accept_cached ? ASK_PASSWORD_ACCEPT_CACHED : 0,
+                                                  filename,
+                                                  &passwords);
                 else {
                         int tty_fd = -1;
 
@@ -354,7 +367,8 @@ static int parse_password(const char *filename, char **wall) {
                                              message,
                                              NULL,
                                              not_after,
-                                             (echo ? ASK_PASSWORD_ECHO : 0) | (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
+                                             (echo ? ASK_PASSWORD_ECHO : 0) |
+                                                     (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
                                              filename,
                                              &passwords);
 
@@ -511,10 +525,12 @@ static int watch_passwords(void) {
 
         if (inotify_add_watch(notify, "/run/systemd/ask-password", IN_CLOSE_WRITE | IN_MOVED_TO) < 0) {
                 if (errno == ENOSPC)
-                        return log_error_errno(errno,
-                                               "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
+                        return log_error_errno(
+                                errno,
+                                "Failed to add /run/systemd/ask-password to directory watch: inotify watch limit reached");
                 else
-                        return log_error_errno(errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
+                        return log_error_errno(
+                                errno, "Failed to add /run/systemd/ask-password to directory watch: %m");
         }
 
         assert_se(sigemptyset(&mask) >= 0);
@@ -640,7 +656,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
 
                                 if (isempty(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty console device path is not allowed.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Empty console device path is not allowed.");
 
                                 arg_device = optarg;
                         }
@@ -654,15 +671,18 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         if (arg_plymouth || arg_console) {
 
                 if (!IN_SET(arg_action, ACTION_QUERY, ACTION_WATCH))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Options --query and --watch conflict.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --query and --watch conflict.");
 
                 if (arg_plymouth && arg_console)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Options --plymouth and --console conflict.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Options --plymouth and --console conflict.");
         }
 
         return 1;

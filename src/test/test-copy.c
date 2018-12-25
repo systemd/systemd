@@ -138,7 +138,8 @@ static void test_copy_tree(void) {
         assert_se(S_ISSOCK(st.st_mode));
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
-        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) < 0);
+        assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK) <
+                  0);
 
         (void) rm_rf(copy_dir, REMOVE_ROOT | REMOVE_PHYSICAL);
         (void) rm_rf(original_dir, REMOVE_ROOT | REMOVE_PHYSICAL);

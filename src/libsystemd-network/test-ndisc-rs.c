@@ -53,11 +53,15 @@ static void router_dump(sd_ndisc_router *rt) {
                 log_info("Hop limit: %u", hop_limit);
 
         assert_se(sd_ndisc_router_get_flags(rt, &flags) >= 0);
-        log_info("Flags: <%s|%s>", flags & ND_RA_FLAG_OTHER ? "OTHER" : "", flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
+        log_info("Flags: <%s|%s>",
+                 flags & ND_RA_FLAG_OTHER ? "OTHER" : "",
+                 flags & ND_RA_FLAG_MANAGED ? "MANAGED" : "");
 
         assert_se(sd_ndisc_router_get_preference(rt, &preference) >= 0);
         log_info("Preference: %s",
-                 preference == SD_NDISC_PREFERENCE_LOW ? "low" : preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
+                 preference == SD_NDISC_PREFERENCE_LOW ?
+                         "low" :
+                         preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
 
         assert_se(sd_ndisc_router_get_lifetime(rt, &lifetime) >= 0);
         log_info("Lifetime: %" PRIu16, lifetime);
@@ -110,7 +114,9 @@ static void router_dump(sd_ndisc_router *rt) {
                         log_info("Preferred Lifetime: %" PRIu32, lifetime_preferred);
 
                         assert_se(sd_ndisc_router_prefix_get_flags(rt, &pfl) >= 0);
-                        log_info("Flags: <%s|%s>", pfl & ND_OPT_PI_FLAG_ONLINK ? "ONLINK" : "", pfl & ND_OPT_PI_FLAG_AUTO ? "AUTO" : "");
+                        log_info("Flags: <%s|%s>",
+                                 pfl & ND_OPT_PI_FLAG_ONLINK ? "ONLINK" : "",
+                                 pfl & ND_OPT_PI_FLAG_AUTO ? "AUTO" : "");
 
                         assert_se(sd_ndisc_router_prefix_get_prefixlen(rt, &prefix_len) >= 0);
                         log_info("Prefix Length: %u", prefix_len);
@@ -191,11 +197,12 @@ int icmp6_receive(int fd, void *iov_base, size_t iov_len, struct in6_addr *dst, 
 
 static int send_ra(uint8_t flags) {
         uint8_t advertisement[] = {
-                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x04,
-                0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4, 0x00, 0x00, 0x01, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x20, 0x01, 0x0d, 0xb8,
-                0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x03, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x3c, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-                0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74, 0x72, 0x61,
+                0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4, 0x00, 0x00, 0x01, 0xb8, 0x00, 0x00,
+                0x00, 0x00, 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x20, 0x01, 0x0d, 0xb8,
+                0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x1f, 0x03, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x3c, 0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74, 0x72, 0x61,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
         };
 
@@ -268,8 +275,13 @@ static void test_rs(void) {
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
 
-        assert_se(sd_event_add_time(
-                          e, &test_hangcheck, clock_boottime_or_monotonic(), time_now + 2 * USEC_PER_SEC, 0, test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(e,
+                                    &test_hangcheck,
+                                    clock_boottime_or_monotonic(),
+                                    time_now + 2 * USEC_PER_SEC,
+                                    0,
+                                    test_rs_hangcheck,
+                                    NULL) >= 0);
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -363,8 +375,13 @@ static void test_timeout(void) {
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
 
-        assert_se(sd_event_add_time(
-                          e, &test_hangcheck, clock_boottime_or_monotonic(), time_now + 2U * USEC_PER_SEC, 0, test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(e,
+                                    &test_hangcheck,
+                                    clock_boottime_or_monotonic(),
+                                    time_now + 2U * USEC_PER_SEC,
+                                    0,
+                                    test_rs_hangcheck,
+                                    NULL) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 

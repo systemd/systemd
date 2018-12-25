@@ -69,12 +69,14 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
 } DHCPRequest;
 
-#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server(client, fmt, ...) \
+        log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 #define log_dhcp_server_errno(client, error, fmt, ...) \
         log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length);
-int dhcp_server_send_packet(sd_dhcp_server *server, DHCPRequest *req, DHCPPacket *packet, int type, size_t optoffset);
+int dhcp_server_send_packet(
+        sd_dhcp_server *server, DHCPRequest *req, DHCPPacket *packet, int type, size_t optoffset);
 
 void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);

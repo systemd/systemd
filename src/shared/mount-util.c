@@ -110,20 +110,24 @@ static int get_mount_flags(const char *path, unsigned long *flags) {
 /* Use this function only if do you have direct access to /proc/self/mountinfo
  * and need the caller to open it for you. This is the case when /proc is
  * masked or not mounted. Otherwise, use bind_remount_recursive. */
-int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **blacklist, FILE *proc_self_mountinfo) {
+int bind_remount_recursive_with_mountinfo(const char *prefix,
+                                          bool ro,
+                                          char **blacklist,
+                                          FILE *proc_self_mountinfo) {
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *cleaned = NULL;
         int r;
 
         assert(proc_self_mountinfo);
 
-        /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
-         * mounted, we reuse the mount and simply mark it MS_BIND|MS_RDONLY (or remove the MS_RDONLY for read-write
-         * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
-         * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
-         * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
-         * do not have any effect on future submounts that might get propagated, they migt be writable. This includes
-         * future submounts that have been triggered via autofs.
+        /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory
+         * is already mounted, we reuse the mount and simply mark it MS_BIND|MS_RDONLY (or remove the
+         * MS_RDONLY for read-write operation). If it isn't we first make it one. Afterwards we apply
+         * MS_BIND|MS_RDONLY (or remove MS_RDONLY) to all submounts we can access, too. When mounts are
+         * stacked on the same mount point we only care for each individual "top-level" mount on each point,
+         * as we cannot influence/access the underlying mounts anyway. We do not have any effect on future
+         * submounts that might get propagated, they migt be writable. This includes future submounts that
+         * have been triggered via autofs.
          *
          * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the blacklist for the top-level path. */
@@ -183,8 +187,8 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         if (!path_startswith(p, cleaned))
                                 continue;
 
-                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount we shall
-                         * operate on. */
+                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount
+                         * we shall operate on. */
                         if (!path_equal(cleaned, p)) {
                                 bool blacklisted = false;
                                 char **i;
@@ -199,7 +203,11 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
                                         if (path_startswith(p, *i)) {
                                                 blacklisted = true;
-                                                log_debug("Not remounting %s blacklisted by %s, called for %s", p, *i, cleaned);
+                                                log_debug(
+                                                        "Not remounting %s blacklisted by %s, called for %s",
+                                                        p,
+                                                        *i,
+                                                        cleaned);
                                                 break;
                                         }
                                 }
@@ -243,7 +251,11 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(cleaned, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, cleaned, NULL, orig_flags | MS_BIND | MS_REMOUNT | (ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL,
+                                  cleaned,
+                                  NULL,
+                                  orig_flags | MS_BIND | MS_REMOUNT | (ro ? MS_RDONLY : 0),
+                                  NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
@@ -278,7 +290,8 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                                  *
                                  * Then, root user cannot access the mount point ~/mnt/mnt.
                                  * In such cases, the submounts are ignored, as we have no way to manage them. */
-                                log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
+                                log_debug_errno(
+                                        r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
                                 continue;
                         }
                         if (r < 0)
@@ -289,7 +302,8 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(x, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, x, NULL, orig_flags | MS_BIND | MS_REMOUNT | (ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL, x, NULL, orig_flags | MS_BIND | MS_REMOUNT | (ro ? MS_RDONLY : 0), NULL) <
+                            0)
                                 return -errno;
 
                         log_debug("Remounted %s read-only.", x);
@@ -349,12 +363,13 @@ int repeat_unmount(const char *path, int flags) {
 }
 
 const char *mode_to_inaccessible_node(mode_t mode) {
-        /* This function maps a node type to a corresponding inaccessible file node. These nodes are created during
-         * early boot by PID 1. In some cases we lacked the privs to create the character and block devices (maybe
-         * because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a devices policy that excludes
-         * device nodes with major and minor of 0), but that's fine, in that case we use an AF_UNIX file node instead,
-         * which is not the same, but close enough for most uses. And most importantly, the kernel allows bind mounts
-         * from socket nodes to any non-directory file nodes, and that's the most important thing that matters. */
+        /* This function maps a node type to a corresponding inaccessible file node. These nodes are created
+         * during early boot by PID 1. In some cases we lacked the privs to create the character and block
+         * devices (maybe because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a
+         * devices policy that excludes device nodes with major and minor of 0), but that's fine, in that
+         * case we use an AF_UNIX file node instead, which is not the same, but close enough for most uses.
+         * And most importantly, the kernel allows bind mounts from socket nodes to any non-directory file
+         * nodes, and that's the most important thing that matters. */
 
         switch (mode & S_IFMT) {
         case S_IFREG:
@@ -389,9 +404,10 @@ static char *mount_flags_to_string(long unsigned flags) {
         long unsigned overflow;
 
         overflow = flags &
-                ~(MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_SYNCHRONOUS | MS_REMOUNT | MS_MANDLOCK | MS_DIRSYNC | MS_NOATIME |
-                  MS_NODIRATIME | MS_BIND | MS_MOVE | MS_REC | MS_SILENT | MS_POSIXACL | MS_UNBINDABLE | MS_PRIVATE | MS_SLAVE | MS_SHARED |
-                  MS_RELATIME | MS_KERNMOUNT | MS_I_VERSION | MS_STRICTATIME | MS_LAZYTIME);
+                ~(MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_SYNCHRONOUS | MS_REMOUNT | MS_MANDLOCK |
+                  MS_DIRSYNC | MS_NOATIME | MS_NODIRATIME | MS_BIND | MS_MOVE | MS_REC | MS_SILENT |
+                  MS_POSIXACL | MS_UNBINDABLE | MS_PRIVATE | MS_SLAVE | MS_SHARED | MS_RELATIME |
+                  MS_KERNMOUNT | MS_I_VERSION | MS_STRICTATIME | MS_LAZYTIME);
 
         if (flags == 0 || overflow != 0)
                 if (asprintf(&y, "%lx", overflow) < 0)
@@ -429,7 +445,12 @@ static char *mount_flags_to_string(long unsigned flags) {
         return x;
 }
 
-int mount_verbose(int error_log_level, const char *what, const char *where, const char *type, unsigned long flags, const char *options) {
+int mount_verbose(int error_log_level,
+                  const char *what,
+                  const char *where,
+                  const char *type,
+                  unsigned long flags,
+                  const char *options) {
 
         _cleanup_free_ char *fl = NULL, *o = NULL;
         unsigned long f;
@@ -437,7 +458,8 @@ int mount_verbose(int error_log_level, const char *what, const char *where, cons
 
         r = mount_option_mangle(options, flags, &f, &o);
         if (r < 0)
-                return log_full_errno(error_log_level, r, "Failed to mangle mount options %s: %m", strempty(options));
+                return log_full_errno(
+                        error_log_level, r, "Failed to mangle mount options %s: %m", strempty(options));
 
         fl = mount_flags_to_string(f);
 
@@ -470,7 +492,10 @@ int umount_verbose(const char *what) {
         return 0;
 }
 
-int mount_option_mangle(const char *options, unsigned long mount_flags, unsigned long *ret_mount_flags, char **ret_remaining_options) {
+int mount_option_mangle(const char *options,
+                        unsigned long mount_flags,
+                        unsigned long *ret_mount_flags,
+                        char **ret_remaining_options) {
 
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;

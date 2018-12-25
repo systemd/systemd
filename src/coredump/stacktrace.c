@@ -51,7 +51,10 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 if (cudie) {
                         n = dwarf_getscopes(cudie, pc_adjusted - bias, &scopes);
                         for (s = scopes; s < scopes + n; s++) {
-                                if (IN_SET(dwarf_tag(s), DW_TAG_subprogram, DW_TAG_inlined_subroutine, DW_TAG_entry_point)) {
+                                if (IN_SET(dwarf_tag(s),
+                                           DW_TAG_subprogram,
+                                           DW_TAG_inlined_subroutine,
+                                           DW_TAG_entry_point)) {
                                         Dwarf_Attribute *a, space;
 
                                         a = dwarf_attr_integrate(s, DW_AT_MIPS_linkage_name, &space);

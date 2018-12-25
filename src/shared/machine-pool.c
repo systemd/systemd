@@ -28,7 +28,8 @@ int setup_machine_directory(sd_bus_error *error) {
 
         r = check_btrfs();
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to determine whether /var/lib/machines is located on btrfs: %m");
+                return sd_bus_error_set_errnof(
+                        error, r, "Failed to determine whether /var/lib/machines is located on btrfs: %m");
         if (r == 0)
                 return 0;
 
@@ -40,7 +41,8 @@ int setup_machine_directory(sd_bus_error *error) {
 
         r = btrfs_subvol_auto_qgroup("/var/lib/machines", 0, true);
         if (r < 0)
-                log_warning_errno(r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
+                log_warning_errno(
+                        r, "Failed to set up default quota hierarchy for /var/lib/machines, ignoring: %m");
 
         return 1;
 }

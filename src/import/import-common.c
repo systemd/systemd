@@ -75,8 +75,8 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                uint64_t retain = (1ULL << CAP_CHOWN) | (1ULL << CAP_FOWNER) | (1ULL << CAP_FSETID) | (1ULL << CAP_MKNOD) |
-                        (1ULL << CAP_SETFCAP) | (1ULL << CAP_DAC_OVERRIDE);
+                uint64_t retain = (1ULL << CAP_CHOWN) | (1ULL << CAP_FOWNER) | (1ULL << CAP_FSETID) |
+                        (1ULL << CAP_MKNOD) | (1ULL << CAP_SETFCAP) | (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
@@ -158,8 +158,8 @@ int import_mangle_os_tree(const char *path) {
 
         assert(path);
 
-        /* Some tarballs contain a single top-level directory that contains the actual OS directory tree. Try to
-         * recognize this, and move the tree one level up. */
+        /* Some tarballs contain a single top-level directory that contains the actual OS directory tree. Try
+         * to recognize this, and move the tree one level up. */
 
         r = path_is_os_tree(path);
         if (r < 0)
@@ -169,7 +169,8 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        log_debug("Directory tree '%s' is not recognizable as OS tree, checking whether to rearrange it.", path);
+        log_debug("Directory tree '%s' is not recognizable as OS tree, checking whether to rearrange it.",
+                  path);
 
         d = opendir(path);
         if (!d)
@@ -195,15 +196,18 @@ int import_mangle_os_tree(const char *path) {
                 if (errno != 0)
                         return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-                log_debug("Directory '%s' does not look like a directory tree, and has multiple children, leaving as it is.", path);
+                log_debug(
+                        "Directory '%s' does not look like a directory tree, and has multiple children, leaving as it is.",
+                        path);
                 return 0;
         }
 
         joined = strjoina(path, "/", child);
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.",
-                          path);
+                log_debug(
+                        "Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.",
+                        path);
                 return 0;
         }
         if (r < 0)
@@ -228,8 +232,8 @@ int import_mangle_os_tree(const char *path) {
 
         log_info("Rearranging '%s', moving OS tree one directory up.", joined);
 
-        /* Let's rename the child to an unguessable name so that we can be sure all files contained in it can be
-         * safely moved up and won't collide with the name. */
+        /* Let's rename the child to an unguessable name so that we can be sure all files contained in it can
+         * be safely moved up and won't collide with the name. */
         r = tempfn_random(child, NULL, &t);
         if (r < 0)
                 return log_oom();
@@ -237,13 +241,20 @@ int import_mangle_os_tree(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Unable to rename '%s' to '%s/%s': %m", joined, path, t);
 
-        FOREACH_DIRENT_ALL(de, cd, return log_error_errno(errno, "Failed to iterate through directory '%s': %m", joined)) {
+        FOREACH_DIRENT_ALL(
+                de, cd, return log_error_errno(errno, "Failed to iterate through directory '%s': %m", joined)) {
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
                 r = rename_noreplace(dirfd(cd), de->d_name, dirfd(d), de->d_name);
                 if (r < 0)
-                        return log_error_errno(r, "Unable to move '%s/%s/%s' to '%s/%s': %m", path, t, de->d_name, path, de->d_name);
+                        return log_error_errno(r,
+                                               "Unable to move '%s/%s/%s' to '%s/%s': %m",
+                                               path,
+                                               t,
+                                               de->d_name,
+                                               path,
+                                               de->d_name);
         }
 
         if (unlinkat(dirfd(d), t, AT_REMOVEDIR) < 0)

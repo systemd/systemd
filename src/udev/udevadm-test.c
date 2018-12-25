@@ -57,7 +57,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--resolve-names= must be early, late or never");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--resolve-names= must be early, late or never");
                         break;
                 case 'V':
                         return print_version();

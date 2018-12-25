@@ -25,7 +25,8 @@
 static Manager *manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager *, manager_unref);
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
@@ -71,7 +72,8 @@ static Manager *manager_unref(Manager *m) {
 
         assert(m->n_operations == 0);
 
-        hashmap_free(m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
+        hashmap_free(
+                m->machines); /* This will free all machines, so that the machine_units/machine_leaders is empty */
         hashmap_free(m->machine_units);
         hashmap_free(m->machine_leaders);
         hashmap_free(m->image_cache);
@@ -185,25 +187,38 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(
+                m->bus, NULL, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/machine1/machine",
+                                       "org.freedesktop.machine1.Machine",
+                                       machine_vtable,
+                                       machine_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(
+                m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add machine enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/machine1/image", "org.freedesktop.machine1.Image", image_vtable, image_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/machine1/image",
+                                       "org.freedesktop.machine1.Image",
+                                       image_vtable,
+                                       image_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/image", image_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(
+                m->bus, NULL, "/org/freedesktop/machine1/image", image_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image enumerator: %m");
 
@@ -340,7 +355,8 @@ static bool check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.machine1", DEFAULT_EXIT_USEC, check_idle, m);
+        return bus_event_loop_with_idle(
+                m->event, m->bus, "org.freedesktop.machine1", DEFAULT_EXIT_USEC, check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {
@@ -357,9 +373,9 @@ static int run(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        /* Always create the directories people can create inotify watches in. Note that some applications might check
-         * for the existence of /run/systemd/machines/ to determine whether machined is available, so please always
-         * make sure this check stays in. */
+        /* Always create the directories people can create inotify watches in. Note that some applications
+         * might check for the existence of /run/systemd/machines/ to determine whether machined is
+         * available, so please always make sure this check stays in. */
         (void) mkdir_label("/run/systemd/machines", 0755);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);

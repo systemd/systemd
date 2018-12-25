@@ -5,10 +5,11 @@
 
 typedef struct Device Device;
 
-/* A mask specifying where we have seen the device currently. This is a bitmask because the device might show up
- * asynchronously from each other at various places. For example, in very common case a device might already be mounted
- * before udev finished probing it (think: a script setting up a loopback block device, formatting it and mounting it
- * in quick succession). Hence we need to track precisely where it is already visible and where not. */
+/* A mask specifying where we have seen the device currently. This is a bitmask because the device might show
+ * up asynchronously from each other at various places. For example, in very common case a device might
+ * already be mounted before udev finished probing it (think: a script setting up a loopback block device,
+ * formatting it and mounting it in quick succession). Hence we need to track precisely where it is already
+ * visible and where not. */
 typedef enum DeviceFound
 {
         DEVICE_NOT_FOUND = 0,
@@ -23,8 +24,8 @@ struct Device {
 
         char *sysfs;
 
-        /* In order to be able to distinguish dependencies on different device nodes we might end up creating multiple
-         * devices for the same sysfs path. We chain them up here. */
+        /* In order to be able to distinguish dependencies on different device nodes we might end up creating
+         * multiple devices for the same sysfs path. We chain them up here. */
         LIST_FIELDS(struct Device, same_sysfs);
 
         DeviceState state, deserialized_state;

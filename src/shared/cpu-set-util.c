@@ -41,8 +41,13 @@ cpu_set_t *cpu_set_malloc(unsigned *ncpus) {
         }
 }
 
-int parse_cpu_set_internal(
-        const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue) {
+int parse_cpu_set_internal(const char *rvalue,
+                           cpu_set_t **cpu_set,
+                           bool warn,
+                           const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *lvalue) {
 
         _cleanup_cpu_free_ cpu_set_t *c = NULL;
         const char *p = rvalue;
@@ -59,7 +64,15 @@ int parse_cpu_set_internal(
                 if (r == -ENOMEM)
                         return warn ? log_oom() : -ENOMEM;
                 if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, rvalue) : r;
+                        return warn ? log_syntax(unit,
+                                                 LOG_ERR,
+                                                 filename,
+                                                 line,
+                                                 r,
+                                                 "Invalid value for %s: %s",
+                                                 lvalue,
+                                                 rvalue) :
+                                      r;
                 if (r == 0)
                         break;
 
@@ -71,15 +84,36 @@ int parse_cpu_set_internal(
 
                 r = parse_range(word, &cpu_lower, &cpu_upper);
                 if (r < 0)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse CPU affinity '%s'", word) : r;
+                        return warn ? log_syntax(unit,
+                                                 LOG_ERR,
+                                                 filename,
+                                                 line,
+                                                 r,
+                                                 "Failed to parse CPU affinity '%s'",
+                                                 word) :
+                                      r;
                 if (cpu_lower >= ncpus || cpu_upper >= ncpus)
-                        return warn ? log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU out of range '%s' ncpus is %u", word, ncpus) :
+                        return warn ? log_syntax(unit,
+                                                 LOG_ERR,
+                                                 filename,
+                                                 line,
+                                                 EINVAL,
+                                                 "CPU out of range '%s' ncpus is %u",
+                                                 word,
+                                                 ncpus) :
                                       -EINVAL;
 
                 if (cpu_lower > cpu_upper) {
                         if (warn)
-                                log_syntax(
-                                        unit, LOG_WARNING, filename, line, 0, "Range '%s' is invalid, %u > %u, ignoring", word, cpu_lower, cpu_upper);
+                                log_syntax(unit,
+                                           LOG_WARNING,
+                                           filename,
+                                           line,
+                                           0,
+                                           "Range '%s' is invalid, %u > %u, ignoring",
+                                           word,
+                                           cpu_lower,
+                                           cpu_upper);
                         continue;
                 }
 

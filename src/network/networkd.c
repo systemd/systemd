@@ -38,13 +38,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory: %m");
 
-        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
-         * privileges are already dropped. */
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume
+         * all privileges are already dropped. */
         if (geteuid() == 0) {
                 r = drop_privileges(uid,
                                     gid,
-                                    (1ULL << CAP_NET_ADMIN) | (1ULL << CAP_NET_BIND_SERVICE) | (1ULL << CAP_NET_BROADCAST) |
-                                            (1ULL << CAP_NET_RAW));
+                                    (1ULL << CAP_NET_ADMIN) | (1ULL << CAP_NET_BIND_SERVICE) |
+                                            (1ULL << CAP_NET_BROADCAST) | (1ULL << CAP_NET_RAW));
                 if (r < 0)
                         return log_error_errno(r, "Failed to drop privileges: %m");
         }

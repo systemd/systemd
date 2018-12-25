@@ -14,7 +14,8 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = { [SLICE_DEAD] = UNIT_INACTIVE, [SLICE_ACTIVE] = UNIT_ACTIVE };
+static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = { [SLICE_DEAD] = UNIT_INACTIVE,
+                                                                           [SLICE_ACTIVE] = UNIT_ACTIVE };
 
 static void slice_init(Unit *u) {
         assert(u);
@@ -34,7 +35,10 @@ static void slice_set_state(Slice *t, SliceState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s", UNIT(t)->id, slice_state_to_string(old_state), slice_state_to_string(state));
+                log_debug("%s changed %s -> %s",
+                          UNIT(t)->id,
+                          slice_state_to_string(old_state),
+                          slice_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -70,7 +74,8 @@ static int slice_add_default_dependencies(Slice *s) {
                 return 0;
 
         /* Make sure slices are unloaded on shutdown */
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(
+                UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -326,9 +331,10 @@ static void slice_enumerate_perpetual(Manager *m) {
         if (r >= 0 && manager_owns_host_root_cgroup(m)) {
                 Slice *s = SLICE(u);
 
-                /* If we are managing the root cgroup then this means our root slice covers the whole system, which
-                 * means the kernel will track CPU/tasks/memory for us anyway, and it is all available in /proc. Let's
-                 * hence turn accounting on here, so that our APIs to query this data are available. */
+                /* If we are managing the root cgroup then this means our root slice covers the whole system,
+                 * which means the kernel will track CPU/tasks/memory for us anyway, and it is all available
+                 * in /proc. Let's hence turn accounting on here, so that our APIs to query this data are
+                 * available. */
 
                 s->cgroup_context.cpu_accounting = true;
                 s->cgroup_context.tasks_accounting = true;

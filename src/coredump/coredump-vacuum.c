@@ -159,7 +159,8 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to stat /var/lib/systemd/coredump/%s: %m", de->d_name);
+                                log_warning_errno(
+                                        errno, "Failed to stat /var/lib/systemd/coredump/%s: %m", de->d_name);
                                 continue;
                         }
 
@@ -212,7 +213,8 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
                         c->n_files++;
 
-                        if (!worst || worst->n_files < c->n_files || (worst->n_files == c->n_files && c->oldest_mtime < worst->oldest_mtime))
+                        if (!worst || worst->n_files < c->n_files ||
+                            (worst->n_files == c->n_files && c->oldest_mtime < worst->oldest_mtime))
                                 worst = c;
 
                         sum += st.st_blocks * 512;

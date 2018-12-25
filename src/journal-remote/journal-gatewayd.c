@@ -83,7 +83,10 @@ static RequestMeta *request_meta(void **connection_cls) {
         return m;
 }
 
-static void request_meta_free(void *cls, struct MHD_Connection *connection, void **connection_cls, enum MHD_RequestTerminationCode toe) {
+static void request_meta_free(void *cls,
+                              struct MHD_Connection *connection,
+                              void **connection_cls,
+                              enum MHD_RequestTerminationCode toe) {
 
         RequestMeta *m = *connection_cls;
 
@@ -334,7 +337,10 @@ static int request_parse_range(RequestMeta *m, struct MHD_Connection *connection
         return 0;
 }
 
-static int request_parse_arguments_iterator(void *cls, enum MHD_ValueKind kind, const char *key, const char *value) {
+static int request_parse_arguments_iterator(void *cls,
+                                            enum MHD_ValueKind kind,
+                                            const char *key,
+                                            const char *value) {
 
         RequestMeta *m = cls;
         _cleanup_free_ char *p = NULL;
@@ -448,7 +454,8 @@ static int request_handler_entries(struct MHD_Connection *connection, void *conn
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
 
         if (request_parse_accept(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
@@ -461,7 +468,9 @@ static int request_handler_entries(struct MHD_Connection *connection, void *conn
 
         if (m->discrete) {
                 if (!m->cursor)
-                        return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Discrete seeks require a cursor specification.");
+                        return mhd_respond(connection,
+                                           MHD_HTTP_BAD_REQUEST,
+                                           "Discrete seeks require a cursor specification.");
 
                 m->n_entries = 1;
                 m->n_entries_set = true;
@@ -476,7 +485,8 @@ static int request_handler_entries(struct MHD_Connection *connection, void *conn
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_entries, m, NULL);
+        response = MHD_create_response_from_callback(
+                MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_entries, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
@@ -598,7 +608,8 @@ static int request_handler_fields(struct MHD_Connection *connection, const char 
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
 
         if (request_parse_accept(m, connection) < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
@@ -607,11 +618,13 @@ static int request_handler_fields(struct MHD_Connection *connection, const char 
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to query unique fields.");
 
-        response = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_fields, m, NULL);
+        response = MHD_create_response_from_callback(
+                MHD_SIZE_UNKNOWN, 4 * 1024, request_reader_fields, m, NULL);
         if (!response)
                 return respond_oom(connection);
 
-        MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
+        MHD_add_response_header(
+                response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]);
 
         r = MHD_queue_response(connection, MHD_HTTP_OK, response);
         MHD_destroy_response(response);
@@ -628,7 +641,9 @@ static int request_handler_redirect(struct MHD_Connection *connection, const cha
         assert(connection);
         assert(target);
 
-        if (asprintf(&page, "<html><body>Please continue to the <a href=\"%s\">journal browser</a>.</body></html>", target) < 0)
+        if (asprintf(&page,
+                     "<html><body>Please continue to the <a href=\"%s\">journal browser</a>.</body></html>",
+                     target) < 0)
                 return respond_oom(connection);
 
         response = MHD_create_response_from_buffer(strlen(page), page, MHD_RESPMEM_MUST_FREE);
@@ -662,7 +677,8 @@ static int request_handler_file(struct MHD_Connection *connection, const char *p
                 return mhd_respondf(connection, errno, MHD_HTTP_NOT_FOUND, "Failed to open file %s: %m", path);
 
         if (fstat(fd, &st) < 0)
-                return mhd_respondf(connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");
+                return mhd_respondf(
+                        connection, errno, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to stat file: %m");
 
         response = MHD_create_response_from_fd_at_offset64(st.st_size, fd, 0);
         if (!response)
@@ -687,8 +703,13 @@ static int get_virtualization(char **v) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_property_string(
-                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Virtualization", NULL, &b);
+        r = sd_bus_get_property_string(bus,
+                                       "org.freedesktop.systemd1",
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "Virtualization",
+                                       NULL,
+                                       &b);
         if (r < 0)
                 return r;
 
@@ -718,15 +739,18 @@ static int request_handler_machine(struct MHD_Connection *connection, void *conn
 
         r = open_journal(m);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine machine ID: %m");
 
         r = sd_id128_get_boot(&bid);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine boot ID: %m");
 
         hostname = gethostname_malloc();
         if (!hostname)
@@ -734,11 +758,13 @@ static int request_handler_machine(struct MHD_Connection *connection, void *conn
 
         r = sd_journal_get_usage(m->journal, &usage);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
         r = sd_journal_get_cutoff_realtime_usec(m->journal, &cutoff_from, &cutoff_to);
         if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
+                return mhd_respondf(
+                        connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
         (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
         (void) get_virtualization(&v);
@@ -895,7 +921,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CERT:
                         if (arg_cert_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Certificate file specified twice");
                         r = read_full_file(optarg, &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
@@ -905,7 +932,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TRUST:
 #if HAVE_GNUTLS
                         if (arg_trust_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CA certificate file specified twice");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "CA certificate file specified twice");
                         r = read_full_file(optarg, &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
@@ -929,10 +957,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
 
         if (!!arg_key_pem != !!arg_cert_pem)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Certificate and key files must be specified together");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Certificate and key files must be specified together");
 
         if (arg_trust_pem && !arg_key_pem)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "CA certificate can only be used with certificate file");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "CA certificate can only be used with certificate file");
 
         return 1;
 }
@@ -958,7 +988,8 @@ static int run(int argc, char *argv[]) {
          * https://github.com/systemd/systemd/pull/1286
          */
 
-        int flags = MHD_USE_DEBUG | MHD_USE_DUAL_STACK | MHD_USE_ITC | MHD_USE_POLL_INTERNAL_THREAD | MHD_USE_THREAD_PER_CONNECTION;
+        int flags = MHD_USE_DEBUG | MHD_USE_DUAL_STACK | MHD_USE_ITC | MHD_USE_POLL_INTERNAL_THREAD |
+                MHD_USE_THREAD_PER_CONNECTION;
         int r, n;
 
         log_setup_service();
@@ -994,7 +1025,8 @@ static int run(int argc, char *argv[]) {
                 opts[opts_pos++] = (struct MHD_OptionItem){ MHD_OPTION_HTTPS_MEM_TRUST, 0, arg_trust_pem };
         }
 
-        d = MHD_start_daemon(flags, 19531, NULL, NULL, request_handler, NULL, MHD_OPTION_ARRAY, opts, MHD_OPTION_END);
+        d = MHD_start_daemon(
+                flags, 19531, NULL, NULL, request_handler, NULL, MHD_OPTION_ARRAY, opts, MHD_OPTION_END);
         if (!d)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start daemon!");
 

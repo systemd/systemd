@@ -238,7 +238,10 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         kill_and_sigcont(event->worker->pid, SIGKILL);
         event->worker->state = WORKER_KILLED;
 
-        log_device_error(event->dev, "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " killed", event->worker->pid, event->seqnum);
+        log_device_error(event->dev,
+                         "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " killed",
+                         event->worker->pid,
+                         event->seqnum);
 
         return 1;
 }
@@ -249,8 +252,10 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         assert(event);
         assert(event->worker);
 
-        log_device_warning(
-                event->dev, "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " is taking a long time", event->worker->pid, event->seqnum);
+        log_device_warning(event->dev,
+                           "Worker [" PID_FMT "] processing SEQNUM=%" PRIu64 " is taking a long time",
+                           event->worker->pid,
+                           event->seqnum);
 
         return 1;
 }
@@ -282,8 +287,13 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
                                  on_event_timeout_warning,
                                  event);
 
-        (void) sd_event_add_time(
-                e, &event->timeout_event, CLOCK_MONOTONIC, usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
+        (void) sd_event_add_time(e,
+                                 &event->timeout_event,
+                                 CLOCK_MONOTONIC,
+                                 usec + arg_event_timeout_usec,
+                                 USEC_PER_SEC,
+                                 on_event_timeout,
+                                 event);
 }
 
 static void manager_clear_for_worker(Manager *manager) {
@@ -435,7 +445,8 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 (void) udev_watch_begin(dev);
                 r = device_update_db(dev);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+                        return log_device_debug_errno(
+                                dev, r, "Failed to update database under /run/udev/data/: %m");
         }
 
         log_device_debug(dev, "Device (SEQNUM=%s) processed", seqnum);
@@ -504,7 +515,8 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor), "worker-device-monitor");
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor),
+                                               "worker-device-monitor");
 
         /* Process first device */
         (void) worker_device_monitor_handler(monitor, dev, manager);
@@ -558,7 +570,10 @@ static int worker_spawn(Manager *manager, struct event *event) {
 
         worker_attach_event(worker, event);
 
-        log_device_debug(event->dev, "Worker [" PID_FMT "] is forked for processing SEQNUM=%" PRIu64 ".", pid, event->seqnum);
+        log_device_debug(event->dev,
+                         "Worker [" PID_FMT "] is forked for processing SEQNUM=%" PRIu64 ".",
+                         pid,
+                         event->seqnum);
         return 0;
 }
 
@@ -576,8 +591,11 @@ static void event_run(Manager *manager, struct event *event) {
 
                 r = device_monitor_send_device(manager->monitor, worker->monitor, event->dev);
                 if (r < 0) {
-                        log_device_error_errno(
-                                event->dev, r, "Worker [" PID_FMT "] did not accept message, killing the worker: %m", worker->pid);
+                        log_device_error_errno(event->dev,
+                                               r,
+                                               "Worker [" PID_FMT
+                                               "] did not accept message, killing the worker: %m",
+                                               worker->pid);
                         (void) kill(worker->pid, SIGKILL);
                         worker->state = WORKER_KILLED;
                         continue;
@@ -736,7 +754,8 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         if (sd_device_get_subsystem(loop_event->dev, &s) < 0)
                                 continue;
 
-                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 && devnum == d && is_block == streq(s, "block"))
+                        if (sd_device_get_devnum(loop_event->dev, &d) >= 0 && devnum == d &&
+                            is_block == streq(s, "block"))
                                 return true;
                 }
 
@@ -830,7 +849,13 @@ static void manager_exit(Manager *manager) {
 
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
 
-        r = sd_event_add_time(manager->event, NULL, CLOCK_MONOTONIC, usec + 30 * USEC_PER_SEC, USEC_PER_SEC, on_exit_timeout, manager);
+        r = sd_event_add_time(manager->event,
+                              NULL,
+                              CLOCK_MONOTONIC,
+                              usec + 30 * USEC_PER_SEC,
+                              USEC_PER_SEC,
+                              on_exit_timeout,
+                              manager);
         if (r < 0)
                 return;
 }
@@ -886,7 +911,8 @@ static void event_queue_start(Manager *manager) {
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
-                log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
+                log_warning_errno(
+                        r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
         udev_builtin_init();
 
@@ -1258,7 +1284,8 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         r = event_source_disable(manager->kill_workers_event);
         if (r < 0)
-                log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
+                log_warning_errno(
+                        r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
 
         l = read(fd, &buffer, sizeof(buffer));
         if (l < 0) {
@@ -1333,7 +1360,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         if (WEXITSTATUS(status) == 0)
                                 log_debug("Worker [" PID_FMT "] exited", pid);
                         else
-                                log_warning("Worker [" PID_FMT "] exited with return code %i", pid, WEXITSTATUS(status));
+                                log_warning("Worker [" PID_FMT "] exited with return code %i",
+                                            pid,
+                                            WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
                         log_warning("Worker [" PID_FMT "] terminated by signal %i (%s)",
                                     pid,
@@ -1358,7 +1387,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                         /* forward kernel event without amending it */
                         r = device_monitor_send_device(manager->monitor, NULL, worker->event->dev_kernel);
                         if (r < 0)
-                                log_device_error_errno(worker->event->dev_kernel, r, "Failed to send back device to kernel: %m");
+                                log_device_error_errno(worker->event->dev_kernel,
+                                                       r,
+                                                       "Failed to send back device to kernel: %m");
                 }
 
                 worker_free(worker);
@@ -1371,7 +1402,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
         if (hashmap_isempty(manager->workers)) {
                 r = event_source_disable(manager->kill_workers_event);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to disable event source for cleaning up idle workers, ignoring: %m");
+                        log_warning_errno(
+                                r,
+                                "Failed to disable event source for cleaning up idle workers, ignoring: %m");
         }
 
         return 1;
@@ -1409,7 +1442,8 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (manager->cgroup)
                 /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
+                (void) cg_kill(
+                        SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
 
         return 1;
 }
@@ -1554,17 +1588,22 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'c':
                         r = safe_atou(optarg, &arg_children_max);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", optarg);
+                                log_warning_errno(r,
+                                                  "Failed to parse --children-max= value '%s', ignoring: %m",
+                                                  optarg);
                         break;
                 case 'e':
                         r = parse_sec(optarg, &arg_exec_delay_usec);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
+                                log_warning_errno(
+                                        r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
                         break;
                 case 't':
                         r = parse_sec(optarg, &arg_event_timeout_usec);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
+                                log_warning_errno(r,
+                                                  "Failed to parse --event-timeout= value '%s', ignoring: %m",
+                                                  optarg);
                         break;
                 case 'D':
                         arg_debug = true;
@@ -1639,7 +1678,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+                return log_error_errno(errno,
+                                       "Failed to create socketpair for communicating with workers: %m");
 
         fd_worker = manager->worker_watch[READ_END];
 
@@ -1691,9 +1731,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
          */
         r = sd_event_source_set_priority(manager->ctrl_event, SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
-                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
+                return log_error_errno(r,
+                                       "Failed to set IDLE event priority for udev control event source: %m");
 
-        r = sd_event_add_io(manager->event, &manager->inotify_event, manager->fd_inotify, EPOLLIN, on_inotify, manager);
+        r = sd_event_add_io(
+                manager->event, &manager->inotify_event, manager->fd_inotify, EPOLLIN, on_inotify, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
 
@@ -1705,7 +1747,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(manager->monitor), "device-monitor");
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(manager->monitor),
+                                               "device-monitor");
 
         r = sd_event_add_io(manager->event, NULL, fd_worker, EPOLLIN, on_worker, manager);
         if (r < 0)
@@ -1762,7 +1805,8 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
+        udev_parse_config_full(
+                &arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
         log_parse_environment();
         log_open();
 

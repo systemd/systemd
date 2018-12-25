@@ -145,7 +145,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --unit or --user-unit with --machine=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot combine --unit or --user-unit with --machine=.");
 
         return 1;
 }
@@ -173,14 +174,15 @@ static int run(int argc, char *argv[]) {
         if (r > 0 && arg_full < 0)
                 arg_full = true;
 
-        output_flags = arg_all * OUTPUT_SHOW_ALL | (arg_full > 0) * OUTPUT_FULL_WIDTH | arg_kernel_threads * OUTPUT_KERNEL_THREADS;
+        output_flags = arg_all * OUTPUT_SHOW_ALL | (arg_full > 0) * OUTPUT_FULL_WIDTH |
+                arg_kernel_threads * OUTPUT_KERNEL_THREADS;
 
         if (arg_names) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *root = NULL;
                 char **name;
 
-                STRV_FOREACH(name, arg_names) {
+                STRV_FOREACH (name, arg_names) {
                         int q;
 
                         if (arg_show_unit != SHOW_UNIT_NONE) {
@@ -189,9 +191,13 @@ static int run(int argc, char *argv[]) {
 
                                 if (!bus) {
                                         /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, arg_show_unit == SHOW_UNIT_USER, &bus);
+                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL,
+                                                                          NULL,
+                                                                          arg_show_unit == SHOW_UNIT_USER,
+                                                                          &bus);
                                         if (r < 0)
-                                                return log_error_errno(r, "Failed to create bus connection: %m");
+                                                return log_error_errno(r,
+                                                                       "Failed to create bus connection: %m");
                                 }
 
                                 q = show_cgroup_get_unit_path_and_warn(bus, *name, &cgroup);

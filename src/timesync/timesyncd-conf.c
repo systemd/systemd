@@ -34,7 +34,8 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
 
                 r = dns_name_is_valid_or_address(word);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", word);
+                        return log_error_errno(
+                                r, "Failed to check validity of NTP server name or address '%s': %m", word);
                 if (r == 0) {
                         log_error("Invalid NTP server name or address, ignoring: %s", word);
                         continue;
@@ -88,7 +89,13 @@ int config_parse_servers(const char *unit,
         else {
                 r = manager_parse_server_string(m, ltype, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse NTP server string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse NTP server string '%s'. Ignoring.",
+                                   rvalue);
                         return 0;
                 }
         }

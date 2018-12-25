@@ -47,7 +47,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(table_add_many(t, TABLE_STRING, "xxx", TABLE_STRING, "yyy", TABLE_BOOLEAN, true) >= 0);
 
-        assert_se(table_add_many(t, TABLE_STRING, "a long field", TABLE_STRING, "yyy", TABLE_BOOLEAN, false) >= 0);
+        assert_se(table_add_many(t, TABLE_STRING, "a long field", TABLE_STRING, "yyy", TABLE_BOOLEAN, false) >=
+                  0);
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -123,7 +124,12 @@ int main(int argc, char *argv[]) {
 
         assert_se(table_add_many(t, TABLE_STRING, "fäää", TABLE_STRING, "zzz", TABLE_BOOLEAN, false) >= 0);
 
-        assert_se(table_add_many(t, TABLE_EMPTY, TABLE_SIZE, (uint64_t) 4711, TABLE_TIMESPAN, (usec_t) 5 * USEC_PER_MINUTE) >= 0);
+        assert_se(table_add_many(t,
+                                 TABLE_EMPTY,
+                                 TABLE_SIZE,
+                                 (uint64_t) 4711,
+                                 TABLE_TIMESPAN,
+                                 (usec_t) 5 * USEC_PER_MINUTE) >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -137,7 +143,8 @@ int main(int argc, char *argv[]) {
 
         formatted = mfree(formatted);
 
-        assert_se(table_set_display(t, (size_t) 2, (size_t) 0, (size_t) 2, (size_t) 0, (size_t) 0, (size_t) -1) >= 0);
+        assert_se(table_set_display(
+                          t, (size_t) 2, (size_t) 0, (size_t) 2, (size_t) 0, (size_t) 0, (size_t) -1) >= 0);
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);

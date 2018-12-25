@@ -49,7 +49,8 @@ static int dns_stream_update_io(DnsStream *s) {
 }
 
 static int dns_stream_complete(DnsStream *s, int error) {
-        _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
+        _cleanup_(dns_stream_unrefp)
+                _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
 
         assert(s);
 
@@ -179,8 +180,9 @@ static int dns_stream_identify(DnsStream *s) {
         if (s->ifindex <= 0)
                 s->ifindex = manager_find_ifindex(s->manager,
                                                   s->local.sa.sa_family,
-                                                  s->local.sa.sa_family == AF_INET ? (union in_addr_union *) &s->local.in.sin_addr :
-                                                                                     (union in_addr_union *) &s->local.in6.sin6_addr);
+                                                  s->local.sa.sa_family == AF_INET ?
+                                                          (union in_addr_union *) &s->local.in.sin_addr :
+                                                          (union in_addr_union *) &s->local.in6.sin6_addr);
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
                 uint32_t ifindex = htobe32(s->ifindex);
@@ -226,9 +228,10 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
         } else
 #endif
                 if (s->tfo_salen > 0) {
-                struct msghdr hdr = {
-                        .msg_iov = (struct iovec *) iov, .msg_iovlen = iovcnt, .msg_name = &s->tfo_address.sa, .msg_namelen = s->tfo_salen
-                };
+                struct msghdr hdr = { .msg_iov = (struct iovec *) iov,
+                                      .msg_iovlen = iovcnt,
+                                      .msg_name = &s->tfo_address.sa,
+                                      .msg_namelen = s->tfo_salen };
 
                 m = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
                 if (m < 0) {
@@ -280,7 +283,8 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 }
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+        _cleanup_(dns_stream_unrefp)
+                DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         int r;
 
         assert(s);
@@ -308,7 +312,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         return dns_stream_complete(s, -r);
         }
 
-        if ((revents & EPOLLOUT) && s->write_packet && s->n_written < sizeof(s->write_size) + s->write_packet->size) {
+        if ((revents & EPOLLOUT) && s->write_packet &&
+            s->n_written < sizeof(s->write_size) + s->write_packet->size) {
 
                 struct iovec iov[2];
                 ssize_t ss;
@@ -333,12 +338,14 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 }
         }
 
-        if ((revents & (EPOLLIN | EPOLLHUP | EPOLLRDHUP)) && (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
+        if ((revents & (EPOLLIN | EPOLLHUP | EPOLLRDHUP)) &&
+            (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
 
                 if (s->n_read < sizeof(s->read_size)) {
                         ssize_t ss;
 
-                        ss = dns_stream_read(s, (uint8_t *) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
+                        ss = dns_stream_read(
+                                s, (uint8_t *) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
                         if (ss < 0) {
                                 if (!IN_SET(-ss, EINTR, EAGAIN))
                                         return dns_stream_complete(s, -ss);
@@ -357,7 +364,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 ssize_t ss;
 
                                 if (!s->read_packet) {
-                                        r = dns_packet_new(&s->read_packet, s->protocol, be16toh(s->read_size), DNS_PACKET_SIZE_MAX);
+                                        r = dns_packet_new(&s->read_packet,
+                                                           s->protocol,
+                                                           be16toh(s->read_size),
+                                                           DNS_PACKET_SIZE_MAX);
                                         if (r < 0)
                                                 return dns_stream_complete(s, -r);
 
@@ -371,13 +381,15 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                                 s->read_packet->sender.in = s->peer.in.sin_addr;
                                                 s->read_packet->sender_port = be16toh(s->peer.in.sin_port);
                                                 s->read_packet->destination.in = s->local.in.sin_addr;
-                                                s->read_packet->destination_port = be16toh(s->local.in.sin_port);
+                                                s->read_packet->destination_port = be16toh(
+                                                        s->local.in.sin_port);
                                         } else {
                                                 assert(s->read_packet->family == AF_INET6);
                                                 s->read_packet->sender.in6 = s->peer.in6.sin6_addr;
                                                 s->read_packet->sender_port = be16toh(s->peer.in6.sin6_port);
                                                 s->read_packet->destination.in6 = s->local.in6.sin6_addr;
-                                                s->read_packet->destination_port = be16toh(s->local.in6.sin6_port);
+                                                s->read_packet->destination_port = be16toh(
+                                                        s->local.in6.sin6_port);
 
                                                 if (s->read_packet->ifindex == 0)
                                                         s->read_packet->ifindex = s->peer.in6.sin6_scope_id;
@@ -387,7 +399,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 }
 
                                 ss = dns_stream_read(s,
-                                                     (uint8_t *) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
+                                                     (uint8_t *) DNS_PACKET_DATA(s->read_packet) +
+                                                             s->n_read - sizeof(s->read_size),
                                                      sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
                                         if (!IN_SET(-ss, EINTR, EAGAIN))
@@ -455,7 +468,8 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
+int dns_stream_new(
+        Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
 
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
@@ -507,7 +521,8 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
 
         if (tfo_address) {
                 s->tfo_address = *tfo_address;
-                s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
+                s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) :
+                                                                       sizeof(tfo_address->in);
         }
 
         *ret = TAKE_PTR(s);

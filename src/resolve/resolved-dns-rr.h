@@ -101,7 +101,8 @@ struct DnsResourceRecord {
 
         /* How many labels to strip to determine "signer" of the RRSIG (aka, the zone). -1 if not signed. */
         unsigned n_skip_labels_signer;
-        /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
+        /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's
+         * immediate parent. -1 if not signed. */
         unsigned n_skip_labels_source;
 
         bool unparseable : 1;
@@ -286,7 +287,9 @@ bool dns_resource_key_is_address(const DnsResourceKey *key);
 bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
-int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
+int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key,
+                                          const DnsResourceKey *cname,
+                                          const char *search_domain);
 int dns_resource_key_match_soa(const DnsResourceKey *key, const DnsResourceKey *soa);
 
 /* _DNS_{CLASS,TYPE}_STRING_MAX include one byte for NUL, which we use for space instead below.
@@ -308,8 +311,14 @@ DnsResourceRecord *dns_resource_record_new(DnsResourceKey *key);
 DnsResourceRecord *dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name);
 DnsResourceRecord *dns_resource_record_ref(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_unref(DnsResourceRecord *rr);
-int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
-int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
+int dns_resource_record_new_reverse(DnsResourceRecord **ret,
+                                    int family,
+                                    const union in_addr_union *address,
+                                    const char *name);
+int dns_resource_record_new_address(DnsResourceRecord **ret,
+                                    int family,
+                                    const union in_addr_union *address,
+                                    const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
 const char *dns_resource_record_to_string(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);

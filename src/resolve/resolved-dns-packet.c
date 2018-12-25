@@ -52,7 +52,8 @@ int dns_packet_new(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize
          * allocate a DNS packet bigger than DNS_PACKET_SIZE_MAX.
          */
         if (min_alloc_dsize > DNS_PACKET_SIZE_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "Requested packet data size too big: %zu", min_alloc_dsize);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EFBIG), "Requested packet data size too big: %zu", min_alloc_dsize);
 
         /* When dns_packet_new() is called with min_alloc_dsize == 0, allocate more than the
          * absolute minimum (which is the dns packet header size), to avoid
@@ -98,8 +99,15 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
         case DNS_PROTOCOL_LLMNR:
                 assert(!truncated);
 
-                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                        0 /* qr */, 0 /* opcode */, 0 /* c */, 0 /* tc */, 0 /* t */, 0 /* ra */, 0 /* ad */, 0 /* cd */, 0 /* rcode */));
+                h->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                         0 /* opcode */,
+                                                         0 /* c */,
+                                                         0 /* tc */,
+                                                         0 /* t */,
+                                                         0 /* ra */,
+                                                         0 /* ad */,
+                                                         0 /* cd */,
+                                                         0 /* rcode */));
                 break;
 
         case DNS_PROTOCOL_MDNS:
@@ -129,7 +137,10 @@ void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool trun
         }
 }
 
-int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled) {
+int dns_packet_new_query(DnsPacket **ret,
+                         DnsProtocol protocol,
+                         size_t min_alloc_dsize,
+                         bool dnssec_checking_disabled) {
         DnsPacket *p;
         int r;
 
@@ -283,8 +294,8 @@ int dns_packet_validate_query(DnsPacket *p) {
 
         case DNS_PROTOCOL_MDNS:
                 /* RFC 6762, Section 18 */
-                if (DNS_PACKET_AA(p) != 0 || DNS_PACKET_RD(p) != 0 || DNS_PACKET_RA(p) != 0 || DNS_PACKET_AD(p) != 0 ||
-                    DNS_PACKET_CD(p) != 0 || DNS_PACKET_RCODE(p) != 0)
+                if (DNS_PACKET_AA(p) != 0 || DNS_PACKET_RD(p) != 0 || DNS_PACKET_RA(p) != 0 ||
+                    DNS_PACKET_AD(p) != 0 || DNS_PACKET_CD(p) != 0 || DNS_PACKET_RCODE(p) != 0)
                         return -EBADMSG;
 
                 break;
@@ -488,7 +499,8 @@ int dns_packet_append_label(DnsPacket *p, const char *d, size_t l, bool canonica
         return 0;
 }
 
-int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start) {
+int dns_packet_append_name(
+        DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start) {
 
         size_t saved_size;
         int r;
@@ -597,7 +609,8 @@ fail:
         return r;
 }
 
-static int dns_packet_append_type_window(DnsPacket *p, uint8_t window, uint8_t length, const uint8_t *types, size_t *start) {
+static int dns_packet_append_type_window(
+        DnsPacket *p, uint8_t window, uint8_t length, const uint8_t *types, size_t *start) {
         size_t saved_size;
         int r;
 
@@ -802,7 +815,11 @@ int dns_packet_truncate_opt(DnsPacket *p) {
         return 1;
 }
 
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start) {
+int dns_packet_append_rr(DnsPacket *p,
+                         const DnsResourceRecord *rr,
+                         const DnsAnswerFlags flags,
+                         size_t *start,
+                         size_t *rdata_start) {
 
         size_t saved_size, rdlength_offset, end, rdlength, rds;
         uint32_t ttl;
@@ -1075,7 +1092,8 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, NULL);
+                r = dns_packet_append_blob(
+                        p, rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -1692,7 +1710,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                                 if (r < 0)
                                         return r;
 
-                                i = malloc0(offsetof(DnsTxtItem, data) + sz + 1); /* extra NUL byte at the end */
+                                i = malloc0(offsetof(DnsTxtItem, data) + sz +
+                                            1); /* extra NUL byte at the end */
                                 if (!i)
                                         return -ENOMEM;
 
@@ -1842,7 +1861,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (rdlength < 2)
                         return -EBADMSG;
 
-                r = dns_packet_read_memdup(p, rdlength - 2, &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size, NULL);
+                r = dns_packet_read_memdup(
+                        p, rdlength - 2, &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size, NULL);
 
                 if (rr->sshfp.fingerprint_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -1912,7 +1932,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (rdlength + offset < p->rindex)
                         return -EBADMSG;
 
-                r = dns_packet_read_memdup(p, offset + rdlength - p->rindex, &rr->rrsig.signature, &rr->rrsig.signature_size, NULL);
+                r = dns_packet_read_memdup(
+                        p, offset + rdlength - p->rindex, &rr->rrsig.signature, &rr->rrsig.signature_size, NULL);
 
                 if (rr->rrsig.signature_size <= 0)
                         /* the accepted size depends on the algorithm, but for now
@@ -1973,7 +1994,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (size <= 0)
                         return -EBADMSG;
 
-                r = dns_packet_read_memdup(p, size, &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size, NULL);
+                r = dns_packet_read_memdup(
+                        p, size, &rr->nsec3.next_hashed_name, &rr->nsec3.next_hashed_name_size, NULL);
                 if (r < 0)
                         return r;
 
@@ -2021,7 +2043,8 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (rdlength + offset < p->rindex)
                         return -EBADMSG;
 
-                r = dns_packet_read_memdup(p, rdlength + offset - p->rindex, &rr->caa.value, &rr->caa.value_size, NULL);
+                r = dns_packet_read_memdup(
+                        p, rdlength + offset - p->rindex, &rr->caa.value, &rr->caa.value_size, NULL);
 
                 break;
 
@@ -2054,8 +2077,8 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
         bool found_dau_dhu_n3u = false;
         size_t l;
 
-        /* Checks whether the specified OPT RR is well-formed and whether it contains RFC6975 data (which is not OK in
-         * a reply). */
+        /* Checks whether the specified OPT RR is well-formed and whether it contains RFC6975 data (which is
+         * not OK in a reply). */
 
         assert(rr);
         assert(rr->key->type == DNS_TYPE_OPT);
@@ -2222,7 +2245,8 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                          * shall be cached. Hence mark only those RRs as cacheable by default, but
                          * not the ones from the Additional or Authority sections. */
                         DnsAnswerFlags flags = (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
-                                (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0);
+                                (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER :
+                                                                                    0);
 
                         r = dns_answer_add(answer, rr, p->ifindex, flags);
                         if (r < 0)
@@ -2320,12 +2344,15 @@ static int dns_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
 DEFINE_HASH_OPS(dns_packet_hash_ops, DnsPacket, dns_packet_hash_func, dns_packet_compare_func);
 
 static const char *const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
-        [DNS_RCODE_SUCCESS] = "SUCCESS",     [DNS_RCODE_FORMERR] = "FORMERR", [DNS_RCODE_SERVFAIL] = "SERVFAIL",
-        [DNS_RCODE_NXDOMAIN] = "NXDOMAIN",   [DNS_RCODE_NOTIMP] = "NOTIMP",   [DNS_RCODE_REFUSED] = "REFUSED",
-        [DNS_RCODE_YXDOMAIN] = "YXDOMAIN",   [DNS_RCODE_YXRRSET] = "YRRSET",  [DNS_RCODE_NXRRSET] = "NXRRSET",
-        [DNS_RCODE_NOTAUTH] = "NOTAUTH",     [DNS_RCODE_NOTZONE] = "NOTZONE", [DNS_RCODE_BADVERS] = "BADVERS",
-        [DNS_RCODE_BADKEY] = "BADKEY",       [DNS_RCODE_BADTIME] = "BADTIME", [DNS_RCODE_BADMODE] = "BADMODE",
-        [DNS_RCODE_BADNAME] = "BADNAME",     [DNS_RCODE_BADALG] = "BADALG",   [DNS_RCODE_BADTRUNC] = "BADTRUNC",
+        [DNS_RCODE_SUCCESS] = "SUCCESS",     [DNS_RCODE_FORMERR] = "FORMERR",
+        [DNS_RCODE_SERVFAIL] = "SERVFAIL",   [DNS_RCODE_NXDOMAIN] = "NXDOMAIN",
+        [DNS_RCODE_NOTIMP] = "NOTIMP",       [DNS_RCODE_REFUSED] = "REFUSED",
+        [DNS_RCODE_YXDOMAIN] = "YXDOMAIN",   [DNS_RCODE_YXRRSET] = "YRRSET",
+        [DNS_RCODE_NXRRSET] = "NXRRSET",     [DNS_RCODE_NOTAUTH] = "NOTAUTH",
+        [DNS_RCODE_NOTZONE] = "NOTZONE",     [DNS_RCODE_BADVERS] = "BADVERS",
+        [DNS_RCODE_BADKEY] = "BADKEY",       [DNS_RCODE_BADTIME] = "BADTIME",
+        [DNS_RCODE_BADMODE] = "BADMODE",     [DNS_RCODE_BADNAME] = "BADNAME",
+        [DNS_RCODE_BADALG] = "BADALG",       [DNS_RCODE_BADTRUNC] = "BADTRUNC",
         [DNS_RCODE_BADCOOKIE] = "BADCOOKIE",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_rcode, int);

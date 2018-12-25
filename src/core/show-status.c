@@ -48,10 +48,11 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
         if (vasprintf(&s, format, ap) < 0)
                 return log_oom();
 
-        /* Before you ask: yes, on purpose we open/close the console for each status line we write individually. This
-         * is a good strategy to avoid PID 1 getting killed by the kernel's SAK concept (it doesn't fix this entirely,
-         * but minimizes the time window the kernel might end up killing PID 1 due to SAK). It also makes things easier
-         * for us so that we don't have to recover from hangups and suchlike triggered on the console. */
+        /* Before you ask: yes, on purpose we open/close the console for each status line we write
+         * individually. This is a good strategy to avoid PID 1 getting killed by the kernel's SAK concept
+         * (it doesn't fix this entirely, but minimizes the time window the kernel might end up killing PID 1
+         * due to SAK). It also makes things easier for us so that we don't have to recover from hangups and
+         * suchlike triggered on the console. */
 
         fd = open_terminal("/dev/console", O_WRONLY | O_NOCTTY | O_CLOEXEC);
         if (fd < 0)

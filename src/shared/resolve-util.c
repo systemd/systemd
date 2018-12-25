@@ -4,9 +4,18 @@
 #include "resolve-util.h"
 #include "string-table.h"
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support, resolve_support, ResolveSupport, "Failed to parse resolve support setting");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode, dnssec_mode, DnssecMode, "Failed to parse DNSSEC mode setting");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode, dns_over_tls_mode, DnsOverTlsMode, "Failed to parse DNS-over-TLS mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support,
+                         resolve_support,
+                         ResolveSupport,
+                         "Failed to parse resolve support setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode,
+                         dnssec_mode,
+                         DnssecMode,
+                         "Failed to parse DNSSEC mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode,
+                         dns_over_tls_mode,
+                         DnsOverTlsMode,
+                         "Failed to parse DNS-over-TLS mode setting");
 
 static const char *const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_NO] = "no",

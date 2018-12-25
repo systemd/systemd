@@ -17,9 +17,12 @@
 
 static int help(void) {
         static const char *short_descriptions[][2] = {
-                { "info", "Query sysfs or the udev database" },    { "trigger", "Request events from the kernel" },
-                { "settle", "Wait for pending udev events" },      { "control", "Control the udev daemon" },
-                { "monitor", "Listen to kernel and udev events" }, { "test", "Test an event run" },
+                { "info", "Query sysfs or the udev database" },
+                { "trigger", "Request events from the kernel" },
+                { "settle", "Wait for pending udev events" },
+                { "control", "Control the udev daemon" },
+                { "monitor", "Listen to kernel and udev events" },
+                { "test", "Test an event run" },
                 { "test-builtin", "Test a built-in command" },
         };
 
@@ -44,9 +47,10 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "debug", no_argument, NULL, 'd' }, { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, 'V' }, {}
-        };
+        static const struct option options[] = { { "debug", no_argument, NULL, 'd' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, 'V' },
+                                                 {} };
         int c;
 
         assert(argc >= 0);

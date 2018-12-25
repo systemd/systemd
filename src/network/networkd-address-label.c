@@ -29,7 +29,10 @@ void address_label_free(AddressLabel *label) {
         free(label);
 }
 
-static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
+static int address_label_new_static(Network *network,
+                                    const char *filename,
+                                    unsigned section_line,
+                                    AddressLabel **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(address_label_freep) AddressLabel *label = NULL;
         int r;
@@ -105,7 +108,10 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-int address_label_configure(AddressLabel *label, Link *link, link_netlink_message_handler_t callback, bool update) {
+int address_label_configure(AddressLabel *label,
+                            Link *link,
+                            link_netlink_message_handler_t callback,
+                            bool update) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
@@ -132,7 +138,12 @@ int address_label_configure(AddressLabel *label, Link *link, link_netlink_messag
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: address_label_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl,
+                               NULL,
+                               req,
+                               callback ?: address_label_handler,
+                               link_netlink_destroy_callback,
+                               link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -168,7 +179,13 @@ int config_parse_address_label_prefix(const char *unit,
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &n->in_addr, &n->prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Address label is invalid, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -205,7 +222,8 @@ int config_parse_address_label(const char *unit,
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address label, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse address label, ignoring: %s", rvalue);
                 return 0;
         }
 

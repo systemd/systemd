@@ -23,9 +23,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
         };
 
-        static const struct option options[] = {
-                { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, { "verbose", no_argument, NULL, 'v' }, {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "verbose", no_argument, NULL, 'v' },
+                                                 {} };
 
         int c;
 
@@ -55,7 +56,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         return 1;
 }

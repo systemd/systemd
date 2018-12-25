@@ -31,7 +31,9 @@ int introspect_begin(struct introspect *i, bool trusted) {
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {
         assert(i);
 
-        fputs(BUS_INTROSPECT_INTERFACE_PEER BUS_INTROSPECT_INTERFACE_INTROSPECTABLE BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
+        fputs(BUS_INTROSPECT_INTERFACE_PEER BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
+                      BUS_INTROSPECT_INTERFACE_PROPERTIES,
+              i->f);
 
         if (object_manager)
                 fputs(BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
@@ -67,17 +69,22 @@ static void introspect_write_flags(struct introspect *i, int type, uint64_t flag
 
         if (IN_SET(type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY)) {
                 if (flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
-                        fputs("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n",
+                              i->f);
 
                 if (flags & SD_BUS_VTABLE_PROPERTY_CONST)
-                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"const\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"const\"/>\n",
+                              i->f);
                 else if (flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)
-                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n",
+                              i->f);
                 else if (!(flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))
-                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"false\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"false\"/>\n",
+                              i->f);
         }
 
-        if (!i->trusted && IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) && !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
+        if (!i->trusted && IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
+            !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
                 fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
@@ -122,7 +129,8 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
                 case _SD_BUS_VTABLE_START:
                         if (v->flags & SD_BUS_VTABLE_DEPRECATED)
-                                fputs("  <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
+                                fputs("  <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n",
+                                      i->f);
                         break;
 
                 case _SD_BUS_VTABLE_METHOD:

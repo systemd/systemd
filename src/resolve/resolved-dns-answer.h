@@ -48,7 +48,10 @@ int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a);
 int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone);
 
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags);
-int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags);
+int dns_answer_find_cname_or_dname(DnsAnswer *a,
+                                   const DnsResourceKey *key,
+                                   DnsResourceRecord **ret,
+                                   DnsAnswerFlags *flags);
 
 int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret);
 int dns_answer_extend(DnsAnswer **a, DnsAnswer *b);

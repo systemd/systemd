@@ -152,7 +152,8 @@ static int add_swap(const char *what, struct mntent *me, MountpointFlags flags) 
                 log_warning("%s: growing swap devices is currently unsupported.", what);
 
         if (!(flags & NOAUTO)) {
-                r = generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, (flags & NOFAIL) ? "wants" : "requires", name);
+                r = generator_add_symlink(
+                        arg_dest, SPECIAL_SWAP_TARGET, (flags & NOFAIL) ? "wants" : "requires", name);
                 if (r < 0)
                         return r;
         }
@@ -218,7 +219,7 @@ static int write_dependency(FILE *f, const char *opts, const char *filter, const
         if (r == 0)
                 return 0;
 
-        STRV_FOREACH(s, names) {
+        STRV_FOREACH (s, names) {
                 char *x;
 
                 r = unit_name_mangle_with_suffix(*s, 0, ".mount", &x);
@@ -534,15 +535,19 @@ static int parse_fstab(bool initrd) {
                 if (is_path(where)) {
                         path_simplify(where, false);
 
-                        /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
-                         * mount units, but causes problems since it historically worked to have symlinks in e.g.
-                         * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
-                         * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-                         * target is the final directory. */
-                        r = chase_symlinks(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &canonical_where);
+                        /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes
+                         * sense for mount units, but causes problems since it historically worked to have
+                         * symlinks in e.g. /etc/fstab. So we canonicalize here. Note that we use
+                         * CHASE_NONEXISTENT to handle the case where a symlink refers to another mount
+                         * target; this works assuming the sub-mountpoint target is the final directory. */
+                        r = chase_symlinks(where,
+                                           initrd ? "/sysroot" : NULL,
+                                           CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
+                                           &canonical_where);
                         if (r < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
                                 log_debug_errno(r, "Failed to read symlink target for %s, ignoring: %m", where);
-                        else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
+                        else if (streq(canonical_where,
+                                       where)) /* If it was fully canonicalized, suppress the change */
                                 canonical_where = mfree(canonical_where);
                         else
                                 log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
@@ -566,7 +571,9 @@ static int parse_fstab(bool initrd) {
                           yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
-                        k = add_swap(what, me, makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL);
+                        k = add_swap(what,
+                                     me,
+                                     makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL);
                 else {
                         bool automount;
                         const char *post;
@@ -588,7 +595,8 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL | automount * AUTOMOUNT,
+                                      makefs * MAKEFS | growfs * GROWFS | noauto * NOAUTO | nofail * NOFAIL |
+                                              automount * AUTOMOUNT,
                                       post,
                                       fstab_path);
                 }
@@ -651,7 +659,7 @@ static int add_sysroot_mount(void) {
                          arg_root_fstype,
                          opts,
                          is_device_path(what) ? 1 : 0, /* passno */
-                         0,                            /* makefs off, growfs off, noauto off, nofail off, automount off */
+                         0, /* makefs off, growfs off, noauto off, nofail off, automount off */
                          SPECIAL_INITRD_ROOT_FS_TARGET,
                          "/proc/cmdline");
 }
@@ -717,8 +725,8 @@ static int add_volatile_root(void) {
         if (arg_volatile_mode != VOLATILE_YES)
                 return 0;
 
-        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
-         * requested, leaving only /usr from the root mount inside. */
+        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this
+         * is requested, leaving only /usr from the root mount inside. */
 
         from = strjoina(SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
         to = strjoina(arg_dest, "/" SPECIAL_INITRD_ROOT_FS_TARGET, ".requires/systemd-volatile-root.service");
@@ -738,7 +746,16 @@ static int add_volatile_var(void) {
 
         /* If requested, mount /var as tmpfs, but do so only if there's nothing else defined for this. */
 
-        return add_mount(arg_dest_late, "tmpfs", "/var", NULL, "tmpfs", "mode=0755", 0, 0, SPECIAL_LOCAL_FS_TARGET, "/proc/cmdline");
+        return add_mount(arg_dest_late,
+                         "tmpfs",
+                         "/var",
+                         NULL,
+                         "tmpfs",
+                         "mode=0755",
+                         0,
+                         0,
+                         SPECIAL_LOCAL_FS_TARGET,
+                         "/proc/cmdline");
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {

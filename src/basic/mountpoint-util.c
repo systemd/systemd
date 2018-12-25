@@ -16,12 +16,12 @@
 #include "stdio-util.h"
 #include "strv.h"
 
-/* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
- * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
- * is recompiled then it would cease working on old kernels, as those refuse any sizes larger than this value with
- * EINVAL right-away. Hence, let's disconnect ourselves from any such API changes, and stick to the original definition
- * from when it was introduced. We use it as a start value only anyway (see below), and hence should be able to deal
- * with large file handles anyway. */
+/* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in
+ * place of any more currently defined value to future-proof things: if the size is increased in the API
+ * headers, and our code is recompiled then it would cease working on old kernels, as those refuse any sizes
+ * larger than this value with EINVAL right-away. Hence, let's disconnect ourselves from any such API
+ * changes, and stick to the original definition from when it was introduced. We use it as a start value only
+ * anyway (see below), and hence should be able to deal with large file handles anyway. */
 #define ORIGINAL_MAX_HANDLE_SZ 128
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags) {
@@ -29,12 +29,12 @@ int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_ha
         _cleanup_free_ struct file_handle *h = NULL;
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
-        /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
-         * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
-         * start value, it is not an upper bound on the buffer size required.
+        /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the
+         * specified buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ
+         * is only good as a start value, it is not an upper bound on the buffer size required.
          *
-         * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can be passed
-         * as NULL if there's no interest in either. */
+         * This improves on raw name_to_handle_at() also in one other regard: ret_handle and ret_mnt_id can
+         * be passed as NULL if there's no interest in either. */
 
         for (;;) {
                 int mnt_id = -1;
@@ -60,17 +60,18 @@ int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_ha
 
                 if (!ret_handle && ret_mnt_id && mnt_id >= 0) {
 
-                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW when the
-                         * buffer is too small, but that's undocumented. Hence, let's make use of this if it appears to
-                         * be filled in, and the caller was interested in only the mount ID an nothing else. */
+                        /* As it appears, name_to_handle_at() fills in mnt_id even when it returns EOVERFLOW
+                         * when the buffer is too small, but that's undocumented. Hence, let's make use of
+                         * this if it appears to be filled in, and the caller was interested in only the
+                         * mount ID an nothing else. */
 
                         *ret_mnt_id = mnt_id;
                         return 0;
                 }
 
-                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by something
-                 * else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes), not by the too small
-                 * buffer. In that case propagate EOVERFLOW */
+                /* If name_to_handle_at() didn't increase the byte size, then this EOVERFLOW is caused by
+                 * something else (apparently EOVERFLOW is returned for untriggered nfs4 mounts sometimes),
+                 * not by the too small buffer. In that case propagate EOVERFLOW */
                 if (h->handle_bytes <= n)
                         return -EOVERFLOW;
 
@@ -156,15 +157,15 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
         if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL))
-                /* This kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was blocked
-                 * (EACCES/EPERM; maybe through seccomp, because we are running inside of a container?), or the mount
-                 * point is not triggered yet (EOVERFLOW, think nfs4), or some general name_to_handle_at() flakiness
-                 * (EINVAL): fall back to simpler logic. */
+                /* This kernel does not support name_to_handle_at() at all (ENOSYS), or the syscall was
+                 * blocked (EACCES/EPERM; maybe through seccomp, because we are running inside of a
+                 * container?), or the mount point is not triggered yet (EOVERFLOW, think nfs4), or some
+                 * general name_to_handle_at() flakiness (EINVAL): fall back to simpler logic. */
                 goto fallback_fdinfo;
         else if (r == -EOPNOTSUPP)
-                /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
-                 * supports it (in which case it is a mount point), otherwise fallback to the traditional stat()
-                 * logic */
+                /* This kernel or file system does not support name_to_handle_at(), hence let's see if the
+                 * upper fs supports it (in which case it is a mount point), otherwise fallback to the
+                 * traditional stat() logic */
                 nosupp = true;
         else if (r < 0)
                 return r;
@@ -175,8 +176,8 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                         /* Neither parent nor child do name_to_handle_at()?  We have no choice but to fall back. */
                         goto fallback_fdinfo;
                 else
-                        /* The parent can't do name_to_handle_at() but the directory we are interested in can?  If so,
-                         * it must be a mount point. */
+                        /* The parent can't do name_to_handle_at() but the directory we are interested in
+                         * can?  If so, it must be a mount point. */
                         return 1;
         } else if (r < 0)
                 return r;
@@ -276,8 +277,14 @@ int path_get_mnt_id(const char *path, int *ret) {
         int r;
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
-        if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access,
-                                                                                      or untriggered mount, or name_to_handle_at() is flaky */
+        if (IN_SET(r,
+                   -EOPNOTSUPP,
+                   -ENOSYS,
+                   -EACCES,
+                   -EPERM,
+                   -EOVERFLOW,
+                   -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access,
+                                or untriggered mount, or name_to_handle_at() is flaky */
                 return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
 
         return r;
@@ -342,8 +349,8 @@ bool fstype_can_discard(const char *fstype) {
 
 bool fstype_can_uid_gid(const char *fstype) {
 
-        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
-         * current and future. */
+        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and
+         * directories, current and future. */
 
         return STR_IN_SET(fstype, "adfs", "fat", "hfs", "hpfs", "iso9660", "msdos", "ntfs", "vfat");
 }

@@ -11,30 +11,35 @@
 #include "util.h"
 
 /*
-  In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
-  benefits over various other implementatins:
+  In case you wonder why we have our own JSON implementation, here are a couple of reasons why this
+  implementation has benefits over various other implementatins:
 
-  - We need support for 64bit signed and unsigned integers, i.e. the full 64,5bit range of -9223372036854775808…18446744073709551615
+  - We need support for 64bit signed and unsigned integers, i.e. the full 64,5bit range of
+  -9223372036854775808…18446744073709551615
   - All our variants are immutable after creation
-  - Special values such as true, false, zero, null, empty strings, empty array, empty objects require zero dynamic memory
+  - Special values such as true, false, zero, null, empty strings, empty array, empty objects require zero
+  dynamic memory
   - Progressive parsing
   - Our integer/real type implicitly converts, but only if that's safe and loss-lessly possible
   - There's a "builder" for putting together objects easily in varargs function calls
   - There's a "dispatcher" for mapping objects to C data structures
-  - Every variant optionally carries parsing location information, which simplifies debugging and parse log error generation
+  - Every variant optionally carries parsing location information, which simplifies debugging and parse log
+  error generation
   - Formatter has color, line, column support
 
   Limitations:
   - Doesn't allow embedded NUL in strings
-  - Can't store integers outside of the -9223372036854775808…18446744073709551615 range (it will use 'long double' for
-    values outside this range, which is lossy)
-  - Can't store negative zero (will be treated identical to positive zero, and not retained across serialization)
+  - Can't store integers outside of the -9223372036854775808…18446744073709551615 range (it will use 'long
+  double' for values outside this range, which is lossy)
+  - Can't store negative zero (will be treated identical to positive zero, and not retained across
+  serialization)
   - Can't store non-integer numbers that can't be stored in "long double" losslessly
-  - Allows creation and parsing of objects with duplicate keys. The "dispatcher" will refuse them however. This means
-    we can parse and pass around such objects, but will carefully refuse them when we convert them into our own data.
+  - Allows creation and parsing of objects with duplicate keys. The "dispatcher" will refuse them however.
+  This means we can parse and pass around such objects, but will carefully refuse them when we convert them
+  into our own data.
 
-  (These limitations should be pretty much in line with those of other JSON implementations, in fact might be less
-  limiting in most cases even.)
+  (These limitations should be pretty much in line with those of other JSON implementations, in fact might be
+  less limiting in most cases even.)
 */
 
 typedef struct JsonVariant JsonVariant;
@@ -45,7 +50,8 @@ typedef enum JsonVariantType
         JSON_VARIANT_INTEGER,
         JSON_VARIANT_UNSIGNED,
         JSON_VARIANT_REAL,
-        JSON_VARIANT_NUMBER, /* This a pseudo-type: we can never create variants of this type, but we use it as wildcard check for the above three types */
+        JSON_VARIANT_NUMBER, /* This a pseudo-type: we can never create variants of this type, but we use it
+                                as wildcard check for the above three types */
         JSON_VARIANT_BOOLEAN,
         JSON_VARIANT_ARRAY,
         JSON_VARIANT_OBJECT,
@@ -134,19 +140,21 @@ struct json_variant_foreach_state {
         size_t idx;
 };
 
-#define JSON_VARIANT_ARRAY_FOREACH(i, v)                                                                                           \
-        for (struct json_variant_foreach_state _state = { (v), 0 }; _state.idx < json_variant_elements(_state.variant) && ({       \
-                                                                            i = json_variant_by_index(_state.variant, _state.idx); \
-                                                                            true;                                                  \
-                                                                    });                                                            \
+#define JSON_VARIANT_ARRAY_FOREACH(i, v)                                    \
+        for (struct json_variant_foreach_state _state = { (v), 0 };         \
+             _state.idx < json_variant_elements(_state.variant) && ({       \
+                     i = json_variant_by_index(_state.variant, _state.idx); \
+                     true;                                                  \
+             });                                                            \
              _state.idx++)
 
-#define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                                                                                           \
-        for (struct json_variant_foreach_state _state = { (v), 0 }; _state.idx < json_variant_elements(_state.variant) && ({           \
-                                                                            k = json_variant_by_index(_state.variant, _state.idx);     \
-                                                                            e = json_variant_by_index(_state.variant, _state.idx + 1); \
-                                                                            true;                                                      \
-                                                                    });                                                                \
+#define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                                    \
+        for (struct json_variant_foreach_state _state = { (v), 0 };             \
+             _state.idx < json_variant_elements(_state.variant) && ({           \
+                     k = json_variant_by_index(_state.variant, _state.idx);     \
+                     e = json_variant_by_index(_state.variant, _state.idx + 1); \
+                     true;                                                      \
+             });                                                                \
              _state.idx += 2)
 
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
@@ -252,12 +260,12 @@ enum
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
 
-/* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated from the bit
- * mask originally passed into json_dispatch(), the individual bitmask associated with the static JsonDispatch callout
- * entry, as well the bitmask specified for json_log() calls */
+/* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated
+ * from the bit mask originally passed into json_dispatch(), the individual bitmask associated with the
+ * static JsonDispatch callout entry, as well the bitmask specified for json_log() calls */
 typedef enum JsonDispatchFlags
 {
-        /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
+        /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter */
         JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
         JSON_MANDATORY = 1 << 1,  /* Should existance of this property be mandatory? */
         JSON_LOG = 1 << 2,        /* Should the parser log about errors? */
@@ -267,7 +275,10 @@ typedef enum JsonDispatchFlags
         JSON_WARNING = 1 << 4, /* Indicates that this log message is a warning message */
 } JsonDispatchFlags;
 
-typedef int (*JsonDispatchCallback)(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+typedef int (*JsonDispatchCallback)(const char *name,
+                                    JsonVariant *variant,
+                                    JsonDispatchFlags flags,
+                                    void *userdata);
 
 typedef struct JsonDispatch {
         const char *name;
@@ -277,7 +288,11 @@ typedef struct JsonDispatch {
         JsonDispatchFlags flags;
 } JsonDispatch;
 
-int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallback bad, JsonDispatchFlags flags, void *userdata);
+int json_dispatch(JsonVariant *v,
+                  const JsonDispatch table[],
+                  JsonDispatchCallback bad,
+                  JsonDispatchFlags flags,
+                  void *userdata);
 
 int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
@@ -297,14 +312,14 @@ assert_cc(sizeof(uintmax_t) == sizeof(uint64_t))
 
                 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
-        /* Did the user request no logging? If so, then never log higher than LOG_DEBUG. Also, if this is marked as
-         * debug message, then also log at debug level. */
+        /* Did the user request no logging? If so, then never log higher than LOG_DEBUG. Also, if this is
+         * marked as debug message, then also log at debug level. */
 
         if (!(flags & JSON_LOG) || (flags & JSON_DEBUG))
                 return LOG_DEBUG;
 
-        /* Are we invoked in permissive mode, or is this explicitly marked as warning message? Then this should be
-         * printed at LOG_WARNING */
+        /* Are we invoked in permissive mode, or is this explicitly marked as warning message? Then this
+         * should be printed at LOG_WARNING */
         if (flags & (JSON_PERMISSIVE | JSON_WARNING))
                 return LOG_WARNING;
 
@@ -312,8 +327,14 @@ assert_cc(sizeof(uintmax_t) == sizeof(uint64_t))
         return LOG_ERR;
 }
 
-int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...)
-        _printf_(7, 8);
+int json_log_internal(JsonVariant *variant,
+                      int level,
+                      int error,
+                      const char *file,
+                      int line,
+                      const char *func,
+                      const char *format,
+                      ...) _printf_(7, 8);
 
 #define json_log(variant, flags, error, ...)                                                                \
         ({                                                                                                  \

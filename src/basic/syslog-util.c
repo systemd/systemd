@@ -52,13 +52,16 @@ int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
 }
 
 static const char *const log_facility_unshifted_table[LOG_NFACILITIES] = {
-        [LOG_FAC(LOG_KERN)] = "kern",     [LOG_FAC(LOG_USER)] = "user",         [LOG_FAC(LOG_MAIL)] = "mail",
-        [LOG_FAC(LOG_DAEMON)] = "daemon", [LOG_FAC(LOG_AUTH)] = "auth",         [LOG_FAC(LOG_SYSLOG)] = "syslog",
-        [LOG_FAC(LOG_LPR)] = "lpr",       [LOG_FAC(LOG_NEWS)] = "news",         [LOG_FAC(LOG_UUCP)] = "uucp",
-        [LOG_FAC(LOG_CRON)] = "cron",     [LOG_FAC(LOG_AUTHPRIV)] = "authpriv", [LOG_FAC(LOG_FTP)] = "ftp",
-        [LOG_FAC(LOG_LOCAL0)] = "local0", [LOG_FAC(LOG_LOCAL1)] = "local1",     [LOG_FAC(LOG_LOCAL2)] = "local2",
-        [LOG_FAC(LOG_LOCAL3)] = "local3", [LOG_FAC(LOG_LOCAL4)] = "local4",     [LOG_FAC(LOG_LOCAL5)] = "local5",
-        [LOG_FAC(LOG_LOCAL6)] = "local6", [LOG_FAC(LOG_LOCAL7)] = "local7"
+        [LOG_FAC(LOG_KERN)] = "kern",         [LOG_FAC(LOG_USER)] = "user",
+        [LOG_FAC(LOG_MAIL)] = "mail",         [LOG_FAC(LOG_DAEMON)] = "daemon",
+        [LOG_FAC(LOG_AUTH)] = "auth",         [LOG_FAC(LOG_SYSLOG)] = "syslog",
+        [LOG_FAC(LOG_LPR)] = "lpr",           [LOG_FAC(LOG_NEWS)] = "news",
+        [LOG_FAC(LOG_UUCP)] = "uucp",         [LOG_FAC(LOG_CRON)] = "cron",
+        [LOG_FAC(LOG_AUTHPRIV)] = "authpriv", [LOG_FAC(LOG_FTP)] = "ftp",
+        [LOG_FAC(LOG_LOCAL0)] = "local0",     [LOG_FAC(LOG_LOCAL1)] = "local1",
+        [LOG_FAC(LOG_LOCAL2)] = "local2",     [LOG_FAC(LOG_LOCAL3)] = "local3",
+        [LOG_FAC(LOG_LOCAL4)] = "local4",     [LOG_FAC(LOG_LOCAL5)] = "local5",
+        [LOG_FAC(LOG_LOCAL6)] = "local6",     [LOG_FAC(LOG_LOCAL7)] = "local7"
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_facility_unshifted, int, LOG_FAC(~0));
@@ -67,9 +70,10 @@ bool log_facility_unshifted_is_valid(int facility) {
         return facility >= 0 && facility <= LOG_FAC(~0);
 }
 
-static const char *const log_level_table[] = { [LOG_EMERG] = "emerg", [LOG_ALERT] = "alert",     [LOG_CRIT] = "crit",
-                                               [LOG_ERR] = "err",     [LOG_WARNING] = "warning", [LOG_NOTICE] = "notice",
-                                               [LOG_INFO] = "info",   [LOG_DEBUG] = "debug" };
+static const char *const log_level_table[] = { [LOG_EMERG] = "emerg",     [LOG_ALERT] = "alert",
+                                               [LOG_CRIT] = "crit",       [LOG_ERR] = "err",
+                                               [LOG_WARNING] = "warning", [LOG_NOTICE] = "notice",
+                                               [LOG_INFO] = "info",       [LOG_DEBUG] = "debug" };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, LOG_DEBUG);
 

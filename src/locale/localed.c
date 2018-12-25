@@ -86,7 +86,8 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
 
         r = sd_bus_call(bus, m, 0, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to update the manager environment: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to update the manager environment: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -172,8 +173,13 @@ static int x11_convert_to_vconsole_and_emit(Context *c, sd_bus_message *m) {
         return vconsole_reload(sd_bus_message_get_bus(m));
 }
 
-static int property_get_locale(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_locale(sd_bus *bus,
+                               const char *path,
+                               const char *interface,
+                               const char *property,
+                               sd_bus_message *reply,
+                               void *userdata,
+                               sd_bus_error *error) {
 
         Context *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
@@ -206,8 +212,13 @@ static int property_get_locale(
         return sd_bus_message_append_strv(reply, l);
 }
 
-static int property_get_vconsole(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_vconsole(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -224,8 +235,13 @@ static int property_get_vconsole(
         return -EINVAL;
 }
 
-static int property_get_xkb(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_xkb(sd_bus *bus,
+                            const char *path,
+                            const char *interface,
+                            const char *property,
+                            sd_bus_message *reply,
+                            void *userdata,
+                            sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -278,7 +294,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         /* Check whether a variable is valid */
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 bool valid = false;
 
                 for (p = 0; p < _VARIABLE_LC_MAX; p++) {
@@ -343,8 +359,14 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return sd_bus_reply_method_return(m, NULL);
         }
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-locale", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.locale1.set-locale",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -369,8 +391,11 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         } else
                 log_info("Changed locale to unset.");
 
-        (void) sd_bus_emit_properties_changed(
-                sd_bus_message_get_bus(m), "/org/freedesktop/locale1", "org.freedesktop.locale1", "Locale", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/locale1",
+                                              "org.freedesktop.locale1",
+                                              "Locale",
+                                              NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -393,7 +418,8 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         r = vconsole_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read virtual console keymap data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read virtual console keymap data");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_FAILED, "Failed to read virtual console keymap data");
         }
 
         if (streq_ptr(keymap, c->vc_keymap) && streq_ptr(keymap_toggle, c->vc_keymap_toggle))
@@ -403,14 +429,21 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
             (keymap_toggle && (!filename_is_valid(keymap_toggle) || !string_is_safe(keymap_toggle))))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keymap data");
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.locale1.set-keyboard",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (free_and_strdup(&c->vc_keymap, keymap) < 0 || free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
+        if (free_and_strdup(&c->vc_keymap, keymap) < 0 ||
+            free_and_strdup(&c->vc_keymap_toggle, keymap_toggle) < 0)
                 return -ENOMEM;
 
         r = vconsole_write_data(c);
@@ -419,7 +452,9 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                 return sd_bus_error_set_errnof(error, r, "Failed to set virtual console keymap: %m");
         }
 
-        log_info("Changed virtual console keymap to '%s' toggle '%s'", strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+        log_info("Changed virtual console keymap to '%s' toggle '%s'",
+                 strempty(c->vc_keymap),
+                 strempty(c->vc_keymap_toggle));
 
         (void) vconsole_reload(sd_bus_message_get_bus(m));
 
@@ -441,7 +476,10 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 
 #if HAVE_XKBCOMMON
 
-_printf_(3, 0) static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char *format, va_list args) {
+_printf_(3, 0) static void log_xkb(struct xkb_context *ctx,
+                                   enum xkb_log_level lvl,
+                                   const char *format,
+                                   va_list args) {
         const char *fmt;
 
         fmt = strjoina("libxkbcommon: ", format);
@@ -459,17 +497,20 @@ _printf_(3, 0) static void log_xkb(struct xkb_context *ctx, enum xkb_log_level l
 
 static int verify_xkb_rmlvo(const char *model, const char *layout, const char *variant, const char *options) {
 
-        /* We dlopen() the library in order to make the dependency soft. The library (and what it pulls in) is huge
-         * after all, hence let's support XKB maps when the library is around, and refuse otherwise. The function
-         * pointers to the shared library are below: */
+        /* We dlopen() the library in order to make the dependency soft. The library (and what it pulls in)
+         * is huge after all, hence let's support XKB maps when the library is around, and refuse otherwise.
+         * The function pointers to the shared library are below: */
 
         struct xkb_context *(*symbol_xkb_context_new)(enum xkb_context_flags flags) = NULL;
         void (*symbol_xkb_context_unref)(struct xkb_context * context) = NULL;
-        void (*symbol_xkb_context_set_log_fn)(
-                struct xkb_context * context,
-                void (*log_fn)(struct xkb_context * context, enum xkb_log_level level, const char *format, va_list args)) = NULL;
-        struct xkb_keymap *(*symbol_xkb_keymap_new_from_names)(
-                struct xkb_context * context, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags) = NULL;
+        void (*symbol_xkb_context_set_log_fn)(struct xkb_context * context,
+                                              void (*log_fn)(struct xkb_context * context,
+                                                             enum xkb_log_level level,
+                                                             const char *format,
+                                                             va_list args)) = NULL;
+        struct xkb_keymap *(*symbol_xkb_keymap_new_from_names)(struct xkb_context * context,
+                                                               const struct xkb_rule_names *names,
+                                                               enum xkb_keymap_compile_flags flags) = NULL;
         void (*symbol_xkb_keymap_unref)(struct xkb_keymap * keymap) = NULL;
 
         const struct xkb_rule_names rmlvo = {
@@ -564,35 +605,46 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         r = x11_read_data(c, m);
         if (r < 0) {
                 log_error_errno(r, "Failed to read x11 keyboard layout data: %m");
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_FAILED, "Failed to read x11 keyboard layout data");
         }
 
-        if (streq_ptr(layout, c->x11_layout) && streq_ptr(model, c->x11_model) && streq_ptr(variant, c->x11_variant) &&
-            streq_ptr(options, c->x11_options))
+        if (streq_ptr(layout, c->x11_layout) && streq_ptr(model, c->x11_model) &&
+            streq_ptr(variant, c->x11_variant) && streq_ptr(options, c->x11_options))
                 return sd_bus_reply_method_return(m, NULL);
 
-        if ((layout && !string_is_safe(layout)) || (model && !string_is_safe(model)) || (variant && !string_is_safe(variant)) ||
-            (options && !string_is_safe(options)))
+        if ((layout && !string_is_safe(layout)) || (model && !string_is_safe(model)) ||
+            (variant && !string_is_safe(variant)) || (options && !string_is_safe(options)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
         r = verify_xkb_rmlvo(model, layout, variant, options);
         if (r < 0) {
-                log_error_errno(r,
-                                "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(model),
-                                strempty(layout),
-                                strempty(variant),
-                                strempty(options));
+                log_error_errno(
+                        r,
+                        "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                        strempty(model),
+                        strempty(layout),
+                        strempty(variant),
+                        strempty(options));
 
                 if (r == -EOPNOTSUPP)
-                        return sd_bus_error_setf(
-                                error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_NOT_SUPPORTED,
+                                                 "Local keyboard configuration not supported on this system.");
 
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_INVALID_ARGS,
+                                        "Specified keymap cannot be compiled, refusing as invalid.");
         }
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_ADMIN, "org.freedesktop.locale1.set-keyboard", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.locale1.set-keyboard",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -640,7 +692,8 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_PROPERTY("X11Variant", "s", property_get_xkb, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("X11Options", "s", property_get_xkb, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymap", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("VConsoleKeymapToggle", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "VConsoleKeymapToggle", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_METHOD("SetLocale", "asb", NULL, method_set_locale, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetVConsoleKeyboard", "ssbb", NULL, method_set_vc_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetX11Keyboard", "ssssbb", NULL, method_set_x11_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -659,7 +712,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
+        r = sd_bus_add_object_vtable(
+                bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 

@@ -94,7 +94,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "crypt"))
                                 flags = DISSECT_IMAGE_DISCARD_ANY;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown --discard= parameter: %s", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Unknown --discard= parameter: %s", optarg);
                         arg_flags = (arg_flags & ~DISSECT_IMAGE_DISCARD_ANY) | flags;
 
                         break;
@@ -131,7 +132,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_DISSECT:
                 if (optind + 1 != argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a file path as only argument.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a file path as only argument.");
 
                 arg_image = argv[optind];
                 arg_flags |= DISSECT_IMAGE_READ_ONLY;
@@ -139,7 +141,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         case ACTION_MOUNT:
                 if (optind + 2 != argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a file path and mount point path as only arguments.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected a file path and mount point path as only arguments.");
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
@@ -191,7 +194,9 @@ static int run(int argc, char *argv[]) {
                         if (!p->found)
                                 continue;
 
-                        printf("Found %s '%s' partition", p->rw ? "writable" : "read-only", partition_designator_to_string(i));
+                        printf("Found %s '%s' partition",
+                               p->rw ? "writable" : "read-only",
+                               partition_designator_to_string(i));
 
                         if (!sd_id128_is_null(p->uuid))
                                 printf(" (UUID " SD_ID128_FORMAT_STR ")", SD_ID128_FORMAT_VAL(p->uuid));
@@ -243,7 +248,8 @@ static int run(int argc, char *argv[]) {
         }
 
         case ACTION_MOUNT:
-                r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_flags, &di);
+                r = dissected_image_decrypt_interactively(
+                        m, NULL, arg_root_hash, arg_root_hash_size, arg_flags, &di);
                 if (r < 0)
                         return r;
 

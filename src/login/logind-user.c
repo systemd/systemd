@@ -304,7 +304,8 @@ int user_save(User *u) {
 }
 
 int user_load(User *u) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL, *last_session_timestamp = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *stopping = NULL,
+                            *last_session_timestamp = NULL;
         int r;
 
         assert(u);
@@ -350,15 +351,18 @@ static void user_start_service(User *u) {
 
         assert(u);
 
-        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't explicitly
-         * start the per-user slice or the systemd-runtime-dir@.service instance, as those are pulled in both by
-         * user@.service and the session scopes as dependencies. */
+        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't
+         * explicitly start the per-user slice or the systemd-runtime-dir@.service instance, as those are
+         * pulled in both by user@.service and the session scopes as dependencies. */
 
         u->service_job = mfree(u->service_job);
 
         r = manager_start_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
-                log_warning_errno(r, "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                log_warning_errno(r,
+                                  "Failed to start user service '%s', ignoring: %s",
+                                  u->service,
+                                  bus_error_message(&error, r));
 }
 
 int user_start(User *u) {
@@ -367,10 +371,10 @@ int user_start(User *u) {
         if (u->started && !u->stopping)
                 return 0;
 
-        /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
-         * that flag before queing the start-jobs again. If they succeed, the user object can be re-used just fine
-         * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
-         * so possibly pending units are stopped. */
+        /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to
+         * clear that flag before queing the start-jobs again. If they succeed, the user object can be
+         * re-used just fine (pid1 takes care of job-ordering and proper restart), but if they fail, we want
+         * to force another user_stop() so possibly pending units are stopped. */
         u->stopping = false;
 
         if (!u->started)
@@ -403,14 +407,17 @@ static void user_stop_service(User *u) {
         assert(u);
         assert(u->service);
 
-        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let StopWhenUnneeded=
-         * deal with the slice and the user-runtime-dir@.service instance. */
+        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let
+         * StopWhenUnneeded= deal with the slice and the user-runtime-dir@.service instance. */
 
         u->service_job = mfree(u->service_job);
 
         r = manager_stop_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
-                log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                log_warning_errno(r,
+                                  "Failed to stop user service '%s', ignoring: %s",
+                                  u->service,
+                                  bus_error_message(&error, r));
 }
 
 int user_stop(User *u, bool force) {
@@ -418,10 +425,11 @@ int user_stop(User *u, bool force) {
         int r = 0;
         assert(u);
 
-        /* This is called whenever we begin with tearing down a user record. It's called in two cases: explicit API
-         * request to do so via the bus (in which case 'force' is true) and automatically due to GC, if there's no
-         * session left pinning it (in which case 'force' is false). Note that this just initiates tearing down of the
-         * user, the User object will remain in memory until user_finalize() is called, see below. */
+        /* This is called whenever we begin with tearing down a user record. It's called in two cases:
+         * explicit API request to do so via the bus (in which case 'force' is true) and automatically due to
+         * GC, if there's no session left pinning it (in which case 'force' is false). Note that this just
+         * initiates tearing down of the user, the User object will remain in memory until user_finalize() is
+         * called, see below. */
 
         if (!u->started)
                 return 0;
@@ -454,8 +462,8 @@ int user_finalize(User *u) {
 
         assert(u);
 
-        /* Called when the user is really ready to be freed, i.e. when all unit stop jobs and suchlike for it are
-         * done. This is called as a result of an earlier user_done() when all jobs are completed. */
+        /* Called when the user is really ready to be freed, i.e. when all unit stop jobs and suchlike for it
+         * are done. This is called as a result of an earlier user_done() when all jobs are completed. */
 
         if (u->started)
                 log_debug("User %s logged out.", u->name);
@@ -466,12 +474,12 @@ int user_finalize(User *u) {
                         r = k;
         }
 
-        /* Clean SysV + POSIX IPC objects, but only if this is not a system user. Background: in many setups cronjobs
-         * are run in full PAM and thus logind sessions, even if the code run doesn't belong to actual users but to
-         * system components. Since enable RemoveIPC= globally for all users, we need to be a bit careful with such
-         * cases, as we shouldn't accidentally remove a system service's IPC objects while it is running, just because
-         * a cronjob running as the same user just finished. Hence: exclude system users generally from IPC clean-up,
-         * and do it only for normal users. */
+        /* Clean SysV + POSIX IPC objects, but only if this is not a system user. Background: in many setups
+         * cronjobs are run in full PAM and thus logind sessions, even if the code run doesn't belong to
+         * actual users but to system components. Since enable RemoveIPC= globally for all users, we need to
+         * be a bit careful with such cases, as we shouldn't accidentally remove a system service's IPC
+         * objects while it is running, just because a cronjob running as the same user just finished. Hence:
+         * exclude system users generally from IPC clean-up, and do it only for normal users. */
         if (u->manager->remove_ipc && !uid_is_system(u->uid)) {
                 k = clean_ipc_by_uid(u->uid);
                 if (k < 0)
@@ -557,8 +565,10 @@ static bool user_unit_active(User *u) {
 
                 r = manager_unit_is_active(u->manager, i, &error);
                 if (r < 0)
-                        log_debug_errno(
-                                r, "Failed to determine whether unit '%s' is active, ignoring: %s", u->service, bus_error_message(&error, r));
+                        log_debug_errno(r,
+                                        "Failed to determine whether unit '%s' is active, ignoring: %s",
+                                        u->service,
+                                        bus_error_message(&error, r));
                 if (r != 0)
                         return true;
         }
@@ -582,13 +592,15 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
                 if (u->manager->user_stop_delay == USEC_INFINITY)
                         return false; /* Leave it around forever! */
-                if (u->manager->user_stop_delay > 0 && now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
+                if (u->manager->user_stop_delay > 0 &&
+                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
                         return false; /* Leave it around for a bit longer. */
         }
 
-        /* Is this a user that shall stay around forever ("linger")? Before we say "no" to GC'ing for lingering users, let's check
-         * if any of the three units that we maintain for this user is still around. If none of them is,
-         * there's no need to keep this user around even if lingering is enabled. */
+        /* Is this a user that shall stay around forever ("linger")? Before we say "no" to GC'ing for
+         * lingering users, let's check if any of the three units that we maintain for this user is still
+         * around. If none of them is, there's no need to keep this user around even if lingering is enabled.
+         */
         if (user_check_linger_file(u) > 0 && user_unit_active(u))
                 return false;
 
@@ -606,8 +618,8 @@ bool user_may_gc(User *u, bool drop_not_started) {
                         return false;
         }
 
-        /* Note that we don't care if the three units we manage for each user object are up or not, as we are managing
-         * their state rather than tracking it. */
+        /* Note that we don't care if the three units we manage for each user object are up or not, as we are
+         * managing their state rather than tracking it. */
 
         return true;
 }
@@ -707,8 +719,8 @@ void user_elect_display(User *u) {
 
         assert(u);
 
-        /* This elects a primary session for each user, which we call the "display". We try to keep the assignment
-         * stable, but we "upgrade" to better choices. */
+        /* This elects a primary session for each user, which we call the "display". We try to keep the
+         * assignment stable, but we "upgrade" to better choices. */
         log_debug("Electing new display for user %s", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
@@ -718,7 +730,9 @@ void user_elect_display(User *u) {
                 }
 
                 if (elect_display_compare(s, u->display) < 0) {
-                        log_debug("Choosing session %s in preference to %s", s->id, u->display ? u->display->id : "-");
+                        log_debug("Choosing session %s in preference to %s",
+                                  s->id,
+                                  u->display ? u->display->id : "-");
                         u->display = s;
                 }
         }
@@ -779,9 +793,10 @@ void user_update_last_session_timer(User *u) {
         }
 }
 
-static const char *const user_state_table[_USER_STATE_MAX] = { [USER_OFFLINE] = "offline",     [USER_OPENING] = "opening",
-                                                               [USER_LINGERING] = "lingering", [USER_ONLINE] = "online",
-                                                               [USER_ACTIVE] = "active",       [USER_CLOSING] = "closing" };
+static const char *const user_state_table[_USER_STATE_MAX] = {
+        [USER_OFFLINE] = "offline", [USER_OPENING] = "opening", [USER_LINGERING] = "lingering",
+        [USER_ONLINE] = "online",   [USER_ACTIVE] = "active",   [USER_CLOSING] = "closing"
+};
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);
 
@@ -817,7 +832,13 @@ int config_parse_tmpfs_size(const char *unit,
                 if (r >= 0 && (k <= 0 || (uint64_t)(size_t) k != k))
                         r = -ERANGE;
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse size value '%s', ignoring: %m",
+                                   rvalue);
                         return 0;
                 }
 

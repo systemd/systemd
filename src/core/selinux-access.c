@@ -123,7 +123,8 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         va_start(ap, fmt);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-        log_internalv(LOG_AUTH | callback_type_to_priority(type), 0, __FILE__, __LINE__, __FUNCTION__, fmt2, ap);
+        log_internalv(
+                LOG_AUTH | callback_type_to_priority(type), 0, __FILE__, __LINE__, __FUNCTION__, fmt2, ap);
 #pragma GCC diagnostic pop
         va_end(ap);
 
@@ -142,7 +143,9 @@ static int access_init(sd_bus_error *error) {
                 int enforce, saved_errno = errno;
 
                 enforce = security_getenforce();
-                log_full_errno(enforce != 0 ? LOG_ERR : LOG_WARNING, saved_errno, "Failed to open the SELinux AVC: %m");
+                log_full_errno(enforce != 0 ? LOG_ERR : LOG_WARNING,
+                               saved_errno,
+                               "Failed to open the SELinux AVC: %m");
 
                 /* If enforcement isn't on, then let's suppress this
                  * error, and just don't do any AVC checks. The
@@ -154,7 +157,10 @@ static int access_init(sd_bus_error *error) {
                 /* Return an access denied error, if we couldn't load
                  * the AVC but enforcing mode was on, or we couldn't
                  * determine whether it is one. */
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %s", strerror(saved_errno));
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_ACCESS_DENIED,
+                                         "Failed to open the SELinux AVC: %s",
+                                         strerror(saved_errno));
         }
 
         selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) audit_callback);
@@ -170,7 +176,10 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error) {
+int mac_selinux_generic_access_check(sd_bus_message *message,
+                                     const char *path,
+                                     const char *permission,
+                                     sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
@@ -189,8 +198,9 @@ int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, 
                 return r;
 
         r = sd_bus_query_sender_creds(message,
-                                      SD_BUS_CREDS_PID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EGID | SD_BUS_CREDS_CMDLINE |
-                                              SD_BUS_CREDS_AUDIT_LOGIN_UID | SD_BUS_CREDS_SELINUX_CONTEXT |
+                                      SD_BUS_CREDS_PID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EGID |
+                                              SD_BUS_CREDS_CMDLINE | SD_BUS_CREDS_AUDIT_LOGIN_UID |
+                                              SD_BUS_CREDS_SELINUX_CONTEXT |
                                               SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
                                       &creds);
         if (r < 0)
@@ -213,7 +223,8 @@ int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, 
 
                 r = getfilecon_raw(path, &fcon);
                 if (r < 0) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
+                        r = sd_bus_error_setf(
+                                error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                         goto finish;
                 }
 
@@ -221,7 +232,8 @@ int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, 
         } else {
                 r = getcon_raw(&fcon);
                 if (r < 0) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
+                        r = sd_bus_error_setf(
+                                error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                         goto finish;
                 }
 
@@ -239,7 +251,14 @@ int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, 
         if (r < 0)
                 r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
 
-        log_debug("SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %i", scon, fcon, tclass, permission, path, cl, r);
+        log_debug("SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %i",
+                  scon,
+                  fcon,
+                  tclass,
+                  permission,
+                  path,
+                  cl,
+                  r);
 
 finish:
         freecon(fcon);
@@ -254,7 +273,10 @@ finish:
 
 #else
 
-int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error) {
+int mac_selinux_generic_access_check(sd_bus_message *message,
+                                     const char *path,
+                                     const char *permission,
+                                     sd_bus_error *error) {
 
         return 0;
 }

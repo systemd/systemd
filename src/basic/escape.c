@@ -196,7 +196,8 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                                 return a[i];
                 }
 
-                c = ((uint32_t) a[0] << 12U) | ((uint32_t) a[1] << 8U) | ((uint32_t) a[2] << 4U) | (uint32_t) a[3];
+                c = ((uint32_t) a[0] << 12U) | ((uint32_t) a[1] << 8U) | ((uint32_t) a[2] << 4U) |
+                        (uint32_t) a[3];
 
                 /* Don't allow 0 chars */
                 if (c == 0)
@@ -223,8 +224,9 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                                 return a[i];
                 }
 
-                c = ((uint32_t) a[0] << 28U) | ((uint32_t) a[1] << 24U) | ((uint32_t) a[2] << 20U) | ((uint32_t) a[3] << 16U) |
-                        ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] << 8U) | ((uint32_t) a[6] << 4U) | (uint32_t) a[7];
+                c = ((uint32_t) a[0] << 28U) | ((uint32_t) a[1] << 24U) | ((uint32_t) a[2] << 20U) |
+                        ((uint32_t) a[3] << 16U) | ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] << 8U) |
+                        ((uint32_t) a[6] << 4U) | (uint32_t) a[7];
 
                 /* Don't allow 0 chars */
                 if (c == 0)
@@ -288,7 +290,8 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
         return r;
 }
 
-int cunescape_length_with_prefix(const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret) {
+int cunescape_length_with_prefix(
+        const char *s, size_t length, const char *prefix, UnescapeFlags flags, char **ret) {
         char *r, *t;
         const char *f;
         size_t pl;

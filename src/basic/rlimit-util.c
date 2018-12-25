@@ -29,8 +29,8 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (getrlimit(resource, &highest) < 0)
                 return -errno;
 
-        /* If the hard limit is unbounded anyway, then the EPERM had other reasons, let's propagate the original EPERM
-         * then */
+        /* If the hard limit is unbounded anyway, then the EPERM had other reasons, let's propagate the
+         * original EPERM then */
         if (highest.rlim_max == RLIM_INFINITY)
                 return -EPERM;
 
@@ -179,11 +179,12 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
         uint64_t rl;
         int r;
 
-        /* So, Linux is weird. The range for RLIMIT_NICE is 40..1, mapping to the nice levels -20..19. However, the
-         * RLIMIT_NICE limit defaults to 0 by the kernel, i.e. a value that maps to nice level 20, which of course is
-         * bogus and does not exist. In order to permit parsing the RLIMIT_NICE of 0 here we hence implement a slight
-         * asymmetry: when parsing as positive nice level we permit 0..19. When parsing as negative nice level, we
-         * permit -20..0. But when parsing as raw resource limit value then we also allow the special value 0.
+        /* So, Linux is weird. The range for RLIMIT_NICE is 40..1, mapping to the nice levels -20..19.
+         * However, the RLIMIT_NICE limit defaults to 0 by the kernel, i.e. a value that maps to nice level
+         * 20, which of course is bogus and does not exist. In order to permit parsing the RLIMIT_NICE of 0
+         * here we hence implement a slight asymmetry: when parsing as positive nice level we permit 0..19.
+         * When parsing as negative nice level, we permit -20..0. But when parsing as raw resource limit
+         * value then we also allow the special value 0.
          *
          * Yeah, Linux is quality engineering sometimes... */
 
@@ -226,12 +227,14 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
 }
 
 static int (*const rlimit_parse_table[_RLIMIT_MAX])(const char *val, rlim_t *ret) = {
-        [RLIMIT_CPU] = rlimit_parse_sec,       [RLIMIT_FSIZE] = rlimit_parse_size, [RLIMIT_DATA] = rlimit_parse_size,
-        [RLIMIT_STACK] = rlimit_parse_size,    [RLIMIT_CORE] = rlimit_parse_size,  [RLIMIT_RSS] = rlimit_parse_size,
-        [RLIMIT_NOFILE] = rlimit_parse_u64,    [RLIMIT_AS] = rlimit_parse_size,    [RLIMIT_NPROC] = rlimit_parse_u64,
-        [RLIMIT_MEMLOCK] = rlimit_parse_size,  [RLIMIT_LOCKS] = rlimit_parse_u64,  [RLIMIT_SIGPENDING] = rlimit_parse_u64,
-        [RLIMIT_MSGQUEUE] = rlimit_parse_size, [RLIMIT_NICE] = rlimit_parse_nice,  [RLIMIT_RTPRIO] = rlimit_parse_u64,
-        [RLIMIT_RTTIME] = rlimit_parse_usec,
+        [RLIMIT_CPU] = rlimit_parse_sec,       [RLIMIT_FSIZE] = rlimit_parse_size,
+        [RLIMIT_DATA] = rlimit_parse_size,     [RLIMIT_STACK] = rlimit_parse_size,
+        [RLIMIT_CORE] = rlimit_parse_size,     [RLIMIT_RSS] = rlimit_parse_size,
+        [RLIMIT_NOFILE] = rlimit_parse_u64,    [RLIMIT_AS] = rlimit_parse_size,
+        [RLIMIT_NPROC] = rlimit_parse_u64,     [RLIMIT_MEMLOCK] = rlimit_parse_size,
+        [RLIMIT_LOCKS] = rlimit_parse_u64,     [RLIMIT_SIGPENDING] = rlimit_parse_u64,
+        [RLIMIT_MSGQUEUE] = rlimit_parse_size, [RLIMIT_NICE] = rlimit_parse_nice,
+        [RLIMIT_RTPRIO] = rlimit_parse_u64,    [RLIMIT_RTTIME] = rlimit_parse_usec,
 };
 
 int rlimit_parse_one(int resource, const char *val, rlim_t *ret) {
@@ -351,10 +354,10 @@ void rlimit_free_all(struct rlimit **rl) {
 int rlimit_nofile_bump(int limit) {
         int r;
 
-        /* Bumps the (soft) RLIMIT_NOFILE resource limit as close as possible to the specified limit. If a negative
-         * limit is specified, bumps it to the maximum the kernel and the hard resource limit allows. This call should
-         * be used by all our programs that might need a lot of fds, and that know how to deal with high fd numbers
-         * (i.e. do not use select() — which chokes on fds >= 1024) */
+        /* Bumps the (soft) RLIMIT_NOFILE resource limit as close as possible to the specified limit. If a
+         * negative limit is specified, bumps it to the maximum the kernel and the hard resource limit
+         * allows. This call should be used by all our programs that might need a lot of fds, and that know
+         * how to deal with high fd numbers (i.e. do not use select() — which chokes on fds >= 1024) */
 
         if (limit < 0)
                 limit = read_nr_open();
@@ -372,8 +375,8 @@ int rlimit_nofile_bump(int limit) {
 int rlimit_nofile_safe(void) {
         struct rlimit rl;
 
-        /* Resets RLIMIT_NOFILE's soft limit FD_SETSIZE (i.e. 1024), for compatibility with software still using
-         * select() */
+        /* Resets RLIMIT_NOFILE's soft limit FD_SETSIZE (i.e. 1024), for compatibility with software still
+         * using select() */
 
         if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
                 return log_debug_errno(errno, "Failed to query RLIMIT_NOFILE: %m");
@@ -383,7 +386,8 @@ int rlimit_nofile_safe(void) {
 
         rl.rlim_cur = FD_SETSIZE;
         if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
-                return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
+                return log_debug_errno(
+                        errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
 
         return 1;
 }

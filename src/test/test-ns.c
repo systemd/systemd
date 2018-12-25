@@ -9,9 +9,11 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        const char *const writable[] = { "/home",
-                                         "-/home/lennart/projects/foobar", /* this should be masked automatically */
-                                         NULL };
+        const char *const writable[] = {
+                "/home",
+                "-/home/lennart/projects/foobar", /* this should be masked automatically */
+                NULL
+        };
 
         const char *const readonly[] = { /* "/", */
                                          /* "/usr", */
@@ -56,7 +58,9 @@ int main(int argc, char *argv[]) {
                             (char **) readonly,
                             (char **) inaccessible,
                             NULL,
-                            &(BindMount){ .source = (char *) "/usr/bin", .destination = (char *) "/etc/systemd", .read_only = true },
+                            &(BindMount){ .source = (char *) "/usr/bin",
+                                          .destination = (char *) "/etc/systemd",
+                                          .read_only = true },
                             1,
                             &(TemporaryFileSystem){ .path = (char *) "/var", .options = (char *) "ro" },
                             1,

@@ -97,7 +97,8 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
 
                 imp->scanned = imp->filled;
                 if (imp->scanned >= DATA_SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Entry is bigger than %u bytes.", DATA_SIZE_MAX);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(E2BIG), "Entry is bigger than %u bytes.", DATA_SIZE_MAX);
 
                 if (imp->passive_fd)
                         /* we have to wait for some data to come to us */
@@ -106,7 +107,8 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                 /* We know that imp->filled is at most DATA_SIZE_MAX, so if
                    we reallocate it, we'll increase the size at least a bit. */
                 assert_cc(DATA_SIZE_MAX < ENTRY_SIZE_MAX);
-                if (imp->size - imp->filled < LINE_CHUNK && !realloc_buffer(imp, MIN(imp->filled + LINE_CHUNK, ENTRY_SIZE_MAX)))
+                if (imp->size - imp->filled < LINE_CHUNK &&
+                    !realloc_buffer(imp, MIN(imp->filled + LINE_CHUNK, ENTRY_SIZE_MAX)))
                         return log_oom();
 
                 assert(imp->buf);
@@ -115,7 +117,8 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
                 n = read(imp->fd, imp->buf + imp->filled, imp->size - imp->filled);
                 if (n < 0) {
                         if (errno != EAGAIN)
-                                log_error_errno(errno, "read(%d, ..., %zu): %m", imp->fd, imp->size - imp->filled);
+                                log_error_errno(
+                                        errno, "read(%d, ..., %zu): %m", imp->fd, imp->size - imp->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;
@@ -155,7 +158,8 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
                 n = read(imp->fd, imp->buf + imp->filled, imp->size - imp->filled);
                 if (n < 0) {
                         if (errno != EAGAIN)
-                                log_error_errno(errno, "read(%d, ..., %zu): %m", imp->fd, imp->size - imp->filled);
+                                log_error_errno(
+                                        errno, "read(%d, ..., %zu): %m", imp->fd, imp->size - imp->filled);
                         return -errno;
                 } else if (n == 0)
                         return 0;
@@ -183,8 +187,10 @@ static int get_data_size(JournalImporter *imp) {
 
         imp->data_size = unaligned_read_le64(data);
         if (imp->data_size > DATA_SIZE_MAX)
-                return log_error_errno(
-                        SYNTHETIC_ERRNO(EINVAL), "Stream declares field with size %zu > DATA_SIZE_MAX = %u", imp->data_size, DATA_SIZE_MAX);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Stream declares field with size %zu > DATA_SIZE_MAX = %u",
+                                       imp->data_size,
+                                       DATA_SIZE_MAX);
         if (imp->data_size == 0)
                 log_warning("Binary field with zero length");
 
@@ -246,7 +252,9 @@ static int process_special_field(JournalImporter *imp, char *line) {
 
                 r = safe_atou64(value, &x);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m", cellescape(buf, sizeof buf, value));
+                        return log_warning_errno(r,
+                                                 "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
                 else if (!VALID_REALTIME(x)) {
                         log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %" PRIu64, x);
                         return -ERANGE;
@@ -262,7 +270,9 @@ static int process_special_field(JournalImporter *imp, char *line) {
 
                 r = safe_atou64(value, &x);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m", cellescape(buf, sizeof buf, value));
+                        return log_warning_errno(r,
+                                                 "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
                 else if (!VALID_MONOTONIC(x)) {
                         log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %" PRIu64, x);
                         return -ERANGE;
@@ -277,7 +287,8 @@ static int process_special_field(JournalImporter *imp, char *line) {
         if (value) {
                 r = sd_id128_from_string(value, &imp->boot_id);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse _BOOT_ID '%s': %m", cellescape(buf, sizeof buf, value));
+                        return log_warning_errno(
+                                r, "Failed to parse _BOOT_ID '%s': %m", cellescape(buf, sizeof buf, value));
 
                 /* store the field in the usual fashion too */
                 return 0;

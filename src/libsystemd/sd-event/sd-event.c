@@ -45,8 +45,13 @@ static const char *const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] 
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
 
-#define EVENT_SOURCE_IS_TIME(t) \
-        IN_SET((t), SOURCE_TIME_REALTIME, SOURCE_TIME_BOOTTIME, SOURCE_TIME_MONOTONIC, SOURCE_TIME_REALTIME_ALARM, SOURCE_TIME_BOOTTIME_ALARM)
+#define EVENT_SOURCE_IS_TIME(t)            \
+        IN_SET((t),                        \
+               SOURCE_TIME_REALTIME,       \
+               SOURCE_TIME_BOOTTIME,       \
+               SOURCE_TIME_MONOTONIC,      \
+               SOURCE_TIME_REALTIME_ALARM, \
+               SOURCE_TIME_BOOTTIME_ALARM)
 
 struct sd_event {
         unsigned n_ref;
@@ -724,16 +729,17 @@ static void source_disconnect(sd_event_source *s) {
                                 inotify_data->n_pending--;
                         }
 
-                        /* Note that we don't reduce the inotify mask for the watch descriptor here if the inode is
-                         * continued to being watched. That's because inotify doesn't really have an API for that: we
-                         * can only change watch masks with access to the original inode either by fd or by path. But
-                         * paths aren't stable, and keeping an O_PATH fd open all the time would mean wasting an fd
-                         * continuously and keeping the mount busy which we can't really do. We could reconstruct the
-                         * original inode from /proc/self/fdinfo/$INOTIFY_FD (as all watch descriptors are listed
-                         * there), but given the need for open_by_handle_at() which is privileged and not universally
-                         * available this would be quite an incomplete solution. Hence we go the other way, leave the
-                         * mask set, even if it is not minimized now, and ignore all events we aren't interested in
-                         * anymore after reception. Yes, this sucks, but … Linux … */
+                        /* Note that we don't reduce the inotify mask for the watch descriptor here if the
+                         * inode is continued to being watched. That's because inotify doesn't really have an
+                         * API for that: we can only change watch masks with access to the original inode
+                         * either by fd or by path. But paths aren't stable, and keeping an O_PATH fd open
+                         * all the time would mean wasting an fd continuously and keeping the mount busy
+                         * which we can't really do. We could reconstruct the original inode from
+                         * /proc/self/fdinfo/$INOTIFY_FD (as all watch descriptors are listed there), but
+                         * given the need for open_by_handle_at() which is privileged and not universally
+                         * available this would be quite an incomplete solution. Hence we go the other way,
+                         * leave the mask set, even if it is not minimized now, and ignore all events we
+                         * aren't interested in anymore after reception. Yes, this sucks, but … Linux … */
 
                         /* Maybe release the inode data (and its inotify) */
                         event_gc_inode_data(s->event, inode_data);
@@ -863,7 +869,12 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
         return s;
 }
 
-_public_ int sd_event_add_io(sd_event *e, sd_event_source **ret, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata) {
+_public_ int sd_event_add_io(sd_event *e,
+                             sd_event_source **ret,
+                             int fd,
+                             uint32_t events,
+                             sd_event_io_handler_t callback,
+                             void *userdata) {
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
@@ -871,7 +882,8 @@ _public_ int sd_event_add_io(sd_event *e, sd_event_source **ret, int fd, uint32_
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(fd >= 0, -EBADF);
-        assert_return(!(events & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLPRI | EPOLLERR | EPOLLHUP | EPOLLET)), -EINVAL);
+        assert_return(!(events & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLPRI | EPOLLERR | EPOLLHUP | EPOLLET)),
+                      -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
@@ -1035,7 +1047,8 @@ static int signal_exit_callback(sd_event_source *s, const struct signalfd_siginf
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-_public_ int sd_event_add_signal(sd_event *e, sd_event_source **ret, int sig, sd_event_signal_handler_t callback, void *userdata) {
+_public_ int sd_event_add_signal(
+        sd_event *e, sd_event_source **ret, int sig, sd_event_signal_handler_t callback, void *userdata) {
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         struct signal_data *d;
@@ -1090,7 +1103,12 @@ _public_ int sd_event_add_signal(sd_event *e, sd_event_source **ret, int sig, sd
         return 0;
 }
 
-_public_ int sd_event_add_child(sd_event *e, sd_event_source **ret, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata) {
+_public_ int sd_event_add_child(sd_event *e,
+                                sd_event_source **ret,
+                                pid_t pid,
+                                int options,
+                                sd_event_child_handler_t callback,
+                                void *userdata) {
 
         _cleanup_(source_freep) sd_event_source *s = NULL;
         int r;
@@ -1317,9 +1335,9 @@ static int event_make_inotify_data(sd_event *e, int64_t priority, struct inotify
 
         if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
                 r = -errno;
-                d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would otherwise
-                                            * remove the fd from the epoll first, which we don't want as we couldn't
-                                            * add it in the first place. */
+                d->fd = safe_close(d->fd); /* let's close this ourselves, as event_free_inotify_data() would
+                                            * otherwise remove the fd from the epoll first, which we don't
+                                            * want as we couldn't add it in the first place. */
                 event_free_inotify_data(e, d);
                 return r;
         }
@@ -1370,13 +1388,16 @@ static void event_free_inode_data(sd_event *e, struct inode_data *d) {
 
                 if (d->wd >= 0) {
                         if (d->inotify_data->fd >= 0) {
-                                /* So here's a problem. At the time this runs the watch descriptor might already be
-                                 * invalidated, because an IN_IGNORED event might be queued right the moment we enter
-                                 * the syscall. Hence, whenever we get EINVAL, ignore it entirely, since it's a very
-                                 * likely case to happen. */
+                                /* So here's a problem. At the time this runs the watch descriptor might
+                                 * already be invalidated, because an IN_IGNORED event might be queued right
+                                 * the moment we enter the syscall. Hence, whenever we get EINVAL, ignore it
+                                 * entirely, since it's a very likely case to happen. */
 
                                 if (inotify_rm_watch(d->inotify_data->fd, d->wd) < 0 && errno != EINVAL)
-                                        log_debug_errno(errno, "Failed to remove watch descriptor %i from inotify, ignoring: %m", d->wd);
+                                        log_debug_errno(
+                                                errno,
+                                                "Failed to remove watch descriptor %i from inotify, ignoring: %m",
+                                                d->wd);
                         }
 
                         assert_se(hashmap_remove(d->inotify_data->wd, INT_TO_PTR(d->wd)) == d);
@@ -1407,7 +1428,8 @@ static void event_gc_inode_data(sd_event *e, struct inode_data *d) {
                 event_free_inotify_data(e, inotify_data);
 }
 
-static int event_make_inode_data(sd_event *e, struct inotify_data *inotify_data, dev_t dev, ino_t ino, struct inode_data **ret) {
+static int event_make_inode_data(
+        sd_event *e, struct inotify_data *inotify_data, dev_t dev, ino_t ino, struct inode_data **ret) {
 
         struct inode_data *d, key;
         int r;
@@ -1463,13 +1485,13 @@ static uint32_t inode_data_determine_mask(struct inode_data *d) {
 
         assert(d);
 
-        /* Combines the watch masks of all event sources watching this inode. We generally just OR them together, but
-         * the IN_EXCL_UNLINK flag is ANDed instead.
+        /* Combines the watch masks of all event sources watching this inode. We generally just OR them
+         * together, but the IN_EXCL_UNLINK flag is ANDed instead.
          *
-         * Note that we add all sources to the mask here, regardless whether enabled, disabled or oneshot. That's
-         * because we cannot change the mask anymore after the event source was created once, since the kernel has no
-         * API for that. Hence we need to subscribe to the maximum mask we ever might be interested in, and suppress
-         * events we don't care for client-side. */
+         * Note that we add all sources to the mask here, regardless whether enabled, disabled or oneshot.
+         * That's because we cannot change the mask anymore after the event source was created once, since
+         * the kernel has no API for that. Hence we need to subscribe to the maximum mask we ever might be
+         * interested in, and suppress events we don't care for client-side. */
 
         LIST_FOREACH(inotify.by_inode_data, s, d->event_sources) {
 
@@ -1479,7 +1501,8 @@ static uint32_t inode_data_determine_mask(struct inode_data *d) {
                 combined |= s->inotify.mask;
         }
 
-        return (combined & ~(IN_ONESHOT | IN_DONT_FOLLOW | IN_ONLYDIR | IN_EXCL_UNLINK)) | (excl_unlink ? IN_EXCL_UNLINK : 0);
+        return (combined & ~(IN_ONESHOT | IN_DONT_FOLLOW | IN_ONLYDIR | IN_EXCL_UNLINK)) |
+                (excl_unlink ? IN_EXCL_UNLINK : 0);
 }
 
 static int inode_data_realize_watch(sd_event *e, struct inode_data *d) {
@@ -1522,8 +1545,12 @@ static int inode_data_realize_watch(sd_event *e, struct inode_data *d) {
         return 1;
 }
 
-_public_ int sd_event_add_inotify(
-        sd_event *e, sd_event_source **ret, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata) {
+_public_ int sd_event_add_inotify(sd_event *e,
+                                  sd_event_source **ret,
+                                  const char *path,
+                                  uint32_t mask,
+                                  sd_event_inotify_handler_t callback,
+                                  void *userdata) {
 
         struct inotify_data *inotify_data = NULL;
         struct inode_data *inode_data = NULL;
@@ -1539,13 +1566,15 @@ _public_ int sd_event_add_inotify(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        /* Refuse IN_MASK_ADD since we coalesce watches on the same inode, and hence really don't want to merge
-         * masks. Or in other words, this whole code exists only to manage IN_MASK_ADD type operations for you, hence
-         * the user can't use them for us. */
+        /* Refuse IN_MASK_ADD since we coalesce watches on the same inode, and hence really don't want to
+         * merge masks. Or in other words, this whole code exists only to manage IN_MASK_ADD type operations
+         * for you, hence the user can't use them for us. */
         if (mask & IN_MASK_ADD)
                 return -EINVAL;
 
-        fd = open(path, O_PATH | O_CLOEXEC | (mask & IN_ONLYDIR ? O_DIRECTORY : 0) | (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
+        fd = open(path,
+                  O_PATH | O_CLOEXEC | (mask & IN_ONLYDIR ? O_DIRECTORY : 0) |
+                          (mask & IN_DONT_FOLLOW ? O_NOFOLLOW : 0));
         if (fd < 0)
                 return -errno;
 
@@ -1572,8 +1601,8 @@ _public_ int sd_event_add_inotify(
                 return r;
         }
 
-        /* Keep the O_PATH fd around until the first iteration of the loop, so that we can still change the priority of
-         * the event source, until then, for which we need the original inode. */
+        /* Keep the O_PATH fd around until the first iteration of the loop, so that we can still change the
+         * priority of the event source, until then, for which we need the original inode. */
         if (inode_data->fd < 0) {
                 inode_data->fd = TAKE_FD(fd);
                 LIST_PREPEND(to_close, e->inode_data_to_close, inode_data);
@@ -1730,7 +1759,8 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
 
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_IO, -EDOM);
-        assert_return(!(events & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLPRI | EPOLLERR | EPOLLHUP | EPOLLET)), -EINVAL);
+        assert_return(!(events & ~(EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLPRI | EPOLLERR | EPOLLHUP | EPOLLET)),
+                      -EINVAL);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
@@ -1810,7 +1840,8 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                         return r;
                 rm_inotify = r > 0;
 
-                r = event_make_inode_data(s->event, new_inotify_data, old_inode_data->dev, old_inode_data->ino, &new_inode_data);
+                r = event_make_inode_data(
+                        s->event, new_inotify_data, old_inode_data->dev, old_inode_data->ino, &new_inode_data);
                 if (r < 0)
                         goto fail;
                 rm_inode = r > 0;
@@ -2460,7 +2491,10 @@ static int process_child(sd_event *e) {
                         continue;
 
                 zero(s->child.siginfo);
-                r = waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options);
+                r = waitid(P_PID,
+                           s->child.pid,
+                           &s->child.siginfo,
+                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options);
                 if (r < 0)
                         return -errno;
 
@@ -2474,7 +2508,10 @@ static int process_child(sd_event *e) {
                                  * benefit in leaving it queued */
 
                                 assert(s->child.options & (WSTOPPED | WCONTINUED));
-                                waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG | (s->child.options & (WSTOPPED | WCONTINUED)));
+                                waitid(P_PID,
+                                       s->child.pid,
+                                       &s->child.siginfo,
+                                       WNOHANG | (s->child.options & (WSTOPPED | WCONTINUED)));
                         }
 
                         r = source_set_pending(s, true);
@@ -2620,8 +2657,8 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                         struct inode_data *inode_data;
                         Iterator i;
 
-                        /* The queue overran, let's pass this event to all event sources connected to this inotify
-                         * object */
+                        /* The queue overran, let's pass this event to all event sources connected to this
+                         * inotify object */
 
                         HASHMAP_FOREACH(inode_data, d->inodes, i) {
                                 sd_event_source *s;
@@ -2640,8 +2677,8 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                         struct inode_data *inode_data;
                         sd_event_source *s;
 
-                        /* Find the inode object for this watch descriptor. If IN_IGNORED is set we also remove it from
-                         * our watch descriptor table. */
+                        /* Find the inode object for this watch descriptor. If IN_IGNORED is set we also
+                         * remove it from our watch descriptor table. */
                         if (d->buffer.ev.mask & IN_IGNORED) {
 
                                 inode_data = hashmap_remove(d->wd, INT_TO_PTR(d->buffer.ev.wd));
@@ -2660,8 +2697,8 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
                                 }
                         }
 
-                        /* Trigger all event sources that are interested in these events. Also trigger all event
-                         * sources if IN_IGNORED or IN_UNMOUNT is set. */
+                        /* Trigger all event sources that are interested in these events. Also trigger all
+                         * event sources if IN_IGNORED or IN_UNMOUNT is set. */
                         LIST_FOREACH(inotify.by_inode_data, s, inode_data->event_sources) {
 
                                 if (s->enabled == SD_EVENT_OFF)
@@ -2709,8 +2746,8 @@ static int source_dispatch(sd_event_source *s) {
         assert(s);
         assert(s->pending || s->type == SOURCE_EXIT);
 
-        /* Save the event source type, here, so that we still know it after the event callback which might invalidate
-         * the event. */
+        /* Save the event source type, here, so that we still know it after the event callback which might
+         * invalidate the event. */
         saved_type = s->type;
 
         if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
@@ -2802,8 +2839,8 @@ static int source_dispatch(sd_event_source *s) {
 
                 r = s->inotify.callback(s, &d->buffer.ev, s->userdata);
 
-                /* When no event is pending anymore on this inotify object, then let's drop the event from the
-                 * buffer. */
+                /* When no event is pending anymore on this inotify object, then let's drop the event from
+                 * the buffer. */
                 if (d->n_pending == 0)
                         event_inotify_data_drop(e, d, sz);
 
@@ -2856,10 +2893,11 @@ static int event_prepare(sd_event *e) {
                 s->dispatching = false;
 
                 if (r < 0)
-                        log_debug_errno(r,
-                                        "Prepare callback of event source %s (type %s) returned error, disabling: %m",
-                                        strna(s->description),
-                                        event_source_type_to_string(s->type));
+                        log_debug_errno(
+                                r,
+                                "Prepare callback of event source %s (type %s) returned error, disabling: %m",
+                                strna(s->description),
+                                event_source_type_to_string(s->type));
 
                 if (s->n_ref == 0)
                         source_free(s);
@@ -2914,7 +2952,9 @@ static int arm_watchdog(sd_event *e) {
         assert(e);
         assert(e->watchdog_fd >= 0);
 
-        t = sleep_between(e, e->watchdog_last + (e->watchdog_period / 2), e->watchdog_last + (e->watchdog_period * 3 / 4));
+        t = sleep_between(e,
+                          e->watchdog_last + (e->watchdog_period / 2),
+                          e->watchdog_last + (e->watchdog_period * 3 / 4));
 
         timespec_store(&its.it_value, t);
 
@@ -2951,11 +2991,11 @@ static void event_close_inode_data_fds(sd_event *e) {
 
         assert(e);
 
-        /* Close the fds pointing to the inodes to watch now. We need to close them as they might otherwise pin
-         * filesystems. But we can't close them right-away as we need them as long as the user still wants to make
-         * adjustments to the even source, such as changing the priority (which requires us to remove and readd a watch
-         * for the inode). Hence, let's close them when entering the first iteration after they were added, as a
-         * compromise. */
+        /* Close the fds pointing to the inodes to watch now. We need to close them as they might otherwise
+         * pin filesystems. But we can't close them right-away as we need them as long as the user still
+         * wants to make adjustments to the even source, such as changing the priority (which requires us to
+         * remove and readd a watch for the inode). Hence, let's close them when entering the first iteration
+         * after they were added, as a compromise. */
 
         while ((d = e->inode_data_to_close)) {
                 assert(d->fd >= 0);
@@ -3046,8 +3086,10 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         if (e->inotify_data_buffered)
                 timeout = 0;
 
-        m = epoll_wait(
-                e->epoll_fd, ev_queue, ev_queue_max, timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
+        m = epoll_wait(e->epoll_fd,
+                       ev_queue,
+                       ev_queue_max,
+                       timeout == (uint64_t) -1 ? -1 : (int) ((timeout + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
         if (m < 0) {
                 if (errno == EINTR) {
                         e->state = SD_EVENT_PENDING;
@@ -3300,9 +3342,9 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
         if (!TRIPLE_TIMESTAMP_HAS_CLOCK(clock))
                 return -EOPNOTSUPP;
 
-        /* Generate a clean error in case CLOCK_BOOTTIME is not available. Note that don't use clock_supported() here,
-         * for a reason: there are systems where CLOCK_BOOTTIME is supported, but CLOCK_BOOTTIME_ALARM is not, but for
-         * the purpose of getting the time this doesn't matter. */
+        /* Generate a clean error in case CLOCK_BOOTTIME is not available. Note that don't use
+         * clock_supported() here, for a reason: there are systems where CLOCK_BOOTTIME is supported, but
+         * CLOCK_BOOTTIME_ALARM is not, but for the purpose of getting the time this doesn't matter. */
         if (IN_SET(clock, CLOCK_BOOTTIME, CLOCK_BOOTTIME_ALARM) && !clock_boottime_supported())
                 return -EOPNOTSUPP;
 

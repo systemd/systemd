@@ -36,7 +36,9 @@ static void test_proc_cmdline_override(void) {
         assert_se(proc_cmdline(&line) >= 0);
 
         /* Test if parsing makes uses of the override */
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        assert_se(streq(
+                line,
+                "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -84,8 +86,10 @@ static void test_proc_cmdline_given(bool flip_initrd) {
                                            &t,
                                            PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
 
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"", parse_item_given, &f, 0) >=
-                  0);
+        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
+                                           parse_item_given,
+                                           &f,
+                                           0) >= 0);
 
         if (flip_initrd)
                 in_initrd_force(!in_initrd());
@@ -95,7 +99,8 @@ static void test_proc_cmdline_get_key(void) {
         _cleanup_free_ char *value = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"") ==
+                  0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -104,22 +109,26 @@ static void test_proc_cmdline_get_key(void) {
 
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
+        assert_se(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 &&
+                  streq_ptr(value, "quux"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo-bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
+        assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 &&
+                  streq_ptr(value, "quux"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo-bar", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, NULL) == -EINVAL);
 
         assert_se(proc_cmdline_get_key("wuff-piep", 0, &value) > 0 && streq_ptr(value, "tuet"));
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff-piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "tuet"));
+        assert_se(proc_cmdline_get_key("wuff-piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 &&
+                  streq_ptr(value, "tuet"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("wuff_piep", 0, &value) > 0 && streq_ptr(value, "tuet"));
         value = mfree(value);
-        assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "tuet"));
+        assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 &&
+                  streq_ptr(value, "tuet"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("wuff_piep", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, NULL) == -EINVAL);
@@ -154,15 +163,26 @@ static void test_proc_cmdline_get_bool(void) {
 }
 
 static void test_proc_cmdline_get_key_many(void) {
-        _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL;
+        _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL,
+                            *value6 = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"") == 0);
+        assert_se(putenv((char *) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"") ==
+                  0);
 
-        assert_se(
-                proc_cmdline_get_key_many(
-                        0, "wuff-piep", &value3, "foo_bar", &value1, "idontexist", &value2, "zumm", &value4, "SPACE", &value5, "doubleticks", &value6) ==
-                4);
+        assert_se(proc_cmdline_get_key_many(0,
+                                            "wuff-piep",
+                                            &value3,
+                                            "foo_bar",
+                                            &value1,
+                                            "idontexist",
+                                            &value2,
+                                            "zumm",
+                                            &value4,
+                                            "SPACE",
+                                            &value5,
+                                            "doubleticks",
+                                            &value6) == 4);
 
         assert_se(streq_ptr(value1, "quux"));
         assert_se(!value2);

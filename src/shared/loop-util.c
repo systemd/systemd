@@ -13,7 +13,8 @@
 
 int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         const struct loop_info64 info = {
-                .lo_flags = LO_FLAGS_AUTOCLEAR | LO_FLAGS_PARTSCAN | (open_flags == O_RDONLY ? LO_FLAGS_READ_ONLY : 0),
+                .lo_flags = LO_FLAGS_AUTOCLEAR | LO_FLAGS_PARTSCAN |
+                        (open_flags == O_RDONLY ? LO_FLAGS_READ_ONLY : 0),
         };
 
         _cleanup_close_ int control = -1, loop = -1;

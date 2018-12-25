@@ -32,10 +32,10 @@
 
 static clockid_t map_clock_id(clockid_t c) {
 
-        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus, clock_gettime() will
-         * fail for them. Since they are essentially the same as their non-ALARM pendants (their only difference is
-         * when timers are set on them), let's just map them accordingly. This way, we can get the correct time even on
-         * those archs. */
+        /* Some more exotic archs (s390, ppc, …) lack the "ALARM" flavour of the clocks. Thus,
+         * clock_gettime() will fail for them. Since they are essentially the same as their non-ALARM
+         * pendants (their only difference is when timers are set on them), let's just map them accordingly.
+         * This way, we can get the correct time even on those archs. */
 
         switch (c) {
 
@@ -115,7 +115,8 @@ triple_timestamp *triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
         ts->realtime = u;
         delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
         ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
-        ts->boottime = clock_boottime_supported() ? usec_sub_signed(now(CLOCK_BOOTTIME), delta) : USEC_INFINITY;
+        ts->boottime = clock_boottime_supported() ? usec_sub_signed(now(CLOCK_BOOTTIME), delta) :
+                                                    USEC_INFINITY;
 
         return ts;
 }
@@ -239,8 +240,8 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
 
 static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc, bool us) {
 
-        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that our
-         * generated timestamps may be parsed with parse_timestamp(), and always read the same. */
+        /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that
+         * our generated timestamps may be parsed with parse_timestamp(), and always read the same. */
         static const char *const weekdays[] = {
                 [0] = "Sun", [1] = "Mon", [2] = "Tue", [3] = "Wed", [4] = "Thu", [5] = "Fri", [6] = "Sat",
         };
@@ -293,8 +294,8 @@ static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc, 
         /* Append the timezone */
         n = strlen(buf);
         if (utc) {
-                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r() normally uses the
-                 * obsolete "GMT" instead. */
+                /* If this is UTC then let's explicitly use the "UTC" string here, because gmtime_r()
+                 * normally uses the obsolete "GMT" instead. */
                 if (n + 5 > l)
                         return NULL; /* "UTC" doesn't fit. */
 
@@ -309,12 +310,14 @@ static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc, 
                         /* The full time zone does not fit in. Yuck. */
 
                         if (n + 1 + _POSIX_TZNAME_MAX + 1 > l)
-                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that case, complain that it doesn't fit */
+                                return NULL; /* Not even enough space for the POSIX minimum (of 6)? In that
+                                                case, complain that it doesn't fit */
 
-                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the POSIX
-                         * minimum time zone length. In this case suppress the timezone entirely, in order not to dump
-                         * an overly long, hard to read string on the user. This should be safe, because the user will
-                         * assume the local timezone anyway if none is shown. And so does parse_timestamp(). */
+                        /* So the time zone doesn't fit in fully, but the caller passed enough space for the
+                         * POSIX minimum time zone length. In this case suppress the timezone entirely, in
+                         * order not to dump an overly long, hard to read string on the user. This should be
+                         * safe, because the user will assume the local timezone anyway if none is shown. And
+                         * so does parse_timestamp(). */
                 } else {
                         buf[n++] = ' ';
                         strcpy(buf + n, tm.tm_zone);
@@ -357,11 +360,26 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         }
 
         if (d >= USEC_PER_YEAR)
-                snprintf(buf, l, USEC_FMT " years " USEC_FMT " months %s", d / USEC_PER_YEAR, (d % USEC_PER_YEAR) / USEC_PER_MONTH, s);
+                snprintf(buf,
+                         l,
+                         USEC_FMT " years " USEC_FMT " months %s",
+                         d / USEC_PER_YEAR,
+                         (d % USEC_PER_YEAR) / USEC_PER_MONTH,
+                         s);
         else if (d >= USEC_PER_MONTH)
-                snprintf(buf, l, USEC_FMT " months " USEC_FMT " days %s", d / USEC_PER_MONTH, (d % USEC_PER_MONTH) / USEC_PER_DAY, s);
+                snprintf(buf,
+                         l,
+                         USEC_FMT " months " USEC_FMT " days %s",
+                         d / USEC_PER_MONTH,
+                         (d % USEC_PER_MONTH) / USEC_PER_DAY,
+                         s);
         else if (d >= USEC_PER_WEEK)
-                snprintf(buf, l, USEC_FMT " weeks " USEC_FMT " days %s", d / USEC_PER_WEEK, (d % USEC_PER_WEEK) / USEC_PER_DAY, s);
+                snprintf(buf,
+                         l,
+                         USEC_FMT " weeks " USEC_FMT " days %s",
+                         d / USEC_PER_WEEK,
+                         (d % USEC_PER_WEEK) / USEC_PER_DAY,
+                         s);
         else if (d >= 2 * USEC_PER_DAY)
                 snprintf(buf, l, USEC_FMT " days %s", d / USEC_PER_DAY, s);
         else if (d >= 25 * USEC_PER_HOUR)
@@ -369,11 +387,21 @@ char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         else if (d >= 6 * USEC_PER_HOUR)
                 snprintf(buf, l, USEC_FMT "h %s", d / USEC_PER_HOUR, s);
         else if (d >= USEC_PER_HOUR)
-                snprintf(buf, l, USEC_FMT "h " USEC_FMT "min %s", d / USEC_PER_HOUR, (d % USEC_PER_HOUR) / USEC_PER_MINUTE, s);
+                snprintf(buf,
+                         l,
+                         USEC_FMT "h " USEC_FMT "min %s",
+                         d / USEC_PER_HOUR,
+                         (d % USEC_PER_HOUR) / USEC_PER_MINUTE,
+                         s);
         else if (d >= 5 * USEC_PER_MINUTE)
                 snprintf(buf, l, USEC_FMT "min %s", d / USEC_PER_MINUTE, s);
         else if (d >= USEC_PER_MINUTE)
-                snprintf(buf, l, USEC_FMT "min " USEC_FMT "s %s", d / USEC_PER_MINUTE, (d % USEC_PER_MINUTE) / USEC_PER_SEC, s);
+                snprintf(buf,
+                         l,
+                         USEC_FMT "min " USEC_FMT "s %s",
+                         d / USEC_PER_MINUTE,
+                         (d % USEC_PER_MINUTE) / USEC_PER_SEC,
+                         s);
         else if (d >= USEC_PER_SEC)
                 snprintf(buf, l, USEC_FMT "s %s", d / USEC_PER_SEC, s);
         else if (d >= USEC_PER_MSEC)
@@ -454,7 +482,14 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                         }
 
                         if (j > 0) {
-                                k = snprintf(p, l, "%s" USEC_FMT ".%0*" PRI_USEC "%s", p > buf ? " " : "", a, j, b, table[i].suffix);
+                                k = snprintf(p,
+                                             l,
+                                             "%s" USEC_FMT ".%0*" PRI_USEC "%s",
+                                             p > buf ? " " : "",
+                                             a,
+                                             j,
+                                             b,
+                                             table[i].suffix);
 
                                 t = 0;
                                 done = true;
@@ -569,10 +604,11 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
 
                         tzset();
 
-                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note that we only
-                         * support the local timezones here, nothing else. Not because we wouldn't want to, but simply because
-                         * there are no nice APIs available to cover this. By accepting the local time zone strings, we make
-                         * sure that all timestamps written by format_timestamp() can be parsed correctly, even though we don't
+                        /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note
+                         * that we only support the local timezones here, nothing else. Not because we
+                         * wouldn't want to, but simply because there are no nice APIs available to cover
+                         * this. By accepting the local time zone strings, we make sure that all timestamps
+                         * written by format_timestamp() can be parsed correctly, even though we don't
                          * support arbitrary timezone specifications. */
 
                         for (j = 0; j <= 1; j++) {
@@ -768,7 +804,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT, NULL);
+        r = safe_fork(
+                "(sd-timestamp)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT, NULL);
         if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
                 return r;
@@ -783,8 +820,8 @@ int parse_timestamp(const char *t, usec_t *usec) {
 
                 tzset();
 
-                /* If there is a timezone that matches the tzname fields, leave the parsing to the implementation.
-                 * Otherwise just cut it off. */
+                /* If there is a timezone that matches the tzname fields, leave the parsing to the
+                 * implementation. Otherwise just cut it off. */
                 with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
 
                 /* Cut off the timezone if we don't need it. */
@@ -1212,7 +1249,8 @@ bool timezone_is_valid(const char *name, int log_level) {
                 return false;
 
         for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') && !(*p >= 'a' && *p <= 'z') && !(*p >= 'A' && *p <= 'Z') && !IN_SET(*p, '-', '_', '+', '/'))
+                if (!(*p >= '0' && *p <= '9') && !(*p >= 'a' && *p <= 'z') && !(*p >= 'A' && *p <= 'Z') &&
+                    !IN_SET(*p, '-', '_', '+', '/'))
                         return false;
 
                 if (*p == '/') {

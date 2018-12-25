@@ -61,8 +61,8 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 return 0;
         }
         if (r > 0)
-                /* This is an 0.0.0.0 or :: item, which we assume means that we shall map the specified hostname to
-                 * nothing. */
+                /* This is an 0.0.0.0 or :: item, which we assume means that we shall map the specified
+                 * hostname to nothing. */
                 item = NULL;
         else {
                 /* If this is a normal address, then simply add entry mapping it to the specified names */
@@ -101,7 +101,8 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 r = dns_name_is_valid_ldh(name);
                 if (r <= 0) {
-                        log_warning_errno(r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
+                        log_warning_errno(
+                                r, "/etc/hosts:%u: hostname \"%s\" is not valid, ignoring.", nr, name);
                         continue;
                 }
 
@@ -233,8 +234,8 @@ static int manager_etc_hosts_read(Manager *m) {
                 return 0;
         }
 
-        /* Take the timestamp at the beginning of processing, so that any changes made later are read on the next
-         * invocation */
+        /* Take the timestamp at the beginning of processing, so that any changes made later are read on the
+         * next invocation */
         r = fstat(fileno(f), &st);
         if (r < 0)
                 return log_error_errno(errno, "Failed to fstat() /etc/hosts: %m");
@@ -280,8 +281,8 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
                 if (!item)
                         return 0;
 
-                /* We have an address in /etc/hosts that matches the queried name. Let's return successful. Actual data
-                 * we'll only return if the request was for PTR. */
+                /* We have an address in /etc/hosts that matches the queried name. Let's return successful.
+                 * Actual data we'll only return if the request was for PTR. */
 
                 DNS_QUESTION_FOREACH(t, q) {
                         if (!IN_SET(t->type, DNS_TYPE_PTR, DNS_TYPE_ANY))
@@ -360,10 +361,12 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
         for (i = 0; bn && i < bn->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                if ((!found_a && bn->addresses[i]->family == AF_INET) || (!found_aaaa && bn->addresses[i]->family == AF_INET6))
+                if ((!found_a && bn->addresses[i]->family == AF_INET) ||
+                    (!found_aaaa && bn->addresses[i]->family == AF_INET6))
                         continue;
 
-                r = dns_resource_record_new_address(&rr, bn->addresses[i]->family, &bn->addresses[i]->address, bn->name);
+                r = dns_resource_record_new_address(
+                        &rr, bn->addresses[i]->family, &bn->addresses[i]->address, bn->name);
                 if (r < 0)
                         return r;
 

@@ -21,7 +21,10 @@ static const char *const fou_encap_type_table[_NETDEV_FOO_OVER_UDP_ENCAP_MAX] = 
 };
 
 DEFINE_STRING_TABLE_LOOKUP(fou_encap_type, FooOverUDPEncapType);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDPEncapType, "Failed to parse Encapsulation=");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type,
+                         fou_encap_type,
+                         FooOverUDPEncapType,
+                         "Failed to parse Encapsulation=");
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -94,12 +97,17 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
         assert(t);
 
         if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_DIRECT && t->fou_protocol <= 0) {
-                log_netdev_error(netdev, "FooOverUDP protocol not configured in %s. Rejecting configuration.", filename);
+                log_netdev_error(netdev,
+                                 "FooOverUDP protocol not configured in %s. Rejecting configuration.",
+                                 filename);
                 return -EINVAL;
         }
 
         if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_GUE && t->fou_protocol > 0) {
-                log_netdev_error(netdev, "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.", filename);
+                log_netdev_error(
+                        netdev,
+                        "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.",
+                        filename);
                 return -EINVAL;
         }
 

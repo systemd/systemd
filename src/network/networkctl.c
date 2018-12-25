@@ -261,7 +261,8 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 operational_state_to_color(operational_state, &on_color_operational, &off_color_operational);
 
                 r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
-                if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
+                if (r ==
+                    -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
@@ -321,8 +322,12 @@ static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
         return 0;
 }
 
-static int get_gateway_description(
-        sd_netlink *rtnl, sd_hwdb *hwdb, int ifindex, int family, union in_addr_union *gateway, char **gateway_description) {
+static int get_gateway_description(sd_netlink *rtnl,
+                                   sd_hwdb *hwdb,
+                                   int ifindex,
+                                   int family,
+                                   union in_addr_union *gateway,
+                                   char **gateway_description) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *m;
         int r;
@@ -440,7 +445,8 @@ static int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, const char *prefix, in
                 if (r < 0)
                         return r;
 
-                r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
+                r = get_gateway_description(
+                        rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway: %m");
 
@@ -781,7 +787,9 @@ static int link_status_one(sd_netlink *rtnl, sd_hwdb *hwdb, const LinkInfo *info
                 (void) ieee_oui(hwdb, &info->mac_address, &description);
 
                 if (description)
-                        printf("      HW Address: %s (%s)\n", ether_addr_to_string(&info->mac_address, ea), description);
+                        printf("      HW Address: %s (%s)\n",
+                               ether_addr_to_string(&info->mac_address, ea),
+                               description);
                 else
                         printf("      HW Address: %s\n", ether_addr_to_string(&info->mac_address, ea));
         }
@@ -951,7 +959,13 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
-                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n", "LINK", "CHASSIS ID", "SYSTEM NAME", "CAPS", "PORT ID", "PORT DESCRIPTION");
+                printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
+                       "LINK",
+                       "CHASSIS ID",
+                       "SYSTEM NAME",
+                       "CAPS",
+                       "PORT ID",
+                       "PORT DESCRIPTION");
 
         for (i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -966,7 +980,8 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
                 for (;;) {
                         _cleanup_free_ char *cid = NULL, *pid = NULL, *sname = NULL, *pdesc = NULL;
-                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL, *capabilities = NULL;
+                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL,
+                                   *port_description = NULL, *capabilities = NULL;
                         _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
                         uint16_t cc;
 

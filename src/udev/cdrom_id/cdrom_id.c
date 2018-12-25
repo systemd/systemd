@@ -570,11 +570,14 @@ static int cd_profiles(int fd) {
 
                 switch (feature) {
                 case 0x00:
-                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i + 3] / 4);
+                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries",
+                                  features[i + 3] / 4);
                         feature_profiles(&features[i] + 4, MIN(features[i + 3], len - i - 4));
                         break;
                 default:
-                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i + 3]);
+                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes",
+                                  feature,
+                                  features[i + 3]);
                         break;
                 }
         }
@@ -615,7 +618,8 @@ static int cd_media_info(int fd) {
         /* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
          * always "complete", DVD-RAM are "other" or "complete" if the disc is
          * write protected; we need to check the contents if it is blank */
-        if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
+        if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) &&
+            (header[2] & 3) > 1) {
                 unsigned char buffer[32 * 2048];
                 unsigned char len;
                 int offset;
@@ -783,7 +787,11 @@ static int cd_media_toc(int fd) {
                 is_data_track = (p[1] & 0x04) != 0;
 
                 block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-                log_debug("track=%u info=0x%x(%s) start_block=%u", p[2], p[1] & 0x0f, is_data_track ? "data" : "audio", block);
+                log_debug("track=%u info=0x%x(%s) start_block=%u",
+                          p[2],
+                          p[1] & 0x0f,
+                          is_data_track ? "data" : "audio",
+                          block);
 
                 if (is_data_track)
                         cd_media_track_count_data++;
@@ -808,9 +816,11 @@ static int cd_media_toc(int fd) {
 }
 
 int main(int argc, char *argv[]) {
-        static const struct option options[] = { { "lock-media", no_argument, NULL, 'l' },  { "unlock-media", no_argument, NULL, 'u' },
-                                                 { "eject-media", no_argument, NULL, 'e' }, { "debug", no_argument, NULL, 'd' },
-                                                 { "help", no_argument, NULL, 'h' },        {} };
+        static const struct option options[] = {
+                { "lock-media", no_argument, NULL, 'l' },  { "unlock-media", no_argument, NULL, 'u' },
+                { "eject-media", no_argument, NULL, 'e' }, { "debug", no_argument, NULL, 'd' },
+                { "help", no_argument, NULL, 'h' },        {}
+        };
         bool eject = false;
         bool lock = false;
         bool unlock = false;

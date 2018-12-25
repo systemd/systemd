@@ -57,9 +57,11 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USR,
         };
 
-        static const struct option options[] = { { "help", no_argument, NULL, 'h' },       { "version", no_argument, NULL, ARG_VERSION },
-                                                 { "usr", no_argument, NULL, ARG_USR },    { "strict", no_argument, NULL, 's' },
-                                                 { "root", required_argument, NULL, 'r' }, {} };
+        static const struct option options[] = {
+                { "help", no_argument, NULL, 'h' },       { "version", no_argument, NULL, ARG_VERSION },
+                { "usr", no_argument, NULL, ARG_USR },    { "strict", no_argument, NULL, 's' },
+                { "root", required_argument, NULL, 'r' }, {}
+        };
 
         int c;
 

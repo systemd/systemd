@@ -30,7 +30,8 @@ int bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_lis
  * the error map is really added to the final binary.
  */
 
-#define BUS_ERROR_MAP_ELF_REGISTER _section_("SYSTEMD_BUS_ERROR_MAP") _used_ _alignptr_ _variable_no_sanitize_address_
+#define BUS_ERROR_MAP_ELF_REGISTER \
+        _section_("SYSTEMD_BUS_ERROR_MAP") _used_ _alignptr_ _variable_no_sanitize_address_
 
 #define BUS_ERROR_MAP_ELF_USE(errors)           \
         extern const sd_bus_error_map errors[]; \

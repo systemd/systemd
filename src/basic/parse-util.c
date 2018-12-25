@@ -24,10 +24,11 @@ int parse_boolean(const char *v) {
         if (!v)
                 return -EINVAL;
 
-        if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
+        if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") ||
+            strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;
-        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") || strcaseeq(v, "f") ||
-                 strcaseeq(v, "off"))
+        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") ||
+                 strcaseeq(v, "f") || strcaseeq(v, "off"))
                 return 0;
 
         return -EINVAL;
@@ -350,7 +351,9 @@ char *format_bytes(char *buf, size_t l, uint64_t t) {
                 const char *suffix;
                 uint64_t factor;
         } table[] = {
-                { "E", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
+                { "E",
+                  UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) *
+                          UINT64_C(1024) },
                 { "P", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
                 { "T", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },
                 { "G", UINT64_C(1024) * UINT64_C(1024) * UINT64_C(1024) },

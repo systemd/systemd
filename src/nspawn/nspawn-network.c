@@ -23,8 +23,10 @@
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a, 37, 6f, c7, 46, ec, 45, 0b, ad, a3, d5, 31, 06, 60, 5d, b1)
 #define CONTAINER_HASH_KEY SD_ID128_MAKE(c3, c4, f9, 19, b5, 57, b2, 1c, e6, cf, 14, 27, 03, 9c, ee, a2)
-#define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48, c7, f6, b7, ea, 9d, 4c, 9e, b7, 28, d4, de, 91, d5, bf, 66)
-#define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af, 50, 17, 61, ce, f9, 4d, 35, 84, 0d, 2b, 20, 54, be, ce, 59)
+#define VETH_EXTRA_HOST_HASH_KEY \
+        SD_ID128_MAKE(48, c7, f6, b7, ea, 9d, 4c, 9e, b7, 28, d4, de, 91, d5, bf, 66)
+#define VETH_EXTRA_CONTAINER_HASH_KEY \
+        SD_ID128_MAKE(af, 50, 17, 61, ce, f9, 4d, 35, 84, 0d, 2b, 20, 54, be, ce, 59)
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00, 13, 6d, bc, 66, 83, 44, 81, bb, 0c, f9, 51, 1f, 24, a6, 6f)
 
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
@@ -158,7 +160,8 @@ static int add_veth(sd_netlink *rtnl,
 
         r = sd_netlink_call(rtnl, m, 0, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to add new veth interfaces (%s:%s): %m", ifname_host, ifname_container);
+                return log_error_errno(
+                        r, "Failed to add new veth interfaces (%s:%s): %m", ifname_host, ifname_container);
 
         return 0;
 }
@@ -179,7 +182,8 @@ int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], b
 
         r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+                return log_error_errno(r,
+                                       "Failed to generate predictable MAC address for container side: %m");
 
         r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
         if (r < 0)
@@ -222,11 +226,15 @@ int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs) {
 
                 r = generate_mac(machine_name, &mac_container, VETH_EXTRA_CONTAINER_HASH_KEY, idx);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
+                        return log_error_errno(
+                                r,
+                                "Failed to generate predictable MAC address for container side of extra veth link: %m");
 
                 r = generate_mac(machine_name, &mac_host, VETH_EXTRA_HOST_HASH_KEY, idx);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
+                        return log_error_errno(
+                                r,
+                                "Failed to generate predictable MAC address for container side of extra veth link: %m");
 
                 r = add_veth(rtnl, pid, *a, &mac_host, *b, &mac_container);
                 if (r < 0)
@@ -335,7 +343,10 @@ int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
                 if (bridge_ifi >= 0)
                         return bridge_ifi;
                 if (bridge_ifi != -ENODEV || !create || n > 10)
-                        return log_error_errno(bridge_ifi, "Failed to add interface %s to bridge %s: %m", veth_name, bridge_name);
+                        return log_error_errno(bridge_ifi,
+                                               "Failed to add interface %s to bridge %s: %m",
+                                               veth_name,
+                                               bridge_name);
 
                 /* Count attempts, so that we don't enter an endless loop here. */
                 n++;
@@ -397,7 +408,8 @@ static int parse_interface(const char *name) {
 
         r = sd_device_get_is_initialized(d);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether interface %s is initialized or not: %m", name);
+                return log_error_errno(
+                        r, "Failed to determine whether interface %s is initialized or not: %m", name);
         if (r == 0) {
                 log_error("Network interface %s is not initialized yet.", name);
                 return -EBUSY;
@@ -630,8 +642,8 @@ int remove_veth_links(const char *primary, char **pairs) {
         char **a, **b;
         int r;
 
-        /* In some cases the kernel might pin the veth links between host and container even after the namespace
-         * died. Hence, let's better remove them explicitly too. */
+        /* In some cases the kernel might pin the veth links between host and container even after the
+         * namespace died. Hence, let's better remove them explicitly too. */
 
         if (isempty(primary) && strv_isempty(pairs))
                 return 0;

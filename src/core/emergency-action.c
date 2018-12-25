@@ -15,11 +15,20 @@
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
         log_full(warn ? LOG_WARNING : LOG_DEBUG, "%s: %s", message, reason);
         if (warn)
-                manager_status_printf(m, STATUS_TYPE_EMERGENCY, ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, "%s: %s", message, reason);
+                manager_status_printf(m,
+                                      STATUS_TYPE_EMERGENCY,
+                                      ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL,
+                                      "%s: %s",
+                                      message,
+                                      reason);
 }
 
-int emergency_action(
-        Manager *m, EmergencyAction action, EmergencyActionFlags options, const char *reboot_arg, int exit_status, const char *reason) {
+int emergency_action(Manager *m,
+                     EmergencyAction action,
+                     EmergencyActionFlags options,
+                     const char *reboot_arg,
+                     int exit_status,
+                     const char *reason) {
 
         assert(m);
         assert(action >= 0);
@@ -41,7 +50,8 @@ int emergency_action(
                 log_and_status(m, warn, "Rebooting", reason);
 
                 (void) update_reboot_parameter_and_warn(reboot_arg);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                (void) manager_add_job_by_name_and_warn(
+                        m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
 
                 break;
 
@@ -75,7 +85,8 @@ int emergency_action(
 
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, warn, "Exiting", reason);
-                        (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                        (void) manager_add_job_by_name_and_warn(
+                                m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
                         break;
                 }
 
@@ -84,7 +95,8 @@ int emergency_action(
 
         case EMERGENCY_ACTION_POWEROFF:
                 log_and_status(m, warn, "Powering off", reason);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                (void) manager_add_job_by_name_and_warn(
+                        m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
                 break;
 
         case EMERGENCY_ACTION_EXIT_FORCE:

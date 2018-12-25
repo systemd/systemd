@@ -88,11 +88,15 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                         r = symlinkat(target, fd, table[i].dir);
                         if (r < 0 && errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+                                return log_error_errno(
+                                        errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
 
                         if (uid_is_valid(uid) || gid_is_valid(gid)) {
                                 if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
-                                        return log_error_errno(errno, "Failed to chown symlink at %s/%s: %m", root, table[i].dir);
+                                        return log_error_errno(errno,
+                                                               "Failed to chown symlink at %s/%s: %m",
+                                                               root,
+                                                               table[i].dir);
                         }
 
                         continue;
@@ -115,7 +119,8 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                 if (uid != UID_INVALID || gid != UID_INVALID) {
                         if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
-                                return log_error_errno(errno, "Failed to chown directory at %s/%s: %m", root, table[i].dir);
+                                return log_error_errno(
+                                        errno, "Failed to chown directory at %s/%s: %m", root, table[i].dir);
                 }
         }
 

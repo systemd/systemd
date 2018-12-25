@@ -290,7 +290,8 @@ int network_load(Manager *manager);
 int network_load_one(Manager *manager, const char *filename);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
-int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
+int network_get(
+        Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 
@@ -325,7 +326,12 @@ const struct ConfigPerfItem *network_network_gperf_lookup(const char *key, GPERF
 extern const sd_bus_vtable network_vtable[];
 
 int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int network_object_find(sd_bus *bus,
+                        const char *path,
+                        const char *interface,
+                        void *userdata,
+                        void **found,
+                        sd_bus_error *error);
 
 const char *ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;

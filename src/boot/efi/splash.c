@@ -37,7 +37,8 @@ struct bmp_map {
         UINT8 reserved;
 } __attribute__((packed));
 
-EFI_STATUS bmp_parse_header(UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib, struct bmp_map **ret_map, UINT8 **pixmap) {
+EFI_STATUS bmp_parse_header(
+        UINT8 *bmp, UINTN size, struct bmp_dib **ret_dib, struct bmp_map **ret_map, UINT8 **pixmap) {
         struct bmp_file *file;
         struct bmp_dib *dib;
         struct bmp_map *map;
@@ -146,7 +147,10 @@ static VOID pixel_blend(UINT32 *dst, const UINT32 source) {
         *dst = (rb | g);
 }
 
-EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf, struct bmp_dib *dib, struct bmp_map *map, UINT8 *pixmap) {
+EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
+                      struct bmp_dib *dib,
+                      struct bmp_map *map,
+                      UINT8 *pixmap) {
         UINT8 *in;
         UINTN y;
 
@@ -289,7 +293,18 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (!blt)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput, blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0, dib->x, dib->y, 0);
+        err = uefi_call_wrapper(GraphicsOutput->Blt,
+                                10,
+                                GraphicsOutput,
+                                blt,
+                                EfiBltVideoToBltBuffer,
+                                x_pos,
+                                y_pos,
+                                0,
+                                0,
+                                dib->x,
+                                dib->y,
+                                0);
         if (EFI_ERROR(err))
                 return err;
 
@@ -301,5 +316,16 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (EFI_ERROR(err))
                 return err;
 
-        return uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput, blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos, dib->x, dib->y, 0);
+        return uefi_call_wrapper(GraphicsOutput->Blt,
+                                 10,
+                                 GraphicsOutput,
+                                 blt,
+                                 EfiBltBufferToVideo,
+                                 0,
+                                 0,
+                                 x_pos,
+                                 y_pos,
+                                 dib->x,
+                                 dib->y,
+                                 0);
 }

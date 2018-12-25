@@ -24,7 +24,8 @@ static int flush_acl(acl_t acl) {
 
         assert(acl);
 
-        for (found = acl_get_entry(acl, ACL_FIRST_ENTRY, &i); found > 0; found = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+        for (found = acl_get_entry(acl, ACL_FIRST_ENTRY, &i); found > 0;
+             found = acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
 
                 acl_tag_t tag;
 

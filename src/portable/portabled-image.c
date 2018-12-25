@@ -56,8 +56,8 @@ int manager_image_cache_add(Manager *m, Image *image) {
          *
          * 1. Always under its path
          *
-         * 2. If the image was discovered in the search path (i.e. its discoverable boolean set) we'll also add it
-         *    under its short name.
+         * 2. If the image was discovered in the search path (i.e. its discoverable boolean set) we'll also
+         * add it under its short name.
          */
 
         r = manager_image_cache_initialize(m);
@@ -90,8 +90,8 @@ int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *erro
 
         assert(m);
 
-        /* A wrapper around image_discover() (for finding images in search path) and portable_discover_attached() (for
-         * finding attached images). */
+        /* A wrapper around image_discover() (for finding images in search path) and
+         * portable_discover_attached() (for finding attached images). */
 
         r = image_discover(IMAGE_PORTABLE, images);
         if (r < 0)

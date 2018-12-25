@@ -19,7 +19,8 @@ static void test_dns_packet_new(void) {
                         i = MIN(i * 2, DNS_PACKET_SIZE_MAX - 10);
         }
 
-        assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, DNS_PACKET_SIZE_MAX + 1, DNS_PACKET_SIZE_MAX) == -EFBIG);
+        assert_se(dns_packet_new(&p2, DNS_PROTOCOL_DNS, DNS_PACKET_SIZE_MAX + 1, DNS_PACKET_SIZE_MAX) ==
+                  -EFBIG);
 }
 
 int main(int argc, char **argv) {

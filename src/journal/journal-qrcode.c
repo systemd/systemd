@@ -27,7 +27,13 @@ static void print_border(FILE *output, unsigned width) {
         }
 }
 
-int print_qr_code(FILE *output, const void *seed, size_t seed_size, uint64_t start, uint64_t interval, const char *hn, sd_id128_t machine) {
+int print_qr_code(FILE *output,
+                  const void *seed,
+                  size_t seed_size,
+                  uint64_t start,
+                  uint64_t interval,
+                  const char *hn,
+                  sd_id128_t machine) {
 
         FILE *f;
         char *url = NULL;
@@ -52,7 +58,11 @@ int print_qr_code(FILE *output, const void *seed, size_t seed_size, uint64_t sta
                 fprintf(f, "%02x", ((uint8_t *) seed)[i]);
         }
 
-        fprintf(f, "/%" PRIx64 "-%" PRIx64 "?machine=" SD_ID128_FORMAT_STR, start, interval, SD_ID128_FORMAT_VAL(machine));
+        fprintf(f,
+                "/%" PRIx64 "-%" PRIx64 "?machine=" SD_ID128_FORMAT_STR,
+                start,
+                interval,
+                SD_ID128_FORMAT_VAL(machine));
 
         if (hn)
                 fprintf(f, ";hostname=%s", hn);

@@ -55,13 +55,22 @@ static int test_unit_file_get_set(void) {
         return 0;
 }
 
-static void check_execcommand(ExecCommand *c, const char *path, const char *argv0, const char *argv1, const char *argv2, bool ignore) {
+static void check_execcommand(ExecCommand *c,
+                              const char *path,
+                              const char *argv0,
+                              const char *argv1,
+                              const char *argv2,
+                              bool ignore) {
         size_t n;
 
         assert_se(c);
         log_info("expect: \"%s\" [\"%s\" \"%s\" \"%s\"]", path, argv0 ?: path, argv1, argv2);
         n = strv_length(c->argv);
-        log_info("actual: \"%s\" [\"%s\" \"%s\" \"%s\"]", c->path, c->argv[0], n > 0 ? c->argv[1] : NULL, n > 1 ? c->argv[2] : NULL);
+        log_info("actual: \"%s\" [\"%s\" \"%s\" \"%s\"]",
+                 c->path,
+                 c->argv[0],
+                 n > 0 ? c->argv[1] : NULL,
+                 n > 1 ? c->argv[2] : NULL);
         assert_se(streq(c->path, path));
         assert_se(streq(c->argv[0], argv0 ?: path));
         if (n > 0)
@@ -119,7 +128,8 @@ static void test_config_parse_exec(void) {
         assert_se(c1->command_next == NULL);
 
         log_info("/* honour_argv0 */");
-        r = config_parse_exec(NULL, "fake", 3, "section", 1, "LValue", 0, "@/RValue///slashes2 ///argv0 r1", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 3, "section", 1, "LValue", 0, "@/RValue///slashes2 ///argv0 r1", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", NULL, false);
@@ -135,13 +145,15 @@ static void test_config_parse_exec(void) {
         assert_se(c == NULL);
 
         log_info("/* ignore && honour_argv0 */");
-        r = config_parse_exec(NULL, "fake", 4, "section", 1, "LValue", 0, "-@/RValue///slashes3 argv0a r1", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 4, "section", 1, "LValue", 0, "-@/RValue///slashes3 argv0a r1", &c, u);
         assert_se(r >= 0);
         c1 = c;
         check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
 
         log_info("/* ignore && honour_argv0 */");
-        r = config_parse_exec(NULL, "fake", 4, "section", 1, "LValue", 0, "@-/RValue///slashes4 argv0b r1", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 4, "section", 1, "LValue", 0, "@-/RValue///slashes4 argv0b r1", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", NULL, true);
@@ -253,31 +265,36 @@ static void test_config_parse_exec(void) {
         check_execcommand(c1, "/sbin/find", NULL, ";", "/x", false);
 
         log_info("/* spaces in the filename */");
-        r = config_parse_exec(NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon\" -1 -2", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon\" -1 -2", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
 
         log_info("/* spaces in the filename, no args */");
-        r = config_parse_exec(NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon -1 -2\"", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon -1 -2\"", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/PATH WITH SPACES/daemon -1 -2", NULL, NULL, NULL, false);
 
         log_info("/* spaces in the filename, everything quoted */");
-        r = config_parse_exec(NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon\" \"-1\" '-2'", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH WITH SPACES/daemon\" \"-1\" '-2'", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
 
         log_info("/* escaped spaces in the filename */");
-        r = config_parse_exec(NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH\\sWITH\\sSPACES/daemon\" '-1 -2'", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH\\sWITH\\sSPACES/daemon\" '-1 -2'", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
 
         log_info("/* escaped spaces in the filename (2) */");
-        r = config_parse_exec(NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH\\x20WITH\\x20SPACES/daemon\" \"-1 -2\"", &c, u);
+        r = config_parse_exec(
+                NULL, "fake", 5, "section", 1, "LValue", 0, "\"/PATH\\x20WITH\\x20SPACES/daemon\" \"-1 -2\"", &c, u);
         assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
@@ -370,14 +387,16 @@ static void test_config_parse_log_extra_fields(void) {
         assert_se(u = unit_new(m, sizeof(Service)));
 
         log_info("/* %s – basic test */", __func__);
-        r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1, "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"", &c, u);
+        r = config_parse_log_extra_fields(
+                NULL, "fake", 1, "section", 1, "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"", &c, u);
         assert_se(r >= 0);
         assert_se(c.n_log_extra_fields == 2);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
         assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
 
         log_info("/* %s – add some */", __func__);
-        r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1, "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '", &c, u);
+        r = config_parse_log_extra_fields(
+                NULL, "fake", 1, "section", 1, "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '", &c, u);
         assert_se(r >= 0);
         assert_se(c.n_log_extra_fields == 4);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
@@ -540,7 +559,8 @@ static void test_install_printf(void) {
                 .path = path3,
         };
 
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL, *user = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *gid = NULL, *group = NULL, *uid = NULL,
+                            *user = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
@@ -623,26 +643,52 @@ static void test_config_parse_capability_set(void) {
         int r;
         uint64_t capability_bounding_set = 0;
 
-        r = config_parse_capability_set(
-                NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "CAP_NET_RAW", &capability_bounding_set, NULL);
+        r = config_parse_capability_set(NULL,
+                                        "fake",
+                                        1,
+                                        "section",
+                                        1,
+                                        "CapabilityBoundingSet",
+                                        0,
+                                        "CAP_NET_RAW",
+                                        &capability_bounding_set,
+                                        NULL);
         assert_se(r >= 0);
         assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
 
-        r = config_parse_capability_set(
-                NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "CAP_NET_ADMIN", &capability_bounding_set, NULL);
+        r = config_parse_capability_set(NULL,
+                                        "fake",
+                                        1,
+                                        "section",
+                                        1,
+                                        "CapabilityBoundingSet",
+                                        0,
+                                        "CAP_NET_ADMIN",
+                                        &capability_bounding_set,
+                                        NULL);
         assert_se(r >= 0);
         assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 
-        r = config_parse_capability_set(
-                NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "~CAP_NET_ADMIN", &capability_bounding_set, NULL);
+        r = config_parse_capability_set(NULL,
+                                        "fake",
+                                        1,
+                                        "section",
+                                        1,
+                                        "CapabilityBoundingSet",
+                                        0,
+                                        "~CAP_NET_ADMIN",
+                                        &capability_bounding_set,
+                                        NULL);
         assert_se(r >= 0);
         assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
 
-        r = config_parse_capability_set(NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "", &capability_bounding_set, NULL);
+        r = config_parse_capability_set(
+                NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "", &capability_bounding_set, NULL);
         assert_se(r >= 0);
         assert_se(capability_bounding_set == UINT64_C(0));
 
-        r = config_parse_capability_set(NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "~", &capability_bounding_set, NULL);
+        r = config_parse_capability_set(
+                NULL, "fake", 1, "section", 1, "CapabilityBoundingSet", 0, "~", &capability_bounding_set, NULL);
         assert_se(r >= 0);
         assert_se(cap_test_all(capability_bounding_set));
 
@@ -664,22 +710,29 @@ static void test_config_parse_capability_set(void) {
 static void test_config_parse_rlimit(void) {
         struct rlimit *rl[_RLIMIT_MAX] = {};
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "55:66", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 55);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 66);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL) >= 0);
+        assert_se(
+                config_parse_rlimit(
+                        NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "infinity:infinity", rl, NULL) >=
+                0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == rl[RLIMIT_NOFILE]->rlim_max);
@@ -688,86 +741,111 @@ static void test_config_parse_rlimit(void) {
         rl[RLIMIT_NOFILE]->rlim_max = 20;
 
         /* Invalid values don't change rl */
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "10:20:30", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "wat:wat", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "66:wat", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitNOFILE", RLIMIT_NOFILE, "200:100", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_NOFILE]);
         assert_se(rl[RLIMIT_NOFILE]->rlim_cur == 10);
         assert_se(rl[RLIMIT_NOFILE]->rlim_max == 20);
 
         rl[RLIMIT_NOFILE] = mfree(rl[RLIMIT_NOFILE]);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "56", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 56);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "57s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 57);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "40s:1m", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 40);
         assert_se(rl[RLIMIT_CPU]->rlim_max == 60);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "infinity", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitCPU", RLIMIT_CPU, "1234ms", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_CPU]);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == 2);
         assert_se(rl[RLIMIT_CPU]->rlim_cur == rl[RLIMIT_CPU]->rlim_max);
 
         rl[RLIMIT_CPU] = mfree(rl[RLIMIT_CPU]);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "58:60", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 58);
         assert_se(rl[RLIMIT_RTTIME]->rlim_max == 60);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s", rl, NULL) >= 0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "59s:123s", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 59 * USEC_PER_SEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_max == 123 * USEC_PER_SEC);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL) >= 0);
+        assert_se(
+                config_parse_rlimit(
+                        NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "infinity:infinity", rl, NULL) >=
+                0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == RLIM_INFINITY);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
 
-        assert_se(config_parse_rlimit(NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, NULL) >= 0);
+        assert_se(config_parse_rlimit(
+                          NULL, "fake", 1, "section", 1, "LimitRTTIME", RLIMIT_RTTIME, "2345ms", rl, NULL) >=
+                  0);
         assert_se(rl[RLIMIT_RTTIME]);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == 2345 * USEC_PER_MSEC);
         assert_se(rl[RLIMIT_RTTIME]->rlim_cur == rl[RLIMIT_RTTIME]->rlim_max);
@@ -790,7 +868,8 @@ static void test_config_parse_pass_environ(void) {
         int r;
         _cleanup_strv_free_ char **passenv = NULL;
 
-        r = config_parse_pass_environ(NULL, "fake", 1, "section", 1, "PassEnvironment", 0, "A B", &passenv, NULL);
+        r = config_parse_pass_environ(
+                NULL, "fake", 1, "section", 1, "PassEnvironment", 0, "A B", &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_length(passenv) == 2);
         assert_se(streq(passenv[0], "A"));
@@ -800,8 +879,16 @@ static void test_config_parse_pass_environ(void) {
         assert_se(r >= 0);
         assert_se(strv_isempty(passenv));
 
-        r = config_parse_pass_environ(
-                NULL, "fake", 1, "section", 1, "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 \\", &passenv, NULL);
+        r = config_parse_pass_environ(NULL,
+                                      "fake",
+                                      1,
+                                      "section",
+                                      1,
+                                      "PassEnvironment",
+                                      0,
+                                      "'invalid name' 'normal_name' A=1 \\",
+                                      &passenv,
+                                      NULL);
         assert_se(r >= 0);
         assert_se(strv_length(passenv) == 1);
         assert_se(streq(passenv[0], "normal_name"));

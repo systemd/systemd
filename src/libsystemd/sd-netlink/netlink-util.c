@@ -34,7 +34,8 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         return 0;
 }
 
-int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu) {
+int rtnl_set_link_properties(
+        sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 

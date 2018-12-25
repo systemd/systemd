@@ -76,10 +76,42 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);
-        assert_se(journal_file_open(
-                          -1, "three.journal", O_RDWR | O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &three) == 0);
+        assert_se(journal_file_open(-1,
+                                    "one.journal",
+                                    O_RDWR | O_CREAT,
+                                    0666,
+                                    true,
+                                    (uint64_t) -1,
+                                    false,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &one) == 0);
+        assert_se(journal_file_open(-1,
+                                    "two.journal",
+                                    O_RDWR | O_CREAT,
+                                    0666,
+                                    true,
+                                    (uint64_t) -1,
+                                    false,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &two) == 0);
+        assert_se(journal_file_open(-1,
+                                    "three.journal",
+                                    O_RDWR | O_CREAT,
+                                    0666,
+                                    true,
+                                    (uint64_t) -1,
+                                    false,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &three) == 0);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
@@ -109,7 +141,8 @@ int main(int argc, char *argv[]) {
                         assert_se(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
+                                assert_se(journal_file_append_entry(
+                                                  two, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
 
                         assert_se(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
                 }

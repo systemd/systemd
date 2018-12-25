@@ -52,7 +52,8 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 /* respond_oom() must be usable with return, hence this form. */
 #define respond_oom(connection) log_oom(), mhd_respond_oom(connection)
 
-int mhd_respondf(struct MHD_Connection *connection, int error, unsigned code, const char *format, ...) _printf_(4, 5);
+int mhd_respondf(struct MHD_Connection *connection, int error, unsigned code, const char *format, ...)
+        _printf_(4, 5);
 
 int mhd_respond(struct MHD_Connection *connection, unsigned code, const char *message);
 

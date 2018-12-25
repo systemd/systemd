@@ -38,8 +38,14 @@ int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_bus_erro
         if (m->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -91,10 +97,17 @@ int bus_image_method_rename(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (!image_name_is_valid(new_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -128,10 +141,17 @@ int bus_image_method_clone(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
 
         if (!image_name_is_valid(new_name))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", new_name);
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -180,8 +200,14 @@ int bus_image_method_mark_read_only(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -209,8 +235,14 @@ int bus_image_method_set_limit(sd_bus_message *message, void *userdata, sd_bus_e
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -310,8 +342,10 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetHostname", NULL, "s", bus_image_method_get_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineID", NULL, "ay", bus_image_method_get_machine_id, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMachineInfo", NULL, "a{ss}", bus_image_method_get_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetMachineInfo", NULL, "a{ss}", bus_image_method_get_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
@@ -325,7 +359,12 @@ static int image_flush_cache(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int image_object_find(sd_bus *bus,
+                      const char *path,
+                      const char *interface,
+                      void *userdata,
+                      void **found,
+                      sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         Image *image = NULL;

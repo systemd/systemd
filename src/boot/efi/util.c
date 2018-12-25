@@ -63,14 +63,14 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         if (!v)
                 return EFI_INVALID_PARAMETER;
 
-        if (strcmpa(v, (CHAR8 *) "1") == 0 || strcmpa(v, (CHAR8 *) "yes") == 0 || strcmpa(v, (CHAR8 *) "y") == 0 ||
-            strcmpa(v, (CHAR8 *) "true") == 0) {
+        if (strcmpa(v, (CHAR8 *) "1") == 0 || strcmpa(v, (CHAR8 *) "yes") == 0 ||
+            strcmpa(v, (CHAR8 *) "y") == 0 || strcmpa(v, (CHAR8 *) "true") == 0) {
                 *b = TRUE;
                 return EFI_SUCCESS;
         }
 
-        if (strcmpa(v, (CHAR8 *) "0") == 0 || strcmpa(v, (CHAR8 *) "no") == 0 || strcmpa(v, (CHAR8 *) "n") == 0 ||
-            strcmpa(v, (CHAR8 *) "false") == 0) {
+        if (strcmpa(v, (CHAR8 *) "0") == 0 || strcmpa(v, (CHAR8 *) "no") == 0 ||
+            strcmpa(v, (CHAR8 *) "n") == 0 || strcmpa(v, (CHAR8 *) "false") == 0) {
                 *b = FALSE;
                 return EFI_SUCCESS;
         }
@@ -78,18 +78,21 @@ EFI_STATUS parse_boolean(const CHAR8 *v, BOOLEAN *b) {
         return EFI_INVALID_PARAMETER;
 }
 
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent) {
+EFI_STATUS efivar_set_raw(
+        const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent) {
         UINT32 flags;
 
         flags = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
         if (persistent)
                 flags |= EFI_VARIABLE_NON_VOLATILE;
 
-        return uefi_call_wrapper(RT->SetVariable, 5, (CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (VOID *) buf);
+        return uefi_call_wrapper(
+                RT->SetVariable, 5, (CHAR16 *) name, (EFI_GUID *) vendor, flags, size, (VOID *) buf);
 }
 
 EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent) {
-        return efivar_set_raw(&loader_guid, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
+        return efivar_set_raw(
+                &loader_guid, name, value, value ? (StrLen(value) + 1) * sizeof(CHAR16) : 0, persistent);
 }
 
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent) {
@@ -301,7 +304,8 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
         return NULL;
 }
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size) {
+EFI_STATUS file_read(
+        EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size) {
         EFI_FILE_HANDLE handle;
         _cleanup_freepool_ CHAR8 *buf = NULL;
         EFI_STATUS err;

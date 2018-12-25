@@ -90,8 +90,12 @@ int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, ui
 int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len);
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data);
 int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data);
-int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data);
-int sd_netlink_message_append_cache_info(sd_netlink_message *m, unsigned short type, const struct ifa_cacheinfo *info);
+int sd_netlink_message_append_ether_addr(sd_netlink_message *m,
+                                         unsigned short type,
+                                         const struct ether_addr *data);
+int sd_netlink_message_append_cache_info(sd_netlink_message *m,
+                                         unsigned short type,
+                                         const struct ifa_cacheinfo *info);
 
 int sd_netlink_message_open_container(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_open_container_union(sd_netlink_message *m, unsigned short type, const char *key);
@@ -131,8 +135,13 @@ int sd_netlink_message_is_broadcast(sd_netlink_message *m);
 int sd_rtnl_message_new_link(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index);
 int sd_rtnl_message_new_addr_update(sd_netlink *nl, sd_netlink_message **ret, int index, int family);
 int sd_rtnl_message_new_addr(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int family);
-int sd_rtnl_message_new_route(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol);
-int sd_rtnl_message_new_neigh(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int nda_family);
+int sd_rtnl_message_new_route(sd_netlink *nl,
+                              sd_netlink_message **ret,
+                              uint16_t nlmsg_type,
+                              int rtm_family,
+                              unsigned char rtm_protocol);
+int sd_rtnl_message_new_neigh(
+        sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int nda_family);
 
 int sd_rtnl_message_get_family(sd_netlink_message *m, int *family);
 
@@ -176,11 +185,15 @@ int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *family);
 int sd_rtnl_message_neigh_get_state(sd_netlink_message *m, uint16_t *state);
 int sd_rtnl_message_neigh_get_flags(sd_netlink_message *m, uint8_t *flags);
 
-int sd_rtnl_message_new_addrlabel(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family);
+int sd_rtnl_message_new_addrlabel(
+        sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family);
 int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addrlabel_get_prefixlen(sd_netlink_message *m, unsigned char *prefixlen);
 
-int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifal_family);
+int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl,
+                                            sd_netlink_message **ret,
+                                            uint16_t nlmsg_type,
+                                            int ifal_family);
 int sd_rtnl_message_routing_policy_rule_set_tos(sd_netlink_message *m, unsigned char tos);
 int sd_rtnl_message_routing_policy_rule_get_tos(sd_netlink_message *m, unsigned char *tos);
 int sd_rtnl_message_routing_policy_rule_set_table(sd_netlink_message *m, unsigned char table);

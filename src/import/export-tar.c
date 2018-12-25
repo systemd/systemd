@@ -200,10 +200,12 @@ static int tar_export_process(TarExport *e) {
 
                 if (l == 0) {
                         e->eof = true;
-                        r = import_compress_finish(&e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = import_compress_finish(
+                                &e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 } else {
                         e->written_uncompressed += l;
-                        r = import_compress(&e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = import_compress(
+                                &e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 }
                 if (r < 0) {
                         r = log_error_errno(r, "Failed to encode: %m");
@@ -294,9 +296,13 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                         return r;
 
                 /* Let's try to make a snapshot, if we can, so that the export is atomic */
-                r = btrfs_subvol_snapshot_fd(sfd, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY | BTRFS_SNAPSHOT_RECURSIVE);
+                r = btrfs_subvol_snapshot_fd(
+                        sfd, e->temp_path, BTRFS_SNAPSHOT_READ_ONLY | BTRFS_SNAPSHOT_RECURSIVE);
                 if (r < 0) {
-                        log_debug_errno(r, "Couldn't create snapshot %s of %s, not exporting atomically: %m", e->temp_path, path);
+                        log_debug_errno(r,
+                                        "Couldn't create snapshot %s of %s, not exporting atomically: %m",
+                                        e->temp_path,
+                                        path);
                         e->temp_path = mfree(e->temp_path);
                 }
         }

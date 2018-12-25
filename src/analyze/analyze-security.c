@@ -178,7 +178,8 @@ static int assess_user(const struct security_assessor *a,
         assert(ret_description);
 
         if (streq_ptr(info->user, NOBODY_USER_NAME)) {
-                d = strdup("Service runs under as '" NOBODY_USER_NAME "' user, which should not be used for services");
+                d = strdup("Service runs under as '" NOBODY_USER_NAME
+                           "' user, which should not be used for services");
                 b = 9;
         } else if (info->dynamic_user && !STR_IN_SET(info->user, "0", "root")) {
                 d = strdup("Service runs under a transient non-root user identity");
@@ -529,18 +530,28 @@ static int assess_system_call_filter(const struct security_assessor *a,
 
                 if (info->system_call_filter_whitelist) {
                         if (bad) {
-                                (void) asprintf(&d, "System call whitelist defined for service, and %s is included", f->name);
+                                (void) asprintf(&d,
+                                                "System call whitelist defined for service, and %s is included",
+                                                f->name);
                                 b = 9;
                         } else {
-                                (void) asprintf(&d, "System call whitelist defined for service, and %s is not included", f->name);
+                                (void) asprintf(
+                                        &d,
+                                        "System call whitelist defined for service, and %s is not included",
+                                        f->name);
                                 b = 0;
                         }
                 } else {
                         if (bad) {
-                                (void) asprintf(&d, "System call blacklist defined for service, and %s is not included", f->name);
+                                (void) asprintf(
+                                        &d,
+                                        "System call blacklist defined for service, and %s is not included",
+                                        f->name);
                                 b = 10;
                         } else {
-                                (void) asprintf(&d, "System call blacklist defined for service, and %s is included", f->name);
+                                (void) asprintf(&d,
+                                                "System call blacklist defined for service, and %s is included",
+                                                f->name);
                                 b = 5;
                         }
                 }
@@ -818,7 +829,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_SETUID) | (UINT64_C(1) << CAP_SETGID) | (UINT64_C(1) << CAP_SETPCAP),
+                .parameter = (UINT64_C(1) << CAP_SETUID) | (UINT64_C(1) << CAP_SETGID) |
+                        (UINT64_C(1) << CAP_SETPCAP),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_PTRACE",
@@ -878,7 +890,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_AUDIT_CONTROL) | (UINT64_C(1) << CAP_AUDIT_READ) | (UINT64_C(1) << CAP_AUDIT_WRITE),
+                .parameter = (UINT64_C(1) << CAP_AUDIT_CONTROL) | (UINT64_C(1) << CAP_AUDIT_READ) |
+                        (UINT64_C(1) << CAP_AUDIT_WRITE),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYSLOG",
@@ -918,7 +931,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_CHOWN) | (UINT64_C(1) << CAP_FSETID) | (UINT64_C(1) << CAP_SETFCAP),
+                .parameter = (UINT64_C(1) << CAP_CHOWN) | (UINT64_C(1) << CAP_FSETID) |
+                        (UINT64_C(1) << CAP_SETFCAP),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_(DAC_*|FOWNER|IPC_OWNER)",
@@ -928,8 +942,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_DAC_OVERRIDE) | (UINT64_C(1) << CAP_DAC_READ_SEARCH) | (UINT64_C(1) << CAP_FOWNER) |
-                        (UINT64_C(1) << CAP_IPC_OWNER),
+                .parameter = (UINT64_C(1) << CAP_DAC_OVERRIDE) | (UINT64_C(1) << CAP_DAC_READ_SEARCH) |
+                        (UINT64_C(1) << CAP_FOWNER) | (UINT64_C(1) << CAP_IPC_OWNER),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_KILL",
@@ -949,7 +963,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_NET_BIND_SERVICE) | (UINT64_C(1) << CAP_NET_BROADCAST) | (UINT64_C(1) << CAP_NET_RAW),
+                .parameter = (UINT64_C(1) << CAP_NET_BIND_SERVICE) | (UINT64_C(1) << CAP_NET_BROADCAST) |
+                        (UINT64_C(1) << CAP_NET_RAW),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_SYS_BOOT",
@@ -1372,7 +1387,8 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
         int r;
 
         if (!FLAGS_SET(flags, ANALYZE_SECURITY_SHORT)) {
-                details_table = table_new(" ", "name", "description", "weight", "badness", "range", "exposure");
+                details_table = table_new(
+                        " ", "name", "description", "weight", "badness", "range", "exposure");
                 if (!details_table)
                         return log_oom();
 
@@ -1580,7 +1596,8 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
         return 0;
 }
 
-static int property_read_restrict_address_families(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int property_read_restrict_address_families(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
 
         struct security_info *info = userdata;
         int whitelist, r;
@@ -1597,8 +1614,9 @@ static int property_read_restrict_address_families(sd_bus *bus, const char *memb
         if (r < 0)
                 return r;
 
-        info->restrict_address_family_inet = info->restrict_address_family_unix = info->restrict_address_family_netlink =
-                info->restrict_address_family_packet = info->restrict_address_family_other = whitelist;
+        info->restrict_address_family_inet = info->restrict_address_family_unix =
+                info->restrict_address_family_netlink = info->restrict_address_family_packet =
+                        info->restrict_address_family_other = whitelist;
 
         r = sd_bus_message_enter_container(m, 'a', "s");
         if (r < 0)
@@ -1632,7 +1650,8 @@ static int property_read_restrict_address_families(sd_bus *bus, const char *memb
         return sd_bus_message_exit_container(m);
 }
 
-static int property_read_system_call_filter(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int property_read_system_call_filter(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
 
         struct security_info *info = userdata;
         int whitelist, r;
@@ -1680,7 +1699,8 @@ static int property_read_system_call_filter(sd_bus *bus, const char *member, sd_
         return sd_bus_message_exit_container(m);
 }
 
-static int property_read_ip_address_allow(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int property_read_ip_address_allow(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
 
         struct security_info *info = userdata;
         bool deny_ipv4 = false, deny_ipv6 = false;
@@ -1753,7 +1773,8 @@ static int property_read_ip_address_allow(sd_bus *bus, const char *member, sd_bu
         return sd_bus_message_exit_container(m);
 }
 
-static int property_read_device_allow(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int property_read_device_allow(
+        sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
 
         struct security_info *info = userdata;
         size_t n = 0;
@@ -1784,7 +1805,10 @@ static int property_read_device_allow(sd_bus *bus, const char *member, sd_bus_me
         return sd_bus_message_exit_container(m);
 }
 
-static int acquire_security_info(sd_bus *bus, const char *name, struct security_info *info, AnalyzeSecurityFlags flags) {
+static int acquire_security_info(sd_bus *bus,
+                                 const char *name,
+                                 struct security_info *info,
+                                 AnalyzeSecurityFlags flags) {
 
         static const struct bus_properties_map security_map[] = {
                 { "AmbientCapabilities", "t", NULL, offsetof(struct security_info, ambient_capabilities) },
@@ -1822,7 +1846,10 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "RootDirectory", "s", NULL, offsetof(struct security_info, root_directory) },
                 { "RootImage", "s", NULL, offsetof(struct security_info, root_image) },
                 { "SupplementaryGroups", "as", NULL, offsetof(struct security_info, supplementary_groups) },
-                { "SystemCallArchitectures", "as", NULL, offsetof(struct security_info, system_call_architectures) },
+                { "SystemCallArchitectures",
+                  "as",
+                  NULL,
+                  offsetof(struct security_info, system_call_architectures) },
                 { "SystemCallFilter", "(as)", property_read_system_call_filter, 0 },
                 { "Type", "s", NULL, offsetof(struct security_info, type) },
                 { "UMask", "u", NULL, offsetof(struct security_info, _umask) },
@@ -1844,8 +1871,14 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         if (!path)
                 return log_oom();
 
-        r = bus_map_all_properties(
-                bus, "org.freedesktop.systemd1", path, security_map, BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL, &error, NULL, info);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   path,
+                                   security_map,
+                                   BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
+                                   &error,
+                                   NULL,
+                                   info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit properties: %s", bus_error_message(&error, r));
 
@@ -1867,9 +1900,9 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         if (FLAGS_SET(flags, ANALYZE_SECURITY_ONLY_LONG_RUNNING) && streq_ptr(info->type, "oneshot"))
                 return -EMEDIUMTYPE;
 
-        if (info->private_devices || info->private_tmp || info->protect_control_groups || info->protect_kernel_tunables ||
-            info->protect_kernel_modules || !streq_ptr(info->protect_home, "no") || !streq_ptr(info->protect_system, "no") ||
-            info->root_image)
+        if (info->private_devices || info->private_tmp || info->protect_control_groups ||
+            info->protect_kernel_tunables || info->protect_kernel_modules ||
+            !streq_ptr(info->protect_home, "no") || !streq_ptr(info->protect_system, "no") || info->root_image)
                 info->private_mounts = true;
 
         if (info->protect_kernel_modules)
@@ -1966,9 +1999,10 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
 
                 strv_sort(list);
 
-                flags |= ANALYZE_SECURITY_SHORT | ANALYZE_SECURITY_ONLY_LOADED | ANALYZE_SECURITY_ONLY_LONG_RUNNING;
+                flags |= ANALYZE_SECURITY_SHORT | ANALYZE_SECURITY_ONLY_LOADED |
+                        ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
-                STRV_FOREACH(i, list) {
+                STRV_FOREACH (i, list) {
                         r = analyze_security_one(bus, *i, overview_table, flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
@@ -1977,7 +2011,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
         } else {
                 char **i;
 
-                STRV_FOREACH(i, units) {
+                STRV_FOREACH (i, units) {
                         _cleanup_free_ char *mangled = NULL, *instance = NULL;
                         const char *name;
 

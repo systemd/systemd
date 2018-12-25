@@ -65,33 +65,41 @@ static int set_wireguard_interface(NetDev *netdev) {
 
                 r = sd_genl_message_new(netdev->manager->genl, SD_GENL_WIREGUARD, WG_CMD_SET_DEVICE, &message);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Failed to allocate generic netlink message: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Failed to allocate generic netlink message: %m");
 
                 r = sd_netlink_message_append_string(message, WGDEVICE_A_IFNAME, netdev->ifname);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append wireguard interface name: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append wireguard interface name: %m");
 
                 if (peer_start == w->peers) {
-                        r = sd_netlink_message_append_data(message, WGDEVICE_A_PRIVATE_KEY, &w->private_key, WG_KEY_LEN);
+                        r = sd_netlink_message_append_data(
+                                message, WGDEVICE_A_PRIVATE_KEY, &w->private_key, WG_KEY_LEN);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append wireguard private key: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not append wireguard private key: %m");
 
                         r = sd_netlink_message_append_u16(message, WGDEVICE_A_LISTEN_PORT, w->port);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append wireguard port: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not append wireguard port: %m");
 
                         r = sd_netlink_message_append_u32(message, WGDEVICE_A_FWMARK, w->fwmark);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append wireguard fwmark: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not append wireguard fwmark: %m");
 
                         r = sd_netlink_message_append_u32(message, WGDEVICE_A_FLAGS, w->flags);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not append wireguard flags: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not append wireguard flags: %m");
                 }
 
                 r = sd_netlink_message_open_container(message, WGDEVICE_A_PEERS);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append wireguard peer attributes: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append wireguard peer attributes: %m");
 
                 i = 0;
 
@@ -100,12 +108,14 @@ static int set_wireguard_interface(NetDev *netdev) {
                         if (r < 0)
                                 break;
 
-                        r = sd_netlink_message_append_data(message, WGPEER_A_PUBLIC_KEY, &peer->public_key, sizeof(peer->public_key));
+                        r = sd_netlink_message_append_data(
+                                message, WGPEER_A_PUBLIC_KEY, &peer->public_key, sizeof(peer->public_key));
                         if (r < 0)
                                 break;
 
                         if (!mask_start) {
-                                r = sd_netlink_message_append_data(message, WGPEER_A_PRESHARED_KEY, &peer->preshared_key, WG_KEY_LEN);
+                                r = sd_netlink_message_append_data(
+                                        message, WGPEER_A_PRESHARED_KEY, &peer->preshared_key, WG_KEY_LEN);
                                 if (r < 0)
                                         break;
 
@@ -113,19 +123,24 @@ static int set_wireguard_interface(NetDev *netdev) {
                                 if (r < 0)
                                         break;
 
-                                r = sd_netlink_message_append_u16(
-                                        message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
+                                r = sd_netlink_message_append_u16(message,
+                                                                  WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL,
+                                                                  peer->persistent_keepalive_interval);
                                 if (r < 0)
                                         break;
 
                                 if (peer->endpoint.sa.sa_family == AF_INET) {
-                                        r = sd_netlink_message_append_data(
-                                                message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
+                                        r = sd_netlink_message_append_data(message,
+                                                                           WGPEER_A_ENDPOINT,
+                                                                           &peer->endpoint.in,
+                                                                           sizeof(peer->endpoint.in));
                                         if (r < 0)
                                                 break;
                                 } else if (peer->endpoint.sa.sa_family == AF_INET6) {
-                                        r = sd_netlink_message_append_data(
-                                                message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
+                                        r = sd_netlink_message_append_data(message,
+                                                                           WGPEER_A_ENDPOINT,
+                                                                           &peer->endpoint.in6,
+                                                                           sizeof(peer->endpoint.in6));
                                         if (r < 0)
                                                 break;
                                 }
@@ -149,11 +164,13 @@ static int set_wireguard_interface(NetDev *netdev) {
                                         break;
 
                                 if (mask->family == AF_INET) {
-                                        r = sd_netlink_message_append_in_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in);
+                                        r = sd_netlink_message_append_in_addr(
+                                                message, WGALLOWEDIP_A_IPADDR, &mask->ip.in);
                                         if (r < 0)
                                                 break;
                                 } else if (mask->family == AF_INET6) {
-                                        r = sd_netlink_message_append_in6_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in6);
+                                        r = sd_netlink_message_append_in6_addr(
+                                                message, WGALLOWEDIP_A_IPADDR, &mask->ip.in6);
                                         if (r < 0)
                                                 break;
                                 }
@@ -164,18 +181,22 @@ static int set_wireguard_interface(NetDev *netdev) {
 
                                 r = sd_netlink_message_close_container(message);
                                 if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
+                                        return log_netdev_error_errno(
+                                                netdev, r, "Could not add wireguard allowed ip: %m");
                         }
                         mask_start = mask;
                         if (mask_start) {
                                 r = sd_netlink_message_cancel_array(message);
                                 if (r < 0)
                                         return log_netdev_error_errno(
-                                                netdev, r, "Could not cancel wireguard allowed ip message attribute: %m");
+                                                netdev,
+                                                r,
+                                                "Could not cancel wireguard allowed ip message attribute: %m");
                         }
                         r = sd_netlink_message_close_container(message);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not add wireguard allowed ip: %m");
 
                         r = sd_netlink_message_close_container(message);
                         if (r < 0)
@@ -186,7 +207,8 @@ static int set_wireguard_interface(NetDev *netdev) {
                 if (peer_start && !mask_start) {
                         r = sd_netlink_message_cancel_array(message);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not cancel wireguard peers: %m");
+                                return log_netdev_error_errno(
+                                        netdev, r, "Could not cancel wireguard peers: %m");
                 }
 
                 r = sd_netlink_message_close_container(message);
@@ -248,7 +270,10 @@ static int exponential_backoff_milliseconds(unsigned n_retries) {
         return (2 << MAX(n_retries, 7U)) * 100 * USEC_PER_MSEC;
 }
 
-static int wireguard_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, WireguardEndpoint *e) {
+static int wireguard_resolve_handler(sd_resolve_query *q,
+                                     int ret,
+                                     const struct addrinfo *ai,
+                                     WireguardEndpoint *e) {
         _cleanup_(netdev_unrefp) NetDev *netdev_will_unrefed = NULL;
         NetDev *netdev;
         Wireguard *w;
@@ -266,15 +291,20 @@ static int wireguard_resolve_handler(sd_resolve_query *q, int ret, const struct 
                 return 0;
 
         if (ret != 0) {
-                log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", e->host, e->port, gai_strerror(ret));
+                log_netdev_error(
+                        netdev, "Failed to resolve host '%s:%s': %s", e->host, e->port, gai_strerror(ret));
                 LIST_PREPEND(endpoints, w->failed_endpoints, e);
-                (void) sd_resolve_query_set_destroy_callback(q, NULL); /* Avoid freeing endpoint by destroy callback. */
-                netdev_will_unrefed = netdev;                          /* But netdev needs to be unrefed. */
+                (void) sd_resolve_query_set_destroy_callback(
+                        q, NULL);             /* Avoid freeing endpoint by destroy callback. */
+                netdev_will_unrefed = netdev; /* But netdev needs to be unrefed. */
         } else if ((ai->ai_family == AF_INET && ai->ai_addrlen == sizeof(struct sockaddr_in)) ||
                    (ai->ai_family == AF_INET6 && ai->ai_addrlen == sizeof(struct sockaddr_in6)))
                 memcpy(&e->peer->endpoint, ai->ai_addr, ai->ai_addrlen);
         else
-                log_netdev_error(netdev, "Neither IPv4 nor IPv6 address found for peer endpoint: %s:%s", e->host, e->port);
+                log_netdev_error(netdev,
+                                 "Neither IPv4 nor IPv6 address found for peer endpoint: %s:%s",
+                                 e->host,
+                                 e->port);
 
         if (w->unresolved_endpoints) {
                 resolve_endpoints(netdev);
@@ -300,7 +330,8 @@ static int wireguard_resolve_handler(sd_resolve_query *q, int ret, const struct 
 
                 r = sd_event_source_set_destroy_callback(s, (sd_event_destroy_t) netdev_destroy_callback);
                 if (r < 0) {
-                        log_netdev_warning_errno(netdev, r, "Failed to set destroy callback to event source: %m");
+                        log_netdev_warning_errno(
+                                netdev, r, "Failed to set destroy callback to event source: %m");
                         return 0;
                 }
 
@@ -312,7 +343,9 @@ static int wireguard_resolve_handler(sd_resolve_query *q, int ret, const struct 
 }
 
 static void resolve_endpoints(NetDev *netdev) {
-        static const struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM, .ai_protocol = IPPROTO_UDP };
+        static const struct addrinfo hints = { .ai_family = AF_UNSPEC,
+                                               .ai_socktype = SOCK_DGRAM,
+                                               .ai_protocol = IPPROTO_UDP };
         WireguardEndpoint *endpoint;
         Wireguard *w;
         int r = 0;
@@ -377,7 +410,13 @@ int config_parse_wireguard_listen_port(const char *unit,
         if (!streq(rvalue, "auto")) {
                 r = parse_ip_port(rvalue, &port);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid port specification, ignoring assignment: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Invalid port specification, ignoring assignment: %s",
+                                   rvalue);
         }
 
         *s = port;
@@ -405,11 +444,23 @@ static int parse_wireguard_key(const char *unit,
 
         r = unbase64mem(rvalue, strlen(rvalue), &key, &len);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse wireguard key \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse wireguard key \"%s\", ignoring assignment: %m",
+                           rvalue);
                 return 0;
         }
         if (len != WG_KEY_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Wireguard key is too short, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           EINVAL,
+                           "Wireguard key is too short, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -435,7 +486,8 @@ int config_parse_wireguard_private_key(const char *unit,
 
         assert(w);
 
-        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, &w->private_key);
+        return parse_wireguard_key(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, &w->private_key);
 }
 
 int config_parse_wireguard_preshared_key(const char *unit,
@@ -461,7 +513,8 @@ int config_parse_wireguard_preshared_key(const char *unit,
         if (!peer)
                 return log_oom();
 
-        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->preshared_key);
+        return parse_wireguard_key(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->preshared_key);
 }
 
 int config_parse_wireguard_public_key(const char *unit,
@@ -487,7 +540,8 @@ int config_parse_wireguard_public_key(const char *unit,
         if (!peer)
                 return log_oom();
 
-        return parse_wireguard_key(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->public_key);
+        return parse_wireguard_key(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, peer->public_key);
 }
 
 int config_parse_wireguard_allowed_ips(const char *unit,
@@ -525,13 +579,25 @@ int config_parse_wireguard_allowed_ips(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split allowed ips \"%s\" option: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to split allowed ips \"%s\" option: %m",
+                                   rvalue);
                         break;
                 }
 
                 r = in_addr_prefix_from_string_auto(word, &family, &addr, &prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Network address is invalid, ignoring assignment: %s", word);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Network address is invalid, ignoring assignment: %s",
+                                   word);
                         return 0;
                 }
 
@@ -583,14 +649,20 @@ int config_parse_wireguard_endpoint(const char *unit,
                 begin = &rvalue[1];
                 end = strchr(rvalue, ']');
                 if (!end) {
-                        log_syntax(
-                                unit, LOG_ERR, filename, line, 0, "Unable to find matching brace of endpoint, ignoring assignment: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Unable to find matching brace of endpoint, ignoring assignment: %s",
+                                   rvalue);
                         return 0;
                 }
                 len = end - begin;
                 ++end;
                 if (*end != ':' || !*(end + 1)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Unable to find port of endpoint: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Unable to find port of endpoint: %s", rvalue);
                         return 0;
                 }
                 ++end;
@@ -598,7 +670,8 @@ int config_parse_wireguard_endpoint(const char *unit,
                 begin = rvalue;
                 end = strrchr(rvalue, ':');
                 if (!end || !*(end + 1)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Unable to find port of endpoint: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Unable to find port of endpoint: %s", rvalue);
                         return 0;
                 }
                 len = end - begin;

@@ -88,19 +88,28 @@ static int timer_add_default_dependencies(Timer *t) {
         if (!UNIT(t)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(
+                UNIT(t), UNIT_BEFORE, SPECIAL_TIMERS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
-                r = unit_add_two_dependencies_by_name(
-                        UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(t),
+                                                      UNIT_AFTER,
+                                                      UNIT_REQUIRES,
+                                                      SPECIAL_SYSINIT_TARGET,
+                                                      true,
+                                                      UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
 
                 LIST_FOREACH(value, v, t->values) {
                         if (v->base == TIMER_CALENDAR) {
-                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                                r = unit_add_dependency_by_name(UNIT(t),
+                                                                UNIT_AFTER,
+                                                                SPECIAL_TIME_SYNC_TARGET,
+                                                                true,
+                                                                UNIT_DEPENDENCY_DEFAULT);
                                 if (r < 0)
                                         return r;
                                 break;
@@ -108,7 +117,8 @@ static int timer_add_default_dependencies(Timer *t) {
                 }
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(
+                UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int timer_add_trigger_dependencies(Timer *t) {
@@ -124,7 +134,8 @@ static int timer_add_trigger_dependencies(Timer *t) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(t), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(
+                UNIT(t), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int timer_setup_persistent(Timer *t) {
@@ -154,7 +165,8 @@ static int timer_setup_persistent(Timer *t) {
 
                         r = get_home_dir(&h);
                         if (r < 0)
-                                return log_unit_error_errno(UNIT(t), r, "Failed to determine home directory: %m");
+                                return log_unit_error_errno(
+                                        UNIT(t), r, "Failed to determine home directory: %m");
 
                         t->stamp_path = strjoin(h, "/.local/share/systemd/timers/stamp-", UNIT(t)->id);
                 }
@@ -264,7 +276,10 @@ static void timer_set_state(Timer *t, TimerState state) {
         }
 
         if (state != old_state)
-                log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
+                log_unit_debug(UNIT(t),
+                               "Changed %s -> %s",
+                               timer_state_to_string(old_state),
+                               timer_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -445,7 +460,8 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 assert_not_reached("Unknown timer base");
                         }
 
-                        v->next_elapse = usec_add(usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
+                        v->next_elapse = usec_add(
+                                usec_shift_clock(base, CLOCK_MONOTONIC, TIMER_MONOTONIC_CLOCK(t)), v->value);
 
                         if (dual_timestamp_is_set(&t->last_trigger) && !time_change &&
                             v->next_elapse < triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)) &&
@@ -458,7 +474,8 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         if (!found_monotonic)
                                 t->next_elapse_monotonic_or_boottime = v->next_elapse;
                         else
-                                t->next_elapse_monotonic_or_boottime = MIN(t->next_elapse_monotonic_or_boottime, v->next_elapse);
+                                t->next_elapse_monotonic_or_boottime = MIN(
+                                        t->next_elapse_monotonic_or_boottime, v->next_elapse);
 
                         found_monotonic = true;
                 }
@@ -476,11 +493,15 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                 add_random(t, &t->next_elapse_monotonic_or_boottime);
 
-                left = usec_sub_unsigned(t->next_elapse_monotonic_or_boottime, triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)));
-                log_unit_debug(UNIT(t), "Monotonic timer elapses in %s.", format_timespan(buf, sizeof(buf), left, 0));
+                left = usec_sub_unsigned(t->next_elapse_monotonic_or_boottime,
+                                         triple_timestamp_by_clock(&ts, TIMER_MONOTONIC_CLOCK(t)));
+                log_unit_debug(UNIT(t),
+                               "Monotonic timer elapses in %s.",
+                               format_timespan(buf, sizeof(buf), left, 0));
 
                 if (t->monotonic_event_source) {
-                        r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
+                        r = sd_event_source_set_time(t->monotonic_event_source,
+                                                     t->next_elapse_monotonic_or_boottime);
                         if (r < 0)
                                 goto fail;
 
@@ -514,7 +535,9 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                 add_random(t, &t->next_elapse_realtime);
 
-                log_unit_debug(UNIT(t), "Realtime timer elapses at %s.", format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
+                log_unit_debug(UNIT(t),
+                               "Realtime timer elapses at %s.",
+                               format_timestamp(buf, sizeof(buf), t->next_elapse_realtime));
 
                 if (t->realtime_event_source) {
                         r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
@@ -578,7 +601,8 @@ static void timer_enter_running(Timer *t) {
         dual_timestamp_get(&t->last_trigger);
 
         if (t->stamp_path)
-                touch_file(t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
+                touch_file(
+                        t->stamp_path, true, t->last_trigger.realtime, UID_INVALID, GID_INVALID, MODE_INVALID);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -626,8 +650,8 @@ static int timer_start(Unit *u) {
                 if (stat(t->stamp_path, &st) >= 0) {
                         usec_t ft;
 
-                        /* Load the file timestamp, but only if it is actually in the past. If it is in the future,
-                         * something is wrong with the system clock. */
+                        /* Load the file timestamp, but only if it is actually in the past. If it is in the
+                         * future, something is wrong with the system clock. */
 
                         ft = timespec_load(&st.st_mtim);
                         if (ft < now(CLOCK_REALTIME))
@@ -635,16 +659,18 @@ static int timer_start(Unit *u) {
                         else {
                                 char z[FORMAT_TIMESTAMP_MAX];
 
-                                log_unit_warning(u,
-                                                 "Not using persistent file timestamp %s as it is in the future.",
-                                                 format_timestamp(z, sizeof(z), ft));
+                                log_unit_warning(
+                                        u,
+                                        "Not using persistent file timestamp %s as it is in the future.",
+                                        format_timestamp(z, sizeof(z), ft));
                         }
 
                 } else if (errno == ENOENT)
                         /* The timer has never run before,
                          * make sure a stamp file exists.
                          */
-                        (void) touch_file(t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+                        (void) touch_file(
+                                t->stamp_path, true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
         }
 
         t->result = TIMER_SUCCESS;

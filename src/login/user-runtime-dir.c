@@ -38,7 +38,8 @@ static int acquire_runtime_dir_size(uint64_t *ret) {
                                         't',
                                         ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -59,8 +60,8 @@ static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gi
         if (path_is_mount_point(runtime_path, NULL, 0) >= 0)
                 log_debug("%s is already a mount point", runtime_path);
         else {
-                char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*") + DECIMAL_STR_MAX(uid_t) + DECIMAL_STR_MAX(gid_t) +
-                             DECIMAL_STR_MAX(uint64_t)];
+                char options[sizeof("mode=0700,uid=,gid=,size=,smackfsroot=*") + DECIMAL_STR_MAX(uid_t) +
+                             DECIMAL_STR_MAX(gid_t) + DECIMAL_STR_MAX(uint64_t)];
 
                 xsprintf(options,
                          "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%" PRIu64 "%s",
@@ -74,7 +75,9 @@ static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gi
                 r = mount("tmpfs", runtime_path, "tmpfs", MS_NODEV | MS_NOSUID, options);
                 if (r < 0) {
                         if (!IN_SET(errno, EPERM, EACCES)) {
-                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
+                                r = log_error_errno(errno,
+                                                    "Failed to mount per-user tmpfs directory %s: %m",
+                                                    runtime_path);
                                 goto fail;
                         }
 
@@ -85,7 +88,8 @@ static int user_mkdir_runtime_path(const char *runtime_path, uid_t uid, gid_t gi
 
                         r = chmod_and_chown(runtime_path, 0700, uid, gid);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to change ownership and mode of \"%s\": %m", runtime_path);
+                                log_error_errno(
+                                        r, "Failed to change ownership and mode of \"%s\": %m", runtime_path);
                                 goto fail;
                         }
                 }
@@ -111,17 +115,21 @@ static int user_remove_runtime_path(const char *runtime_path) {
 
         r = rm_rf(runtime_path, 0);
         if (r < 0)
-                log_debug_errno(r, "Failed to remove runtime directory %s (before unmounting), ignoring: %m", runtime_path);
+                log_debug_errno(r,
+                                "Failed to remove runtime directory %s (before unmounting), ignoring: %m",
+                                runtime_path);
 
-        /* Ignore cases where the directory isn't mounted, as that's quite possible, if we lacked the permissions to
-         * mount something */
+        /* Ignore cases where the directory isn't mounted, as that's quite possible, if we lacked the
+         * permissions to mount something */
         r = umount2(runtime_path, MNT_DETACH);
         if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
-                log_debug_errno(errno, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
+                log_debug_errno(
+                        errno, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
 
         r = rm_rf(runtime_path, REMOVE_ROOT);
         if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
+                return log_error_errno(
+                        r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
 
         return 0;
 }
@@ -137,8 +145,9 @@ static int do_mount(const char *user) {
         if (r < 0)
                 return log_error_errno(r,
                                        r == -ESRCH ? "No such user \"%s\"" :
-                                                     r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group" :
-                                                                    "Failed to look up user \"%s\": %m",
+                                                     r == -ENOMSG ?
+                                                     "UID \"%s\" is invalid or has an invalid main group" :
+                                                     "Failed to look up user \"%s\": %m",
                                        user);
 
         r = acquire_runtime_dir_size(&runtime_dir_size);
@@ -162,9 +171,11 @@ static int do_umount(const char *user) {
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r,
-                                               r == -ESRCH ? "No such user \"%s\"" :
-                                                             r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group" :
-                                                                            "Failed to look up user \"%s\": %m",
+                                               r == -ESRCH ?
+                                                       "No such user \"%s\"" :
+                                                       r == -ENOMSG ?
+                                                       "UID \"%s\" is invalid or has an invalid main group" :
+                                                       "Failed to look up user \"%s\": %m",
                                                user);
         }
 
@@ -183,7 +194,8 @@ static int run(int argc, char *argv[]) {
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes two arguments.");
         if (!STR_IN_SET(argv[1], "start", "stop"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "First argument must be either \"start\" or \"stop\".");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "First argument must be either \"start\" or \"stop\".");
 
         r = mac_selinux_init();
         if (r < 0)

@@ -66,7 +66,8 @@ static int lldp_make_packet(LLDPEmit mode,
                             void **ret,
                             size_t *sz) {
 
-        size_t machine_id_length, ifname_length, port_description_length = 0, hostname_length = 0, pretty_hostname_length = 0;
+        size_t machine_id_length, ifname_length, port_description_length = 0, hostname_length = 0,
+                                                 pretty_hostname_length = 0;
         _cleanup_free_ void *packet = NULL;
         struct ether_header *h;
         uint8_t *p;
@@ -187,7 +188,10 @@ static int lldp_make_packet(LLDPEmit mode,
         return 0;
 }
 
-static int lldp_send_packet(int ifindex, const struct ether_addr *address, const void *packet, size_t packet_size) {
+static int lldp_send_packet(int ifindex,
+                            const struct ether_addr *address,
+                            const void *packet,
+                            size_t packet_size) {
 
         union sockaddr_union sa = {
                 .ll.sll_family = AF_PACKET,
@@ -246,8 +250,9 @@ static int link_send_lldp(Link *link) {
         assert_cc(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1 <= (UINT16_MAX - 1) * USEC_PER_SEC);
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);
 
-        caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ? SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
-                                                                                   SD_LLDP_SYSTEM_CAPABILITIES_STATION;
+        caps = (link->network && link->network->ip_forward != ADDRESS_FAMILY_NO) ?
+                SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
+                SD_LLDP_SYSTEM_CAPABILITIES_STATION;
 
         r = lldp_make_packet(link->network->lldp_emit,
                              &link->mac,
@@ -257,14 +262,16 @@ static int link_send_lldp(Link *link) {
                              link->network ? link->network->description : NULL,
                              hostname,
                              pretty_hostname,
-                             SD_LLDP_SYSTEM_CAPABILITIES_STATION | SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE | SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
+                             SD_LLDP_SYSTEM_CAPABILITIES_STATION | SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE |
+                                     SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
                              caps,
                              &packet,
                              &packet_size);
         if (r < 0)
                 return r;
 
-        return lldp_send_packet(link->ifindex, lldp_multicast_addr + link->network->lldp_emit, packet, packet_size);
+        return lldp_send_packet(
+                link->ifindex, lldp_multicast_addr + link->network->lldp_emit, packet, packet_size);
 }
 
 static int on_lldp_timer(sd_event_source *s, usec_t t, void *userdata) {
@@ -315,7 +322,8 @@ int link_lldp_emit_start(Link *link) {
 
         link->lldp_tx_fast = LLDP_TX_FAST_INIT;
 
-        next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC), (usec_t) random_u64() % LLDP_JITTER_USEC);
+        next = usec_add(usec_add(now(clock_boottime_or_monotonic()), LLDP_FAST_TX_USEC),
+                        (usec_t) random_u64() % LLDP_JITTER_USEC);
 
         if (link->lldp_emit_event_source) {
                 usec_t old;
@@ -330,8 +338,13 @@ int link_lldp_emit_start(Link *link) {
 
                 return sd_event_source_set_time(link->lldp_emit_event_source, next);
         } else {
-                r = sd_event_add_time(
-                        link->manager->event, &link->lldp_emit_event_source, clock_boottime_or_monotonic(), next, 0, on_lldp_timer, link);
+                r = sd_event_add_time(link->manager->event,
+                                      &link->lldp_emit_event_source,
+                                      clock_boottime_or_monotonic(),
+                                      next,
+                                      0,
+                                      on_lldp_timer,
+                                      link);
                 if (r < 0)
                         return r;
 
@@ -376,7 +389,13 @@ int config_parse_lldp_emit(const char *unit,
         else {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Failed to parse LLDP emission setting, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
 

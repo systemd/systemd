@@ -36,10 +36,12 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = { [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
-                                                                               [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
-                                                                               [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-                                                                               [AUTOMOUNT_FAILED] = UNIT_FAILED };
+static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
+        [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
+        [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
+        [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
+        [AUTOMOUNT_FAILED] = UNIT_FAILED
+};
 
 struct expire_data {
         int dev_autofs_fd;
@@ -124,7 +126,8 @@ static int automount_add_trigger_dependencies(Automount *a) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(a), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(
+                UNIT(a), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int automount_add_mount_dependencies(Automount *a) {
@@ -150,7 +153,8 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
-        r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(
+                UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -249,7 +253,10 @@ static void automount_set_state(Automount *a, AutomountState state) {
                 unmount_autofs(a);
 
         if (state != old_state)
-                log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
+                log_unit_debug(UNIT(a),
+                               "Changed %s -> %s",
+                               automount_state_to_string(old_state),
+                               automount_state_to_string(state));
 
         unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -276,7 +283,8 @@ static int automount_coldplug(Unit *u) {
 
                 assert(a->pipe_fd >= 0);
 
-                r = sd_event_add_io(u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
+                r = sd_event_add_io(
+                        u->manager->event, &a->pipe_event_source, a->pipe_fd, EPOLLIN, automount_dispatch_io, u);
                 if (r < 0)
                         return r;
 
@@ -284,7 +292,8 @@ static int automount_coldplug(Unit *u) {
                 if (a->deserialized_state == AUTOMOUNT_RUNNING) {
                         r = automount_start_expire(a);
                         if (r < 0)
-                                log_unit_warning_errno(UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
+                                log_unit_warning_errno(
+                                        UNIT(a), r, "Failed to start expiration timer, ignoring: %m");
                 }
 
                 automount_set_state(a, a->deserialized_state);
@@ -559,7 +568,8 @@ static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct") + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
+        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct") + DECIMAL_STR_MAX(int) +
+                     DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;
         struct stat st;
@@ -619,7 +629,8 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
+        r = sd_event_add_io(
+                UNIT(a)->manager->event, &a->pipe_event_source, p[0], EPOLLIN, automount_dispatch_io, a);
         if (r < 0)
                 goto fail;
 
@@ -717,7 +728,13 @@ static int automount_start_expire(Automount *a) {
                 return sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_ONESHOT);
         }
 
-        r = sd_event_add_time(UNIT(a)->manager->event, &a->expire_event_source, CLOCK_MONOTONIC, timeout, 0, automount_dispatch_expire, a);
+        r = sd_event_add_time(UNIT(a)->manager->event,
+                              &a->expire_event_source,
+                              CLOCK_MONOTONIC,
+                              timeout,
+                              0,
+                              automount_dispatch_expire,
+                              a);
         if (r < 0)
                 return r;
 
@@ -782,7 +799,8 @@ static void automount_enter_running(Automount *a) {
 
         r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
         if (r < 0) {
-                log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
+                log_unit_warning(
+                        UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                 goto fail;
         }
 
@@ -1043,7 +1061,9 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
 
                 r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, NULL);
                 if (r < 0) {
-                        log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
+                        log_unit_warning(UNIT(a),
+                                         "Failed to queue umount startup job: %s",
+                                         bus_error_message(&error, r));
                         goto fail;
                 }
                 break;

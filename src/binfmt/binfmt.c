@@ -40,7 +40,8 @@ static int delete_rule(const char *rule) {
         *e = 0;
 
         if (!filename_is_valid(x + 1))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Rule file name '%s' is not valid, refusing.", x + 1);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Rule file name '%s' is not valid, refusing.", x + 1);
 
         fn = strappend("/proc/sys/fs/binfmt_misc/", x + 1);
         if (!fn)
@@ -167,7 +168,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_cat_config && argc > optind)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Positional arguments are not allowed with --cat-config");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Positional arguments are not allowed with --cat-config");
 
         return 1;
 }
@@ -210,7 +212,7 @@ static int run(int argc, char *argv[]) {
                 /* Flush out all rules */
                 write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 
-                STRV_FOREACH(f, files) {
+                STRV_FOREACH (f, files) {
                         k = apply_file(*f, true);
                         if (k < 0 && r == 0)
                                 r = k;

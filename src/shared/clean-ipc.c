@@ -70,7 +70,8 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 }
 
                 if (sscanf(line,
-                           "%*i %i %*o %*u " PID_FMT " " PID_FMT " %u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
+                           "%*i %i %*o %*u " PID_FMT " " PID_FMT " %u " UID_FMT " " GID_FMT " " UID_FMT
+                           " " GID_FMT,
                            &shmid,
                            &cpid,
                            &lpid,
@@ -96,7 +97,8 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         if (IN_SET(errno, EIDRM, EINVAL))
                                 continue;
 
-                        ret = log_warning_errno(errno, "Failed to remove SysV shared memory segment %i: %m", shmid);
+                        ret = log_warning_errno(
+                                errno, "Failed to remove SysV shared memory segment %i: %m", shmid);
                 } else {
                         log_debug("Removed SysV shared memory segment %i.", shmid);
                         if (ret == 0)
@@ -137,7 +139,13 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                         continue;
                 }
 
-                if (sscanf(line, "%*i %i %*o %*u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT, &semid, &uid, &gid, &cuid, &cgid) != 5)
+                if (sscanf(line,
+                           "%*i %i %*o %*u " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
+                           &semid,
+                           &uid,
+                           &gid,
+                           &cuid,
+                           &cgid) != 5)
                         continue;
 
                 if (!match_uid_gid(uid, gid, delete_uid, delete_gid))
@@ -195,7 +203,8 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 }
 
                 if (sscanf(line,
-                           "%*i %i %*o %*u %*u " PID_FMT " " PID_FMT " " UID_FMT " " GID_FMT " " UID_FMT " " GID_FMT,
+                           "%*i %i %*o %*u %*u " PID_FMT " " PID_FMT " " UID_FMT " " GID_FMT " " UID_FMT
+                           " " GID_FMT,
                            &msgid,
                            &cpid,
                            &lpid,
@@ -244,7 +253,8 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {
                         if (errno == ENOENT)
                                 continue;
 
-                        ret = log_warning_errno(errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
+                        ret = log_warning_errno(
+                                errno, "Failed to stat() POSIX shared memory segment %s: %m", de->d_name);
                         continue;
                 }
 
@@ -254,7 +264,9 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {
                         kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW | O_NOATIME);
                         if (!kid) {
                                 if (errno != ENOENT)
-                                        ret = log_warning_errno(errno, "Failed to enter shared memory directory %s: %m", de->d_name);
+                                        ret = log_warning_errno(errno,
+                                                                "Failed to enter shared memory directory %s: %m",
+                                                                de->d_name);
                         } else {
                                 r = clean_posix_shm_internal(kid, uid, gid, rm);
                                 if (r < 0)
@@ -272,7 +284,9 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory directory %s: %m", de->d_name);
+                                ret = log_warning_errno(errno,
+                                                        "Failed to remove POSIX shared memory directory %s: %m",
+                                                        de->d_name);
                         } else {
                                 log_debug("Removed POSIX shared memory directory %s", de->d_name);
                                 if (ret == 0)
@@ -291,7 +305,9 @@ static int clean_posix_shm_internal(DIR *dir, uid_t uid, gid_t gid, bool rm) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                ret = log_warning_errno(errno, "Failed to remove POSIX shared memory segment %s: %m", de->d_name);
+                                ret = log_warning_errno(errno,
+                                                        "Failed to remove POSIX shared memory segment %s: %m",
+                                                        de->d_name);
                         } else {
                                 log_debug("Removed POSIX shared memory segment %s", de->d_name);
                                 if (ret == 0)
@@ -378,15 +394,15 @@ fail:
 int clean_ipc_internal(uid_t uid, gid_t gid, bool rm) {
         int ret = 0, r;
 
-        /* If 'rm' is true, clean all IPC objects owned by either the specified UID or the specified GID. Return the
-         * last error encountered or == 0 if no matching IPC objects have been found or > 0 if matching IPC objects
-         * have been found and have been removed.
+        /* If 'rm' is true, clean all IPC objects owned by either the specified UID or the specified GID.
+         * Return the last error encountered or == 0 if no matching IPC objects have been found or > 0 if
+         * matching IPC objects have been found and have been removed.
          *
-         * If 'rm' is false, just search for IPC objects owned by either the specified UID or the specified GID. In
-         * this case we return < 0 on error, > 0 if we found a matching object, == 0 if we didn't.
+         * If 'rm' is false, just search for IPC objects owned by either the specified UID or the specified
+         * GID. In this case we return < 0 on error, > 0 if we found a matching object, == 0 if we didn't.
          *
-         * As special rule: if UID/GID is specified as root we'll silently not clean up things, and always claim that
-         * there are IPC objects for it. */
+         * As special rule: if UID/GID is specified as root we'll silently not clean up things, and always
+         * claim that there are IPC objects for it. */
 
         if (uid == 0) {
                 if (!rm)

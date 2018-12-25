@@ -95,7 +95,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (optarg) {
                                 if (parse_pid(optarg, &arg_pid) < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PID %s.", optarg);
+                                        return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL), "Failed to parse PID %s.", optarg);
                         } else
                                 arg_pid = getppid();
 
@@ -185,9 +186,9 @@ static int run(int argc, char *argv[]) {
         if (!n)
                 return log_oom();
 
-        /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here, and leave
-           the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
-           ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
+        /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here,
+           and leave the effective UID in effect (which is 0 for this to work). That's because we want the
+           privileges to fake the ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 
         if (arg_gid != GID_INVALID && setregid(arg_gid, (gid_t) -1) < 0)
                 return log_error_errno(errno, "Failed to change GID: %m");
@@ -199,7 +200,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No status data could be sent: $NOTIFY_SOCKET was not set");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "No status data could be sent: $NOTIFY_SOCKET was not set");
         return 0;
 }
 

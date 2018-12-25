@@ -146,23 +146,27 @@ static void test_condition_test_control_group_controller(void) {
                 log_info("chosen controller is '%s'", local_controller_name);
                 if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
                         log_info("this controller is available");
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        condition = condition_new(
+                                CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
                         assert_se(condition_test(condition));
                         condition_free(condition);
 
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        condition = condition_new(
+                                CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
                         assert_se(!condition_test(condition));
                         condition_free(condition);
                 } else {
                         log_info("this controller is unavailable");
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        condition = condition_new(
+                                CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
                         assert_se(!condition_test(condition));
                         condition_free(condition);
 
-                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        condition = condition_new(
+                                CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
                         assert_se(condition_test(condition));
                         condition_free(condition);
@@ -272,7 +276,8 @@ static void test_condition_test_architecture(void) {
 static void test_condition_test_kernel_command_line(void) {
         Condition *condition;
 
-        condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
+        condition = condition_new(
+                CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);
@@ -288,7 +293,8 @@ static void test_condition_test_kernel_version(void) {
         struct utsname u;
         const char *v;
 
-        condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
+        condition = condition_new(
+                CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);

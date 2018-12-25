@@ -96,8 +96,9 @@ struct Manager {
 #define TRANSFERS_MAX 64
 
 static const char *const transfer_type_table[_TRANSFER_TYPE_MAX] = {
-        [TRANSFER_IMPORT_TAR] = "import-tar", [TRANSFER_IMPORT_RAW] = "import-raw", [TRANSFER_IMPORT_FS] = "import-fs",
-        [TRANSFER_EXPORT_TAR] = "export-tar", [TRANSFER_EXPORT_RAW] = "export-raw", [TRANSFER_PULL_TAR] = "pull-tar",
+        [TRANSFER_IMPORT_TAR] = "import-tar", [TRANSFER_IMPORT_RAW] = "import-raw",
+        [TRANSFER_IMPORT_FS] = "import-fs",   [TRANSFER_EXPORT_TAR] = "export-tar",
+        [TRANSFER_EXPORT_RAW] = "export-raw", [TRANSFER_PULL_TAR] = "pull-tar",
         [TRANSFER_PULL_RAW] = "pull-raw",
 };
 
@@ -198,7 +199,13 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
 
         log_full(priority, "(transfer%" PRIu32 ") %s", t->id, line);
 
-        r = sd_bus_emit_signal(t->manager->bus, t->object_path, "org.freedesktop.import1.Transfer", "LogMessage", "us", priority, line);
+        r = sd_bus_emit_signal(t->manager->bus,
+                               t->object_path,
+                               "org.freedesktop.import1.Transfer",
+                               "LogMessage",
+                               "us",
+                               priority,
+                               line);
         if (r < 0)
                 log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
 }
@@ -358,18 +365,20 @@ static int transfer_start(Transfer *t) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmd[] = { NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
-                                      NULL, /* tar, raw  */
-                                      NULL, /* --verify= */
-                                      NULL, /* verify argument */
-                                      NULL, /* maybe --force */
-                                      NULL, /* maybe --read-only */
-                                      NULL, /* if so: the actual URL */
-                                      NULL, /* maybe --format= */
-                                      NULL, /* if so: the actual format */
-                                      NULL, /* remote */
-                                      NULL, /* local */
-                                      NULL };
+                const char *cmd[] = {
+                        NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
+                        NULL, /* tar, raw  */
+                        NULL, /* --verify= */
+                        NULL, /* verify argument */
+                        NULL, /* maybe --force */
+                        NULL, /* maybe --read-only */
+                        NULL, /* if so: the actual URL */
+                        NULL, /* maybe --format= */
+                        NULL, /* if so: the actual format */
+                        NULL, /* remote */
+                        NULL, /* local */
+                        NULL
+                };
                 unsigned k = 0;
 
                 /* Child */
@@ -382,7 +391,8 @@ static int transfer_start(Transfer *t) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 || setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
+                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -483,8 +493,13 @@ static int transfer_start(Transfer *t) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_emit_signal(
-                t->manager->bus, "/org/freedesktop/import1", "org.freedesktop.import1.Manager", "TransferNew", "uo", t->id, t->object_path);
+        r = sd_bus_emit_signal(t->manager->bus,
+                               "/org/freedesktop/import1",
+                               "org.freedesktop.import1.Manager",
+                               "TransferNew",
+                               "uo",
+                               t->id,
+                               t->object_path);
         if (r < 0)
                 return r;
 
@@ -552,7 +567,8 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         cmsg_close_all(&msghdr);
 
         CMSG_FOREACH (cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                         ucred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (msghdr.msg_flags & MSG_TRUNC) {
@@ -673,8 +689,14 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.import", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.import",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -695,7 +717,8 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ? TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
+        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ? TRANSFER_IMPORT_TAR :
+                                                                        TRANSFER_IMPORT_RAW;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -734,8 +757,14 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.import", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.import",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -794,8 +823,14 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.export", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.export",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -812,7 +847,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
+        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR :
+                                                                        TRANSFER_EXPORT_RAW;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -857,7 +893,14 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.pull",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -880,7 +923,8 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         else
                 v = import_verify_from_string(verify);
         if (v < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
 
         r = setup_machine_directory(error);
         if (r < 0)
@@ -889,7 +933,8 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
         if (manager_find(m, type, remote))
-                return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
+                return sd_bus_error_setf(
+                        error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -966,8 +1011,14 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
         assert(msg);
         assert(t);
 
-        r = bus_verify_polkit_async(
-                msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &t->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.pull",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &t->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -989,7 +1040,14 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         assert(msg);
         assert(m);
 
-        r = bus_verify_polkit_async(msg, CAP_SYS_ADMIN, "org.freedesktop.import1.pull", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(msg,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.import1.pull",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1012,8 +1070,13 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(msg, NULL);
 }
 
-static int property_get_progress(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_progress(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         Transfer *t = userdata;
 
@@ -1033,7 +1096,8 @@ static const sd_bus_vtable transfer_vtable[] = {
         SD_BUS_PROPERTY("Local", "s", NULL, offsetof(Transfer, local), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Remote", "s", NULL, offsetof(Transfer, remote), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Transfer, type), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Verify", "s", property_get_verify, offsetof(Transfer, verify), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "Verify", "s", property_get_verify, offsetof(Transfer, verify), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_METHOD("Cancel", NULL, NULL, method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("LogMessage", "us", 0),
@@ -1056,7 +1120,12 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static int transfer_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int transfer_object_find(sd_bus *bus,
+                                const char *path,
+                                const char *interface,
+                                void *userdata,
+                                void **found,
+                                sd_bus_error *error) {
         Manager *m = userdata;
         Transfer *t;
         const char *p;
@@ -1085,7 +1154,8 @@ static int transfer_object_find(sd_bus *bus, const char *path, const char *inter
         return 1;
 }
 
-static int transfer_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int transfer_node_enumerator(
+        sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Transfer *t;
@@ -1115,16 +1185,23 @@ static int manager_add_bus_objects(Manager *m) {
 
         assert(m);
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/import1", "org.freedesktop.import1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(
+                m->bus, NULL, "/org/freedesktop/import1", "org.freedesktop.import1.Manager", manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/import1/transfer", "org.freedesktop.import1.Transfer", transfer_vtable, transfer_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/import1/transfer",
+                                       "org.freedesktop.import1.Transfer",
+                                       transfer_vtable,
+                                       transfer_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/import1/transfer", transfer_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(
+                m->bus, NULL, "/org/freedesktop/import1/transfer", transfer_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add transfer enumerator: %m");
 
@@ -1148,7 +1225,8 @@ static bool manager_check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.import1", DEFAULT_EXIT_USEC, manager_check_idle, m);
+        return bus_event_loop_with_idle(
+                m->event, m->bus, "org.freedesktop.import1", DEFAULT_EXIT_USEC, manager_check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {

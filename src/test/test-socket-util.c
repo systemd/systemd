@@ -55,7 +55,11 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
         if (r >= 0)
                 assert_se(socket_address_print(&a, &out) >= 0);
 
-        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in, r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")",
+                 in,
+                 r >= 0 ? "✓" : "✗",
+                 empty_to_dash(out),
+                 r >= 0 ? expected ?: in : "-");
         assert_se(r == ret);
         if (r >= 0) {
                 assert_se(a.sockaddr.sa.sa_family == family);
@@ -94,7 +98,10 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[a:b:1]:8888", -EINVAL, 0, NULL);
 
         test_socket_address_parse_one("8888", 0, default_family, "[::]:8888");
-        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888", 0, AF_INET6, "[2001:db8:0:85a3::ac1f:8001]:8888");
+        test_socket_address_parse_one("[2001:0db8:0000:85a3:0000:0000:ac1f:8001]:8888",
+                                      0,
+                                      AF_INET6,
+                                      "[2001:db8:0:85a3::ac1f:8001]:8888");
         test_socket_address_parse_one("[::1]:8888", 0, AF_INET6, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
@@ -296,7 +303,8 @@ static void test_in_addr_is_null(void) {
         assert_se(in_addr_is_null(-1, &i) == -EAFNOSUPPORT);
 }
 
-static void test_in_addr_prefix_intersect_one(unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
+static void test_in_addr_prefix_intersect_one(
+        unsigned f, const char *a, unsigned apl, const char *b, unsigned bpl, int result) {
         union in_addr_union ua, ub;
 
         assert_se(in_addr_from_string(f, a, &ua) >= 0);
@@ -320,10 +328,18 @@ static void test_in_addr_prefix_intersect(void) {
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.127", 25, 1);
         test_in_addr_prefix_intersect_one(AF_INET, "1.1.1.1", 25, "1.1.1.255", 25, 0);
 
-        test_in_addr_prefix_intersect_one(
-                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe", 128, 0);
-        test_in_addr_prefix_intersect_one(
-                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 0, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 128, 1);
+        test_in_addr_prefix_intersect_one(AF_INET6,
+                                          "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                                          128,
+                                          "ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe",
+                                          128,
+                                          0);
+        test_in_addr_prefix_intersect_one(AF_INET6,
+                                          "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                                          0,
+                                          "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                                          128,
+                                          1);
         test_in_addr_prefix_intersect_one(AF_INET6, "::", 0, "beef:beef:beef:beef:beef:beef:beef:beef", 128, 1);
 
         test_in_addr_prefix_intersect_one(AF_INET6, "1::2", 64, "1::2", 64, 1);
@@ -413,8 +429,10 @@ static void test_in_addr_ifindex_to_string(void) {
 
         test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
         test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
-        test_in_addr_ifindex_to_string_one(
-                AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_ifindex_to_string_one(AF_INET6,
+                                           "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+                                           10,
+                                           "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
         test_in_addr_ifindex_to_string_one(AF_INET6, "::1", 11, "::1");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 12, "fe80::%12");
         test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 0, "fe80::");
@@ -442,7 +460,8 @@ static void test_in_addr_ifindex_from_string_auto(void) {
         assert_se(family == AF_INET6);
         assert_se(ifindex == LOOPBACK_IFINDEX);
 
-        assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
+        assert_se(in_addr_ifindex_from_string_auto(
+                          "fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
 }
 
 static void test_sockaddr_equal(void) {
@@ -497,7 +516,8 @@ static void test_sockaddr_un_len(void) {
         };
 
         assert_se(SOCKADDR_UN_LEN(fs) == offsetof(struct sockaddr_un, sun_path) + strlen(fs.sun_path) + 1);
-        assert_se(SOCKADDR_UN_LEN(abstract) == offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
+        assert_se(SOCKADDR_UN_LEN(abstract) ==
+                  offsetof(struct sockaddr_un, sun_path) + 1 + strlen(abstract.sun_path + 1));
 }
 
 static void test_in_addr_is_multicast(void) {
@@ -608,7 +628,8 @@ static void test_passfd_read(void) {
 
                 tmpfd = mkostemp_safe(tmpfile);
                 assert_se(tmpfd >= 0);
-                assert_se(write(tmpfd, file_contents, strlen(file_contents)) == (ssize_t) strlen(file_contents));
+                assert_se(write(tmpfd, file_contents, strlen(file_contents)) ==
+                          (ssize_t) strlen(file_contents));
                 tmpfd = safe_close(tmpfd);
 
                 tmpfd = open(tmpfile, O_RDONLY);
@@ -658,7 +679,8 @@ static void test_passfd_contents_read(void) {
 
                 tmpfd = mkostemp_safe(tmpfile);
                 assert_se(tmpfd >= 0);
-                assert_se(write(tmpfd, file_contents, strlen(file_contents)) == (ssize_t) strlen(file_contents));
+                assert_se(write(tmpfd, file_contents, strlen(file_contents)) ==
+                          (ssize_t) strlen(file_contents));
                 tmpfd = safe_close(tmpfd);
 
                 tmpfd = open(tmpfile, O_RDONLY);

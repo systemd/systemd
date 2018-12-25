@@ -18,8 +18,8 @@ static int track_cb_x(sd_bus_track *t, void *userdata) {
         assert_se(!track_cb_called_x);
         track_cb_called_x = true;
 
-        /* This means b's name disappeared. Let's now disconnect, to make sure the track handling on disconnect works
-         * as it should. */
+        /* This means b's name disappeared. Let's now disconnect, to make sure the track handling on
+         * disconnect works as it should. */
 
         assert_se(shutdown(sd_bus_get_fd(sd_bus_track_get_bus(t)), SHUT_RDWR) >= 0);
         return 1;

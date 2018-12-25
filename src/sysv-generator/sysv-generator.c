@@ -32,11 +32,12 @@ static const struct {
         const char *target;
 } rcnd_table[] = {
         /* Standard SysV runlevels for start-up */
-        { "rc1.d", SPECIAL_RESCUE_TARGET },     { "rc2.d", SPECIAL_MULTI_USER_TARGET }, { "rc3.d", SPECIAL_MULTI_USER_TARGET },
-        { "rc4.d", SPECIAL_MULTI_USER_TARGET }, { "rc5.d", SPECIAL_GRAPHICAL_TARGET },
+        { "rc1.d", SPECIAL_RESCUE_TARGET },     { "rc2.d", SPECIAL_MULTI_USER_TARGET },
+        { "rc3.d", SPECIAL_MULTI_USER_TARGET }, { "rc4.d", SPECIAL_MULTI_USER_TARGET },
+        { "rc5.d", SPECIAL_GRAPHICAL_TARGET },
 
-        /* We ignore the SysV runlevels for shutdown here, as SysV services get default dependencies anyway, and that
-         * means they are shut down anyway at system power off if running. */
+        /* We ignore the SysV runlevels for shutdown here, as SysV services get default dependencies anyway,
+         * and that means they are shut down anyway at system power off if running. */
 };
 
 static const char *arg_dest = NULL;
@@ -196,8 +197,9 @@ static int generate_unit_file(SysvStub *s) {
 }
 
 static bool usage_contains_reload(const char *line) {
-        return (strcasestr(line, "{reload|") || strcasestr(line, "{reload}") || strcasestr(line, "{reload\"") ||
-                strcasestr(line, "|reload|") || strcasestr(line, "|reload}") || strcasestr(line, "|reload\""));
+        return (strcasestr(line, "{reload|") || strcasestr(line, "{reload}") ||
+                strcasestr(line, "{reload\"") || strcasestr(line, "|reload|") ||
+                strcasestr(line, "|reload}") || strcasestr(line, "|reload\""));
 }
 
 static char *sysv_translate_name(const char *name) {
@@ -275,7 +277,8 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
         if (*name == '$') {
                 r = unit_name_build(n, NULL, ".target", ret);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
+                        return log_error_errno(
+                                r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
 
                 return 1;
         }
@@ -315,7 +318,8 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
 
                 r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES | EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
+                        return log_error_errno(
+                                r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
                         break;
 
@@ -329,7 +333,11 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
                         log_debug("Adding Provides: alias '%s' for '%s'", m, s->name);
                         r = add_alias(s->name, m);
                         if (r < 0)
-                                log_warning_errno(r, "[%s:%u] Failed to add LSB Provides name %s, ignoring: %m", s->path, line, m);
+                                log_warning_errno(r,
+                                                  "[%s:%u] Failed to add LSB Provides name %s, ignoring: %m",
+                                                  s->path,
+                                                  line,
+                                                  m);
                         break;
 
                 case UNIT_TARGET:
@@ -384,7 +392,8 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
 
                 r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES | EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
+                        return log_error_errno(
+                                r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
                         break;
 
@@ -557,8 +566,10 @@ static int load_sysv(SysvStub *s) {
                                 if (r < 0)
                                         return r;
 
-                        } else if (startswith_no_case(t, "Required-Start:") || startswith_no_case(t, "Should-Start:") ||
-                                   startswith_no_case(t, "X-Start-Before:") || startswith_no_case(t, "X-Start-After:")) {
+                        } else if (startswith_no_case(t, "Required-Start:") ||
+                                   startswith_no_case(t, "Should-Start:") ||
+                                   startswith_no_case(t, "X-Start-Before:") ||
+                                   startswith_no_case(t, "X-Start-After:")) {
 
                                 state = LSB;
 
@@ -741,13 +752,15 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         continue;
                 }
 
-                FOREACH_DIRENT(de, d, log_error_errno(errno, "Failed to enumerate directory %s, ignoring: %m", *path)) {
+                FOREACH_DIRENT(
+                        de, d, log_error_errno(errno, "Failed to enumerate directory %s, ignoring: %m", *path)) {
                         _cleanup_free_ char *fpath = NULL, *name = NULL;
                         _cleanup_(free_sysvstubp) SysvStub *service = NULL;
                         struct stat st;
 
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
-                                log_warning_errno(errno, "stat() failed on %s/%s, ignoring: %m", *path, de->d_name);
+                                log_warning_errno(
+                                        errno, "stat() failed on %s/%s, ignoring: %m", *path, de->d_name);
                                 continue;
                         }
 
@@ -832,7 +845,10 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 continue;
                         }
 
-                        FOREACH_DIRENT(de, d, log_error_errno(errno, "Failed to enumerate directory %s, ignoring: %m", path)) {
+                        FOREACH_DIRENT(de,
+                                       d,
+                                       log_error_errno(
+                                               errno, "Failed to enumerate directory %s, ignoring: %m", path)) {
                                 _cleanup_free_ char *name = NULL, *fpath = NULL;
                                 int a, b;
 
@@ -862,7 +878,10 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
 
                                 service = hashmap_get(all_services, name);
                                 if (!service) {
-                                        log_debug("Ignoring %s symlink in %s, not generating %s.", de->d_name, rcnd_table[i].path, name);
+                                        log_debug("Ignoring %s symlink in %s, not generating %s.",
+                                                  de->d_name,
+                                                  rcnd_table[i].path,
+                                                  name);
                                         continue;
                                 }
 

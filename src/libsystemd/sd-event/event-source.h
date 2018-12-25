@@ -155,19 +155,19 @@ struct inode_data {
         ino_t ino;
         dev_t dev;
 
-        /* An fd of the inode to watch. The fd is kept open until the next iteration of the loop, so that we can
-         * rearrange the priority still until then, as we need the original inode to change the priority as we need to
-         * add a watch descriptor to the right inotify for the priority which we can only do if we have a handle to the
-         * original inode. We keep a list of all inode_data objects with an open fd in the to_close list (see below) of
-         * the sd-event object, so that it is efficient to close everything, before entering the next event loop
-         * iteration. */
+        /* An fd of the inode to watch. The fd is kept open until the next iteration of the loop, so that we
+         * can rearrange the priority still until then, as we need the original inode to change the priority
+         * as we need to add a watch descriptor to the right inotify for the priority which we can only do if
+         * we have a handle to the original inode. We keep a list of all inode_data objects with an open fd
+         * in the to_close list (see below) of the sd-event object, so that it is efficient to close
+         * everything, before entering the next event loop iteration. */
         int fd;
 
         /* The inotify "watch descriptor" */
         int wd;
 
-        /* The combination of the mask of all inotify watches on this inode we manage. This is also the mask that has
-         * most recently been set on the watch descriptor. */
+        /* The combination of the mask of all inotify watches on this inode we manage. This is also the mask
+         * that has most recently been set on the watch descriptor. */
         uint32_t combined_mask;
 
         /* All event sources subscribed to this inode */
@@ -184,8 +184,8 @@ struct inode_data {
 struct inotify_data {
         WakeupType wakeup;
 
-        /* For each priority we maintain one inotify fd, so that we only have to dequeue a single event per priority at
-         * a time */
+        /* For each priority we maintain one inotify fd, so that we only have to dequeue a single event per
+         * priority at a time */
 
         int fd;
         int64_t priority;
@@ -197,12 +197,12 @@ struct inotify_data {
         union inotify_event_buffer buffer;
         size_t buffer_filled; /* fill level of the buffer */
 
-        /* How many event sources are currently marked pending for this inotify. We won't read new events off the
-         * inotify fd as long as there are still pending events on the inotify (because we have no strategy of queuing
-         * the events locally if they can't be coalesced). */
+        /* How many event sources are currently marked pending for this inotify. We won't read new events off
+         * the inotify fd as long as there are still pending events on the inotify (because we have no
+         * strategy of queuing the events locally if they can't be coalesced). */
         unsigned n_pending;
 
-        /* A linked list of all inotify objects with data already read, that still need processing. We keep this list
-         * to make it efficient to figure out what inotify objects to process data on next. */
+        /* A linked list of all inotify objects with data already read, that still need processing. We keep
+         * this list to make it efficient to figure out what inotify objects to process data on next. */
         LIST_FIELDS(struct inotify_data, buffered);
 };

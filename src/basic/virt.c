@@ -102,7 +102,8 @@ static int detect_vm_device_tree(void) {
 
                 FOREACH_DIRENT(dent, dir, return -errno)
                 if (strstr(dent->d_name, "fw-cfg")) {
-                        log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s", dent->d_name);
+                        log_debug("Virtualization QEMU: \"fw-cfg\" present in /proc/device-tree/%s",
+                                  dent->d_name);
                         return VIRTUALIZATION_QEMU;
                 }
 
@@ -127,10 +128,12 @@ static int detect_vm_device_tree(void) {
 static int detect_vm_dmi(void) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
 
-        static const char *const dmi_vendors[] = { "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
-                                                   "/sys/class/dmi/id/sys_vendor",
-                                                   "/sys/class/dmi/id/board_vendor",
-                                                   "/sys/class/dmi/id/bios_vendor" };
+        static const char *const dmi_vendors[] = {
+                "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
+                "/sys/class/dmi/id/sys_vendor",
+                "/sys/class/dmi/id/board_vendor",
+                "/sys/class/dmi/id/bios_vendor"
+        };
 
         static const struct {
                 const char *vendor;
@@ -331,11 +334,11 @@ int detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, even if it uses KVM, as well as Xen even if it cloaks as Microsoft
-         *   Hyper-V.
+         * → First, try to detect Oracle Virtualbox, even if it uses KVM, as well as Xen even if it cloaks as
+         * Microsoft Hyper-V.
          *
-         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if info in DMI is
-         *   overwritten.
+         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if
+         * info in DMI is overwritten.
          *
          * → Third, try to detect from DMI. */
 
@@ -465,8 +468,8 @@ int detect_container(void) {
                 goto translate_name;
         }
 
-        /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than accessing
-         * /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
+        /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than
+         * accessing /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
         r = read_one_line_file("/run/systemd/container", &m);
         if (r >= 0) {
                 e = m;
@@ -484,8 +487,8 @@ int detect_container(void) {
         if (r < 0) /* This only works if we have CAP_SYS_PTRACE, hence let's better ignore failures here */
                 log_debug_errno(r, "Failed to read $container of PID 1, ignoring: %m");
 
-        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. Hence, if the PID shown
-         * there is not 1, we know we are in a PID namespace. and hence a container. */
+        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. Hence, if the
+         * PID shown there is not 1, we know we are in a PID namespace. and hence a container. */
         r = read_one_line_file("/proc/1/sched", &m);
         if (r >= 0) {
                 const char *t;

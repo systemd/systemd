@@ -169,7 +169,9 @@ static void *thread_client2(void *p) {
         assert_se(sd_bus_attach_event(bus, event, 0) >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
-        assert_se(sd_bus_call_method_async(bus, NULL, "foo.bar", "/foo", "foo.TestInterface", "Foobar", client2_callback, NULL, NULL) >= 0);
+        assert_se(sd_bus_call_method_async(
+                          bus, NULL, "foo.bar", "/foo", "foo.TestInterface", "Foobar", client2_callback, NULL, NULL) >=
+                  0);
 
         assert_se(sd_event_loop(event) >= 0);
 
@@ -190,7 +192,8 @@ static void request_exit(const char *path) {
         assert_se(sd_bus_set_description(bus, "request-exit") >= 0);
         assert_se(sd_bus_start(bus) >= 0);
 
-        assert_se(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL) >= 0);
+        assert_se(sd_bus_call_method(bus, "foo.bar", "/foo", "foo.TestInterface", "Exit", NULL, NULL, NULL) >=
+                  0);
 }
 
 int main(int argc, char *argv[]) {
@@ -200,8 +203,8 @@ int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
 
-        /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
-         * doesn't support inotify properly. */
+        /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs
+         * that doesn't support inotify properly. */
         assert_se(mkdtemp_malloc("/dev/shm/systemd-watch-bind-XXXXXX", &d) >= 0);
 
         path = strjoina(d, "/this/is/a/socket");

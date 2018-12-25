@@ -16,7 +16,10 @@ typedef int (*proc_cmdline_parse_t)(const char *key, const char *value, void *da
 
 int proc_cmdline(char **ret);
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags);
+int proc_cmdline_parse_given(const char *line,
+                             proc_cmdline_parse_t parse_item,
+                             void *data,
+                             ProcCmdlineFlags flags);
 int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
 int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **value);

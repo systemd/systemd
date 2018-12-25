@@ -19,8 +19,8 @@ int enter_cgroup_subroot(void) {
         assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
         assert_se(cg_mask_supported(&supported) >= 0);
 
-        /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if we handle
-         * any errors at that point. */
+        /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
+         * we handle any errors at that point. */
 
         r = cg_create_everywhere(supported, _CGROUP_MASK_ALL, cgroup_subroot);
         if (r < 0)

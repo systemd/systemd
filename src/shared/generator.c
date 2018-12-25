@@ -33,7 +33,10 @@ int generator_open_unit_file(const char *dest, const char *source, const char *n
         if (!f) {
                 if (source && errno == EEXIST)
                         return log_error_errno(
-                                errno, "Failed to create unit file %s, as it already exists. Duplicate entry in %s?", unit, source);
+                                errno,
+                                "Failed to create unit file %s, as it already exists. Duplicate entry in %s?",
+                                unit,
+                                source);
                 else
                         return log_error_errno(errno, "Failed to create unit file %s: %m", unit);
         }
@@ -134,7 +137,10 @@ int generator_write_fsck_deps(FILE *f, const char *dir, const char *what, const 
                 r = fsck_exists(fstype);
                 if (r < 0)
                         log_warning_errno(
-                                r, "Checking was requested for %s, but couldn't detect if fsck.%s may be used, proceeding: %m", what, fstype);
+                                r,
+                                "Checking was requested for %s, but couldn't detect if fsck.%s may be used, proceeding: %m",
+                                what,
+                                fstype);
                 else if (r == 0) {
                         /* treat missing check as essentially OK */
                         log_debug("Checking was requested for %s, but fsck.%s does not exist.", what, fstype);
@@ -178,7 +184,8 @@ int generator_write_fsck_deps(FILE *f, const char *dir, const char *what, const 
         return 0;
 }
 
-int generator_write_timeouts(const char *dir, const char *what, const char *where, const char *opts, char **filtered) {
+int generator_write_timeouts(
+        const char *dir, const char *what, const char *where, const char *opts, char **filtered) {
 
         /* Configure how long we wait for a device that backs a mount point or a
          * swap partition to show up. This is useful to support endless device timeouts
@@ -299,7 +306,9 @@ int generator_hook_up_mkswap(const char *dir, const char *what) {
 
         /* Nothing to work on. */
         if (!is_device_path(node))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot format something that is not a device node: %s", node);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format something that is not a device node: %s",
+                                       node);
 
         r = unit_name_from_path_instance("systemd-mkswap", node, ".service", &unit);
         if (r < 0)
@@ -361,10 +370,14 @@ int generator_hook_up_mkfs(const char *dir, const char *what, const char *where,
 
         /* Nothing to work on. */
         if (!is_device_path(node))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot format something that is not a device node: %s", node);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format something that is not a device node: %s",
+                                       node);
 
         if (!type || streq(type, "auto"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot format partition %s, filesystem type is not specified", node);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot format partition %s, filesystem type is not specified",
+                                       node);
 
         r = unit_name_from_path_instance("systemd-mkfs", node, ".service", &unit);
         if (r < 0)

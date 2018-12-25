@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
         assert_se(streq(p, "something i am a fabulous link something-else"));
         p = mfree(p);
 
-        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch the
-         * incomplete sequence) */
+        /* Truncate the formatted string in the middle of an ANSI sequence (in which case we shouldn't touch
+         * the incomplete sequence) */
         z = strstr(q, "fstab");
         if (z) {
                 *z = 0;

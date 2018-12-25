@@ -53,7 +53,14 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, LOOPBACK_SETUP_TIMEOUT_USEC, "systemd-start-loopback");
+        r = sd_netlink_call_async(rtnl,
+                                  NULL,
+                                  req,
+                                  generic_handler,
+                                  NULL,
+                                  s,
+                                  LOOPBACK_SETUP_TIMEOUT_USEC,
+                                  "systemd-start-loopback");
         if (r < 0)
                 return r;
 
@@ -84,11 +91,13 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &(struct in_addr){ .s_addr = htobe32(INADDR_LOOPBACK) });
+        r = sd_netlink_message_append_in_addr(
+                req, IFA_LOCAL, &(struct in_addr){ .s_addr = htobe32(INADDR_LOOPBACK) });
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv4");
+        r = sd_netlink_call_async(
+                rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv4");
         if (r < 0)
                 return r;
 
@@ -123,7 +132,8 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_call_async(rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv6");
+        r = sd_netlink_call_async(
+                rtnl, NULL, req, generic_handler, NULL, s, USEC_INFINITY, "systemd-loopback-ipv6");
         if (r < 0)
                 return r;
 
@@ -156,12 +166,14 @@ int loopback_setup(void) {
         struct state state_4 =
                              {
                                      .error_message = "Failed to add address 127.0.0.1 to loopback interface",
-                                     .success_message = "Successfully added address 127.0.0.1 to loopback interface",
+                                     .success_message =
+                                             "Successfully added address 127.0.0.1 to loopback interface",
                              },
                      state_6 =
                              {
                                      .error_message = "Failed to add address ::1 to loopback interface",
-                                     .success_message = "Successfully added address ::1 to loopback interface",
+                                     .success_message =
+                                             "Successfully added address ::1 to loopback interface",
                              },
                      state_up = {
                              .error_message = "Failed to bring loopback interface up",

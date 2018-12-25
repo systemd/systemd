@@ -52,8 +52,8 @@ static int lldp_make_space(sd_lldp *lldp, size_t extra) {
 
         assert(lldp);
 
-        /* Remove all entries that are past their TTL, and more until at least the specified number of extra entries
-         * are free. */
+        /* Remove all entries that are past their TTL, and more until at least the specified number of extra
+         * entries are free. */
 
         for (;;) {
                 _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
@@ -91,11 +91,12 @@ static bool lldp_keep_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
                 return false;
 
         /* Filter out data from the filter address */
-        if (!ether_addr_is_null(&lldp->filter_address) && ether_addr_equal(&lldp->filter_address, &n->source_address))
+        if (!ether_addr_is_null(&lldp->filter_address) &&
+            ether_addr_equal(&lldp->filter_address, &n->source_address))
                 return false;
 
-        /* Only add if the neighbor has a capability we are interested in. Note that we also store all neighbors with
-         * no caps field set. */
+        /* Only add if the neighbor has a capability we are interested in. Note that we also store all
+         * neighbors with no caps field set. */
         if (n->has_capabilities && (n->enabled_capabilities & lldp->capability_mask) == 0)
                 return false;
 
@@ -253,7 +254,8 @@ _public_ int sd_lldp_start(sd_lldp *lldp) {
         if (lldp->fd < 0)
                 return lldp->fd;
 
-        r = sd_event_add_io(lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
+        r = sd_event_add_io(
+                lldp->event, &lldp->io_event_source, lldp->fd, EPOLLIN, lldp_receive_datagram, lldp);
         if (r < 0)
                 goto fail;
 
@@ -487,8 +489,8 @@ _public_ int sd_lldp_match_capabilities(sd_lldp *lldp, uint16_t mask) {
 _public_ int sd_lldp_set_filter_address(sd_lldp *lldp, const struct ether_addr *addr) {
         assert_return(lldp, -EINVAL);
 
-        /* In order to deal nicely with bridges that send back our own packets, allow one address to be filtered, so
-         * that our own can be filtered out here. */
+        /* In order to deal nicely with bridges that send back our own packets, allow one address to be
+         * filtered, so that our own can be filtered out here. */
 
         if (addr)
                 lldp->filter_address = *addr;

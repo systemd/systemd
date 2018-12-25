@@ -23,11 +23,13 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-void server_forward_kmsg(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
+void server_forward_kmsg(
+        Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
 
         _cleanup_free_ char *ident_buf = NULL;
         struct iovec iovec[5];
-        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
+        char header_priority[DECIMAL_STR_MAX(priority) + 3],
+                header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
 
         assert(s);
@@ -89,8 +91,9 @@ static bool is_us(const char *identifier, const char *pid) {
 
 void dev_kmsg_record(Server *s, char *p, size_t l) {
 
-        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL,
-                            *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
+        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL,
+                            *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL,
+                            *identifier = NULL, *pid = NULL;
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_KERNEL_FIELDS + 2 + N_IOVEC_UDEV_FIELDS];
         char *kernel_device = NULL;
         unsigned long long usec;
@@ -139,7 +142,8 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         server_driver_message(s,
                                               0,
                                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_MISSED_STR,
-                                              LOG_MESSAGE("Missed %" PRIu64 " kernel messages", serial - *s->kernel_seqnum),
+                                              LOG_MESSAGE("Missed %" PRIu64 " kernel messages",
+                                                          serial - *s->kernel_seqnum),
                                               NULL);
 
                 /* Make sure we never read this one again. Note that
@@ -419,7 +423,9 @@ int server_open_kernel_seqnum(Server *s) {
          * way we can just use it like a variable, but it is
          * persistent and automatically flushed at reboot. */
 
-        fd = open("/run/systemd/journal/kernel-seqnum", O_RDWR | O_CREAT | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW, 0644);
+        fd = open("/run/systemd/journal/kernel-seqnum",
+                  O_RDWR | O_CREAT | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW,
+                  0644);
         if (fd < 0) {
                 log_error_errno(errno, "Failed to open /run/systemd/journal/kernel-seqnum, ignoring: %m");
                 return 0;

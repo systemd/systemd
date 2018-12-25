@@ -102,7 +102,11 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
         else
                 handle_action = manager->handle_lid_switch;
 
-        manager_handle_action(manager, INHIBIT_HANDLE_LID_SWITCH, handle_action, manager->lid_switch_ignore_inhibited, is_edge);
+        manager_handle_action(manager,
+                              INHIBIT_HANDLE_LID_SWITCH,
+                              handle_action,
+                              manager->lid_switch_ignore_inhibited,
+                              is_edge);
 }
 
 static int button_recheck(sd_event_source *e, void *userdata) {
@@ -152,7 +156,9 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 case KEY_POWER:
                 case KEY_POWER2:
-                        log_struct(LOG_INFO, LOG_MESSAGE("Power key pressed."), "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Power key pressed."),
+                                   "MESSAGE_ID=" SD_MESSAGE_POWER_KEY_STR);
 
                         manager_handle_action(b->manager,
                                               INHIBIT_HANDLE_POWER_KEY,
@@ -168,7 +174,9 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         */
 
                 case KEY_SLEEP:
-                        log_struct(LOG_INFO, LOG_MESSAGE("Suspend key pressed."), "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Suspend key pressed."),
+                                   "MESSAGE_ID=" SD_MESSAGE_SUSPEND_KEY_STR);
 
                         manager_handle_action(b->manager,
                                               INHIBIT_HANDLE_SUSPEND_KEY,
@@ -178,7 +186,9 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         break;
 
                 case KEY_SUSPEND:
-                        log_struct(LOG_INFO, LOG_MESSAGE("Hibernate key pressed."), "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Hibernate key pressed."),
+                                   "MESSAGE_ID=" SD_MESSAGE_HIBERNATE_KEY_STR);
 
                         manager_handle_action(b->manager,
                                               INHIBIT_HANDLE_HIBERNATE_KEY,
@@ -191,14 +201,18 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
         } else if (ev.type == EV_SW && ev.value > 0) {
 
                 if (ev.code == SW_LID) {
-                        log_struct(LOG_INFO, LOG_MESSAGE("Lid closed."), "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Lid closed."),
+                                   "MESSAGE_ID=" SD_MESSAGE_LID_CLOSED_STR);
 
                         b->lid_closed = true;
                         button_lid_switch_handle_action(b->manager, true);
                         button_install_check_event_source(b);
 
                 } else if (ev.code == SW_DOCK) {
-                        log_struct(LOG_INFO, LOG_MESSAGE("System docked."), "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("System docked."),
+                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_DOCKED_STR);
 
                         b->docked = true;
                 }
@@ -206,13 +220,17 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
         } else if (ev.type == EV_SW && ev.value == 0) {
 
                 if (ev.code == SW_LID) {
-                        log_struct(LOG_INFO, LOG_MESSAGE("Lid opened."), "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("Lid opened."),
+                                   "MESSAGE_ID=" SD_MESSAGE_LID_OPENED_STR);
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
 
                 } else if (ev.code == SW_DOCK) {
-                        log_struct(LOG_INFO, LOG_MESSAGE("System undocked."), "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
+                        log_struct(LOG_INFO,
+                                   LOG_MESSAGE("System undocked."),
+                                   "MESSAGE_ID=" SD_MESSAGE_SYSTEM_UNDOCKED_STR);
 
                         b->docked = false;
                 }
@@ -236,8 +254,8 @@ static int button_suitable(Button *b) {
                 if (ioctl(b->fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys) < 0)
                         return -errno;
 
-                if (bitset_get(keys, KEY_POWER) || bitset_get(keys, KEY_POWER2) || bitset_get(keys, KEY_SLEEP) ||
-                    bitset_get(keys, KEY_SUSPEND))
+                if (bitset_get(keys, KEY_POWER) || bitset_get(keys, KEY_POWER2) ||
+                    bitset_get(keys, KEY_SLEEP) || bitset_get(keys, KEY_SUSPEND))
                         return true;
         }
 
@@ -292,7 +310,8 @@ static int button_set_mask(Button *b) {
         };
 
         if (ioctl(b->fd, EVIOCSMASK, &mask) < 0)
-                return log_warning_errno(errno, "Failed to set EV_KEY event mask on /dev/input/%s: %m", b->name);
+                return log_warning_errno(
+                        errno, "Failed to set EV_KEY event mask on /dev/input/%s: %m", b->name);
 
         bitset_put(switches, SW_LID);
         bitset_put(switches, SW_DOCK);
@@ -327,8 +346,9 @@ int button_open(Button *b) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device is relevant to us: %m");
         if (r == 0)
-                return log_debug_errno(
-                        SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Device %s does not expose keys or switches relevant to us, ignoring.", p);
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "Device %s does not expose keys or switches relevant to us, ignoring.",
+                                       p);
 
         if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
                 r = log_error_errno(errno, "Failed to get input name: %m");

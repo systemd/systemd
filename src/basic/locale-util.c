@@ -88,8 +88,10 @@ static int add_locales_from_archive(Set *locales) {
                 return -errno;
 
         h = (const struct locarhead *) p;
-        if (h->magic != 0xde020109 || h->namehash_offset + h->namehash_size > st.st_size || h->string_offset + h->string_size > st.st_size ||
-            h->locrectab_offset + h->locrectab_size > st.st_size || h->sumhash_offset + h->sumhash_size > st.st_size) {
+        if (h->magic != 0xde020109 || h->namehash_offset + h->namehash_size > st.st_size ||
+            h->string_offset + h->string_size > st.st_size ||
+            h->locrectab_offset + h->locrectab_size > st.st_size ||
+            h->sumhash_offset + h->sumhash_size > st.st_size) {
                 r = -EBADMSG;
                 goto finish;
         }
@@ -242,7 +244,8 @@ bool is_locale_utf8(void) {
 
         /* Check result, but ignore the result if C was set
          * explicitly. */
-        cached_answer = STR_IN_SET(set, "C", "POSIX") && !getenv("LC_ALL") && !getenv("LC_CTYPE") && !getenv("LANG");
+        cached_answer = STR_IN_SET(set, "C", "POSIX") && !getenv("LC_ALL") && !getenv("LC_CTYPE") &&
+                !getenv("LANG");
 
 out:
         return (bool) cached_answer;
@@ -344,7 +347,8 @@ static bool emoji_enabled(void) {
 
                 val = getenv_bool("SYSTEMD_EMOJI");
                 if (val < 0)
-                        cached_emoji_enabled = is_locale_utf8() && !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
+                        cached_emoji_enabled = is_locale_utf8() &&
+                                !STRPTR_IN_SET(getenv("TERM"), "dumb", "linux");
                 else
                         cached_emoji_enabled = val;
         }
@@ -354,9 +358,9 @@ static bool emoji_enabled(void) {
 
 const char *special_glyph(SpecialGlyph code) {
 
-        /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably wise to be
-         * conservative here, and primarily stick to the glyphs defined in the eurlatgr font, so that display still
-         * works reasonably well on the Linux console. For details see:
+        /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably
+         * wise to be conservative here, and primarily stick to the glyphs defined in the eurlatgr font, so
+         * that display still works reasonably well on the Linux console. For details see:
          *
          * http://git.altlinux.org/people/legion/packages/kbd.git?p=kbd.git;a=blob;f=data/consolefonts/README.eurlatgr
          */
@@ -408,8 +412,8 @@ const char *special_glyph(SpecialGlyph code) {
                                 [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY] = "\360\237\231\202",   /* 🙂 */
                                 [SPECIAL_GLYPH_NEUTRAL_SMILEY] = "\360\237\230\220",          /* 😐 */
                                 [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201", /* 🙁 */
-                                [SPECIAL_GLYPH_UNHAPPY_SMILEY] = "\360\237\230\250",          /* 😨️️ */
-                                [SPECIAL_GLYPH_DEPRESSED_SMILEY] = "\360\237\244\242",        /* 🤢 */
+                                [SPECIAL_GLYPH_UNHAPPY_SMILEY] = "\360\237\230\250",   /* 😨️️ */
+                                [SPECIAL_GLYPH_DEPRESSED_SMILEY] = "\360\237\244\242", /* 🤢 */
                         },
         };
 
@@ -428,19 +432,21 @@ void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
                 l[i] = mfree(l[i]);
 }
 
-static const char *const locale_variable_table[_VARIABLE_LC_MAX] = { [VARIABLE_LANG] = "LANG",
-                                                                     [VARIABLE_LANGUAGE] = "LANGUAGE",
-                                                                     [VARIABLE_LC_CTYPE] = "LC_CTYPE",
-                                                                     [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
-                                                                     [VARIABLE_LC_TIME] = "LC_TIME",
-                                                                     [VARIABLE_LC_COLLATE] = "LC_COLLATE",
-                                                                     [VARIABLE_LC_MONETARY] = "LC_MONETARY",
-                                                                     [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
-                                                                     [VARIABLE_LC_PAPER] = "LC_PAPER",
-                                                                     [VARIABLE_LC_NAME] = "LC_NAME",
-                                                                     [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
-                                                                     [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
-                                                                     [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
-                                                                     [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION" };
+static const char *const locale_variable_table[_VARIABLE_LC_MAX] = {
+        [VARIABLE_LANG] = "LANG",
+        [VARIABLE_LANGUAGE] = "LANGUAGE",
+        [VARIABLE_LC_CTYPE] = "LC_CTYPE",
+        [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
+        [VARIABLE_LC_TIME] = "LC_TIME",
+        [VARIABLE_LC_COLLATE] = "LC_COLLATE",
+        [VARIABLE_LC_MONETARY] = "LC_MONETARY",
+        [VARIABLE_LC_MESSAGES] = "LC_MESSAGES",
+        [VARIABLE_LC_PAPER] = "LC_PAPER",
+        [VARIABLE_LC_NAME] = "LC_NAME",
+        [VARIABLE_LC_ADDRESS] = "LC_ADDRESS",
+        [VARIABLE_LC_TELEPHONE] = "LC_TELEPHONE",
+        [VARIABLE_LC_MEASUREMENT] = "LC_MEASUREMENT",
+        [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
+};
 
 DEFINE_STRING_TABLE_LOOKUP(locale_variable, LocaleVariable);

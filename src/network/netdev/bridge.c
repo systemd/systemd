@@ -55,69 +55,81 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
 
         /* convert to jiffes */
         if (b->forward_delay != USEC_INFINITY) {
-                r = sd_netlink_message_append_u32(req, IFLA_BR_FORWARD_DELAY, usec_to_jiffies(b->forward_delay));
+                r = sd_netlink_message_append_u32(
+                        req, IFLA_BR_FORWARD_DELAY, usec_to_jiffies(b->forward_delay));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_FORWARD_DELAY attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_FORWARD_DELAY attribute: %m");
         }
 
         if (b->hello_time > 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_HELLO_TIME, usec_to_jiffies(b->hello_time));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_HELLO_TIME attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_HELLO_TIME attribute: %m");
         }
 
         if (b->max_age > 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_MAX_AGE, usec_to_jiffies(b->max_age));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MAX_AGE attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_MAX_AGE attribute: %m");
         }
 
         if (b->ageing_time != USEC_INFINITY) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_AGEING_TIME, usec_to_jiffies(b->ageing_time));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_AGEING_TIME attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_AGEING_TIME attribute: %m");
         }
 
         if (b->priority > 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_PRIORITY, b->priority);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_PRIORITY attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_PRIORITY attribute: %m");
         }
 
         if (b->group_fwd_mask > 0) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_GROUP_FWD_MASK, b->group_fwd_mask);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_GROUP_FWD_MASK attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_GROUP_FWD_MASK attribute: %m");
         }
 
         if (b->default_pvid != VLANID_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_BR_VLAN_DEFAULT_PVID, b->default_pvid);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_DEFAULT_PVID attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_VLAN_DEFAULT_PVID attribute: %m");
         }
 
         if (b->mcast_querier >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_QUERIER, b->mcast_querier);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_QUERIER attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_MCAST_QUERIER attribute: %m");
         }
 
         if (b->mcast_snooping >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_MCAST_SNOOPING, b->mcast_snooping);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_MCAST_SNOOPING attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_MCAST_SNOOPING attribute: %m");
         }
 
         if (b->vlan_filtering >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BR_VLAN_FILTERING, b->vlan_filtering);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_VLAN_FILTERING attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_VLAN_FILTERING attribute: %m");
         }
 
         if (b->stp >= 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BR_STP_STATE, b->stp);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BR_STP_STATE attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_BR_STP_STATE attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -128,7 +140,8 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler, netdev_destroy_callback, netdev);
+        r = netlink_call_async(
+                netdev->manager->rtnl, NULL, req, netdev_bridge_set_handler, netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 

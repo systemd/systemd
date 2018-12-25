@@ -35,8 +35,8 @@ union sockaddr_union {
         /* Ensure there is enough space to store Infiniband addresses */
         uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + CONST_MAX(ETH_ALEN, INFINIBAND_ALEN)];
 
-        /* Ensure there is enough space after the AF_UNIX sun_path for one more NUL byte, just to be sure that the path
-         * component is always followed by at least one NUL byte. */
+        /* Ensure there is enough space after the AF_UNIX sun_path for one more NUL byte, just to be sure
+         * that the path component is always followed by at least one NUL byte. */
         uint8_t un_buffer[sizeof(struct sockaddr_un) + 1];
 };
 
@@ -108,7 +108,8 @@ bool socket_ipv6_is_supported(void);
 
 int sockaddr_port(const struct sockaddr *_sa, unsigned *port);
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
+int sockaddr_pretty(
+        const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, bool include_port, char **ret);
 int getsockname_pretty(int fd, char **ret);
 
@@ -136,9 +137,16 @@ int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 
-ssize_t send_one_fd_iov_sa(int transport_fd, int fd, struct iovec *iov, size_t iovlen, const struct sockaddr *sa, socklen_t len, int flags);
+ssize_t send_one_fd_iov_sa(int transport_fd,
+                           int fd,
+                           struct iovec *iov,
+                           size_t iovlen,
+                           const struct sockaddr *sa,
+                           socklen_t len,
+                           int flags);
 int send_one_fd_sa(int transport_fd, int fd, const struct sockaddr *sa, socklen_t len, int flags);
-#define send_one_fd_iov(transport_fd, fd, iov, iovlen, flags) send_one_fd_iov_sa(transport_fd, fd, iov, iovlen, NULL, 0, flags)
+#define send_one_fd_iov(transport_fd, fd, iov, iovlen, flags) \
+        send_one_fd_iov_sa(transport_fd, fd, iov, iovlen, NULL, 0, flags)
 #define send_one_fd(transport_fd, fd, flags) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, NULL, 0, flags)
 ssize_t receive_one_fd_iov(int transport_fd, struct iovec *iov, size_t iovlen, int flags, int *ret_fd);
 int receive_one_fd(int transport_fd, int flags);

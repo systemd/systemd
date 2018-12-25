@@ -125,7 +125,8 @@ static int context_parse_ntp_services(Context *c) {
         if (!env) {
                 r = context_add_ntp_service(c, "systemd-timesyncd.service");
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add NTP service \"systemd-timesyncd.service\", ignoring: %m");
+                        log_warning_errno(
+                                r, "Failed to add NTP service \"systemd-timesyncd.service\", ignoring: %m");
 
                 return 0;
         }
@@ -201,7 +202,9 @@ static int context_read_data(Context *c) {
 
         r = get_timezone(&t);
         if (r == -EINVAL)
-                log_warning_errno(r, "/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
+                log_warning_errno(
+                        r,
+                        "/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
         else if (r < 0)
                 log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
 
@@ -291,7 +294,8 @@ static int context_write_data_local_rtc(Context *c) {
                 if (!w)
                         return -ENOMEM;
 
-                *(char *) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+                *(char *) mempcpy(
+                        stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
                         if (unlink("/etc/adjtime") < 0)
@@ -307,10 +311,12 @@ static int context_write_data_local_rtc(Context *c) {
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
-        static const struct bus_properties_map map[] = { { "LoadState", "s", NULL, offsetof(UnitStatusInfo, load_state) },
-                                                         { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
-                                                         { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
-                                                         {} };
+        static const struct bus_properties_map map[] = {
+                { "LoadState", "s", NULL, offsetof(UnitStatusInfo, load_state) },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
+                {}
+        };
         UnitStatusInfo *u;
         int r;
 
@@ -336,7 +342,8 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 if (!path)
                         return -ENOMEM;
 
-                r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, map, BUS_MAP_STRDUP, &error, NULL, u);
+                r = bus_map_all_properties(
+                        bus, "org.freedesktop.systemd1", path, map, BUS_MAP_STRDUP, &error, NULL, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
         }
@@ -367,8 +374,11 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                 n += !!u->path;
 
         if (n == 0) {
-                (void) sd_bus_emit_properties_changed(
-                        sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
+                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                                      "/org/freedesktop/timedate1",
+                                                      "org.freedesktop.timedate1",
+                                                      "NTP",
+                                                      NULL);
 
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
         }
@@ -449,8 +459,14 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload", error, NULL, NULL);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "Reload",
+                               error,
+                               NULL,
+                               NULL);
         if (r < 0)
                 return r;
 
@@ -460,8 +476,13 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_ntp_sync, "b", ntp_synced());
 
-static int property_get_rtc_time(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_rtc_time(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         struct tm tm;
         usec_t t;
@@ -484,8 +505,13 @@ static int property_get_rtc_time(
         return sd_bus_message_append(reply, "t", t);
 }
 
-static int property_get_can_ntp(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_can_ntp(sd_bus *bus,
+                                const char *path,
+                                const char *interface,
+                                const char *property,
+                                sd_bus_message *reply,
+                                void *userdata,
+                                sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -503,8 +529,13 @@ static int property_get_can_ntp(
         return sd_bus_message_append(reply, "b", context_ntp_service_exists(c) > 0);
 }
 
-static int property_get_ntp(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_ntp(sd_bus *bus,
+                            const char *path,
+                            const char *interface,
+                            const char *property,
+                            sd_bus_message *reply,
+                            void *userdata,
+                            sd_bus_error *error) {
 
         Context *c = userdata;
         int r;
@@ -540,8 +571,14 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-timezone", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_TIME,
+                                    "org.freedesktop.timedate1.set-timezone",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -589,8 +626,11 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                    daylight,
                    LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
 
-        (void) sd_bus_emit_properties_changed(
-                sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/timedate1",
+                                              "org.freedesktop.timedate1",
+                                              "Timezone",
+                                              NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -611,8 +651,14 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (lrtc == c->local_rtc)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-local-rtc", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_TIME,
+                                    "org.freedesktop.timedate1.set-local-rtc",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -675,8 +721,11 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
 
-        (void) sd_bus_emit_properties_changed(
-                sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "LocalRTC", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/timedate1",
+                                              "org.freedesktop.timedate1",
+                                              "LocalRTC",
+                                              NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -698,7 +747,9 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 return sd_bus_error_set_errnof(error, r, "Failed to update context: %m");
 
         if (context_ntp_service_is_active(c) > 0)
-                return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
+                return sd_bus_error_set(error,
+                                        BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED,
+                                        "Automatic time synchronization is enabled");
 
         /* this only gets used if dbus does not provide a timestamp */
         start = now(CLOCK_MONOTONIC);
@@ -726,8 +777,14 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-time", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_TIME,
+                                    "org.freedesktop.timedate1.set-time",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -788,8 +845,14 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         if (context_ntp_service_exists(c) <= 0)
                 return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
 
-        r = bus_verify_polkit_async(
-                m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-ntp", NULL, interactive, UID_INVALID, &c->polkit_registry, error);
+        r = bus_verify_polkit_async(m,
+                                    CAP_SYS_TIME,
+                                    "org.freedesktop.timedate1.set-ntp",
+                                    NULL,
+                                    interactive,
+                                    UID_INVALID,
+                                    &c->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -885,7 +948,11 @@ static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("LocalRTC", "b", bus_property_get_bool, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("LocalRTC",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Context, local_rtc),
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CanNTP", "b", property_get_can_ntp, 0, 0),
         SD_BUS_PROPERTY("NTP", "b", property_get_ntp, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NTPSynchronized", "b", property_get_ntp_sync, 0, 0),
@@ -911,7 +978,8 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
+        r = sd_bus_add_object_vtable(
+                bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 

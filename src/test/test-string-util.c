@@ -34,7 +34,13 @@ static void test_string_erase(void) {
 static void test_free_and_strndup_one(char **t, const char *src, size_t l, const char *expected, bool change) {
         int r;
 
-        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)", __func__, strnull(*t), strnull(src), l, strnull(expected), yes_no(change));
+        log_debug("%s: \"%s\", \"%s\", %zd (expect \"%s\", %s)",
+                  __func__,
+                  strnull(*t),
+                  strnull(src),
+                  l,
+                  strnull(expected),
+                  yes_no(change));
 
         r = free_and_strndup(t, src, l);
         assert_se(streq_ptr(*t, expected));
@@ -70,7 +76,11 @@ static void test_free_and_strndup(void) {
         const char *prev_expected = t;
 
         for (unsigned i = 0; i < ELEMENTSOF(cases); i++) {
-                test_free_and_strndup_one(&t, cases[i].src, cases[i].len, cases[i].expected, !streq_ptr(cases[i].expected, prev_expected));
+                test_free_and_strndup_one(&t,
+                                          cases[i].src,
+                                          cases[i].len,
+                                          cases[i].expected,
+                                          !streq_ptr(cases[i].expected, prev_expected));
                 prev_expected = t;
         }
 }
@@ -373,7 +383,9 @@ static void check(const char *test, char **expected, bool trailing) {
 }
 
 static void test_foreach_word_quoted(void) {
-        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"", STRV_MAKE("test", "a", "b", "c", "d", "e", "", "", "hhh", "", "", "a b c"), false);
+        check("test a b c 'd' e '' '' hhh '' '' \"a b c\"",
+              STRV_MAKE("test", "a", "b", "c", "d", "e", "", "", "hhh", "", "", "a b c"),
+              false);
 
         check("test \"xxx", STRV_MAKE("test"), true);
 

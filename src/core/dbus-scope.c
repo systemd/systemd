@@ -33,7 +33,10 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
 
         r = scope_abandon(s);
         if (r == -ESTALE)
-                return sd_bus_error_setf(error, BUS_ERROR_SCOPE_NOT_RUNNING, "Scope %s is not running, cannot abandon.", UNIT(s)->id);
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_SCOPE_NOT_RUNNING,
+                                         "Scope %s is not running, cannot abandon.",
+                                         UNIT(s)->id);
         if (r < 0)
                 return r;
 
@@ -44,15 +47,22 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResu
 
 const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Scope, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("TimeoutStopUSec",
+                        "t",
+                        bus_property_get_usec,
+                        offsetof(Scope, timeout_stop_usec),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "Result", "s", property_get_result, offsetof(Scope, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_SIGNAL("RequestStop", NULL, 0),
         SD_BUS_METHOD("Abandon", NULL, NULL, bus_scope_method_abandon, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
-static int bus_scope_set_transient_property(Scope *s, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+static int bus_scope_set_transient_property(
+        Scope *s, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         int r;
 
@@ -121,17 +131,22 @@ static int bus_scope_set_transient_property(Scope *s, const char *name, sd_bus_m
         } else if (streq(name, "Controller")) {
                 const char *controller;
 
-                /* We can't support direct connections with this, as direct connections know no service or unique name
-                 * concept, but the Controller field stores exactly that. */
+                /* We can't support direct connections with this, as direct connections know no service or
+                 * unique name concept, but the Controller field stores exactly that. */
                 if (sd_bus_message_get_bus(message) != UNIT(s)->manager->api_bus)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Sorry, Controller= logic only supported via the bus.");
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_NOT_SUPPORTED,
+                                                 "Sorry, Controller= logic only supported via the bus.");
 
                 r = sd_bus_message_read(message, "s", &controller);
                 if (r < 0)
                         return r;
 
                 if (!isempty(controller) && !service_name_is_valid(controller))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Controller '%s' is not a valid bus name.", controller);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Controller '%s' is not a valid bus name.",
+                                                 controller);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = free_and_strdup(&s->controller, empty_to_null(controller));
@@ -145,7 +160,8 @@ static int bus_scope_set_transient_property(Scope *s, const char *name, sd_bus_m
         return 0;
 }
 
-int bus_scope_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_scope_set_property(
+        Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Scope *s = SCOPE(u);
         int r;
@@ -196,7 +212,8 @@ int bus_scope_send_request_stop(Scope *s) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(UNIT(s)->manager->api_bus, &m, p, "org.freedesktop.systemd1.Scope", "RequestStop");
+        r = sd_bus_message_new_signal(
+                UNIT(s)->manager->api_bus, &m, p, "org.freedesktop.systemd1.Scope", "RequestStop");
         if (r < 0)
                 return r;
 

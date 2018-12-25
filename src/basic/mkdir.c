@@ -14,7 +14,8 @@
 #include "stdio-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
+int mkdir_safe_internal(
+        const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
         struct stat st;
         int r;
 
@@ -48,7 +49,8 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
                          path);
                 return -ENOTDIR;
         }
-        if ((st.st_mode & 0007) > (mode & 0007) || (st.st_mode & 0070) > (mode & 0070) || (st.st_mode & 0700) > (mode & 0700)) {
+        if ((st.st_mode & 0007) > (mode & 0007) || (st.st_mode & 0070) > (mode & 0070) ||
+            (st.st_mode & 0700) > (mode & 0700)) {
                 log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
                          "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
                          path,
@@ -64,7 +66,8 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
                 if (gid != UID_INVALID)
                         xsprintf(g, GID_FMT, gid);
                 log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
-                         "Directory \"%s\" already exists, but is owned by " UID_FMT ":" GID_FMT " (%s:%s was requested), refusing.",
+                         "Directory \"%s\" already exists, but is owned by " UID_FMT ":" GID_FMT
+                         " (%s:%s was requested), refusing.",
                          path,
                          st.st_uid,
                          st.st_gid,

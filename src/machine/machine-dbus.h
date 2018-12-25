@@ -8,7 +8,12 @@
 extern const sd_bus_vtable machine_vtable[];
 
 char *machine_bus_path(Machine *s);
-int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int machine_object_find(sd_bus *bus,
+                        const char *path,
+                        const char *interface,
+                        void *userdata,
+                        void **found,
+                        sd_bus_error *error);
 int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);

@@ -108,7 +108,8 @@ RawPull *raw_pull_unref(RawPull *i) {
         return mfree(i);
 }
 
-int raw_pull_new(RawPull **ret, sd_event *event, const char *image_root, RawPullFinished on_finished, void *userdata) {
+int raw_pull_new(
+        RawPull **ret, sd_event *event, const char *image_root, RawPullFinished on_finished, void *userdata) {
 
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -417,8 +418,8 @@ static int raw_pull_rename_auxiliary_file(RawPull *i, const char *suffix, char *
         assert(suffix);
         assert(path);
 
-        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and we should
-         * incorporate it in the file name if we can */
+        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and we
+         * should incorporate it in the file name if we can */
         *path = mfree(*path);
         r = raw_pull_determine_path(i, suffix, path);
         if (r < 0)
@@ -447,13 +448,16 @@ static void raw_pull_job_on_finished(PullJob *j) {
         i = j->userdata;
         if (j == i->roothash_job) {
                 if (j->error != 0)
-                        log_info_errno(j->error, "Root hash file could not be retrieved, proceeding without.");
+                        log_info_errno(j->error,
+                                       "Root hash file could not be retrieved, proceeding without.");
         } else if (j == i->settings_job) {
                 if (j->error != 0)
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
         } else if (j->error != 0 && j != i->signature_job) {
                 if (j == i->checksum_job)
-                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
+                        log_error_errno(
+                                j->error,
+                                "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
                 else
                         log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
 
@@ -471,8 +475,10 @@ static void raw_pull_job_on_finished(PullJob *j) {
         if (!raw_pull_is_done(i))
                 return;
 
-        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
-                log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY &&
+            i->signature_job->error != 0) {
+                log_error_errno(j->error,
+                                "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
 
                 r = i->signature_job->error;
                 goto finish;
@@ -493,7 +499,8 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 raw_pull_report_progress(i, RAW_VERIFYING);
 
-                r = pull_verify(i->raw_job, i->roothash_job, i->settings_job, i->checksum_job, i->signature_job);
+                r = pull_verify(
+                        i->raw_job, i->roothash_job, i->settings_job, i->checksum_job, i->signature_job);
                 if (r < 0)
                         goto finish;
 
@@ -518,13 +525,15 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 i->temp_path = mfree(i->temp_path);
 
                 if (i->roothash_job && i->roothash_job->error == 0) {
-                        r = raw_pull_rename_auxiliary_file(i, ".roothash", &i->roothash_temp_path, &i->roothash_path);
+                        r = raw_pull_rename_auxiliary_file(
+                                i, ".roothash", &i->roothash_temp_path, &i->roothash_path);
                         if (r < 0)
                                 goto finish;
                 }
 
                 if (i->settings_job && i->settings_job->error == 0) {
-                        r = raw_pull_rename_auxiliary_file(i, ".nspawn", &i->settings_temp_path, &i->settings_path);
+                        r = raw_pull_rename_auxiliary_file(
+                                i, ".nspawn", &i->settings_temp_path, &i->settings_path);
                         if (r < 0)
                                 goto finish;
                 }
@@ -625,7 +634,13 @@ static void raw_pull_job_on_progress(PullJob *j) {
         raw_pull_report_progress(i, RAW_DOWNLOADING);
 }
 
-int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings, bool roothash) {
+int raw_pull_start(RawPull *i,
+                   const char *url,
+                   const char *local,
+                   bool force_local,
+                   ImportVerify verify,
+                   bool settings,
+                   bool roothash) {
 
         int r;
 
@@ -666,7 +681,13 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
                 return r;
 
         if (roothash) {
-                r = pull_make_auxiliary_job(&i->roothash_job, url, raw_strip_suffixes, ".roothash", i->glue, raw_pull_job_on_finished, i);
+                r = pull_make_auxiliary_job(&i->roothash_job,
+                                            url,
+                                            raw_strip_suffixes,
+                                            ".roothash",
+                                            i->glue,
+                                            raw_pull_job_on_finished,
+                                            i);
                 if (r < 0)
                         return r;
 
@@ -676,7 +697,13 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
         }
 
         if (settings) {
-                r = pull_make_auxiliary_job(&i->settings_job, url, raw_strip_suffixes, ".nspawn", i->glue, raw_pull_job_on_finished, i);
+                r = pull_make_auxiliary_job(&i->settings_job,
+                                            url,
+                                            raw_strip_suffixes,
+                                            ".nspawn",
+                                            i->glue,
+                                            raw_pull_job_on_finished,
+                                            i);
                 if (r < 0)
                         return r;
 
@@ -685,7 +712,8 @@ int raw_pull_start(RawPull *i, const char *url, const char *local, bool force_lo
                 i->settings_job->calc_checksum = verify != IMPORT_VERIFY_NO;
         }
 
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
+        r = pull_make_verification_jobs(
+                &i->checksum_job, &i->signature_job, verify, url, i->glue, raw_pull_job_on_finished, i);
         if (r < 0)
                 return r;
 

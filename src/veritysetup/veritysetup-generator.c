@@ -34,7 +34,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
 
 static int create_device(void) {
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL, *root_hash_escaped = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL,
+                            *root_hash_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *to;
         int r;
@@ -190,7 +191,8 @@ static int determine_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse root hash: %s", arg_root_hash);
         if (l < sizeof(sd_id128_t)) {
-                log_debug("Root hash is shorter than 128 bits (32 characters), ignoring for discovering verity partition.");
+                log_debug(
+                        "Root hash is shorter than 128 bits (32 characters), ignoring for discovering verity partition.");
                 return 0;
         }
 
@@ -222,8 +224,8 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse kernel command line: %m");
 
-        /* For now we only support the root device on verity. Later on we might want to add support for /etc/veritytab
-         * or similar to define additional mappings */
+        /* For now we only support the root device on verity. Later on we might want to add support for
+         * /etc/veritytab or similar to define additional mappings */
 
         if (!arg_enabled)
                 return 0;

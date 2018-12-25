@@ -61,7 +61,8 @@ static uint32_t HEADER_HEADER_LENGTH(const Header *h) {
         return be32toh(h->header_length);
 }
 
-static int copy_cluster(int sfd, uint64_t soffset, int dfd, uint64_t doffset, uint64_t cluster_size, void *buffer) {
+static int copy_cluster(
+        int sfd, uint64_t soffset, int dfd, uint64_t doffset, uint64_t cluster_size, void *buffer) {
 
         ssize_t l;
         int r;
@@ -85,8 +86,14 @@ static int copy_cluster(int sfd, uint64_t soffset, int dfd, uint64_t doffset, ui
         return 0;
 }
 
-static int decompress_cluster(
-        int sfd, uint64_t soffset, int dfd, uint64_t doffset, uint64_t compressed_size, uint64_t cluster_size, void *buffer1, void *buffer2) {
+static int decompress_cluster(int sfd,
+                              uint64_t soffset,
+                              int dfd,
+                              uint64_t doffset,
+                              uint64_t compressed_size,
+                              uint64_t cluster_size,
+                              void *buffer1,
+                              void *buffer2) {
 
         _cleanup_free_ void *large_buffer = NULL;
         z_stream s = {};
@@ -135,7 +142,8 @@ static int decompress_cluster(
         return 0;
 }
 
-static int normalize_offset(const Header *header, uint64_t p, uint64_t *ret, bool *compressed, uint64_t *compressed_size) {
+static int normalize_offset(
+        const Header *header, uint64_t p, uint64_t *ret, bool *compressed, uint64_t *compressed_size) {
 
         uint64_t q;
 
@@ -288,10 +296,17 @@ int qcow2_convert(int qcow2_fd, int raw_fd) {
                                 continue;
 
                         if (compressed)
-                                r = decompress_cluster(
-                                        qcow2_fd, data_begin, raw_fd, p, compressed_size, HEADER_CLUSTER_SIZE(&header), buffer1, buffer2);
+                                r = decompress_cluster(qcow2_fd,
+                                                       data_begin,
+                                                       raw_fd,
+                                                       p,
+                                                       compressed_size,
+                                                       HEADER_CLUSTER_SIZE(&header),
+                                                       buffer1,
+                                                       buffer2);
                         else
-                                r = copy_cluster(qcow2_fd, data_begin, raw_fd, p, HEADER_CLUSTER_SIZE(&header), buffer1);
+                                r = copy_cluster(
+                                        qcow2_fd, data_begin, raw_fd, p, HEADER_CLUSTER_SIZE(&header), buffer1);
                         if (r < 0)
                                 return r;
                 }

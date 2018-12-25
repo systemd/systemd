@@ -64,7 +64,8 @@ int writer_write(Writer *w, struct iovec_wrapper *iovw, dual_timestamp *ts, bool
         assert(iovw->count > 0);
 
         if (journal_file_rotate_suggested(w->journal, 0)) {
-                log_info("%s: Journal header limits reached or header out-of-date, rotating", w->journal->path);
+                log_info("%s: Journal header limits reached or header out-of-date, rotating",
+                         w->journal->path);
                 r = do_rotate(&w->journal, compress, seal);
                 if (r < 0)
                         return r;

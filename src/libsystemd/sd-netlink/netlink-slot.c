@@ -9,8 +9,13 @@
 #include "netlink-slot.h"
 #include "string-util.h"
 
-int netlink_slot_allocate(
-        sd_netlink *nl, bool floating, NetlinkSlotType type, size_t extra, void *userdata, const char *description, sd_netlink_slot **ret) {
+int netlink_slot_allocate(sd_netlink *nl,
+                          bool floating,
+                          NetlinkSlotType type,
+                          size_t extra,
+                          void *userdata,
+                          const char *description,
+                          sd_netlink_slot **ret) {
 
         _cleanup_free_ sd_netlink_slot *slot = NULL;
 
@@ -58,7 +63,9 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
                 (void) hashmap_remove(nl->reply_callbacks, &slot->reply_callback.serial);
 
                 if (slot->reply_callback.timeout != 0)
-                        prioq_remove(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
+                        prioq_remove(nl->reply_callbacks_prioq,
+                                     &slot->reply_callback,
+                                     &slot->reply_callback.prioq_idx);
 
                 break;
         case NETLINK_MATCH_CALLBACK:

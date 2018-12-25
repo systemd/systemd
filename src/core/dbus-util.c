@@ -8,8 +8,13 @@
 #include "user-util.h"
 #include "unit.h"
 
-int bus_property_get_triggered_unit(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+int bus_property_get_triggered_unit(sd_bus *bus,
+                                    const char *path,
+                                    const char *interface,
+                                    const char *property,
+                                    sd_bus_message *reply,
+                                    void *userdata,
+                                    sd_bus_error *error) {
 
         Unit *u = userdata, *trigger;
 
@@ -27,7 +32,12 @@ BUS_DEFINE_SET_TRANSIENT(unsigned, "u", uint32_t, unsigned, "%" PRIu32);
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(user, valid_user_group_name_or_id);
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(path, path_is_absolute);
 
-int bus_set_transient_string(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_set_transient_string(Unit *u,
+                             const char *name,
+                             char **p,
+                             sd_bus_message *message,
+                             UnitWriteFlags flags,
+                             sd_bus_error *error) {
 
         const char *v;
         int r;
@@ -49,7 +59,12 @@ int bus_set_transient_string(Unit *u, const char *name, char **p, sd_bus_message
         return 1;
 }
 
-int bus_set_transient_bool(Unit *u, const char *name, bool *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_set_transient_bool(Unit *u,
+                           const char *name,
+                           bool *p,
+                           sd_bus_message *message,
+                           UnitWriteFlags flags,
+                           sd_bus_error *error) {
 
         int v, r;
 
@@ -67,8 +82,13 @@ int bus_set_transient_bool(Unit *u, const char *name, bool *p, sd_bus_message *m
         return 1;
 }
 
-int bus_set_transient_usec_internal(
-        Unit *u, const char *name, usec_t *p, bool fix_0, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_set_transient_usec_internal(Unit *u,
+                                    const char *name,
+                                    usec_t *p,
+                                    bool fix_0,
+                                    sd_bus_message *message,
+                                    UnitWriteFlags flags,
+                                    sd_bus_error *error) {
 
         uint64_t v;
         int r;
@@ -88,7 +108,8 @@ int bus_set_transient_usec_internal(
                         *p = v;
 
                 n = strndupa(name, strlen(name) - 4);
-                unit_write_settingf(u, flags, name, "%sSec=%s", n, format_timespan(ts, sizeof(ts), v, USEC_PER_MSEC));
+                unit_write_settingf(
+                        u, flags, name, "%sSec=%s", n, format_timespan(ts, sizeof(ts), v, USEC_PER_MSEC));
         }
 
         return 1;

@@ -95,7 +95,8 @@ int expose_port_flush(ExposePort *l, union in_addr_union *exposed) {
         log_debug("Lost IP address.");
 
         LIST_FOREACH(ports, p, l) {
-                r = fw_add_local_dnat(false, af, p->protocol, NULL, NULL, 0, NULL, 0, p->host_port, exposed, p->container_port, NULL);
+                r = fw_add_local_dnat(
+                        false, af, p->protocol, NULL, NULL, 0, NULL, 0, p->host_port, exposed, p->container_port, NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to modify firewall: %m");
         }
@@ -177,7 +178,11 @@ int expose_port_send_rtnl(int send_fd) {
         return 0;
 }
 
-int expose_port_watch_rtnl(sd_event *event, int recv_fd, sd_netlink_message_handler_t handler, union in_addr_union *exposed, sd_netlink **ret) {
+int expose_port_watch_rtnl(sd_event *event,
+                           int recv_fd,
+                           sd_netlink_message_handler_t handler,
+                           union in_addr_union *exposed,
+                           sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
 

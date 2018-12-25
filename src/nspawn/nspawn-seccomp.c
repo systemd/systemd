@@ -20,8 +20,11 @@
 
 #if HAVE_SECCOMP
 
-static int seccomp_add_default_syscall_filter(
-        scmp_filter_ctx ctx, uint32_t arch, uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
+static int seccomp_add_default_syscall_filter(scmp_filter_ctx ctx,
+                                              uint32_t arch,
+                                              uint64_t cap_list_retain,
+                                              char **syscall_whitelist,
+                                              char **syscall_blacklist) {
 
         static const struct {
                 uint64_t capability;
@@ -144,15 +147,20 @@ static int seccomp_add_default_syscall_filter(
                 if (whitelist[i].capability != 0 && (cap_list_retain & (1ULL << whitelist[i].capability)) == 0)
                         continue;
 
-                r = seccomp_add_syscall_filter_item(ctx, whitelist[i].name, SCMP_ACT_ALLOW, syscall_blacklist, false);
+                r = seccomp_add_syscall_filter_item(
+                        ctx, whitelist[i].name, SCMP_ACT_ALLOW, syscall_blacklist, false);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", whitelist[i].name);
+                        return log_error_errno(
+                                r, "Failed to add syscall filter item %s: %m", whitelist[i].name);
         }
 
         STRV_FOREACH (p, syscall_whitelist) {
                 r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, false);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m", *p, seccomp_arch_to_string(arch));
+                        log_warning_errno(r,
+                                          "Failed to add rule for system call %s on %s, ignoring: %m",
+                                          *p,
+                                          seccomp_arch_to_string(arch));
         }
 
         return 0;
@@ -176,7 +184,8 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-                r = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain, syscall_whitelist, syscall_blacklist);
+                r = seccomp_add_default_syscall_filter(
+                        seccomp, arch, cap_list_retain, syscall_whitelist, syscall_blacklist);
                 if (r < 0)
                         return r;
 
@@ -184,7 +193,9 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                 if (IN_SET(r, -EPERM, -EACCES))
                         return log_error_errno(r, "Failed to install seccomp filter: %m");
                 if (r < 0)
-                        log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        log_debug_errno(r,
+                                        "Failed to install filter set for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
         }
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
@@ -197,11 +208,11 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
                 /*
-                  Audit is broken in containers, much of the userspace audit hookup will fail if running inside a
-                  container. We don't care and just turn off creation of audit sockets.
+                  Audit is broken in containers, much of the userspace audit hookup will fail if running
+                  inside a container. We don't care and just turn off creation of audit sockets.
 
-                  This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail with EAFNOSUPPORT which audit userspace uses
-                  as indication that audit is disabled in the kernel.
+                  This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail with EAFNOSUPPORT which audit
+                  userspace uses as indication that audit is disabled in the kernel.
                 */
 
                 r = seccomp_rule_add_exact(seccomp,
@@ -219,7 +230,9 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                 if (IN_SET(r, -EPERM, -EACCES))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 if (r < 0)
-                        log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        log_debug_errno(r,
+                                        "Failed to install filter set for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
         }
 
         return 0;

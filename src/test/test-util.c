@@ -60,7 +60,8 @@ static void test_max(void) {
         unsigned long x = 12345;
         unsigned long y = 54321;
         const char str[] = "a_string_constant";
-        const unsigned long long arr[] = { 9999ULL, 10ULL, 0ULL, 3000ULL, 2000ULL, 1000ULL, 100ULL, 9999999ULL };
+        const unsigned long long arr[] = { 9999ULL, 10ULL,   0ULL,   3000ULL,
+                                           2000ULL, 1000ULL, 100ULL, 9999999ULL };
         void *p = (void *) str;
         void *q = (void *) &str[16];
 

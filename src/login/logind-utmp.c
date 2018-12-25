@@ -158,8 +158,13 @@ int manager_setup_wall_message_timer(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
         } else {
-                r = sd_event_add_time(
-                        m->event, &m->wall_message_timeout_source, CLOCK_REALTIME, n + elapse, 0, wall_message_timeout_handler, m);
+                r = sd_event_add_time(m->event,
+                                      &m->wall_message_timeout_source,
+                                      CLOCK_REALTIME,
+                                      n + elapse,
+                                      0,
+                                      wall_message_timeout_handler,
+                                      m);
                 if (r < 0)
                         return log_error_errno(r, "sd_event_add_time() failed. %m");
         }

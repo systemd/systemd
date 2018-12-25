@@ -76,17 +76,28 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
 
 static void test_path_get_user_unit(void) {
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service",
+                      0,
+                      "foobar.service");
+        check_p_g_u_u(
+                "/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux",
+                      0,
+                      "foobar.service");
         check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -ENXIO, NULL);
-        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po",
+                      0,
+                      "foobar@pie.service");
         check_p_g_u_u("/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
-        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po",
+                      0,
+                      "foobar@pie.service");
         check_p_g_u_u("/meh.service", -ENXIO, NULL);
         check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/server.service", 0, "server.service");
-        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service", 0, "foobar@pie.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/user@1000.service/foobar.slice/foobar@pie.service",
+                      0,
+                      "foobar@pie.service");
         check_p_g_u_u("/user.slice/user-1000.slice/user@.service/server.service", -ENXIO, NULL);
 }
 
@@ -154,8 +165,12 @@ static void test_path_get_user_slice(void) {
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
-        check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
+        check_p_g_u_slice(
+                "foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
+        check_p_g_u_slice(
+                "/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service",
+                0,
+                "piep-pap.slice");
 }
 
 static void test_get_paths(void) {
@@ -174,8 +189,8 @@ static void test_proc(void) {
         assert_se(d);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL,
-                                    *slice = NULL;
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL,
+                                    *user_unit = NULL, *machine = NULL, *slice = NULL;
                 pid_t pid;
                 uid_t uid = UID_INVALID;
 
@@ -198,7 +213,16 @@ static void test_proc(void) {
                 cg_pid_get_machine_name(pid, &machine);
                 cg_pid_get_slice(pid, &slice);
 
-                printf(PID_FMT "\t%s\t%s\t" UID_FMT "\t%s\t%s\t%s\t%s\t%s\n", pid, path, path_shifted, uid, session, unit, user_unit, machine, slice);
+                printf(PID_FMT "\t%s\t%s\t" UID_FMT "\t%s\t%s\t%s\t%s\t%s\n",
+                       pid,
+                       path,
+                       path_shifted,
+                       uid,
+                       session,
+                       unit,
+                       user_unit,
+                       machine,
+                       slice);
         }
 }
 
@@ -265,7 +289,8 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("foo--bar.slice", NULL, -EINVAL);
         test_slice_to_path_one("foo.slice/foo--bar.slice", NULL, -EINVAL);
         test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
-        test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+        test_slice_to_path_one(
+                "a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
 
         test_slice_to_path_one("foobar@.slice", NULL, -EINVAL);
         test_slice_to_path_one("foobar@waldo.slice", NULL, -EINVAL);
@@ -300,7 +325,9 @@ static void test_mask_supported(void) {
         assert_se(cg_mask_supported(&m) >= 0);
 
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                printf("'%s' is supported: %s\n", cgroup_controller_to_string(c), yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
+                printf("'%s' is supported: %s\n",
+                       cgroup_controller_to_string(c),
+                       yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
 static void test_is_cgroup_fs(void) {
@@ -424,21 +451,40 @@ static void test_cg_get_keyed_attribute(void) {
                 return;
         }
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) ==
+                  -ENXIO);
         assert_se(val == NULL);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         log_info("cpu /init.scope cpu.stat [usage_usec] → \"%s\"", val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute(
+                          "cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) ==
+                  -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute(
+                          "cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) ==
+                  -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
-        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"", vals3[0], vals3[1], vals3[2]);
+        assert_se(cg_get_keyed_attribute("cpu",
+                                         "/init.scope",
+                                         "cpu.stat",
+                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"),
+                                         vals3) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3[0],
+                 vals3[1],
+                 vals3[2]);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
-        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"", vals3a[0], vals3a[1], vals3a[2]);
+        assert_se(cg_get_keyed_attribute("cpu",
+                                         "/init.scope",
+                                         "cpu.stat",
+                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"),
+                                         vals3a) == 0);
+        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3a[0],
+                 vals3a[1],
+                 vals3a[2]);
 
         for (i = 0; i < 3; i++) {
                 free(vals3[i]);

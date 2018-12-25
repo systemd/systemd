@@ -91,7 +91,11 @@ TarImport *tar_import_unref(TarImport *i) {
         return mfree(i);
 }
 
-int tar_import_new(TarImport **ret, sd_event *event, const char *image_root, TarImportFinished on_finished, void *userdata) {
+int tar_import_new(TarImport **ret,
+                   sd_event *event,
+                   const char *image_root,
+                   TarImportFinished on_finished,
+                   void *userdata) {
 
         _cleanup_(tar_import_unrefp) TarImport *i = NULL;
         _cleanup_free_ char *root = NULL;

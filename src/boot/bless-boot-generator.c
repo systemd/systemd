@@ -13,9 +13,9 @@
 #include "util.h"
 #include "virt.h"
 
-/* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath" EFI
- * variable is set, i.e. the system boots up with boot counting in effect, which means we should mark the boot as
- * "good" if we manage to boot up far enough. */
+/* This generator pulls systemd-bless-boot.service into the initial transaction if the "LoaderBootCountPath"
+ * EFI variable is set, i.e. the system boots up with boot counting in effect, which means we should mark the
+ * boot as "good" if we manage to boot up far enough. */
 
 static const char *arg_dest = "/tmp";
 
@@ -47,10 +47,12 @@ int main(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        if (access("/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
+        if (access("/sys/firmware/efi/efivars/LoaderBootCountPath-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f",
+                   F_OK) < 0) {
 
                 if (errno == ENOENT) {
-                        log_debug_errno(errno, "Skipping generator, not booted with boot counting in effect.");
+                        log_debug_errno(errno,
+                                        "Skipping generator, not booted with boot counting in effect.");
                         return EXIT_SUCCESS;
                 }
 
@@ -58,8 +60,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        /* We pull this in from basic.target so that it ends up in all "regular" boot ups, but not in rescue.target or
-         * even emergency.target. */
+        /* We pull this in from basic.target so that it ends up in all "regular" boot ups, but not in
+         * rescue.target or even emergency.target. */
         p = strjoina(arg_dest, "/" SPECIAL_BASIC_TARGET ".wants/systemd-bless-boot.service");
         (void) mkdir_parents(p, 0755);
         if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-bless-boot.service", p) < 0) {

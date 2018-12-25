@@ -108,10 +108,10 @@ struct ExecCommand {
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
 };
 
-/* Encapsulates certain aspects of the runtime environment that is to be shared between multiple otherwise separate
- * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
- * between invocations of commands. This is a reference counted object, with one reference taken by each currently
- * active command invocation that wants to share this runtime. */
+/* Encapsulates certain aspects of the runtime environment that is to be shared between multiple otherwise
+ * separate invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as
+ * network namespaces between invocations of commands. This is a reference counted object, with one reference
+ * taken by each currently active command invocation that wants to share this runtime. */
 struct ExecRuntime {
         unsigned n_ref;
 
@@ -122,8 +122,8 @@ struct ExecRuntime {
         char *tmp_dir;
         char *var_tmp_dir;
 
-        /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the network
-         * namespace. */
+        /* An AF_UNIX socket pair, that contains a datagram containing a file descriptor referring to the
+         * network namespace. */
         int netns_storage_socket[2];
 };
 
@@ -143,9 +143,9 @@ typedef struct ExecDirectory {
         mode_t mode;
 } ExecDirectory;
 
-/* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
- * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
- * change after being loaded. */
+/* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only
+ * configuration changes sourced from unit files and suchlike. ExecContext objects are usually embedded into
+ * Unit objects, and do not change after being loaded. */
 struct ExecContext {
         char **environment;
         char **environment_files;
@@ -297,13 +297,17 @@ typedef enum ExecFlags
         EXEC_APPLY_SANDBOXING = 1 << 0,
         EXEC_APPLY_CHROOT = 1 << 1,
         EXEC_APPLY_TTY_STDIN = 1 << 2,
-        EXEC_PASS_LOG_UNIT = 1 << 3,     /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS = 1 << 5,    /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_PASS_LOG_UNIT = 1
+                << 3, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES = 1
+                << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_BYPASS_BUS = 1
+                << 5, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
         EXEC_CGROUP_DELEGATE = 1 << 6,
         EXEC_IS_CONTROL = 1 << 7,
-        EXEC_CONTROL_CGROUP = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only
-                                         EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_CONTROL_CGROUP = 1
+                << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but
+                         only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
 
         /* The following are not used by execute.c, but by consumers internally */
         EXEC_PASS_FDS = 1 << 9,
@@ -311,8 +315,8 @@ typedef enum ExecFlags
         EXEC_SET_WATCHDOG = 1 << 11,
 } ExecFlags;
 
-/* Parameters for a specific invocation of a command. This structure is put together right before a command is
- * executed. */
+/* Parameters for a specific invocation of a command. This structure is put together right before a command
+ * is executed. */
 struct ExecParameters {
         char **environment;
 

@@ -248,7 +248,8 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode, size_t 
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len) {
         DHCP6StatusOption *statusopt = (DHCP6StatusOption *) option;
 
-        if (len < sizeof(DHCP6StatusOption) || be16toh(option->len) + offsetof(DHCP6Option, data) < sizeof(DHCP6StatusOption))
+        if (len < sizeof(DHCP6StatusOption) ||
+            be16toh(option->len) + offsetof(DHCP6Option, data) < sizeof(DHCP6StatusOption))
                 return -ENOBUFS;
 
         return be16toh(statusopt->status);
@@ -268,14 +269,18 @@ static int dhcp6_option_parse_address(DHCP6Option *option, DHCP6IA *ia, uint32_t
 
         if (lt_valid == 0 || lt_pref > lt_valid) {
                 log_dhcp6_client(
-                        client, "Valid lifetime of an IA address is zero or preferred lifetime %d > valid lifetime %d", lt_pref, lt_valid);
+                        client,
+                        "Valid lifetime of an IA address is zero or preferred lifetime %d > valid lifetime %d",
+                        lt_pref,
+                        lt_valid);
 
                 return 0;
         }
 
         if (be16toh(option->len) + offsetof(DHCP6Option, data) > sizeof(*addr_option)) {
                 r = dhcp6_option_parse_status((DHCP6Option *) addr_option->options,
-                                              be16toh(option->len) + offsetof(DHCP6Option, data) - sizeof(*addr_option));
+                                              be16toh(option->len) + offsetof(DHCP6Option, data) -
+                                                      sizeof(*addr_option));
                 if (r != 0)
                         return r < 0 ? r : 0;
         }
@@ -308,14 +313,18 @@ static int dhcp6_option_parse_pdprefix(DHCP6Option *option, DHCP6IA *ia, uint32_
 
         if (lt_valid == 0 || lt_pref > lt_valid) {
                 log_dhcp6_client(
-                        client, "Valid lifetieme of a PD prefix is zero or preferred lifetime %d > valid lifetime %d", lt_pref, lt_valid);
+                        client,
+                        "Valid lifetieme of a PD prefix is zero or preferred lifetime %d > valid lifetime %d",
+                        lt_pref,
+                        lt_valid);
 
                 return 0;
         }
 
         if (be16toh(option->len) + offsetof(DHCP6Option, data) > sizeof(*pdprefix_option)) {
                 r = dhcp6_option_parse_status((DHCP6Option *) pdprefix_option->options,
-                                              be16toh(option->len) + offsetof(DHCP6Option, data) - sizeof(*pdprefix_option));
+                                              be16toh(option->len) + offsetof(DHCP6Option, data) -
+                                                      sizeof(*pdprefix_option));
                 if (r != 0)
                         return r < 0 ? r : 0;
         }
@@ -472,7 +481,8 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                         ia->ia_na.lifetime_t1 = htobe32(lt_t1);
                         ia->ia_na.lifetime_t2 = htobe32(lt_t2);
 
-                        log_dhcp6_client(client, "Computed IA NA T1 %ds and T2 %ds as both were zero", lt_t1, lt_t2);
+                        log_dhcp6_client(
+                                client, "Computed IA NA T1 %ds and T2 %ds as both were zero", lt_t1, lt_t2);
                 }
 
                 break;
@@ -484,7 +494,8 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                         ia->ia_pd.lifetime_t1 = htobe32(lt_t1);
                         ia->ia_pd.lifetime_t2 = htobe32(lt_t2);
 
-                        log_dhcp6_client(client, "Computed IA PD T1 %ds and T2 %ds as both were zero", lt_t1, lt_t2);
+                        log_dhcp6_client(
+                                client, "Computed IA PD T1 %ds and T2 %ds as both were zero", lt_t1, lt_t2);
                 }
 
                 break;
@@ -496,7 +507,8 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
         return 0;
 }
 
-int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen, struct in6_addr **addrs, size_t count, size_t *allocated) {
+int dhcp6_option_parse_ip6addrs(
+        uint8_t *optval, uint16_t optlen, struct in6_addr **addrs, size_t count, size_t *allocated) {
 
         if (optlen == 0 || optlen % sizeof(struct in6_addr) != 0)
                 return -EINVAL;

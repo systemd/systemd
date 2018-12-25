@@ -180,7 +180,8 @@ static void test_chase_symlinks(void) {
         assert_se(streq(result, "/etc"));
         result = mfree(result);
 
-        r = chase_symlinks("/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &result);
+        r = chase_symlinks(
+                "/../.././//../../test-chase.fsldajfl", "/", CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &result);
         assert_se(r == 0);
         assert_se(streq(result, "/test-chase.fsldajfl"));
         result = mfree(result);
@@ -581,7 +582,8 @@ static void test_touch_file(void) {
                 a = strjoina(p, "/cdev");
                 r = mknod(a, 0775 | S_IFCHR, makedev(0, 0));
                 if (r < 0 && errno == EPERM && detect_container() > 0) {
-                        log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
+                        log_notice("Running in unprivileged container? Skipping remaining tests in %s",
+                                   __func__);
                         return;
                 }
                 assert_se(r >= 0);

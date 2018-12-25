@@ -113,8 +113,12 @@ static int journal_file_empty(int dir_fd, const char *name) {
         return le64toh(n_entries) <= 0;
 }
 
-int journal_directory_vacuum(
-        const char *directory, uint64_t max_use, uint64_t n_max_files, usec_t max_retention_usec, usec_t *oldest_usec, bool verbose) {
+int journal_directory_vacuum(const char *directory,
+                             uint64_t max_use,
+                             uint64_t n_max_files,
+                             usec_t max_retention_usec,
+                             usec_t *oldest_usec,
+                             bool verbose) {
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, n_allocated = 0, i;
@@ -148,7 +152,8 @@ int journal_directory_vacuum(
                 size_t q;
 
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                        log_debug_errno(errno, "Failed to stat file %s while vacuuming, ignoring: %m", de->d_name);
+                        log_debug_errno(
+                                errno, "Failed to stat file %s while vacuuming, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -185,7 +190,10 @@ int journal_directory_vacuum(
                                 continue;
                         }
 
-                        if (sscanf(de->d_name + q - 8 - 16 - 1 - 16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
+                        if (sscanf(de->d_name + q - 8 - 16 - 1 - 16,
+                                   "%16llx-%16llx.journal",
+                                   &seqnum,
+                                   &realtime) != 2) {
                                 n_active_files++;
                                 continue;
                         }
@@ -202,7 +210,8 @@ int journal_directory_vacuum(
                                 continue;
                         }
 
-                        if (de->d_name[q - 1 - 8 - 16 - 1] != '-' || de->d_name[q - 1 - 8 - 16 - 1 - 16 - 1] != '@') {
+                        if (de->d_name[q - 1 - 8 - 16 - 1] != '-' ||
+                            de->d_name[q - 1 - 8 - 16 - 1 - 16 - 1] != '@') {
                                 n_active_files++;
                                 continue;
                         }
@@ -213,7 +222,10 @@ int journal_directory_vacuum(
                                 goto finish;
                         }
 
-                        if (sscanf(de->d_name + q - 1 - 8 - 16 - 1 - 16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
+                        if (sscanf(de->d_name + q - 1 - 8 - 16 - 1 - 16,
+                                   "%16llx-%16llx.journal~",
+                                   &realtime,
+                                   &tmp) != 2) {
                                 n_active_files++;
                                 continue;
                         }
@@ -246,7 +258,8 @@ int journal_directory_vacuum(
 
                                 freed += size;
                         } else if (r != -ENOENT)
-                                log_warning_errno(r, "Failed to delete empty archived journal %s/%s: %m", directory, p);
+                                log_warning_errno(
+                                        r, "Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         continue;
                 }
@@ -277,8 +290,8 @@ int journal_directory_vacuum(
 
                 left = n_active_files + n_list - i;
 
-                if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) && (max_use <= 0 || sum <= max_use) &&
-                    (n_max_files <= 0 || left <= n_max_files))
+                if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
+                    (max_use <= 0 || sum <= max_use) && (n_max_files <= 0 || left <= n_max_files))
                         break;
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
@@ -296,7 +309,8 @@ int journal_directory_vacuum(
                                 sum = 0;
 
                 } else if (r != -ENOENT)
-                        log_warning_errno(r, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                        log_warning_errno(
+                                r, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))

@@ -13,7 +13,12 @@ static void print_local_addresses(struct local_address *a, unsigned n) {
                 _cleanup_free_ char *b = NULL;
 
                 assert_se(in_addr_to_string(a[i].family, &a[i].address, &b) >= 0);
-                printf("%s if%i scope=%i metric=%u address=%s\n", af_to_name(a[i].family), a[i].ifindex, a[i].scope, a[i].metric, b);
+                printf("%s if%i scope=%i metric=%u address=%s\n",
+                       af_to_name(a[i].family),
+                       a[i].ifindex,
+                       a[i].scope,
+                       a[i].metric,
+                       b);
         }
 }
 

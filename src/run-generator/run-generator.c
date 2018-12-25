@@ -115,7 +115,8 @@ static int generate(void) {
         /* And now redirect default.target to our new target */
         p = strjoina(arg_dest, "/default.target");
         if (symlink("kernel-command-line.target", p) < 0)
-                return log_error_errno(errno, "Failed to link unit file kernel-command-line.target → %s: %m", p);
+                return log_error_errno(
+                        errno, "Failed to link unit file kernel-command-line.target → %s: %m", p);
 
         return 0;
 }

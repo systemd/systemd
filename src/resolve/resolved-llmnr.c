@@ -60,7 +60,8 @@ int manager_llmnr_start(Manager *m) {
         return 0;
 
 eaddrinuse:
-        log_warning("Another LLMNR responder prohibits binding the socket to the same port. Turning off LLMNR support.");
+        log_warning(
+                "Another LLMNR responder prohibits binding the socket to the same port. Turning off LLMNR support.");
         m->llmnr_support = RESOLVE_SUPPORT_NO;
         manager_llmnr_stop(m);
 

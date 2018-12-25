@@ -44,7 +44,9 @@ int journal_file_append_tag(JournalFile *f) {
         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
 
-        log_debug("Writing tag %" PRIu64 " for epoch %" PRIu64 "", le64toh(o->tag.seqnum), FSPRG_GetEpoch(f->fsprg_state));
+        log_debug("Writing tag %" PRIu64 " for epoch %" PRIu64 "",
+                  le64toh(o->tag.seqnum),
+                  FSPRG_GetEpoch(f->fsprg_state));
 
         /* Add the tag object itself, so that we can protect its
          * header. This will exclude the actual hash value in it */
@@ -238,18 +240,21 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
                 gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
+                gcry_md_write(
+                        f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
                 break;
 
         case OBJECT_FIELD:
                 /* Same here */
                 gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
+                gcry_md_write(
+                        f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
                 break;
 
         case OBJECT_ENTRY:
                 /* All */
-                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
+                gcry_md_write(
+                        f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:
@@ -291,7 +296,8 @@ int journal_file_hmac_put_header(JournalFile *f) {
 
         gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
         gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
-        gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
+        gcry_md_write(
+                f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
         gcry_md_write(f->hmac,
                       &f->header->data_hash_table_offset,
                       offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));

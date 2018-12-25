@@ -267,7 +267,8 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
                 if (r > 0) {
 
                         if (soa) {
-                                r = dns_name_endswith(dns_resource_key_name(rr->key), dns_resource_key_name(soa->key));
+                                r = dns_name_endswith(dns_resource_key_name(rr->key),
+                                                      dns_resource_key_name(soa->key));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -290,7 +291,10 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
         return 1;
 }
 
-int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
+int dns_answer_find_cname_or_dname(DnsAnswer *a,
+                                   const DnsResourceKey *key,
+                                   DnsResourceRecord **ret,
+                                   DnsAnswerFlags *flags) {
         DnsResourceRecord *rr;
         DnsAnswerFlags rr_flags;
         int r;
@@ -439,7 +443,9 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
                         /* Kill this entry */
 
                         dns_resource_record_unref((*a)->items[i].rr);
-                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
+                        memmove((*a)->items + i,
+                                (*a)->items + i + 1,
+                                sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
                         (*a)->n_rrs--;
                         continue;
 
@@ -524,7 +530,9 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
                         /* Kill this entry */
 
                         dns_resource_record_unref((*a)->items[i].rr);
-                        memmove((*a)->items + i, (*a)->items + i + 1, sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
+                        memmove((*a)->items + i,
+                                (*a)->items + i + 1,
+                                sizeof(DnsAnswerItem) * ((*a)->n_rrs - i - 1));
                         (*a)->n_rrs--;
                         continue;
 
@@ -602,9 +610,11 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
 
                 if (a->items[i].rr->key->class == DNS_CLASS_IN &&
                     ((a->items[i].rr->key->type == DNS_TYPE_A &&
-                      in_addr_is_link_local(AF_INET, (union in_addr_union *) &a->items[i].rr->a.in_addr) != prefer_link_local) ||
+                      in_addr_is_link_local(AF_INET, (union in_addr_union *) &a->items[i].rr->a.in_addr) !=
+                              prefer_link_local) ||
                      (a->items[i].rr->key->type == DNS_TYPE_AAAA &&
-                      in_addr_is_link_local(AF_INET6, (union in_addr_union *) &a->items[i].rr->aaaa.in6_addr) != prefer_link_local)))
+                      in_addr_is_link_local(AF_INET6, (union in_addr_union *) &a->items[i].rr->aaaa.in6_addr) !=
+                              prefer_link_local)))
                         /* Order address records that are not preferred to the end of the array */
                         items[end--] = a->items[i];
                 else
@@ -706,7 +716,8 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
 
                 fputs(t, f);
 
-                if (ifindex != 0 || flags & (DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER))
+                if (ifindex != 0 ||
+                    flags & (DNS_ANSWER_AUTHENTICATED | DNS_ANSWER_CACHEABLE | DNS_ANSWER_SHARED_OWNER))
                         fputs("\t;", f);
 
                 if (ifindex != 0)
@@ -728,8 +739,8 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
 
         assert(cname);
 
-        /* Checks whether the answer contains a DNAME record that indicates that the specified CNAME record is
-         * synthesized from it */
+        /* Checks whether the answer contains a DNAME record that indicates that the specified CNAME record
+         * is synthesized from it */
 
         if (cname->key->type != DNS_TYPE_CNAME)
                 return 0;
@@ -742,7 +753,8 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
                 if (rr->key->class != cname->key->class)
                         continue;
 
-                r = dns_name_change_suffix(cname->cname.name, rr->dname.name, dns_resource_key_name(rr->key), &n);
+                r = dns_name_change_suffix(
+                        cname->cname.name, rr->dname.name, dns_resource_key_name(rr->key), &n);
                 if (r < 0)
                         return r;
                 if (r == 0)

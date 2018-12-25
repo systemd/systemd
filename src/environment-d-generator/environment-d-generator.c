@@ -47,13 +47,13 @@ static int load_and_print(void) {
         /* This will mutate the existing environment, based on the presumption
          * that in case of failure, a partial update is better than none. */
 
-        STRV_FOREACH(i, files) {
+        STRV_FOREACH (i, files) {
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)
                         return r;
         }
 
-        STRV_FOREACH(i, env) {
+        STRV_FOREACH (i, env) {
                 char *t;
                 _cleanup_free_ char *q = NULL;
 

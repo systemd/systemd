@@ -5,7 +5,12 @@
 #include "sd-dhcp-server.c"
 
 /* stub out network so that the server doesn't send */
-ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
+ssize_t sendto(int sockfd,
+               const void *buf,
+               size_t len,
+               int flags,
+               const struct sockaddr *dest_addr,
+               socklen_t addrlen) {
         return len;
 }
 

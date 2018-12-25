@@ -17,7 +17,8 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
 
         r = kmod_module_new_from_lookup(ctx, module, &modlist);
         if (r < 0)
-                return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r, "Failed to lookup module alias '%s': %m", module);
+                return log_full_errno(
+                        verbose ? LOG_ERR : LOG_DEBUG, r, "Failed to lookup module alias '%s': %m", module);
 
         if (!modlist) {
                 log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r, "Failed to find module '%s'", module);
@@ -33,7 +34,9 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
 
                 switch (state) {
                 case KMOD_MODULE_BUILTIN:
-                        log_full(verbose ? LOG_INFO : LOG_DEBUG, "Module '%s' is builtin", kmod_module_get_name(mod));
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                 "Module '%s' is builtin",
+                                 kmod_module_get_name(mod));
                         break;
 
                 case KMOD_MODULE_LIVE:
@@ -43,13 +46,20 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                 default:
                         err = kmod_module_probe_insert_module(mod, probe_flags, NULL, NULL, NULL, NULL);
                         if (err == 0)
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG, "Inserted module '%s'", kmod_module_get_name(mod));
+                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                         "Inserted module '%s'",
+                                         kmod_module_get_name(mod));
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                                log_full(verbose ? LOG_INFO : LOG_DEBUG, "Module '%s' is blacklisted", kmod_module_get_name(mod));
+                                log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                         "Module '%s' is blacklisted",
+                                         kmod_module_get_name(mod));
                         else {
                                 assert(err < 0);
 
-                                log_full_errno(!verbose ? LOG_DEBUG : err == -ENODEV ? LOG_NOTICE : err == -ENOENT ? LOG_WARNING : LOG_ERR,
+                                log_full_errno(!verbose ? LOG_DEBUG :
+                                                          err == -ENODEV ?
+                                                          LOG_NOTICE :
+                                                          err == -ENOENT ? LOG_WARNING : LOG_ERR,
                                                err,
                                                "Failed to insert module '%s': %m",
                                                kmod_module_get_name(mod));

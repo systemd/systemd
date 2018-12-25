@@ -208,7 +208,8 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                 if (S_ISDIR(stats.st_mode)) {
                         _cleanup_closedir_ DIR *dir2 = NULL;
 
-                        dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC));
+                        dir2 = fdopendir(openat(
+                                dirfd(dir), dent->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC));
                         if (dir2)
                                 cleanup_dir(dir2, mask, depth - 1);
 
@@ -424,7 +425,9 @@ int info_main(int argc, char *argv[], void *userdata) {
 
         if (action == ACTION_DEVICE_ID_FILE) {
                 if (argv[optind])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Positional arguments are not allowed with -d/--device-id-of-file.");
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Positional arguments are not allowed with -d/--device-id-of-file.");
                 assert(name);
                 return stat_device(name, arg_export, arg_export_prefix);
         }
@@ -436,7 +439,8 @@ int info_main(int argc, char *argv[], void *userdata) {
         if (strv_isempty(devices))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "A device name or path is required");
         if (action == ACTION_ATTRIBUTE_WALK && strv_length(devices) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only one device may be specified with -a/--attribute-walk");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only one device may be specified with -a/--attribute-walk");
 
         char **p;
         STRV_FOREACH (p, devices) {
@@ -444,7 +448,10 @@ int info_main(int argc, char *argv[], void *userdata) {
 
                 r = find_device(*p, NULL, &device);
                 if (r == -EINVAL)
-                        return log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m", *p);
+                        return log_error_errno(
+                                r,
+                                "Bad argument \"%s\", expected an absolute path in /dev/ or /sys or a unit name: %m",
+                                *p);
                 if (r < 0)
                         return log_error_errno(r, "Unknown device \"%s\": %m", *p);
 

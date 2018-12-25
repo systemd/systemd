@@ -56,9 +56,9 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
  * My best guess at if you are big-endian or little-endian.  This may
  * need adjustment.
  */
-#if (defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && __BYTE_ORDER == __LITTLE_ENDIAN) ||                                 \
-        (defined(i386) || defined(__i386__) || defined(__i486__) || defined(__i586__) || defined(__i686__) || defined(vax) || \
-         defined(MIPSEL))
+#if (defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && __BYTE_ORDER == __LITTLE_ENDIAN) || \
+        (defined(i386) || defined(__i386__) || defined(__i486__) || defined(__i586__) ||      \
+         defined(__i686__) || defined(vax) || defined(MIPSEL))
 #define HASH_LITTLE_ENDIAN 1
 #define HASH_BIG_ENDIAN 0
 #elif (defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && __BYTE_ORDER == __BIG_ENDIAN) || \
@@ -1102,7 +1102,13 @@ void driver2() {
                                                 z = k;
                                         if (k == MAXPAIR) {
                                                 printf("Some bit didn't change: ");
-                                                printf("%.8x %.8x %.8x %.8x %.8x %.8x  ", e[0], f[0], g[0], h[0], x[0], y[0]);
+                                                printf("%.8x %.8x %.8x %.8x %.8x %.8x  ",
+                                                       e[0],
+                                                       f[0],
+                                                       g[0],
+                                                       h[0],
+                                                       x[0],
+                                                       y[0]);
                                                 printf("i %d j %d m %d len %d\n", i, j, m, hlen);
                                         }
                                         if (z == MAXPAIR)

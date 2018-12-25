@@ -188,10 +188,12 @@ static int raw_export_process(RawExport *e) {
 
                 if (l == 0) {
                         e->eof = true;
-                        r = import_compress_finish(&e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = import_compress_finish(
+                                &e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 } else {
                         e->written_uncompressed += l;
-                        r = import_compress(&e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = import_compress(
+                                &e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 }
                 if (r < 0) {
                         r = log_error_errno(r, "Failed to encode: %m");

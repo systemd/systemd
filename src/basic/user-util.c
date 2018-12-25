@@ -90,26 +90,31 @@ char *getusername_malloc(void) {
 static inline bool is_nologin_shell(const char *shell) {
 
         return PATH_IN_SET(shell,
-                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
-                            * message and exits. Different distributions place the binary at different places though,
-                            * hence let's list them all. */
+                           /* 'nologin' is the friendliest way to disable logins for a user account. It
+                            * prints a nice message and exits. Different distributions place the binary at
+                            * different places though, hence let's list them all. */
                            "/bin/nologin",
                            "/sbin/nologin",
                            "/usr/bin/nologin",
                            "/usr/sbin/nologin",
-                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
-                            * any message printing. Different distributions place the binary at various places but at
-                            * least not in the 'sbin' directory. */
+                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they
+                            * don't do any message printing. Different distributions place the binary at
+                            * various places but at least not in the 'sbin' directory. */
                            "/bin/false",
                            "/usr/bin/false",
                            "/bin/true",
                            "/usr/bin/true");
 }
 
-static int synthesize_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags) {
+static int synthesize_user_creds(const char **username,
+                                 uid_t *uid,
+                                 gid_t *gid,
+                                 const char **home,
+                                 const char **shell,
+                                 UserCredsFlags flags) {
 
-        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we hardcode
-         * their user record data. */
+        /* We enforce some special rules for uid=0 and uid=65534: in order to avoid NSS lookups for root we
+         * hardcode their user record data. */
 
         if (STR_IN_SET(*username, "root", "0")) {
                 *username = "root";
@@ -148,7 +153,12 @@ static int synthesize_user_creds(const char **username, uid_t *uid, gid_t *gid, 
         return -ENOMEDIUM;
 }
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags) {
+int get_user_creds(const char **username,
+                   uid_t *uid,
+                   gid_t *gid,
+                   const char **home,
+                   const char **shell,
+                   UserCredsFlags flags) {
 
         uid_t u = UID_INVALID;
         struct passwd *p;
@@ -159,14 +169,14 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
 
         if (!FLAGS_SET(flags, USER_CREDS_PREFER_NSS) || (!home && !shell)) {
 
-                /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and override
-                 * the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS then the
-                 * user database will override the synthetic records instead — except if the user is only interested in
-                 * the UID and/or GID (but not the home directory, or the shell), in which case we'll always override
-                 * the user database (i.e. the USER_CREDS_PREFER_NSS flag has no effect in this case). Why?
-                 * Simply because there are valid usecase where the user might change the home directory or the shell
-                 * of the relevant users, but changing the UID/GID mappings for them is something we explicitly don't
-                 * support. */
+                /* So here's the deal: normally, we'll try to synthesize all records we can synthesize, and
+                 * override the user database with that. However, if the user specifies USER_CREDS_PREFER_NSS
+                 * then the user database will override the synthetic records instead — except if the user is
+                 * only interested in the UID and/or GID (but not the home directory, or the shell), in which
+                 * case we'll always override the user database (i.e. the USER_CREDS_PREFER_NSS flag has no
+                 * effect in this case). Why? Simply because there are valid usecase where the user might
+                 * change the home directory or the shell of the relevant users, but changing the UID/GID
+                 * mappings for them is something we explicitly don't support. */
 
                 r = synthesize_user_creds(username, uid, gid, home, shell, flags);
                 if (r >= 0)
@@ -179,16 +189,16 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
                 errno = 0;
                 p = getpwuid(u);
 
-                /* If there are multiple users with the same id, make sure to leave $USER to the configured value
-                 * instead of the first occurrence in the database. However if the uid was configured by a numeric uid,
-                 * then let's pick the real username from /etc/passwd. */
+                /* If there are multiple users with the same id, make sure to leave $USER to the configured
+                 * value instead of the first occurrence in the database. However if the uid was configured
+                 * by a numeric uid, then let's pick the real username from /etc/passwd. */
                 if (p)
                         *username = p->pw_name;
                 else if (FLAGS_SET(flags, USER_CREDS_ALLOW_MISSING) && !gid && !home && !shell) {
 
-                        /* If the specified user is a numeric UID and it isn't in the user database, and the caller
-                         * passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then juts return that
-                         * and don't complain. */
+                        /* If the specified user is a numeric UID and it isn't in the user database, and the
+                         * caller passed USER_CREDS_ALLOW_MISSING and was only interested in the UID, then
+                         * juts return that and don't complain. */
 
                         if (uid)
                                 *uid = u;
@@ -233,7 +243,8 @@ int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **h
         }
 
         if (shell) {
-                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
+                    (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
                         *shell = NULL;
                 else
                         *shell = p->pw_shell;
@@ -607,7 +618,8 @@ bool valid_user_group_name(const char *u) {
                 return false;
 
         for (i = u + 1; *i; i++) {
-                if (!(*i >= 'a' && *i <= 'z') && !(*i >= 'A' && *i <= 'Z') && !(*i >= '0' && *i <= '9') && !IN_SET(*i, '_', '-'))
+                if (!(*i >= 'a' && *i <= 'z') && !(*i >= 'A' && *i <= 'Z') && !(*i >= '0' && *i <= '9') &&
+                    !IN_SET(*i, '_', '-'))
                         return false;
         }
 
@@ -625,8 +637,8 @@ bool valid_user_group_name(const char *u) {
 
 bool valid_user_group_name_or_id(const char *u) {
 
-        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the right
-         * range, and not the invalid user ids. */
+        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the
+         * right range, and not the invalid user ids. */
 
         if (isempty(u))
                 return false;
@@ -715,13 +727,15 @@ bool synthesize_nobody(void) {
 #ifdef NOLEGACY
         return true;
 #else
-        /* Returns true when we shall synthesize the "nobody" user (which we do by default). This can be turned off by
-         * touching /etc/systemd/dont-synthesize-nobody in order to provide upgrade compatibility with legacy systems
-         * that used the "nobody" user name and group name for other UIDs/GIDs than 65534.
+        /* Returns true when we shall synthesize the "nobody" user (which we do by default). This can be
+         * turned off by touching /etc/systemd/dont-synthesize-nobody in order to provide upgrade
+         * compatibility with legacy systems that used the "nobody" user name and group name for other
+         * UIDs/GIDs than 65534.
          *
-         * Note that we do not employ any kind of synchronization on the following caching variable. If the variable is
-         * accessed in multi-threaded programs in the worst case it might happen that we initialize twice, but that
-         * shouldn't matter as each initialization should come to the same result. */
+         * Note that we do not employ any kind of synchronization on the following caching variable. If the
+         * variable is accessed in multi-threaded programs in the worst case it might happen that we
+         * initialize twice, but that shouldn't matter as each initialization should come to the same result.
+         */
         static int cache = -1;
 
         if (cache < 0)

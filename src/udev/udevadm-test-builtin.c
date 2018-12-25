@@ -28,7 +28,9 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = { { "version", no_argument, NULL, 'V' }, { "help", no_argument, NULL, 'h' }, {} };
+        static const struct option options[] = { { "version", no_argument, NULL, 'V' },
+                                                 { "help", no_argument, NULL, 'h' },
+                                                 {} };
 
         int c;
 

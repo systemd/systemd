@@ -437,7 +437,8 @@ static void test_hashmap_remove_and_replace(void) {
 
                 for (j = 1; j < 7; j++)
                         hashmap_put(m, UINT_TO_PTR(10 * i + j), UINT_TO_PTR(10 * i + j));
-                valid = hashmap_remove_and_replace(m, UINT_TO_PTR(10 * i + 1), UINT_TO_PTR(10 * i + 2), UINT_TO_PTR(10 * i + 2));
+                valid = hashmap_remove_and_replace(
+                        m, UINT_TO_PTR(10 * i + 1), UINT_TO_PTR(10 * i + 2), UINT_TO_PTR(10 * i + 2));
                 assert_se(valid == 0);
                 assert_se(!hashmap_get(m, UINT_TO_PTR(10 * i + 1)));
                 for (j = 2; j < 7; j++) {
@@ -762,7 +763,11 @@ static void test_hashmap_many(void) {
                 for (i = 1; i < tests[j].n_entries * 3; i++)
                         assert_se(hashmap_contains(h, UINT_TO_PTR(i)) == (i % 3 == 1));
 
-                log_info("%s %u <= %u * 0.8 = %g", tests[j].title, hashmap_size(h), hashmap_buckets(h), hashmap_buckets(h) * 0.8);
+                log_info("%s %u <= %u * 0.8 = %g",
+                         tests[j].title,
+                         hashmap_size(h),
+                         hashmap_buckets(h),
+                         hashmap_buckets(h) * 0.8);
 
                 assert_se(hashmap_size(h) <= hashmap_buckets(h) * 0.8);
                 assert_se(hashmap_size(h) == tests[j].n_entries);

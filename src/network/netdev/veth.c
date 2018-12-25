@@ -33,7 +33,8 @@ static int netdev_veth_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (v->mac_peer) {
                 r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, v->mac_peer);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -62,7 +63,8 @@ static int netdev_veth_verify(NetDev *netdev, const char *filename) {
         if (!v->mac_peer) {
                 r = netdev_get_mac(v->ifname_peer, &v->mac_peer);
                 if (r < 0) {
-                        log_warning("Failed to generate predictable MAC address for %s. Ignoring", v->ifname_peer);
+                        log_warning("Failed to generate predictable MAC address for %s. Ignoring",
+                                    v->ifname_peer);
                         return -EINVAL;
                 }
         }

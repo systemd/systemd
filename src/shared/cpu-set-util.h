@@ -22,11 +22,20 @@ static inline cpu_set_t *cpu_set_mfree(cpu_set_t *p) {
 
 cpu_set_t *cpu_set_malloc(unsigned *ncpus);
 
-int parse_cpu_set_internal(
-        const char *rvalue, cpu_set_t **cpu_set, bool warn, const char *unit, const char *filename, unsigned line, const char *lvalue);
+int parse_cpu_set_internal(const char *rvalue,
+                           cpu_set_t **cpu_set,
+                           bool warn,
+                           const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *lvalue);
 
-static inline int parse_cpu_set_and_warn(
-        const char *rvalue, cpu_set_t **cpu_set, const char *unit, const char *filename, unsigned line, const char *lvalue) {
+static inline int parse_cpu_set_and_warn(const char *rvalue,
+                                         cpu_set_t **cpu_set,
+                                         const char *unit,
+                                         const char *filename,
+                                         unsigned line,
+                                         const char *lvalue) {
         assert(lvalue);
 
         return parse_cpu_set_internal(rvalue, cpu_set, true, unit, filename, line, lvalue);

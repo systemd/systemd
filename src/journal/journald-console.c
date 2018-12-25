@@ -23,13 +23,15 @@ static bool prefix_timestamp(void) {
         if (_unlikely_(cached_printk_time < 0)) {
                 _cleanup_free_ char *p = NULL;
 
-                cached_printk_time = read_one_line_file("/sys/module/printk/parameters/time", &p) >= 0 && parse_boolean(p) > 0;
+                cached_printk_time = read_one_line_file("/sys/module/printk/parameters/time", &p) >= 0 &&
+                        parse_boolean(p) > 0;
         }
 
         return cached_printk_time;
 }
 
-void server_forward_console(Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
+void server_forward_console(
+        Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred) {
 
         struct iovec iovec[5];
         struct timespec ts;
@@ -78,10 +80,11 @@ void server_forward_console(Server *s, int priority, const char *identifier, con
 
         tty = s->tty_path ?: "/dev/console";
 
-        /* Before you ask: yes, on purpose we open/close the console for each log line we write individually. This is a
-         * good strategy to avoid journald getting killed by the kernel's SAK concept (it doesn't fix this entirely,
-         * but minimizes the time window the kernel might end up killing journald due to SAK). It also makes things
-         * easier for us so that we don't have to recover from hangups and suchlike triggered on the console. */
+        /* Before you ask: yes, on purpose we open/close the console for each log line we write individually.
+         * This is a good strategy to avoid journald getting killed by the kernel's SAK concept (it doesn't
+         * fix this entirely, but minimizes the time window the kernel might end up killing journald due to
+         * SAK). It also makes things easier for us so that we don't have to recover from hangups and
+         * suchlike triggered on the console. */
 
         fd = open_terminal(tty, O_WRONLY | O_NOCTTY | O_CLOEXEC);
         if (fd < 0) {

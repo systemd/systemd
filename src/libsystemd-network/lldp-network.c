@@ -11,18 +11,20 @@
 int lldp_network_bind_raw_socket(int ifindex) {
 
         static const struct sock_filter filter[] = {
-                BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ethhdr, h_dest)),     /* A <- 4 bytes of destination MAC */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0180c200, 1, 0),                   /* A != 01:80:c2:00 */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                            /* drop packet */
-                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_dest) + 4), /* A <- remaining 2 bytes of destination MAC */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0000, 3, 0),                       /* A != 00:00 */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0003, 2, 0),                       /* A != 00:03 */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x000e, 1, 0),                       /* A != 00:0e */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                            /* drop packet */
-                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_proto)),    /* A <- protocol */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LLDP, 1, 0),               /* A != ETHERTYPE_LLDP */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                            /* drop packet */
-                BPF_STMT(BPF_RET + BPF_K, (uint32_t) -1),                                /* accept packet */
+                BPF_STMT(BPF_LD + BPF_W + BPF_ABS,
+                         offsetof(struct ethhdr, h_dest)),             /* A <- 4 bytes of destination MAC */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0180c200, 1, 0), /* A != 01:80:c2:00 */
+                BPF_STMT(BPF_RET + BPF_K, 0),                          /* drop packet */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS,
+                         offsetof(struct ethhdr, h_dest) + 4), /* A <- remaining 2 bytes of destination MAC */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0000, 3, 0),                    /* A != 00:00 */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x0003, 2, 0),                    /* A != 00:03 */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x000e, 1, 0),                    /* A != 00:0e */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                         /* drop packet */
+                BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ethhdr, h_proto)), /* A <- protocol */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LLDP, 1, 0), /* A != ETHERTYPE_LLDP */
+                BPF_STMT(BPF_RET + BPF_K, 0),                              /* drop packet */
+                BPF_STMT(BPF_RET + BPF_K, (uint32_t) -1),                  /* accept packet */
         };
 
         static const struct sock_fprog fprog = {

@@ -295,7 +295,9 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-_public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname) {
+_public_ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev,
+                                                                    const char *subsystem,
+                                                                    const char *sysname) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -594,7 +596,8 @@ _public_ const char *udev_device_get_devnode(struct udev_device *udev_device) {
 _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation || !udev_device->devlinks_read) {
+        if (device_get_devlinks_generation(udev_device->device) != udev_device->devlinks_generation ||
+            !udev_device->devlinks_read) {
                 const char *devlink;
 
                 udev_list_cleanup(&udev_device->devlinks);
@@ -625,7 +628,8 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
 _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation || !udev_device->properties_read) {
+        if (device_get_properties_generation(udev_device->device) != udev_device->properties_generation ||
+            !udev_device->properties_read) {
                 const char *key, *value;
 
                 udev_list_cleanup(&udev_device->properties);
@@ -724,7 +728,9 @@ _public_ const char *udev_device_get_sysattr_value(struct udev_device *udev_devi
  *
  * Returns: Negative error code on failure or 0 on success.
  **/
-_public_ int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, const char *value) {
+_public_ int udev_device_set_sysattr_value(struct udev_device *udev_device,
+                                           const char *sysattr,
+                                           const char *value) {
         int r;
 
         assert_return(udev_device, -EINVAL);
@@ -803,7 +809,8 @@ _public_ int udev_device_get_is_initialized(struct udev_device *udev_device) {
 _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device) {
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation || !udev_device->tags_read) {
+        if (device_get_tags_generation(udev_device->device) != udev_device->tags_generation ||
+            !udev_device->tags_read) {
                 const char *tag;
 
                 udev_list_cleanup(&udev_device->tags);

@@ -10,7 +10,8 @@ static void custom_destruct(void *p) {
 }
 
 DEFINE_HASH_OPS_FULL(boring_hash_ops, char, string_hash_func, string_compare_func, free, char, free);
-DEFINE_HASH_OPS_FULL(custom_hash_ops, char, string_hash_func, string_compare_func, custom_destruct, char, custom_destruct);
+DEFINE_HASH_OPS_FULL(
+        custom_hash_ops, char, string_hash_func, string_compare_func, custom_destruct, char, custom_destruct);
 
 void test_hashmap_funcs(void);
 void test_ordered_hashmap_funcs(void);

@@ -68,7 +68,10 @@ static int find_device(const struct rfkill_event *event, sd_device **ret) {
 
         r = sd_device_new_from_subsystem_sysname(&device, "rfkill", sysname);
         if (r < 0)
-                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR, r, "Failed to open device '%s': %m", sysname);
+                return log_full_errno(IN_SET(r, -ENOENT, -ENXIO, -ENODEV) ? LOG_DEBUG : LOG_ERR,
+                                      r,
+                                      "Failed to open device '%s': %m",
+                                      sysname);
 
         r = sd_device_get_sysattr_value(device, "name", &name);
         if (r < 0)
@@ -139,7 +142,9 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (r == -ENOENT) {
                 /* No state file? Then save the current state */
 
-                r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+                r = write_string_file(state_file,
+                                      one_zero(event->soft),
+                                      WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write state file %s: %m", state_file);
 
@@ -163,7 +168,8 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         if (l < 0)
                 return log_error_errno(errno, "Failed to restore rfkill state for %i: %m", event->idx);
         if (l != sizeof(we))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Couldn't write rfkill event structure, too short.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Couldn't write rfkill event structure, too short.");
 
         log_debug("Loaded state '%s' from %s.", one_zero(b), state_file);
         return 0;
@@ -176,7 +182,9 @@ static void save_state_queue_remove(Context *c, int idx, const char *state_file)
 
         LIST_FOREACH_SAFE(queue, item, tmp, c->write_queue) {
                 if ((state_file && streq(item->file, state_file)) || idx == item->rfkill_idx) {
-                        log_debug("Canceled previous save state of '%s' to %s.", one_zero(item->state), item->file);
+                        log_debug("Canceled previous save state of '%s' to %s.",
+                                  one_zero(item->state),
+                                  item->file);
                         LIST_REMOVE(queue, c->write_queue, item);
                         write_queue_item_free(item);
                 }
@@ -230,7 +238,8 @@ static int save_state_cancel(Context *c, const struct rfkill_event *event) {
 static int save_state_write_one(struct write_queue_item *item) {
         int r;
 
-        r = write_string_file(item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(
+                item->file, one_zero(item->state), WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state file %s: %m", item->file);
 
@@ -270,7 +279,8 @@ static int run(int argc, char *argv[]) {
 
         n = sd_listen_fds(false);
         if (n < 0)
-                return log_error_errno(n, "Failed to determine whether we got any file descriptors passed: %m");
+                return log_error_errno(n,
+                                       "Failed to determine whether we got any file descriptors passed: %m");
         if (n > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got too many file descriptors.");
 
@@ -278,7 +288,8 @@ static int run(int argc, char *argv[]) {
                 c.rfkill_fd = open("/dev/rfkill", O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
                 if (c.rfkill_fd < 0) {
                         if (errno == ENOENT) {
-                                log_debug_errno(errno, "Missing rfkill subsystem, or no device present, exiting.");
+                                log_debug_errno(errno,
+                                                "Missing rfkill subsystem, or no device present, exiting.");
                                 return 0;
                         }
 
@@ -339,22 +350,31 @@ static int run(int argc, char *argv[]) {
                 switch (event.op) {
 
                 case RFKILL_OP_ADD:
-                        log_debug("A new rfkill device has been added with index %i and type %s.", event.idx, type);
+                        log_debug("A new rfkill device has been added with index %i and type %s.",
+                                  event.idx,
+                                  type);
                         (void) load_state(&c, &event);
                         break;
 
                 case RFKILL_OP_DEL:
-                        log_debug("An rfkill device has been removed with index %i and type %s", event.idx, type);
+                        log_debug("An rfkill device has been removed with index %i and type %s",
+                                  event.idx,
+                                  type);
                         (void) save_state_cancel(&c, &event);
                         break;
 
                 case RFKILL_OP_CHANGE:
-                        log_debug("An rfkill device has changed state with index %i and type %s", event.idx, type);
+                        log_debug("An rfkill device has changed state with index %i and type %s",
+                                  event.idx,
+                                  type);
                         (void) save_state_queue(&c, &event);
                         break;
 
                 default:
-                        log_debug("Unknown event %i from /dev/rfkill for index %i and type %s, ignoring.", event.op, event.idx, type);
+                        log_debug("Unknown event %i from /dev/rfkill for index %i and type %s, ignoring.",
+                                  event.op,
+                                  event.idx,
+                                  type);
                         break;
                 }
         }

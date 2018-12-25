@@ -33,7 +33,8 @@ const char *manager_target_for_action(HandleAction handle) {
         return NULL;
 }
 
-int manager_handle_action(Manager *m, InhibitWhat inhibit_key, HandleAction handle, bool ignore_inhibited, bool is_edge) {
+int manager_handle_action(
+        Manager *m, InhibitWhat inhibit_key, HandleAction handle, bool ignore_inhibited, bool is_edge) {
 
         static const char *const message_table[_HANDLE_ACTION_MAX] = {
                 [HANDLE_POWEROFF] = "Powering Off...",
@@ -103,11 +104,13 @@ int manager_handle_action(Manager *m, InhibitWhat inhibit_key, HandleAction hand
         else
                 supported = true;
 
-        if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
+        if (!supported &&
+            IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
                 supported = can_sleep("suspend") > 0;
                 if (supported) {
-                        log_notice("Operation '%s' requested but not supported, using regular suspend instead.",
-                                   handle_action_to_string(handle));
+                        log_notice(
+                                "Operation '%s' requested but not supported, using regular suspend instead.",
+                                handle_action_to_string(handle));
                         handle = HANDLE_SUSPEND;
                 }
         }
@@ -124,12 +127,17 @@ int manager_handle_action(Manager *m, InhibitWhat inhibit_key, HandleAction hand
 
         assert_se(target = manager_target_for_action(handle));
 
-        inhibit_operation = IN_SET(handle, HANDLE_SUSPEND, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE) ?
+        inhibit_operation = IN_SET(handle,
+                                   HANDLE_SUSPEND,
+                                   HANDLE_HIBERNATE,
+                                   HANDLE_HYBRID_SLEEP,
+                                   HANDLE_SUSPEND_THEN_HIBERNATE) ?
                 INHIBIT_SLEEP :
                 INHIBIT_SHUTDOWN;
 
         /* If the actual operation is inhibited, warn and fail */
-        if (!ignore_inhibited && manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
+        if (!ignore_inhibited &&
+            manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 (void) get_process_comm(offending->pid, &comm);
@@ -137,7 +145,8 @@ int manager_handle_action(Manager *m, InhibitWhat inhibit_key, HandleAction hand
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
                 if (!is_edge) {
-                        log_debug("Refusing operation, %s is inhibited by UID " UID_FMT "/%s, PID " PID_FMT "/%s.",
+                        log_debug("Refusing operation, %s is inhibited by UID " UID_FMT "/%s, PID " PID_FMT
+                                  "/%s.",
                                   inhibit_what_to_string(inhibit_operation),
                                   offending->uid,
                                   strna(u),
@@ -179,4 +188,7 @@ static const char *const handle_action_table[_HANDLE_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_action, handle_action, HandleAction, "Failed to parse handle action setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_handle_action,
+                         handle_action,
+                         HandleAction,
+                         "Failed to parse handle action setting");

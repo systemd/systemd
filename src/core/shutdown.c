@@ -93,7 +93,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse log color setting %s, ignoring: %m", optarg);
+                                        log_error_errno(r,
+                                                        "Failed to parse log color setting %s, ignoring: %m",
+                                                        optarg);
                         } else
                                 log_show_color(true);
 
@@ -103,7 +105,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_location_from_string(optarg);
                                 if (r < 0)
-                                        log_error_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
+                                        log_error_errno(r,
+                                                        "Failed to parse log location setting %s, ignoring: %m",
+                                                        optarg);
                         } else
                                 log_show_location(true);
 
@@ -150,9 +154,9 @@ static int switch_root_initramfs(void) {
         if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
-        /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file descriptors.
-         * /run/initramfs/shutdown will take care of these.
-         * Also do not detach the old root, because /run/initramfs/shutdown needs to access it.
+        /* switch_root with MS_BIND, because there might still be processes lurking around, which have open
+         * file descriptors. /run/initramfs/shutdown will take care of these. Also do not detach the old
+         * root, because /run/initramfs/shutdown needs to access it.
          */
         return switch_root("/run/initramfs", "/oldroot", false, MS_BIND);
 }
@@ -187,7 +191,8 @@ static bool sync_making_progress(unsigned long long *prev_dirty) {
                 if (q == 0)
                         break;
 
-                if (!first_word(line, "NFS_Unstable:") && !first_word(line, "Writeback:") && !first_word(line, "Dirty:"))
+                if (!first_word(line, "NFS_Unstable:") && !first_word(line, "Writeback:") &&
+                    !first_word(line, "Dirty:"))
                         continue;
 
                 errno = 0;
@@ -218,8 +223,8 @@ static void sync_with_progress(void) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        /* Due to the possiblity of the sync operation hanging, we fork a child process and monitor the progress. If
-         * the timeout lapses, the assumption is that that particular sync stalled. */
+        /* Due to the possiblity of the sync operation hanging, we fork a child process and monitor the
+         * progress. If the timeout lapses, the assumption is that that particular sync stalled. */
 
         r = asynchronous_sync(&pid);
         if (r < 0) {
@@ -251,7 +256,8 @@ static void sync_with_progress(void) {
 
         /* Only reached in the event of a timeout. We should issue a kill
          * to the stray process. */
-        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID " PID_FMT ".", pid);
+        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID " PID_FMT ".",
+                  pid);
         (void) kill(pid, SIGKILL);
 }
 
@@ -264,9 +270,9 @@ int main(int argc, char *argv[]) {
         static const char *const dirs[] = { SYSTEM_SHUTDOWN_PATH, NULL };
         char *watchdog_device;
 
-        /* The log target defaults to console, but the original systemd process will pass its log target in through a
-         * command line argument, which will override this default. Also, ensure we'll never log to the journal or
-         * syslog, as these logging daemons are either already dead or will die very soon. */
+        /* The log target defaults to console, but the original systemd process will pass its log target in
+         * through a command line argument, which will override this default. Also, ensure we'll never log to
+         * the journal or syslog, as these logging daemons are either already dead or will die very soon. */
 
         log_set_target(LOG_TARGET_CONSOLE);
         log_set_prohibit_ipc(true);
@@ -310,16 +316,17 @@ int main(int argc, char *argv[]) {
         if (watchdog_device) {
                 r = watchdog_set_device(watchdog_device);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", watchdog_device);
+                        log_warning_errno(
+                                r, "Failed to set watchdog device to %s, ignoring: %m", watchdog_device);
         }
 
         /* Lock us into memory */
         (void) mlockall(MCL_CURRENT | MCL_FUTURE);
 
-        /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
-         * slow IO is processed here already and the final process killing spree is not impacted by processes
-         * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
-         * result. */
+        /* Synchronize everything that is not written to disk yet at this point already. This is a good idea
+         * so that slow IO is processed here already and the final process killing spree is not impacted by
+         * processes desperately trying to sync IO to disk within their timeout. Do not remove this sync,
+         * data corruption will result. */
         if (!in_container)
                 sync_with_progress();
 
@@ -468,10 +475,11 @@ int main(int argc, char *argv[]) {
                           need_loop_detach ? " loop devices," : "",
                           need_dm_detach ? " DM devices," : "");
 
-        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
-         * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
-         * sync'ed things already once above, but we did some more work since then which might have caused IO, hence
-         * let's do it once more. Do not remove this sync, data corruption will result. */
+        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need
+         * to be sync'ed explicitly in advance. So let's do this here, but not needlessly slow down
+         * containers. Note that we sync'ed things already once above, but we did some more work since then
+         * which might have caused IO, hence let's do it once more. Do not remove this sync, data corruption
+         * will result. */
         if (!in_container)
                 sync_with_progress();
 
@@ -490,7 +498,9 @@ int main(int argc, char *argv[]) {
                         /* We cheat and exec kexec to avoid doing all its work */
                         log_info("Rebooting with kexec.");
 
-                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_WAIT, NULL);
+                        r = safe_fork("(sd-kexec)",
+                                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_WAIT,
+                                      NULL);
                         if (r == 0) {
                                 const char *const args[] = { KEXEC, "-e", NULL };
 

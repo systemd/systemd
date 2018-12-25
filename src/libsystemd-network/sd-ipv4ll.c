@@ -26,7 +26,8 @@
 #define IPV4LL_NETWORK UINT32_C(0xA9FE0000)
 #define IPV4LL_NETMASK UINT32_C(0xFFFF0000)
 
-#define IPV4LL_DONT_DESTROY(ll) _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+#define IPV4LL_DONT_DESTROY(ll) \
+        _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
 struct sd_ipv4ll {
         unsigned n_ref;
@@ -49,7 +50,8 @@ struct sd_ipv4ll {
         void *userdata;
 };
 
-#define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll_errno(ll, error, fmt, ...) \
+        log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
 #define log_ipv4ll(ll, fmt, ...) log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
@@ -250,8 +252,8 @@ int sd_ipv4ll_start(sd_ipv4ll *ll) {
         r = sd_ipv4acd_start(ll->acd);
         if (r < 0) {
 
-                /* We couldn't start? If so, let's forget the picked address again, the user might make a change and
-                 * retry, and we want the new data to take effect when picking an address. */
+                /* We couldn't start? If so, let's forget the picked address again, the user might make a
+                 * change and retry, and we want the new data to take effect when picking an address. */
                 if (picked_address)
                         ll->address = 0;
 

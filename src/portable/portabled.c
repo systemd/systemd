@@ -69,16 +69,27 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/portable1", "org.freedesktop.portable1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus,
+                                     NULL,
+                                     "/org/freedesktop/portable1",
+                                     "org.freedesktop.portable1.Manager",
+                                     manager_vtable,
+                                     m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/portable1/image", "org.freedesktop.portable1.Image", image_vtable, bus_image_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/portable1/image",
+                                       "org.freedesktop.portable1.Image",
+                                       image_vtable,
+                                       bus_image_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/portable1/image", bus_image_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(
+                m->bus, NULL, "/org/freedesktop/portable1/image", bus_image_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add image enumerator: %m");
 
@@ -116,7 +127,8 @@ static bool check_idle(void *userdata) {
 static int manager_run(Manager *m) {
         assert(m);
 
-        return bus_event_loop_with_idle(m->event, m->bus, "org.freedesktop.portable1", DEFAULT_EXIT_USEC, check_idle, m);
+        return bus_event_loop_with_idle(
+                m->event, m->bus, "org.freedesktop.portable1", DEFAULT_EXIT_USEC, check_idle, m);
 }
 
 static int run(int argc, char *argv[]) {

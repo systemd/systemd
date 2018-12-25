@@ -128,7 +128,9 @@ bool cg_ns_supported(void) {
 
         if (access("/proc/self/ns/cgroup", F_OK) < 0) {
                 if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
+                        log_debug_errno(
+                                errno,
+                                "Failed to check whether /proc/self/ns/cgroup is available, assuming not: %m");
                 enabled = false;
         } else
                 enabled = true;
@@ -208,7 +210,13 @@ int cg_rmdir(const char *controller, const char *path) {
         return 0;
 }
 
-int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t log_kill, void *userdata) {
+int cg_kill(const char *controller,
+            const char *path,
+            int sig,
+            CGroupFlags flags,
+            Set *s,
+            cg_kill_log_func_t log_kill,
+            void *userdata) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
@@ -217,8 +225,8 @@ int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags
 
         assert(sig >= 0);
 
-        /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence don't send
-         * SIGCONT on SIGKILL. */
+        /* Don't send SIGCONT twice. Also, SIGKILL always works even when process is suspended, hence don't
+         * send SIGCONT on SIGKILL. */
         if (IN_SET(sig, SIGCONT, SIGKILL))
                 flags &= ~CGROUP_SIGCONT;
 
@@ -298,7 +306,13 @@ int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags
         return ret;
 }
 
-int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t log_kill, void *userdata) {
+int cg_kill_recursive(const char *controller,
+                      const char *path,
+                      int sig,
+                      CGroupFlags flags,
+                      Set *s,
+                      cg_kill_log_func_t log_kill,
+                      void *userdata) {
 
         _cleanup_set_free_ Set *allocated_set = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -425,7 +439,8 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
         return ret;
 }
 
-int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags) {
+int cg_migrate_recursive(
+        const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags) {
 
         _cleanup_closedir_ DIR *d = NULL;
         int r, ret = 0;
@@ -471,7 +486,8 @@ int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, 
         return ret;
 }
 
-int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags) {
+int cg_migrate_recursive_fallback(
+        const char *cfrom, const char *pfrom, const char *cto, const char *pto, CGroupFlags flags) {
 
         int r;
 
@@ -794,7 +810,8 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (r > 0 && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
                 r = cg_attach(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, pid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to attach " PID_FMT " to compat systemd cgroup %s: %m", pid, path);
+                        log_warning_errno(
+                                r, "Failed to attach " PID_FMT " to compat systemd cgroup %s: %m", pid, path);
         }
 
         return 0;
@@ -901,14 +918,18 @@ int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid
                         /* Always propagate access mode from unified to legacy controller */
                         r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, uid, gid);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to set access on compatibility systemd cgroup %s, ignoring: %m", path);
+                                log_debug_errno(
+                                        r,
+                                        "Failed to set access on compatibility systemd cgroup %s, ignoring: %m",
+                                        path);
                 }
         }
 
         return 0;
 }
 
-int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags) {
+int cg_set_xattr(
+        const char *controller, const char *path, const char *name, const void *value, size_t size, int flags) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
@@ -1811,7 +1832,8 @@ char *cg_escape(const char *p) {
         /* The return value of this function (unlike cg_unescape())
          * needs free()! */
 
-        if (IN_SET(p[0], 0, '_', '.') || STR_IN_SET(p, "notify_on_release", "release_agent", "tasks") || startswith(p, "cgroup."))
+        if (IN_SET(p[0], 0, '_', '.') || STR_IN_SET(p, "notify_on_release", "release_agent", "tasks") ||
+            startswith(p, "cgroup."))
                 need_prefix = true;
         else {
                 const char *dot;
@@ -1982,7 +2004,8 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
         return read_one_line_file(p, ret);
 }
 
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char **keys, char **ret_values) {
+int cg_get_keyed_attribute(
+        const char *controller, const char *path, const char *attribute, char **keys, char **ret_values) {
 
         _cleanup_free_ char *filename = NULL, *contents = NULL;
         const char *p;
@@ -2109,7 +2132,11 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
         return created;
 }
 
-int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
+int cg_attach_everywhere(CGroupMask supported,
+                         const char *path,
+                         pid_t pid,
+                         cg_migrate_callback_t path_callback,
+                         void *userdata) {
         CGroupController c;
         CGroupMask done;
         int r;
@@ -2149,7 +2176,11 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
         return 0;
 }
 
-int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set *pids, cg_migrate_callback_t path_callback, void *userdata) {
+int cg_attach_many_everywhere(CGroupMask supported,
+                              const char *path,
+                              Set *pids,
+                              cg_migrate_callback_t path_callback,
+                              void *userdata) {
         Iterator i;
         void *pidp;
         int r = 0;
@@ -2166,13 +2197,18 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set *pids,
         return r;
 }
 
-int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
+int cg_migrate_everywhere(CGroupMask supported,
+                          const char *from,
+                          const char *to,
+                          cg_migrate_callback_t to_callback,
+                          void *userdata) {
         CGroupController c;
         CGroupMask done;
         int r = 0, q;
 
         if (!path_equal(from, to)) {
-                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, CGROUP_REMOVE);
+                r = cg_migrate_recursive(
+                        SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, CGROUP_REMOVE);
                 if (r < 0)
                         return r;
         }
@@ -2201,7 +2237,8 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                 if (!p)
                         p = to;
 
-                (void) cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, 0);
+                (void) cg_migrate_recursive_fallback(
+                        SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, 0);
                 done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
@@ -2316,9 +2353,9 @@ int cg_mask_supported(CGroupMask *ret) {
         CGroupMask mask;
         int r;
 
-        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
-         * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz
-         * pseudo-controllers. */
+        /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense
+         * of and that are actually accessible. Only covers real controllers, i.e. not the
+         * CGROUP_CONTROLLER_BPF_xyz pseudo-controllers. */
 
         r = cg_all_unified();
         if (r < 0)
@@ -2346,8 +2383,8 @@ int cg_mask_supported(CGroupMask *ret) {
                 if (r < 0)
                         return r;
 
-                /* Currently, we support the cpu, memory, io and pids controller in the unified hierarchy, mask
-                 * everything else off. */
+                /* Currently, we support the cpu, memory, io and pids controller in the unified hierarchy,
+                 * mask everything else off. */
                 mask &= CGROUP_MASK_V2;
 
         } else {
@@ -2380,9 +2417,9 @@ int cg_kernel_controllers(Set **ret) {
 
         assert(ret);
 
-        /* Determines the full list of kernel-known controllers. Might include controllers we don't actually support
-         * and controllers that aren't currently accessible (because not mounted). This does not include "name="
-         * pseudo-controllers. */
+        /* Determines the full list of kernel-known controllers. Might include controllers we don't actually
+         * support and controllers that aren't currently accessible (because not mounted). This does not
+         * include "name=" pseudo-controllers. */
 
         controllers = set_new(&string_hash_ops);
         if (!controllers)
@@ -2441,7 +2478,7 @@ int cg_kernel_controllers(Set **ret) {
 
 static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
-/* The hybrid mode was initially implemented in v232 and simply mounted cgroup v2 on /sys/fs/cgroup/systemd.  This
+/* The hybrid mode was initially implemented in v232 and simply mounted cgroup v2 on /sys/fs/cgroup/systemd. This
  * unfortunately broke other tools (such as docker) which expected the v1 "name=systemd" hierarchy on
  * /sys/fs/cgroup/systemd.  From v233 and on, the hybrid mode mountnbs v2 on /sys/fs/cgroup/unified and maintains
  * "name=systemd" hierarchy on /sys/fs/cgroup/systemd for compatibility with other tools.
@@ -2471,8 +2508,10 @@ static int cg_unified_update(void) {
                 log_debug("Found cgroup2 on /sys/fs/cgroup/, full unified hierarchy");
                 unified_cache = CGROUP_UNIFIED_ALL;
         } else if (F_TYPE_EQUAL(fs.f_type, TMPFS_MAGIC)) {
-                if (statfs("/sys/fs/cgroup/unified/", &fs) == 0 && F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
-                        log_debug("Found cgroup2 on /sys/fs/cgroup/unified, unified hierarchy for systemd controller");
+                if (statfs("/sys/fs/cgroup/unified/", &fs) == 0 &&
+                    F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
+                        log_debug(
+                                "Found cgroup2 on /sys/fs/cgroup/unified, unified hierarchy for systemd controller");
                         unified_cache = CGROUP_UNIFIED_SYSTEMD;
                         unified_systemd_v232 = false;
                 } else {
@@ -2488,8 +2527,9 @@ static int cg_unified_update(void) {
                                 log_debug("Found cgroup on /sys/fs/cgroup/systemd, legacy hierarchy");
                                 unified_cache = CGROUP_UNIFIED_NONE;
                         } else {
-                                log_debug("Unexpected filesystem type %llx mounted on /sys/fs/cgroup/systemd, assuming legacy hierarchy",
-                                          (unsigned long long) fs.f_type);
+                                log_debug(
+                                        "Unexpected filesystem type %llx mounted on /sys/fs/cgroup/systemd, assuming legacy hierarchy",
+                                        (unsigned long long) fs.f_type);
                                 unified_cache = CGROUP_UNIFIED_NONE;
                         }
                 }
@@ -2563,19 +2603,20 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, C
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* On the legacy hiearchy there's no concept of "enabling" controllers in cgroups defined. Let's claim
-                 * complete success right away. (If you wonder why we return the full mask here, rather than zero: the
-                 * caller tends to use the returned mask later on to compare if all controllers where properly joined,
-                 * and if not requeues realization. This use is the primary purpose of the return value, hence let's
-                 * minimize surprises here and reduce triggers for re-realization by always saying we fully
-                 * succeeded.) */
+                /* On the legacy hiearchy there's no concept of "enabling" controllers in cgroups defined.
+                 * Let's claim complete success right away. (If you wonder why we return the full mask here,
+                 * rather than zero: the caller tends to use the returned mask later on to compare if all
+                 * controllers where properly joined, and if not requeues realization. This use is the
+                 * primary purpose of the return value, hence let's minimize surprises here and reduce
+                 * triggers for re-realization by always saying we fully succeeded.) */
                 if (ret_result_mask)
-                        *ret_result_mask = mask & supported & CGROUP_MASK_V2; /* If you wonder why we mask this with
-                                                                               * CGROUP_MASK_V2: The 'supported' mask
-                                                                               * might contain pure-V1 or BPF
-                                                                               * controllers, and we never want to
-                                                                               * claim that we could enable those with
-                                                                               * cgroup.subtree_control */
+                        *ret_result_mask = mask & supported &
+                                CGROUP_MASK_V2; /* If you wonder why we mask this with
+                                                 * CGROUP_MASK_V2: The 'supported' mask
+                                                 * might contain pure-V1 or BPF
+                                                 * controllers, and we never want to
+                                                 * claim that we could enable those with
+                                                 * cgroup.subtree_control */
                 return 0;
         }
 
@@ -2603,34 +2644,42 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, C
                         if (!f) {
                                 f = fopen(fs, "we");
                                 if (!f)
-                                        return log_debug_errno(errno, "Failed to open cgroup.subtree_control file of %s: %m", p);
+                                        return log_debug_errno(
+                                                errno,
+                                                "Failed to open cgroup.subtree_control file of %s: %m",
+                                                p);
                         }
 
                         r = write_string_stream(f, s, WRITE_STRING_FILE_DISABLE_BUFFER);
                         if (r < 0) {
-                                log_debug_errno(
-                                        r, "Failed to %s controller %s for %s (%s): %m", FLAGS_SET(mask, bit) ? "enable" : "disable", n, p, fs);
+                                log_debug_errno(r,
+                                                "Failed to %s controller %s for %s (%s): %m",
+                                                FLAGS_SET(mask, bit) ? "enable" : "disable",
+                                                n,
+                                                p,
+                                                fs);
                                 clearerr(f);
 
-                                /* If we can't turn off a controller, leave it on in the reported resulting mask. This
-                                 * happens for example when we attempt to turn off a controller up in the tree that is
-                                 * used down in the tree. */
-                                if (!FLAGS_SET(mask, bit) && r == -EBUSY) /* You might wonder why we check for EBUSY
-                                                                           * only here, and not follow the same logic
-                                                                           * for other errors such as EINVAL or
-                                                                           * EOPNOTSUPP or anything else. That's
-                                                                           * because EBUSY indicates that the
-                                                                           * controllers is currently enabled and
-                                                                           * cannot be disabled because something down
-                                                                           * the hierarchy is still using it. Any other
-                                                                           * error most likely means something like "I
-                                                                           * never heard of this controller" or
-                                                                           * similar. In the former case it's hence
-                                                                           * safe to assume the controller is still on
-                                                                           * after the failed operation, while in the
-                                                                           * latter case it's safer to assume the
-                                                                           * controller is unknown and hence certainly
-                                                                           * not enabled. */
+                                /* If we can't turn off a controller, leave it on in the reported resulting
+                                 * mask. This happens for example when we attempt to turn off a controller up
+                                 * in the tree that is used down in the tree. */
+                                if (!FLAGS_SET(mask, bit) &&
+                                    r == -EBUSY) /* You might wonder why we check for EBUSY
+                                                  * only here, and not follow the same logic
+                                                  * for other errors such as EINVAL or
+                                                  * EOPNOTSUPP or anything else. That's
+                                                  * because EBUSY indicates that the
+                                                  * controllers is currently enabled and
+                                                  * cannot be disabled because something down
+                                                  * the hierarchy is still using it. Any other
+                                                  * error most likely means something like "I
+                                                  * never heard of this controller" or
+                                                  * similar. In the former case it's hence
+                                                  * safe to assume the controller is still on
+                                                  * after the failed operation, while in the
+                                                  * latter case it's safer to assume the
+                                                  * controller is unknown and hence certainly
+                                                  * not enabled. */
                                         ret |= bit;
                         } else {
                                 /* Otherwise, if we managed to turn on a controller, set the bit reflecting that. */

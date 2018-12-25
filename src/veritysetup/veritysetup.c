@@ -48,7 +48,8 @@ static int run(int argc, char *argv[]) {
                 return help();
 
         if (argc < 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires at least two arguments.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires at least two arguments.");
 
         log_setup_service();
 
@@ -60,7 +61,8 @@ static int run(int argc, char *argv[]) {
                 size_t l;
 
                 if (argc < 6)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "attach requires at least two arguments.");
 
                 r = unhexmem(argv[5], strlen(argv[5]), &m, &l);
                 if (r < 0)

@@ -65,10 +65,11 @@ static int run(int argc, char *argv[]) {
 
         r = probe_filesystem(device, &detected);
         if (r < 0)
-                return log_warning_errno(r,
-                                         r == -EUCLEAN ? "Cannot reliably determine probe \"%s\", refusing to proceed." :
-                                                         "Failed to probe \"%s\": %m",
-                                         device);
+                return log_warning_errno(
+                        r,
+                        r == -EUCLEAN ? "Cannot reliably determine probe \"%s\", refusing to proceed." :
+                                        "Failed to probe \"%s\": %m",
+                        device);
 
         if (detected) {
                 log_info("%s is not empty (type %s), exiting", device, detected);

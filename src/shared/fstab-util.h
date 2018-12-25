@@ -9,7 +9,8 @@
 int fstab_is_mount_point(const char *mount);
 int fstab_has_fstype(const char *fstype);
 
-int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered);
+int fstab_filter_options(
+        const char *opts, const char *names, const char **namefound, char **value, char **filtered);
 
 int fstab_extract_values(const char *opts, const char *name, char ***values);
 

@@ -50,9 +50,9 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (!f)
                 return true; /* not really, but has the desired effect */
 
-        /* Try to read the first character of the command line. If the cmdline is empty (which might be the case for
-         * kernel threads but potentially also other stuff), this line won't do anything, but we don't care much, as
-         * actual kernel threads are already filtered out above. */
+        /* Try to read the first character of the command line. If the cmdline is empty (which might be the
+         * case for kernel threads but potentially also other stuff), this line won't do anything, but we
+         * don't care much, as actual kernel threads are already filtered out above. */
         (void) fread(&c, 1, 1, f);
 
         /* Processes with argv[0][0] = '@' we ignore from the killing spree.

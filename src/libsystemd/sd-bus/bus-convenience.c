@@ -7,7 +7,8 @@
 #include "bus-util.h"
 #include "string-util.h"
 
-_public_ int sd_bus_emit_signal(sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...) {
+_public_ int sd_bus_emit_signal(
+        sd_bus *bus, const char *path, const char *interface, const char *member, const char *types, ...) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -270,8 +271,16 @@ _public_ int sd_bus_get_property(sd_bus *bus,
                 goto fail;
         }
 
-        r = sd_bus_call_method(
-                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &rep, "ss", strempty(interface), member);
+        r = sd_bus_call_method(bus,
+                               destination,
+                               path,
+                               "org.freedesktop.DBus.Properties",
+                               "Get",
+                               error,
+                               &rep,
+                               "ss",
+                               strempty(interface),
+                               member);
         if (r < 0)
                 return r;
 
@@ -312,8 +321,16 @@ _public_ int sd_bus_get_property_trivial(sd_bus *bus,
                 goto fail;
         }
 
-        r = sd_bus_call_method(
-                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(bus,
+                               destination,
+                               path,
+                               "org.freedesktop.DBus.Properties",
+                               "Get",
+                               error,
+                               &reply,
+                               "ss",
+                               strempty(interface),
+                               member);
         if (r < 0)
                 return r;
 
@@ -331,8 +348,13 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
-_public_ int sd_bus_get_property_string(
-        sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char **ret) {
+_public_ int sd_bus_get_property_string(sd_bus *bus,
+                                        const char *destination,
+                                        const char *path,
+                                        const char *interface,
+                                        const char *member,
+                                        sd_bus_error *error,
+                                        char **ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *s;
@@ -350,8 +372,16 @@ _public_ int sd_bus_get_property_string(
                 goto fail;
         }
 
-        r = sd_bus_call_method(
-                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(bus,
+                               destination,
+                               path,
+                               "org.freedesktop.DBus.Properties",
+                               "Get",
+                               error,
+                               &reply,
+                               "ss",
+                               strempty(interface),
+                               member);
         if (r < 0)
                 return r;
 
@@ -376,8 +406,13 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
-_public_ int sd_bus_get_property_strv(
-        sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *error, char ***ret) {
+_public_ int sd_bus_get_property_strv(sd_bus *bus,
+                                      const char *destination,
+                                      const char *path,
+                                      const char *interface,
+                                      const char *member,
+                                      sd_bus_error *error,
+                                      char ***ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -393,8 +428,16 @@ _public_ int sd_bus_get_property_strv(
                 goto fail;
         }
 
-        r = sd_bus_call_method(
-                bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &reply, "ss", strempty(interface), member);
+        r = sd_bus_call_method(bus,
+                               destination,
+                               path,
+                               "org.freedesktop.DBus.Properties",
+                               "Get",
+                               error,
+                               &reply,
+                               "ss",
+                               strempty(interface),
+                               member);
         if (r < 0)
                 return r;
 
@@ -436,7 +479,8 @@ _public_ int sd_bus_set_property(sd_bus *bus,
                 goto fail;
         }
 
-        r = sd_bus_message_new_method_call(bus, &m, destination, path, "org.freedesktop.DBus.Properties", "Set");
+        r = sd_bus_message_new_method_call(
+                bus, &m, destination, path, "org.freedesktop.DBus.Properties", "Set");
         if (r < 0)
                 goto fail;
 
@@ -517,7 +561,8 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
 
         if (capability >= 0) {
 
-                r = sd_bus_query_sender_creds(call, SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
+                r = sd_bus_query_sender_creds(
+                        call, SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
                 if (r < 0)
                         return r;
 
@@ -526,7 +571,8 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                  * /proc. This can never actually happen, but let's
                  * better be safe than sorry, and do an extra check
                  * here. */
-                assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EFFECTIVE_CAPS) == 0, -EPERM);
+                assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EFFECTIVE_CAPS) == 0,
+                              -EPERM);
 
                 r = sd_bus_creds_has_effective_cap(creds, capability);
                 if (r > 0)
@@ -550,7 +596,9 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
                  * /proc. This can never actually happen, but let's
                  * better be safe than sorry, and do an extra check
                  * here. */
-                assert_return((sd_bus_creds_get_augmented_mask(creds) & (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID)) == 0, -EPERM);
+                assert_return((sd_bus_creds_get_augmented_mask(creds) &
+                               (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID)) == 0,
+                              -EPERM);
 
                 /* Try to use the EUID, if we have it. */
                 r = sd_bus_creds_get_euid(creds, &sender_uid);

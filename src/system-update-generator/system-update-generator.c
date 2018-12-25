@@ -46,7 +46,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         if (streq(key, "systemd.unit") && !proc_cmdline_value_missing(key, value))
                 log_warning("Offline system update overridden by kernel command line systemd.unit= setting");
         else if (!value && runlevel_to_target(key))
-                log_warning("Offline system update overridden by runlevel \"%s\" on the kernel command line", key);
+                log_warning("Offline system update overridden by runlevel \"%s\" on the kernel command line",
+                            key);
 
         return 0;
 }

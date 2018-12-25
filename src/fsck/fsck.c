@@ -124,11 +124,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 #if HAVE_SYSV_COMPAT
         else if (streq(key, "fastboot") && !value) {
-                log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
+                log_warning(
+                        "Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
                 arg_skip = true;
 
         } else if (streq(key, "forcefsck") && !value) {
-                log_warning("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
+                log_warning(
+                        "Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
                 arg_force = true;
         }
 #endif
@@ -166,7 +168,8 @@ static double percent(int pass, unsigned long cur, unsigned long max) {
         if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
                 return 100.0;
 
-        return (double) pass_table[pass - 1] + ((double) pass_table[pass] - (double) pass_table[pass - 1]) * (double) cur / (double) max;
+        return (double) pass_table[pass - 1] +
+                ((double) pass_table[pass] - (double) pass_table[pass - 1]) * (double) cur / (double) max;
 }
 
 static int process_progress(int fd) {
@@ -338,7 +341,8 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_device_get_devname(dev, &device);
                 if (r < 0)
-                        return log_device_error_errno(dev, r, "Failed to detect device node of root directory: %m");
+                        return log_device_error_errno(
+                                dev, r, "Failed to detect device node of root directory: %m");
 
                 root_directory = true;
         }
@@ -346,7 +350,8 @@ static int run(int argc, char *argv[]) {
         if (sd_device_get_property_value(dev, "ID_FS_TYPE", &type) >= 0) {
                 r = fsck_exists(type);
                 if (r < 0)
-                        log_device_warning_errno(dev, r, "Couldn't detect if fsck.%s may be used, proceeding: %m", type);
+                        log_device_warning_errno(
+                                dev, r, "Couldn't detect if fsck.%s may be used, proceeding: %m", type);
                 else if (r == 0) {
                         log_device_info(dev, "fsck.%s doesn't exist, not checking file system.", type);
                         return 0;

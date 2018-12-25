@@ -52,21 +52,27 @@ static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 
-static int acquire_esp(bool unprivileged_mode, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid) {
+static int acquire_esp(bool unprivileged_mode,
+                       uint32_t *ret_part,
+                       uint64_t *ret_pstart,
+                       uint64_t *ret_psize,
+                       sd_id128_t *ret_uuid) {
 
         char *np;
         int r;
 
-        /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on its own,
-         * except for ENOKEY (which is good, we want to show our own message in that case, suggesting use of --path=)
-         * and EACCESS (only when we request unprivileged mode; in this case we simply eat up the error here, so that
+        /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on
+         * its own, except for ENOKEY (which is good, we want to show our own message in that case,
+         * suggesting use of --path=) and EACCESS (only when we request unprivileged mode; in this case we
+         * simply eat up the error here, so that
          * --list and --status work too, without noise about this). */
 
         r = find_esp_and_warn(arg_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid);
         if (r == -ENOKEY)
-                return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
-                                       "Alternatively, use --path= to specify path to mount point.");
+                return log_error_errno(
+                        r,
+                        "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
+                        "Alternatively, use --path= to specify path to mount point.");
         if (r < 0)
                 return r;
 
@@ -152,7 +158,8 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(
+                                errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r < 0)
@@ -166,7 +173,10 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                                v,
                                ansi_normal());
                 else
-                        printf("         File: %s/%s/%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path, de->d_name);
+                        printf("         File: %s/%s/%s\n",
+                               special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                               path,
+                               de->d_name);
                 c++;
         }
 
@@ -377,13 +387,17 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         if (r < 0)
                 return r;
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Source file \"%s\" does not carry version information!", from);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Source file \"%s\" does not carry version information!",
+                                       from);
 
         r = get_file_version(fd_to, &b);
         if (r < 0)
                 return r;
         if (r == 0 || compare_product(a, b) != 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST), "Skipping \"%s\", since it's owned by another boot loader.", to);
+                return log_notice_errno(SYNTHETIC_ERRNO(EEXIST),
+                                        "Skipping \"%s\", since it's owned by another boot loader.",
+                                        to);
 
         if (compare_version(a, b) < 0) {
                 log_warning("Skipping \"%s\", since a newer boot loader version exists already.", to);
@@ -473,7 +487,7 @@ static int create_dirs(const char *esp_path) {
         const char **i;
         int r;
 
-        STRV_FOREACH(i, efi_subdirs) {
+        STRV_FOREACH (i, efi_subdirs) {
                 r = mkdir_one(esp_path, *i);
                 if (r < 0)
                         return r;
@@ -650,8 +664,13 @@ static int remove_from_order(uint16_t slot) {
         return 0;
 }
 
-static int install_variables(
-        const char *esp_path, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t uuid, const char *path, bool first) {
+static int install_variables(const char *esp_path,
+                             uint32_t part,
+                             uint64_t pstart,
+                             uint64_t psize,
+                             sd_id128_t uuid,
+                             const char *path,
+                             bool first) {
         char *p;
         uint16_t slot;
         int r;
@@ -671,9 +690,11 @@ static int install_variables(
 
         r = find_slot(uuid, path, &slot);
         if (r < 0)
-                return log_error_errno(r,
-                                       r == -ENOENT ? "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
-                                                      "Failed to determine current boot order: %m");
+                return log_error_errno(
+                        r,
+                        r == -ENOENT ?
+                                "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
+                                "Failed to determine current boot order: %m");
 
         if (first || r == 0) {
                 r = efi_add_boot_option(slot, "Linux Boot Manager", part, pstart, psize, uuid, path);
@@ -713,7 +734,8 @@ static int remove_boot_efi(const char *esp_path) {
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY | O_CLOEXEC);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(
+                                errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
                 if (r < 0)
@@ -944,8 +966,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
 
         if (arg_print_path) {
-                if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
-                                   * error the find_esp_and_warn() won't log on its own) */
+                if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is
+                                   * the only error the find_esp_and_warn() won't log on its own) */
                         return log_error_errno(r, "Failed to determine ESP: %m");
                 if (r < 0)
                         return r;
@@ -954,8 +976,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
-                * can show */
+        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just
+                * show what we can show */
 
         (void) pager_open(arg_pager_flags);
 
@@ -971,7 +993,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_ENTRY_ONESHOT, "One-shot entry control" },
                 };
 
-                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
+                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL,
+                                    *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
                 uint64_t loader_features = 0;
                 size_t i;
@@ -991,7 +1014,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 printf("System:\n");
-                printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
+                printf("     Firmware: %s%s (%s)%s\n",
+                       ansi_highlight(),
+                       strna(fw_type),
+                       strna(fw_info),
+                       ansi_normal());
                 printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
                 printf("\n");
@@ -1059,9 +1086,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
-        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
-         * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
-         * the latter but not the former, hence request the mode, and log about EACCES. */
+        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two
+         * things: turn off logging about access errors and turn off potentially privileged device probing.
+         * Here we're interested in the latter but not the former, hence request the mode, and log about
+         * EACCES. */
 
         r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
@@ -1102,8 +1130,8 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
                 printf("Automatic/Other Entries Found by Boot Loader:\n\n");
 
-                STRV_FOREACH(i, found_by_loader)
-                puts(*i);
+                STRV_FOREACH (i, found_by_loader)
+                        puts(*i);
         }
 
         return 0;
@@ -1154,7 +1182,13 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         (void) sync_esp();
 
         if (arg_touch_variables)
-                r = install_variables(arg_path, part, pstart, psize, uuid, "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi", install);
+                r = install_variables(arg_path,
+                                      part,
+                                      pstart,
+                                      psize,
+                                      uuid,
+                                      "/EFI/systemd/systemd-boot" EFI_MACHINE_TYPE_NAME ".efi",
+                                      install);
 
         return r;
 }
@@ -1195,14 +1229,18 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
                         return -EOPNOTSUPP;
                 }
 
-                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
+                return log_error_errno(
+                        errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
         }
 
         if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'%s' operation not supported in a container.", argv[0]);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EOPNOTSUPP), "'%s' operation not supported in a container.", argv[0]);
 
         if (!arg_touch_variables)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'%s' operation cannot be combined with --touch-variables=no.", argv[0]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "'%s' operation cannot be combined with --touch-variables=no.",
+                                       argv[0]);
 
         name = streq(argv[0], "set-default") ? "LoaderEntryDefault" : "LoaderEntryOneShot";
 

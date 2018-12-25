@@ -12,8 +12,13 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, path_result, PathResult);
 
-static int property_get_paths(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_paths(sd_bus *bus,
+                              const char *path,
+                              const char *interface,
+                              const char *property,
+                              sd_bus_message *reply,
+                              void *userdata,
+                              sd_bus_error *error) {
 
         Path *p = userdata;
         PathSpec *k;
@@ -40,13 +45,23 @@ const sd_bus_vtable bus_path_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Paths", "a(ss)", property_get_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MakeDirectory", "b", bus_property_get_bool, offsetof(Path, make_directory), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Path, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("MakeDirectory",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Path, make_directory),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DirectoryMode",
+                        "u",
+                        bus_property_get_mode,
+                        offsetof(Path, directory_mode),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "Result", "s", property_get_result, offsetof(Path, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
 
-static int bus_path_set_transient_property(Path *p, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+static int bus_path_set_transient_property(
+        Path *p, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(p);
         int r;
@@ -76,13 +91,19 @@ static int bus_path_set_transient_property(Path *p, const char *name, sd_bus_mes
 
                         t = path_type_from_string(type_name);
                         if (t < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown path type: %s", type_name);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Unknown path type: %s", type_name);
 
                         if (isempty(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is empty", type_name);
+                                return sd_bus_error_setf(
+                                        error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is empty", type_name);
 
                         if (!path_is_absolute(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in %s is not absolute: %s", type_name, path);
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Path in %s is not absolute: %s",
+                                                         type_name,
+                                                         path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *k;
@@ -105,7 +126,8 @@ static int bus_path_set_transient_property(Path *p, const char *name, sd_bus_mes
 
                                 LIST_PREPEND(spec, p->specs, s);
 
-                                unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", type_name, path);
+                                unit_write_settingf(
+                                        u, flags | UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", type_name, path);
                         }
 
                         empty = false;
@@ -128,7 +150,8 @@ static int bus_path_set_transient_property(Path *p, const char *name, sd_bus_mes
         return 0;
 }
 
-int bus_path_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags mode, sd_bus_error *error) {
+int bus_path_set_property(
+        Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags mode, sd_bus_error *error) {
 
         Path *p = PATH(u);
 

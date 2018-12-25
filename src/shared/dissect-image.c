@@ -107,7 +107,8 @@ static bool device_is_mmc_special_partition(sd_device *d) {
         if (sd_device_get_sysname(d, &sysname) < 0)
                 return false;
 
-        return startswith(sysname, "mmcblk") && (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1"));
+        return startswith(sysname, "mmcblk") &&
+                (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1"));
 }
 
 static bool device_is_block(sd_device *d) {
@@ -147,8 +148,11 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-static int wait_for_partitions_to_appear(
-        int fd, sd_device *d, unsigned num_partitions, DissectImageFlags flags, sd_device_enumerator **ret_enumerator) {
+static int wait_for_partitions_to_appear(int fd,
+                                         sd_device *d,
+                                         unsigned num_partitions,
+                                         DissectImageFlags flags,
+                                         sd_device_enumerator **ret_enumerator) {
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *q;
@@ -187,7 +191,8 @@ static int wait_for_partitions_to_appear(
                 return 0; /* success! */
         }
         if (n > num_partitions + 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "blkid and kernel partition lists do not match.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "blkid and kernel partition lists do not match.");
 
         /* The kernel has probed fewer partitions than blkid? Maybe the kernel prober is still running or it
          * got EBUSY because udev already opened the device. Let's reprobe the device, which is a synchronous
@@ -207,7 +212,8 @@ static int wait_for_partitions_to_appear(
                          * an explicit recognizable error about this, so that callers can generate a
                          * proper message explaining the situation. */
 
-                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
+                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 &&
+                            (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
                                 log_debug("Device is a loop device and partition scanning is off!");
                                 return -EPROTONOSUPPORT;
                         }
@@ -226,8 +232,11 @@ static int wait_for_partitions_to_appear(
         return -EAGAIN; /* no success yet, try again */
 }
 
-static int loop_wait_for_partitions_to_appear(
-        int fd, sd_device *d, unsigned num_partitions, DissectImageFlags flags, sd_device_enumerator **ret_enumerator) {
+static int loop_wait_for_partitions_to_appear(int fd,
+                                              sd_device *d,
+                                              unsigned num_partitions,
+                                              DissectImageFlags flags,
+                                              sd_device_enumerator **ret_enumerator) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         int r;
 
@@ -250,12 +259,15 @@ static int loop_wait_for_partitions_to_appear(
                         return r;
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Kernel partitions dit not appear within %d attempts", N_DEVICE_NODE_LIST_ATTEMPTS);
+        return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                               "Kernel partitions dit not appear within %d attempts",
+                               N_DEVICE_NODE_LIST_ATTEMPTS);
 }
 
 #endif
 
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
+int dissect_image(
+        int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
 
 #if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
@@ -283,15 +295,17 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
          * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found. */
 
         if (root_hash) {
-                /* If a root hash is supplied, then we use the root partition that has a UUID that match the first
-                 * 128bit of the root hash. And we use the verity partition that has a UUID that match the final
-                 * 128bit. */
+                /* If a root hash is supplied, then we use the root partition that has a UUID that match the
+                 * first 128bit of the root hash. And we use the verity partition that has a UUID that match
+                 * the final 128bit. */
 
                 if (root_hash_size < sizeof(sd_id128_t))
                         return -EINVAL;
 
                 memcpy(&root_uuid, root_hash, sizeof(sd_id128_t));
-                memcpy(&verity_uuid, (const uint8_t *) root_hash + root_hash_size - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                memcpy(&verity_uuid,
+                       (const uint8_t *) root_hash + root_hash_size - sizeof(sd_id128_t),
+                       sizeof(sd_id128_t));
 
                 if (sd_id128_is_null(root_uuid))
                         return -EINVAL;
@@ -469,9 +483,10 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ESP)) {
 
-                                /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is not defined
-                                 * there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as recommended by the
-                                 * UEFI spec (See "12.3.3 Number and Location of System Partitions"). */
+                                /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is
+                                 * not defined there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as
+                                 * recommended by the UEFI spec (See "12.3.3 Number and Location of System
+                                 * Partitions"). */
 
                                 if (pflags & GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
                                         continue;
@@ -612,8 +627,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
         }
 
         if (!m->partitions[PARTITION_ROOT].found) {
-                /* No root partition found? Then let's see if ther's one for the secondary architecture. And if not
-                 * either, then check if there's a single generic one, and use that. */
+                /* No root partition found? Then let's see if ther's one for the secondary architecture. And
+                 * if not either, then check if there's a single generic one, and use that. */
 
                 if (m->partitions[PARTITION_ROOT_VERITY].found)
                         return -EADDRNOTAVAIL;
@@ -627,8 +642,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
 
                 } else if (flags & DISSECT_IMAGE_REQUIRE_ROOT) {
 
-                        /* If the root has was set, then we won't fallback to a generic node, because the root hash
-                         * decides */
+                        /* If the root has was set, then we won't fallback to a generic node, because the
+                         * root hash decides */
                         if (root_hash)
                                 return -EADDRNOTAVAIL;
 
@@ -656,9 +671,9 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                 if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                         return -EADDRNOTAVAIL;
 
-                /* If we found the primary root with the hash, then we definitely want to suppress any secondary root
-                 * (which would be weird, after all the root hash should only be assigned to one pair of
-                 * partitions... */
+                /* If we found the primary root with the hash, then we definitely want to suppress any
+                 * secondary root (which would be weird, after all the root hash should only be assigned to
+                 * one pair of partitions... */
                 m->partitions[PARTITION_ROOT_SECONDARY].found = false;
                 m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
 
@@ -745,7 +760,11 @@ static int is_loop_device(const char *path) {
         return true;
 }
 
-static int mount_partition(DissectedPartition *m, const char *where, const char *directory, uid_t uid_shift, DissectImageFlags flags) {
+static int mount_partition(DissectedPartition *m,
+                           const char *where,
+                           const char *directory,
+                           uid_t uid_shift,
+                           DissectImageFlags flags) {
 
         _cleanup_free_ char *chased = NULL, *options = NULL;
         const char *p, *node, *fstype;
@@ -778,7 +797,8 @@ static int mount_partition(DissectedPartition *m, const char *where, const char 
 
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
-            ((flags & DISSECT_IMAGE_DISCARD) || ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
+            ((flags & DISSECT_IMAGE_DISCARD) ||
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
                 options = strdup("discard");
                 if (!options)
                         return -ENOMEM;
@@ -930,7 +950,10 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         return 0;
 }
 
-static int decrypt_partition(DissectedPartition *m, const char *passphrase, DissectImageFlags flags, DecryptedImage *d) {
+static int decrypt_partition(DissectedPartition *m,
+                             const char *passphrase,
+                             DissectImageFlags flags,
+                             DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
@@ -963,13 +986,14 @@ static int decrypt_partition(DissectedPartition *m, const char *passphrase, Diss
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = crypt_activate_by_passphrase(cd,
-                                         name,
-                                         CRYPT_ANY_SLOT,
-                                         passphrase,
-                                         strlen(passphrase),
-                                         ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
-                                                 ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        r = crypt_activate_by_passphrase(
+                cd,
+                name,
+                CRYPT_ANY_SLOT,
+                passphrase,
+                strlen(passphrase),
+                ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                        ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
                 return r == -EPERM ? -EKEYREJECTED : r;
@@ -1139,7 +1163,8 @@ int dissected_image_decrypt_interactively(DissectedImage *m,
 
                 z = strv_free(z);
 
-                r = ask_password_auto("Please enter image passphrase:", NULL, "dissect", "dissect", USEC_INFINITY, 0, &z);
+                r = ask_password_auto(
+                        "Please enter image passphrase:", NULL, "dissect", "dissect", USEC_INFINITY, 0, &z);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query for passphrase: %m");
 
@@ -1184,8 +1209,8 @@ int decrypted_image_relinquish(DecryptedImage *d) {
 
         assert(d);
 
-        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a boolean so
-         * that we don't clean it up ourselves either anymore */
+        /* Turns on automatic removal after the last use ended for all DM devices of this image, and sets a
+         * boolean so that we don't clean it up ourselves either anymore */
 
 #if HAVE_LIBCRYPTSETUP
         for (i = 0; i < d->n_decrypted; i++) {
@@ -1299,12 +1324,17 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE, &child);
+        r = safe_fork("(sd-dissect)",
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE,
+                      &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                r = dissected_image_mount(
-                        m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_MOUNT_ROOT_ONLY | DISSECT_IMAGE_VALIDATE_OS);
+                r = dissected_image_mount(m,
+                                          t,
+                                          UID_INVALID,
+                                          DISSECT_IMAGE_READ_ONLY | DISSECT_IMAGE_MOUNT_ROOT_ONLY |
+                                                  DISSECT_IMAGE_VALIDATE_OS);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
@@ -1317,7 +1347,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         fds[2 * k] = safe_close(fds[2 * k]);
 
                         NULSTR_FOREACH(p, paths[k]) {
-                                fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY | O_CLOEXEC | O_NOCTTY, NULL);
+                                fd = chase_symlinks_and_open(
+                                        p, t, CHASE_PREFIX_ROOT, O_RDONLY | O_CLOEXEC | O_NOCTTY, NULL);
                                 if (fd >= 0)
                                         break;
                         }
@@ -1411,8 +1442,12 @@ finish:
         return r;
 }
 
-int dissect_image_and_warn(
-        int fd, const char *name, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
+int dissect_image_and_warn(int fd,
+                           const char *name,
+                           const void *root_hash,
+                           size_t root_hash_size,
+                           DissectImageFlags flags,
+                           DissectedImage **ret) {
 
         _cleanup_free_ char *buffer = NULL;
         int r;
@@ -1430,10 +1465,12 @@ int dissect_image_and_warn(
         switch (r) {
 
         case -EOPNOTSUPP:
-                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
+                return log_error_errno(r,
+                                       "Dissecting images is not supported, compiled without blkid support.");
 
         case -ENOPKG:
-                return log_error_errno(r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
+                return log_error_errno(
+                        r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
 
         case -EADDRNOTAVAIL:
                 return log_error_errno(r, "No root partition for specified root hash found in '%s'.", name);
@@ -1445,7 +1482,10 @@ int dissect_image_and_warn(
                 return log_error_errno(r, "No suitable root partition found in image '%s'.", name);
 
         case -EPROTONOSUPPORT:
-                return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
+                return log_error_errno(
+                        r,
+                        "Device '%s' is loopback block device with partition scanning turned off, please turn it on.",
+                        name);
 
         default:
                 if (r < 0)

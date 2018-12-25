@@ -70,8 +70,8 @@
 /* The period to insert between posting changes for coalescing */
 #define POST_CHANGE_TIMER_INTERVAL_USEC (250 * USEC_PER_MSEC)
 
-/* Pick a good default that is likely to fit into AF_UNIX and AF_INET SOCK_DGRAM datagrams, and even leaves some room
- * for a bit of additional metadata. */
+/* Pick a good default that is likely to fit into AF_UNIX and AF_INET SOCK_DGRAM datagrams, and even leaves
+ * some room for a bit of additional metadata. */
 #define DEFAULT_LINE_MAX (48 * 1024)
 
 #define DEFERRED_CLOSES_MAX (4096)
@@ -86,7 +86,8 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 
         d = opendir(path);
         if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to open %s: %m", path);
+                return log_full_errno(
+                        errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to open %s: %m", path);
 
         if (fstatvfs(dirfd(d), &ss) < 0)
                 return log_error_errno(errno, "Failed to fstatvfs(%s): %m", path);
@@ -180,8 +181,8 @@ static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
 }
 
 void server_space_usage_message(Server *s, JournalStorage *storage) {
-        char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX], fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX],
-                fb6[FORMAT_BYTES_MAX];
+        char fb1[FORMAT_BYTES_MAX], fb2[FORMAT_BYTES_MAX], fb3[FORMAT_BYTES_MAX], fb4[FORMAT_BYTES_MAX],
+                fb5[FORMAT_BYTES_MAX], fb6[FORMAT_BYTES_MAX];
         JournalMetrics *metrics;
 
         assert(s);
@@ -200,39 +201,40 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         format_bytes(fb5, sizeof(fb5), storage->space.limit);
         format_bytes(fb6, sizeof(fb6), storage->space.available);
 
-        server_driver_message(s,
-                              0,
-                              "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
-                              LOG_MESSAGE("%s (%s) is %s, max %s, %s free.", storage->name, storage->path, fb1, fb5, fb6),
-                              "JOURNAL_NAME=%s",
-                              storage->name,
-                              "JOURNAL_PATH=%s",
-                              storage->path,
-                              "CURRENT_USE=%" PRIu64,
-                              storage->space.vfs_used,
-                              "CURRENT_USE_PRETTY=%s",
-                              fb1,
-                              "MAX_USE=%" PRIu64,
-                              metrics->max_use,
-                              "MAX_USE_PRETTY=%s",
-                              fb2,
-                              "DISK_KEEP_FREE=%" PRIu64,
-                              metrics->keep_free,
-                              "DISK_KEEP_FREE_PRETTY=%s",
-                              fb3,
-                              "DISK_AVAILABLE=%" PRIu64,
-                              storage->space.vfs_available,
-                              "DISK_AVAILABLE_PRETTY=%s",
-                              fb4,
-                              "LIMIT=%" PRIu64,
-                              storage->space.limit,
-                              "LIMIT_PRETTY=%s",
-                              fb5,
-                              "AVAILABLE=%" PRIu64,
-                              storage->space.available,
-                              "AVAILABLE_PRETTY=%s",
-                              fb6,
-                              NULL);
+        server_driver_message(
+                s,
+                0,
+                "MESSAGE_ID=" SD_MESSAGE_JOURNAL_USAGE_STR,
+                LOG_MESSAGE("%s (%s) is %s, max %s, %s free.", storage->name, storage->path, fb1, fb5, fb6),
+                "JOURNAL_NAME=%s",
+                storage->name,
+                "JOURNAL_PATH=%s",
+                storage->path,
+                "CURRENT_USE=%" PRIu64,
+                storage->space.vfs_used,
+                "CURRENT_USE_PRETTY=%s",
+                fb1,
+                "MAX_USE=%" PRIu64,
+                metrics->max_use,
+                "MAX_USE_PRETTY=%s",
+                fb2,
+                "DISK_KEEP_FREE=%" PRIu64,
+                metrics->keep_free,
+                "DISK_KEEP_FREE_PRETTY=%s",
+                fb3,
+                "DISK_AVAILABLE=%" PRIu64,
+                storage->space.vfs_available,
+                "DISK_AVAILABLE_PRETTY=%s",
+                fb4,
+                "LIMIT=%" PRIu64,
+                storage->space.limit,
+                "LIMIT_PRETTY=%s",
+                fb5,
+                "AVAILABLE=%" PRIu64,
+                storage->space.available,
+                "AVAILABLE_PRETTY=%s",
+                fb6,
+                NULL);
 }
 
 static bool uid_for_system_journal(uid_t uid) {
@@ -258,7 +260,13 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
 #endif
 }
 
-static int open_journal(Server *s, bool reliably, const char *fname, int flags, bool seal, JournalMetrics *metrics, JournalFile **ret) {
+static int open_journal(Server *s,
+                        bool reliably,
+                        const char *fname,
+                        int flags,
+                        bool seal,
+                        JournalMetrics *metrics,
+                        JournalFile **ret) {
 
         JournalFile *f;
         int r;
@@ -268,8 +276,17 @@ static int open_journal(Server *s, bool reliably, const char *fname, int flags, 
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(
-                        fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open_reliably(fname,
+                                               flags,
+                                               0640,
+                                               s->compress.enabled,
+                                               s->compress.threshold_bytes,
+                                               seal,
+                                               metrics,
+                                               s->mmap,
+                                               s->deferred_closes,
+                                               NULL,
+                                               &f);
         else
                 r = journal_file_open(-1,
                                       fname,
@@ -305,7 +322,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
         const char *fn;
         int r = 0;
 
-        if (!s->system_journal && IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) && (flush_requested || flushed_flag_is_set())) {
+        if (!s->system_journal && IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
+            (flush_requested || flushed_flag_is_set())) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
@@ -319,7 +337,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
                 (void) mkdir(s->system_storage.path, 0755);
 
                 fn = strjoina(s->system_storage.path, "/system.journal");
-                r = open_journal(s, true, fn, O_RDWR | O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
+                r = open_journal(
+                        s, true, fn, O_RDWR | O_CREAT, s->seal, &s->system_storage.metrics, &s->system_journal);
                 if (r >= 0) {
                         server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
@@ -352,7 +371,8 @@ static int system_journal_open(Server *s, bool flush_requested) {
                          * if it already exists, so that we can flush
                          * it into the system journal */
 
-                        r = open_journal(s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(
+                                s, false, fn, O_RDWR, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         log_warning_errno(r, "Failed to open runtime journal: %m");
@@ -369,7 +389,13 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         (void) mkdir("/run/log/journal", 0755);
                         (void) mkdir_parents(fn, 0750);
 
-                        r = open_journal(s, true, fn, O_RDWR | O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
+                        r = open_journal(s,
+                                         true,
+                                         fn,
+                                         O_RDWR | O_CREAT,
+                                         false,
+                                         &s->runtime_storage.metrics,
+                                         &s->runtime_journal);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open runtime journal: %m");
                 }
@@ -424,7 +450,10 @@ static JournalFile *find_journal(Server *s, uid_t uid) {
                 return s->system_journal;
         }
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-" UID_FMT ".journal", SD_ID128_FORMAT_VAL(machine), uid) < 0) {
+        if (asprintf(&p,
+                     "/var/log/journal/" SD_ID128_FORMAT_STR "/user-" UID_FMT ".journal",
+                     SD_ID128_FORMAT_VAL(machine),
+                     uid) < 0) {
                 log_oom();
                 return s->system_journal;
         }
@@ -556,8 +585,8 @@ void server_rotate(Server *s) {
                         ordered_hashmap_remove(s->user_journals, k);
         }
 
-        /* Finally, also rotate all user journals we currently do not have open. (But do so only if we actually have
-         * access to /var, i.e. are not in the log-to-runtime-journal mode). */
+        /* Finally, also rotate all user journals we currently do not have open. (But do so only if we
+         * actually have access to /var, i.e. are not in the log-to-runtime-journal mode). */
         if (!s->runtime_journal && open_user_journal_directory(s, &d, &path) >= 0) {
 
                 struct dirent *de;
@@ -583,7 +612,9 @@ void server_rotate(Server *s) {
 
                         r = parse_uid(u, &uid);
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                                log_debug_errno(r,
+                                                "Failed to parse UID from file name '%s', ignoring: %m",
+                                                de->d_name);
                                 continue;
                         }
 
@@ -597,7 +628,9 @@ void server_rotate(Server *s) {
                                 break;
                         }
 
-                        fd = openat(dirfd(d), de->d_name, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
+                        fd = openat(dirfd(d),
+                                    de->d_name,
+                                    O_RDWR | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
                         if (fd < 0) {
                                 log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING,
                                                errno,
@@ -624,11 +657,14 @@ void server_rotate(Server *s) {
                                               &f);
                         if (r < 0) {
                                 log_warning_errno(
-                                        r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
+                                        r,
+                                        "Failed to read journal file %s for rotation, trying to move it out of the way: %m",
+                                        full);
 
                                 r = journal_file_dispose(dirfd(d), de->d_name);
                                 if (r < 0)
-                                        log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
+                                        log_warning_errno(
+                                                r, "Failed to move %s out of the way, ignoring: %m", full);
                                 else
                                         log_debug("Successfully moved %s out of the way.", full);
 
@@ -686,8 +722,12 @@ static void do_vacuum(Server *s, JournalStorage *storage, bool verbose) {
         if (verbose)
                 server_space_usage_message(s, storage);
 
-        r = journal_directory_vacuum(
-                storage->path, storage->space.limit, storage->metrics.n_max_files, s->max_retention_usec, &s->oldest_file_usec, verbose);
+        r = journal_directory_vacuum(storage->path,
+                                     storage->space.limit,
+                                     storage->metrics.n_max_files,
+                                     s->max_retention_usec,
+                                     &s->oldest_file_usec,
+                                     verbose);
         if (r < 0 && r != -ENOENT)
                 log_warning_errno(r, "Failed to vacuum %s, ignoring: %m", storage->path);
 
@@ -808,17 +848,17 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         assert(iovec);
         assert(n > 0);
 
-        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do not use
-         * the source time, and not even the time the event was originally seen, but instead simply the time we started
-         * processing it, as we want strictly linear ordering in what we write out.) */
+        /* Get the closest, linearized time we have for this log event from the event loop. (Note that we do
+         * not use the source time, and not even the time the event was originally seen, but instead simply
+         * the time we started processing it, as we want strictly linear ordering in what we write out.) */
         assert_se(sd_event_now(s->event, CLOCK_REALTIME, &ts.realtime) >= 0);
         assert_se(sd_event_now(s->event, CLOCK_MONOTONIC, &ts.monotonic) >= 0);
 
         if (ts.realtime < s->last_realtime_clock) {
-                /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen during
-                 * regular operation. However, when it does happen, then we should make sure that we start fresh files
-                 * to ensure that the entries in the journal files are strictly ordered by time, in order to ensure
-                 * bisection works correctly. */
+                /* When the time jumps backwards, let's immediately rotate. Of course, this should not happen
+                 * during regular operation. However, when it does happen, then we should make sure that we
+                 * start fresh files to ensure that the entries in the journal files are strictly ordered by
+                 * time, in order to ensure bisection works correctly. */
 
                 log_debug("Time jumped backwards, rotating.");
                 rotate = true;
@@ -829,7 +869,8 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                         return;
 
                 if (journal_file_rotate_suggested(f, s->max_file_usec)) {
-                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.", f->path);
+                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.",
+                                  f->path);
                         rotate = true;
                 }
         }
@@ -853,7 +894,10 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r,
+                                "Failed to write entry (%zu items, %zu bytes), ignoring: %m",
+                                n,
+                                IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
@@ -867,8 +911,10 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
         log_debug("Retrying write.");
         r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(
-                        r, "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r,
+                                "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
+                                n,
+                                IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -904,8 +950,14 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 iovec[n++] = IOVEC_MAKE_STRING(k);                                \
         }
 
-static void dispatch_message_real(
-        Server *s, struct iovec *iovec, size_t n, size_t m, const ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid) {
+static void dispatch_message_real(Server *s,
+                                  struct iovec *iovec,
+                                  size_t n,
+                                  size_t m,
+                                  const ClientContext *c,
+                                  const struct timeval *tv,
+                                  int priority,
+                                  pid_t object_pid) {
 
         char source_time[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         uid_t journal_uid;
@@ -914,7 +966,9 @@ static void dispatch_message_real(
         assert(s);
         assert(iovec);
         assert(n > 0);
-        assert(n + N_IOVEC_META_FIELDS + (pid_is_valid(object_pid) ? N_IOVEC_OBJECT_FIELDS : 0) + client_context_extra_fields_n_iovec(c) <= m);
+        assert(n + N_IOVEC_META_FIELDS + (pid_is_valid(object_pid) ? N_IOVEC_OBJECT_FIELDS : 0) +
+                       client_context_extra_fields_n_iovec(c) <=
+               m);
 
         if (c) {
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->pid, pid_t, pid_is_valid, PID_FMT, "_PID");
@@ -928,12 +982,15 @@ static void dispatch_message_real(
 
                 IOVEC_ADD_SIZED_FIELD(iovec, n, c->label, c->label_size, "_SELINUX_CONTEXT");
 
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "_AUDIT_SESSION");
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->loginuid, uid_t, uid_is_valid, UID_FMT, "_AUDIT_LOGINUID");
+                IOVEC_ADD_NUMERIC_FIELD(
+                        iovec, n, c->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "_AUDIT_SESSION");
+                IOVEC_ADD_NUMERIC_FIELD(
+                        iovec, n, c->loginuid, uid_t, uid_is_valid, UID_FMT, "_AUDIT_LOGINUID");
 
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->cgroup, "_SYSTEMD_CGROUP");
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->session, "_SYSTEMD_SESSION");
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->owner_uid, uid_t, uid_is_valid, UID_FMT, "_SYSTEMD_OWNER_UID");
+                IOVEC_ADD_NUMERIC_FIELD(
+                        iovec, n, c->owner_uid, uid_t, uid_is_valid, UID_FMT, "_SYSTEMD_OWNER_UID");
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->unit, "_SYSTEMD_UNIT");
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->user_unit, "_SYSTEMD_USER_UNIT");
                 IOVEC_ADD_STRING_FIELD(iovec, n, c->slice, "_SYSTEMD_SLICE");
@@ -942,7 +999,9 @@ static void dispatch_message_real(
                 IOVEC_ADD_ID128_FIELD(iovec, n, c->invocation_id, "_SYSTEMD_INVOCATION_ID");
 
                 if (c->extra_fields_n_iovec > 0) {
-                        memcpy(iovec + n, c->extra_fields_iovec, c->extra_fields_n_iovec * sizeof(struct iovec));
+                        memcpy(iovec + n,
+                               c->extra_fields_iovec,
+                               c->extra_fields_n_iovec * sizeof(struct iovec));
                         n += c->extra_fields_n_iovec;
                 }
         }
@@ -962,12 +1021,20 @@ static void dispatch_message_real(
 
                 IOVEC_ADD_SIZED_FIELD(iovec, n, o->label, o->label_size, "OBJECT_SELINUX_CONTEXT");
 
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->auditid, uint32_t, audit_session_is_valid, "%" PRIu32, "OBJECT_AUDIT_SESSION");
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->loginuid, uid_t, uid_is_valid, UID_FMT, "OBJECT_AUDIT_LOGINUID");
+                IOVEC_ADD_NUMERIC_FIELD(iovec,
+                                        n,
+                                        o->auditid,
+                                        uint32_t,
+                                        audit_session_is_valid,
+                                        "%" PRIu32,
+                                        "OBJECT_AUDIT_SESSION");
+                IOVEC_ADD_NUMERIC_FIELD(
+                        iovec, n, o->loginuid, uid_t, uid_is_valid, UID_FMT, "OBJECT_AUDIT_LOGINUID");
 
                 IOVEC_ADD_STRING_FIELD(iovec, n, o->cgroup, "OBJECT_SYSTEMD_CGROUP");
                 IOVEC_ADD_STRING_FIELD(iovec, n, o->session, "OBJECT_SYSTEMD_SESSION");
-                IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->owner_uid, uid_t, uid_is_valid, UID_FMT, "OBJECT_SYSTEMD_OWNER_UID");
+                IOVEC_ADD_NUMERIC_FIELD(
+                        iovec, n, o->owner_uid, uid_t, uid_is_valid, UID_FMT, "OBJECT_SYSTEMD_OWNER_UID");
                 IOVEC_ADD_STRING_FIELD(iovec, n, o->unit, "OBJECT_SYSTEMD_UNIT");
                 IOVEC_ADD_STRING_FIELD(iovec, n, o->user_unit, "OBJECT_SYSTEMD_USER_UNIT");
                 IOVEC_ADD_STRING_FIELD(iovec, n, o->slice, "OBJECT_SYSTEMD_SLICE");
@@ -1023,7 +1090,8 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
         assert(s);
         assert(format);
 
-        m = N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS + client_context_extra_fields_n_iovec(s->my_context) + N_IOVEC_OBJECT_FIELDS;
+        m = N_IOVEC_META_FIELDS + 5 + N_IOVEC_PAYLOAD_FIELDS +
+                client_context_extra_fields_n_iovec(s->my_context) + N_IOVEC_OBJECT_FIELDS;
         iovec = newa(struct iovec, m);
 
         assert_cc(3 == LOG_FAC(LOG_DAEMON));
@@ -1062,8 +1130,14 @@ void server_driver_message(Server *s, pid_t object_pid, const char *message_id, 
         }
 }
 
-void server_dispatch_message(
-        Server *s, struct iovec *iovec, size_t n, size_t m, ClientContext *c, const struct timeval *tv, int priority, pid_t object_pid) {
+void server_dispatch_message(Server *s,
+                             struct iovec *iovec,
+                             size_t n,
+                             size_t m,
+                             ClientContext *c,
+                             const struct timeval *tv,
+                             int priority,
+                             pid_t object_pid) {
 
         uint64_t available = 0;
         int rl;
@@ -1085,8 +1159,12 @@ void server_dispatch_message(
         if (c && c->unit) {
                 (void) determine_space(s, &available, NULL);
 
-                rl = journal_rate_limit_test(
-                        s->rate_limit, c->unit, c->log_rate_limit_interval, c->log_rate_limit_burst, priority & LOG_PRIMASK, available);
+                rl = journal_rate_limit_test(s->rate_limit,
+                                             c->unit,
+                                             c->log_rate_limit_interval,
+                                             c->log_rate_limit_burst,
+                                             priority & LOG_PRIMASK,
+                                             available);
                 if (rl == 0)
                         return;
 
@@ -1170,7 +1248,8 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 server_vacuum(s, false);
 
                 if (!s->system_journal) {
-                        log_notice("Didn't flush runtime journal since rotation of system journal wasn't successful.");
+                        log_notice(
+                                "Didn't flush runtime journal since rotation of system journal wasn't successful.");
                         r = -EIO;
                         goto finish;
                 }
@@ -1229,8 +1308,9 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
                  * will probably be identical to NAME_MAX. For
                  * now we use that, but this should be updated
                  * one day when the final limit is known. */
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(sizeof(int)) + /* fd */
-                            CMSG_SPACE(NAME_MAX)]; /* selinux label */
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(struct timeval)) +
+                            CMSG_SPACE(sizeof(int)) + /* fd */
+                            CMSG_SPACE(NAME_MAX)];    /* selinux label */
         } control = {};
 
         union sockaddr_union sa = {};
@@ -1248,14 +1328,19 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         assert(fd == s->native_fd || fd == s->syslog_fd || fd == s->audit_fd);
 
         if (revents != EPOLLIN)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got invalid event from epoll for datagram fd: %" PRIx32, revents);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Got invalid event from epoll for datagram fd: %" PRIx32,
+                                       revents);
 
-        /* Try to get the right size, if we can. (Not all sockets support SIOCINQ, hence we just try, but don't rely on
-         * it.) */
+        /* Try to get the right size, if we can. (Not all sockets support SIOCINQ, hence we just try, but
+         * don't rely on it.) */
         (void) ioctl(fd, SIOCINQ, &v);
 
         /* Fix it up, if it is too small. We use the same fixed value as auditd here. Awful! */
-        m = PAGE_ALIGN(MAX3((size_t) v + 1, (size_t) LINE_MAX, ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) + 1);
+        m = PAGE_ALIGN(MAX3((size_t) v + 1,
+                            (size_t) LINE_MAX,
+                            ALIGN(sizeof(struct nlmsghdr)) + ALIGN((size_t) MAX_AUDIT_MESSAGE_LENGTH)) +
+                       1);
 
         if (!GREEDY_REALLOC(s->buffer, s->buffer_size, m))
                 return log_oom();
@@ -1272,7 +1357,8 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
         CMSG_FOREACH (cmsg, &msghdr) {
 
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                         ucred = (struct ucred *) CMSG_DATA(cmsg);
                 else if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_SECURITY) {
                         label = (char *) CMSG_DATA(cmsg);
@@ -1393,7 +1479,8 @@ static int setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN + 1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN + 1, -1) >=
+                  0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1584,7 +1671,13 @@ int server_schedule_sync(Server *s, int priority) {
                 when += s->sync_interval_usec;
 
                 if (!s->sync_event_source) {
-                        r = sd_event_add_time(s->event, &s->sync_event_source, CLOCK_MONOTONIC, when, 0, server_dispatch_sync, s);
+                        r = sd_event_add_time(s->event,
+                                              &s->sync_event_source,
+                                              CLOCK_MONOTONIC,
+                                              when,
+                                              0,
+                                              server_dispatch_sync,
+                                              s);
                         if (r < 0)
                                 return r;
 
@@ -1623,7 +1716,8 @@ static int server_open_hostname(Server *s) {
         if (s->hostname_fd < 0)
                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 
-        r = sd_event_add_io(s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
+        r = sd_event_add_io(
+                s->event, &s->hostname_event_source, s->hostname_fd, 0, dispatch_hostname_change, s);
         if (r < 0) {
                 /* kernels prior to 3.2 don't support polling this file. Ignore
                  * the failure. */
@@ -1776,7 +1870,8 @@ static int server_connect_notify(Server *s) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to connect to notify socket: %m");
 
-        r = sd_event_add_io(s->event, &s->notify_event_source, s->notify_fd, EPOLLOUT, dispatch_notify_event, s);
+        r = sd_event_add_io(
+                s->event, &s->notify_event_source, s->notify_fd, EPOLLOUT, dispatch_notify_event, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch notification socket: %m");
 
@@ -1808,7 +1903,8 @@ int server_init(Server *s) {
         assert(s);
 
         zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
+        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd =
+                s->notify_fd = -1;
         s->compress.enabled = true;
         s->compress.threshold_bytes = (uint64_t) -1;
         s->seal = true;
@@ -1877,14 +1973,16 @@ int server_init(Server *s) {
                 if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/socket", 0) > 0) {
 
                         if (s->native_fd >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many native sockets passed.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many native sockets passed.");
 
                         s->native_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, "/run/systemd/journal/stdout", 0) > 0) {
 
                         if (s->stdout_fd >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many stdout sockets passed.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many stdout sockets passed.");
 
                         s->stdout_fd = fd;
 
@@ -1892,14 +1990,16 @@ int server_init(Server *s) {
                            sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/dev-log", 0) > 0) {
 
                         if (s->syslog_fd >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many /dev/log sockets passed.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many /dev/log sockets passed.");
 
                         s->syslog_fd = fd;
 
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
                         if (s->audit_fd >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many audit sockets passed.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many audit sockets passed.");
 
                         s->audit_fd = fd;
 
@@ -2070,9 +2170,10 @@ void server_done(Server *s) {
                 mmap_cache_unref(s->mmap);
 }
 
-static const char *const storage_table[_STORAGE_MAX] = {
-        [STORAGE_AUTO] = "auto", [STORAGE_VOLATILE] = "volatile", [STORAGE_PERSISTENT] = "persistent", [STORAGE_NONE] = "none"
-};
+static const char *const storage_table[_STORAGE_MAX] = { [STORAGE_AUTO] = "auto",
+                                                         [STORAGE_VOLATILE] = "volatile",
+                                                         [STORAGE_PERSISTENT] = "persistent",
+                                                         [STORAGE_NONE] = "none" };
 
 DEFINE_STRING_TABLE_LOOKUP(storage, Storage);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_storage, storage, Storage, "Failed to parse storage setting");
@@ -2084,7 +2185,10 @@ static const char *const split_mode_table[_SPLIT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode, "Failed to parse split mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode,
+                         split_mode,
+                         SplitMode,
+                         "Failed to parse split mode setting");
 
 int config_parse_line_max(const char *unit,
                           const char *filename,
@@ -2113,21 +2217,33 @@ int config_parse_line_max(const char *unit,
 
                 r = parse_size(rvalue, 1024, &v);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse LineMax= value, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse LineMax= value, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
 
                 if (v < 79) {
-                        /* Why specify 79 here as minimum line length? Simply, because the most common traditional
-                         * terminal size is 80ch, and it might make sense to break one character before the natural
-                         * line break would occur on that. */
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "LineMax= too small, clamping to 79: %s", rvalue);
+                        /* Why specify 79 here as minimum line length? Simply, because the most common
+                         * traditional terminal size is 80ch, and it might make sense to break one character
+                         * before the natural line break would occur on that. */
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   0,
+                                   "LineMax= too small, clamping to 79: %s",
+                                   rvalue);
                         *sz = 79;
                 } else if (v > (uint64_t)(SSIZE_MAX - 1)) {
-                        /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value read()
-                         * can return, and we need one extra byte for the trailing NUL byte. Of course IRL such large
-                         * memory allocations will fail anyway, hence this limit is mostly theoretical anyway, as we'll
-                         * fail much earlier anyway. */
+                        /* So, why specify SSIZE_MAX-1 here? Because that's one below the largest size value
+                         * read() can return, and we need one extra byte for the trailing NUL byte. Of course
+                         * IRL such large memory allocations will fail anyway, hence this limit is mostly
+                         * theoretical anyway, as we'll fail much earlier anyway. */
                         log_syntax(unit,
                                    LOG_WARNING,
                                    filename,
@@ -2166,7 +2282,12 @@ int config_parse_compress(const char *unit,
                            "Compress= ambiguously specified as 1, enabling compression with default threshold");
                 compress->enabled = true;
         } else if (streq(rvalue, "0")) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Compress= ambiguously specified as 0, disabling compression");
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "Compress= ambiguously specified as 0, disabling compression");
                 compress->enabled = false;
         } else if ((r = parse_boolean(rvalue)) >= 0)
                 compress->enabled = r;
@@ -2176,7 +2297,8 @@ int config_parse_compress(const char *unit,
                 compress->enabled = true;
                 compress->threshold_bytes = (uint64_t) -1;
         } else
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
 
         return 0;
 }

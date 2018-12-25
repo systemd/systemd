@@ -49,8 +49,8 @@ typedef enum StdoutStreamState
         STDOUT_STREAM_RUNNING
 } StdoutStreamState;
 
-/* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum line length
- * was reached, or the end of the stream was reached */
+/* The different types of log record terminators: a real \n was read, a NUL character was read, the maximum
+ * line length was reached, or the end of the stream was reached */
 
 typedef enum LineBreak
 {
@@ -157,7 +157,10 @@ static int stdout_stream_save(StdoutStream *s) {
                         return log_warning_errno(errno, "Failed to stat connected stream: %m");
 
                 /* We use device and inode numbers as identifier for the stream */
-                if (asprintf(&s->state_file, "/run/systemd/journal/streams/%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
+                if (asprintf(&s->state_file,
+                             "/run/systemd/journal/streams/%lu:%lu",
+                             (unsigned long) st.st_dev,
+                             (unsigned long) st.st_ino) < 0)
                         return log_oom();
         }
 
@@ -252,7 +255,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         if (s->context)
                 (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
         else if (pid_is_valid(s->ucred.pid)) {
-                r = client_context_acquire(s->server, s->ucred.pid, &s->ucred, s->label, strlen_ptr(s->label), s->unit_id, &s->context);
+                r = client_context_acquire(s->server,
+                                           s->ucred.pid,
+                                           &s->ucred,
+                                           s->label,
+                                           strlen_ptr(s->label),
+                                           s->unit_id,
+                                           &s->context);
                 if (r < 0)
                         log_warning_errno(r, "Failed to acquire client context, ignoring: %m");
         }
@@ -269,7 +278,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
                 return 0;
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
-                server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
+                server_forward_syslog(
+                        s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
         if (s->forward_to_kmsg || s->server->forward_to_kmsg)
                 server_forward_kmsg(s->server, priority, s->identifier, p, &s->ucred);
@@ -303,11 +313,12 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         if (line_break != LINE_BREAK_NEWLINE) {
                 const char *c;
 
-                /* If this log message was generated due to an uncommon line break then mention this in the log
-                 * entry */
+                /* If this log message was generated due to an uncommon line break then mention this in the
+                 * log entry */
 
-                c = line_break == LINE_BREAK_NUL ? "_LINE_BREAK=nul" :
-                                                   line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" : "_LINE_BREAK=eof";
+                c = line_break == LINE_BREAK_NUL ?
+                        "_LINE_BREAK=nul" :
+                        line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" : "_LINE_BREAK=eof";
                 iovec[n++] = IOVEC_MAKE_STRING(c);
         }
 
@@ -506,8 +517,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 }
         }
 
-        /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
-         * always leave room for a terminating NUL we might need to add. */
+        /* Try to make use of the allocated buffer in full, but never read more than the configured line
+         * size. Also, always leave room for a terminating NUL we might need to add. */
         limit = MIN(s->allocated - 1, s->server->line_max);
 
         l = read(s->fd, s->buffer + s->length, limit - s->length);
@@ -599,7 +610,9 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         assert(s);
 
         if (revents != EPOLLIN)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got invalid event from epoll for stdout server fd: %" PRIx32, revents);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Got invalid event from epoll for stdout server fd: %" PRIx32,
+                                       revents);
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC);
         if (fd < 0) {
@@ -620,7 +633,11 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
                  */
                 fd = safe_close(fd);
 
-                server_driver_message(s, r < 0 ? 0 : u.pid, NULL, LOG_MESSAGE("Too many stdout streams, refusing connection."), NULL);
+                server_driver_message(s,
+                                      r < 0 ? 0 : u.pid,
+                                      NULL,
+                                      LOG_MESSAGE("Too many stdout streams, refusing connection."),
+                                      NULL);
                 return 0;
         }
 
@@ -633,8 +650,8 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
 }
 
 static int stdout_stream_load(StdoutStream *stream, const char *fname) {
-        _cleanup_free_ char *priority = NULL, *level_prefix = NULL, *forward_to_syslog = NULL, *forward_to_kmsg = NULL,
-                            *forward_to_console = NULL, *stream_id = NULL;
+        _cleanup_free_ char *priority = NULL, *level_prefix = NULL, *forward_to_syslog = NULL,
+                            *forward_to_kmsg = NULL, *forward_to_console = NULL, *stream_id = NULL;
         int r;
 
         assert(stream);
@@ -774,7 +791,9 @@ int server_restore_streams(Server *s, FDSet *fds) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m", de->d_name);
+                                log_warning_errno(errno,
+                                                  "Failed to remove /run/systemd/journal/streams/%s: %m",
+                                                  de->d_name);
                         continue;
                 }
 

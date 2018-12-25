@@ -33,8 +33,10 @@ typedef enum BtrfsSnapshotFlags
         BTRFS_SNAPSHOT_READ_ONLY = 2,
         BTRFS_SNAPSHOT_RECURSIVE = 4,
         BTRFS_SNAPSHOT_QUOTA = 8,
-        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 16, /* If the destination doesn't support subvolumes, reflink/copy instead */
-        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32, /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
+        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY =
+                16, /* If the destination doesn't support subvolumes, reflink/copy instead */
+        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32, /* When we can't create a subvolume, use the FS_IMMUTABLE
+                                                   attribute for indicating read-only */
 } BtrfsSnapshotFlags;
 
 typedef enum BtrfsRemoveFlags

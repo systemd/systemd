@@ -184,7 +184,8 @@ static int shovel(PTYForward *f) {
         assert(f);
 
         while ((f->stdin_readable && f->in_buffer_full <= 0) || (f->master_writable && f->in_buffer_full > 0) ||
-               (f->master_readable && f->out_buffer_full <= 0) || (f->stdout_writable && f->out_buffer_full > 0)) {
+               (f->master_readable && f->out_buffer_full <= 0) ||
+               (f->stdout_writable && f->out_buffer_full > 0)) {
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
 
@@ -209,8 +210,8 @@ static int shovel(PTYForward *f) {
 
                                 f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
                         } else {
-                                /* Check if ^] has been pressed three times within one second. If we get this we quite
-                                 * immediately. */
+                                /* Check if ^] has been pressed three times within one second. If we get this
+                                 * we quite immediately. */
                                 if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
                                         return pty_forward_done(f, -ECANCELED);
 
@@ -304,12 +305,13 @@ static int shovel(PTYForward *f) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
 
-                if ((f->out_buffer_full <= 0 || f->stdout_hangup) && (f->in_buffer_full <= 0 || f->master_hangup))
+                if ((f->out_buffer_full <= 0 || f->stdout_hangup) &&
+                    (f->in_buffer_full <= 0 || f->master_hangup))
                         return pty_forward_done(f, 0);
         }
 
-        /* If we were asked to drain, and there's nothing more to handle from the master, then call the callback
-         * too. */
+        /* If we were asked to drain, and there's nothing more to handle from the master, then call the
+         * callback too. */
         if (f->drain && drained(f))
                 return pty_forward_done(f, 0);
 
@@ -419,8 +421,8 @@ int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForwa
         f->master = master;
 
         if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0) {
-                /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
-                 * i.e. something derived from $COLUMNS and $LINES if set. */
+                /* If we can't get the resolution from the output fd, then use our internal, regular
+                 * width/height, i.e. something derived from $COLUMNS and $LINES if set. */
 
                 ws = (struct winsize){
                         .ws_row = lines(),
@@ -454,7 +456,8 @@ int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForwa
                         tcsetattr(STDOUT_FILENO, TCSANOW, &raw_stdout_attr);
                 }
 
-                r = sd_event_add_io(f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN | EPOLLET, on_stdin_event, f);
+                r = sd_event_add_io(
+                        f->event, &f->stdin_event_source, STDIN_FILENO, EPOLLIN | EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
                         return r;
 
@@ -462,7 +465,8 @@ int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForwa
                         (void) sd_event_source_set_description(f->stdin_event_source, "ptyfwd-stdin");
         }
 
-        r = sd_event_add_io(f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT | EPOLLET, on_stdout_event, f);
+        r = sd_event_add_io(
+                f->event, &f->stdout_event_source, STDOUT_FILENO, EPOLLOUT | EPOLLET, on_stdout_event, f);
         if (r == -EPERM)
                 /* stdout without epoll support. Likely redirected to regular file. */
                 f->stdout_writable = true;
@@ -471,7 +475,8 @@ int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForwa
         else
                 (void) sd_event_source_set_description(f->stdout_event_source, "ptyfwd-stdout");
 
-        r = sd_event_add_io(f->event, &f->master_event_source, master, EPOLLIN | EPOLLOUT | EPOLLET, on_master_event, f);
+        r = sd_event_add_io(
+                f->event, &f->master_event_source, master, EPOLLIN | EPOLLOUT | EPOLLET, on_master_event, f);
         if (r < 0)
                 return r;
 

@@ -184,16 +184,30 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 extern const sd_bus_vtable link_vtable[];
 
 int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int link_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error);
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 /* Macros which append INTERFACE= to the message */
 
-#define log_link_full(link, level, error, ...)                                                                                              \
-        ({                                                                                                                                  \
-                const Link *_l = (link);                                                                                                    \
-                _l ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                     log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__);                                               \
+#define log_link_full(link, level, error, ...)                                                \
+        ({                                                                                    \
+                const Link *_l = (link);                                                      \
+                _l ? log_object_internal(level,                                               \
+                                         error,                                               \
+                                         __FILE__,                                            \
+                                         __LINE__,                                            \
+                                         __func__,                                            \
+                                         "INTERFACE=",                                        \
+                                         _l->ifname,                                          \
+                                         NULL,                                                \
+                                         NULL,                                                \
+                                         ##__VA_ARGS__) :                                     \
+                     log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_link_debug(link, ...) log_link_full(link, LOG_DEBUG, 0, ##__VA_ARGS__)
@@ -211,6 +225,6 @@ int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 #define LOG_LINK_MESSAGE(link, fmt, ...) "MESSAGE=%s: " fmt, (link)->ifname, ##__VA_ARGS__
 #define LOG_LINK_INTERFACE(link) "INTERFACE=%s", (link)->ifname
 
-#define ADDRESS_FMT_VAL(address)                                                                                              \
-        be32toh((address).s_addr) >> 24, (be32toh((address).s_addr) >> 16) & 0xFFu, (be32toh((address).s_addr) >> 8) & 0xFFu, \
-                be32toh((address).s_addr) & 0xFFu
+#define ADDRESS_FMT_VAL(address)                                                    \
+        be32toh((address).s_addr) >> 24, (be32toh((address).s_addr) >> 16) & 0xFFu, \
+                (be32toh((address).s_addr) >> 8) & 0xFFu, be32toh((address).s_addr) & 0xFFu

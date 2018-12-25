@@ -43,8 +43,8 @@ typedef struct JsonSource {
 struct JsonVariant {
         union {
                 /* We either maintain a reference counter for this variant itself, or we are embedded into an
-                 * array/object, in which case only that surrounding object is ref-counted. (If 'embedded' is false,
-                 * see below.) */
+                 * array/object, in which case only that surrounding object is ref-counted. (If 'embedded' is
+                 * false, see below.) */
                 size_t n_ref;
 
                 /* If this JsonVariant is part of an array/object, then this field points to the surrounding
@@ -58,13 +58,14 @@ struct JsonVariant {
 
         JsonVariantType type : 5;
 
-        /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent' pointer above
-         * is valid. If false, the 'n_ref' field above is valid instead. */
+        /* A marker whether this variant is embedded into in array/object or not. If true, the 'parent'
+         * pointer above is valid. If false, the 'n_ref' field above is valid instead. */
         bool is_embedded : 1;
 
-        /* In some conditions (for example, if this object is part of an array of strings or objects), we don't store
-         * any data inline, but instead simply reference an external object and act as surrogate of it. In that case
-         * this bool is set, and the external object is referenced through the .reference field below. */
+        /* In some conditions (for example, if this object is part of an array of strings or objects), we
+         * don't store any data inline, but instead simply reference an external object and act as surrogate
+         * of it. In that case this bool is set, and the external object is referenced through the .reference
+         * field below. */
         bool is_reference : 1;
 
         /* While comparing two arrays, we use this for marking what we already have seen */
@@ -83,27 +84,28 @@ struct JsonVariant {
                 /* If is_reference as indicated above is set, this is where the reference object is actually stored. */
                 JsonVariant *reference;
 
-                /* Strings are placed immediately after the structure. Note that when this is a JsonVariant embedded
-                 * into an array we might encode strings up to INLINE_STRING_LENGTH characters directly inside the
-                 * element, while longer strings are stored as references. When this object is not embedded into an
-                 * array, but stand-alone we allocate the right size for the whole structure, i.e. the array might be
-                 * much larger than INLINE_STRING_LENGTH.
+                /* Strings are placed immediately after the structure. Note that when this is a JsonVariant
+                 * embedded into an array we might encode strings up to INLINE_STRING_LENGTH characters
+                 * directly inside the element, while longer strings are stored as references. When this
+                 * object is not embedded into an array, but stand-alone we allocate the right size for the
+                 * whole structure, i.e. the array might be much larger than INLINE_STRING_LENGTH.
                  *
-                 * Note that because we want to allocate arrays of the JsonVariant structure we specify [0] here,
-                 * rather than the prettier []. If we wouldn't, then this char array would have undefined size, and so
-                 * would the union and then the struct this is included in. And of structures with undefined size we
-                 * can't allocate arrays (at least not easily). */
+                 * Note that because we want to allocate arrays of the JsonVariant structure we specify [0]
+                 * here, rather than the prettier []. If we wouldn't, then this char array would have
+                 * undefined size, and so would the union and then the struct this is included in. And of
+                 * structures with undefined size we can't allocate arrays (at least not easily). */
                 char string[0];
         };
 };
 
-/* Inside string arrays we have a series of JasonVariant structures one after the other. In this case, strings longer
- * than INLINE_STRING_MAX are stored as references, and all shorter ones inline. (This means — on x86-64 — strings up
- * to 15 chars are stored within the array elements, and all others in separate allocations) */
+/* Inside string arrays we have a series of JasonVariant structures one after the other. In this case,
+ * strings longer than INLINE_STRING_MAX are stored as references, and all shorter ones inline. (This means —
+ * on x86-64 — strings up to 15 chars are stored within the array elements, and all others in separate
+ * allocations) */
 #define INLINE_STRING_MAX (sizeof(JsonVariant) - offsetof(JsonVariant, string) - 1U)
 
-/* Let's make sure this structure isn't increased in size accidentally. This check is only for our most relevant arch
- * (x86-64). */
+/* Let's make sure this structure isn't increased in size accidentally. This check is only for our most
+ * relevant arch (x86-64). */
 #ifdef __x86_64__
 assert_cc(sizeof(JsonVariant) == 48U);
 assert_cc(INLINE_STRING_MAX == 15U);
@@ -144,18 +146,20 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(JsonSource *, json_source_unref);
  *
  *    1. NULL
  *    2. A 'regular' one, i.e. pointing to malloc() memory
- *    3. A 'magic' one, i.e. one of the special JSON_VARIANT_MAGIC_XYZ values, that encode a few very basic values directly in the pointer.
+ *    3. A 'magic' one, i.e. one of the special JSON_VARIANT_MAGIC_XYZ values, that encode a few very basic
+ * values directly in the pointer.
  *    4. A 'const string' one, i.e. a pointer to a const string.
  *
  * The four kinds of pointers can be discerned like this:
  *
- *    Detecting #1 is easy, just compare with NULL. Detecting #3 is similarly easy: all magic pointers are below
- *    _JSON_VARIANT_MAGIC_MAX (which is pretty low, within the first memory page, which is special on Linux and other
- *    OSes, as it is a faulting page). In order to discern #2 and #4 we check the lowest bit. If it's off it's #2,
- *    otherwise #4. This makes use of the fact that malloc() will return "maximum aligned" memory, which definitely
- *    means the pointer is even. This means we can use the uneven pointers to reference static strings, as long as we
- *    make sure that all static strings used like this are aligned to 2 (or higher), and that we mask the bit on
- *    access. The JSON_VARIANT_STRING_CONST() macro encodes strings as JsonVariant* pointers, with the bit set. */
+ *    Detecting #1 is easy, just compare with NULL. Detecting #3 is similarly easy: all magic pointers are
+ * below _JSON_VARIANT_MAGIC_MAX (which is pretty low, within the first memory page, which is special on
+ * Linux and other OSes, as it is a faulting page). In order to discern #2 and #4 we check the lowest bit. If
+ * it's off it's #2, otherwise #4. This makes use of the fact that malloc() will return "maximum aligned"
+ * memory, which definitely means the pointer is even. This means we can use the uneven pointers to reference
+ * static strings, as long as we make sure that all static strings used like this are aligned to 2 (or
+ * higher), and that we mask the bit on access. The JSON_VARIANT_STRING_CONST() macro encodes strings as
+ * JsonVariant* pointers, with the bit set. */
 
 static bool json_variant_is_magic(const JsonVariant *v) {
         if (!v)
@@ -169,8 +173,8 @@ static bool json_variant_is_const_string(const JsonVariant *v) {
         if (v < _JSON_VARIANT_MAGIC_MAX)
                 return false;
 
-        /* A proper JsonVariant is aligned to whatever malloc() aligns things too, which is definitely not uneven. We
-         * hence use all uneven pointers as indicators for const strings. */
+        /* A proper JsonVariant is aligned to whatever malloc() aligns things too, which is definitely not
+         * uneven. We hence use all uneven pointers as indicators for const strings. */
 
         return (((uintptr_t) v) & 1) != 0;
 }
@@ -213,8 +217,8 @@ static uint16_t json_variant_depth(JsonVariant *v) {
 
 static JsonVariant *json_variant_normalize(JsonVariant *v) {
 
-        /* Converts json variants to their normalized form, i.e. fully dereferenced and wherever possible converted to
-         * the "magic" version if there is one */
+        /* Converts json variants to their normalized form, i.e. fully dereferenced and wherever possible
+         * converted to the "magic" version if there is one */
 
         if (!v)
                 return NULL;
@@ -257,8 +261,8 @@ static JsonVariant *json_variant_normalize(JsonVariant *v) {
 
 static JsonVariant *json_variant_conservative_normalize(JsonVariant *v) {
 
-        /* Much like json_variant_normalize(), but won't simplify if the variant has a source/line location attached to
-         * it, in order not to lose context */
+        /* Much like json_variant_normalize(), but won't simplify if the variant has a source/line location
+         * attached to it, in order not to lose context */
 
         if (!v)
                 return NULL;
@@ -758,7 +762,8 @@ mismatch:
 intmax_t json_variant_integer(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
+            v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -774,7 +779,8 @@ intmax_t json_variant_integer(JsonVariant *v) {
                 if (v->value.unsig <= INTMAX_MAX)
                         return (intmax_t) v->value.unsig;
 
-                log_debug("Unsigned integer %ju requested as signed integer and out of range, returning 0.", v->value.unsig);
+                log_debug("Unsigned integer %ju requested as signed integer and out of range, returning 0.",
+                          v->value.unsig);
                 return 0;
 
         case JSON_VARIANT_REAL: {
@@ -788,7 +794,8 @@ intmax_t json_variant_integer(JsonVariant *v) {
 #pragma GCC diagnostic pop
                         return converted;
 
-                log_debug("Real %Lg requested as integer, and cannot be converted losslessly, returning 0.", v->value.real);
+                log_debug("Real %Lg requested as integer, and cannot be converted losslessly, returning 0.",
+                          v->value.real);
                 return 0;
         }
 
@@ -804,7 +811,8 @@ mismatch:
 uintmax_t json_variant_unsigned(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
+            v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -817,7 +825,8 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
                 if (v->value.integer >= 0)
                         return (uintmax_t) v->value.integer;
 
-                log_debug("Signed integer %ju requested as unsigned integer and out of range, returning 0.", v->value.integer);
+                log_debug("Signed integer %ju requested as unsigned integer and out of range, returning 0.",
+                          v->value.integer);
                 return 0;
 
         case JSON_VARIANT_UNSIGNED:
@@ -834,7 +843,9 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
 #pragma GCC diagnostic pop
                         return converted;
 
-                log_debug("Real %Lg requested as unsigned integer, and cannot be converted losslessly, returning 0.", v->value.real);
+                log_debug(
+                        "Real %Lg requested as unsigned integer, and cannot be converted losslessly, returning 0.",
+                        v->value.real);
                 return 0;
         }
 
@@ -850,7 +861,8 @@ mismatch:
 long double json_variant_real(JsonVariant *v) {
         if (!v)
                 return 0.0;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
+            v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return 0.0;
         if (!json_variant_is_regular(v))
                 goto mismatch;
@@ -870,7 +882,9 @@ long double json_variant_real(JsonVariant *v) {
                 if ((intmax_t) converted == v->value.integer)
                         return converted;
 
-                log_debug("Signed integer %ji requested as real, and cannot be converted losslessly, returning 0.", v->value.integer);
+                log_debug(
+                        "Signed integer %ji requested as real, and cannot be converted losslessly, returning 0.",
+                        v->value.integer);
                 return 0.0;
         }
 
@@ -882,7 +896,9 @@ long double json_variant_real(JsonVariant *v) {
                 if ((uintmax_t) converted == v->value.unsig)
                         return converted;
 
-                log_debug("Unsigned integer %ju requested as real, and cannot be converted losslessly, returning 0.", v->value.unsig);
+                log_debug(
+                        "Unsigned integer %ju requested as real, and cannot be converted losslessly, returning 0.",
+                        v->value.unsig);
                 return 0.0;
         }
 
@@ -898,16 +914,17 @@ mismatch:
 bool json_variant_is_negative(JsonVariant *v) {
         if (!v)
                 goto mismatch;
-        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL)
+        if (v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
+            v == JSON_VARIANT_MAGIC_ZERO_REAL)
                 return false;
         if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
                 return json_variant_is_negative(v->reference);
 
-        /* This function is useful as checking whether numbers are negative is pretty complex since we have three types
-         * of numbers. And some JSON code (OCI for example) uses negative numbers to mark "not defined" numeric
-         * values. */
+        /* This function is useful as checking whether numbers are negative is pretty complex since we have
+         * three types of numbers. And some JSON code (OCI for example) uses negative numbers to mark "not
+         * defined" numeric values. */
 
         switch (v->type) {
 
@@ -978,7 +995,8 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
                 return false;
 
         /* All three magic zeroes qualify as integer, unsigned and as real */
-        if ((v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED || v == JSON_VARIANT_MAGIC_ZERO_REAL) &&
+        if ((v == JSON_VARIANT_MAGIC_ZERO_INTEGER || v == JSON_VARIANT_MAGIC_ZERO_UNSIGNED ||
+             v == JSON_VARIANT_MAGIC_ZERO_REAL) &&
             IN_SET(type, JSON_VARIANT_INTEGER, JSON_VARIANT_UNSIGNED, JSON_VARIANT_REAL, JSON_VARIANT_NUMBER))
                 return true;
 
@@ -1177,20 +1195,22 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
                                 /* During the first iteration unmark everything */
                                 if (i == 0)
                                         key_b->is_marked = false;
-                                else if (key_b->is_marked) /* In later iterations if we already marked something, don't bother with it again */
+                                else if (key_b->is_marked) /* In later iterations if we already marked
+                                                              something, don't bother with it again */
                                         continue;
 
                                 if (found)
                                         continue;
 
                                 if (json_variant_equal(json_variant_by_index(a, i), key_b) &&
-                                    json_variant_equal(json_variant_by_index(a, i + 1), json_variant_by_index(b, j + 1))) {
+                                    json_variant_equal(json_variant_by_index(a, i + 1),
+                                                       json_variant_by_index(b, j + 1))) {
                                         /* Key and values match! */
                                         key_b->is_marked = found = true;
 
-                                        /* In the first iteration we continue the inner loop since we want to mark
-                                         * everything, otherwise exit the loop quickly after we found what we were
-                                         * looking for. */
+                                        /* In the first iteration we continue the inner loop since we want to
+                                         * mark everything, otherwise exit the loop quickly after we found
+                                         * what we were looking for. */
                                         if (i != 0)
                                                 break;
                                 }
@@ -1236,14 +1256,17 @@ static int print_source(FILE *f, JsonVariant *v, JsonFormatFlags flags, bool whi
                 return 0;
 
         /* The max width we need to format the line numbers for this source file */
-        w = (v->source && v->source->max_line > 0) ? DECIMAL_STR_WIDTH(v->source->max_line) : DECIMAL_STR_MAX(unsigned) - 1;
-        k = (v->source && v->source->max_column > 0) ? DECIMAL_STR_WIDTH(v->source->max_column) : DECIMAL_STR_MAX(unsigned) - 1;
+        w = (v->source && v->source->max_line > 0) ? DECIMAL_STR_WIDTH(v->source->max_line) :
+                                                     DECIMAL_STR_MAX(unsigned) - 1;
+        k = (v->source && v->source->max_column > 0) ? DECIMAL_STR_WIDTH(v->source->max_column) :
+                                                       DECIMAL_STR_MAX(unsigned) - 1;
 
         if (whitespace) {
                 size_t i, n;
 
-                n = 1 + (v->source ? strlen(v->source->name) : 0) + ((v->source && (v->line > 0 || v->column > 0)) ? 1 : 0) +
-                        (v->line > 0 ? w : 0) + (((v->source || v->line > 0) && v->column > 0) ? 1 : 0) + (v->column > 0 ? k : 0) + 2;
+                n = 1 + (v->source ? strlen(v->source->name) : 0) +
+                        ((v->source && (v->line > 0 || v->column > 0)) ? 1 : 0) + (v->line > 0 ? w : 0) +
+                        (((v->source || v->line > 0) && v->column > 0) ? 1 : 0) + (v->column > 0 ? k : 0) + 2;
 
                 for (i = 0; i < n; i++)
                         fputc(' ', f);
@@ -1560,7 +1583,8 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 
         print_source(f, v, flags, false);
 
-        if (((flags & (JSON_FORMAT_COLOR_AUTO | JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) && colors_enabled())
+        if (((flags & (JSON_FORMAT_COLOR_AUTO | JSON_FORMAT_COLOR)) == JSON_FORMAT_COLOR_AUTO) &&
+            colors_enabled())
                 flags |= JSON_FORMAT_COLOR;
 
         if (flags & JSON_FORMAT_SSE)
@@ -2009,7 +2033,8 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         *p = c;
 
         if (is_real) {
-                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) * exp10l((exponent_negative ? -1.0 : 1.0) * exponent);
+                ret->real = ((negative ? -1.0 : 1.0) * (x + (y / shift))) *
+                        exp10l((exponent_negative ? -1.0 : 1.0) * exponent);
                 return JSON_TOKEN_REAL;
         } else if (negative) {
                 ret->integer = i;
@@ -2020,14 +2045,15 @@ static int json_parse_number(const char **p, JsonValue *ret) {
         }
 }
 
-int json_tokenize(const char **p,
-                  char **ret_string,
-                  JsonValue *ret_value,
-                  unsigned *ret_line, /* 'ret_line' returns the line at the beginning of this token */
-                  unsigned *ret_column,
-                  void **state,
-                  unsigned *line, /* 'line' is used as a line state, it always reflect the line we are at after the token was read */
-                  unsigned *column) {
+int json_tokenize(
+        const char **p,
+        char **ret_string,
+        JsonValue *ret_value,
+        unsigned *ret_line, /* 'ret_line' returns the line at the beginning of this token */
+        unsigned *ret_column,
+        void **state,
+        unsigned *line, /* 'line' is used as a line state, it always reflect the line we are at after the token was read */
+        unsigned *column) {
 
         unsigned start_line, start_column;
         const char *start, *c;
@@ -2222,7 +2248,8 @@ typedef struct JsonStack {
         size_t n_elements, n_elements_allocated;
         unsigned line_before;
         unsigned column_before;
-        size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == (size_t) -1, suppress all subsequent elements */
+        size_t n_suppress; /* When building: if > 0, suppress this many subsequent elements. If == (size_t)
+                              -1, suppress all subsequent elements */
 } JsonStack;
 
 static void json_stack_release(JsonStack *s) {
@@ -2232,7 +2259,12 @@ static void json_stack_release(JsonStack *s) {
         s->elements = mfree(s->elements);
 }
 
-static int json_parse_internal(const char **input, JsonSource *source, JsonVariant **ret, unsigned *line, unsigned *column, bool continue_end) {
+static int json_parse_internal(const char **input,
+                               JsonSource *source,
+                               JsonVariant **ret,
+                               unsigned *line,
+                               unsigned *column,
+                               bool continue_end) {
 
         size_t n_stack = 1, n_stack_allocated = 0, i;
         unsigned line_buffer = 0, column_buffer = 0;
@@ -2272,7 +2304,8 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                 if (continue_end && current->expect == EXPECT_END)
                         goto done;
 
-                token = json_tokenize(&p, &string, &value, &line_token, &column_token, &tokenizer_state, line, column);
+                token = json_tokenize(
+                        &p, &string, &value, &line_token, &column_token, &tokenizer_state, line, column);
                 if (token < 0) {
                         r = token;
                         goto finish;
@@ -2315,7 +2348,11 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
 
                 case JSON_TOKEN_OBJECT_OPEN:
 
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2332,7 +2369,9 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
@@ -2366,7 +2405,11 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         break;
 
                 case JSON_TOKEN_ARRAY_OPEN:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2383,7 +2426,9 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
@@ -2437,14 +2482,20 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
                         break;
 
                 case JSON_TOKEN_REAL:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2458,14 +2509,20 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
                         break;
 
                 case JSON_TOKEN_INTEGER:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2479,14 +2536,20 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
                         break;
 
                 case JSON_TOKEN_UNSIGNED:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2500,14 +2563,20 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
                         break;
 
                 case JSON_TOKEN_BOOLEAN:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2521,14 +2590,20 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
                         break;
 
                 case JSON_TOKEN_NULL:
-                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                        if (!IN_SET(current->expect,
+                                    EXPECT_TOPLEVEL,
+                                    EXPECT_OBJECT_VALUE,
+                                    EXPECT_ARRAY_FIRST_ELEMENT,
+                                    EXPECT_ARRAY_NEXT_ELEMENT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -2542,7 +2617,9 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                         else if (current->expect == EXPECT_OBJECT_VALUE)
                                 current->expect = EXPECT_OBJECT_COMMA;
                         else {
-                                assert(IN_SET(current->expect, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT));
+                                assert(IN_SET(current->expect,
+                                              EXPECT_ARRAY_FIRST_ELEMENT,
+                                              EXPECT_ARRAY_NEXT_ELEMENT));
                                 current->expect = EXPECT_ARRAY_COMMA;
                         }
 
@@ -2555,7 +2632,9 @@ static int json_parse_internal(const char **input, JsonSource *source, JsonVaria
                 if (add) {
                         (void) json_variant_set_source(&add, source, line_token, column_token);
 
-                        if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
+                        if (!GREEDY_REALLOC(current->elements,
+                                            current->n_elements_allocated,
+                                            current->n_elements + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -2630,8 +2709,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
         for (;;) {
                 _cleanup_(json_variant_unrefp) JsonVariant *add = NULL;
-                size_t n_subtract = 0; /* how much to subtract from current->n_suppress, i.e. how many elements would
-                                        * have been added to the current variant */
+                size_t n_subtract = 0; /* how much to subtract from current->n_suppress, i.e. how many
+                                        * elements would have been added to the current variant */
                 JsonStack *current;
                 int command;
 
@@ -2816,8 +2895,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        /* Note that we don't care for current->n_suppress here, after all the variant is already
-                         * allocated anyway... */
+                        /* Note that we don't care for current->n_suppress here, after all the variant is
+                         * already allocated anyway... */
                         add = va_arg(ap, JsonVariant *);
                         if (!add)
                                 add = JSON_VARIANT_MAGIC_NULL;
@@ -2846,8 +2925,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         l = va_arg(ap, const char *);
 
                         if (l) {
-                                /* Note that we don't care for current->n_suppress here, we should generate parsing
-                                 * errors even in suppressed object properties */
+                                /* Note that we don't care for current->n_suppress here, we should generate
+                                 * parsing errors even in suppressed object properties */
 
                                 r = json_parse(l, &add, NULL, NULL);
                                 if (r < 0)
@@ -2889,10 +2968,11 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_ARRAY_ELEMENT,
-                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
-                                                                                           * new array, then we should
-                                                                                           * also suppress all array
-                                                                                           * members */
+                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 :
+                                                                         0, /* if we shall suppress the
+                                                                             * new array, then we should
+                                                                             * also suppress all array
+                                                                             * members */
                         };
 
                         break;
@@ -2968,10 +3048,11 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         stack[n_stack++] = (JsonStack){
                                 .expect = EXPECT_OBJECT_KEY,
-                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 : 0, /* if we shall suppress the
-                                                                                           * new object, then we should
-                                                                                           * also suppress all object
-                                                                                           * members */
+                                .n_suppress = current->n_suppress != 0 ? (size_t) -1 :
+                                                                         0, /* if we shall suppress the
+                                                                             * new object, then we should
+                                                                             * also suppress all object
+                                                                             * members */
                         };
 
                         break;
@@ -3050,7 +3131,9 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 /* If a variant was generated, add it to our current variant, but only if we are not supposed to suppress additions */
                 if (add && current->n_suppress == 0) {
-                        if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
+                        if (!GREEDY_REALLOC(current->elements,
+                                            current->n_elements_allocated,
+                                            current->n_elements + 1)) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3058,9 +3141,9 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         current->elements[current->n_elements++] = TAKE_PTR(add);
                 }
 
-                /* If we are supposed to suppress items, let's subtract how many items where generated from that
-                 * counter. Except if the counter is (size_t) -1, i.e. we shall suppress an infinite number of elements
-                 * on this stack level */
+                /* If we are supposed to suppress items, let's subtract how many items where generated from
+                 * that counter. Except if the counter is (size_t) -1, i.e. we shall suppress an infinite
+                 * number of elements on this stack level */
                 if (current->n_suppress != (size_t) -1) {
                         if (current->n_suppress <= n_subtract) /* Saturated */
                                 current->n_suppress = 0;
@@ -3098,7 +3181,14 @@ int json_build(JsonVariant **ret, ...) {
         return r;
 }
 
-int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+int json_log_internal(JsonVariant *variant,
+                      int level,
+                      int error,
+                      const char *file,
+                      int line,
+                      const char *func,
+                      const char *format,
+                      ...) {
 
         PROTECT_ERRNO;
 
@@ -3153,7 +3243,11 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
                                            NULL);
 }
 
-int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallback bad, JsonDispatchFlags flags, void *userdata) {
+int json_dispatch(JsonVariant *v,
+                  const JsonDispatch table[],
+                  JsonDispatchCallback bad,
+                  JsonDispatchFlags flags,
+                  void *userdata) {
         const JsonDispatch *p;
         size_t i, n, m;
         int r, done = 0;
@@ -3206,7 +3300,11 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                         }
 
                         if (found[p - table]) {
-                                json_log(value, merged_flags, 0, "Duplicate object field '%s'.", json_variant_string(key));
+                                json_log(value,
+                                         merged_flags,
+                                         0,
+                                         "Duplicate object field '%s'.",
+                                         json_variant_string(key));
 
                                 if (merged_flags & JSON_PERMISSIVE)
                                         continue;
@@ -3217,7 +3315,10 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                         found[p - table] = true;
 
                         if (p->callback) {
-                                r = p->callback(json_variant_string(key), value, merged_flags, (uint8_t *) userdata + p->offset);
+                                r = p->callback(json_variant_string(key),
+                                                value,
+                                                merged_flags,
+                                                (uint8_t *) userdata + p->offset);
                                 if (r < 0) {
                                         if (merged_flags & JSON_PERMISSIVE)
                                                 continue;
@@ -3241,7 +3342,11 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                                         done++;
 
                         } else {
-                                json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
+                                json_log(value,
+                                         flags,
+                                         0,
+                                         "Unexpected object field '%s'.",
+                                         json_variant_string(key));
 
                                 if (flags & JSON_PERMISSIVE)
                                         continue;
@@ -3442,9 +3547,11 @@ int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFl
 }
 
 static const char *const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {
-        [JSON_VARIANT_STRING] = "string", [JSON_VARIANT_INTEGER] = "integer", [JSON_VARIANT_UNSIGNED] = "unsigned",
-        [JSON_VARIANT_REAL] = "real",     [JSON_VARIANT_NUMBER] = "number",   [JSON_VARIANT_BOOLEAN] = "boolean",
-        [JSON_VARIANT_ARRAY] = "array",   [JSON_VARIANT_OBJECT] = "object",   [JSON_VARIANT_NULL] = "null",
+        [JSON_VARIANT_STRING] = "string",     [JSON_VARIANT_INTEGER] = "integer",
+        [JSON_VARIANT_UNSIGNED] = "unsigned", [JSON_VARIANT_REAL] = "real",
+        [JSON_VARIANT_NUMBER] = "number",     [JSON_VARIANT_BOOLEAN] = "boolean",
+        [JSON_VARIANT_ARRAY] = "array",       [JSON_VARIANT_OBJECT] = "object",
+        [JSON_VARIANT_NULL] = "null",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(json_variant_type, JsonVariantType);

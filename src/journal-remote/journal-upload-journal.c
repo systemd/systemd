@@ -380,7 +380,9 @@ int open_journal_for_upload(Uploader *u, sd_journal *j, const char *cursor, bool
                 if (r < 0)
                         return log_error_errno(r, "Failed to register input event: %m");
 
-                log_debug("Listening for journal events on fd:%d, timeout %d", fd, u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
+                log_debug("Listening for journal events on fd:%d, timeout %d",
+                          fd,
+                          u->timeout == (uint64_t) -1 ? -1 : (int) u->timeout);
         } else
                 log_debug("Not listening for journal events.");
 

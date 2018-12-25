@@ -16,13 +16,17 @@ static const struct udev_builtin *builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_BLKID
         [UDEV_BUILTIN_BLKID] = &udev_builtin_blkid,
 #endif
-        [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,       [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
-        [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id, [UDEV_BUILTIN_KEYBOARD] = &udev_builtin_keyboard,
+        [UDEV_BUILTIN_BTRFS] = &udev_builtin_btrfs,
+        [UDEV_BUILTIN_HWDB] = &udev_builtin_hwdb,
+        [UDEV_BUILTIN_INPUT_ID] = &udev_builtin_input_id,
+        [UDEV_BUILTIN_KEYBOARD] = &udev_builtin_keyboard,
 #if HAVE_KMOD
         [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 #endif
-        [UDEV_BUILTIN_NET_ID] = &udev_builtin_net_id,     [UDEV_BUILTIN_NET_LINK] = &udev_builtin_net_setup_link,
-        [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,   [UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
+        [UDEV_BUILTIN_NET_ID] = &udev_builtin_net_id,
+        [UDEV_BUILTIN_NET_LINK] = &udev_builtin_net_setup_link,
+        [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,
+        [UDEV_BUILTIN_USB_ID] = &udev_builtin_usb_id,
 #if HAVE_ACL
         [UDEV_BUILTIN_UACCESS] = &udev_builtin_uaccess,
 #endif
@@ -132,7 +136,8 @@ int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const 
 
         r = device_add_property(dev, key, val);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to add property '%s%s%s'", key, val ? "=" : "", strempty(val));
+                return log_device_debug_errno(
+                        dev, r, "Failed to add property '%s%s%s'", key, val ? "=" : "", strempty(val));
 
         if (test)
                 printf("%s=%s\n", key, val);

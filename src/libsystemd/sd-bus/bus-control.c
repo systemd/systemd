@@ -48,7 +48,9 @@ static int validate_request_name_parameters(sd_bus *bus, const char *name, uint6
         assert(name);
         assert(ret_param);
 
-        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT | SD_BUS_NAME_REPLACE_EXISTING | SD_BUS_NAME_QUEUE)), -EINVAL);
+        assert_return(!(flags &
+                        ~(SD_BUS_NAME_ALLOW_REPLACEMENT | SD_BUS_NAME_REPLACE_EXISTING | SD_BUS_NAME_QUEUE)),
+                      -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
 
@@ -89,8 +91,16 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RequestName", NULL, &reply, "su", name, param);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.DBus",
+                               "/org/freedesktop/DBus",
+                               "org.freedesktop.DBus",
+                               "RequestName",
+                               NULL,
+                               &reply,
+                               "su",
+                               name,
+                               param);
         if (r < 0)
                 return r;
 
@@ -124,8 +134,9 @@ static int default_request_name_handler(sd_bus_message *m, void *userdata, sd_bu
         assert(m);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                log_debug_errno(
-                        sd_bus_message_get_errno(m), "Unable to request name, failing connection: %s", sd_bus_message_get_error(m)->message);
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to request name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
 
                 bus_enter_closing(sd_bus_message_get_bus(m));
                 return 1;
@@ -160,8 +171,12 @@ static int default_request_name_handler(sd_bus_message *m, void *userdata, sd_bu
         return 1;
 }
 
-_public_ int sd_bus_request_name_async(
-        sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_request_name_async(sd_bus *bus,
+                                       sd_bus_slot **ret_slot,
+                                       const char *name,
+                                       uint64_t flags,
+                                       sd_bus_message_handler_t callback,
+                                       void *userdata) {
 
         uint32_t param = 0;
         int r;
@@ -224,8 +239,15 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ReleaseName", NULL, &reply, "s", name);
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.DBus",
+                               "/org/freedesktop/DBus",
+                               "org.freedesktop.DBus",
+                               "ReleaseName",
+                               NULL,
+                               &reply,
+                               "s",
+                               name);
         if (r < 0)
                 return r;
 
@@ -256,8 +278,9 @@ static int default_release_name_handler(sd_bus_message *m, void *userdata, sd_bu
         assert(m);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                log_debug_errno(
-                        sd_bus_message_get_errno(m), "Unable to release name, failing connection: %s", sd_bus_message_get_error(m)->message);
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to release name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
 
                 bus_enter_closing(sd_bus_message_get_bus(m));
                 return 1;
@@ -287,7 +310,11 @@ static int default_release_name_handler(sd_bus_message *m, void *userdata, sd_bu
         return 1;
 }
 
-_public_ int sd_bus_release_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, sd_bus_message_handler_t callback, void *userdata) {
+_public_ int sd_bus_release_name_async(sd_bus *bus,
+                                       sd_bus_slot **ret_slot,
+                                       const char *name,
+                                       sd_bus_message_handler_t callback,
+                                       void *userdata) {
 
         int r;
 
@@ -329,8 +356,14 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 return -ENOTCONN;
 
         if (acquired) {
-                r = sd_bus_call_method(
-                        bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames", NULL, &reply, NULL);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.DBus",
+                                       "/org/freedesktop/DBus",
+                                       "org.freedesktop.DBus",
+                                       "ListNames",
+                                       NULL,
+                                       &reply,
+                                       NULL);
                 if (r < 0)
                         return r;
 
@@ -342,8 +375,14 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         }
 
         if (activatable) {
-                r = sd_bus_call_method(
-                        bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListActivatableNames", NULL, &reply, NULL);
+                r = sd_bus_call_method(bus,
+                                       "org.freedesktop.DBus",
+                                       "/org/freedesktop/DBus",
+                                       "org.freedesktop.DBus",
+                                       "ListActivatableNames",
+                                       NULL,
+                                       &reply,
+                                       NULL);
                 if (r < 0)
                         return r;
 
@@ -379,8 +418,8 @@ _public_ int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask,
         if (!bus->bus_client)
                 return -EINVAL;
 
-        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
-         * going to match. */
+        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc
+         * is not going to match. */
         if (!bus->is_local)
                 mask &= ~SD_BUS_CREDS_AUGMENT;
 
@@ -396,8 +435,8 @@ _public_ int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask,
         /* If the name is unique anyway, we can use it directly */
         unique = name[0] == ':' ? name : NULL;
 
-        /* Only query the owner if the caller wants to know it and the name is not unique anyway, or if the caller just
-         * wants to check whether a name exists */
+        /* Only query the owner if the caller wants to know it and the name is not unique anyway, or if the
+         * caller just wants to check whether a name exists */
         if ((FLAGS_SET(mask, SD_BUS_CREDS_UNIQUE_NAME) && !unique) || mask == 0) {
                 r = sd_bus_call_method(bus,
                                        "org.freedesktop.DBus",
@@ -435,11 +474,14 @@ _public_ int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask,
                 need_pid = (mask & SD_BUS_CREDS_PID) ||
                         ((mask & SD_BUS_CREDS_AUGMENT) &&
                          (mask &
-                          (SD_BUS_CREDS_UID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID | SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID |
-                           SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID | SD_BUS_CREDS_SUPPLEMENTARY_GIDS | SD_BUS_CREDS_COMM | SD_BUS_CREDS_EXE |
-                           SD_BUS_CREDS_CMDLINE | SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT | SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE |
-                           SD_BUS_CREDS_SESSION | SD_BUS_CREDS_OWNER_UID | SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_PERMITTED_CAPS |
-                           SD_BUS_CREDS_INHERITABLE_CAPS | SD_BUS_CREDS_BOUNDING_CAPS | SD_BUS_CREDS_SELINUX_CONTEXT |
+                          (SD_BUS_CREDS_UID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID | SD_BUS_CREDS_GID |
+                           SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID |
+                           SD_BUS_CREDS_SUPPLEMENTARY_GIDS | SD_BUS_CREDS_COMM | SD_BUS_CREDS_EXE |
+                           SD_BUS_CREDS_CMDLINE | SD_BUS_CREDS_CGROUP | SD_BUS_CREDS_UNIT |
+                           SD_BUS_CREDS_USER_UNIT | SD_BUS_CREDS_SLICE | SD_BUS_CREDS_SESSION |
+                           SD_BUS_CREDS_OWNER_UID | SD_BUS_CREDS_EFFECTIVE_CAPS |
+                           SD_BUS_CREDS_PERMITTED_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
+                           SD_BUS_CREDS_BOUNDING_CAPS | SD_BUS_CREDS_SELINUX_CONTEXT |
                            SD_BUS_CREDS_AUDIT_SESSION_ID | SD_BUS_CREDS_AUDIT_LOGIN_UID)));
                 need_uid = mask & SD_BUS_CREDS_EUID;
                 need_selinux = mask & SD_BUS_CREDS_SELINUX_CONTEXT;
@@ -622,7 +664,9 @@ _public_ int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask,
                                                        "s",
                                                        unique ?: name);
                                 if (r < 0) {
-                                        if (!sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
+                                        if (!sd_bus_error_has_name(
+                                                    &error,
+                                                    "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
                                                 return r;
 
                                         /* no data is fine */
@@ -724,7 +768,8 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         return 0;
 }
 
-#define append_eavesdrop(bus, m) ((bus)->is_monitor ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) : (m))
+#define append_eavesdrop(bus, m) \
+        ((bus)->is_monitor ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) : (m))
 
 int bus_add_match_internal(sd_bus *bus, const char *match) {
 
@@ -737,10 +782,21 @@ int bus_add_match_internal(sd_bus *bus, const char *match) {
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method(
-                bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch", NULL, NULL, "s", e);
+        return sd_bus_call_method(bus,
+                                  "org.freedesktop.DBus",
+                                  "/org/freedesktop/DBus",
+                                  "org.freedesktop.DBus",
+                                  "AddMatch",
+                                  NULL,
+                                  NULL,
+                                  "s",
+                                  e);
 }
-int bus_add_match_internal_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+int bus_add_match_internal_async(sd_bus *bus,
+                                 sd_bus_slot **ret_slot,
+                                 const char *match,
+                                 sd_bus_message_handler_t callback,
+                                 void *userdata) {
 
         const char *e;
 
@@ -751,8 +807,16 @@ int bus_add_match_internal_async(sd_bus *bus, sd_bus_slot **ret_slot, const char
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method_async(
-                bus, ret_slot, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "AddMatch", callback, userdata, "s", e);
+        return sd_bus_call_method_async(bus,
+                                        ret_slot,
+                                        "org.freedesktop.DBus",
+                                        "/org/freedesktop/DBus",
+                                        "org.freedesktop.DBus",
+                                        "AddMatch",
+                                        callback,
+                                        userdata,
+                                        "s",
+                                        e);
 }
 
 int bus_remove_match_internal(sd_bus *bus, const char *match) {
@@ -769,8 +833,16 @@ int bus_remove_match_internal(sd_bus *bus, const char *match) {
 
         /* Fire and forget */
 
-        return sd_bus_call_method_async(
-                bus, NULL, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "RemoveMatch", NULL, NULL, "s", e);
+        return sd_bus_call_method_async(bus,
+                                        NULL,
+                                        "org.freedesktop.DBus",
+                                        "/org/freedesktop/DBus",
+                                        "org.freedesktop.DBus",
+                                        "RemoveMatch",
+                                        NULL,
+                                        NULL,
+                                        "s",
+                                        e);
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {

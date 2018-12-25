@@ -28,7 +28,8 @@ bool object_path_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9') || *q == '_';
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') ||
+                                (*q >= '0' && *q <= '9') || *q == '_';
 
                         if (!good)
                                 return false;
@@ -80,7 +81,8 @@ bool interface_name_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (!dot && *q >= '0' && *q <= '9') || *q == '_';
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') ||
+                                (!dot && *q >= '0' && *q <= '9') || *q == '_';
 
                         if (!good)
                                 return false;
@@ -118,8 +120,8 @@ bool service_name_is_valid(const char *p) {
                 } else {
                         bool good;
 
-                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || ((!dot || unique) && *q >= '0' && *q <= '9') ||
-                                IN_SET(*q, '_', '-');
+                        good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') ||
+                                ((!dot || unique) && *q >= '0' && *q <= '9') || IN_SET(*q, '_', '-');
 
                         if (!good)
                                 return false;
@@ -148,7 +150,8 @@ bool member_name_is_valid(const char *p) {
         for (q = p; *q; q++) {
                 bool good;
 
-                good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9') || *q == '_';
+                good = (*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9') ||
+                        *q == '_';
 
                 if (!good)
                         return false;
@@ -279,7 +282,8 @@ char *bus_address_escape(const char *v) {
 
         for (a = v, b = r; *a; a++) {
 
-                if ((*a >= '0' && *a <= '9') || (*a >= 'a' && *a <= 'z') || (*a >= 'A' && *a <= 'Z') || strchr("_-/.", *a))
+                if ((*a >= '0' && *a <= '9') || (*a >= 'a' && *a <= 'z') || (*a >= 'A' && *a <= 'Z') ||
+                    strchr("_-/.", *a))
                         *(b++) = *a;
                 else {
                         *(b++) = '%';
@@ -305,20 +309,21 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
         } else
                 return r;
 
-        log_debug("Failed to process message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64
-                  " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s: %s",
-                  bus_message_type_to_string(m->header->type),
-                  strna(sd_bus_message_get_sender(m)),
-                  strna(sd_bus_message_get_destination(m)),
-                  strna(sd_bus_message_get_path(m)),
-                  strna(sd_bus_message_get_interface(m)),
-                  strna(sd_bus_message_get_member(m)),
-                  BUS_MESSAGE_COOKIE(m),
-                  m->reply_cookie,
-                  strna(m->root_container.signature),
-                  strna(m->error.name),
-                  strna(m->error.message),
-                  bus_error_message(error, r));
+        log_debug(
+                "Failed to process message type=%s sender=%s destination=%s path=%s interface=%s member=%s cookie=%" PRIu64
+                " reply_cookie=%" PRIu64 " signature=%s error-name=%s error-message=%s: %s",
+                bus_message_type_to_string(m->header->type),
+                strna(sd_bus_message_get_sender(m)),
+                strna(sd_bus_message_get_destination(m)),
+                strna(sd_bus_message_get_path(m)),
+                strna(sd_bus_message_get_interface(m)),
+                strna(sd_bus_message_get_member(m)),
+                BUS_MESSAGE_COOKIE(m),
+                m->reply_cookie,
+                strna(m->root_container.signature),
+                strna(m->error.name),
+                strna(m->error.message),
+                bus_error_message(error, r));
 
         return 1;
 }

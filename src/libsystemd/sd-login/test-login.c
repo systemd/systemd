@@ -32,9 +32,10 @@ static char *format_uids(char **buf, uid_t *uids, int count) {
 
 static void test_login(void) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        _cleanup_free_ char *pp = NULL, *qq = NULL, *display_session = NULL, *cgroup = NULL, *display = NULL, *remote_user = NULL,
-                            *remote_host = NULL, *type = NULL, *class = NULL, *state = NULL, *state2 = NULL, *seat = NULL, *session = NULL,
-                            *unit = NULL, *user_unit = NULL, *slice = NULL;
+        _cleanup_free_ char *pp = NULL, *qq = NULL, *display_session = NULL, *cgroup = NULL, *display = NULL,
+                            *remote_user = NULL, *remote_host = NULL, *type = NULL, *class = NULL,
+                            *state = NULL, *state2 = NULL, *seat = NULL, *session = NULL, *unit = NULL,
+                            *user_unit = NULL, *slice = NULL;
         int r;
         uid_t u, u2;
         char *t, **seats, **sessions;
@@ -176,7 +177,12 @@ static void test_login(void) {
                 assert_se(r == (int) strv_length(sessions));
                 assert_se(t = strv_join(sessions, " "));
                 strv_free(sessions);
-                log_info("sd_seat_get_sessions(\"%s\", …) → %i, \"%s\", [%i] {%s}", seat, r, t, n, format_uids(&buf, uids, n));
+                log_info("sd_seat_get_sessions(\"%s\", …) → %i, \"%s\", [%i] {%s}",
+                         seat,
+                         r,
+                         t,
+                         n,
+                         format_uids(&buf, uids, n));
                 free(t);
 
                 assert_se(sd_seat_get_sessions(seat, NULL, NULL, NULL) == r);
@@ -251,7 +257,9 @@ static void test_monitor(void) {
 
                 nw = now(CLOCK_MONOTONIC);
 
-                r = poll(&pollfd, 1, timeout == (uint64_t) -1 ? -1 : timeout > nw ? (int) ((timeout - nw) / 1000) : 0);
+                r = poll(&pollfd,
+                         1,
+                         timeout == (uint64_t) -1 ? -1 : timeout > nw ? (int) ((timeout - nw) / 1000) : 0);
 
                 assert_se(r >= 0);
 

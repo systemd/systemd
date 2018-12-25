@@ -119,9 +119,11 @@ static void test_filter_sets(void) {
 
                         /* If we look at the default set (or one that includes it), whitelist instead of blacklist */
                         if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_SYSTEM_SERVICE))
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
+                                r = seccomp_load_syscall_filter_set(
+                                        SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
                         else
-                                r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), true);
+                                r = seccomp_load_syscall_filter_set(
+                                        SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), true);
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
@@ -137,7 +139,8 @@ static void test_filter_sets(void) {
                         _exit(EXIT_SUCCESS);
                 }
 
-                assert_se(wait_for_terminate_and_check(syscall_filter_sets[i].name, pid, WAIT_LOG) == EXIT_SUCCESS);
+                assert_se(wait_for_terminate_and_check(syscall_filter_sets[i].name, pid, WAIT_LOG) ==
+                          EXIT_SUCCESS);
         }
 }
 
@@ -195,7 +198,8 @@ static void test_restrict_namespace(void) {
         assert_se(namespace_flags_from_string(NULL, &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("", &ul) == 0 && ul == 0);
         assert_se(namespace_flags_from_string("uts", &ul) == 0 && ul == CLONE_NEWUTS);
-        assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 && ul == (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC));
+        assert_se(namespace_flags_from_string("mnt uts ipc", &ul) == 0 &&
+                  ul == (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC));
 
         assert_se(namespace_flags_to_string(CLONE_NEWUTS, &s) == 0 && streq(s, "uts"));
         assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == CLONE_NEWUTS);
@@ -234,8 +238,8 @@ static void test_restrict_namespace(void) {
                 assert_se(unshare(CLONE_NEWNET | CLONE_NEWUTS) == -1);
                 assert_se(errno == EPERM);
 
-                /* We use fd 0 (stdin) here, which of course will fail with EINVAL on setns(). Except of course our
-                 * seccomp filter worked, and hits first and makes it return EPERM */
+                /* We use fd 0 (stdin) here, which of course will fail with EINVAL on setns(). Except of
+                 * course our seccomp filter worked, and hits first and makes it return EPERM */
                 assert_se(setns(0, CLONE_NEWNS) == -1);
                 assert_se(errno == EINVAL);
                 assert_se(setns(0, CLONE_NEWNET) == -1);
@@ -431,13 +435,15 @@ static void test_restrict_realtime(void) {
                 assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param){ .sched_priority = 1 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_RR, &(struct sched_param){ .sched_priority = 1 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param){ .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >=
+                          0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param){}) >= 0);
 
                 assert_se(seccomp_restrict_realtime() >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param){ .sched_priority = 0 }) >= 0);
-                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >= 0);
+                assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param){ .sched_priority = 0 }) >=
+                          0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param){}) >= 0);
 
                 assert_se(sched_setscheduler(0, SCHED_FIFO, &(struct sched_param){ .sched_priority = 1 }) < 0);
@@ -482,7 +488,8 @@ static void test_memory_deny_write_execute_mmap(void) {
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || \
+        defined(__aarch64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
 #else /* unknown architectures */
@@ -627,7 +634,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(
+                                  SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EUCLEAN);
@@ -643,7 +651,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(
+                                  SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -659,7 +668,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(
+                                  SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -676,7 +686,8 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #endif
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(
+                                  SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
                 assert_se(errno == EILSEQ);
@@ -717,8 +728,8 @@ static void test_lock_personality(void) {
 
                 assert_se((unsigned long) safe_personality(current) == current);
 
-                /* Note, we also test that safe_personality() works correctly, by checkig whether errno is properly
-                 * set, in addition to the return value */
+                /* Note, we also test that safe_personality() works correctly, by checkig whether errno is
+                 * properly set, in addition to the return value */
                 errno = 0;
                 assert_se(safe_personality(PER_LINUX | ADDR_NO_RANDOMIZE) == -EPERM);
                 assert_se(errno == EPERM);

@@ -21,18 +21,24 @@
 #include "io-util.h"
 #include "socket-util.h"
 
-#define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT                                                                                 \
-        {                                                                                                                  \
-                {                                                                                                          \
-                        { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } \
-                }                                                                                                          \
+#define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT                                                              \
+        {                                                                                               \
+                {                                                                                       \
+                        {                                                                               \
+                                0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                                        0x00, 0x00, 0x00, 0x02                                          \
+                        }                                                                               \
+                }                                                                                       \
         }
 
-#define IN6ADDR_ALL_NODES_MULTICAST_INIT                                                                                   \
-        {                                                                                                                  \
-                {                                                                                                          \
-                        { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } \
-                }                                                                                                          \
+#define IN6ADDR_ALL_NODES_MULTICAST_INIT                                                                \
+        {                                                                                               \
+                {                                                                                       \
+                        {                                                                               \
+                                0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                                        0x00, 0x00, 0x00, 0x01                                          \
+                        }                                                                               \
+                }                                                                                       \
         }
 
 static int icmp6_bind_router_message(const struct icmp6_filter *filter, const struct ipv6_mreq *mreq) {
@@ -198,15 +204,18 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *dst, tripl
         assert(!(msg.msg_flags & MSG_TRUNC));
 
         CMSG_FOREACH (cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT && cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                if (cmsg->cmsg_level == SOL_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
                         int hops = *(int *) CMSG_DATA(cmsg);
 
                         if (hops != 255)
                                 return -EMULTIHOP;
                 }
 
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP && cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(timestamp, timeval_load((struct timeval *) CMSG_DATA(cmsg)));
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
+                        triple_timestamp_from_realtime(timestamp,
+                                                       timeval_load((struct timeval *) CMSG_DATA(cmsg)));
         }
 
         if (!triple_timestamp_is_set(timestamp))

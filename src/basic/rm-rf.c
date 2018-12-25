@@ -51,7 +51,9 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         _cleanup_free_ char *path = NULL;
 
                         (void) fd_get_path(fd, &path);
-                        log_error("Attempted to remove disk file system under \"%s\", and we can't allow that.", strna(path));
+                        log_error(
+                                "Attempted to remove disk file system under \"%s\", and we can't allow that.",
+                                strna(path));
 
                         safe_close(fd);
                         return -EPERM;
@@ -71,7 +73,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                if (de->d_type == DT_UNKNOWN || (de->d_type == DT_DIR && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
+                if (de->d_type == DT_UNKNOWN ||
+                    (de->d_type == DT_DIR && (root_dev || (flags & REMOVE_SUBVOLUME)))) {
                         if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
@@ -89,7 +92,10 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         if (root_dev && st.st_dev != root_dev->st_dev)
                                 continue;
 
-                        subdir_fd = openat(fd, de->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NOATIME);
+                        subdir_fd = openat(fd,
+                                           de->d_name,
+                                           O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW |
+                                                   O_NOATIME);
                         if (subdir_fd < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
@@ -114,7 +120,8 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
 
                                 /* This could be a subvolume, try to remove it */
 
-                                r = btrfs_subvol_remove_fd(fd, de->d_name, BTRFS_REMOVE_RECURSIVE | BTRFS_REMOVE_QUOTA);
+                                r = btrfs_subvol_remove_fd(
+                                        fd, de->d_name, BTRFS_REMOVE_RECURSIVE | BTRFS_REMOVE_QUOTA);
                                 if (r < 0) {
                                         if (!IN_SET(r, -ENOTTY, -EINVAL)) {
                                                 if (ret == 0)
@@ -168,7 +175,9 @@ int rm_rf(const char *path, RemoveFlags flags) {
          * seriously broken system. */
         if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW))
                 return log_error_errno(
-                        SYNTHETIC_ERRNO(EPERM), "Attempted to remove entire root file system (\"%s\"), and we can't allow that.", path);
+                        SYNTHETIC_ERRNO(EPERM),
+                        "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
+                        path);
 
         if (FLAGS_SET(flags, REMOVE_SUBVOLUME | REMOVE_ROOT | REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
@@ -192,9 +201,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
                                 return -errno;
 
                         if (is_physical_fs(&s))
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                                       "Attempted to remove files from a disk file system under \"%s\", refusing.",
-                                                       path);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EPERM),
+                                        "Attempted to remove files from a disk file system under \"%s\", refusing.",
+                                        path);
                 }
 
                 if ((flags & REMOVE_ROOT) && !(flags & REMOVE_ONLY_DIRECTORIES))

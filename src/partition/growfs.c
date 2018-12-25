@@ -36,7 +36,8 @@ static int resize_ext4(const char *path, int mountfd, int devfd, uint64_t numblo
                 return 0;
 
         if (ioctl(mountfd, EXT4_IOC_RESIZE_FS, &numblocks) != 0)
-                return log_error_errno(errno, "Failed to resize \"%s\" to %" PRIu64 " blocks (ext4): %m", path, numblocks);
+                return log_error_errno(
+                        errno, "Failed to resize \"%s\" to %" PRIu64 " blocks (ext4): %m", path, numblocks);
 
         return 0;
 }
@@ -61,7 +62,8 @@ static int resize_btrfs(const char *path, int mountfd, int devfd, uint64_t numbl
                 return 0;
 
         if (ioctl(mountfd, BTRFS_IOC_RESIZE, &args) != 0)
-                return log_error_errno(errno, "Failed to resize \"%s\" to %" PRIu64 " blocks (btrfs): %m", path, numblocks);
+                return log_error_errno(
+                        errno, "Failed to resize \"%s\" to %" PRIu64 " blocks (btrfs): %m", path, numblocks);
 
         return 0;
 }
@@ -83,7 +85,8 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
                 return log_error_errno(errno, "Failed to open \"%s\": %m", main_devpath);
 
         if (ioctl(main_devfd, BLKGETSIZE64, &size) != 0)
-                return log_error_errno(errno, "Failed to query size of \"%s\" (before resize): %m", main_devpath);
+                return log_error_errno(
+                        errno, "Failed to query size of \"%s\" (before resize): %m", main_devpath);
 
         log_debug("%s is %" PRIu64 " bytes", main_devpath, size);
         r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
@@ -128,7 +131,8 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
 
         r = get_block_device_harder(mountpath, &devno);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m", mountpath);
+                return log_error_errno(
+                        r, "Failed to determine underlying block device of \"%s\": %m", mountpath);
 
         log_debug("Underlying device %d:%d, main dev %d:%d, %s",
                   major(devno),
@@ -145,7 +149,8 @@ static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
 
         r = probe_filesystem(devpath, &fstype);
         if (r == -EUCLEAN)
-                return log_warning_errno(r, "Cannot reliably determine probe \"%s\", refusing to proceed.", devpath);
+                return log_warning_errno(
+                        r, "Cannot reliably determine probe \"%s\", refusing to proceed.", devpath);
         if (r < 0)
                 return log_warning_errno(r, "Failed to probe \"%s\": %m", devpath);
 
@@ -187,9 +192,10 @@ static int parse_argv(int argc, char *argv[]) {
 
         int c;
 
-        static const struct option options[] = {
-                { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, { "dry-run", no_argument, NULL, 'n' }, {}
-        };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 { "dry-run", no_argument, NULL, 'n' },
+                                                 {} };
 
         assert(argc >= 0);
         assert(argv);
@@ -214,8 +220,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind + 1 != argc)
-                return log_error_errno(
-                        SYNTHETIC_ERRNO(EINVAL), "%s excepts exactly one argument (the mount point).", program_invocation_short_name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s excepts exactly one argument (the mount point).",
+                                       program_invocation_short_name);
 
         arg_target = argv[optind];
 
@@ -311,7 +318,9 @@ int main(int argc, char *argv[]) {
                 r = resize_btrfs(arg_target, mountfd, devfd, numblocks, blocksize);
                 break;
         default:
-                log_error("Don't know how to resize fs %llx on \"%s\"", (long long unsigned) sfs.f_type, arg_target);
+                log_error("Don't know how to resize fs %llx on \"%s\"",
+                          (long long unsigned) sfs.f_type,
+                          arg_target);
                 return EXIT_FAILURE;
         }
 

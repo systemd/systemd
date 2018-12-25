@@ -25,7 +25,11 @@
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
 
-static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, const struct ucred *ucred, const struct timeval *tv) {
+static void forward_syslog_iovec(Server *s,
+                                 const struct iovec *iovec,
+                                 unsigned n_iovec,
+                                 const struct ucred *ucred,
+                                 const struct timeval *tv) {
 
         static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -98,8 +102,12 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 log_debug_errno(errno, "Failed to forward syslog message: %m");
 }
 
-static void forward_syslog_raw(
-        Server *s, int priority, const char *buffer, size_t buffer_len, const struct ucred *ucred, const struct timeval *tv) {
+static void forward_syslog_raw(Server *s,
+                               int priority,
+                               const char *buffer,
+                               size_t buffer_len,
+                               const struct ucred *ucred,
+                               const struct timeval *tv) {
         struct iovec iovec;
 
         assert(s);
@@ -112,10 +120,15 @@ static void forward_syslog_raw(
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
 
-void server_forward_syslog(
-        Server *s, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv) {
+void server_forward_syslog(Server *s,
+                           int priority,
+                           const char *identifier,
+                           const char *message,
+                           const struct ucred *ucred,
+                           const struct timeval *tv) {
         struct iovec iovec[5];
-        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64], header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
+        char header_priority[DECIMAL_STR_MAX(priority) + 3], header_time[64],
+                header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
         struct tm tm;
@@ -235,8 +248,9 @@ static int syslog_skip_timestamp(const char **buf) {
                 NUMBER,
                 SPACE_OR_NUMBER,
                 COLON
-        } sequence[] = { LETTER, LETTER, LETTER,          SPACE,  SPACE_OR_NUMBER, NUMBER,          SPACE,  SPACE_OR_NUMBER,
-                         NUMBER, COLON,  SPACE_OR_NUMBER, NUMBER, COLON,           SPACE_OR_NUMBER, NUMBER, SPACE };
+        } sequence[] = { LETTER, LETTER,          LETTER, SPACE, SPACE_OR_NUMBER, NUMBER,
+                         SPACE,  SPACE_OR_NUMBER, NUMBER, COLON, SPACE_OR_NUMBER, NUMBER,
+                         COLON,  SPACE_OR_NUMBER, NUMBER, SPACE };
 
         const char *p, *t;
         unsigned i;
@@ -284,8 +298,13 @@ static int syslog_skip_timestamp(const char **buf) {
         return p - t;
 }
 
-void server_process_syslog_message(
-        Server *s, const char *buf, size_t raw_len, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len) {
+void server_process_syslog_message(Server *s,
+                                   const char *buf,
+                                   size_t raw_len,
+                                   const struct ucred *ucred,
+                                   const struct timeval *tv,
+                                   const char *label,
+                                   size_t label_len) {
 
         char *t, syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
                 syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
@@ -308,7 +327,9 @@ void server_process_syslog_message(
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                        log_warning_errno(r,
+                                          "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
+                                          ucred->pid);
         }
 
         /* We are creating a copy of the message because we want to forward the original message
@@ -464,7 +485,8 @@ int server_open_syslog_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, server_process_datagram, s);
+        r = sd_event_add_io(
+                s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
 
@@ -487,11 +509,12 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
         if (s->last_warn_forward_syslog_missed + WARN_FORWARD_SYSLOG_MISSED_USEC > n)
                 return;
 
-        server_driver_message(s,
-                              0,
-                              "MESSAGE_ID=" SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR,
-                              LOG_MESSAGE("Forwarding to syslog missed %u messages.", s->n_forward_syslog_missed),
-                              NULL);
+        server_driver_message(
+                s,
+                0,
+                "MESSAGE_ID=" SD_MESSAGE_FORWARD_SYSLOG_MISSED_STR,
+                LOG_MESSAGE("Forwarding to syslog missed %u messages.", s->n_forward_syslog_missed),
+                NULL);
 
         s->n_forward_syslog_missed = 0;
         s->last_warn_forward_syslog_missed = n;

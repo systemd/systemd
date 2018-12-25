@@ -78,14 +78,17 @@ static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdli
         return 0;
 }
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
+int proc_cmdline_parse_given(const char *line,
+                             proc_cmdline_parse_t parse_item,
+                             void *data,
+                             ProcCmdlineFlags flags) {
         const char *p;
         int r;
 
         assert(parse_item);
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's make this
-         * clear. */
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's
+         * make this clear. */
         assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
 
         p = line;
@@ -162,14 +165,16 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
 
         /* Looks for a specific key on the kernel command line. Supports three modes:
          *
-         * a) The "ret_value" parameter is used. In this case a parameter beginning with the "key" string followed by
+         * a) The "ret_value" parameter is used. In this case a parameter beginning with the "key" string
+         * followed by
          *    "=" is searched for, and the value following it is returned in "ret_value".
          *
-         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the key is found as a separate
-         *    word (i.e. not followed by "=" but instead by whitespace or the end of the command line), then this is
-         *    also accepted, and "value" is returned as NULL.
+         * b) as above, but the PROC_CMDLINE_VALUE_OPTIONAL flag is set. In this case if the key is found as
+         * a separate word (i.e. not followed by "=" but instead by whitespace or the end of the command
+         * line), then this is also accepted, and "value" is returned as NULL.
          *
-         * c) The "ret_value" parameter is NULL. In this case a search for the exact "key" parameter is performed.
+         * c) The "ret_value" parameter is NULL. In this case a search for the exact "key" parameter is
+         * performed.
          *
          * In all three cases, > 0 is returned if the key is found, 0 if not. */
 
@@ -255,8 +260,8 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         va_list ap;
         int r, ret = 0;
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(), let's make
-         * this clear. */
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(),
+         * let's make this clear. */
         assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
 
         /* This call may clobber arguments on failure! */
@@ -316,15 +321,19 @@ int shall_restore_state(void) {
         return r > 0 ? ret : true;
 }
 
-static const char *const rlmap[] = { "emergency", SPECIAL_EMERGENCY_TARGET,  "-b",     SPECIAL_EMERGENCY_TARGET,
-                                     "rescue",    SPECIAL_RESCUE_TARGET,     "single", SPECIAL_RESCUE_TARGET,
-                                     "-s",        SPECIAL_RESCUE_TARGET,     "s",      SPECIAL_RESCUE_TARGET,
-                                     "S",         SPECIAL_RESCUE_TARGET,     "1",      SPECIAL_RESCUE_TARGET,
-                                     "2",         SPECIAL_MULTI_USER_TARGET, "3",      SPECIAL_MULTI_USER_TARGET,
-                                     "4",         SPECIAL_MULTI_USER_TARGET, "5",      SPECIAL_GRAPHICAL_TARGET,
-                                     NULL };
+static const char *const rlmap[] = {
+        "emergency", SPECIAL_EMERGENCY_TARGET,  "-b",     SPECIAL_EMERGENCY_TARGET,
+        "rescue",    SPECIAL_RESCUE_TARGET,     "single", SPECIAL_RESCUE_TARGET,
+        "-s",        SPECIAL_RESCUE_TARGET,     "s",      SPECIAL_RESCUE_TARGET,
+        "S",         SPECIAL_RESCUE_TARGET,     "1",      SPECIAL_RESCUE_TARGET,
+        "2",         SPECIAL_MULTI_USER_TARGET, "3",      SPECIAL_MULTI_USER_TARGET,
+        "4",         SPECIAL_MULTI_USER_TARGET, "5",      SPECIAL_GRAPHICAL_TARGET,
+        NULL
+};
 
-static const char *const rlmap_initrd[] = { "emergency", SPECIAL_EMERGENCY_TARGET, "rescue", SPECIAL_RESCUE_TARGET, NULL };
+static const char *const rlmap_initrd[] = {
+        "emergency", SPECIAL_EMERGENCY_TARGET, "rescue", SPECIAL_RESCUE_TARGET, NULL
+};
 
 const char *runlevel_to_target(const char *word) {
         const char *const *rlmap_ptr;

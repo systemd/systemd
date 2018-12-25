@@ -29,7 +29,8 @@ char *bus_label_escape(const char *s) {
                 /* Escape everything that is not a-zA-Z0-9. We also
                  * escape 0-9 if it's the first character */
 
-                if (!(*f >= 'A' && *f <= 'Z') && !(*f >= 'a' && *f <= 'z') && !(f > s && *f >= '0' && *f <= '9')) {
+                if (!(*f >= 'A' && *f <= 'Z') && !(*f >= 'a' && *f <= 'z') &&
+                    !(f > s && *f >= '0' && *f <= '9')) {
                         *(t++) = '_';
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);

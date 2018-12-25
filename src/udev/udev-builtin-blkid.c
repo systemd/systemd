@@ -219,7 +219,9 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         int64_t offset = 0;
         int nvals, i, r;
 
-        static const struct option options[] = { { "offset", required_argument, NULL, 'o' }, { "noraid", no_argument, NULL, 'R' }, {} };
+        static const struct option options[] = { { "offset", required_argument, NULL, 'o' },
+                                                 { "noraid", no_argument, NULL, 'R' },
+                                                 {} };
 
         for (;;) {
                 int option;
@@ -232,9 +234,11 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 case 'o':
                         r = safe_atoi64(optarg, &offset);
                         if (r < 0)
-                                return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
+                                return log_device_error_errno(
+                                        dev, r, "Failed to parse '%s' as an integer: %m", optarg);
                         if (offset < 0)
-                                return log_device_error_errno(dev, -ERANGE, "Invalid offset %" PRIi64 ": %m", offset);
+                                return log_device_error_errno(
+                                        dev, -ERANGE, "Invalid offset %" PRIi64 ": %m", offset);
                         break;
                 case 'R':
                         noraid = true;
@@ -245,11 +249,13 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         errno = 0;
         pr = blkid_new_probe();
         if (!pr)
-                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to create blkid prober: %m");
+                return log_device_debug_errno(
+                        dev, errno > 0 ? errno : ENOMEM, "Failed to create blkid prober: %m");
 
         blkid_probe_set_superblocks_flags(pr,
-                                          BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID | BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-                                                  BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
+                                          BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID | BLKID_SUBLKS_TYPE |
+                                                  BLKID_SUBLKS_SECTYPE | BLKID_SUBLKS_USAGE |
+                                                  BLKID_SUBLKS_VERSION);
 
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
@@ -265,7 +271,8 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         errno = 0;
         r = blkid_probe_set_device(pr, fd, offset, 0);
         if (r < 0)
-                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to set device to blkid prober: %m");
+                return log_device_debug_errno(
+                        dev, errno > 0 ? errno : ENOMEM, "Failed to set device to blkid prober: %m");
 
         log_device_debug(dev, "Probe %s with %sraid and offset=%" PRIi64, devnode, noraid ? "no" : "", offset);
 
@@ -279,7 +286,8 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         errno = 0;
         nvals = blkid_probe_numof_values(pr);
         if (nvals < 0)
-                return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to get number of probed values: %m");
+                return log_device_debug_errno(
+                        dev, errno > 0 ? errno : ENOMEM, "Failed to get number of probed values: %m");
 
         for (i = 0; i < nvals; i++) {
                 if (blkid_probe_get_value(pr, i, &name, &data, NULL) < 0)

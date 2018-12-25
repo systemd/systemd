@@ -78,21 +78,21 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         bool got_some = false;
         int r;
 
-        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This call won't
-         * block, unless the RANDOM_BLOCK flag is set. If RANDOM_DONT_DRAIN is set, an error is returned if the random
-         * pool is not initialized. Otherwise it will always return some data from the kernel, regardless of whether
-         * the random pool is fully initialized or not. */
+        /* Gathers some randomness from the kernel (or the CPU if the RANDOM_ALLOW_RDRAND flag is set). This
+         * call won't block, unless the RANDOM_BLOCK flag is set. If RANDOM_DONT_DRAIN is set, an error is
+         * returned if the random pool is not initialized. Otherwise it will always return some data from the
+         * kernel, regardless of whether the random pool is fully initialized or not. */
 
         if (n == 0)
                 return 0;
 
         if (FLAGS_SET(flags, RANDOM_ALLOW_RDRAND))
-                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is not
-                 * required, as we don't trust it (who does?). Note that we only do a single iteration of RDRAND here,
-                 * even though the Intel docs suggest calling this in a tight loop of 10 invocations or so. That's
-                 * because we don't really care about the quality here. We generally prefer using RDRAND if the caller
-                 * allows us too, since this way we won't drain the kernel randomness pool if we don't need it, as the
-                 * pool's entropy is scarce. */
+                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality randomness is
+                 * not required, as we don't trust it (who does?). Note that we only do a single iteration of
+                 * RDRAND here, even though the Intel docs suggest calling this in a tight loop of 10
+                 * invocations or so. That's because we don't really care about the quality here. We
+                 * generally prefer using RDRAND if the caller allows us too, since this way we won't drain
+                 * the kernel randomness pool if we don't need it, as the pool's entropy is scarce. */
                 for (;;) {
                         unsigned long u;
                         size_t m;
@@ -160,12 +160,13 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 break;
 
                         } else if (errno == EAGAIN) {
-                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall the next
-                                 * time again though.
+                                /* The kernel has no entropy whatsoever. Let's remember to use the syscall
+                                 * the next time again though.
                                  *
-                                 * If RANDOM_DONT_DRAIN is set, return an error so that random_bytes() can produce some
-                                 * pseudo-random bytes instead. Otherwise, fall back to /dev/urandom, which we know is empty,
-                                 * but the kernel will produce some bytes for us on a best-effort basis. */
+                                 * If RANDOM_DONT_DRAIN is set, return an error so that random_bytes() can
+                                 * produce some pseudo-random bytes instead. Otherwise, fall back to
+                                 * /dev/urandom, which we know is empty, but the kernel will produce some
+                                 * bytes for us on a best-effort basis. */
                                 have_syscall = true;
 
                                 if (got_some && FLAGS_SET(flags, RANDOM_EXTEND_WITH_PSEUDO)) {
@@ -257,7 +258,8 @@ void pseudo_random_bytes(void *p, size_t n) {
 
 void random_bytes(void *p, size_t n) {
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO | RANDOM_DONT_DRAIN | RANDOM_ALLOW_RDRAND) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO | RANDOM_DONT_DRAIN | RANDOM_ALLOW_RDRAND) >=
+            0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */

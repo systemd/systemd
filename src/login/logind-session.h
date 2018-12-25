@@ -152,7 +152,12 @@ SessionState session_get_state(Session *u);
 
 extern const sd_bus_vtable session_vtable[];
 int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int session_object_find(sd_bus *bus,
+                        const char *path,
+                        const char *interface,
+                        void *userdata,
+                        void **found,
+                        sd_bus_error *error);
 char *session_bus_path(Session *s);
 
 int session_send_signal(Session *s, bool new_session);

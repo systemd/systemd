@@ -13,7 +13,8 @@
                         assert_se((thresh) == varname.threshold_bytes);              \
         } while (0)
 
-#define COMPRESS_PARSE_CHECK(str, enabled, threshold) _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
+#define COMPRESS_PARSE_CHECK(str, enabled, threshold) \
+        _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
 
 static void test_config_compress(void) {
         COMPRESS_PARSE_CHECK("yes", true, 111);
@@ -27,8 +28,8 @@ static void test_config_compress(void) {
         COMPRESS_PARSE_CHECK("on", true, 111);
         COMPRESS_PARSE_CHECK("off", false, 111);
 
-        /* Weird size/bool overlapping case. We preserve backward compatibility instead of assuming these are byte
-         * counts. */
+        /* Weird size/bool overlapping case. We preserve backward compatibility instead of assuming these are
+         * byte counts. */
         COMPRESS_PARSE_CHECK("1", true, 111);
         COMPRESS_PARSE_CHECK("0", false, 111);
 

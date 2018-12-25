@@ -206,7 +206,11 @@ static struct {
         uint32_t preferred;
         bool succesful;
 } prefix[] = {
-        { { { { 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }, 64, 500, 440, true },
+        { { { { 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
+          64,
+          500,
+          440,
+          true },
         { { { { 0x20, 0x01, 0x0d, 0xb8, 0x0b, 0x16, 0xd0, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
           64,
           /* indicate default valid and preferred lifetimes for the test code */
@@ -231,7 +235,11 @@ static struct {
           0,
           /* indicate that this prefix already exists */
           false },
-        { { { { 0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x01, 0x0d, 0xad, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }, 48, 0, 0, true },
+        { { { { 0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x01, 0x0d, 0xad, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
+          48,
+          0,
+          0,
+          true },
         { { { { 0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x01, 0x0d, 0xad, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
           60,
           0,
@@ -478,8 +486,13 @@ static void test_ra(void) {
 
         assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra) >= 0);
 
-        assert_se(sd_event_add_time(
-                          e, &test_hangcheck, clock_boottime_or_monotonic(), time_now + 2 * USEC_PER_SEC, 0, test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time(e,
+                                    &test_hangcheck,
+                                    clock_boottime_or_monotonic(),
+                                    time_now + 2 * USEC_PER_SEC,
+                                    0,
+                                    test_rs_hangcheck,
+                                    NULL) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);
 

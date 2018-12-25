@@ -228,7 +228,8 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                         return -EINVAL;
 
                 have_syslog_identifier = have_syslog_identifier ||
-                        (c == (char *) iov[i].iov_base + 17 && startswith(iov[i].iov_base, "SYSLOG_IDENTIFIER"));
+                        (c == (char *) iov[i].iov_base + 17 &&
+                         startswith(iov[i].iov_base, "SYSLOG_IDENTIFIER"));
 
                 nl = memchr(iov[i].iov_base, '\n', iov[i].iov_len);
                 if (nl) {
@@ -424,7 +425,8 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         return TAKE_FD(fd);
 }
 
-_public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {
+_public_ int sd_journal_print_with_location(
+        int priority, const char *file, const char *line, const char *func, const char *format, ...) {
         int r;
         va_list ap;
 
@@ -435,7 +437,8 @@ _public_ int sd_journal_print_with_location(int priority, const char *file, cons
         return r;
 }
 
-_public_ int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) {
+_public_ int sd_journal_printv_with_location(
+        int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) {
         char buffer[8 + LINE_MAX], p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
         struct iovec iov[5];
         char *f;
@@ -470,7 +473,8 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         return sd_journal_sendv(iov, ELEMENTSOF(iov));
 }
 
-_public_ int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) {
+_public_ int sd_journal_send_with_location(
+        const char *file, const char *line, const char *func, const char *format, ...) {
         _cleanup_free_ struct iovec *iov = NULL;
         int r, i, j;
         va_list ap;
@@ -500,7 +504,8 @@ finish:
         return r;
 }
 
-_public_ int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n) {
+_public_ int sd_journal_sendv_with_location(
+        const char *file, const char *line, const char *func, const struct iovec *iov, int n) {
 
         struct iovec *niov;
         char *f;
@@ -520,7 +525,10 @@ _public_ int sd_journal_sendv_with_location(const char *file, const char *line, 
         return sd_journal_sendv(niov, n);
 }
 
-_public_ int sd_journal_perror_with_location(const char *file, const char *line, const char *func, const char *message) {
+_public_ int sd_journal_perror_with_location(const char *file,
+                                             const char *line,
+                                             const char *func,
+                                             const char *message) {
 
         struct iovec iov[6];
         char *f;

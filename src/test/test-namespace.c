@@ -125,15 +125,17 @@ int main(int argc, char *argv[]) {
 
         test_tmpdir("abcd.service", x, y);
 
-        z = strjoin(
-                "/tmp/systemd-private-", boot_id, "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
+        z = strjoin("/tmp/systemd-private-",
+                    boot_id,
+                    "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
         zz = strjoin("/var/tmp/systemd-private-",
                      boot_id,
                      "-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
 
         assert_se(z && zz);
 
-        test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
+        test_tmpdir(
+                "sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device", z, zz);
 
         return test_netns();
 }

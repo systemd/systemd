@@ -112,8 +112,14 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
         return 0;
 }
 
-static int connection_shovel(
-        Connection *c, int *from, int buffer[2], int *to, size_t *full, size_t *sz, sd_event_source **from_source, sd_event_source **to_source) {
+static int connection_shovel(Connection *c,
+                             int *from,
+                             int buffer[2],
+                             int *to,
+                             size_t *full,
+                             size_t *sz,
+                             sd_event_source **from_source,
+                             sd_event_source **to_source) {
 
         bool shoveled;
 
@@ -134,7 +140,8 @@ static int connection_shovel(
                 shoveled = false;
 
                 if (*full < *sz && *from >= 0 && *to >= 0) {
-                        z = splice(*from, NULL, buffer[1], NULL, *sz - *full, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
+                        z = splice(
+                                *from, NULL, buffer[1], NULL, *sz - *full, SPLICE_F_MOVE | SPLICE_F_NONBLOCK);
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
@@ -325,7 +332,12 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
         r = connect(c->client_fd, sa, salen);
         if (r < 0) {
                 if (errno == EINPROGRESS) {
-                        r = sd_event_add_io(c->context->event, &c->client_event_source, c->client_fd, EPOLLOUT, connect_cb, c);
+                        r = sd_event_add_io(c->context->event,
+                                            &c->client_event_source,
+                                            c->client_fd,
+                                            EPOLLOUT,
+                                            connect_cb,
+                                            c);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to add connection socket: %m");
                                 goto fail;
@@ -373,7 +385,9 @@ fail:
 
 static int resolve_remote(Connection *c) {
 
-        static const struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_STREAM, .ai_flags = AI_ADDRCONFIG };
+        static const struct addrinfo hints = { .ai_family = AF_UNSPEC,
+                                               .ai_socktype = SOCK_STREAM,
+                                               .ai_flags = AI_ADDRCONFIG };
 
         union sockaddr_union sa = {};
         const char *node, *service;
@@ -384,7 +398,8 @@ static int resolve_remote(Connection *c) {
 
                 salen = sockaddr_un_set_path(&sa.un, arg_remote_host);
                 if (salen < 0) {
-                        log_error_errno(salen, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
+                        log_error_errno(salen,
+                                        "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
                         goto fail;
                 }
 
@@ -401,7 +416,8 @@ static int resolve_remote(Connection *c) {
         }
 
         log_debug("Looking up address info for %s:%s", node, service);
-        r = resolve_getaddrinfo(c->context->resolve, &c->resolve_query, node, service, &hints, resolve_handler, NULL, c);
+        r = resolve_getaddrinfo(
+                c->context->resolve, &c->resolve_query, node, service, &hints, resolve_handler, NULL, c);
         if (r < 0) {
                 log_error_errno(r, "Failed to resolve remote host: %m");
                 goto fail;
@@ -590,7 +606,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (arg_connections_max < 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Connection limit is too low.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Connection limit is too low.");
 
                         break;
 

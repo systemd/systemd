@@ -42,14 +42,16 @@ static int test_fiemap(const char *path) {
         log_info("\t number of mapped extents: %" PRIu32, fiemap->fm_mapped_extents);
         log_info("\t extent count: %" PRIu32, fiemap->fm_extent_count);
         if (fiemap->fm_extent_count > 0)
-                log_info("\t first extent location: %" PRIu64, (uint64_t)(fiemap->fm_extents[0].fe_physical / page_size()));
+                log_info("\t first extent location: %" PRIu64,
+                         (uint64_t)(fiemap->fm_extents[0].fe_physical / page_size()));
 
         return 0;
 }
 
 static void test_sleep(void) {
-        _cleanup_strv_free_ char **standby = strv_new("standby"), **mem = strv_new("mem"), **disk = strv_new("disk"),
-                                 **suspend = strv_new("suspend"), **reboot = strv_new("reboot"), **platform = strv_new("platform"),
+        _cleanup_strv_free_ char **standby = strv_new("standby"), **mem = strv_new("mem"),
+                                 **disk = strv_new("disk"), **suspend = strv_new("suspend"),
+                                 **reboot = strv_new("reboot"), **platform = strv_new("platform"),
                                  **shutdown = strv_new("shutdown"), **freez = strv_new("freeze");
         int r;
 

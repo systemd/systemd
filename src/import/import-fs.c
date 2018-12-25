@@ -55,7 +55,8 @@ static void progress_show(ProgressInfo *p) {
 
         /* Mention the list is incomplete before showing first output. */
         if (!p->logged_incomplete) {
-                log_notice("(Note, file list shown below is incomplete, and is intended as sporadic progress report only.)");
+                log_notice(
+                        "(Note, file list shown below is incomplete, and is intended as sporadic progress report only.)");
                 p->logged_incomplete = true;
         }
 
@@ -64,7 +65,9 @@ static void progress_show(ProgressInfo *p) {
         else {
                 char buffer[FORMAT_BYTES_MAX];
 
-                log_info("Copying tree, currently at '%s' (@%s)...", p->path, format_bytes(buffer, sizeof(buffer), p->size));
+                log_info("Copying tree, currently at '%s' (@%s)...",
+                         p->path,
+                         format_bytes(buffer, sizeof(buffer), p->size));
         }
 }
 
@@ -136,7 +139,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                                        return log_error_errno(
+                                                r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
@@ -178,8 +182,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         r = btrfs_subvol_snapshot_fd_full(fd,
                                           temp_path,
-                                          BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                  BTRFS_SNAPSHOT_QUOTA,
+                                          BTRFS_SNAPSHOT_FALLBACK_COPY | BTRFS_SNAPSHOT_RECURSIVE |
+                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY | BTRFS_SNAPSHOT_QUOTA,
                                           progress_path,
                                           progress_bytes,
                                           &progress);
@@ -299,7 +303,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_fs_main(int argc, char *argv[]) {
 
-        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help }, { "run", 2, 3, 0, import_fs }, {} };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "run", 2, 3, 0, import_fs },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

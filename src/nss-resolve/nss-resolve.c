@@ -21,8 +21,10 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
-        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) || sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
-                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) || sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED);
+        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
+                sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
+                sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED);
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
@@ -103,8 +105,13 @@ static bool avoid_deadlock(void) {
                 streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
 }
 
-enum nss_status _nss_resolve_gethostbyname4_r(
-        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+enum nss_status _nss_resolve_gethostbyname4_r(const char *name,
+                                              struct gaih_addrtuple **pat,
+                                              char *buffer,
+                                              size_t buflen,
+                                              int *errnop,
+                                              int *h_errnop,
+                                              int32_t *ttlp)
 {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
@@ -135,8 +142,12 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveHostname");
+        r = sd_bus_message_new_method_call(bus,
+                                           &req,
+                                           "org.freedesktop.resolve1",
+                                           "/org/freedesktop/resolve1",
+                                           "org.freedesktop.resolve1.Manager",
+                                           "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -150,7 +161,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
@@ -225,7 +237,9 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 }
 
                 r_tuple = (struct gaih_addrtuple *) (buffer + idx);
-                r_tuple->next = i == c - 1 ? NULL : (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
+                r_tuple->next = i == c - 1 ?
+                        NULL :
+                        (struct gaih_addrtuple *) ((char *) r_tuple + ALIGN(sizeof(struct gaih_addrtuple)));
                 r_tuple->name = r_name;
                 r_tuple->family = family;
                 r_tuple->scopeid = ifindex_to_scopeid(family, a, ifindex);
@@ -265,8 +279,15 @@ not_found:
         return NSS_STATUS_NOTFOUND;
 }
 
-enum nss_status _nss_resolve_gethostbyname3_r(
-        const char *name, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+enum nss_status _nss_resolve_gethostbyname3_r(const char *name,
+                                              int af,
+                                              struct hostent *result,
+                                              char *buffer,
+                                              size_t buflen,
+                                              int *errnop,
+                                              int *h_errnop,
+                                              int32_t *ttlp,
+                                              char **canonp)
 {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
@@ -304,8 +325,12 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveHostname");
+        r = sd_bus_message_new_method_call(bus,
+                                           &req,
+                                           "org.freedesktop.resolve1",
+                                           "/org/freedesktop/resolve1",
+                                           "org.freedesktop.resolve1.Manager",
+                                           "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -319,7 +344,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -442,8 +468,15 @@ not_found:
         return NSS_STATUS_NOTFOUND;
 }
 
-enum nss_status _nss_resolve_gethostbyaddr2_r(
-        const void *addr, socklen_t len, int af, struct hostent *result, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+enum nss_status _nss_resolve_gethostbyaddr2_r(const void *addr,
+                                              socklen_t len,
+                                              int af,
+                                              struct hostent *result,
+                                              char *buffer,
+                                              size_t buflen,
+                                              int *errnop,
+                                              int *h_errnop,
+                                              int32_t *ttlp)
 {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL, *reply = NULL;
@@ -486,8 +519,12 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                bus, &req, "org.freedesktop.resolve1", "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", "ResolveAddress");
+        r = sd_bus_message_new_method_call(bus,
+                                           &req,
+                                           "org.freedesktop.resolve1",
+                                           "/org/freedesktop/resolve1",
+                                           "org.freedesktop.resolve1.Manager",
+                                           "ResolveAddress");
         if (r < 0)
                 goto fail;
 
@@ -509,7 +546,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") || !bus_error_shall_fallback(&error))
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;

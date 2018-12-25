@@ -120,7 +120,8 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = safe_atou(optarg, &i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse maximum number of events '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse maximum number of events '%s': %m", optarg);
 
                         r = udev_ctrl_send_set_children_max(uctrl, i, timeout);
                         if (r < 0)

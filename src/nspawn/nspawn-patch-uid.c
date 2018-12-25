@@ -103,8 +103,8 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
 
                 if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
 
-                        /* We don't distuingish here between uid_t and gid_t, let's make sure the compiler checks that
-                         * this is actually OK */
+                        /* We don't distuingish here between uid_t and gid_t, let's make sure the compiler
+                         * checks that this is actually OK */
                         assert_cc(sizeof(uid_t) == sizeof(gid_t));
 
                         old_uid = acl_get_qualifier(i);
@@ -299,9 +299,9 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
         if (fstatfs(fd, &sfs) < 0)
                 return -errno;
 
-        /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we probably
-         * shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's stop the recursion
-         * when we hit procfs, sysfs or some other special file systems. */
+        /* We generally want to permit crossing of mount boundaries when patching the UIDs/GIDs. However, we
+         * probably shouldn't do this for /proc and /sys if that is already mounted into place. Hence, let's
+         * stop the recursion when we hit procfs, sysfs or some other special file systems. */
 
         r = is_fs_fully_userns_compatible(&sfs);
         if (r < 0)
@@ -352,8 +352,10 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                         if (S_ISDIR(fst.st_mode)) {
                                 int subdir_fd;
 
-                                subdir_fd = openat(
-                                        dirfd(d), de->d_name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NOATIME);
+                                subdir_fd = openat(dirfd(d),
+                                                   de->d_name,
+                                                   O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC |
+                                                           O_NOFOLLOW | O_NOATIME);
                                 if (subdir_fd < 0) {
                                         r = -errno;
                                         goto finish;
@@ -375,9 +377,9 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                 }
         }
 
-        /* After we descended, also patch the directory itself. It's key to do this in this order so that the top-level
-         * directory is patched as very last object in the tree, so that we can use it as quick indicator whether the
-         * tree is properly chown()ed already. */
+        /* After we descended, also patch the directory itself. It's key to do this in this order so that the
+         * top-level directory is patched as very last object in the tree, so that we can use it as quick
+         * indicator whether the tree is properly chown()ed already. */
         r = patch_fd(d ? dirfd(d) : fd, NULL, st, shift);
         if (r == -EROFS)
                 goto read_only;
@@ -410,10 +412,10 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
 
         assert(fd >= 0);
 
-        /* Recursively adjusts the UID/GIDs of all files of a directory tree. This is used to automatically fix up an
-         * OS tree to the used user namespace UID range. Note that this automatic adjustment only works for UID ranges
-         * following the concept that the upper 16bit of a UID identify the container, and the lower 16bit are the actual
-         * UID within the container. */
+        /* Recursively adjusts the UID/GIDs of all files of a directory tree. This is used to automatically
+         * fix up an OS tree to the used user namespace UID range. Note that this automatic adjustment only
+         * works for UID ranges following the concept that the upper 16bit of a UID identify the container,
+         * and the lower 16bit are the actual UID within the container. */
 
         if ((shift & 0xFFFF) != 0) {
                 /* We only support containers where the shift starts at a 2^16 boundary */
@@ -453,8 +455,9 @@ static int fd_patch_uid_internal(int fd, bool donate_fd, uid_t shift, uid_t rang
          * chown()ing it again, unconditionally, as the busy UID is not a valid UID we'd everpick for ourselves. */
 
         if ((st.st_uid & UID_BUSY_MASK) != UID_BUSY_BASE) {
-                if (fchown(fd, UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK), (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) <
-                    0) {
+                if (fchown(fd,
+                           UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
+                           (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0) {
                         r = -errno;
                         goto finish;
                 }

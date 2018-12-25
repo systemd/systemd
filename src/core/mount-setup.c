@@ -65,15 +65,51 @@ static const MountPoint mount_table[] = {
         { "devtmpfs", "/dev", "devtmpfs", "mode=755", MS_NOSUID | MS_STRICTATIME, NULL, MNT_FATAL | MNT_IN_CONTAINER },
         { "securityfs", "/sys/kernel/security", "securityfs", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL, MNT_NONE },
 #if ENABLE_SMACK
-        { "smackfs", "/sys/fs/smackfs", "smackfs", "smackfsdef=*", MS_NOSUID | MS_NOEXEC | MS_NODEV, mac_smack_use, MNT_FATAL },
-        { "tmpfs", "/dev/shm", "tmpfs", "mode=1777,smackfsroot=*", MS_NOSUID | MS_NODEV | MS_STRICTATIME, mac_smack_use, MNT_FATAL },
+        { "smackfs",
+          "/sys/fs/smackfs",
+          "smackfs",
+          "smackfsdef=*",
+          MS_NOSUID | MS_NOEXEC | MS_NODEV,
+          mac_smack_use,
+          MNT_FATAL },
+        { "tmpfs",
+          "/dev/shm",
+          "tmpfs",
+          "mode=1777,smackfsroot=*",
+          MS_NOSUID | MS_NODEV | MS_STRICTATIME,
+          mac_smack_use,
+          MNT_FATAL },
 #endif
-        { "tmpfs", "/dev/shm", "tmpfs", "mode=1777", MS_NOSUID | MS_NODEV | MS_STRICTATIME, NULL, MNT_FATAL | MNT_IN_CONTAINER },
-        { "devpts", "/dev/pts", "devpts", "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID | MS_NOEXEC, NULL, MNT_IN_CONTAINER },
+        { "tmpfs",
+          "/dev/shm",
+          "tmpfs",
+          "mode=1777",
+          MS_NOSUID | MS_NODEV | MS_STRICTATIME,
+          NULL,
+          MNT_FATAL | MNT_IN_CONTAINER },
+        { "devpts",
+          "/dev/pts",
+          "devpts",
+          "mode=620,gid=" STRINGIFY(TTY_GID),
+          MS_NOSUID | MS_NOEXEC,
+          NULL,
+          MNT_IN_CONTAINER },
 #if ENABLE_SMACK
-        { "tmpfs", "/run", "tmpfs", "mode=755,smackfsroot=*", MS_NOSUID | MS_NODEV | MS_STRICTATIME, mac_smack_use, MNT_FATAL },
+        { "tmpfs",
+          "/run",
+          "tmpfs",
+          "mode=755,smackfsroot=*",
+          MS_NOSUID | MS_NODEV | MS_STRICTATIME,
+          mac_smack_use,
+          MNT_FATAL },
 #endif
-        { "tmpfs", "/run", "tmpfs", "mode=755", MS_NOSUID | MS_NODEV | MS_STRICTATIME, NULL, MNT_FATAL | MNT_IN_CONTAINER },
+        { "tmpfs",
+          "/run",
+          "tmpfs",
+          "mode=755",
+          MS_NOSUID | MS_NODEV | MS_STRICTATIME,
+          NULL,
+          MNT_FATAL | MNT_IN_CONTAINER },
         { "cgroup2",
           "/sys/fs/cgroup",
           "cgroup2",
@@ -81,7 +117,13 @@ static const MountPoint mount_table[] = {
           MS_NOSUID | MS_NOEXEC | MS_NODEV,
           cg_is_unified_wanted,
           MNT_IN_CONTAINER | MNT_CHECK_WRITABLE },
-        { "cgroup2", "/sys/fs/cgroup", "cgroup2", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, cg_is_unified_wanted, MNT_IN_CONTAINER | MNT_CHECK_WRITABLE },
+        { "cgroup2",
+          "/sys/fs/cgroup",
+          "cgroup2",
+          NULL,
+          MS_NOSUID | MS_NOEXEC | MS_NODEV,
+          cg_is_unified_wanted,
+          MNT_IN_CONTAINER | MNT_CHECK_WRITABLE },
         { "tmpfs",
           "/sys/fs/cgroup",
           "tmpfs",
@@ -119,7 +161,13 @@ static const MountPoint mount_table[] = {
           MNT_FATAL | MNT_IN_CONTAINER },
         { "pstore", "/sys/fs/pstore", "pstore", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL, MNT_NONE },
 #if ENABLE_EFI
-        { "efivarfs", "/sys/firmware/efi/efivars", "efivarfs", NULL, MS_NOSUID | MS_NOEXEC | MS_NODEV, is_efi_boot, MNT_NONE },
+        { "efivarfs",
+          "/sys/firmware/efi/efivars",
+          "efivarfs",
+          NULL,
+          MS_NOSUID | MS_NOEXEC | MS_NODEV,
+          is_efi_boot,
+          MNT_NONE },
 #endif
         {
                 "bpf",
@@ -199,7 +247,8 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 (void) mkdir_p(p->where, 0755);
 
-        log_debug("Mounting %s to %s of type %s with options %s.", p->what, p->where, p->type, strna(p->options));
+        log_debug(
+                "Mounting %s to %s of type %s with options %s.", p->what, p->where, p->type, strna(p->options));
 
         if (mount(p->what, p->where, p->type, p->flags, p->options) < 0) {
                 log_full_errno(priority, errno, "Failed to mount %s at %s: %m", p->type, p->where);
@@ -256,9 +305,9 @@ static const char *join_with(const char *controller) {
 
         assert(controller);
 
-        /* This will lookup which controller to mount another controller with. Input is a controller name, and output
-         * is the other controller name. The function works both ways: you can input one and get the other, and input
-         * the other to get the one. */
+        /* This will lookup which controller to mount another controller with. Input is a controller name,
+         * and output is the other controller name. The function works both ways: you can input one and get
+         * the other, and input the other to get the one. */
 
         STRV_FOREACH_PAIR(x, y, pairs) {
                 if (streq(controller, *x))
@@ -364,8 +413,11 @@ int mount_cgroup_controllers(void) {
         }
 
         /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
-        (void) mount(
-                "tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME | MS_RDONLY, "mode=755");
+        (void) mount("tmpfs",
+                     "/sys/fs/cgroup",
+                     "tmpfs",
+                     MS_REMOUNT | MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_STRICTATIME | MS_RDONLY,
+                     "mode=755");
 
         return 0;
 }
@@ -398,7 +450,8 @@ static int relabel_cgroup_filesystems(void) {
                    running from initrd. Otherwise don't remount anything and leave the filesystem read-write
                    for the cgroup filesystems to be mounted inside. */
                 if (statfs("/sys/fs/cgroup", &st) < 0)
-                        return log_error_errno(errno, "Failed to determine mount flags for /sys/fs/cgroup: %m");
+                        return log_error_errno(errno,
+                                               "Failed to determine mount flags for /sys/fs/cgroup: %m");
 
                 if (st.f_flags & ST_RDONLY)
                         (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
@@ -419,12 +472,12 @@ static int relabel_extra(void) {
         _cleanup_closedir_ DIR *d = NULL;
         int r, c = 0;
 
-        /* Support for relabelling additional files or directories after loading the policy. For this, code in the
-         * initrd simply has to drop in *.relabel files into /run/systemd/relabel-extra.d/. We'll read all such files
-         * expecting one absolute path by line and will relabel each (and everyone below that in case the path refers
-         * to a directory). These drop-in files are supposed to be absolutely minimal, and do not understand comments
-         * and such. After the operation succeeded the files are removed, and the drop-in directory as well, if
-         * possible.
+        /* Support for relabelling additional files or directories after loading the policy. For this, code
+         * in the initrd simply has to drop in *.relabel files into /run/systemd/relabel-extra.d/. We'll read
+         * all such files expecting one absolute path by line and will relabel each (and everyone below that
+         * in case the path refers to a directory). These drop-in files are supposed to be absolutely
+         * minimal, and do not understand comments and such. After the operation succeeded the files are
+         * removed, and the drop-in directory as well, if possible.
          */
 
         d = opendir("/run/systemd/relabel-extra.d/");
@@ -444,7 +497,9 @@ static int relabel_extra(void) {
                 de = readdir_no_dot(d);
                 if (!de) {
                         if (errno != 0)
-                                return log_error_errno(errno, "Failed read directory /run/systemd/relabel-extra.d/, ignoring: %m");
+                                return log_error_errno(
+                                        errno,
+                                        "Failed read directory /run/systemd/relabel-extra.d/, ignoring: %m");
                         break;
                 }
 
@@ -459,13 +514,16 @@ static int relabel_extra(void) {
 
                 fd = openat(dirfd(d), de->d_name, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
                 if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                        log_warning_errno(errno,
+                                          "Failed to open /run/systemd/relabel-extra.d/%s, ignoring: %m",
+                                          de->d_name);
                         continue;
                 }
 
                 f = fdopen(fd, "r");
                 if (!f) {
-                        log_warning_errno(errno, "Failed to convert file descriptor into file object, ignoring: %m");
+                        log_warning_errno(errno,
+                                          "Failed to convert file descriptor into file object, ignoring: %m");
                         continue;
                 }
                 TAKE_FD(fd);
@@ -475,7 +533,10 @@ static int relabel_extra(void) {
 
                         r = read_line(f, LONG_LINE_MAX, &line);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to read from /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                                log_warning_errno(
+                                        r,
+                                        "Failed to read from /run/systemd/relabel-extra.d/%s, ignoring: %m",
+                                        de->d_name);
                                 break;
                         }
                         if (r == 0) /* EOF */
@@ -499,7 +560,9 @@ static int relabel_extra(void) {
                 }
 
                 if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                        log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                        log_warning_errno(errno,
+                                          "Failed to remove /run/systemd/relabel-extra.d/%s, ignoring: %m",
+                                          de->d_name);
         }
 
         /* Remove when we completing things. */
@@ -550,24 +613,26 @@ int mount_setup(bool loaded_policy) {
          * udevd. */
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
-        /* Mark the root directory as shared in regards to mount propagation. The kernel defaults to "private", but we
-         * think it makes more sense to have a default of "shared" so that nspawn and the container tools work out of
-         * the box. If specific setups need other settings they can reset the propagation mode to private if
-         * needed. Note that we set this only when we are invoked directly by the kernel. If we are invoked by a
-         * container manager we assume the container manager knows what it is doing (for example, because it set up
-         * some directories with different propagation modes). */
+        /* Mark the root directory as shared in regards to mount propagation. The kernel defaults to
+         * "private", but we think it makes more sense to have a default of "shared" so that nspawn and the
+         * container tools work out of the box. If specific setups need other settings they can reset the
+         * propagation mode to private if needed. Note that we set this only when we are invoked directly by
+         * the kernel. If we are invoked by a container manager we assume the container manager knows what it
+         * is doing (for example, because it set up some directories with different propagation modes). */
         if (detect_container() <= 0)
                 if (mount(NULL, "/", NULL, MS_REC | MS_SHARED, NULL) < 0)
-                        log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
+                        log_warning_errno(
+                                errno,
+                                "Failed to set up the root directory for shared mount propagation: %m");
 
-        /* Create a few directories we always want around, Note that sd_booted() checks for /run/systemd/system, so
-         * this mkdir really needs to stay for good, otherwise software that copied sd-daemon.c into their sources will
-         * misdetect systemd. */
+        /* Create a few directories we always want around, Note that sd_booted() checks for
+         * /run/systemd/system, so this mkdir really needs to stay for good, otherwise software that copied
+         * sd-daemon.c into their sources will misdetect systemd. */
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
-        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount inaccessible nodes
-         * from. */
+        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount
+         * inaccessible nodes from. */
         (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
 
         return 0;

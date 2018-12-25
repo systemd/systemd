@@ -15,7 +15,8 @@ typedef struct MapField {
         int (*map)(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov);
 } MapField;
 
-static int map_simple_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
+static int map_simple_field(
+        const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         _cleanup_free_ char *c = NULL;
         size_t l = 0, allocated = 0;
         const char *e;
@@ -52,8 +53,12 @@ static int map_simple_field(const char *field, const char **p, struct iovec **io
         return 1;
 }
 
-static int map_string_field_internal(
-        const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov, bool filter_printable) {
+static int map_string_field_internal(const char *field,
+                                     const char **p,
+                                     struct iovec **iov,
+                                     size_t *n_iov_allocated,
+                                     size_t *n_iov,
+                                     bool filter_printable) {
         _cleanup_free_ char *c = NULL;
         const char *s, *e;
         size_t l;
@@ -130,15 +135,18 @@ static int map_string_field_internal(
         return 1;
 }
 
-static int map_string_field(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
+static int map_string_field(
+        const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, false);
 }
 
-static int map_string_field_printable(const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
+static int map_string_field_printable(
+        const char *field, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         return map_string_field_internal(field, p, iov, n_iov_allocated, n_iov, true);
 }
 
-static int map_generic_field(const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
+static int map_generic_field(
+        const char *prefix, const char **p, struct iovec **iov, size_t *n_iov_allocated, size_t *n_iov) {
         const char *e, *f;
         char *c, *t;
         int r;
@@ -153,7 +161,8 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
                 if (*e == '=')
                         break;
 
-                if (!((*e >= 'a' && *e <= 'z') || (*e >= 'A' && *e <= 'Z') || (*e >= '0' && *e <= '9') || IN_SET(*e, '_', '-')))
+                if (!((*e >= 'a' && *e <= 'z') || (*e >= 'A' && *e <= 'Z') || (*e >= '0' && *e <= '9') ||
+                      IN_SET(*e, '_', '-')))
                         return 0;
         }
 
@@ -274,7 +283,13 @@ static int map_all_fields(const char *p,
                                         return 0; /* don't continue splitting up if the final quotation mark is missing */
 
                                 c = strndupa(v, e - v);
-                                return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", false, iov, n_iov_allocated, n_iov);
+                                return map_all_fields(c,
+                                                      map_fields_userspace,
+                                                      "AUDIT_FIELD_",
+                                                      false,
+                                                      iov,
+                                                      n_iov_allocated,
+                                                      n_iov);
                         }
                 }
 
@@ -312,7 +327,8 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
         _cleanup_free_ struct iovec *iov = NULL;
         uint64_t seconds, msec, id;
         const char *p, *type_name;
-        char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)], type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
+        char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
+                type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
                 source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
         char *m, *type_field_name;
         int k;
@@ -353,7 +369,9 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
 
         iov[n_iov++] = IOVEC_MAKE_STRING("_TRANSPORT=audit");
 
-        sprintf(source_time_field, "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64, (usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC);
+        sprintf(source_time_field,
+                "_SOURCE_REALTIME_TIMESTAMP=%" PRIu64,
+                (usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC);
         iov[n_iov++] = IOVEC_MAKE_STRING(source_time_field);
 
         sprintf(type_field, "_AUDIT_TYPE=%i", type);
@@ -393,8 +411,12 @@ finish:
                 free(iov[z].iov_base);
 }
 
-void server_process_audit_message(
-        Server *s, const void *buffer, size_t buffer_size, const struct ucred *ucred, const union sockaddr_union *sa, socklen_t salen) {
+void server_process_audit_message(Server *s,
+                                  const void *buffer,
+                                  size_t buffer_size,
+                                  const struct ucred *ucred,
+                                  const union sockaddr_union *sa,
+                                  socklen_t salen) {
 
         const struct nlmsghdr *nl = buffer;
 
@@ -406,7 +428,8 @@ void server_process_audit_message(
         assert(buffer);
 
         /* Filter out fake data */
-        if (!sa || salen != sizeof(struct sockaddr_nl) || sa->nl.nl_family != AF_NETLINK || sa->nl.nl_pid != 0) {
+        if (!sa || salen != sizeof(struct sockaddr_nl) || sa->nl.nl_family != AF_NETLINK ||
+            sa->nl.nl_pid != 0) {
                 log_debug("Audit netlink message from invalid sender.");
                 return;
         }

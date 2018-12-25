@@ -52,7 +52,8 @@ static int show_sysfs_one(const char *seat,
 
                 /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) || sd_device_has_tag(dev_list[*i_dev], "seat") <= 0 ||
-                    sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 || sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
+                    sd_device_get_subsystem(dev_list[*i_dev], &subsystem) < 0 ||
+                    sd_device_get_sysname(dev_list[*i_dev], &sysname) < 0) {
                         (*i_dev)++;
                         continue;
                 }
@@ -72,10 +73,13 @@ static int show_sysfs_one(const char *seat,
                         if (path_startswith(lookahead_sysfs, sub) && !path_startswith(lookahead_sysfs, sysfs)) {
                                 const char *lookahead_sn;
 
-                                if (sd_device_get_property_value(dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 || isempty(lookahead_sn))
+                                if (sd_device_get_property_value(
+                                            dev_list[lookahead], "ID_SEAT", &lookahead_sn) < 0 ||
+                                    isempty(lookahead_sn))
                                         lookahead_sn = "seat0";
 
-                                if (streq(seat, lookahead_sn) && sd_device_has_tag(dev_list[lookahead], "seat") > 0)
+                                if (streq(seat, lookahead_sn) &&
+                                    sd_device_has_tag(dev_list[lookahead], "seat") > 0)
                                         break;
                         }
                 }
@@ -84,7 +88,10 @@ static int show_sysfs_one(const char *seat,
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, special_glyph(lookahead < n_dev ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), k);
+                printf("%s%s%s\n",
+                       prefix,
+                       special_glyph(lookahead < n_dev ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT),
+                       k);
 
                 if (asprintf(&l,
                              "%s%s:%s%s%s%s",
@@ -101,12 +108,16 @@ static int show_sysfs_one(const char *seat,
                 if (!k)
                         return -ENOMEM;
 
-                printf("%s%s%s\n", prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ", k);
+                printf("%s%s%s\n",
+                       prefix,
+                       lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
+                       k);
 
                 if (++(*i_dev) < n_dev) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ");
+                        p = strappend(prefix,
+                                      lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ");
                         if (!p)
                                 return -ENOMEM;
 
@@ -116,7 +127,8 @@ static int show_sysfs_one(const char *seat,
                                            n_dev,
                                            sysfs,
                                            p,
-                                           n_columns == (unsigned) -1 || n_columns < 2 ? n_columns : n_columns - 2,
+                                           n_columns == (unsigned) -1 || n_columns < 2 ? n_columns :
+                                                                                         n_columns - 2,
                                            flags);
                         if (r < 0)
                                 return r;

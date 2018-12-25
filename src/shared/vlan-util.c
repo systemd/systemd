@@ -43,7 +43,8 @@ int config_parse_default_port_vlanid(const char *unit,
                 return 0;
         }
 
-        return config_parse_vlanid(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+        return config_parse_vlanid(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
 }
 
 int config_parse_vlanid(const char *unit,
@@ -67,11 +68,23 @@ int config_parse_vlanid(const char *unit,
 
         r = parse_vlanid(rvalue, id);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "VLAN identifier outside of valid range 0…4094, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "VLAN identifier outside of valid range 0…4094, ignoring: %s",
+                           rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VLAN identifier value, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse VLAN identifier value, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 

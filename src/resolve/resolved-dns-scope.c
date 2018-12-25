@@ -178,7 +178,8 @@ void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
                 return;
 
         s->max_rtt = rtt;
-        s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2), MULTICAST_RESEND_TIMEOUT_MAX_USEC);
+        s->resend_timeout = MIN(MAX(MULTICAST_RESEND_TIMEOUT_MIN_USEC, s->max_rtt * 2),
+                                MULTICAST_RESEND_TIMEOUT_MAX_USEC);
 }
 
 void dns_scope_packet_lost(DnsScope *s, usec_t usec) {
@@ -475,7 +476,8 @@ static DnsScopeMatch accept_link_local_reverse_lookups(const char *domain) {
         if (dns_name_endswith(domain, "254.169.in-addr.arpa") > 0)
                 return DNS_SCOPE_YES_BASE + 4; /* 4 labels match */
 
-        if (dns_name_endswith(domain, "8.e.f.ip6.arpa") > 0 || dns_name_endswith(domain, "9.e.f.ip6.arpa") > 0 ||
+        if (dns_name_endswith(domain, "8.e.f.ip6.arpa") > 0 ||
+            dns_name_endswith(domain, "9.e.f.ip6.arpa") > 0 ||
             dns_name_endswith(domain, "a.e.f.ip6.arpa") > 0 || dns_name_endswith(domain, "b.e.f.ip6.arpa") > 0)
                 return DNS_SCOPE_YES_BASE + 5; /* 5 labels match */
 
@@ -492,9 +494,9 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
          *    DNS_SCOPE_MAYBE      → This scope is suitable, but only if nothing else wants it
          *    DNS_SCOPE_YES_BASE+n → This scope is suitable, and 'n' suffix labels match
          *
-         *  (The idea is that the caller will only use the scopes with the longest 'n' returned. If no scopes return
-         *  DNS_SCOPE_YES_BASE+n, then it should use those which returned DNS_SCOPE_MAYBE. It should never use those
-         *  which returned DNS_SCOPE_NO.)
+         *  (The idea is that the caller will only use the scopes with the longest 'n' returned. If no scopes
+         * return DNS_SCOPE_YES_BASE+n, then it should use those which returned DNS_SCOPE_MAYBE. It should
+         * never use those which returned DNS_SCOPE_NO.)
          */
 
         assert(s);
@@ -514,12 +516,15 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
          * LLMNR or mDNS. Instead, always rely on synthesized RRs for
          * these. */
         if (is_localhost(domain) || dns_name_endswith(domain, "127.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+            dns_name_equal(domain,
+                           "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
         /* Never respond to some of the domains listed in RFC6303 */
-        if (dns_name_endswith(domain, "0.in-addr.arpa") > 0 || dns_name_equal(domain, "255.255.255.255.in-addr.arpa") > 0 ||
-            dns_name_equal(domain, "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
+        if (dns_name_endswith(domain, "0.in-addr.arpa") > 0 ||
+            dns_name_equal(domain, "255.255.255.255.in-addr.arpa") > 0 ||
+            dns_name_equal(domain,
+                           "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa") > 0)
                 return DNS_SCOPE_NO;
 
         /* Never respond to some of the domains listed in RFC6761 */
@@ -535,9 +540,9 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                 if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
-                /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
-                 * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
-                 * won't be considered anymore. */
+                /* Always honour search domains for routing queries, except if this scope lacks DNS servers.
+                 * Note that we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means
+                 * other wildcard scopes won't be considered anymore. */
                 LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
                 if (dns_name_endswith(domain, d->name) > 0) {
                         int c;
@@ -561,12 +566,14 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                         return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
-                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 && dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
-                    dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 && dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
+                if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
+                    dns_name_endswith(domain, "8.e.f.ip6.arpa") == 0 &&
+                    dns_name_endswith(domain, "9.e.f.ip6.arpa") == 0 &&
+                    dns_name_endswith(domain, "a.e.f.ip6.arpa") == 0 &&
                     dns_name_endswith(domain, "b.e.f.ip6.arpa") == 0 &&
-                    /* If networks use .local in their private setups, they are supposed to also add .local to their search
-                     * domains, which we already checked above. Otherwise, we consider .local specific to mDNS and won't
-                     * send such queries ordinary DNS servers. */
+                    /* If networks use .local in their private setups, they are supposed to also add .local
+                     * to their search domains, which we already checked above. Otherwise, we consider .local
+                     * specific to mDNS and won't send such queries ordinary DNS servers. */
                     dns_name_endswith(domain, "local") == 0)
                         return DNS_SCOPE_MAYBE;
 
@@ -584,10 +591,13 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
                         return DNS_SCOPE_MAYBE;
 
-                if ((dns_name_endswith(domain, "local") > 0 &&          /* only resolve names ending in .local via mDNS */
-                     dns_name_equal(domain, "local") == 0 &&            /* but not the single-label "local" name itself */
-                     manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
-                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as the top-level .local domain matches, i.e. one label */
+                if ((dns_name_endswith(domain, "local") >
+                             0 && /* only resolve names ending in .local via mDNS */
+                     dns_name_equal(domain, "local") == 0 && /* but not the single-label "local" name itself */
+                     manager_is_own_hostname(s->manager, domain) <=
+                             0)) /* never resolve the local hostname via mDNS */
+                        return DNS_SCOPE_YES_BASE +
+                                1; /* Return +1, as the top-level .local domain matches, i.e. one label */
 
                 return DNS_SCOPE_NO;
         }
@@ -604,14 +614,16 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                         return DNS_SCOPE_MAYBE;
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
-                     !is_gateway_hostname(domain) &&     /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
-                     manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via LLMNR */
-                        return DNS_SCOPE_YES_BASE + 1;                  /* Return +1, as we consider ourselves authoritative for
-                                                                         * single-label names, i.e. one label. This is particular
-                                                                         * relevant as it means a "." route on some other scope won't
-                                                                         * pull all traffic away from us. (If people actually want to
-                                                                         * pull traffic away from us they should turn off LLMNR on the
-                                                                         * link) */
+                     !is_gateway_hostname(
+                             domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
+                     manager_is_own_hostname(s->manager, domain) <=
+                             0))                       /* never resolve the local hostname via LLMNR */
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
+                                                        * for single-label names, i.e. one label. This is
+                                                        * particular relevant as it means a "." route on some
+                                                        * other scope won't pull all traffic away from us.
+                                                        * (If people actually want to pull traffic away from
+                                                        * us they should turn off LLMNR on the link) */
 
                 return DNS_SCOPE_NO;
         }
@@ -648,7 +660,8 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                  * that those should be resolved via LLMNR or search
                  * path only, and should not be leaked onto the
                  * internet. */
-                return !(dns_name_is_single_label(dns_resource_key_name(key)) || dns_name_is_root(dns_resource_key_name(key)));
+                return !(dns_name_is_single_label(dns_resource_key_name(key)) ||
+                         dns_name_is_root(dns_resource_key_name(key)));
         }
 
         /* On mDNS and LLMNR, send A and AAAA queries only on the
@@ -687,7 +700,9 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                 if (b)
                         (void) setsockopt(fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn));
 
-                if (setsockopt(fd, IPPROTO_IP, b ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0)
+                if (setsockopt(
+                            fd, IPPROTO_IP, b ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP, &mreqn, sizeof(mreqn)) <
+                    0)
                         return -errno;
 
         } else if (s->family == AF_INET6) {
@@ -707,7 +722,11 @@ static int dns_scope_multicast_membership(DnsScope *s, bool b, struct in_addr in
                 if (b)
                         (void) setsockopt(fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
 
-                if (setsockopt(fd, IPPROTO_IPV6, b ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+                if (setsockopt(fd,
+                               IPPROTO_IPV6,
+                               b ? IPV6_ADD_MEMBERSHIP : IPV6_DROP_MEMBERSHIP,
+                               &mreq,
+                               sizeof(mreq)) < 0)
                         return -errno;
         } else
                 return -EAFNOSUPPORT;
@@ -733,8 +752,14 @@ int dns_scope_mdns_membership(DnsScope *s, bool b) {
         return dns_scope_multicast_membership(s, b, MDNS_MULTICAST_IPV4_ADDRESS, MDNS_MULTICAST_IPV6_ADDRESS);
 }
 
-int dns_scope_make_reply_packet(
-        DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, bool tentative, DnsPacket **ret) {
+int dns_scope_make_reply_packet(DnsScope *s,
+                                uint16_t id,
+                                int rcode,
+                                DnsQuestion *q,
+                                DnsAnswer *answer,
+                                DnsAnswer *soa,
+                                bool tentative,
+                                DnsPacket **ret) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         int r;
@@ -750,8 +775,15 @@ int dns_scope_make_reply_packet(
                 return r;
 
         DNS_PACKET_HEADER(p)->id = id;
-        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                1 /* qr */, 0 /* opcode */, 0 /* c */, 0 /* tc */, tentative, 0 /* (ra) */, 0 /* (ad) */, 0 /* (cd) */, rcode));
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1 /* qr */,
+                                                                    0 /* opcode */,
+                                                                    0 /* c */,
+                                                                    0 /* tc */,
+                                                                    tentative,
+                                                                    0 /* (ra) */,
+                                                                    0 /* (ad) */,
+                                                                    0 /* (cd) */,
+                                                                    rcode));
 
         r = dns_packet_append_question(p, q);
         if (r < 0)
@@ -805,10 +837,14 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * the LLMNR multicast addresses. See RFC 4795,
                  * section 2.5. */
 
-                if (p->family == AF_INET && !in_addr_equal(AF_INET, &p->destination, (union in_addr_union *) &LLMNR_MULTICAST_IPV4_ADDRESS))
+                if (p->family == AF_INET &&
+                    !in_addr_equal(
+                            AF_INET, &p->destination, (union in_addr_union *) &LLMNR_MULTICAST_IPV4_ADDRESS))
                         return;
 
-                if (p->family == AF_INET6 && !in_addr_equal(AF_INET6, &p->destination, (union in_addr_union *) &LLMNR_MULTICAST_IPV6_ADDRESS))
+                if (p->family == AF_INET6 &&
+                    !in_addr_equal(
+                            AF_INET6, &p->destination, (union in_addr_union *) &LLMNR_MULTICAST_IPV6_ADDRESS))
                         return;
         }
 
@@ -838,7 +874,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         if (answer)
                 dns_answer_order_by_scope(answer, in_addr_is_link_local(p->family, &p->sender) > 0);
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, tentative, &reply);
+        r = dns_scope_make_reply_packet(
+                s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, p->question, answer, soa, tentative, &reply);
         if (r < 0) {
                 log_debug_errno(r, "Failed to build reply packet: %m");
                 return;
@@ -851,9 +888,9 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                         return;
                 }
 
-                /* Let's take an extra reference on this stream, so that it stays around after returning. The reference
-                 * will be dangling until the stream is disconnected, and the default completion handler of the stream
-                 * will then unref the stream and destroy it */
+                /* Let's take an extra reference on this stream, so that it stays around after returning. The
+                 * reference will be dangling until the stream is disconnected, and the default completion
+                 * handler of the stream will then unref the stream and destroy it */
                 if (DNS_STREAM_QUEUED(stream))
                         dns_stream_ref(stream);
         } else {
@@ -880,7 +917,8 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
                  * verified uniqueness for all records. Also see RFC
                  * 4795, Section 2.7 */
 
-                r = manager_send(s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, NULL, reply);
+                r = manager_send(
+                        s->manager, fd, p->ifindex, p->family, &p->sender, p->sender_port, NULL, reply);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send reply packet: %m");
                         return;
@@ -922,8 +960,15 @@ static int dns_scope_make_conflict_packet(DnsScope *s, DnsResourceRecord *rr, Dn
         if (r < 0)
                 return r;
 
-        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                0 /* qr */, 0 /* opcode */, 1 /* conflict */, 0 /* tc */, 0 /* t */, 0 /* (ra) */, 0 /* (ad) */, 0 /* (cd) */, 0));
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(0 /* qr */,
+                                                                    0 /* opcode */,
+                                                                    1 /* conflict */,
+                                                                    0 /* tc */,
+                                                                    0 /* t */,
+                                                                    0 /* (ra) */,
+                                                                    0 /* (ad) */,
+                                                                    0 /* (cd) */,
+                                                                    0));
 
         /* For mDNS, the transaction ID should always be 0 */
         if (s->protocol != DNS_PROTOCOL_MDNS)
@@ -1196,7 +1241,8 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (z->state != DNS_ZONE_ITEM_ESTABLISHED)
                         continue;
 
-                if (z->rr->key->type == DNS_TYPE_PTR && !dns_zone_contains_name(&scope->zone, z->rr->ptr.name)) {
+                if (z->rr->key->type == DNS_TYPE_PTR &&
+                    !dns_zone_contains_name(&scope->zone, z->rr->ptr.name)) {
                         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
                         log_debug("Skip PTR RR <%s> since its counterparts seem to be withdrawn",
@@ -1237,7 +1283,8 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (dns_resource_key_is_dnssd_ptr(i->rr->key))
                         flags = goodbye ? DNS_ANSWER_GOODBYE : 0;
                 else
-                        flags = goodbye ? (DNS_ANSWER_GOODBYE | DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
+                        flags = goodbye ? (DNS_ANSWER_GOODBYE | DNS_ANSWER_CACHE_FLUSH) :
+                                          DNS_ANSWER_CACHE_FLUSH;
 
                 r = dns_answer_add(answer, i->rr, 0, flags);
                 if (r < 0)

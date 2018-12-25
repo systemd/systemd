@@ -91,7 +91,8 @@ const char *split(const char **state, size_t *l, const char *separator, SplitFla
 
 #define FOREACH_WORD(word, length, s, state) _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
 
-#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state) _FOREACH_WORD(word, length, s, separator, 0, state)
+#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state) \
+        _FOREACH_WORD(word, length, s, separator, 0, state)
 
 #define _FOREACH_WORD(word, length, s, separator, flags, state)                                \
         for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); \

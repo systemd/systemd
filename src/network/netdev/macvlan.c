@@ -14,7 +14,10 @@ static const char *const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode,
+                         macvlan_mode,
+                         MacVlanMode,
+                         "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
         MacVlan *m;
@@ -34,7 +37,8 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
         if (m->mode != _NETDEV_MACVLAN_MODE_INVALID) {
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_MODE, m->mode);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MODE attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_MACVLAN_MODE attribute: %m");
         }
 
         return 0;

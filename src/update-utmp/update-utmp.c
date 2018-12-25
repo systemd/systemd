@@ -92,8 +92,13 @@ static int get_current_runlevel(Context *c) {
                 if (!path)
                         return log_oom();
 
-                r = sd_bus_get_property_string(
-                        c->bus, "org.freedesktop.systemd1", path, "org.freedesktop.systemd1.Unit", "ActiveState", &error, &state);
+                r = sd_bus_get_property_string(c->bus,
+                                               "org.freedesktop.systemd1",
+                                               path,
+                                               "org.freedesktop.systemd1.Unit",
+                                               "ActiveState",
+                                               &error,
+                                               &state);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
 
@@ -115,7 +120,9 @@ static int on_reboot(Context *c) {
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (audit_log_user_comm_message(
+                            c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) <
+                            0 &&
                     errno != EPERM) {
                         r = log_error_errno(errno, "Failed to send audit message: %m");
                 }
@@ -144,7 +151,9 @@ static int on_shutdown(Context *c) {
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (audit_log_user_comm_message(
+                            c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) <
+                            0 &&
                     errno != EPERM) {
                         r = log_error_errno(errno, "Failed to send audit message: %m");
                 }
@@ -190,10 +199,15 @@ static int on_runlevel(Context *c) {
         if (c->audit_fd >= 0) {
                 _cleanup_free_ char *s = NULL;
 
-                if (asprintf(&s, "old-level=%c new-level=%c", previous > 0 ? previous : 'N', runlevel > 0 ? runlevel : 'N') < 0)
+                if (asprintf(&s,
+                             "old-level=%c new-level=%c",
+                             previous > 0 ? previous : 'N',
+                             runlevel > 0 ? runlevel : 'N') < 0)
                         return log_oom();
 
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (audit_log_user_comm_message(
+                            c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) <
+                            0 &&
                     errno != EPERM)
                         r = log_error_errno(errno, "Failed to send audit message: %m");
         }

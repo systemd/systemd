@@ -155,7 +155,8 @@ struct file_handle {
         unsigned char f_handle[0];
 };
 
-static inline int missing_name_to_handle_at(int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
+static inline int missing_name_to_handle_at(
+        int fd, const char *name, struct file_handle *handle, int *mnt_id, int flags) {
 #ifdef __NR_name_to_handle_at
         return syscall(__NR_name_to_handle_at, fd, name, handle, mnt_id, flags);
 #else
@@ -237,7 +238,8 @@ static inline pid_t raw_getpid(void) {
 #endif
 #endif
 
-static inline int missing_renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
+static inline int
+        missing_renameat2(int oldfd, const char *oldname, int newfd, const char *newname, unsigned flags) {
 #ifdef __NR_renameat2
         return syscall(__NR_renameat2, oldfd, oldname, newfd, newname, flags);
 #else
@@ -267,7 +269,8 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 /* ======================================================================= */
 
 #if !HAVE_KEYCTL
-static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
+static inline long missing_keyctl(
+        int cmd, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) {
 #ifdef __NR_keyctl
         return syscall(__NR_keyctl, cmd, arg2, arg3, arg4, arg5);
 #else
@@ -278,7 +281,8 @@ static inline long missing_keyctl(int cmd, unsigned long arg2, unsigned long arg
 #define keyctl missing_keyctl
 }
 
-static inline key_serial_t missing_add_key(const char *type, const char *description, const void *payload, size_t plen, key_serial_t ringid) {
+static inline key_serial_t missing_add_key(
+        const char *type, const char *description, const void *payload, size_t plen, key_serial_t ringid) {
 #ifdef __NR_add_key
         return syscall(__NR_add_key, type, description, payload, plen, ringid);
 #else
@@ -289,7 +293,10 @@ static inline key_serial_t missing_add_key(const char *type, const char *descrip
 #define add_key missing_add_key
 }
 
-static inline key_serial_t missing_request_key(const char *type, const char *description, const char *callout_info, key_serial_t destringid) {
+static inline key_serial_t missing_request_key(const char *type,
+                                               const char *description,
+                                               const char *callout_info,
+                                               key_serial_t destringid) {
 #ifdef __NR_request_key
         return syscall(__NR_request_key, type, description, callout_info, destringid);
 #else
@@ -324,7 +331,8 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 #endif
 #endif
 
-static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned int flags) {
+static inline ssize_t missing_copy_file_range(
+        int fd_in, loff_t *off_in, int fd_out, loff_t *off_out, size_t len, unsigned int flags) {
 #ifdef __NR_copy_file_range
         return syscall(__NR_copy_file_range, fd_in, off_in, fd_out, off_out, len, flags);
 #else
@@ -429,7 +437,8 @@ struct statx;
 typedef struct statx struct_statx;
 
 #if !HAVE_STATX
-static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
+static inline ssize_t
+        missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
 #ifdef __NR_statx
         return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
 #else

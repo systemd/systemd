@@ -586,7 +586,8 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         return z - r;
 }
 
-static int base64_append_width(char **prefix, int plen, const char *sep, int indent, const void *p, size_t l, int width) {
+static int base64_append_width(
+        char **prefix, int plen, const char *sep, int indent, const void *p, size_t l, int width) {
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
@@ -643,8 +644,8 @@ static int unbase64_next(const char **p, size_t *l) {
         assert(p);
         assert(l);
 
-        /* Find the next non-whitespace character, and decode it. If we find padding, we return it as INT_MAX. We
-         * greedily skip all preceding and all following whitespace. */
+        /* Find the next non-whitespace character, and decode it. If we find padding, we return it as
+         * INT_MAX. We greedily skip all preceding and all following whitespace. */
 
         for (;;) {
                 if (*l == 0)

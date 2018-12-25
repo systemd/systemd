@@ -13,8 +13,13 @@
 static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 
-static int property_get_dns_over_tls_mode(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_dns_over_tls_mode(sd_bus *bus,
+                                          const char *path,
+                                          const char *interface,
+                                          const char *property,
+                                          sd_bus_message *reply,
+                                          void *userdata,
+                                          sd_bus_error *error) {
 
         Link *l = userdata;
 
@@ -24,8 +29,13 @@ static int property_get_dns_over_tls_mode(
         return sd_bus_message_append(reply, "s", dns_over_tls_mode_to_string(link_get_dns_over_tls_mode(l)));
 }
 
-static int property_get_dns(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_dns(sd_bus *bus,
+                            const char *path,
+                            const char *interface,
+                            const char *property,
+                            sd_bus_message *reply,
+                            void *userdata,
+                            sd_bus_error *error) {
 
         Link *l = userdata;
         DnsServer *s;
@@ -47,8 +57,13 @@ static int property_get_dns(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_current_dns_server(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_current_dns_server(sd_bus *bus,
+                                           const char *path,
+                                           const char *interface,
+                                           const char *property,
+                                           sd_bus_message *reply,
+                                           void *userdata,
+                                           sd_bus_error *error) {
 
         DnsServer *s;
 
@@ -60,8 +75,13 @@ static int property_get_current_dns_server(
         return bus_dns_server_append(reply, s, false);
 }
 
-static int property_get_domains(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_domains(sd_bus *bus,
+                                const char *path,
+                                const char *interface,
+                                const char *property,
+                                sd_bus_message *reply,
+                                void *userdata,
+                                sd_bus_error *error) {
 
         Link *l = userdata;
         DnsSearchDomain *d;
@@ -83,8 +103,13 @@ static int property_get_domains(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_default_route(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_default_route(sd_bus *bus,
+                                      const char *path,
+                                      const char *interface,
+                                      const char *property,
+                                      sd_bus_message *reply,
+                                      void *userdata,
+                                      sd_bus_error *error) {
 
         Link *l = userdata;
 
@@ -102,8 +127,13 @@ static int property_get_default_route(
         return sd_bus_message_append(reply, "b", false);
 }
 
-static int property_get_scopes_mask(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_scopes_mask(sd_bus *bus,
+                                    const char *path,
+                                    const char *interface,
+                                    const char *property,
+                                    sd_bus_message *reply,
+                                    void *userdata,
+                                    sd_bus_error *error) {
 
         Link *l = userdata;
         uint64_t mask;
@@ -112,14 +142,20 @@ static int property_get_scopes_mask(
         assert(l);
 
         mask = (l->unicast_scope ? SD_RESOLVED_DNS : 0) | (l->llmnr_ipv4_scope ? SD_RESOLVED_LLMNR_IPV4 : 0) |
-                (l->llmnr_ipv6_scope ? SD_RESOLVED_LLMNR_IPV6 : 0) | (l->mdns_ipv4_scope ? SD_RESOLVED_MDNS_IPV4 : 0) |
+                (l->llmnr_ipv6_scope ? SD_RESOLVED_LLMNR_IPV6 : 0) |
+                (l->mdns_ipv4_scope ? SD_RESOLVED_MDNS_IPV4 : 0) |
                 (l->mdns_ipv6_scope ? SD_RESOLVED_MDNS_IPV6 : 0);
 
         return sd_bus_message_append(reply, "t", mask);
 }
 
-static int property_get_ntas(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_ntas(sd_bus *bus,
+                             const char *path,
+                             const char *interface,
+                             const char *property,
+                             sd_bus_message *reply,
+                             void *userdata,
+                             sd_bus_error *error) {
 
         Link *l = userdata;
         const char *name;
@@ -189,7 +225,8 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                         return r;
 
                 if (!IN_SET(family, AF_INET, AF_INET6))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
                 r = sd_bus_message_read_array(message, 'y', &d, &sz);
                 if (r < 0)
@@ -198,7 +235,8 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
                 if (!dns_server_address_valid(family, d))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
@@ -225,7 +263,8 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0);
+                        r = dns_server_new(
+                                l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0);
                         if (r < 0)
                                 goto clear;
                 }
@@ -273,9 +312,12 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid search domain %s", name);
                 if (!route_only && dns_name_is_root(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Root domain is not suitable as search domain");
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Root domain is not suitable as search domain");
         }
 
         dns_search_domain_mark_all(l->search_domains);
@@ -373,7 +415,8 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         else {
                 mode = resolve_support_from_string(llmnr);
                 if (mode < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
         }
 
         l->llmnr_support = mode;
@@ -407,7 +450,8 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         else {
                 mode = resolve_support_from_string(mdns);
                 if (mode < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
         }
 
         l->mdns_support = mode;
@@ -441,7 +485,10 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
         else {
                 mode = dns_over_tls_mode_from_string(dns_over_tls);
                 if (mode < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid DNSOverTLS setting: %s",
+                                                 dns_over_tls);
         }
 
         link_set_dns_over_tls_mode(l, mode);
@@ -473,7 +520,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
         else {
                 mode = dnssec_mode_from_string(dnssec);
                 if (mode < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
         }
 
         link_set_dnssec_mode(l, mode);
@@ -483,7 +531,9 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message,
+                                                      void *userdata,
+                                                      sd_bus_error *error) {
         _cleanup_set_free_free_ Set *ns = NULL;
         _cleanup_strv_free_ char **ntas = NULL;
         Link *l = userdata;
@@ -506,7 +556,10 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid negative trust anchor domain: %s", *i);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid negative trust anchor domain: %s",
+                                                 *i);
         }
 
         ns = set_new(&dns_name_hash_ops);
@@ -553,7 +606,11 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServer",
+                        "(iay)",
+                        property_get_current_dns_server,
+                        offsetof(Link, current_dns_server),
+                        0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
@@ -570,13 +627,22 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
         SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
-        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
+        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors",
+                      "as",
+                      NULL,
+                      bus_link_method_set_dnssec_negative_trust_anchors,
+                      0),
         SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),
 
         SD_BUS_VTABLE_END
 };
 
-int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int link_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         int ifindex;

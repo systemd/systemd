@@ -450,7 +450,9 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                                 goto fail;
                         }
 
-                        log_info("Downloading %s for %s.", format_bytes(bytes, sizeof(bytes), j->content_length), j->url);
+                        log_info("Downloading %s for %s.",
+                                 format_bytes(bytes, sizeof(bytes), j->content_length),
+                                 j->url);
                 }
 
                 return sz;
@@ -479,7 +481,8 @@ fail:
         return 0;
 }
 
-static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+static int pull_job_progress_callback(
+        void *userdata, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
         PullJob *j = userdata;
         unsigned percent;
         usec_t n;
@@ -506,7 +509,10 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
                                  percent,
                                  j->url,
                                  format_timespan(buf, sizeof(buf), left, USEC_PER_SEC),
-                                 format_bytes(y, sizeof(y), (uint64_t)((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
+                                 format_bytes(y,
+                                              sizeof(y),
+                                              (uint64_t)((double) dlnow /
+                                                         ((double) done / (double) USEC_PER_SEC))));
                 } else
                         log_info("Got %u%% of %s.", percent, j->url);
 

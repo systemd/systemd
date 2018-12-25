@@ -18,8 +18,13 @@ static BUS_DEFINE_PROPERTY_GET(property_get_can_multi_session, "b", Seat, seat_c
 static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
 
-static int property_get_active_session(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_active_session(sd_bus *bus,
+                                       const char *path,
+                                       const char *interface,
+                                       const char *property,
+                                       sd_bus_message *reply,
+                                       void *userdata,
+                                       sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Seat *s = userdata;
@@ -35,8 +40,13 @@ static int property_get_active_session(
         return sd_bus_message_append(reply, "(so)", s->active ? s->active->id : "", p);
 }
 
-static int property_get_sessions(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_sessions(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         Seat *s = userdata;
         Session *session;
@@ -69,8 +79,13 @@ static int property_get_sessions(
         return 1;
 }
 
-static int property_get_idle_hint(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_idle_hint(sd_bus *bus,
+                                  const char *path,
+                                  const char *interface,
+                                  const char *property,
+                                  sd_bus_message *reply,
+                                  void *userdata,
+                                  sd_bus_error *error) {
 
         Seat *s = userdata;
 
@@ -81,8 +96,13 @@ static int property_get_idle_hint(
         return sd_bus_message_append(reply, "b", seat_get_idle_hint(s, NULL) > 0);
 }
 
-static int property_get_idle_since_hint(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_idle_since_hint(sd_bus *bus,
+                                        const char *path,
+                                        const char *interface,
+                                        const char *property,
+                                        sd_bus_message *reply,
+                                        void *userdata,
+                                        sd_bus_error *error) {
 
         Seat *s = userdata;
         dual_timestamp t;
@@ -109,8 +129,14 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(s);
 
-        r = bus_verify_polkit_async(
-                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, UID_INVALID, &s->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_KILL,
+                                    "org.freedesktop.login1.manage",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &s->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -141,7 +167,8 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
 
         if (session->seat != s)
-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
+                return sd_bus_error_setf(
+                        error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
         r = session_activate(session);
         if (r < 0)
@@ -204,14 +231,20 @@ const sd_bus_vtable seat_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CanMultiSession", "b", property_get_can_multi_session, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHintMonotonic",
+                        "t",
+                        property_get_idle_since_hint,
+                        0,
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -222,7 +255,12 @@ const sd_bus_vtable seat_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int seat_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error) {
         Manager *m = userdata;
         Seat *seat;
         int r;

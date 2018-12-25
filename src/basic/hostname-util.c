@@ -177,9 +177,11 @@ bool is_localhost(const char *hostname) {
         /* This tries to identify local host and domain names
          * described in RFC6761 plus the redhatism of localdomain */
 
-        return strcaseeq(hostname, "localhost") || strcaseeq(hostname, "localhost.") || strcaseeq(hostname, "localhost.localdomain") ||
+        return strcaseeq(hostname, "localhost") || strcaseeq(hostname, "localhost.") ||
+                strcaseeq(hostname, "localhost.localdomain") ||
                 strcaseeq(hostname, "localhost.localdomain.") || endswith_no_case(hostname, ".localhost") ||
-                endswith_no_case(hostname, ".localhost.") || endswith_no_case(hostname, ".localhost.localdomain") ||
+                endswith_no_case(hostname, ".localhost.") ||
+                endswith_no_case(hostname, ".localhost.localdomain") ||
                 endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
@@ -258,7 +260,8 @@ int read_etc_hostname_stream(FILE *f, char **ret) {
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
-                if (r == 0) /* EOF without any hostname? the file is empty, let's treat that exactly like no file at all: ENOENT */
+                if (r ==
+                    0) /* EOF without any hostname? the file is empty, let's treat that exactly like no file at all: ENOENT */
                         return -ENOENT;
 
                 p = strstrip(line);

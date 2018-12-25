@@ -102,7 +102,8 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         (void) access_check_var_log_journal(j, want_other_users);
 
                 if (ordered_hashmap_isempty(j->files))
-                        r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
+                        r = log_error_errno(EACCES,
+                                            "No journal files were opened due to insufficient permissions.");
         }
 
         HASHMAP_FOREACH_KEY(path, code, j->errors, it) {
@@ -119,10 +120,11 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         break;
 
                 case EPROTONOSUPPORT:
-                        log_warning_errno(err,
-                                          "Journal file %1$s uses an unsupported feature, ignoring file.\n"
-                                          "Use SYSTEMD_LOG_LEVEL=debug journalctl --file=%1$s to see the details.",
-                                          path);
+                        log_warning_errno(
+                                err,
+                                "Journal file %1$s uses an unsupported feature, ignoring file.\n"
+                                "Use SYSTEMD_LOG_LEVEL=debug journalctl --file=%1$s to see the details.",
+                                path);
                         break;
 
                 case EBADMSG:
@@ -130,7 +132,10 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         break;
 
                 default:
-                        log_warning_errno(err, "An error was encountered while opening journal file or directory %s, ignoring file: %m", path);
+                        log_warning_errno(
+                                err,
+                                "An error was encountered while opening journal file or directory %s, ignoring file: %m",
+                                path);
                         break;
                 }
         }

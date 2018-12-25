@@ -14,7 +14,8 @@
 
 #include "dhcp-internal.h"
 
-static int option_append(uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
+static int option_append(
+        uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
         assert(options);
         assert(offset);
 
@@ -37,8 +38,8 @@ static int option_append(uint8_t options[], size_t size, size_t *offset, uint8_t
                 size_t len = 0;
                 char **s;
 
-                STRV_FOREACH(s, (char **) optval)
-                len += strlen(*s) + 1;
+                STRV_FOREACH (s, (char **) optval)
+                        len += strlen(*s) + 1;
 
                 if (size < *offset + len + 2)
                         return -ENOBUFS;
@@ -47,7 +48,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset, uint8_t
                 options[*offset + 1] = len;
                 *offset += 2;
 
-                STRV_FOREACH(s, (char **) optval) {
+                STRV_FOREACH (s, (char **) optval) {
                         len = strlen(*s);
 
                         if (len > 255)
@@ -77,7 +78,13 @@ static int option_append(uint8_t options[], size_t size, size_t *offset, uint8_t
         return 0;
 }
 
-int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_t overload, uint8_t code, size_t optlen, const void *optval) {
+int dhcp_option_append(DHCPMessage *message,
+                       size_t size,
+                       size_t *offset,
+                       uint8_t overload,
+                       uint8_t code,
+                       size_t optlen,
+                       const void *optval) {
         size_t file_offset = 0, sname_offset = 0;
         bool file, sname;
         int r;
@@ -110,7 +117,8 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_
 
                 if (file_offset < sizeof(message->file)) {
                         /* still space in the 'file' array */
-                        r = option_append(message->file, sizeof(message->file), &file_offset, code, optlen, optval);
+                        r = option_append(
+                                message->file, sizeof(message->file), &file_offset, code, optlen, optval);
                         if (r >= 0) {
                                 *offset = size + file_offset;
                                 return 0;
@@ -132,7 +140,8 @@ int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_
 
                 if (sname_offset < sizeof(message->sname)) {
                         /* still space in the 'sname' array */
-                        r = option_append(message->sname, sizeof(message->sname), &sname_offset, code, optlen, optval);
+                        r = option_append(
+                                message->sname, sizeof(message->sname), &sname_offset, code, optlen, optval);
                         if (r >= 0) {
                                 *offset = size + (file ? sizeof(message->file) : 0) + sname_offset;
                                 return 0;
@@ -235,7 +244,8 @@ static int parse_options(const uint8_t options[],
         return 0;
 }
 
-int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **_error_message) {
+int dhcp_option_parse(
+        DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **_error_message) {
         _cleanup_free_ char *error_message = NULL;
         uint8_t overload = 0;
         uint8_t message_type = 0;
@@ -254,13 +264,15 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
                 return r;
 
         if (overload & DHCP_OVERLOAD_FILE) {
-                r = parse_options(message->file, sizeof(message->file), NULL, &message_type, &error_message, cb, userdata);
+                r = parse_options(
+                        message->file, sizeof(message->file), NULL, &message_type, &error_message, cb, userdata);
                 if (r < 0)
                         return r;
         }
 
         if (overload & DHCP_OVERLOAD_SNAME) {
-                r = parse_options(message->sname, sizeof(message->sname), NULL, &message_type, &error_message, cb, userdata);
+                r = parse_options(
+                        message->sname, sizeof(message->sname), NULL, &message_type, &error_message, cb, userdata);
                 if (r < 0)
                         return r;
         }

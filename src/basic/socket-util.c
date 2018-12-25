@@ -98,9 +98,9 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 size_t l;
 
                 l = strlen(s);
-                if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets when
-                                                           * parsing (the kernel itself is less strict here in what it
-                                                           * accepts) */
+                if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets
+                                                           * when parsing (the kernel itself is less strict
+                                                           * here in what it accepts) */
                         return -EINVAL;
 
                 a->sockaddr.un.sun_family = AF_UNIX;
@@ -112,11 +112,12 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 size_t l;
 
                 l = strlen(s + 1);
-                if (l >= sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminated sockets here
-                                                               * when parsing, even though abstract namespace sockets
-                                                               * explicitly allow embedded NUL bytes and don't consider
-                                                               * them special. But it's simply annoying to debug such
-                                                               * sockets. */
+                if (l >=
+                    sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminated sockets
+                                                          * here when parsing, even though abstract namespace
+                                                          * sockets explicitly allow embedded NUL bytes and
+                                                          * don't consider them special. But it's simply
+                                                          * annoying to debug such sockets. */
                         return -EINVAL;
 
                 a->sockaddr.un.sun_family = AF_UNIX;
@@ -302,21 +303,25 @@ int socket_address_verify(const SocketAddress *a, bool strict) {
                          * a NUL byte if we have path sockets that are above sun_path's full size. */
                         return -EINVAL;
 
-                if (a->size > offsetof(struct sockaddr_un, sun_path) && a->sockaddr.un.sun_path[0] != 0 && strict) {
+                if (a->size > offsetof(struct sockaddr_un, sun_path) && a->sockaddr.un.sun_path[0] != 0 &&
+                    strict) {
                         /* Only validate file system sockets here, and only in strict mode */
                         const char *e;
 
                         e = memchr(a->sockaddr.un.sun_path, 0, sizeof(a->sockaddr.un.sun_path));
                         if (e) {
                                 /* If there's an embedded NUL byte, make sure the size of the socket address matches it */
-                                if (a->size != offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
+                                if (a->size !=
+                                    offsetof(struct sockaddr_un, sun_path) + (e - a->sockaddr.un.sun_path) + 1)
                                         return -EINVAL;
                         } else {
-                                /* If there's no embedded NUL byte, then then the size needs to match the whole
-                                 * structure or the structure with one extra NUL byte suffixed. (Yeah, Linux is awful,
-                                 * and considers both equivalent: getsockname() even extends sockaddr_un beyond its
-                                 * size if the path is non NUL terminated.)*/
-                                if (!IN_SET(a->size, sizeof(a->sockaddr.un.sun_path), sizeof(a->sockaddr.un.sun_path) + 1))
+                                /* If there's no embedded NUL byte, then then the size needs to match the
+                                 * whole structure or the structure with one extra NUL byte suffixed. (Yeah,
+                                 * Linux is awful, and considers both equivalent: getsockname() even extends
+                                 * sockaddr_un beyond its size if the path is non NUL terminated.)*/
+                                if (!IN_SET(a->size,
+                                            sizeof(a->sockaddr.un.sun_path),
+                                            sizeof(a->sockaddr.un.sun_path) + 1))
                                         return -EINVAL;
                         }
                 }
@@ -412,7 +417,9 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                 break;
 
         case AF_INET6:
-                if (memcmp(&a->sockaddr.in6.sin6_addr, &b->sockaddr.in6.sin6_addr, sizeof(a->sockaddr.in6.sin6_addr)) != 0)
+                if (memcmp(&a->sockaddr.in6.sin6_addr,
+                           &b->sockaddr.in6.sin6_addr,
+                           sizeof(a->sockaddr.in6.sin6_addr)) != 0)
                         return false;
 
                 if (a->sockaddr.in6.sin6_port != b->sockaddr.in6.sin6_port)
@@ -421,7 +428,8 @@ bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) {
                 break;
 
         case AF_UNIX:
-                if (a->size <= offsetof(struct sockaddr_un, sun_path) || b->size <= offsetof(struct sockaddr_un, sun_path))
+                if (a->size <= offsetof(struct sockaddr_un, sun_path) ||
+                    b->size <= offsetof(struct sockaddr_un, sun_path))
                         return false;
 
                 if ((a->sockaddr.un.sun_path[0] == 0) != (b->sockaddr.un.sun_path[0] == 0))
@@ -502,8 +510,8 @@ const char *socket_address_get_path(const SocketAddress *a) {
                 return NULL;
 
         /* Note that this is only safe because we know that there's an extra NUL byte after the sockaddr_un
-         * structure. On Linux AF_UNIX file system socket addresses don't have to be NUL terminated if they take up the
-         * full sun_path space. */
+         * structure. On Linux AF_UNIX file system socket addresses don't have to be NUL terminated if they
+         * take up the full sun_path space. */
         assert_cc(sizeof(union sockaddr_union) >= sizeof(struct sockaddr_un) + 1);
         return a->sockaddr.un.sun_path;
 }
@@ -574,7 +582,8 @@ int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
         }
 }
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
+int sockaddr_pretty(
+        const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret) {
 
         union sockaddr_union *sa = (union sockaddr_union *) _sa;
         char *p;
@@ -591,7 +600,13 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                 a = be32toh(sa->in.sin_addr.s_addr);
 
                 if (include_port)
-                        r = asprintf(&p, "%u.%u.%u.%u:%u", a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF, be16toh(sa->in.sin_port));
+                        r = asprintf(&p,
+                                     "%u.%u.%u.%u:%u",
+                                     a >> 24,
+                                     (a >> 16) & 0xFF,
+                                     (a >> 8) & 0xFF,
+                                     a & 0xFF,
+                                     be16toh(sa->in.sin_port));
                 else
                         r = asprintf(&p, "%u.%u.%u.%u", a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF);
                 if (r < 0)
@@ -605,7 +620,8 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                 if (translate_ipv6 && memcmp(&sa->in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
                         const uint8_t *a = sa->in6.sin6_addr.s6_addr + 12;
                         if (include_port)
-                                r = asprintf(&p, "%u.%u.%u.%u:%u", a[0], a[1], a[2], a[3], be16toh(sa->in6.sin6_port));
+                                r = asprintf(
+                                        &p, "%u.%u.%u.%u:%u", a[0], a[1], a[2], a[3], be16toh(sa->in6.sin6_port));
                         else
                                 r = asprintf(&p, "%u.%u.%u.%u", a[0], a[1], a[2], a[3]);
                         if (r < 0)
@@ -635,10 +651,10 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                         /* The name must have at least one character (and the leading NUL does not count) */
                         p = strdup("<unnamed>");
                 else {
-                        /* Note that we calculate the path pointer here through the .un_buffer[] field, in order to
-                         * outtrick bounds checking tools such as ubsan, which are too smart for their own good: on
-                         * Linux the kernel may return sun_path[] data one byte longer than the declared size of the
-                         * field. */
+                        /* Note that we calculate the path pointer here through the .un_buffer[] field, in
+                         * order to outtrick bounds checking tools such as ubsan, which are too smart for
+                         * their own good: on Linux the kernel may return sun_path[] data one byte longer
+                         * than the declared size of the field. */
                         char *path = (char *) sa->un_buffer + offsetof(struct sockaddr_un, sun_path);
                         size_t path_len = salen - offsetof(struct sockaddr_un, sun_path);
 
@@ -788,7 +804,9 @@ static const char *const netlink_family_table[] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(netlink_family, int, INT_MAX);
 
 static const char *const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
-        [SOCKET_ADDRESS_DEFAULT] = "default", [SOCKET_ADDRESS_BOTH] = "both", [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
+        [SOCKET_ADDRESS_DEFAULT] = "default",
+        [SOCKET_ADDRESS_BOTH] = "both",
+        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
@@ -874,9 +892,10 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 bool ifname_valid(const char *p) {
         bool numeric = true;
 
-        /* Checks whether a network interface name is valid. This is inspired by dev_valid_name() in the kernel sources
-         * but slightly stricter, as we only allow non-control, non-space ASCII characters in the interface name. We
-         * also don't permit names that only container numbers, to avoid confusion with numeric interface indexes. */
+        /* Checks whether a network interface name is valid. This is inspired by dev_valid_name() in the
+         * kernel sources but slightly stricter, as we only allow non-control, non-space ASCII characters in
+         * the interface name. We also don't permit names that only container numbers, to avoid confusion
+         * with numeric interface indexes. */
 
         if (isempty(p))
                 return false;
@@ -946,8 +965,8 @@ int getpeercred(int fd, struct ucred *ucred) {
         if (!pid_is_valid(u.pid))
                 return -ENODATA;
 
-        /* Note that we don't check UID/GID here, as namespace translation works differently there: instead of
-         * receiving in "invalid" user/group we get the overflow UID/GID. */
+        /* Note that we don't check UID/GID here, as namespace translation works differently there: instead
+         * of receiving in "invalid" user/group we get the overflow UID/GID. */
 
         *ucred = u;
         return 0;
@@ -1014,7 +1033,13 @@ int getpeergroups(int fd, gid_t **ret) {
         return (int) n;
 }
 
-ssize_t send_one_fd_iov_sa(int transport_fd, int fd, struct iovec *iov, size_t iovlen, const struct sockaddr *sa, socklen_t len, int flags) {
+ssize_t send_one_fd_iov_sa(int transport_fd,
+                           int fd,
+                           struct iovec *iov,
+                           size_t iovlen,
+                           const struct sockaddr *sa,
+                           socklen_t len,
+                           int flags) {
 
         union {
                 struct cmsghdr cmsghdr;
@@ -1096,7 +1121,8 @@ ssize_t receive_one_fd_iov(int transport_fd, struct iovec *iov, size_t iovlen, i
                 return (ssize_t) -errno;
 
         CMSG_FOREACH (cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS && cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
                         assert(!found);
                         found = cmsg;
                         break;
@@ -1136,11 +1162,11 @@ ssize_t next_datagram_size_fd(int fd) {
         ssize_t l;
         int k;
 
-        /* This is a bit like FIONREAD/SIOCINQ, however a bit more powerful. The difference being: recv(MSG_PEEK) will
-         * actually cause the next datagram in the queue to be validated regarding checksums, which FIONREAD doesn't
-         * do. This difference is actually of major importance as we need to be sure that the size returned here
-         * actually matches what we will read with recvmsg() next, as otherwise we might end up allocating a buffer of
-         * the wrong size. */
+        /* This is a bit like FIONREAD/SIOCINQ, however a bit more powerful. The difference being:
+         * recv(MSG_PEEK) will actually cause the next datagram in the queue to be validated regarding
+         * checksums, which FIONREAD doesn't do. This difference is actually of major importance as we need
+         * to be sure that the size returned here actually matches what we will read with recvmsg() next, as
+         * otherwise we might end up allocating a buffer of the wrong size. */
 
         l = recv(fd, NULL, 0, MSG_PEEK | MSG_TRUNC);
         if (l < 0) {
@@ -1157,8 +1183,8 @@ ssize_t next_datagram_size_fd(int fd) {
 fallback:
         k = 0;
 
-        /* Some sockets (AF_PACKET) do not support null-sized recv() with MSG_TRUNC set, let's fall back to FIONREAD
-         * for them. Checksums don't matter for raw sockets anyway, hence this should be fine. */
+        /* Some sockets (AF_PACKET) do not support null-sized recv() with MSG_TRUNC set, let's fall back to
+         * FIONREAD for them. Checksums don't matter for raw sockets anyway, hence this should be fine. */
 
         if (ioctl(fd, FIONREAD, &k) < 0)
                 return -errno;
@@ -1210,7 +1236,8 @@ struct cmsghdr *cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
         assert(mh);
 
         CMSG_FOREACH (cmsg, mh)
-                if (cmsg->cmsg_level == level && cmsg->cmsg_type == type && (length == (socklen_t) -1 || length == cmsg->cmsg_len))
+                if (cmsg->cmsg_level == level && cmsg->cmsg_type == type &&
+                    (length == (socklen_t) -1 || length == cmsg->cmsg_len))
                         return cmsg;
 
         return NULL;
@@ -1219,10 +1246,10 @@ struct cmsghdr *cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
 int socket_ioctl_fd(void) {
         int fd;
 
-        /* Create a socket to invoke the various network interface ioctl()s on. Traditionally only AF_INET was good for
-         * that. Since kernel 4.6 AF_NETLINK works for this too. We first try to use AF_INET hence, but if that's not
-         * available (for example, because it is made unavailable via SECCOMP or such), we'll fall back to the more
-         * generic AF_NETLINK. */
+        /* Create a socket to invoke the various network interface ioctl()s on. Traditionally only AF_INET
+         * was good for that. Since kernel 4.6 AF_NETLINK works for this too. We first try to use AF_INET
+         * hence, but if that's not available (for example, because it is made unavailable via SECCOMP or
+         * such), we'll fall back to the more generic AF_NETLINK. */
 
         fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -1263,10 +1290,10 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         assert(ret);
         assert(path);
 
-        /* Initialize ret->sun_path from the specified argument. This will interpret paths starting with '@' as
-         * abstract namespace sockets, and those starting with '/' as regular filesystem sockets. It won't accept
-         * anything else (i.e. no relative paths), to avoid ambiguities. Note that this function cannot be used to
-         * reference paths in the abstract namespace that include NUL bytes in the name. */
+        /* Initialize ret->sun_path from the specified argument. This will interpret paths starting with '@'
+         * as abstract namespace sockets, and those starting with '/' as regular filesystem sockets. It won't
+         * accept anything else (i.e. no relative paths), to avoid ambiguities. Note that this function
+         * cannot be used to reference paths in the abstract namespace that include NUL bytes in the name. */
 
         l = strlen(path);
         if (l == 0)
@@ -1276,10 +1303,10 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         if (path[1] == 0)
                 return -EINVAL;
 
-        /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more restrictive than
-         * the kernel is: we insist on NUL termination (both for abstract namespace and regular file system socket
-         * addresses!), which the kernel doesn't. We do this to reduce chance of incompatibility with other apps that
-         * do not expect non-NUL terminated file system path*/
+        /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more
+         * restrictive than the kernel is: we insist on NUL termination (both for abstract namespace and
+         * regular file system socket addresses!), which the kernel doesn't. We do this to reduce chance of
+         * incompatibility with other apps that do not expect non-NUL terminated file system path*/
         if (l + 1 > sizeof(ret->sun_path))
                 return -EINVAL;
 
@@ -1289,14 +1316,16 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
 
         if (path[0] == '@') {
                 /* Abstract namespace socket */
-                memcpy(ret->sun_path + 1, path + 1, l);                    /* copy *with* trailing NUL byte */
-                return (int) (offsetof(struct sockaddr_un, sun_path) + l); /* 🔥 *don't* 🔥 include trailing NUL in size */
+                memcpy(ret->sun_path + 1, path + 1, l); /* copy *with* trailing NUL byte */
+                return (int) (offsetof(struct sockaddr_un, sun_path) +
+                              l); /* 🔥 *don't* 🔥 include trailing NUL in size */
 
         } else {
                 assert(path[0] == '/');
 
                 /* File system socket */
-                memcpy(ret->sun_path, path, l + 1);                            /* copy *with* trailing NUL byte */
-                return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
+                memcpy(ret->sun_path, path, l + 1); /* copy *with* trailing NUL byte */
+                return (int) (offsetof(struct sockaddr_un, sun_path) + l +
+                              1); /* include trailing NUL in size */
         }
 }

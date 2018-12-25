@@ -374,9 +374,10 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         static const struct {
                 const char *name;
                 const int nr;
-        } day_nr[] = { { "Monday", 0 },   { "Mon", 0 },      { "Tuesday", 1 }, { "Tue", 1 },    { "Wednesday", 2 },
-                       { "Wed", 2 },      { "Thursday", 3 }, { "Thu", 3 },     { "Friday", 4 }, { "Fri", 4 },
-                       { "Saturday", 5 }, { "Sat", 5 },      { "Sunday", 6 },  { "Sun", 6 } };
+        } day_nr[] = { { "Monday", 0 },    { "Mon", 0 }, { "Tuesday", 1 },  { "Tue", 1 },
+                       { "Wednesday", 2 }, { "Wed", 2 }, { "Thursday", 3 }, { "Thu", 3 },
+                       { "Friday", 4 },    { "Fri", 4 }, { "Saturday", 5 }, { "Sat", 5 },
+                       { "Sunday", 6 },    { "Sun", 6 } };
 
         int l = -1;
         bool first = true;
@@ -954,7 +955,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         return r;
 
-        } else if (strcaseeq(p, "annually") || strcaseeq(p, "yearly") || strcaseeq(p, "anually") /* backwards compatibility */) {
+        } else if (strcaseeq(p, "annually") || strcaseeq(p, "yearly") ||
+                   strcaseeq(p, "anually") /* backwards compatibility */) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
@@ -1013,8 +1015,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         return r;
 
-        } else if (strcaseeq(p, "biannually") || strcaseeq(p, "bi-annually") || strcaseeq(p, "semiannually") ||
-                   strcaseeq(p, "semi-annually")) {
+        } else if (strcaseeq(p, "biannually") || strcaseeq(p, "bi-annually") ||
+                   strcaseeq(p, "semiannually") || strcaseeq(p, "semi-annually")) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
@@ -1147,8 +1149,8 @@ static bool tm_out_of_bounds(const struct tm *tm, bool utc) {
                 return true;
 
         /* Did any normalization take place? If so, it was out of bounds before */
-        return t.tm_year != tm->tm_year || t.tm_mon != tm->tm_mon || t.tm_mday != tm->tm_mday || t.tm_hour != tm->tm_hour ||
-                t.tm_min != tm->tm_min || t.tm_sec != tm->tm_sec;
+        return t.tm_year != tm->tm_year || t.tm_mon != tm->tm_mon || t.tm_mday != tm->tm_mday ||
+                t.tm_hour != tm->tm_hour || t.tm_min != tm->tm_min || t.tm_sec != tm->tm_sec;
 }
 
 static bool matches_weekday(int weekdays_bits, const struct tm *tm, bool utc) {
@@ -1308,7 +1310,8 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        r = safe_fork("(sd-calendar)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT, NULL);
+        r = safe_fork(
+                "(sd-calendar)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_WAIT, NULL);
         if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
                 return r;

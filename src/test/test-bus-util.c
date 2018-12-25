@@ -29,7 +29,8 @@ static void test_destroy_callback(void) {
                 return;
         }
 
-        r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
+        r = sd_bus_request_name_async(
+                bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
         assert(r == 1);
 
         assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);

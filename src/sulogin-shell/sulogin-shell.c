@@ -22,14 +22,19 @@ static int reload_manager(sd_bus *bus) {
 
         log_info("Reloading system manager configuration");
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reload");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* Note we use an extra-long timeout here. This is because a reload or reexec means generators are rerun which
-         * are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can have
-         * their timeout, and for everything else there's the same time budget in place. */
+        /* Note we use an extra-long timeout here. This is because a reload or reexec means generators are
+         * rerun which are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the
+         * generators can have their timeout, and for everything else there's the same time budget in place.
+         */
 
         r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
         if (r < 0)
@@ -66,7 +71,8 @@ static int fork_wait(const char *const cmdline[]) {
         pid_t pid;
         int r;
 
-        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork(
+                "(sulogin)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

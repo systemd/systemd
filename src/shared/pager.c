@@ -76,7 +76,10 @@ static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
          * Return true whenever option K is *not* set. */
         r = streq_ptr(line, "less") && !strchr(less_opts, 'K');
 
-        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s", strnull(line), less_opts, yes_no(!r));
+        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s",
+                  strnull(line),
+                  less_opts,
+                  yes_no(!r));
         return r;
 }
 
@@ -112,8 +115,8 @@ int pager_open(PagerFlags flags) {
                         return 0;
         }
 
-        /* Determine and cache number of columns/lines before we spawn the pager so that we get the value from the
-         * actual tty */
+        /* Determine and cache number of columns/lines before we spawn the pager so that we get the value
+         * from the actual tty */
         (void) columns();
         (void) lines();
 
@@ -131,7 +134,9 @@ int pager_open(PagerFlags flags) {
         if (flags & PAGER_JUMP_TO_END)
                 less_opts = strjoina(less_opts, " +G");
 
-        r = safe_fork("(pager)", FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pager_pid);
+        r = safe_fork("(pager)",
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      &pager_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -189,8 +194,10 @@ int pager_open(PagerFlags flags) {
                                 _exit(EXIT_FAILURE);
                         }
                         execlp(exe, exe, NULL);
-                        log_full_errno(
-                                errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed execute %s, using next fallback pager: %m", exe);
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                       errno,
+                                       "Failed execute %s, using next fallback pager: %m",
+                                       exe);
                 }
 
                 r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false);
@@ -278,8 +285,10 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        r = safe_fork(
-                "(man)", FORK_RESET_SIGNALS | FORK_DEATHSIG | (null_stdio ? FORK_NULL_STDIO : 0) | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork("(man)",
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | (null_stdio ? FORK_NULL_STDIO : 0) |
+                              FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

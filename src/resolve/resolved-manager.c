@@ -201,19 +201,23 @@ static int manager_rtnl_listen(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWLINK, manager_process_link, NULL, m, "resolve-NEWLINK");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_NEWLINK, manager_process_link, NULL, m, "resolve-NEWLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELLINK, manager_process_link, NULL, m, "resolve-DELLINK");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_DELLINK, manager_process_link, NULL, m, "resolve-DELLINK");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_NEWADDR, manager_process_address, NULL, m, "resolve-NEWADDR");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_NEWADDR, manager_process_address, NULL, m, "resolve-NEWADDR");
         if (r < 0)
                 return r;
 
-        r = sd_netlink_add_match(m->rtnl, NULL, RTM_DELADDR, manager_process_address, NULL, m, "resolve-DELADDR");
+        r = sd_netlink_add_match(
+                m->rtnl, NULL, RTM_DELADDR, manager_process_address, NULL, m, "resolve-DELADDR");
         if (r < 0)
                 return r;
 
@@ -438,7 +442,8 @@ static int on_hostname_change(sd_event_source *es, int fd, uint32_t revents, voi
         if (r < 0)
                 return 0; /* ignore invalid hostnames */
 
-        if (streq(full_hostname, m->full_hostname) && streq(llmnr_hostname, m->llmnr_hostname) && streq(mdns_hostname, m->mdns_hostname))
+        if (streq(full_hostname, m->full_hostname) && streq(llmnr_hostname, m->llmnr_hostname) &&
+            streq(mdns_hostname, m->mdns_hostname))
                 return 0;
 
         log_info("System hostname changed to '%s'.", full_hostname);
@@ -665,8 +670,8 @@ Manager *manager_free(Manager *m) {
 
         dns_scope_free(m->unicast_scope);
 
-        /* At this point only orphaned streams should remain. All others should have been freed already by their
-         * owners */
+        /* At this point only orphaned streams should remain. All others should have been freed already by
+         * their owners */
         while (m->dns_streams)
                 dns_stream_unref(m->dns_streams);
 
@@ -716,7 +721,7 @@ Manager *manager_free(Manager *m) {
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         union {
-                struct cmsghdr header;                                                                      /* For alignment */
+                struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo)) + CMSG_SPACE(int) /* ttl/hoplimit */
                                + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
         } control;
@@ -888,7 +893,9 @@ static int write_loop(int fd, void *message, size_t length) {
 int manager_write(Manager *m, int fd, DnsPacket *p) {
         int r;
 
-        log_debug("Sending %s packet with id %" PRIu16 ".", DNS_PACKET_QR(p) ? "response" : "query", DNS_PACKET_ID(p));
+        log_debug("Sending %s packet with id %" PRIu16 ".",
+                  DNS_PACKET_QR(p) ? "response" : "query",
+                  DNS_PACKET_ID(p));
 
         r = write_loop(fd, DNS_PACKET_DATA(p), p->size);
         if (r < 0)
@@ -897,8 +904,13 @@ int manager_write(Manager *m, int fd, DnsPacket *p) {
         return 0;
 }
 
-static int manager_ipv4_send(
-        Manager *m, int fd, int ifindex, const struct in_addr *destination, uint16_t port, const struct in_addr *source, DnsPacket *p) {
+static int manager_ipv4_send(Manager *m,
+                             int fd,
+                             int ifindex,
+                             const struct in_addr *destination,
+                             uint16_t port,
+                             const struct in_addr *source,
+                             DnsPacket *p) {
         union {
                 struct cmsghdr header; /* For alignment */
                 uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
@@ -948,8 +960,13 @@ static int manager_ipv4_send(
         return sendmsg_loop(fd, &mh, 0);
 }
 
-static int manager_ipv6_send(
-        Manager *m, int fd, int ifindex, const struct in6_addr *destination, uint16_t port, const struct in6_addr *source, DnsPacket *p) {
+static int manager_ipv6_send(Manager *m,
+                             int fd,
+                             int ifindex,
+                             const struct in6_addr *destination,
+                             uint16_t port,
+                             const struct in6_addr *source,
+                             DnsPacket *p) {
 
         union {
                 struct cmsghdr header; /* For alignment */
@@ -1023,9 +1040,11 @@ int manager_send(Manager *m,
                   af_to_name(family));
 
         if (family == AF_INET)
-                return manager_ipv4_send(m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
+                return manager_ipv4_send(
+                        m, fd, ifindex, &destination->in, port, source ? &source->in : NULL, p);
         if (family == AF_INET6)
-                return manager_ipv6_send(m, fd, ifindex, &destination->in6, port, source ? &source->in6 : NULL, p);
+                return manager_ipv6_send(
+                        m, fd, ifindex, &destination->in6, port, source ? &source->in6 : NULL, p);
 
         return -EAFNOSUPPORT;
 }
@@ -1378,7 +1397,9 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         if (DEBUG_LOGGING) {
                 char s[DNS_RESOURCE_KEY_STRING_MAX];
 
-                log_debug("Found verdict for lookup %s: %s", dns_resource_key_to_string(key, s, sizeof s), dnssec_verdict_to_string(verdict));
+                log_debug("Found verdict for lookup %s: %s",
+                          dns_resource_key_to_string(key, s, sizeof s),
+                          dnssec_verdict_to_string(verdict));
         }
 
         m->n_dnssec_verdict[verdict]++;
@@ -1430,9 +1451,9 @@ void manager_cleanup_saved_user(Manager *m) {
 
         assert(m);
 
-        /* Clean up all saved per-link files in /run/systemd/resolve/netif/ that don't have a matching interface
-         * anymore. These files are created to persist settings pushed in by the user via the bus, so that resolved can
-         * be restarted without losing this data. */
+        /* Clean up all saved per-link files in /run/systemd/resolve/netif/ that don't have a matching
+         * interface anymore. These files are created to persist settings pushed in by the user via the bus,
+         * so that resolved can be restarted without losing this data. */
 
         d = opendir("/run/systemd/resolve/netif/");
         if (!d) {

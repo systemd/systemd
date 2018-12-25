@@ -66,7 +66,8 @@ struct DnsStream {
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
+int dns_stream_new(
+        Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 #endif

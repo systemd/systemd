@@ -21,9 +21,10 @@
 static bool urlify_enabled(void) {
         static int cached_urlify_enabled = -1;
 
-        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a
-         * pager in effect. Let's drop this check as soon as less got fixed a and enough time passed so that it's safe
-         * to assume that a link-enabled 'less' version has hit most installations. */
+        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as
+         * there's a pager in effect. Let's drop this check as soon as less got fixed a and enough time
+         * passed so that it's safe to assume that a link-enabled 'less' version has hit most installations.
+         */
 
         if (cached_urlify_enabled < 0) {
                 int val;
@@ -77,10 +78,10 @@ int file_url_from_path(const char *path, char **ret) {
                 path = absolute;
         }
 
-        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include the local
-         * hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since we are interested
-         * in the raw string the kernel has set, whatever it may be, under the assumption that terminals are not overly
-         * careful with validating the strings either. */
+        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include
+         * the local hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since
+         * we are interested in the raw string the kernel has set, whatever it may be, under the assumption
+         * that terminals are not overly careful with validating the strings either. */
 
         url = strjoin("file://", u.nodename, path);
         if (!url)
@@ -170,7 +171,10 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         if (file) {
                 r = cat_file(file, false);
                 if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# config file %s not found%s\n", ansi_highlight_magenta(), file, ansi_normal());
+                        printf("%s# config file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               file,
+                               ansi_normal());
                 else if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }

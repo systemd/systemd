@@ -185,7 +185,8 @@ _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enum
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem) {
+_public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate,
+                                                  const char *subsystem) {
         assert_return(udev_enumerate, -EINVAL);
 
         if (!subsystem)
@@ -204,7 +205,9 @@ _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_en
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
+_public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate,
+                                              const char *sysattr,
+                                              const char *value) {
         assert_return(udev_enumerate, -EINVAL);
 
         if (!sysattr)
@@ -223,7 +226,9 @@ _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumer
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
+_public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate,
+                                                const char *sysattr,
+                                                const char *value) {
         assert_return(udev_enumerate, -EINVAL);
 
         if (!sysattr)
@@ -242,7 +247,9 @@ _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enum
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value) {
+_public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate,
+                                               const char *property,
+                                               const char *value) {
         assert_return(udev_enumerate, -EINVAL);
 
         if (!property)
@@ -282,7 +289,8 @@ _public_ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate,
  *
  * Returns: 0 on success, otherwise a negative error value.
  */
-_public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *parent) {
+_public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumerate,
+                                             struct udev_device *parent) {
         assert_return(udev_enumerate, -EINVAL);
 
         if (!parent)

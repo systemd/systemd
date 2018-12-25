@@ -100,12 +100,13 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                         fd = open(etc_machine_id, O_RDONLY | O_CLOEXEC | O_NOCTTY);
                         if (fd < 0) {
                                 if (old_errno == EROFS && errno == ENOENT)
-                                        return log_error_errno(errno,
-                                                               "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
-                                                               "Booting up is supported only when:\n"
-                                                               "1) /etc/machine-id exists and is populated.\n"
-                                                               "2) /etc/machine-id exists and is empty.\n"
-                                                               "3) /etc/machine-id is missing and /etc is writable.\n");
+                                        return log_error_errno(
+                                                errno,
+                                                "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
+                                                "Booting up is supported only when:\n"
+                                                "1) /etc/machine-id exists and is populated.\n"
+                                                "2) /etc/machine-id exists and is empty.\n"
+                                                "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
                                         return log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
                         }
@@ -177,15 +178,16 @@ int machine_id_commit(const char *root) {
         sd_id128_t id;
         int r;
 
-        /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
-         * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
-         * original mount namespace, thus revealing the file that was just created. */
+        /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount
+         * is removed in a mount namespace, a new file is created at the right place. Afterwards the mount is
+         * also removed in the original mount namespace, thus revealing the file that was just created. */
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
         r = path_is_mount_point(etc_machine_id, NULL, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
+                return log_error_errno(
+                        r, "Failed to determine whether %s is a mount point: %m", etc_machine_id);
         if (r == 0) {
                 log_debug("%s is not a mount point. Nothing to do.", etc_machine_id);
                 return 0;
@@ -198,9 +200,12 @@ int machine_id_commit(const char *root) {
 
         r = fd_is_temporary_fs(fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether %s is on a temporary file system: %m", etc_machine_id);
+                return log_error_errno(r,
+                                       "Failed to determine whether %s is on a temporary file system: %m",
+                                       etc_machine_id);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "%s is not on a temporary file system.", etc_machine_id);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EROFS), "%s is not on a temporary file system.", etc_machine_id);
 
         r = id128_read_fd(fd, ID128_PLAIN, &id);
         if (r < 0)
@@ -218,15 +223,20 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(errno, "Failed to enter new namespace: %m");
 
         if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
-                return log_error_errno(errno, "Couldn't make-rslave / mountpoint in our private namespace: %m");
+                return log_error_errno(errno,
+                                       "Couldn't make-rslave / mountpoint in our private namespace: %m");
 
         if (umount(etc_machine_id) < 0)
-                return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
+                return log_error_errno(errno,
+                                       "Failed to unmount transient %s file in our private namespace: %m",
+                                       etc_machine_id);
 
         /* Update a persistent version of etc_machine_id */
         r = id128_write(etc_machine_id, ID128_PLAIN, id, true);
         if (r < 0)
-                return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
+                return log_error_errno(r,
+                                       "Cannot write %s. This is mandatory to get a persistent machine ID: %m",
+                                       etc_machine_id);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
         r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
@@ -238,7 +248,9 @@ int machine_id_commit(const char *root) {
 
         if (umount2(etc_machine_id, MNT_DETACH) < 0)
                 return log_warning_errno(
-                        errno, "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.", etc_machine_id);
+                        errno,
+                        "Failed to unmount transient %s file: %m.\nWe keep that mount until next reboot.",
+                        etc_machine_id);
 
         return 0;
 }

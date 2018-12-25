@@ -45,22 +45,56 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_PROPERTY("What", "s", property_get_what, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Options", "s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Type", "s", property_get_type, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Mount, timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Mount, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Mount, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SloppyOptions", "b", bus_property_get_bool, offsetof(Mount, sloppy_options), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LazyUnmount", "b", bus_property_get_bool, offsetof(Mount, lazy_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ForceUnmount", "b", bus_property_get_bool, offsetof(Mount, force_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Mount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        BUS_EXEC_COMMAND_VTABLE("ExecMount", offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_VTABLE("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        BUS_EXEC_COMMAND_VTABLE("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("TimeoutUSec",
+                        "t",
+                        bus_property_get_usec,
+                        offsetof(Mount, timeout_usec),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ControlPID",
+                        "u",
+                        bus_property_get_pid,
+                        offsetof(Mount, control_pid),
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DirectoryMode",
+                        "u",
+                        bus_property_get_mode,
+                        offsetof(Mount, directory_mode),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SloppyOptions",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Mount, sloppy_options),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LazyUnmount",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Mount, lazy_unmount),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ForceUnmount",
+                        "b",
+                        bus_property_get_bool,
+                        offsetof(Mount, force_unmount),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "Result", "s", property_get_result, offsetof(Mount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        BUS_EXEC_COMMAND_VTABLE("ExecMount",
+                                offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]),
+                                SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_VTABLE("ExecUnmount",
+                                offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]),
+                                SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_VTABLE("ExecRemount",
+                                offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]),
+                                SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_VTABLE_END
 };
 
-static int bus_mount_set_transient_property(Mount *m, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+static int bus_mount_set_transient_property(
+        Mount *m, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Unit *u = UNIT(m);
 
@@ -77,7 +111,8 @@ static int bus_mount_set_transient_property(Mount *m, const char *name, sd_bus_m
                 return bus_set_transient_string(u, name, &m->parameters_fragment.what, message, flags, error);
 
         if (streq(name, "Options"))
-                return bus_set_transient_string(u, name, &m->parameters_fragment.options, message, flags, error);
+                return bus_set_transient_string(
+                        u, name, &m->parameters_fragment.options, message, flags, error);
 
         if (streq(name, "Type"))
                 return bus_set_transient_string(u, name, &m->parameters_fragment.fstype, message, flags, error);
@@ -100,7 +135,8 @@ static int bus_mount_set_transient_property(Mount *m, const char *name, sd_bus_m
         return 0;
 }
 
-int bus_mount_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_mount_set_property(
+        Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Mount *m = MOUNT(u);
         int r;

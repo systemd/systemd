@@ -76,7 +76,8 @@ int write_drop_in(const char *dir, const char *unit, unsigned level, const char 
         return write_string_file_atomic_label(q, data);
 }
 
-int write_drop_in_format(const char *dir, const char *unit, unsigned level, const char *name, const char *format, ...) {
+int write_drop_in_format(
+        const char *dir, const char *unit, unsigned level, const char *name, const char *format, ...) {
         _cleanup_free_ char *p = NULL;
         va_list ap;
         int r;
@@ -123,8 +124,12 @@ static int unit_file_find_dir(const char *original_root, const char *path, char 
         return 0;
 }
 
-static int unit_file_find_dirs(
-        const char *original_root, Set *unit_path_cache, const char *unit_path, const char *name, const char *suffix, char ***dirs) {
+static int unit_file_find_dirs(const char *original_root,
+                               Set *unit_path_cache,
+                               const char *unit_path,
+                               const char *name,
+                               const char *suffix,
+                               char ***dirs) {
 
         _cleanup_free_ char *prefix = NULL, *instance = NULL, *built = NULL;
         bool is_instance, chopped;
@@ -158,12 +163,12 @@ static int unit_file_find_dirs(
                         return r;
         }
 
-        /* Let's see if there's a "-" prefix for this unit name. If so, let's invoke ourselves for it. This will then
-         * recursively do the same for all our prefixes. i.e. this means given "foo-bar-waldo.service" we'll also
-         * search "foo-bar-.service" and "foo-.service".
+        /* Let's see if there's a "-" prefix for this unit name. If so, let's invoke ourselves for it. This
+         * will then recursively do the same for all our prefixes. i.e. this means given
+         * "foo-bar-waldo.service" we'll also search "foo-bar-.service" and "foo-.service".
          *
-         * Note the order in which we do it: we traverse up adding drop-ins on each step. This means the more specific
-         * drop-ins may override the more generic drop-ins, which is the intended behaviour. */
+         * Note the order in which we do it: we traverse up adding drop-ins on each step. This means the more
+         * specific drop-ins may override the more generic drop-ins, which is the intended behaviour. */
 
         r = unit_name_to_prefix(name, &prefix);
         if (r < 0)
@@ -194,7 +199,8 @@ static int unit_file_find_dirs(
 
         type = unit_name_to_type(name);
         if (type < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to to derive unit type from unit name: %s", name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Failed to to derive unit type from unit name: %s", name);
 
         if (is_instance) {
                 r = unit_name_to_instance(name, &instance);

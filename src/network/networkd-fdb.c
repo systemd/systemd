@@ -207,7 +207,13 @@ int config_parse_fdb_hwaddr(const char *unit,
                    &fdb_entry->mac_addr->ether_addr_octet[5]);
 
         if (r != ETHER_ADDR_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Not a valid MAC address, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -242,7 +248,8 @@ int config_parse_fdb_vlan_id(const char *unit,
         if (r < 0)
                 return log_oom();
 
-        r = config_parse_vlanid(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &fdb_entry->vlan_id, userdata);
+        r = config_parse_vlanid(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, &fdb_entry->vlan_id, userdata);
         if (r < 0)
                 return r;
 

@@ -57,10 +57,11 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
                 fprintf(f,
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%" PRIi64,
-                        m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
-                                                                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ?
-                                                                         ansi_highlight_green() :
-                                                                         m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "",
+                        m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ?
+                                ansi_highlight_red() :
+                                m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ?
+                                ansi_highlight_green() :
+                                m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "",
                         special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET),
                         ansi_normal(),
 
@@ -212,7 +213,12 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
-                        fprintf(f, "%sBOOLEAN %s%s%s;\n", prefix, ansi_highlight(), true_false(basic.i), ansi_normal());
+                        fprintf(f,
+                                "%sBOOLEAN %s%s%s;\n",
+                                prefix,
+                                ansi_highlight(),
+                                true_false(basic.i),
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_INT16:
@@ -232,11 +238,21 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         break;
 
                 case SD_BUS_TYPE_INT64:
-                        fprintf(f, "%sINT64 %s%" PRIi64 "%s;\n", prefix, ansi_highlight(), basic.s64, ansi_normal());
+                        fprintf(f,
+                                "%sINT64 %s%" PRIi64 "%s;\n",
+                                prefix,
+                                ansi_highlight(),
+                                basic.s64,
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UINT64:
-                        fprintf(f, "%sUINT64 %s%" PRIu64 "%s;\n", prefix, ansi_highlight(), basic.u64, ansi_normal());
+                        fprintf(f,
+                                "%sUINT64 %s%" PRIu64 "%s;\n",
+                                prefix,
+                                ansi_highlight(),
+                                basic.u64,
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
@@ -244,15 +260,30 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         break;
 
                 case SD_BUS_TYPE_STRING:
-                        fprintf(f, "%sSTRING \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
+                        fprintf(f,
+                                "%sSTRING \"%s%s%s\";\n",
+                                prefix,
+                                ansi_highlight(),
+                                basic.string,
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_OBJECT_PATH:
-                        fprintf(f, "%sOBJECT_PATH \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
+                        fprintf(f,
+                                "%sOBJECT_PATH \"%s%s%s\";\n",
+                                prefix,
+                                ansi_highlight(),
+                                basic.string,
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_SIGNATURE:
-                        fprintf(f, "%sSIGNATURE \"%s%s%s\";\n", prefix, ansi_highlight(), basic.string, ansi_normal());
+                        fprintf(f,
+                                "%sSIGNATURE \"%s%s%s\";\n",
+                                prefix,
+                                ansi_highlight(),
+                                basic.string,
+                                ansi_normal());
                         break;
 
                 case SD_BUS_TYPE_UNIX_FD:
@@ -277,7 +308,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
         return 0;
 }
 
-static void dump_capabilities(sd_bus_creds *c, FILE *f, const char *name, bool terse, int (*has)(sd_bus_creds *c, int capability)) {
+static void dump_capabilities(
+        sd_bus_creds *c, FILE *f, const char *name, bool terse, int (*has)(sd_bus_creds *c, int capability)) {
 
         unsigned long i, last_cap;
         unsigned n = 0;
@@ -395,8 +427,8 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (terse &&
             ((c->mask &
-              (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID | SD_BUS_CREDS_GID | SD_BUS_CREDS_EGID |
-               SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID | SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) ||
+              (SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_SUID | SD_BUS_CREDS_FSUID | SD_BUS_CREDS_GID |
+               SD_BUS_CREDS_EGID | SD_BUS_CREDS_SGID | SD_BUS_CREDS_FSGID | SD_BUS_CREDS_SUPPLEMENTARY_GIDS)) ||
              r >= 0))
                 fputs("\n", f);
 
@@ -415,7 +447,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 char **i;
 
                 fprintf(f, "%sCommandLine=%s", prefix, color);
-                STRV_FOREACH(i, cmdline) {
+                STRV_FOREACH (i, cmdline) {
                         if (i != cmdline)
                                 fputc(' ', f);
 
@@ -457,7 +489,9 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
         if (z != -ENODATA)
                 fprintf(f, "%sSession=%s%s%s", prefix, color, strna(s), suffix);
 
-        if (terse && ((c->mask & SD_BUS_CREDS_CGROUP) || r != -ENODATA || q != -ENODATA || v != -ENODATA || w != -ENODATA || z != -ENODATA))
+        if (terse &&
+            ((c->mask & SD_BUS_CREDS_CGROUP) || r != -ENODATA || q != -ENODATA || v != -ENODATA ||
+             w != -ENODATA || z != -ENODATA))
                 fputs("\n", f);
 
         r = sd_bus_creds_get_audit_login_uid(c, &audit_loginuid);
@@ -481,7 +515,7 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
                 char **i;
 
                 fprintf(f, "%sWellKnownNames=%s", prefix, color);
-                STRV_FOREACH(i, well_known) {
+                STRV_FOREACH (i, well_known) {
                         if (i != well_known)
                                 fputc(' ', f);
 

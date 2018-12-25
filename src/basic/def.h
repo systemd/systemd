@@ -34,8 +34,8 @@
         "/usr/lib/kbd/keymaps/\0"
 #endif
 
-/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and that way we
- * become independent of /var being mounted */
+/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
+ * that way we become independent of /var being mounted */
 #define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
 #define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
 
@@ -66,6 +66,7 @@
         "\0"                 \
         "/usr/lib/" n "\0" _CONF_PATHS_SPLIT_USR_NULSTR(n)
 
-#define CONF_PATHS_STRV(n) STRV_MAKE("/etc/" n, "/run/" n, "/usr/local/lib/" n, "/usr/lib/" n _CONF_PATHS_SPLIT_USR(n))
+#define CONF_PATHS_STRV(n) \
+        STRV_MAKE("/etc/" n, "/run/" n, "/usr/local/lib/" n, "/usr/lib/" n _CONF_PATHS_SPLIT_USR(n))
 
 #define HIGH_RLIMIT_MEMLOCK (1024ULL * 1024ULL * 64ULL)

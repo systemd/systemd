@@ -193,7 +193,9 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
 
         log_ndisc("Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
-                  rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
+                  rt->preference == SD_NDISC_PREFERENCE_HIGH ?
+                          "high" :
+                          rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
                   rt->lifetime);
 
         ndisc_callback(nd, SD_NDISC_EVENT_ROUTER, rt);
@@ -272,7 +274,8 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
                 nd->retransmit_time = ndisc_timeout_compute_random(NDISC_ROUTER_SOLICITATION_INTERVAL);
         else {
                 if (nd->retransmit_time > NDISC_MAX_ROUTER_SOLICITATION_INTERVAL / 2)
-                        nd->retransmit_time = ndisc_timeout_compute_random(NDISC_MAX_ROUTER_SOLICITATION_INTERVAL);
+                        nd->retransmit_time = ndisc_timeout_compute_random(
+                                NDISC_MAX_ROUTER_SOLICITATION_INTERVAL);
                 else
                         nd->retransmit_time += ndisc_timeout_compute_random(nd->retransmit_time);
         }

@@ -16,8 +16,13 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int property_get_pool_path(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_pool_path(sd_bus *bus,
+                                  const char *path,
+                                  const char *interface,
+                                  const char *property,
+                                  sd_bus_message *reply,
+                                  void *userdata,
+                                  sd_bus_error *error) {
 
         assert(bus);
         assert(reply);
@@ -25,8 +30,13 @@ static int property_get_pool_path(
         return sd_bus_message_append(reply, "s", "/var/lib/portables");
 }
 
-static int property_get_pool_usage(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_pool_usage(sd_bus *bus,
+                                   const char *path,
+                                   const char *interface,
+                                   const char *property,
+                                   sd_bus_message *reply,
+                                   void *userdata,
+                                   sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
@@ -45,8 +55,13 @@ static int property_get_pool_usage(
         return sd_bus_message_append(reply, "t", usage);
 }
 
-static int property_get_pool_limit(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_pool_limit(sd_bus *bus,
+                                   const char *path,
+                                   const char *interface,
+                                   const char *property,
+                                   sd_bus_message *reply,
+                                   void *userdata,
+                                   sd_bus_error *error) {
 
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
@@ -65,8 +80,13 @@ static int property_get_pool_limit(
         return sd_bus_message_append(reply, "t", size);
 }
 
-static int property_get_profiles(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_profiles(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         int r;
@@ -144,7 +164,10 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 
                 r = portable_get_state(sd_bus_message_get_bus(message), image->path, 0, &state, &error_state);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to get state of image '%s', ignoring: %s", image->path, bus_error_message(&error_state, r));
+                        log_debug_errno(r,
+                                        "Failed to get state of image '%s', ignoring: %s",
+                                        image->path,
+                                        bus_error_message(&error_state, r));
 
                 r = sd_bus_message_append(reply,
                                           "(ssbtttso)",
@@ -167,11 +190,14 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int redirect_method_to_image(
-        Manager *m,
-        sd_bus_message *message,
-        sd_bus_error *error,
-        int (*method)(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error)) {
+static int redirect_method_to_image(Manager *m,
+                                    sd_bus_message *message,
+                                    sd_bus_error *error,
+                                    int (*method)(Manager *m,
+                                                  sd_bus_message *message,
+                                                  const char *name_or_path,
+                                                  Image *image,
+                                                  sd_bus_error *error)) {
 
         const char *name_or_path;
         int r;
@@ -227,22 +253,33 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
-        /* Note that we do not redirect detaching to the image object here, because we want to allow that users can
-         * detach already deleted images too, in case the user already deleted an image before properly detaching
-         * it. */
+        /* Note that we do not redirect detaching to the image object here, because we want to allow that
+         * users can detach already deleted images too, in case the user already deleted an image before
+         * properly detaching it. */
 
         r = sd_bus_message_read(message, "sb", &name_or_path, &runtime);
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.portable1.attach-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.portable1.attach-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = portable_detach(sd_bus_message_get_bus(message), name_or_path, runtime ? PORTABLE_RUNTIME : 0, &changes, &n_changes, error);
+        r = portable_detach(sd_bus_message_get_bus(message),
+                            name_or_path,
+                            runtime ? PORTABLE_RUNTIME : 0,
+                            &changes,
+                            &n_changes,
+                            error);
         if (r < 0)
                 goto finish;
 
@@ -278,8 +315,14 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.portable1.manage-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.portable1.manage-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -289,7 +332,8 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         r = btrfs_subvol_set_subtree_quota_limit("/var/lib/portables", 0, limit);
         if (r == -ENOTTY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to adjust quota limit: %m");
 
@@ -304,9 +348,11 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("Profiles", "as", property_get_profiles, 0, 0),
         SD_BUS_METHOD("GetImage", "s", "o", method_get_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ListImages", NULL, "a(ssbtttso)", method_list_images, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetImageOSRelease", "s", "a{ss}", method_get_image_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetImageState", "s", "s", method_get_image_state, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetImageMetadata", "sas", "saya{say}", method_get_image_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetImageMetadata", "sas", "saya{say}", method_get_image_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachImage", "sassbs", "a(sss)", method_attach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("DetachImage", "sb", "a(sss)", method_detach_image, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RemoveImage", "s", NULL, method_remove_image, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -333,7 +379,11 @@ int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, siz
                 return r;
 
         for (i = 0; i < n_changes; i++) {
-                r = sd_bus_message_append(reply, "(sss)", portable_change_type_to_string(changes[i].type), changes[i].path, changes[i].source);
+                r = sd_bus_message_append(reply,
+                                          "(sss)",
+                                          portable_change_type_to_string(changes[i].type),
+                                          changes[i].path,
+                                          changes[i].source);
                 if (r < 0)
                         return r;
         }

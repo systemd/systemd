@@ -156,7 +156,9 @@ static int load_cursor_state(Uploader *u) {
         return 0;
 }
 
-int start_upload(Uploader *u, size_t (*input_callback)(void *ptr, size_t size, size_t nmemb, void *userdata), void *data) {
+int start_upload(Uploader *u,
+                 size_t (*input_callback)(void *ptr, size_t size, size_t nmemb, void *userdata),
+                 void *data) {
         CURLcode code;
 
         assert(u);
@@ -240,7 +242,9 @@ int start_upload(Uploader *u, size_t (*input_callback)(void *ptr, size_t size, s
         /* upload to this place */
         code = curl_easy_setopt(u->easy, CURLOPT_URL, u->url);
         if (code)
-                return log_error_errno(SYNTHETIC_ERRNO(EXFULL), "curl_easy_setopt CURLOPT_URL failed: %s", curl_easy_strerror(code));
+                return log_error_errno(SYNTHETIC_ERRNO(EXFULL),
+                                       "curl_easy_setopt CURLOPT_URL failed: %s",
+                                       curl_easy_strerror(code));
 
         u->uploading = true;
 
@@ -452,13 +456,22 @@ static int perform_upload(Uploader *u) {
 
         code = curl_easy_getinfo(u->easy, CURLINFO_RESPONSE_CODE, &status);
         if (code)
-                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Failed to retrieve response code: %s",
+                                       curl_easy_strerror(code));
 
         if (status >= 300)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Upload to %s failed with code %ld: %s", u->url, status, strna(u->answer));
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Upload to %s failed with code %ld: %s",
+                                       u->url,
+                                       status,
+                                       strna(u->answer));
         else if (status < 200)
-                return log_error_errno(
-                        SYNTHETIC_ERRNO(EIO), "Upload to %s finished with unexpected code %ld: %s", u->url, status, strna(u->answer));
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Upload to %s finished with unexpected code %ld: %s",
+                                       u->url,
+                                       status,
+                                       strna(u->answer));
         else
                 log_debug("Upload finished successfully with code %ld: %s", status, strna(u->answer));
 
@@ -468,11 +481,13 @@ static int perform_upload(Uploader *u) {
 }
 
 static int parse_config(void) {
-        const ConfigTableItem items[] = { { "Upload", "URL", config_parse_string, 0, &arg_url },
-                                          { "Upload", "ServerKeyFile", config_parse_path, 0, &arg_key },
-                                          { "Upload", "ServerCertificateFile", config_parse_path, 0, &arg_cert },
-                                          { "Upload", "TrustedCertificateFile", config_parse_path, 0, &arg_trust },
-                                          {} };
+        const ConfigTableItem items[] = {
+                { "Upload", "URL", config_parse_string, 0, &arg_url },
+                { "Upload", "ServerKeyFile", config_parse_path, 0, &arg_key },
+                { "Upload", "ServerCertificateFile", config_parse_path, 0, &arg_cert },
+                { "Upload", "TrustedCertificateFile", config_parse_path, 0, &arg_trust },
+                {}
+        };
 
         return config_parse_many_nulstr(PKGSYSCONFDIR "/journal-upload.conf",
                                         CONF_PATHS_NULSTR("systemd/journal-upload.conf.d"),
@@ -573,28 +588,32 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         if (arg_url)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --url");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --url");
 
                         arg_url = optarg;
                         break;
 
                 case ARG_KEY:
                         if (arg_key)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --key");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --key");
 
                         arg_key = optarg;
                         break;
 
                 case ARG_CERT:
                         if (arg_cert)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --cert");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cert");
 
                         arg_cert = optarg;
                         break;
 
                 case ARG_TRUST:
                         if (arg_trust)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --trust");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --trust");
 
                         arg_trust = optarg;
                         break;
@@ -613,14 +632,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'M':
                         if (arg_machine)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --machine/-M");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --machine/-M");
 
                         arg_machine = optarg;
                         break;
 
                 case 'D':
                         if (arg_directory)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --directory/-D");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --directory/-D");
 
                         arg_directory = optarg;
                         break;
@@ -633,14 +654,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CURSOR:
                         if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --cursor/--after-cursor");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cursor/--after-cursor");
 
                         arg_cursor = optarg;
                         break;
 
                 case ARG_AFTER_CURSOR:
                         if (arg_cursor)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "cannot use more than one --cursor/--after-cursor");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "cannot use more than one --cursor/--after-cursor");
 
                         arg_cursor = optarg;
                         arg_after_cursor = true;
@@ -650,7 +673,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --follow= parameter.");
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse --follow= parameter.");
 
                                 arg_follow = !!r;
                         } else
@@ -666,7 +690,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown option %s.", argv[optind - 1]);
 
                 case ':':
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s.", argv[optind - 1]);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL), "Missing argument to %s.", argv[optind - 1]);
 
                 default:
                         assert_not_reached("Unhandled option code.");
@@ -676,10 +701,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Required --url/-u option missing.");
 
         if (!!arg_key != !!arg_cert)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Options --key and --cert must be used together.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Options --key and --cert must be used together.");
 
         if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Input arguments make no sense with journal input.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Input arguments make no sense with journal input.");
 
         return 1;
 }
@@ -696,7 +723,9 @@ static int open_journal(sd_journal **j) {
         else
                 r = sd_journal_open(j, !arg_merge * SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
         if (r < 0)
-                log_error_errno(r, "Failed to open %s: %m", arg_directory ? arg_directory : arg_file ? "files" : "journal");
+                log_error_errno(r,
+                                "Failed to open %s: %m",
+                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
         return r;
 }
 
@@ -740,7 +769,8 @@ static int run(int argc, char **argv) {
                 r = open_journal(&j);
                 if (r < 0)
                         return r;
-                r = open_journal_for_upload(&u, j, arg_cursor ?: u.last_cursor, arg_cursor ? arg_after_cursor : true, !!arg_follow);
+                r = open_journal_for_upload(
+                        &u, j, arg_cursor ?: u.last_cursor, arg_cursor ? arg_after_cursor : true, !!arg_follow);
                 if (r < 0)
                         return r;
         }

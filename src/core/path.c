@@ -23,22 +23,24 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
-        [PATH_DEAD] = UNIT_INACTIVE, [PATH_WAITING] = UNIT_ACTIVE, [PATH_RUNNING] = UNIT_ACTIVE, [PATH_FAILED] = UNIT_FAILED
-};
+static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = { [PATH_DEAD] = UNIT_INACTIVE,
+                                                                          [PATH_WAITING] = UNIT_ACTIVE,
+                                                                          [PATH_RUNNING] = UNIT_ACTIVE,
+                                                                          [PATH_FAILED] = UNIT_FAILED };
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
-        static const int flags_table[_PATH_TYPE_MAX] = { [PATH_EXISTS] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
-                                                         [PATH_EXISTS_GLOB] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
-                                                         [PATH_CHANGED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE |
-                                                                 IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO,
-                                                         [PATH_MODIFIED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE |
-                                                                 IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY,
-                                                         [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB |
-                                                                 IN_CREATE | IN_MOVED_TO };
+        static const int flags_table[_PATH_TYPE_MAX] = {
+                [PATH_EXISTS] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
+                [PATH_EXISTS_GLOB] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB,
+                [PATH_CHANGED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE | IN_CREATE |
+                        IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO,
+                [PATH_MODIFIED] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CLOSE_WRITE | IN_CREATE |
+                        IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO | IN_MODIFY,
+                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO
+        };
 
         bool exists = false;
         char *slash, *oldslash = NULL;
@@ -87,8 +89,10 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(
-                                errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
+                        r = log_warning_errno(errno,
+                                              "Failed to add watch on %s: %s",
+                                              s->path,
+                                              errno == ENOSPC ? "too many watches" : strerror(-r));
                         if (cut)
                                 *cut = tmp;
                         goto fail;
@@ -291,18 +295,24 @@ static int path_add_default_dependencies(Path *p) {
         if (!UNIT(p)->default_dependencies)
                 return 0;
 
-        r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_dependency_by_name(
+                UNIT(p), UNIT_BEFORE, SPECIAL_PATHS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
-                r = unit_add_two_dependencies_by_name(
-                        UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(p),
+                                                      UNIT_AFTER,
+                                                      UNIT_REQUIRES,
+                                                      SPECIAL_SYSINIT_TARGET,
+                                                      true,
+                                                      UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(
+                UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int path_add_trigger_dependencies(Path *p) {
@@ -318,7 +328,8 @@ static int path_add_trigger_dependencies(Path *p) {
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies(UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_two_dependencies(
+                UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static int path_load(Unit *u) {
@@ -419,7 +430,10 @@ static void path_set_state(Path *p, PathState state) {
                 path_unwatch(p);
 
         if (state != old_state)
-                log_unit_debug(UNIT(p), "Changed %s -> %s", path_state_to_string(old_state), path_state_to_string(state));
+                log_unit_debug(UNIT(p),
+                               "Changed %s -> %s",
+                               path_state_to_string(old_state),
+                               path_state_to_string(state));
 
         unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -729,8 +743,11 @@ static void path_reset_failed(Unit *u) {
 }
 
 static const char *const path_type_table[_PATH_TYPE_MAX] = {
-        [PATH_EXISTS] = "PathExists",   [PATH_EXISTS_GLOB] = "PathExistsGlob", [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
-        [PATH_CHANGED] = "PathChanged", [PATH_MODIFIED] = "PathModified",
+        [PATH_EXISTS] = "PathExists",
+        [PATH_EXISTS_GLOB] = "PathExistsGlob",
+        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
+        [PATH_CHANGED] = "PathChanged",
+        [PATH_MODIFIED] = "PathModified",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);

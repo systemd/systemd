@@ -126,8 +126,8 @@ static void test_device_path_make_canonical_one(const char *path) {
 
         assert_se(stat(path, &st) >= 0);
         r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
-        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
-                           * run in a container or so? */
+        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment,
+                           * because we run in a container or so? */
                 return;
 
         assert_se(r >= 0);

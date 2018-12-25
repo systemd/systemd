@@ -165,8 +165,8 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
                 if (cap_set_proc(temp_cap) < 0)
                         log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
 
-                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this just means
-                 * we'll fail later, when we actually intend to drop some capabilities. */
+                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this
+                 * just means we'll fail later, when we actually intend to drop some capabilities. */
         }
 
         after_cap = cap_dup(before_cap);
@@ -183,9 +183,9 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
                 if (prctl(PR_CAPBSET_DROP, i) < 0) {
                         r = -errno;
 
-                        /* If dropping the capability failed, let's see if we didn't have it in the first place. If so,
-                         * continue anyway, as dropping a capability we didn't have in the first place doesn't really
-                         * matter anyway. */
+                        /* If dropping the capability failed, let's see if we didn't have it in the first
+                         * place. If so, continue anyway, as dropping a capability we didn't have in the
+                         * first place doesn't really matter anyway. */
                         if (prctl(PR_CAPBSET_READ, i) != 0)
                                 goto finish;
                 }
@@ -316,7 +316,8 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 /* don't use too many bits */
                 assert(keep_capabilities & (1ULL << (i - 1)));
 
-                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 || cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
+                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
+                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
                         return log_error_errno(errno, "Failed to enable capabilities bits: %m");
 
                 if (cap_set_proc(d) < 0)
@@ -334,7 +335,8 @@ int drop_capability(cap_value_t cv) {
                 return -errno;
 
         if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, CAP_CLEAR) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, CAP_CLEAR) < 0) || (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, CAP_CLEAR) < 0))
+            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, CAP_CLEAR) < 0) ||
+            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, CAP_CLEAR) < 0))
                 return -errno;
 
         if (cap_set_proc(tmp_cap) < 0)
@@ -349,10 +351,11 @@ bool ambient_capabilities_supported(void) {
         if (cache >= 0)
                 return cache;
 
-        /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps are
-         * available. */
+        /* If PR_CAP_AMBIENT returns something valid, or an unexpected error code we assume that ambient caps
+         * are available. */
 
-        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 || !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
+        cache = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_KILL, 0, 0) >= 0 ||
+                !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS);
 
         return cache;
 }
@@ -369,8 +372,8 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 if (!c)
                         return -errno;
 
-                /* In order to raise the ambient caps set we first need to raise the matching inheritable + permitted
-                 * cap */
+                /* In order to raise the ambient caps set we first need to raise the matching inheritable +
+                 * permitted cap */
                 for (i = 0; i <= cap_last_cap(); i++) {
                         uint64_t m = UINT64_C(1) << i;
                         cap_value_t cv = (cap_value_t) i;

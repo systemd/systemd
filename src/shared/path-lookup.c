@@ -98,8 +98,10 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
-static const char *const user_data_unit_paths[] = { "/usr/local/lib/systemd/user", "/usr/local/share/systemd/user", USER_DATA_UNIT_PATH,
-                                                    "/usr/lib/systemd/user",       "/usr/share/systemd/user",       NULL };
+static const char *const user_data_unit_paths[] = {
+        "/usr/local/lib/systemd/user", "/usr/local/share/systemd/user", USER_DATA_UNIT_PATH,
+        "/usr/lib/systemd/user",       "/usr/share/systemd/user",       NULL
+};
 
 static const char *const user_config_unit_paths[] = { USER_CONFIG_UNIT_PATH, "/etc/systemd/user", NULL };
 
@@ -225,7 +227,11 @@ bool path_is_user_config_dir(const char *path) {
         return strv_contains((char **) user_config_unit_paths, path);
 }
 
-static int acquire_generator_dirs(UnitFileScope scope, const char *tempdir, char **generator, char **generator_early, char **generator_late) {
+static int acquire_generator_dirs(UnitFileScope scope,
+                                  const char *tempdir,
+                                  char **generator,
+                                  char **generator_early,
+                                  char **generator_late) {
 
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL;
         const char *prefix;
@@ -324,8 +330,8 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                         if (r != -ENXIO)
                                 return r;
 
-                        /* If XDG_RUNTIME_DIR is not set, don't consider that fatal, simply initialize the runtime
-                         * directory to NULL */
+                        /* If XDG_RUNTIME_DIR is not set, don't consider that fatal, simply initialize the
+                         * runtime directory to NULL */
                         *runtime = NULL;
                 }
 
@@ -381,8 +387,8 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                         if (r != -ENXIO)
                                 return r;
 
-                        /* If XDG_RUNTIME_DIR is not set, don't consider this fatal, simply initialize the directory to
-                         * NULL */
+                        /* If XDG_RUNTIME_DIR is not set, don't consider this fatal, simply initialize the
+                         * directory to NULL */
                         *runtime = NULL;
                 }
 
@@ -462,10 +468,11 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir) {
 
         _cleanup_(rmdir_and_freep) char *tempdir = NULL;
-        _cleanup_free_ char *root = NULL, *persistent_config = NULL, *runtime_config = NULL, *global_persistent_config = NULL,
-                            *global_runtime_config = NULL, *generator = NULL, *generator_early = NULL, *generator_late = NULL,
-                            *transient = NULL, *persistent_control = NULL, *runtime_control = NULL, *persistent_attached = NULL,
-                            *runtime_attached = NULL;
+        _cleanup_free_ char *root = NULL, *persistent_config = NULL, *runtime_config = NULL,
+                            *global_persistent_config = NULL, *global_runtime_config = NULL,
+                            *generator = NULL, *generator_early = NULL, *generator_late = NULL,
+                            *transient = NULL, *persistent_control = NULL, *runtime_control = NULL,
+                            *persistent_attached = NULL, *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
         const char *e;
@@ -634,8 +641,8 @@ int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flag
                         if (r < 0)
                                 return r;
                 } else
-                        /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
-                         * and don't have to copy anything */
+                        /* Small optimization: if paths is NULL (and it usually is), we can simply assign
+                         * 'add' to it, and don't have to copy anything */
                         paths = TAKE_PTR(add);
         }
 
@@ -737,8 +744,8 @@ int lookup_paths_reduce(LookupPaths *p) {
 
         assert(p);
 
-        /* Drop duplicates and non-existing directories from the search path. We figure out whether two directories are
-         * the same by comparing their device and inode numbers. */
+        /* Drop duplicates and non-existing directories from the search path. We figure out whether two
+         * directories are the same by comparing their device and inode numbers. */
 
         if (!p->search_path)
                 return 0;
@@ -748,7 +755,8 @@ int lookup_paths_reduce(LookupPaths *p) {
                 size_t k;
 
                 /* Never strip the transient and control directories from the path */
-                if (path_equal_ptr(p->search_path[c], p->transient) || path_equal_ptr(p->search_path[c], p->persistent_control) ||
+                if (path_equal_ptr(p->search_path[c], p->transient) ||
+                    path_equal_ptr(p->search_path[c], p->persistent_control) ||
                     path_equal_ptr(p->search_path[c], p->runtime_control)) {
                         c++;
                         continue;
@@ -780,7 +788,9 @@ int lookup_paths_reduce(LookupPaths *p) {
 
         remove_item:
                 free(p->search_path[c]);
-                memmove(p->search_path + c, p->search_path + c + 1, (strv_length(p->search_path + c + 1) + 1) * sizeof(char *));
+                memmove(p->search_path + c,
+                        p->search_path + c + 1,
+                        (strv_length(p->search_path + c + 1) + 1) * sizeof(char *));
         }
 
         if (strv_isempty(p->search_path)) {

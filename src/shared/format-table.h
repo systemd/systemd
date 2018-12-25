@@ -43,7 +43,8 @@ int table_add_cell_full(Table *t,
                         unsigned align_percent,
                         unsigned ellipsize_percent);
 static inline int table_add_cell(Table *t, TableCell **ret_cell, TableDataType type, const void *data) {
-        return table_add_cell_full(t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
+        return table_add_cell_full(
+                t, ret_cell, type, data, (size_t) -1, (size_t) -1, (unsigned) -1, (unsigned) -1, (unsigned) -1);
 }
 
 int table_dup_cell(Table *t, TableCell *cell);

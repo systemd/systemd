@@ -304,7 +304,8 @@ int route_add_foreign(Link *link,
                       uint32_t table,
                       Route **ret) {
 
-        return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
+        return route_add_internal(
+                link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
 }
 
 int route_add(Link *link,
@@ -322,7 +323,8 @@ int route_add(Link *link,
         r = route_get(link, family, dst, dst_prefixlen, tos, priority, table, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(link, &link->routes, family, dst, dst_prefixlen, tos, priority, table, &route);
+                r = route_add_internal(
+                        link, &link->routes, family, dst, dst_prefixlen, tos, priority, table, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -459,7 +461,12 @@ int route_remove(Route *route, Link *link, link_netlink_message_handler_t callba
                         return log_error_errno(r, "Could not append RTA_OIF attribute: %m");
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: route_remove_handler, link_netlink_destroy_callback, link);
+        r = netlink_call_async(link->manager->rtnl,
+                               NULL,
+                               req,
+                               callback ?: route_remove_handler,
+                               link_netlink_destroy_callback,
+                               link);
         if (r < 0)
                 return log_error_errno(r, "Could not send rtnetlink message: %m");
 
@@ -497,7 +504,14 @@ int route_configure(Route *route, Link *link, link_netlink_message_handler_t cal
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
-        if (route_get(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, NULL) <= 0 &&
+        if (route_get(link,
+                      route->family,
+                      &route->dst,
+                      route->dst_prefixlen,
+                      route->tos,
+                      route->priority,
+                      route->table,
+                      NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return -E2BIG;
 
@@ -588,7 +602,10 @@ int route_configure(Route *route, Link *link, link_netlink_message_handler_t cal
 
         if (route->lifetime != USEC_INFINITY && kernel_route_expiration_supported()) {
                 r = sd_netlink_message_append_u32(
-                        req, RTA_EXPIRES, DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC));
+                        req,
+                        RTA_EXPIRES,
+                        DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())),
+                                     USEC_PER_SEC));
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_EXPIRES attribute: %m");
         }
@@ -643,7 +660,14 @@ int route_configure(Route *route, Link *link, link_netlink_message_handler_t cal
 
         lifetime = route->lifetime;
 
-        r = route_add(link, route->family, &route->dst, route->dst_prefixlen, route->tos, route->priority, route->table, &route);
+        r = route_add(link,
+                      route->family,
+                      &route->dst,
+                      route->dst_prefixlen,
+                      route->tos,
+                      route->priority,
+                      route->table,
+                      &route);
         if (r < 0)
                 return log_error_errno(r, "Could not add route: %m");
 
@@ -651,8 +675,13 @@ int route_configure(Route *route, Link *link, link_netlink_message_handler_t cal
         route->lifetime = lifetime;
 
         if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
-                r = sd_event_add_time(
-                        link->manager->event, &expire, clock_boottime_or_monotonic(), route->lifetime, 0, route_expire_handler, route);
+                r = sd_event_add_time(link->manager->event,
+                                      &expire,
+                                      clock_boottime_or_monotonic(),
+                                      route->lifetime,
+                                      0,
+                                      route_expire_handler,
+                                      route);
                 if (r < 0)
                         return log_error_errno(r, "Could not arm expiration timer: %m");
         }
@@ -696,7 +725,8 @@ int config_parse_gateway(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -732,7 +762,13 @@ int config_parse_preferred_src(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Preferred source is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           EINVAL,
+                           "Preferred source is invalid, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -779,7 +815,14 @@ int config_parse_destination(const char *unit,
 
         r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Route %s= prefix is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Route %s= prefix is invalid, ignoring assignment: %s",
+                           lvalue,
+                           rvalue);
                 return 0;
         }
 
@@ -814,7 +857,13 @@ int config_parse_route_priority(const char *unit,
 
         r = safe_atou32(rvalue, &n->priority);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse route priority \"%s\", ignoring assignment: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -889,7 +938,13 @@ int config_parse_route_table(const char *unit,
 
         r = safe_atou32(rvalue, &n->table);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse route table number \"%s\", ignoring assignment: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -924,7 +979,13 @@ int config_parse_gateway_onlink(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse gateway onlink \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse gateway onlink \"%s\", ignoring assignment: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -995,7 +1056,13 @@ int config_parse_route_protocol(const char *unit,
         else {
                 r = safe_atou8(rvalue, &n->protocol);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Could not parse route protocol \"%s\", ignoring assignment: %m",
+                                   rvalue);
                         return 0;
                 }
         }
@@ -1034,7 +1101,13 @@ int config_parse_route_type(const char *unit,
         else if (streq(rvalue, "throw"))
                 n->type = RTN_THROW;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse route type \"%s\", ignoring assignment: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -1070,7 +1143,14 @@ int config_parse_tcp_window(const char *unit,
 
         r = parse_size(rvalue, 1024, &k);
         if (r < 0 || k > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse TCP %s \"%s\" bytes, ignoring assignment: %m", rvalue, lvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Could not parse TCP %s \"%s\" bytes, ignoring assignment: %m",
+                           rvalue,
+                           lvalue);
                 return 0;
         }
 
@@ -1114,7 +1194,8 @@ int config_parse_quickack(const char *unit,
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse TCP quickack, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, k, "Failed to parse TCP quickack, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1148,7 +1229,8 @@ int config_parse_route_mtu(const char *unit,
         if (r < 0)
                 return r;
 
-        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
+        r = config_parse_mtu(
+                unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
         if (r < 0)
                 return r;
 

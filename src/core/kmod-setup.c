@@ -16,7 +16,8 @@
 #include <libkmod.h>
 #include "module-util.h"
 
-static void systemd_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
+static void systemd_kmod_log(
+        void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
 
         /* library logging is enabled at debug only */
         DISABLE_WARNING_FORMAT_NONLITERAL;
@@ -52,7 +53,10 @@ static int has_virtio_rng_nftw_cb(const char *fpath, const struct stat *sb, int 
 }
 
 static bool has_virtio_rng(void) {
-        return (nftw("/sys/devices/pci0000:00", has_virtio_rng_nftw_cb, 64, FTW_MOUNT | FTW_PHYS | FTW_ACTIONRETVAL) == FTW_STOP);
+        return (nftw("/sys/devices/pci0000:00",
+                     has_virtio_rng_nftw_cb,
+                     64,
+                     FTW_MOUNT | FTW_PHYS | FTW_ACTIONRETVAL) == FTW_STOP);
 }
 #endif
 

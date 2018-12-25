@@ -135,7 +135,9 @@ static int bus_socket_write_auth(sd_bus *b) {
                 return 0;
 
         if (b->prefer_writev)
-                k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
+                k = writev(b->output_fd,
+                           b->auth_iovec + b->auth_index,
+                           ELEMENTSOF(b->auth_iovec) - b->auth_index);
         else {
                 struct msghdr mh;
                 zero(mh);
@@ -146,7 +148,9 @@ static int bus_socket_write_auth(sd_bus *b) {
                 k = sendmsg(b->output_fd, &mh, MSG_DONTWAIT | MSG_NOSIGNAL);
                 if (k < 0 && errno == ENOTSOCK) {
                         b->prefer_writev = true;
-                        k = writev(b->output_fd, b->auth_iovec + b->auth_index, ELEMENTSOF(b->auth_iovec) - b->auth_index);
+                        k = writev(b->output_fd,
+                                   b->auth_iovec + b->auth_index,
+                                   ELEMENTSOF(b->auth_iovec) - b->auth_index);
                 }
         }
 
@@ -214,7 +218,8 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* And possibly check the second line, too */
 
         if (f)
-                b->can_fds = (f - e == STRLEN("\r\nAGREE_UNIX_FD")) && memcmp(e + 2, "AGREE_UNIX_FD", STRLEN("AGREE_UNIX_FD")) == 0;
+                b->can_fds = (f - e == STRLEN("\r\nAGREE_UNIX_FD")) &&
+                        memcmp(e + 2, "AGREE_UNIX_FD", STRLEN("AGREE_UNIX_FD")) == 0;
 
         b->rbuffer_size -= (start - (char *) b->rbuffer);
         memmove(b->rbuffer, start, b->rbuffer_size);
@@ -550,7 +555,9 @@ static int bus_socket_read_auth(sd_bus *b) {
                                 close_many((int *) CMSG_DATA(cmsg), j);
                                 return -EIO;
                         } else
-                                log_debug("Got unexpected auxiliary data with level=%d and type=%d", cmsg->cmsg_level, cmsg->cmsg_type);
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
+                                          cmsg->cmsg_level,
+                                          cmsg->cmsg_type);
         }
 
         r = bus_socket_auth_verify(b);
@@ -667,12 +674,12 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         assert(b->sockaddr.sa.sa_family == AF_UNIX);
         assert(b->sockaddr.un.sun_path[0] != 0);
 
-        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system socket
-         * appears before connecting to it. The implemented is pretty simplistic: we just subscribe to relevant changes
-         * to all prefix components of the path, and every time we get an event for that we try to reconnect again,
-         * without actually caring what precisely the event we got told us. If we still can't connect we re-subscribe
-         * to all relevant changes of anything in the path, so that our watches include any possibly newly created path
-         * components. */
+        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system
+         * socket appears before connecting to it. The implemented is pretty simplistic: we just subscribe to
+         * relevant changes to all prefix components of the path, and every time we get an event for that we
+         * try to reconnect again, without actually caring what precisely the event we got told us. If we
+         * still can't connect we re-subscribe to all relevant changes of anything in the path, so that our
+         * watches include any possibly newly created path components. */
 
         if (b->inotify_fd < 0) {
                 b->inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
@@ -690,17 +697,17 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         if (r < 0)
                 goto fail;
 
-        /* Watch all parent directories, and don't mind any prefix that doesn't exist yet. For the innermost directory
-         * that exists we want to know when files are created or moved into it. For all parents of it we just care if
-         * they are removed or renamed. */
+        /* Watch all parent directories, and don't mind any prefix that doesn't exist yet. For the innermost
+         * directory that exists we want to know when files are created or moved into it. For all parents of
+         * it we just care if they are removed or renamed. */
 
         if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a symlink, and
-         * always exists */
+        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a
+         * symlink, and always exists */
         wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE | IN_MOVED_TO);
         if (wd < 0) {
                 r = log_debug_errno(errno, "Failed to add inotify watch on /: %m");
@@ -748,15 +755,18 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                wd = inotify_add_watch(
-                        b->inotify_fd, prefix, IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO | IN_DONT_FOLLOW);
+                wd = inotify_add_watch(b->inotify_fd,
+                                       prefix,
+                                       IN_DELETE_SELF | IN_MOVE_SELF | IN_ATTRIB | IN_CREATE | IN_MOVED_TO |
+                                               IN_DONT_FOLLOW);
                 log_debug("Added inotify watch for %s on bus %s: %i", prefix, strna(b->description), wd);
 
                 if (wd < 0) {
                         if (IN_SET(errno, ENOENT, ELOOP))
                                 break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
 
-                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
+                        r = log_debug_errno(
+                                errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
                         goto fail;
                 } else
                         new_watches[n++] = wd;
@@ -855,8 +865,8 @@ int bus_socket_connect(sd_bus *b) {
                 if (connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size) < 0) {
                         if (errno == EINPROGRESS) {
 
-                                /* If we have any inotify watches open, close them now, we don't need them anymore, as
-                                 * we have successfully initiated a connection */
+                                /* If we have any inotify watches open, close them now, we don't need them
+                                 * anymore, as we have successfully initiated a connection */
                                 bus_close_inotify_fd(b);
 
                                 /* Note that very likely we are already in BUS_OPENING state here, as we enter it when
@@ -866,29 +876,33 @@ int bus_socket_connect(sd_bus *b) {
                                 return 1;
                         }
 
-                        if (IN_SET(errno, ENOENT, ECONNREFUSED) && /* ENOENT → unix socket doesn't exist at all; ECONNREFUSED → unix socket stale */
-                            b->watch_bind && b->sockaddr.sa.sa_family == AF_UNIX && b->sockaddr.un.sun_path[0] != 0) {
+                        if (IN_SET(errno, ENOENT, ECONNREFUSED) && /* ENOENT → unix socket doesn't exist at
+                                                                      all; ECONNREFUSED → unix socket stale */
+                            b->watch_bind && b->sockaddr.sa.sa_family == AF_UNIX &&
+                            b->sockaddr.un.sun_path[0] != 0) {
 
-                                /* This connection attempt failed, let's release the socket for now, and start with a
-                                 * fresh one when reconnecting. */
+                                /* This connection attempt failed, let's release the socket for now, and
+                                 * start with a fresh one when reconnecting. */
                                 bus_close_io_fds(b);
 
                                 if (inotify_done) {
-                                        /* inotify set up already, don't do it again, just return now, and remember
-                                         * that we are waiting for inotify events now. */
+                                        /* inotify set up already, don't do it again, just return now, and
+                                         * remember that we are waiting for inotify events now. */
                                         bus_set_state(b, BUS_WATCH_BIND);
                                         return 1;
                                 }
 
-                                /* This is a file system socket, and the inotify logic is enabled. Let's create the necessary inotify fd. */
+                                /* This is a file system socket, and the inotify logic is enabled. Let's
+                                 * create the necessary inotify fd. */
                                 r = bus_socket_inotify_setup(b);
                                 if (r < 0)
                                         return r;
 
-                                /* Let's now try to connect a second time, because in theory there's otherwise a race
-                                 * here: the socket might have been created in the time between our first connect() and
-                                 * the time we set up the inotify logic. But let's remember that we set up inotify now,
-                                 * so that we don't do the connect() more than twice. */
+                                /* Let's now try to connect a second time, because in theory there's
+                                 * otherwise a race here: the socket might have been created in the time
+                                 * between our first connect() and the time we set up the inotify logic. But
+                                 * let's remember that we set up inotify now, so that we don't do the
+                                 * connect() more than twice. */
                                 inotify_done = true;
 
                         } else
@@ -1184,7 +1198,9 @@ int bus_socket_read_message(sd_bus *bus) {
                                         f[bus->n_fds++] = fd_move_above_stdio(((int *) CMSG_DATA(cmsg))[i]);
                                 bus->fds = f;
                         } else
-                                log_debug("Got unexpected auxiliary data with level=%d and type=%d", cmsg->cmsg_level, cmsg->cmsg_type);
+                                log_debug("Got unexpected auxiliary data with level=%d and type=%d",
+                                          cmsg->cmsg_level,
+                                          cmsg->cmsg_type);
         }
 
         r = bus_socket_read_message_need(bus, &need);
@@ -1257,8 +1273,8 @@ int bus_socket_process_watch_bind(sd_bus *b) {
 
         log_debug("Got inotify event on bus %s.", strna(b->description));
 
-        /* We flushed events out of the inotify fd. In that case, maybe the socket is valid now? Let's try to connect
-         * to it again */
+        /* We flushed events out of the inotify fd. In that case, maybe the socket is valid now? Let's try to
+         * connect to it again */
 
         r = bus_socket_connect(b);
         if (r < 0)

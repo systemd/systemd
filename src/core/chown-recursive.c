@@ -36,10 +36,10 @@ static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
         if (chown(procfs_path, uid, gid) < 0)
                 return -errno;
 
-        /* The linux kernel alters the mode in some cases of chown(), as well when we change ACLs. Let's undo this. We
-         * do this only for non-symlinks however. That's because for symlinks the access mode is ignored anyway and
-         * because on some kernels/file systems trying to change the access mode will succeed but has no effect while
-         * on others it actively fails. */
+        /* The linux kernel alters the mode in some cases of chown(), as well when we change ACLs. Let's undo
+         * this. We do this only for non-symlinks however. That's because for symlinks the access mode is
+         * ignored anyway and because on some kernels/file systems trying to change the access mode will
+         * succeed but has no effect while on others it actively fails. */
         if (!S_ISLNK(st->st_mode))
                 if (chmod(procfs_path, st->st_mode & 07777) < 0)
                         return -errno;
@@ -69,8 +69,8 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                /* Let's pin the child inode we want to fix now with an O_PATH fd, so that it cannot be swapped out
-                 * while we manipulate it. */
+                /* Let's pin the child inode we want to fix now with an O_PATH fd, so that it cannot be
+                 * swapped out while we manipulate it. */
                 path_fd = openat(dirfd(d), de->d_name, O_PATH | O_CLOEXEC | O_NOFOLLOW);
                 if (path_fd < 0)
                         return -errno;
@@ -86,7 +86,8 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                         if (subdir_fd < 0)
                                 return subdir_fd;
 
-                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid); /* takes possession of subdir_fd even on failure */
+                        r = chown_recursive_internal(
+                                subdir_fd, &fst, uid, gid); /* takes possession of subdir_fd even on failure */
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -121,11 +122,15 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the whole tree,
-         * under the assumption that all is OK anyway. */
+        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the
+         * whole tree, under the assumption that all is OK anyway. */
 
         if ((!uid_is_valid(uid) || st.st_uid == uid) && (!gid_is_valid(gid) || st.st_gid == gid))
                 return 0;
 
-        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid); /* we donate the fd to the call, regardless if it succeeded or failed */
+        return chown_recursive_internal(
+                TAKE_FD(fd),
+                &st,
+                uid,
+                gid); /* we donate the fd to the call, regardless if it succeeded or failed */
 }

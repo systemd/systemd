@@ -27,7 +27,8 @@ enum DnsTransactionState
         _DNS_TRANSACTION_STATE_INVALID = -1
 };
 
-#define DNS_TRANSACTION_IS_LIVE(state) IN_SET((state), DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING)
+#define DNS_TRANSACTION_IS_LIVE(state) \
+        IN_SET((state), DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING)
 
 enum DnsTransactionSource
 {
@@ -173,6 +174,7 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 /* Maximum attempts to send MDNS requests, see RFC 6762 Section 8.1 */
 #define MDNS_TRANSACTION_ATTEMPTS_MAX 3
 
-#define TRANSACTION_ATTEMPTS_MAX(p)                                     \
-        (((p) == DNS_PROTOCOL_LLMNR) ? LLMNR_TRANSACTION_ATTEMPTS_MAX : \
-                                       (((p) == DNS_PROTOCOL_MDNS) ? MDNS_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX))
+#define TRANSACTION_ATTEMPTS_MAX(p)               \
+        (((p) == DNS_PROTOCOL_LLMNR) ?            \
+                 LLMNR_TRANSACTION_ATTEMPTS_MAX : \
+                 (((p) == DNS_PROTOCOL_MDNS) ? MDNS_TRANSACTION_ATTEMPTS_MAX : DNS_TRANSACTION_ATTEMPTS_MAX))

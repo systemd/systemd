@@ -30,9 +30,13 @@ int dns_cache_put(DnsCache *c,
                   usec_t timestamp,
                   int owner_family,
                   const union in_addr_union *owner_address);
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **answer, bool *authenticated);
+int dns_cache_lookup(
+        DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **answer, bool *authenticated);
 
-int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
+int dns_cache_check_conflicts(DnsCache *cache,
+                              DnsResourceRecord *rr,
+                              int owner_family,
+                              const union in_addr_union *owner_address);
 
 void dns_cache_dump(DnsCache *cache, FILE *f);
 bool dns_cache_is_empty(DnsCache *cache);

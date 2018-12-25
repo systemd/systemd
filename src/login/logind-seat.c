@@ -206,8 +206,12 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         assert(s);
 
-        r = devnode_acl_all(
-                s->id, false, !!old_active, old_active ? old_active->user->uid : 0, !!s->active, s->active ? s->active->user->uid : 0);
+        r = devnode_acl_all(s->id,
+                            false,
+                            !!old_active,
+                            old_active ? old_active->user->uid : 0,
+                            !!s->active,
+                            s->active ? s->active->user->uid : 0);
 
         if (r < 0)
                 return log_error_errno(r, "Failed to apply ACLs: %m");
@@ -390,7 +394,11 @@ int seat_start(Seat *s) {
         if (s->started)
                 return 0;
 
-        log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR, "SEAT_ID=%s", s->id, LOG_MESSAGE("New seat %s.", s->id));
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_SEAT_START_STR,
+                   "SEAT_ID=%s",
+                   s->id,
+                   LOG_MESSAGE("New seat %s.", s->id));
 
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
@@ -414,7 +422,11 @@ int seat_stop(Seat *s, bool force) {
         assert(s);
 
         if (s->started)
-                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR, "SEAT_ID=%s", s->id, LOG_MESSAGE("Removed seat %s.", s->id));
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_SEAT_STOP_STR,
+                           "SEAT_ID=%s",
+                           s->id,
+                           LOG_MESSAGE("Removed seat %s.", s->id));
 
         r = seat_stop_sessions(s, force);
 
@@ -626,7 +638,8 @@ void seat_add_to_gc_queue(Seat *s) {
 }
 
 static bool seat_name_valid_char(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || IN_SET(c, '-', '_');
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                IN_SET(c, '-', '_');
 }
 
 bool seat_name_is_valid(const char *name) {

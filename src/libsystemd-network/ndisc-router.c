@@ -218,8 +218,9 @@ int ndisc_router_parse(sd_ndisc_router *rt) {
                         }
 
                         /* Add in the additional flags bits */
-                        rt->flags |= ((uint64_t) p[2] << 8) | ((uint64_t) p[3] << 16) | ((uint64_t) p[4] << 24) | ((uint64_t) p[5] << 32) |
-                                ((uint64_t) p[6] << 40) | ((uint64_t) p[7] << 48);
+                        rt->flags |= ((uint64_t) p[2] << 8) | ((uint64_t) p[3] << 16) |
+                                ((uint64_t) p[4] << 24) | ((uint64_t) p[5] << 32) | ((uint64_t) p[6] << 40) |
+                                ((uint64_t) p[7] << 48);
 
                         has_flag_extension = true;
                         break;

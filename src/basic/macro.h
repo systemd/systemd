@@ -75,9 +75,9 @@
 #endif
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
- * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
- * our primary usecase for this attribute is registration structures placed in named ELF sections which shall not be
- * padded, but GCC doesn't pad those anyway if AddressSanitizer is enabled. */
+ * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so
+ * much, since our primary usecase for this attribute is registration structures placed in named ELF sections
+ * which shall not be padded, but GCC doesn't pad those anyway if AddressSanitizer is enabled. */
 #if HAS_FEATURE_ADDRESS_SANITIZER && defined(__clang__)
 #define _variable_no_sanitize_address_ __attribute__((__no_sanitize_address__))
 #else
@@ -170,7 +170,9 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define VOID_0 ((void *) 0)
 #endif
 
-#define ELEMENTSOF(x) (__builtin_choose_expr(!__builtin_types_compatible_p(typeof(x), typeof(&*(x))), sizeof(x) / sizeof((x)[0]), VOID_0))
+#define ELEMENTSOF(x)           \
+        (__builtin_choose_expr( \
+                !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), sizeof(x) / sizeof((x)[0]), VOID_0))
 
 /*
  * STRLEN - return the length of a string literal, minus the trailing NUL byte.
@@ -202,9 +204,10 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         })
 
 /* evaluates to (void) if _A or _B are not constant or of different types */
-#define CONST_MAX(_A, _B)                                                                                                                    \
-        (__builtin_choose_expr(__builtin_constant_p(_A) && __builtin_constant_p(_B) && __builtin_types_compatible_p(typeof(_A), typeof(_B)), \
-                               ((_A) > (_B)) ? (_A) : (_B),                                                                                  \
+#define CONST_MAX(_A, _B)                                                                    \
+        (__builtin_choose_expr(__builtin_constant_p(_A) && __builtin_constant_p(_B) &&       \
+                                       __builtin_types_compatible_p(typeof(_A), typeof(_B)), \
+                               ((_A) > (_B)) ? (_A) : (_B),                                  \
                                VOID_0))
 
 /* takes two types and returns the size of the larger one */
@@ -253,13 +256,14 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 #undef CLAMP
 #define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
-#define __CLAMP(xq, x, lowq, low, highq, high)                                                                               \
-        ({                                                                                                                   \
-                const typeof(x) UNIQ_T(X, xq) = (x);                                                                         \
-                const typeof(low) UNIQ_T(LOW, lowq) = (low);                                                                 \
-                const typeof(high) UNIQ_T(HIGH, highq) = (high);                                                             \
-                UNIQ_T(X, xq) > UNIQ_T(HIGH, highq) ? UNIQ_T(HIGH, highq) :                                                  \
-                                                      UNIQ_T(X, xq) < UNIQ_T(LOW, lowq) ? UNIQ_T(LOW, lowq) : UNIQ_T(X, xq); \
+#define __CLAMP(xq, x, lowq, low, highq, high)                                                 \
+        ({                                                                                     \
+                const typeof(x) UNIQ_T(X, xq) = (x);                                           \
+                const typeof(low) UNIQ_T(LOW, lowq) = (low);                                   \
+                const typeof(high) UNIQ_T(HIGH, highq) = (high);                               \
+                UNIQ_T(X, xq) > UNIQ_T(HIGH, highq) ?                                          \
+                        UNIQ_T(HIGH, highq) :                                                  \
+                        UNIQ_T(X, xq) < UNIQ_T(LOW, lowq) ? UNIQ_T(LOW, lowq) : UNIQ_T(X, xq); \
         })
 
 /* [(x + y - 1) / y] suffers from an integer overflow, even though the
@@ -311,7 +315,9 @@ static inline int __coverity_check__(int condition) {
         } while (false)
 
 #define assert_log(expr, message) \
-        ((_likely_(expr)) ? (true) : (log_assert_failed_return(message, __FILE__, __LINE__, __PRETTY_FUNCTION__), false))
+        ((_likely_(expr)) ?       \
+                 (true) :         \
+                 (log_assert_failed_return(message, __FILE__, __LINE__, __PRETTY_FUNCTION__), false))
 
 #endif /* __COVERITY__ */
 
@@ -392,11 +398,13 @@ static inline int __coverity_check__(int condition) {
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix (hence works correctly on signed
  * types). Includes space for the trailing NUL. */
-#define DECIMAL_STR_MAX(type) \
-        (2 +                  \
-         (sizeof(type) <= 1 ? \
-                  3 :         \
-                  sizeof(type) <= 2 ? 5 : sizeof(type) <= 4 ? 10 : sizeof(type) <= 8 ? 20 : sizeof(int[-2 * (sizeof(type) > 8)])))
+#define DECIMAL_STR_MAX(type)         \
+        (2 +                          \
+         (sizeof(type) <= 1 ?         \
+                  3 :                 \
+                  sizeof(type) <= 2 ? \
+                  5 :                 \
+                  sizeof(type) <= 4 ? 10 : sizeof(type) <= 8 ? 20 : sizeof(int[-2 * (sizeof(type) > 8)])))
 
 #define DECIMAL_STR_WIDTH(x)             \
         ({                               \
@@ -432,7 +440,9 @@ static inline int __coverity_check__(int condition) {
 #define CASE_F_19(CASE, X, ...) CASE(X) CASE_F_18(CASE, __VA_ARGS__)
 #define CASE_F_20(CASE, X, ...) CASE(X) CASE_F_19(CASE, __VA_ARGS__)
 
-#define GET_CASE_F(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, NAME, ...) NAME
+#define GET_CASE_F(                                                                                           \
+        _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, NAME, ...) \
+        NAME
 #define FOR_EACH_MAKE_CASE(...) \
         GET_CASE_F(__VA_ARGS__, \
                    CASE_F_20,   \
@@ -457,22 +467,23 @@ static inline int __coverity_check__(int condition) {
                    CASE_F_1)    \
         (CASE_F, __VA_ARGS__)
 
-#define IN_SET(x, ...)                                                                                                  \
-        ({                                                                                                              \
-                bool _found = false;                                                                                    \
-                /* If the build breaks in the line below, you need to extend the case macros. (We use "long double" as  \
-                 * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
-                 * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
-                 * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                assert_cc((sizeof((long double[]){ __VA_ARGS__ }) / sizeof(long double)) <= 20);                        \
-                switch (x) {                                                                                            \
-                        FOR_EACH_MAKE_CASE(__VA_ARGS__)                                                                 \
-                        _found = true;                                                                                  \
-                        break;                                                                                          \
-                default:                                                                                                \
-                        break;                                                                                          \
-                }                                                                                                       \
-                _found;                                                                                                 \
+#define IN_SET(x, ...)                                                                                      \
+        ({                                                                                                  \
+                bool _found = false;                                                                        \
+                /* If the build breaks in the line below, you need to extend the case macros. (We use "long \
+                 * double" as type for the array, in the hope that checkers such as ubsan don't complain    \
+                 * that the initializers for the array are not representable by the base type. Ideally we'd \
+                 * use typeof(x) as base type, but that doesn't work, as we want to use this on bitfields   \
+                 * and gcc refuses typeof() on bitfields.) */                                               \
+                assert_cc((sizeof((long double[]){ __VA_ARGS__ }) / sizeof(long double)) <= 20);            \
+                switch (x) {                                                                                \
+                        FOR_EACH_MAKE_CASE(__VA_ARGS__)                                                     \
+                        _found = true;                                                                      \
+                        break;                                                                              \
+                default:                                                                                    \
+                        break;                                                                              \
+                }                                                                                           \
+                _found;                                                                                     \
         })
 
 #define SWAP_TWO(x, y)              \
@@ -489,7 +500,9 @@ static inline int __coverity_check__(int condition) {
  * Don't break on glibc < 2.16 that doesn't define __STDC_NO_THREADS__
  * see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53769
  */
-#if __STDC_VERSION__ >= 201112L && !(defined(__STDC_NO_THREADS__) || (defined(__GNU_LIBRARY__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 16))
+#if __STDC_VERSION__ >= 201112L &&        \
+        !(defined(__STDC_NO_THREADS__) || \
+          (defined(__GNU_LIBRARY__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 16))
 #define thread_local _Thread_local
 #else
 #define thread_local __thread
@@ -535,8 +548,10 @@ static inline int __coverity_check__(int condition) {
 #define DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name) _DEFINE_TRIVIAL_REF_FUNC(type, name, _public_)
 
 #define DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func) _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, )
-#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func) _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
-#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func) _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
+#define DEFINE_PRIVATE_TRIVIAL_UNREF_FUNC(type, name, free_func) \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, static)
+#define DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func) \
+        _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, _public_)
 
 #define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func) \
         DEFINE_TRIVIAL_REF_FUNC(type, name);                 \

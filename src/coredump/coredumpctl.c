@@ -87,13 +87,15 @@ static int add_matches(sd_journal *j, char **matches) {
 
         r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
+                return log_error_errno(
+                        r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
         r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
+                return log_error_errno(
+                        r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
 
-        STRV_FOREACH(match, matches) {
+        STRV_FOREACH (match, matches) {
                 r = add_match(j, *match);
                 if (r < 0)
                         return r;
@@ -111,7 +113,8 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         if (arg_directory) {
                 r = sd_journal_open_directory(&j, arg_directory, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
+                        return log_error_errno(
+                                r, "Failed to open journals in directory: %s: %m", arg_directory);
         } else {
                 r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
                 if (r < 0)
@@ -224,7 +227,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'o':
                         if (arg_output)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot set output more than once.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot set output more than once.");
 
                         arg_output = optarg;
                         break;
@@ -243,7 +247,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         if (arg_field)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --field/-F more than once.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot use --field/-F more than once.");
                         arg_field = optarg;
                         break;
 
@@ -340,8 +345,9 @@ static int print_field(FILE *file, sd_journal *j) {
         }
 
 static int print_list(FILE *file, sd_journal *j, int had_legend) {
-        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                            *filename = NULL, *truncated = NULL, *coredump = NULL;
+        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL,
+                            *comm = NULL, *cmdline = NULL, *filename = NULL, *truncated = NULL,
+                            *coredump = NULL;
         const void *d;
         size_t l;
         usec_t t;
@@ -434,10 +440,11 @@ static int print_list(FILE *file, sd_journal *j, int had_legend) {
 }
 
 static int print_info(FILE *file, sd_journal *j, bool need_space) {
-        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
-                            *unit = NULL, *user_unit = NULL, *session = NULL, *boot_id = NULL, *machine_id = NULL, *hostname = NULL,
-                            *slice = NULL, *cgroup = NULL, *owner_uid = NULL, *message = NULL, *timestamp = NULL, *filename = NULL,
-                            *truncated = NULL, *coredump = NULL;
+        _cleanup_free_ char *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL, *sgnl = NULL, *exe = NULL,
+                            *comm = NULL, *cmdline = NULL, *unit = NULL, *user_unit = NULL, *session = NULL,
+                            *boot_id = NULL, *machine_id = NULL, *hostname = NULL, *slice = NULL,
+                            *cgroup = NULL, *owner_uid = NULL, *message = NULL, *timestamp = NULL,
+                            *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -735,7 +742,8 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 r = sd_journal_get_data(j, "COREDUMP", (const void **) &data, &len);
                 if (r == -ENOENT)
                         return log_error_errno(
-                                r, "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
+                                r,
+                                "Coredump entry has no core attached (neither internally in the journal nor externally on disk).");
                 if (r < 0)
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
         }
@@ -952,7 +960,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         fork_name = strjoina("(", arg_debugger, ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork(fork_name,
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE |
+                              FORK_LOG,
+                      &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -990,8 +1001,12 @@ static int check_units_active(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire bus: %m");
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "ListUnitsByPatterns");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "ListUnitsByPatterns");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1005,14 +1020,17 @@ static int check_units_active(void) {
 
         r = sd_bus_call(bus, m, SHORT_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
-                return log_error_errno(
-                        r, "Failed to check if any systemd-coredump@.service units are running: %s", bus_error_message(&error, r));
+                return log_error_errno(r,
+                                       "Failed to check if any systemd-coredump@.service units are running: %s",
+                                       bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ssssssouso)", &id, NULL, NULL, &state, &substate, NULL, NULL, NULL, NULL, NULL)) > 0) {
+        while ((r = sd_bus_message_read(
+                        reply, "(ssssssouso)", &id, NULL, NULL, &state, &substate, NULL, NULL, NULL, NULL, NULL)) >
+               0) {
                 bool found = !STR_IN_SET(state, "inactive", "dead", "failed");
                 log_debug("Unit %s is %s/%s, %scounting it.", id, state, substate, found ? "" : "not ");
                 c += found;

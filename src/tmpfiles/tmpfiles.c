@@ -398,14 +398,17 @@ static int load_unix_sockets(void) {
 
         f = fopen("/proc/net/unix", "re");
         if (!f)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to open /proc/net/unix, ignoring: %m");
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                      errno,
+                                      "Failed to open /proc/net/unix, ignoring: %m");
 
         /* Skip header */
         r = read_line(f, LONG_LINE_MAX, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
         if (r == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Premature end of file reading /proc/net/unix.");
+                return log_warning_errno(SYNTHETIC_ERRNO(EIO),
+                                         "Premature end of file reading /proc/net/unix.");
 
         for (;;) {
                 _cleanup_free_ char *line = NULL, *s = NULL;
@@ -505,7 +508,8 @@ static DIR *xopendirat_nomod(int dirfd, const char *path) {
 
         dir = xopendirat(dirfd, path, O_NOFOLLOW);
         if (!dir)
-                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+                log_debug_errno(
+                        errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
 
         return dir;
 }
@@ -514,8 +518,15 @@ static DIR *opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
-static int dir_cleanup(
-        Item *i, const char *p, DIR *d, const struct stat *ds, usec_t cutoff, dev_t rootdev, bool mountpoint, int maxdepth, bool keep_this_level) {
+static int dir_cleanup(Item *i,
+                       const char *p,
+                       DIR *d,
+                       const struct stat *ds,
+                       usec_t cutoff,
+                       dev_t rootdev,
+                       bool mountpoint,
+                       int maxdepth,
+                       bool keep_this_level) {
 
         struct dirent *dent;
         struct timespec times[2];
@@ -535,7 +546,11 @@ static int dir_cleanup(
                                 continue;
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno, "stat(%s/%s) failed: %m", p, dent->d_name);
+                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR,
+                                           errno,
+                                           "stat(%s/%s) failed: %m",
+                                           p,
+                                           dent->d_name);
                         continue;
                 }
 
@@ -549,7 +564,9 @@ static int dir_cleanup(
                  * do not differ in device major/minors. This type of query is not
                  * supported on all kernels or filesystem types though. */
                 if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
-                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
+                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
+                                  p,
+                                  dent->d_name);
                         continue;
                 }
 
@@ -591,7 +608,8 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                q = dir_cleanup(i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth - 1, false);
+                                q = dir_cleanup(
+                                        i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth - 1, false);
                                 if (q < 0)
                                         r = q;
                         }
@@ -613,14 +631,18 @@ static int dir_cleanup(
                         if (age >= cutoff) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 /* Follows spelling in stat(1). */
-                                log_debug("Directory \"%s\": modify time %s is too new.", sub_path, format_timestamp_us(a, sizeof(a), age));
+                                log_debug("Directory \"%s\": modify time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
                         }
 
                         age = timespec_load(&s.st_atim);
                         if (age >= cutoff) {
                                 char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("Directory \"%s\": access time %s is too new.", sub_path, format_timestamp_us(a, sizeof(a), age));
+                                log_debug("Directory \"%s\": access time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
                         }
 
@@ -640,7 +662,8 @@ static int dir_cleanup(
                         }
 
                         if (mountpoint && S_ISREG(s.st_mode))
-                                if (s.st_uid == 0 && STR_IN_SET(dent->d_name, ".journal", "aquota.user", "aquota.group")) {
+                                if (s.st_uid == 0 &&
+                                    STR_IN_SET(dent->d_name, ".journal", "aquota.user", "aquota.group")) {
                                         log_debug("Skipping \"%s\".", sub_path);
                                         continue;
                                 }
@@ -668,21 +691,27 @@ static int dir_cleanup(
                         if (age >= cutoff) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 /* Follows spelling in stat(1). */
-                                log_debug("File \"%s\": modify time %s is too new.", sub_path, format_timestamp_us(a, sizeof(a), age));
+                                log_debug("File \"%s\": modify time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
                         }
 
                         age = timespec_load(&s.st_atim);
                         if (age >= cutoff) {
                                 char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("File \"%s\": access time %s is too new.", sub_path, format_timestamp_us(a, sizeof(a), age));
+                                log_debug("File \"%s\": access time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
                         }
 
                         age = timespec_load(&s.st_ctim);
                         if (age >= cutoff) {
                                 char a[FORMAT_TIMESTAMP_MAX];
-                                log_debug("File \"%s\": change time %s is too new.", sub_path, format_timestamp_us(a, sizeof(a), age));
+                                log_debug("File \"%s\": change time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_us(a, sizeof(a), age));
                                 continue;
                         }
 
@@ -723,8 +752,8 @@ static bool dangerous_hardlinks(void) {
         static int cached = -1;
         int r;
 
-        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off, as that's
-         * what the upstream default is. */
+        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off,
+         * as that's what the upstream default is. */
 
         if (cached >= 0)
                 return cached;
@@ -806,7 +835,11 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                           i->uid_set ? i->uid : UID_INVALID,
                           i->gid_set ? i->gid : GID_INVALID);
 
-                if (fchownat(fd, "", i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, AT_EMPTY_PATH) < 0)
+                if (fchownat(fd,
+                             "",
+                             i->uid_set ? i->uid : UID_INVALID,
+                             i->gid_set ? i->gid : GID_INVALID,
+                             AT_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "fchownat() of %s failed: %m", path);
         }
 
@@ -819,7 +852,8 @@ static int path_open_parent_safe(const char *path) {
         int fd;
 
         if (path_equal(path, "/") || !path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': invalid path.", path);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Failed to open parent of '%s': invalid path.", path);
 
         dn = dirname_malloc(path);
         if (!dn)
@@ -915,7 +949,8 @@ static int fd_set_xattrs(Item *i, int fd, const char *path, const struct stat *s
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
                 if (setxattr(procfs_path, *name, *value, strlen(*value), 0) < 0)
-                        return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
+                        return log_error_errno(
+                                errno, "Setting extended attribute %s=%s on %s failed: %m", *name, *value, path);
         }
         return 0;
 }
@@ -987,8 +1022,11 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
         r = acl_set_file(path, type, dup);
         if (r < 0)
                 /* Return positive to indicate we already warned */
-                return -log_error_errno(
-                        errno, "Setting %s ACL \"%s\" on %s failed: %m", type == ACL_TYPE_ACCESS ? "access" : "default", strna(t), pretty);
+                return -log_error_errno(errno,
+                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                        strna(t),
+                                        pretty);
 
         return 0;
 }
@@ -1011,9 +1049,10 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
         }
 
         if (hardlink_vulnerable(st))
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
-                                       path);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EPERM),
+                        "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
+                        path);
 
         if (S_ISLNK(st->st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
@@ -1058,9 +1097,10 @@ static int path_set_acls(Item *item, const char *path) {
         return r;
 }
 
-#define ATTRIBUTES_ALL                                                                                                             \
-        (FS_NOATIME_FL | FS_SYNC_FL | FS_DIRSYNC_FL | FS_APPEND_FL | FS_COMPR_FL | FS_NODUMP_FL | FS_EXTENT_FL | FS_IMMUTABLE_FL | \
-         FS_JOURNAL_DATA_FL | FS_SECRM_FL | FS_UNRM_FL | FS_NOTAIL_FL | FS_TOPDIR_FL | FS_NOCOW_FL)
+#define ATTRIBUTES_ALL                                                                                   \
+        (FS_NOATIME_FL | FS_SYNC_FL | FS_DIRSYNC_FL | FS_APPEND_FL | FS_COMPR_FL | FS_NODUMP_FL |        \
+         FS_EXTENT_FL | FS_IMMUTABLE_FL | FS_JOURNAL_DATA_FL | FS_SECRM_FL | FS_UNRM_FL | FS_NOTAIL_FL | \
+         FS_TOPDIR_FL | FS_NOCOW_FL)
 
 static int parse_attribute_from_arg(Item *item) {
 
@@ -1111,8 +1151,9 @@ static int parse_attribute_from_arg(Item *item) {
         }
 
         if (isempty(p) && mode != MODE_SET)
-                return log_error_errno(
-                        SYNTHETIC_ERRNO(EINVAL), "Setting file attribute on '%s' needs an attribute specification.", item->path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Setting file attribute on '%s' needs an attribute specification.",
+                                       item->path);
 
         for (; p && *p; p++) {
                 unsigned i, v;
@@ -1122,7 +1163,10 @@ static int parse_attribute_from_arg(Item *item) {
                                 break;
 
                 if (i >= ELEMENTSOF(attributes))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown file attribute '%c' on '%s'.", *p, item->path);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown file attribute '%c' on '%s'.",
+                                               *p,
+                                               item->path);
 
                 v = attributes[i].value;
 
@@ -1166,9 +1210,10 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
          * safe, as that will be delivered to the drivers, not the
          * file system containing the device node. */
         if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Setting file flags is only supported on regular files and directories, cannot set on '%s'.",
-                                       path);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "Setting file flags is only supported on regular files and directories, cannot set on '%s'.",
+                        path);
 
         f = item->attribute_value & item->attribute_mask;
 
@@ -1265,7 +1310,10 @@ static int create_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = openat(dir_fd, bn, O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY, i->mode);
+                fd = openat(dir_fd,
+                            bn,
+                            O_CREAT | O_EXCL | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY,
+                            i->mode);
                 mac_selinux_create_file_clear();
         }
 
@@ -1336,7 +1384,10 @@ static int truncate_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = openat(dir_fd, bn, O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY, i->mode);
+                fd = openat(dir_fd,
+                            bn,
+                            O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY,
+                            i->mode);
                 mac_selinux_create_file_clear();
         }
 
@@ -1410,7 +1461,13 @@ static int copy_files(Item *i) {
         if (dfd < 0)
                 return dfd;
 
-        r = copy_tree_at(AT_FDCWD, i->argument, dfd, bn, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
+        r = copy_tree_at(AT_FDCWD,
+                         i->argument,
+                         dfd,
+                         bn,
+                         i->uid_set ? i->uid : UID_INVALID,
+                         i->gid_set ? i->gid : GID_INVALID,
+                         COPY_REFLINK);
         if (r < 0) {
                 struct stat a, b;
 
@@ -1506,7 +1563,10 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
 
                 k = is_dir_fd(pfd);
                 if (k == -ENOENT && r == -EROFS)
-                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
+                        return log_error_errno(
+                                r,
+                                "%s does not exist and cannot be created as the file system is read-only.",
+                                path);
                 if (k < 0)
                         return log_error_errno(k, "Failed to check if %s exists: %m", path);
                 if (!k) {
@@ -1556,14 +1616,22 @@ static int create_subvolume(Item *i, const char *path) {
         if (fd < 0)
                 return fd;
 
-        if (creation == CREATION_NORMAL && IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+        if (creation == CREATION_NORMAL &&
+            IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
                 r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                 if (r == -ENOTTY)
-                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
+                        log_debug_errno(
+                                r,
+                                "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m",
+                                i->path);
                 else if (r == -EROFS)
-                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
+                        log_debug_errno(
+                                r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
                 else if (r == -ENOPROTOOPT)
-                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
+                        log_debug_errno(
+                                r,
+                                "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).",
+                                i->path);
                 else if (r < 0)
                         q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
                 else if (r > 0)
@@ -1595,7 +1663,8 @@ static int empty_directory(Item *i, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "is_dir() failed on path %s: %m", path);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "'%s' already exists and is not a directory.", path);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EEXIST), "'%s' already exists and is not a directory.", path);
 
         return path_set_perms(i, path);
 }
@@ -1653,7 +1722,8 @@ static int create_device(Item *i, mode_t file_type) {
                                 }
 
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
+                                        return log_error_errno(
+                                                r, "Failed to create device node \"%s\": %m", i->path);
                                 creation = CREATION_FORCE;
                         } else {
                                 log_debug("%s is not a device node.", i->path);
@@ -1956,7 +2026,8 @@ static int create_item(Item *i) {
                         _cleanup_free_ char *x = NULL;
 
                         if (errno != EEXIST)
-                                return log_error_errno(errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                return log_error_errno(
+                                        errno, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                         r = readlink_malloc(i->path, &x);
                         if (r < 0 || !streq(i->argument, x)) {
@@ -1969,18 +2040,22 @@ static int create_item(Item *i) {
                                         if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                                 r = rm_rf(i->path, REMOVE_ROOT | REMOVE_PHYSICAL);
                                                 if (r < 0)
-                                                        return log_error_errno(r, "rm -fr %s failed: %m", i->path);
+                                                        return log_error_errno(
+                                                                r, "rm -fr %s failed: %m", i->path);
 
                                                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                                                 r = symlink(i->argument, i->path) < 0 ? -errno : 0;
                                                 mac_selinux_create_file_clear();
                                         }
                                         if (r < 0)
-                                                return log_error_errno(r, "symlink(%s, %s) failed: %m", i->argument, i->path);
+                                                return log_error_errno(
+                                                        r, "symlink(%s, %s) failed: %m", i->argument, i->path);
 
                                         creation = CREATION_FORCE;
                                 } else {
-                                        log_debug("\"%s\" is not a symlink or does not point to the correct path.", i->path);
+                                        log_debug(
+                                                "\"%s\" is not a symlink or does not point to the correct path.",
+                                                i->path);
                                         return 0;
                                 }
                         } else
@@ -2397,15 +2472,16 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         assert(path);
         assert(*path);
 
-        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges lines in
-         * some cases and detects conflicts in others. If files/directories are specified through two equivalent lines
-         * this is problematic as neither case will be detected. Ideally we'd detect these cases by resolving symlinks
-         * early, but that's precisely not what we can do here as this code very likely is running very early on, at a
-         * time where the paths in question are not available yet, or even more importantly, our own tmpfiles rules
-         * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
-         * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
-         * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
-         * the latter. Moreover files below this path are by far the primary usecase for tmpfiles.d/. */
+        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges
+         * lines in some cases and detects conflicts in others. If files/directories are specified through
+         * two equivalent lines this is problematic as neither case will be detected. Ideally we'd detect
+         * these cases by resolving symlinks early, but that's precisely not what we can do here as this code
+         * very likely is running very early on, at a time where the paths in question are not available yet,
+         * or even more importantly, our own tmpfiles rules might create the paths that are intermediary to
+         * the listed paths. We can't really cover the generic case, but the least we can do is cover the
+         * specific case of /var/run vs. /run, as /var/run is a legacy name for /run only, and we explicitly
+         * document that and require that on systemd systems the former is a symlink to the latter. Moreover
+         * files below this path are by far the primary usecase for tmpfiles.d/. */
 
         k = path_startswith(*path, "/var/run/");
         if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
@@ -2415,9 +2491,10 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         if (!n)
                 return log_oom();
 
-        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
-         * there's no immediate need for action by the user. However, in the interest of making things less confusing
-         * to the user, let's still inform the user that these snippets should really be updated. */
+        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation
+         * automatically, hence there's no immediate need for action by the user. However, in the interest of
+         * making things less confusing to the user, let's still inform the user that these snippets should
+         * really be updated. */
 
         log_notice(
                 "[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.",
@@ -2433,7 +2510,8 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
 
 static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
-        _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
+        _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL,
+                            *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
         ItemArray *existing;
         OrderedHashmap *h;
@@ -2521,7 +2599,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 if (i.argument)
-                        log_warning("[%s:%u] %c lines don't take argument fields, ignoring.", fname, line, i.type);
+                        log_warning(
+                                "[%s:%u] %c lines don't take argument fields, ignoring.", fname, line, i.type);
 
                 break;
 
@@ -2570,7 +2649,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 r = parse_dev(i.argument, &i.major_minor);
                 if (r < 0) {
                         *invalid_config = true;
-                        log_error_errno(r, "[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
+                        log_error_errno(
+                                r, "[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
                         return -EBADMSG;
                 }
 
@@ -2637,7 +2717,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
-                return log_error_errno(r, "[%s:%u] Failed to substitute specifiers in argument: %m", fname, line);
+                return log_error_errno(
+                        r, "[%s:%u] Failed to substitute specifiers in argument: %m", fname, line);
         }
 
         if (arg_root) {
@@ -2727,7 +2808,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
                 for (n = 0; n < existing->n_items; n++) {
                         if (!item_compatible(existing->items + n, &i)) {
-                                log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.", fname, line, i.path);
+                                log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
+                                           fname,
+                                           line,
+                                           i.path);
                                 return 0;
                         }
                 }
@@ -2814,20 +2898,22 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
         };
 
-        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
-                                                 { "user", no_argument, NULL, ARG_USER },
-                                                 { "version", no_argument, NULL, ARG_VERSION },
-                                                 { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
-                                                 { "create", no_argument, NULL, ARG_CREATE },
-                                                 { "clean", no_argument, NULL, ARG_CLEAN },
-                                                 { "remove", no_argument, NULL, ARG_REMOVE },
-                                                 { "boot", no_argument, NULL, ARG_BOOT },
-                                                 { "prefix", required_argument, NULL, ARG_PREFIX },
-                                                 { "exclude-prefix", required_argument, NULL, ARG_EXCLUDE_PREFIX },
-                                                 { "root", required_argument, NULL, ARG_ROOT },
-                                                 { "replace", required_argument, NULL, ARG_REPLACE },
-                                                 { "no-pager", no_argument, NULL, ARG_NO_PAGER },
-                                                 {} };
+        static const struct option options[] = {
+                { "help", no_argument, NULL, 'h' },
+                { "user", no_argument, NULL, ARG_USER },
+                { "version", no_argument, NULL, ARG_VERSION },
+                { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
+                { "create", no_argument, NULL, ARG_CREATE },
+                { "clean", no_argument, NULL, ARG_CLEAN },
+                { "remove", no_argument, NULL, ARG_REMOVE },
+                { "boot", no_argument, NULL, ARG_BOOT },
+                { "prefix", required_argument, NULL, ARG_PREFIX },
+                { "exclude-prefix", required_argument, NULL, ARG_EXCLUDE_PREFIX },
+                { "root", required_argument, NULL, ARG_ROOT },
+                { "replace", required_argument, NULL, ARG_REPLACE },
+                { "no-pager", no_argument, NULL, ARG_NO_PAGER },
+                {}
+        };
 
         int c, r;
 
@@ -2886,8 +2972,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REPLACE:
                         if (!path_is_absolute(optarg) || !endswith(optarg, ".conf"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The argument to --replace= must an absolute path to a config file");
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "The argument to --replace= must an absolute path to a config file");
 
                         arg_replace = optarg;
                         break;
@@ -2904,13 +2991,16 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_operation == 0 && !arg_cat_config)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "You need to specify at least one of --clean, --create or --remove.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "You need to specify at least one of --clean, --create or --remove.");
 
         if (arg_replace && arg_cat_config)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --replace= is not supported with --cat-config");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --replace= is not supported with --cat-config");
 
         if (arg_replace && optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When --replace= is given, some configuration items must be specified");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When --replace= is given, some configuration items must be specified");
 
         return 1;
 }
@@ -3060,9 +3150,9 @@ static int link_parent(ItemArray *a) {
 
         assert(a);
 
-        /* Finds the closest "parent" item array for the specified item array. Then registers the specified item array
-         * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
-         * before their children, and clean up/remove children before their parents. */
+        /* Finds the closest "parent" item array for the specified item array. Then registers the specified
+         * item array as child of it, and fills the parent in, linking them both ways. This allows us to
+         * later create parents before their children, and clean up/remove children before their parents. */
 
         if (a->n_items <= 0)
                 return 0;
@@ -3092,7 +3182,8 @@ static int link_parent(ItemArray *a) {
         return 0;
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_hash_func, string_compare_func, ItemArray, item_array_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        item_array_hash_ops, char, string_hash_func, string_compare_func, ItemArray, item_array_free);
 
 static int run(int argc, char *argv[]) {
         _cleanup_strv_free_ char **config_dirs = NULL;
@@ -3171,8 +3262,8 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
-        /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
-         * operations. i.e. that we first clean out the platform we then build on. */
+        /* If multiple operations are requested, let's first run the remove/clean operations, and only then
+         * the create operations. i.e. that we first clean out the platform we then build on. */
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 

@@ -54,16 +54,31 @@ struct ClientContext {
         unsigned log_rate_limit_burst;
 };
 
-int client_context_get(
-        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret);
+int client_context_get(Server *s,
+                       pid_t pid,
+                       const struct ucred *ucred,
+                       const char *label,
+                       size_t label_len,
+                       const char *unit_id,
+                       ClientContext **ret);
 
-int client_context_acquire(
-        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret);
+int client_context_acquire(Server *s,
+                           pid_t pid,
+                           const struct ucred *ucred,
+                           const char *label,
+                           size_t label_len,
+                           const char *unit_id,
+                           ClientContext **ret);
 
 ClientContext *client_context_release(Server *s, ClientContext *c);
 
-void client_context_maybe_refresh(
-        Server *s, ClientContext *c, const struct ucred *ucred, const char *label, size_t label_size, const char *unit_id, usec_t tstamp);
+void client_context_maybe_refresh(Server *s,
+                                  ClientContext *c,
+                                  const struct ucred *ucred,
+                                  const char *label,
+                                  size_t label_size,
+                                  const char *unit_id,
+                                  usec_t tstamp);
 
 void client_context_acquire_default(Server *s);
 void client_context_flush_all(Server *s);

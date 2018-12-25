@@ -23,8 +23,8 @@ typedef struct Unit Unit;
 
 typedef struct Manager Manager;
 
-/* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
- * when requested */
+/* An externally visible state. We don't actually maintain this as state variable, but derive it from various
+ * fields when requested */
 typedef enum ManagerState
 {
         MANAGER_INITIALIZING,
@@ -119,7 +119,8 @@ typedef enum ManagerTestRunFlags
         MANAGER_TEST_RUN_BASIC = 1 << 1,          /* interact with the environment */
         MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 2, /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS = 1 << 3,     /* also run unit generators */
-        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS |
+                MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
@@ -172,13 +173,14 @@ struct Manager {
 
         sd_event *event;
 
-        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
-         * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
-         * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
-         * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll
-         * be stored in a NULL-terminated array, and keyed by the negative PID. This is safe as pid_t is signed and
-         * negative PIDs are not used for regular processes but process groups, which we don't care about in this
-         * context, but this allows us to use the negative range for our own purposes. */
+        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he
+         * interested in the same PID and multiple PIDs to be relevant to the same unit. Since in most cases
+         * only a single unit will be interested in the same PID we use a somewhat special encoding here: the
+         * first unit interested in a PID is stored directly in the hashmap, keyed by the PID unmodified. If
+         * there are other units interested too they'll be stored in a NULL-terminated array, and keyed by
+         * the negative PID. This is safe as pid_t is signed and negative PIDs are not used for regular
+         * processes but process groups, which we don't care about in this context, but this allows us to use
+         * the negative range for our own purposes. */
         Hashmap *watch_pids; /* pid => unit as well as -pid => array of units */
 
         /* A set contains all units which cgroup should be refreshed after startup */
@@ -218,7 +220,7 @@ struct Manager {
         Set *unit_path_cache;
 
         char **transient_environment; /* The environment, as determined from config files, kernel cmdline and environment generators */
-        char **client_environment;    /* Environment variables created by clients through the bus API */
+        char **client_environment; /* Environment variables created by clients through the bus API */
 
         usec_t runtime_watchdog;
         usec_t shutdown_watchdog;
@@ -396,8 +398,8 @@ struct Manager {
         /* Prefixes of e.g. RuntimeDirectory= */
         char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
 
-        /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
-         * multiple times on the same unit. */
+        /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same
+         * event multiple times on the same unit. */
         unsigned sigchldgen;
         unsigned notifygen;
 };
@@ -475,7 +477,8 @@ void manager_recheck_journal(Manager *m);
 void manager_set_show_status(Manager *m, ShowStatus mode);
 void manager_set_first_boot(Manager *m, bool b);
 
-void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4, 5);
+void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...)
+        _printf_(4, 5);
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);

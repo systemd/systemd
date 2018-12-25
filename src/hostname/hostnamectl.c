@@ -109,8 +109,14 @@ static int show_one_name(sd_bus *bus, const char *attr) {
         const char *s;
         int r;
 
-        r = sd_bus_get_property(
-                bus, "org.freedesktop.hostname1", "/org/freedesktop/hostname1", "org.freedesktop.hostname1", attr, &error, &reply, "s");
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.hostname1",
+                                "/org/freedesktop/hostname1",
+                                "org.freedesktop.hostname1",
+                                attr,
+                                &error,
+                                &reply,
+                                "s");
         if (r < 0)
                 return log_error_errno(r, "Could not get property: %s", bus_error_message(&error, r));
 
@@ -142,20 +148,34 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                 {}
         };
 
-        static const struct bus_properties_map manager_map[] = { { "Virtualization", "s", NULL, offsetof(StatusInfo, virtualization) },
-                                                                 { "Architecture", "s", NULL, offsetof(StatusInfo, architecture) },
-                                                                 {} };
+        static const struct bus_properties_map manager_map[] = {
+                { "Virtualization", "s", NULL, offsetof(StatusInfo, virtualization) },
+                { "Architecture", "s", NULL, offsetof(StatusInfo, architecture) },
+                {}
+        };
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *host_message = NULL, *manager_message = NULL;
         int r;
 
-        r = bus_map_all_properties(
-                bus, "org.freedesktop.hostname1", "/org/freedesktop/hostname1", hostname_map, 0, error, &host_message, &info);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.hostname1",
+                                   "/org/freedesktop/hostname1",
+                                   hostname_map,
+                                   0,
+                                   error,
+                                   &host_message,
+                                   &info);
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(
-                bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", manager_map, 0, error, &manager_message, &info);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   "/org/freedesktop/systemd1",
+                                   manager_map,
+                                   0,
+                                   error,
+                                   &manager_message,
+                                   &info);
 
         print_status_info(&info);
 
@@ -182,7 +202,8 @@ static int show_status(int argc, char **argv, void *userdata) {
 
                 r = show_all_names(bus, &error);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
+                        return log_error_errno(
+                                r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
                 return 0;
         }
@@ -222,9 +243,9 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         if (arg_pretty) {
                 const char *p;
 
-                /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
-                 * hostnames, so let's unset the pretty hostname, and just set the passed hostname as static/dynamic
-                 * hostname. */
+                /* If the passed hostname is already valid, then assume the user doesn't know anything about
+                 * pretty hostnames, so let's unset the pretty hostname, and just set the passed hostname as
+                 * static/dynamic hostname. */
                 if (arg_static && hostname_is_valid(hostname, true))
                         p = ""; /* No pretty hostname (as it is redundant), just a static one */
                 else
@@ -235,11 +256,11 @@ static int set_hostname(int argc, char **argv, void *userdata) {
                         return r;
 
                 /* Now that we set the pretty hostname, let's clean up the parameter and use that as static
-                 * hostname. If the hostname was already valid as static hostname, this will only chop off the trailing
-                 * dot if there is one. If it was not valid, then it will be made fully valid by truncating, dropping
-                 * multiple dots, and dropping weird chars. Note that we clean the name up only if we also are
-                 * supposed to set the pretty name. If the pretty name is not being set we assume the user knows what
-                 * he does and pass the name as-is. */
+                 * hostname. If the hostname was already valid as static hostname, this will only chop off
+                 * the trailing dot if there is one. If it was not valid, then it will be made fully valid by
+                 * truncating, dropping multiple dots, and dropping weird chars. Note that we clean the name
+                 * up only if we also are supposed to set the pretty name. If the pretty name is not being
+                 * set we assume the user knows what he does and pass the name as-is. */
                 h = strdup(hostname);
                 if (!h)
                         return log_oom();
@@ -394,7 +415,11 @@ static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
                                       { "set-chassis", 2, 2, 0, set_chassis },
                                       { "set-deployment", 2, 2, 0, set_deployment },
                                       { "set-location", 2, 2, 0, set_location },
-                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help }, /* Not documented, but supported since it is created. */
+                                      { "help",
+                                        VERB_ANY,
+                                        VERB_ANY,
+                                        0,
+                                        verb_help }, /* Not documented, but supported since it is created. */
                                       {} };
 
         return dispatch_verb(argc, argv, verbs, bus);

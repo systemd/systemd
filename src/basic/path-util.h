@@ -28,7 +28,8 @@
 #define DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/usr/local/") PATH_SBIN_BIN_NULSTR("/usr/")
 #define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":" PATH_SBIN_BIN("/")
 #define DEFAULT_PATH_SPLIT_USR_NULSTR DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/")
-#define DEFAULT_PATH_COMPAT PATH_SPLIT_SBIN_BIN("/usr/local/") ":" PATH_SPLIT_SBIN_BIN("/usr/") ":" PATH_SPLIT_SBIN_BIN("/")
+#define DEFAULT_PATH_COMPAT \
+        PATH_SPLIT_SBIN_BIN("/usr/local/") ":" PATH_SPLIT_SBIN_BIN("/usr/") ":" PATH_SPLIT_SBIN_BIN("/")
 
 #if HAVE_SPLIT_USR
 #define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
@@ -59,28 +60,28 @@ static inline bool path_equal_ptr(const char *a, const char *b) {
 }
 
 /* Note: the search terminates on the first NULL item. */
-#define PATH_IN_SET(p, ...)                              \
-        ({                                               \
-                char **_s;                               \
-                bool _found = false;                     \
-                STRV_FOREACH(_s, STRV_MAKE(__VA_ARGS__)) \
-                if (path_equal(p, *_s)) {                \
-                        _found = true;                   \
-                        break;                           \
-                }                                        \
-                _found;                                  \
+#define PATH_IN_SET(p, ...)                               \
+        ({                                                \
+                char **_s;                                \
+                bool _found = false;                      \
+                STRV_FOREACH (_s, STRV_MAKE(__VA_ARGS__)) \
+                        if (path_equal(p, *_s)) {         \
+                                _found = true;            \
+                                break;                    \
+                        }                                 \
+                _found;                                   \
         })
 
-#define PATH_STARTSWITH_SET(p, ...)                        \
-        ({                                                 \
-                const char *_p = (p);                      \
-                char *_found = NULL, **_i;                 \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) { \
-                        _found = path_startswith(_p, *_i); \
-                        if (_found)                        \
-                                break;                     \
-                }                                          \
-                _found;                                    \
+#define PATH_STARTSWITH_SET(p, ...)                         \
+        ({                                                  \
+                const char *_p = (p);                       \
+                char *_found = NULL, **_i;                  \
+                STRV_FOREACH (_i, STRV_MAKE(__VA_ARGS__)) { \
+                        _found = path_startswith(_p, *_i);  \
+                        if (_found)                         \
+                                break;                      \
+                }                                           \
+                _found;                                     \
         })
 
 int path_strv_make_absolute_cwd(char **l);
@@ -188,4 +189,5 @@ enum
         PATH_CHECK_RELATIVE = 1 << 2,
 };
 
-int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue);
+int path_simplify_and_warn(
+        char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue);

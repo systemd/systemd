@@ -66,8 +66,8 @@ static void bus_track_add_to_queue(sd_bus_track *track) {
         if (track->in_queue)
                 return;
 
-        /* if we are currently in the process of adding a new name, then let's not enqueue this just yet, let's wait
-         * until the addition is complete. */
+        /* if we are currently in the process of adding a new name, then let's not enqueue this just yet,
+         * let's wait until the addition is complete. */
         if (track->n_adding > 0)
                 return;
 
@@ -279,9 +279,9 @@ _public_ unsigned sd_bus_track_count(sd_bus_track *track) {
         if (!track) /* Let's consider a NULL object equivalent to an empty object */
                 return 0;
 
-        /* This signature really should have returned an int, so that we can propagate errors. But well, ... Also, note
-         * that this returns the number of names being watched, and multiple references to the same name are not
-         * counted. */
+        /* This signature really should have returned an int, so that we can propagate errors. But well, ...
+         * Also, note that this returns the number of names being watched, and multiple references to the
+         * same name are not counted. */
 
         return hashmap_size(track->names);
 }

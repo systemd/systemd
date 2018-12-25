@@ -6,8 +6,13 @@
 #include "string-util.h"
 #include "strv.h"
 
-static int property_get_ether_addrs(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_ether_addrs(sd_bus *bus,
+                                    const char *path,
+                                    const char *interface,
+                                    const char *property,
+                                    sd_bus_message *reply,
+                                    void *userdata,
+                                    sd_bus_error *error) {
 
         char buf[ETHER_ADDR_TO_STRING_MAX];
         const struct ether_addr *p;
@@ -39,9 +44,14 @@ const sd_bus_vtable network_vtable[] = {
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchMAC",
+                        "as",
+                        property_get_ether_addrs,
+                        offsetof(Network, match_mac),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "as", NULL, offsetof(Network, match_path), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchName", "as", NULL, offsetof(Network, match_name), SD_BUS_VTABLE_PROPERTY_CONST),
 
@@ -105,7 +115,12 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         return 1;
 }
 
-int network_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int network_object_find(sd_bus *bus,
+                        const char *path,
+                        const char *interface,
+                        void *userdata,
+                        void **found,
+                        sd_bus_error *error) {
         Manager *m = userdata;
         Network *network;
         _cleanup_free_ char *name = NULL;

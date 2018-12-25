@@ -58,8 +58,8 @@ static int manager_new(Manager **ret) {
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->sessions_by_leader || !m->users || !m->inhibitors || !m->buttons ||
-            !m->user_units || !m->session_units)
+        if (!m->devices || !m->seats || !m->sessions || !m->sessions_by_leader || !m->users ||
+            !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
 
         r = sd_event_default(&m->event);
@@ -434,7 +434,10 @@ static int manager_attach_fds(Manager *m) {
                 if (!sd) {
                         /* Weird, we got an fd for a session device which wasn't
                          * recorded in the session state file... */
-                        log_warning("Got fd for missing session device [%u:%u] in session %s", major(dev), minor(dev), s->id);
+                        log_warning("Got fd for missing session device [%u:%u] in session %s",
+                                    major(dev),
+                                    minor(dev),
+                                    s->id);
                         close_nointr(fd);
                         continue;
                 }
@@ -626,12 +629,18 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(
+                m->bus, NULL, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/login1/seat",
+                                       "org.freedesktop.login1.Seat",
+                                       seat_vtable,
+                                       seat_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add seat object vtable: %m");
 
@@ -639,17 +648,28 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add seat enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/login1/session",
+                                       "org.freedesktop.login1.Session",
+                                       session_vtable,
+                                       session_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add session object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/session", session_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(
+                m->bus, NULL, "/org/freedesktop/login1/session", session_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add session enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(
-                m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus,
+                                       NULL,
+                                       "/org/freedesktop/login1/user",
+                                       "org.freedesktop.login1.User",
+                                       user_vtable,
+                                       user_object_find,
+                                       m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add user object vtable: %m");
 
@@ -797,8 +817,8 @@ static int manager_connect_console(Manager *m) {
         assert(m);
         assert(m->console_active_fd < 0);
 
-        /* On certain systems (such as S390, Xen, and containers) /dev/tty0 does not exist (as there is no VC), so
-         * don't fail if we can't open it. */
+        /* On certain systems (such as S390, Xen, and containers) /dev/tty0 does not exist (as there is no
+         * VC), so don't fail if we can't open it. */
 
         if (access("/dev/tty0", F_OK) < 0)
                 return 0;
@@ -806,17 +826,20 @@ static int manager_connect_console(Manager *m) {
         m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY | O_NOCTTY | O_CLOEXEC);
         if (m->console_active_fd < 0) {
 
-                /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are broken, but
-                 * common. Let's complain but continue anyway. */
+                /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are
+                 * broken, but common. Let's complain but continue anyway. */
                 if (errno == ENOENT) {
-                        log_warning_errno(errno, "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
+                        log_warning_errno(
+                                errno,
+                                "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
                         return 0;
                 }
 
                 return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
         }
 
-        r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
+        r = sd_event_add_io(
+                m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to watch foreground console: %m");
 
@@ -828,7 +851,10 @@ static int manager_connect_console(Manager *m) {
          */
 
         if (SIGRTMIN + 1 > SIGRTMAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough real-time signals available: %u-%u", SIGRTMIN, SIGRTMAX);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough real-time signals available: %u-%u",
+                                       SIGRTMIN,
+                                       SIGRTMAX);
 
         assert_se(ignore_signals(SIGRTMIN + 1, -1) >= 0);
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN, -1) >= 0);
@@ -865,7 +891,8 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_seat_monitor), "logind-seat-monitor");
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_seat_monitor),
+                                               "logind-seat-monitor");
 
         r = sd_device_monitor_new(&m->device_monitor);
         if (r < 0)
@@ -891,7 +918,8 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_monitor), "logind-device-monitor");
+        (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_monitor),
+                                               "logind-device-monitor");
 
         /* Don't watch keys if nobody cares */
         if (!manager_all_buttons_ignored(m)) {
@@ -903,7 +931,8 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_button_monitor, "input", NULL);
+                r = sd_device_monitor_filter_add_match_subsystem_devtype(
+                        m->device_button_monitor, "input", NULL);
                 if (r < 0)
                         return r;
 
@@ -915,8 +944,9 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_button_monitor),
-                                                       "logind-button-monitor");
+                (void) sd_event_source_set_description(
+                        sd_device_monitor_get_event_source(m->device_button_monitor),
+                        "logind-button-monitor");
         }
 
         /* Don't bother watching VCSA devices, if nobody cares */
@@ -938,7 +968,8 @@ static int manager_connect_udev(Manager *m) {
                 if (r < 0)
                         return r;
 
-                (void) sd_event_source_set_description(sd_device_monitor_get_event_source(m->device_vcsa_monitor), "logind-vcsa-monitor");
+                (void) sd_event_source_set_description(
+                        sd_device_monitor_get_event_source(m->device_vcsa_monitor), "logind-vcsa-monitor");
         }
 
         return 0;
@@ -1016,7 +1047,8 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                  * we shall sleep for longer. */
 
                 if (n >= since.monotonic + m->idle_action_usec &&
-                    (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
+                    (m->idle_action_not_before_usec <= 0 ||
+                     n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
                         log_info("System idle. Taking action.");
 
                         manager_handle_action(m, 0, m->idle_action, false, false);
@@ -1028,8 +1060,13 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
         if (!m->idle_action_event_source) {
 
-                r = sd_event_add_time(
-                        m->event, &m->idle_action_event_source, CLOCK_MONOTONIC, elapse, USEC_PER_SEC * 30, manager_dispatch_idle_action, m);
+                r = sd_event_add_time(m->event,
+                                      &m->idle_action_event_source,
+                                      CLOCK_MONOTONIC,
+                                      elapse,
+                                      USEC_PER_SEC * 30,
+                                      manager_dispatch_idle_action,
+                                      m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add idle event source: %m");
 
@@ -1049,7 +1086,9 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
         return 0;
 }
 
-static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+static int manager_dispatch_reload_signal(sd_event_source *s,
+                                          const struct signalfd_siginfo *si,
+                                          void *userdata) {
         Manager *m = userdata;
         int r;
 
@@ -1204,9 +1243,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not initialize labelling: %m");
 
-        /* Always create the directories people can create inotify watches in. Note that some applications might check
-         * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
-         * sure these directories are created early on and unconditionally. */
+        /* Always create the directories people can create inotify watches in. Note that some applications
+         * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
+         * please always make sure these directories are created early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);

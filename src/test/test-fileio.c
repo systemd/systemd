@@ -21,10 +21,11 @@
 #include "util.h"
 
 static void test_parse_env_file(void) {
-        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX", p[] = "/tmp/test-fileio-out-XXXXXX";
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX",
+                                         p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
-        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL, *seven = NULL, *eight = NULL,
-                            *nine = NULL, *ten = NULL;
+        _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL, *six = NULL,
+                            *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
@@ -142,7 +143,8 @@ static void test_parse_env_file(void) {
 }
 
 static void test_parse_multiline_env_file(void) {
-        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX", p[] = "/tmp/test-fileio-out-XXXXXX";
+        _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-in-XXXXXX",
+                                         p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
@@ -447,9 +449,13 @@ static void test_write_string_file_verify(void) {
         assert_se(write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
         assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
 
-        r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file(
+                "/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE);
         assert_se(IN_SET(r, -EACCES, -EIO));
-        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
+        assert_se(write_string_file("/proc/cmdline",
+                                    buf2,
+                                    WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_AVOID_NEWLINE) ==
+                  0);
 }
 
 static void test_load_env_file_pairs(void) {
@@ -481,7 +487,14 @@ static void test_load_env_file_pairs(void) {
 
         assert_se(strv_length(l) == 14);
         STRV_FOREACH_PAIR(k, v, l) {
-                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
+                assert_se(STR_IN_SET(*k,
+                                     "NAME",
+                                     "ID",
+                                     "PRETTY_NAME",
+                                     "ANSI_COLOR",
+                                     "HOME_URL",
+                                     "SUPPORT_URL",
+                                     "BUG_REPORT_URL"));
                 printf("%s=%s\n", *k, *v);
                 if (streq(*k, "NAME"))
                         assert_se(streq(*v, "Arch Linux"));
@@ -709,9 +722,10 @@ static void test_read_line_one_file(FILE *f) {
         assert_se(read_line(f, 16, &line) == -ENOBUFS);
         line = mfree(line);
 
-        /* read_line() stopped when it hit the limit, that means when we continue reading we'll read at the first
-         * character after the previous limit. Let's make use of tha to continue our test. */
-        assert_se(read_line(f, 1024, &line) == 62 && streq(line, "line that is supposed to be truncated, because it is so long"));
+        /* read_line() stopped when it hit the limit, that means when we continue reading we'll read at the
+         * first character after the previous limit. Let's make use of tha to continue our test. */
+        assert_se(read_line(f, 1024, &line) == 62 &&
+                  streq(line, "line that is supposed to be truncated, because it is so long"));
         line = mfree(line);
 
         assert_se(read_line(f, 1024, &line) == 0 && streq(line, ""));

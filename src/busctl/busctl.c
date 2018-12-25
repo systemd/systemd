@@ -98,7 +98,8 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
 
         r = sd_bus_set_watch_bind(bus, arg_watch_bind);
         if (r < 0)
-                return log_error_errno(r, "Failed to set watch-bind setting to '%s': %m", yes_no(arg_watch_bind));
+                return log_error_errno(
+                        r, "Failed to set watch-bind setting to '%s': %m", yes_no(arg_watch_bind));
 
         if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
@@ -159,7 +160,8 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_list_names(bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
+        r = sd_bus_list_names(
+                bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list names: %m");
 
@@ -169,7 +171,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (!names)
                 return log_oom();
 
-        STRV_FOREACH(i, acquired) {
+        STRV_FOREACH (i, acquired) {
                 max_i = MAX(max_i, strlen(*i));
 
                 r = hashmap_put(names, *i, NAME_IS_ACQUIRED);
@@ -177,7 +179,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         return log_error_errno(r, "Failed to add to hashmap: %m");
         }
 
-        STRV_FOREACH(i, activatable) {
+        STRV_FOREACH (i, activatable) {
                 max_i = MAX(max_i, strlen(*i));
 
                 r = hashmap_put(names, *i, NAME_IS_ACTIVATABLE);
@@ -220,7 +222,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         putchar('\n');
         }
 
-        STRV_FOREACH(i, merged) {
+        STRV_FOREACH (i, merged) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 sd_id128_t mid;
 
@@ -246,9 +248,10 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
 
                 r = sd_bus_get_name_creds(bus,
                                           *i,
-                                          (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | SD_BUS_CREDS_EUID | SD_BUS_CREDS_PID |
-                                                  SD_BUS_CREDS_COMM | SD_BUS_CREDS_UNIQUE_NAME | SD_BUS_CREDS_UNIT | SD_BUS_CREDS_SESSION |
-                                                  SD_BUS_CREDS_DESCRIPTION,
+                                          (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
+                                                  SD_BUS_CREDS_EUID | SD_BUS_CREDS_PID | SD_BUS_CREDS_COMM |
+                                                  SD_BUS_CREDS_UNIQUE_NAME | SD_BUS_CREDS_UNIT |
+                                                  SD_BUS_CREDS_SESSION | SD_BUS_CREDS_DESCRIPTION,
                                           &creds);
                 if (r >= 0) {
                         const char *unique, *session, *unit, *cn;
@@ -365,7 +368,10 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                         n++;
                 }
 
-                printf("%s%s%s\n", prefix, special_glyph(has_more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), *l);
+                printf("%s%s%s\n",
+                       prefix,
+                       special_glyph(has_more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT),
+                       *l);
 
                 print_subtree(has_more ? vertical : space, *l, l);
                 l = n;
@@ -379,8 +385,8 @@ static void print_tree(const char *prefix, char **l) {
         if (arg_list) {
                 char **i;
 
-                STRV_FOREACH(i, l)
-                printf("%s%s\n", prefix, *i);
+                STRV_FOREACH (i, l)
+                        printf("%s%s\n", prefix, *i);
                 return;
         }
 
@@ -420,12 +426,20 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
         const char *xml;
         int r;
 
-        r = sd_bus_call_method(bus, service, path, "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
+        r = sd_bus_call_method(
+                bus, service, path, "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply, "");
         if (r < 0) {
                 if (many)
-                        printf("Failed to introspect object %s of service %s: %s\n", path, service, bus_error_message(&error, r));
+                        printf("Failed to introspect object %s of service %s: %s\n",
+                               path,
+                               service,
+                               bus_error_message(&error, r));
                 else
-                        log_error_errno(r, "Failed to introspect object %s of service %s: %s", path, service, bus_error_message(&error, r));
+                        log_error_errno(r,
+                                        "Failed to introspect object %s of service %s: %s",
+                                        path,
+                                        service,
+                                        bus_error_message(&error, r));
                 return r;
         }
 
@@ -527,7 +541,7 @@ static int tree(int argc, char **argv, void *userdata) {
 
                 (void) pager_open(arg_pager_flags);
 
-                STRV_FOREACH(i, names) {
+                STRV_FOREACH (i, names) {
                         int q;
 
                         if (!arg_unique && (*i)[0] == ':')
@@ -548,7 +562,7 @@ static int tree(int argc, char **argv, void *userdata) {
                         not_first = true;
                 }
         } else {
-                STRV_FOREACH(i, argv + 1) {
+                STRV_FOREACH (i, argv + 1) {
                         int q;
 
                         if (i > argv + 1)
@@ -817,7 +831,12 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         return 0;
 }
 
-static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
+static int on_method(const char *interface,
+                     const char *name,
+                     const char *signature,
+                     const char *result,
+                     uint64_t flags,
+                     void *userdata) {
         _cleanup_(member_freep) Member *m;
         Set *members = userdata;
         int r;
@@ -858,7 +877,8 @@ static int on_method(const char *interface, const char *name, const char *signat
         return 0;
 }
 
-static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
+static int on_signal(
+        const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
         _cleanup_(member_freep) Member *m;
         Set *members = userdata;
         int r;
@@ -895,7 +915,12 @@ static int on_signal(const char *interface, const char *name, const char *signat
         return 0;
 }
 
-static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
+static int on_property(const char *interface,
+                       const char *name,
+                       const char *signature,
+                       bool writable,
+                       uint64_t flags,
+                       void *userdata) {
         _cleanup_(member_freep) Member *m;
         Set *members = userdata;
         int r;
@@ -961,9 +986,20 @@ static int introspect(int argc, char **argv, void *userdata) {
         if (!members)
                 return log_oom();
 
-        r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply_xml, "");
+        r = sd_bus_call_method(bus,
+                               argv[1],
+                               argv[2],
+                               "org.freedesktop.DBus.Introspectable",
+                               "Introspect",
+                               &error,
+                               &reply_xml,
+                               "");
         if (r < 0)
-                return log_error_errno(r, "Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
+                return log_error_errno(r,
+                                       "Failed to introspect object %s of service %s: %s",
+                                       argv[2],
+                                       argv[1],
+                                       bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply_xml, "s", &xml);
         if (r < 0)
@@ -987,7 +1023,15 @@ static int introspect(int argc, char **argv, void *userdata) {
                 if (argv[3] && !streq(argv[3], m->interface))
                         continue;
 
-                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
+                r = sd_bus_call_method(bus,
+                                       argv[1],
+                                       argv[2],
+                                       "org.freedesktop.DBus.Properties",
+                                       "GetAll",
+                                       &error,
+                                       &reply,
+                                       "s",
+                                       m->interface);
                 if (r < 0)
                         return log_error_errno(r, "%s", bus_error_message(&error, r));
 
@@ -1029,7 +1073,10 @@ static int introspect(int argc, char **argv, void *userdata) {
 
                         mf = safe_fclose(mf);
 
-                        z = set_get(members, &((Member){ .type = "property", .interface = m->interface, .name = (char *) name }));
+                        z = set_get(members,
+                                    &((Member){ .type = "property",
+                                                .interface = m->interface,
+                                                .name = (char *) name }));
                         if (z)
                                 free_and_replace(z->value, buf);
 
@@ -1131,7 +1178,8 @@ static int introspect(int argc, char **argv, void *userdata) {
                        empty_to_dash(m->signature),
                        (int) result_width,
                        rv,
-                       (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" : (m->flags || m->writable ? "" : " -"),
+                       (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" :
+                                                               (m->flags || m->writable ? "" : " -"),
                        (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ? " no-reply" : "",
                        (m->flags & SD_BUS_VTABLE_PROPERTY_CONST) ? " const" : "",
                        (m->flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE) ? " emits-change" : "",
@@ -1162,24 +1210,29 @@ static int message_json(sd_bus_message *m, FILE *f) {
         e[0] = m->header->endian;
         e[1] = 0;
 
-        r = json_build(&w,
-                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
-                                         JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
-                                         JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(m->header->flags)),
-                                         JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
-                                         JSON_BUILD_PAIR_CONDITION(m->priority != 0, "priority", JSON_BUILD_INTEGER(m->priority)),
-                                         JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
-                                         JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
-                                         JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
-                                         JSON_BUILD_PAIR_CONDITION(m->destination, "destination", JSON_BUILD_STRING(m->destination)),
-                                         JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
-                                         JSON_BUILD_PAIR_CONDITION(m->interface, "interface", JSON_BUILD_STRING(m->interface)),
-                                         JSON_BUILD_PAIR_CONDITION(m->member, "member", JSON_BUILD_STRING(m->member)),
-                                         JSON_BUILD_PAIR_CONDITION(m->monotonic != 0, "monotonic", JSON_BUILD_INTEGER(m->monotonic)),
-                                         JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", JSON_BUILD_INTEGER(m->realtime)),
-                                         JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", JSON_BUILD_INTEGER(m->seqnum)),
-                                         JSON_BUILD_PAIR_CONDITION(m->error.name, "error_name", JSON_BUILD_STRING(m->error.name)),
-                                         JSON_BUILD_PAIR("payload", JSON_BUILD_VARIANT(v))));
+        r = json_build(
+                &w,
+                JSON_BUILD_OBJECT(
+                        JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
+                        JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
+                        JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(m->header->flags)),
+                        JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
+                        JSON_BUILD_PAIR_CONDITION(m->priority != 0, "priority", JSON_BUILD_INTEGER(m->priority)),
+                        JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
+                        JSON_BUILD_PAIR_CONDITION(
+                                m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
+                        JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
+                        JSON_BUILD_PAIR_CONDITION(
+                                m->destination, "destination", JSON_BUILD_STRING(m->destination)),
+                        JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
+                        JSON_BUILD_PAIR_CONDITION(m->interface, "interface", JSON_BUILD_STRING(m->interface)),
+                        JSON_BUILD_PAIR_CONDITION(m->member, "member", JSON_BUILD_STRING(m->member)),
+                        JSON_BUILD_PAIR_CONDITION(
+                                m->monotonic != 0, "monotonic", JSON_BUILD_INTEGER(m->monotonic)),
+                        JSON_BUILD_PAIR_CONDITION(m->realtime != 0, "realtime", JSON_BUILD_INTEGER(m->realtime)),
+                        JSON_BUILD_PAIR_CONDITION(m->seqnum != 0, "seqnum", JSON_BUILD_INTEGER(m->seqnum)),
+                        JSON_BUILD_PAIR_CONDITION(m->error.name, "error_name", JSON_BUILD_STRING(m->error.name)),
+                        JSON_BUILD_PAIR("payload", JSON_BUILD_VARIANT(v))));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -1202,8 +1255,12 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 return r;
 
         /* upgrade connection; it's not used for anything else after this call */
-        r = sd_bus_message_new_method_call(
-                bus, &message, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring", "BecomeMonitor");
+        r = sd_bus_message_new_method_call(bus,
+                                           &message,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus.Monitoring",
+                                           "BecomeMonitor");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1211,7 +1268,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(i, argv + 1) {
+        STRV_FOREACH (i, argv + 1) {
                 _cleanup_free_ char *m = NULL;
 
                 if (!service_name_is_valid(*i)) {
@@ -1237,7 +1294,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         return bus_log_create_error(r);
         }
 
-        STRV_FOREACH(i, arg_matches) {
+        STRV_FOREACH (i, arg_matches) {
                 r = sd_bus_message_append_basic(message, 's', *i);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1314,8 +1371,9 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         int r;
 
         if (isatty(fileno(stdout)) > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to write message data to console, please redirect output to a file.");
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "Refusing to write message data to console, please redirect output to a file.");
 
         bus_pcap_header(arg_snaplen, stdout);
 
@@ -1343,7 +1401,11 @@ static int status(int argc, char **argv, void *userdata) {
         if (!isempty(argv[1])) {
                 r = parse_pid(argv[1], &pid);
                 if (r < 0)
-                        r = sd_bus_get_name_creds(bus, argv[1], (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL, &creds);
+                        r = sd_bus_get_name_creds(bus,
+                                                  argv[1],
+                                                  (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) |
+                                                          _SD_BUS_CREDS_ALL,
+                                                  &creds);
                 else
                         r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
         } else {
@@ -1360,9 +1422,13 @@ static int status(int argc, char **argv, void *userdata) {
 
                 r = sd_bus_get_bus_id(bus, &bus_id);
                 if (r >= 0)
-                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n", ansi_highlight(), SD_ID128_FORMAT_VAL(bus_id), ansi_normal());
+                        printf("BusID=%s" SD_ID128_FORMAT_STR "%s\n",
+                               ansi_highlight(),
+                               SD_ID128_FORMAT_VAL(bus_id),
+                               ansi_normal());
 
-                r = sd_bus_get_owner_creds(bus, (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL, &creds);
+                r = sd_bus_get_owner_creds(
+                        bus, (arg_augment_creds ? SD_BUS_CREDS_AUGMENT : 0) | _SD_BUS_CREDS_ALL, &creds);
         }
 
         if (r < 0)
@@ -1413,7 +1479,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atou8(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as byte (unsigned 8bit integer): %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as byte (unsigned 8bit integer): %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1424,7 +1491,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atoi16(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as signed 16bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as signed 16bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1435,7 +1503,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atou16(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as unsigned 16bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as unsigned 16bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1446,7 +1515,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atoi32(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as signed 32bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as signed 32bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1457,7 +1527,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atou32(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as unsigned 32bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as unsigned 32bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1468,7 +1539,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atoi64(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as signed 64bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as signed 64bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1479,7 +1551,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atou64(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as unsigned 64bit integer: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as unsigned 64bit integer: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1490,7 +1563,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atod(v, &z);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' as double precision floating point: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' as double precision floating point: %m", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1509,7 +1583,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         r = safe_atou32(v, &n);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse '%s' number of array entries: %m", v);
+                                return log_error_errno(
+                                        r, "Failed to parse '%s' number of array entries: %m", v);
 
                         r = signature_element_length(signature, &k);
                         if (r < 0)
@@ -1566,8 +1641,11 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                                 memcpy(s, signature + 1, k - 2);
                                 s[k - 2] = 0;
 
-                                r = sd_bus_message_open_container(
-                                        m, t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
+                                r = sd_bus_message_open_container(m,
+                                                                  t == SD_BUS_TYPE_STRUCT_BEGIN ?
+                                                                          SD_BUS_TYPE_STRUCT :
+                                                                          SD_BUS_TYPE_DICT_ENTRY,
+                                                                  s);
                                 if (r < 0)
                                         return bus_log_create_error(r);
 
@@ -1583,7 +1661,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                 }
 
                 case SD_BUS_TYPE_UNIX_FD:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UNIX file descriptor not supported as type.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "UNIX file descriptor not supported as type.");
 
                 default:
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown signature type %c.", t);
@@ -1936,7 +2015,8 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
                 return r;
 
         r = json_build(ret,
-                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(type)), JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(v))));
+                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("type", JSON_BUILD_STRING(type)),
+                                         JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(v))));
         if (r < 0)
                 return log_oom();
 
@@ -1945,7 +2025,11 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
 
 static void json_dump_with_flags(JsonVariant *v, FILE *f) {
 
-        json_variant_dump(v, (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) | JSON_FORMAT_COLOR_AUTO, f, NULL);
+        json_variant_dump(v,
+                          (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) |
+                                  JSON_FORMAT_COLOR_AUTO,
+                          f,
+                          NULL);
 }
 
 static int call(int argc, char **argv, void *userdata) {
@@ -2051,12 +2135,21 @@ static int get_property(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, argv + 4) {
+        STRV_FOREACH (i, argv + 4) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 const char *contents = NULL;
                 char type;
 
-                r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
+                r = sd_bus_call_method(bus,
+                                       argv[1],
+                                       argv[2],
+                                       "org.freedesktop.DBus.Properties",
+                                       "Get",
+                                       &error,
+                                       &reply,
+                                       "ss",
+                                       argv[3],
+                                       *i);
                 if (r < 0)
                         return log_error_errno(r, "%s", bus_error_message(&error, r));
 
@@ -2116,7 +2209,8 @@ static int set_property(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Set");
+        r = sd_bus_message_new_method_call(
+                bus, &m, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Set");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2363,7 +2457,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXPECT_REPLY:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --expect-reply= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --expect-reply= parameter '%s': %m", optarg);
 
                         arg_expect_reply = r;
                         break;
@@ -2371,7 +2466,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_AUTO_START:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --auto-start= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --auto-start= parameter '%s': %m", optarg);
 
                         arg_auto_start = r;
                         break;
@@ -2379,7 +2475,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --allow-interactive-authorization= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r,
+                                        "Failed to parse --allow-interactive-authorization= parameter '%s': %m",
+                                        optarg);
 
                         arg_allow_interactive_authorization = r;
                         break;
@@ -2387,14 +2486,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --timeout= parameter '%s': %m", optarg);
 
                         break;
 
                 case ARG_AUGMENT_CREDS:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --augment-creds= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --augment-creds= parameter '%s': %m", optarg);
 
                         arg_augment_creds = r;
                         break;
@@ -2402,7 +2503,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_WATCH_BIND:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --watch-bind= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --watch-bind= parameter '%s': %m", optarg);
 
                         arg_watch_bind = r;
                         break;
@@ -2425,7 +2527,8 @@ static int parse_argv(int argc, char *argv[]) {
                                       stdout);
                                 return 0;
                         } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown JSON out mode: %s", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Unknown JSON out mode: %s", optarg);
 
                         break;
 

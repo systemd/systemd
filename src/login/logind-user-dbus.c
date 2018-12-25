@@ -15,8 +15,13 @@
 
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", User, user_get_state, user_state_to_string);
 
-static int property_get_display(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_display(sd_bus *bus,
+                                const char *path,
+                                const char *interface,
+                                const char *property,
+                                sd_bus_message *reply,
+                                void *userdata,
+                                sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         User *u = userdata;
@@ -32,8 +37,13 @@ static int property_get_display(
         return sd_bus_message_append(reply, "(so)", u->display ? u->display->id : "", p);
 }
 
-static int property_get_sessions(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_sessions(sd_bus *bus,
+                                 const char *path,
+                                 const char *interface,
+                                 const char *property,
+                                 sd_bus_message *reply,
+                                 void *userdata,
+                                 sd_bus_error *error) {
 
         User *u = userdata;
         Session *session;
@@ -62,8 +72,13 @@ static int property_get_sessions(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_idle_hint(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_idle_hint(sd_bus *bus,
+                                  const char *path,
+                                  const char *interface,
+                                  const char *property,
+                                  sd_bus_message *reply,
+                                  void *userdata,
+                                  sd_bus_error *error) {
 
         User *u = userdata;
 
@@ -74,8 +89,13 @@ static int property_get_idle_hint(
         return sd_bus_message_append(reply, "b", user_get_idle_hint(u, NULL) > 0);
 }
 
-static int property_get_idle_since_hint(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_idle_since_hint(sd_bus *bus,
+                                        const char *path,
+                                        const char *interface,
+                                        const char *property,
+                                        sd_bus_message *reply,
+                                        void *userdata,
+                                        sd_bus_error *error) {
 
         User *u = userdata;
         dual_timestamp t = DUAL_TIMESTAMP_NULL;
@@ -91,8 +111,13 @@ static int property_get_idle_since_hint(
         return sd_bus_message_append(reply, "t", k);
 }
 
-static int property_get_linger(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_linger(sd_bus *bus,
+                               const char *path,
+                               const char *interface,
+                               const char *property,
+                               sd_bus_message *reply,
+                               void *userdata,
+                               sd_bus_error *error) {
 
         User *u = userdata;
         int r;
@@ -113,8 +138,14 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(u);
 
-        r = bus_verify_polkit_async(
-                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, u->uid, &u->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_KILL,
+                                    "org.freedesktop.login1.manage",
+                                    NULL,
+                                    false,
+                                    u->uid,
+                                    &u->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -135,8 +166,14 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(u);
 
-        r = bus_verify_polkit_async(
-                message, CAP_KILL, "org.freedesktop.login1.manage", NULL, false, u->uid, &u->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_KILL,
+                                    "org.freedesktop.login1.manage",
+                                    NULL,
+                                    false,
+                                    u->uid,
+                                    &u->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -170,8 +207,13 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
         SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHintMonotonic",
+                        "t",
+                        property_get_idle_since_hint,
+                        0,
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_user_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -180,7 +222,12 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int user_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error) {
         Manager *m = userdata;
         uid_t uid;
         User *user;

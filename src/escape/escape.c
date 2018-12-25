@@ -80,7 +80,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SUFFIX:
 
                         if (unit_type_from_string(optarg) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit suffix type %s.", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Invalid unit suffix type %s.", optarg);
 
                         arg_suffix = optarg;
                         break;
@@ -88,7 +89,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TEMPLATE:
 
                         if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Template name %s is not valid.", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Template name %s is not valid.", optarg);
 
                         arg_template = optarg;
                         break;
@@ -120,22 +122,27 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not enough arguments.");
 
         if (arg_template && arg_suffix)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix= and --template= may not be combined.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= may not be combined.");
 
         if ((arg_template || arg_suffix) && arg_action == ACTION_MANGLE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix= and --template= are not compatible with --mangle.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix= and --template= are not compatible with --mangle.");
 
         if (arg_suffix && arg_action == ACTION_UNESCAPE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--suffix is not compatible with --unescape.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--suffix is not compatible with --unescape.");
 
         if (arg_path && !IN_SET(arg_action, ACTION_ESCAPE, ACTION_UNESCAPE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--path may not be combined with --mangle.");
 
         if (arg_instance && arg_action != ACTION_UNESCAPE)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--instance must be used in conjunction with --unescape.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance must be used in conjunction with --unescape.");
 
         if (arg_instance && arg_template)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--instance may not be combined with --template.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--instance may not be combined with --template.");
 
         return 1;
 }
@@ -151,7 +158,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        STRV_FOREACH(i, argv + optind) {
+        STRV_FOREACH (i, argv + optind) {
                 _cleanup_free_ char *e = NULL;
 
                 switch (arg_action) {
@@ -204,7 +211,10 @@ static int run(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to extract template: %m");
                                 if (arg_template && !streq(arg_template, template))
                                         return log_error(
-                                                "Unit %s template %s does not match specified template %s.", *i, template, arg_template);
+                                                "Unit %s template %s does not match specified template %s.",
+                                                *i,
+                                                template,
+                                                arg_template);
                         } else {
                                 name = strdup(*i);
                                 if (!name)

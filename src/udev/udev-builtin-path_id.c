@@ -151,7 +151,8 @@ static sd_device *handle_scsi_sas_wide_port(sd_device *parent, char **path) {
 
 static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent, *port, *expander;
-        _cleanup_(sd_device_unrefp) sd_device *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *target_sasdev = NULL, *expander_sasdev = NULL,
+                                              *port_sasdev = NULL;
         const char *sas_address = NULL;
         const char *phy_id;
         const char *phy_count, *sysname;
@@ -504,7 +505,8 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
         assert(parent);
         assert(path);
 
-        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 && sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
+        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 &&
+            sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
                 path_prepend(path, "ap-%s-%s", type, func);
         else {
                 const char *sysname;
@@ -530,7 +532,8 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         while (parent) {
                 const char *subsys, *sysname;
 
-                if (sd_device_get_subsystem(parent, &subsys) < 0 || sd_device_get_sysname(parent, &sysname) < 0) {
+                if (sd_device_get_subsystem(parent, &subsys) < 0 ||
+                    sd_device_get_sysname(parent, &sysname) < 0) {
                         ;
                 } else if (streq(subsys, "scsi_tape")) {
                         handle_scsi_tape(parent, &path);
@@ -640,7 +643,8 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                 /* compose valid udev tag name */
                 for (p = path, i = 0; *p; p++) {
-                        if ((*p >= '0' && *p <= '9') || (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || *p == '-') {
+                        if ((*p >= '0' && *p <= '9') || (*p >= 'A' && *p <= 'Z') ||
+                            (*p >= 'a' && *p <= 'z') || *p == '-') {
                                 tag[i++] = *p;
                                 continue;
                         }

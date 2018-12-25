@@ -11,9 +11,21 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, automount_result, Autom
 const sd_bus_vtable bus_automount_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Automount, where), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Automount, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Automount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("TimeoutIdleUSec", "t", bus_property_get_usec, offsetof(Automount, timeout_idle_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DirectoryMode",
+                        "u",
+                        bus_property_get_mode,
+                        offsetof(Automount, directory_mode),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Result",
+                        "s",
+                        property_get_result,
+                        offsetof(Automount, result),
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("TimeoutIdleUSec",
+                        "t",
+                        bus_property_get_usec,
+                        offsetof(Automount, timeout_idle_usec),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -40,7 +52,8 @@ static int bus_automount_set_transient_property(
         return 0;
 }
 
-int bus_automount_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_automount_set_property(
+        Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Automount *a = AUTOMOUNT(u);
 
@@ -48,7 +61,8 @@ int bus_automount_set_property(Unit *u, const char *name, sd_bus_message *messag
         assert(name);
         assert(message);
 
-        if (u->transient && u->load_state == UNIT_STUB) /* This is a transient unit? let's load a little more */
+        if (u->transient &&
+            u->load_state == UNIT_STUB) /* This is a transient unit? let's load a little more */
                 return bus_automount_set_transient_property(a, name, message, flags, error);
 
         return 0;

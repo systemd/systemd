@@ -97,7 +97,8 @@ bool strv_overlap(char **a, char **b) _pure_;
              (l) && ((s) >= (l));                           \
              (s)--)
 
-#define STRV_FOREACH_PAIR(x, y, l) for ((x) = (l), (y) = (x + 1); (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
+#define STRV_FOREACH_PAIR(x, y, l) \
+        for ((x) = (l), (y) = (x + 1); (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
 
 char **strv_sort(char **l);
 void strv_print(char **l);
@@ -142,16 +143,16 @@ void strv_print(char **l);
                 _x &&strv_contains(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
-#define STARTSWITH_SET(p, ...)                             \
-        ({                                                 \
-                const char *_p = (p);                      \
-                char *_found = NULL, **_i;                 \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) { \
-                        _found = startswith(_p, *_i);      \
-                        if (_found)                        \
-                                break;                     \
-                }                                          \
-                _found;                                    \
+#define STARTSWITH_SET(p, ...)                              \
+        ({                                                  \
+                const char *_p = (p);                       \
+                char *_found = NULL, **_i;                  \
+                STRV_FOREACH (_i, STRV_MAKE(__VA_ARGS__)) { \
+                        _found = startswith(_p, *_i);       \
+                        if (_found)                         \
+                                break;                      \
+                }                                           \
+                _found;                                     \
         })
 
 #define FOREACH_STRING(x, ...)                            \

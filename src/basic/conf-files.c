@@ -23,7 +23,8 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static int files_add(Hashmap *h, Set *masked, const char *suffix, const char *root, unsigned flags, const char *path) {
+static int files_add(
+        Hashmap *h, Set *masked, const char *suffix, const char *root, unsigned flags, const char *path) {
 
         _cleanup_closedir_ DIR *dir = NULL;
         const char *dirpath;
@@ -64,10 +65,14 @@ static int files_add(Hashmap *h, Set *masked, const char *suffix, const char *ro
                         continue;
                 }
 
-                /* Read file metadata if we shall validate the check for file masks, for node types or whether the node is marked executable. */
-                if (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE))
+                /* Read file metadata if we shall validate the check for file masks, for node types or
+                 * whether the node is marked executable. */
+                if (flags &
+                    (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY |
+                     CONF_FILES_EXECUTABLE))
                         if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
-                                log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m", dirpath, de->d_name);
+                                log_debug_errno(
+                                        errno, "Failed to stat '%s/%s', ignoring: %m", dirpath, de->d_name);
                                 continue;
                         }
 
@@ -87,18 +92,23 @@ static int files_add(Hashmap *h, Set *masked, const char *suffix, const char *ro
                 if (flags & (CONF_FILES_REGULAR | CONF_FILES_DIRECTORY))
                         if (!((flags & CONF_FILES_DIRECTORY) && S_ISDIR(st.st_mode)) &&
                             !((flags & CONF_FILES_REGULAR) && S_ISREG(st.st_mode))) {
-                                log_debug("Ignoring '%s/%s', as it is not a of the right type.", dirpath, de->d_name);
+                                log_debug("Ignoring '%s/%s', as it is not a of the right type.",
+                                          dirpath,
+                                          de->d_name);
                                 continue;
                         }
 
                 /* Does this node have the executable bit set? */
                 if (flags & CONF_FILES_EXECUTABLE)
-                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
-                         * here, as we care about whether the file is marked executable at all, and not whether it is
-                         * executable for us, because if so, such errors are stuff we should log about. */
+                        /* As requested: check if the file is marked exectuable. Note that we don't check
+                         * access(X_OK) here, as we care about whether the file is marked executable at all,
+                         * and not whether it is executable for us, because if so, such errors are stuff we
+                         * should log about. */
 
                         if ((st.st_mode & 0111) == 0) { /* not executable */
-                                log_debug("Ignoring '%s/%s', as it is not marked executable.", dirpath, de->d_name);
+                                log_debug("Ignoring '%s/%s', as it is not marked executable.",
+                                          dirpath,
+                                          de->d_name);
                                 continue;
                         }
 
@@ -132,7 +142,8 @@ static int base_cmp(char *const *a, char *const *b) {
         return strcmp(basename(*a), basename(*b));
 }
 
-static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
+static int conf_files_list_strv_internal(
+        char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_free_ Set *masked = NULL;
         char **files, **p;
@@ -154,7 +165,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
                         return -ENOMEM;
         }
 
-        STRV_FOREACH(p, dirs) {
+        STRV_FOREACH (p, dirs) {
                 r = files_add(fh, masked, suffix, root, flags, *p);
                 if (r == -ENOMEM)
                         return r;
@@ -197,7 +208,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
 
                         /* Oh, there already is an entry with a matching name (the last component). */
 
-                        STRV_FOREACH(dir, dirs) {
+                        STRV_FOREACH (dir, dirs) {
                                 _cleanup_free_ char *rdir = NULL;
                                 char *p1, *p2;
 
@@ -243,7 +254,8 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         return r;
 }
 
-int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char *const *dirs) {
+int conf_files_list_strv(
+        char ***strv, const char *suffix, const char *root, unsigned flags, const char *const *dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(strv);
@@ -283,7 +295,8 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, u
         return conf_files_list_strv_internal(strv, suffix, root, flags, d);
 }
 
-int conf_files_list_with_replacement(const char *root, char **config_dirs, const char *replacement, char ***files, char **replace_file) {
+int conf_files_list_with_replacement(
+        const char *root, char **config_dirs, const char *replacement, char ***files, char **replace_file) {
 
         _cleanup_strv_free_ char **f = NULL;
         _cleanup_free_ char *p = NULL;

@@ -52,7 +52,8 @@ static void clock_state_release(ClockState *sp) {
 static int clock_state_update(ClockState *sp, sd_event *event);
 
 static int update_notify_run_systemd_timesync(ClockState *sp) {
-        sp->run_systemd_timesync_wd = inotify_add_watch(sp->inotify_fd, "/run/systemd/timesync", IN_CREATE | IN_DELETE_SELF);
+        sp->run_systemd_timesync_wd = inotify_add_watch(
+                sp->inotify_fd, "/run/systemd/timesync", IN_CREATE | IN_DELETE_SELF);
         return sp->run_systemd_timesync_wd;
 }
 
@@ -108,29 +109,30 @@ static int clock_state_update(ClockState *sp, sd_event *event) {
 
         clock_state_release_timerfd(sp);
 
-        /* The kernel supports cancelling timers whenever its realtime clock is "set" (which can happen in a variety of
-         * ways, generally adjustments of at least 500 ms). The way this module works is we set up a timerfd that will
-         * wake when the clock is set, and when that happens we read the clock synchronization state from the return
-         * value of adjtimex(2), which supports the NTP time adjustment protocol.
+        /* The kernel supports cancelling timers whenever its realtime clock is "set" (which can happen in a
+         * variety of ways, generally adjustments of at least 500 ms). The way this module works is we set up
+         * a timerfd that will wake when the clock is set, and when that happens we read the clock
+         * synchronization state from the return value of adjtimex(2), which supports the NTP time adjustment
+         * protocol.
          *
          * The kernel determines whether the clock is synchronized using driver-specific tests, based on time
-         * information passed by an application, generally through adjtimex(2). If the application asserts the clock is
-         * synchronized, but does not also do something that "sets the clock", the timer will not be cancelled and
-         * synchronization will not be detected.
+         * information passed by an application, generally through adjtimex(2). If the application asserts
+         * the clock is synchronized, but does not also do something that "sets the clock", the timer will
+         * not be cancelled and synchronization will not be detected.
          *
-         * Similarly, this service will never complete if the application sets the time without also providing
-         * information that adjtimex(2) can use to determine that the clock is synchronized. This generally doesn't
-         * happen, but can if the system has a hardware clock that is accurate enough that the adjustment is too small
-         * to be a "set".
+         * Similarly, this service will never complete if the application sets the time without also
+         * providing information that adjtimex(2) can use to determine that the clock is synchronized. This
+         * generally doesn't happen, but can if the system has a hardware clock that is accurate enough that
+         * the adjustment is too small to be a "set".
          *
          * Both these failure-to-detect situations are covered by having the presence/creation of
-         * /run/systemd/timesync/synchronized, which is considered sufficient to indicate a synchronized clock even if
-         * the kernel has not been updated.
+         * /run/systemd/timesync/synchronized, which is considered sufficient to indicate a synchronized
+         * clock even if the kernel has not been updated.
          *
-         * For timesyncd the initial setting of the time uses settimeofday(2), which sets the clock but does not mark
-         * it synchronized. When an NTP source is selected it sets the clock again with clock_adjtime(2) which marks it
-         * synchronized and also touches /run/systemd/timesync/synchronized which covers the case when the clock wasn't
-         * "set". */
+         * For timesyncd the initial setting of the time uses settimeofday(2), which sets the clock but does
+         * not mark it synchronized. When an NTP source is selected it sets the clock again with
+         * clock_adjtime(2) which marks it synchronized and also touches /run/systemd/timesync/synchronized
+         * which covers the case when the clock wasn't "set". */
 
         r = time_change_fd();
         if (r < 0) {
@@ -159,9 +161,10 @@ static int clock_state_update(ClockState *sp, sd_event *event) {
                 /* Presence of watch file overrides adjtime_state */
                 r = 0;
         else if (sp->adjtime_state == TIME_ERROR) {
-                /* Not synchronized.  Do a one-shot wait on the descriptor and inform the caller we need to keep
-                 * running. */
-                r = sd_event_add_io(event, &sp->timerfd_event_source, sp->timerfd_fd, EPOLLIN, timerfd_handler, sp);
+                /* Not synchronized.  Do a one-shot wait on the descriptor and inform the caller we need to
+                 * keep running. */
+                r = sd_event_add_io(
+                        event, &sp->timerfd_event_source, sp->timerfd_fd, EPOLLIN, timerfd_handler, sp);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create time change monitor source: %m");
                         goto finish;
@@ -211,7 +214,8 @@ static int run(int argc, char *argv[]) {
 
         state.inotify_fd = r;
 
-        r = sd_event_add_io(event, &state.inotify_event_source, state.inotify_fd, EPOLLIN, inotify_handler, &state);
+        r = sd_event_add_io(
+                event, &state.inotify_event_source, state.inotify_fd, EPOLLIN, inotify_handler, &state);
         if (r < 0)
                 return log_error_errno(r, "Failed to create notify event source: %m");
 

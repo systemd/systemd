@@ -85,7 +85,8 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                                 if (!(n[1] >= '0' && n[1] <= '9') || !(n[2] >= '0' && n[2] <= '9'))
                                         return -EINVAL;
 
-                                k = ((unsigned) (n[0] - '0') * 100) + ((unsigned) (n[1] - '0') * 10) + ((unsigned) (n[2] - '0'));
+                                k = ((unsigned) (n[0] - '0') * 100) + ((unsigned) (n[1] - '0') * 10) +
+                                        ((unsigned) (n[2] - '0'));
 
                                 /* Don't allow anything that doesn't
                                  * fit in 8bit. Note that we do allow
@@ -242,7 +243,8 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
 
                         sz -= 2;
 
-                } else if (IN_SET(*p, '_', '-') || (*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z')) {
+                } else if (IN_SET(*p, '_', '-') || (*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'z') ||
+                           (*p >= 'A' && *p <= 'Z')) {
 
                         /* Proper character */
 
@@ -492,7 +494,8 @@ void dns_name_hash_func(const char *p, struct siphash *state) {
 
                 ascii_strlower_n(label, r);
                 siphash24_compress(label, r, state);
-                siphash24_compress_byte(0, state); /* make sure foobar and foo.bar result in different hashes */
+                siphash24_compress_byte(0,
+                                        state); /* make sure foobar and foo.bar result in different hashes */
         }
 
         /* enforce that all names are terminated by the empty label */
@@ -713,40 +716,41 @@ int dns_name_reverse(int family, const union in_addr_union *a, char **ret) {
         if (family == AF_INET)
                 r = asprintf(ret, "%u.%u.%u.%u.in-addr.arpa", p[3], p[2], p[1], p[0]);
         else if (family == AF_INET6)
-                r = asprintf(ret,
-                             "%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.ip6.arpa",
-                             hexchar(p[15] & 0xF),
-                             hexchar(p[15] >> 4),
-                             hexchar(p[14] & 0xF),
-                             hexchar(p[14] >> 4),
-                             hexchar(p[13] & 0xF),
-                             hexchar(p[13] >> 4),
-                             hexchar(p[12] & 0xF),
-                             hexchar(p[12] >> 4),
-                             hexchar(p[11] & 0xF),
-                             hexchar(p[11] >> 4),
-                             hexchar(p[10] & 0xF),
-                             hexchar(p[10] >> 4),
-                             hexchar(p[9] & 0xF),
-                             hexchar(p[9] >> 4),
-                             hexchar(p[8] & 0xF),
-                             hexchar(p[8] >> 4),
-                             hexchar(p[7] & 0xF),
-                             hexchar(p[7] >> 4),
-                             hexchar(p[6] & 0xF),
-                             hexchar(p[6] >> 4),
-                             hexchar(p[5] & 0xF),
-                             hexchar(p[5] >> 4),
-                             hexchar(p[4] & 0xF),
-                             hexchar(p[4] >> 4),
-                             hexchar(p[3] & 0xF),
-                             hexchar(p[3] >> 4),
-                             hexchar(p[2] & 0xF),
-                             hexchar(p[2] >> 4),
-                             hexchar(p[1] & 0xF),
-                             hexchar(p[1] >> 4),
-                             hexchar(p[0] & 0xF),
-                             hexchar(p[0] >> 4));
+                r = asprintf(
+                        ret,
+                        "%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.ip6.arpa",
+                        hexchar(p[15] & 0xF),
+                        hexchar(p[15] >> 4),
+                        hexchar(p[14] & 0xF),
+                        hexchar(p[14] >> 4),
+                        hexchar(p[13] & 0xF),
+                        hexchar(p[13] >> 4),
+                        hexchar(p[12] & 0xF),
+                        hexchar(p[12] >> 4),
+                        hexchar(p[11] & 0xF),
+                        hexchar(p[11] >> 4),
+                        hexchar(p[10] & 0xF),
+                        hexchar(p[10] >> 4),
+                        hexchar(p[9] & 0xF),
+                        hexchar(p[9] >> 4),
+                        hexchar(p[8] & 0xF),
+                        hexchar(p[8] >> 4),
+                        hexchar(p[7] & 0xF),
+                        hexchar(p[7] >> 4),
+                        hexchar(p[6] & 0xF),
+                        hexchar(p[6] >> 4),
+                        hexchar(p[5] & 0xF),
+                        hexchar(p[5] >> 4),
+                        hexchar(p[4] & 0xF),
+                        hexchar(p[4] >> 4),
+                        hexchar(p[3] & 0xF),
+                        hexchar(p[3] >> 4),
+                        hexchar(p[2] & 0xF),
+                        hexchar(p[2] >> 4),
+                        hexchar(p[1] & 0xF),
+                        hexchar(p[1] >> 4),
+                        hexchar(p[0] & 0xF),
+                        hexchar(p[0] >> 4));
         else
                 return -EAFNOSUPPORT;
         if (r < 0)
@@ -790,7 +794,8 @@ int dns_name_address(const char *p, int *family, union in_addr_union *address) {
                         return r;
 
                 *family = AF_INET;
-                address->in.s_addr = htobe32(((uint32_t) a[3] << 24) | ((uint32_t) a[2] << 16) | ((uint32_t) a[1] << 8) | (uint32_t) a[0]);
+                address->in.s_addr = htobe32(((uint32_t) a[3] << 24) | ((uint32_t) a[2] << 16) |
+                                             ((uint32_t) a[1] << 8) | (uint32_t) a[0]);
 
                 return 1;
         }
@@ -1298,7 +1303,10 @@ int dns_name_apply_idna(const char *name, char **ret) {
                         }
 
                         if (!streq_ptr(name, s)) {
-                                log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.", name, t, s);
+                                log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.",
+                                          name,
+                                          t,
+                                          s);
                                 return 0;
                         }
                 }

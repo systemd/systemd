@@ -396,7 +396,9 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         }
 
                         if (ordered_hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
-                                log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
+                                log_error("%s: Detected collision for UID " UID_FMT ".",
+                                          passwd_path,
+                                          pw->pw_uid);
                                 return -EEXIST;
                         }
 
@@ -738,7 +740,8 @@ static int write_temporary_gshadow(const char *gshadow_path, FILE **tmpfile, cha
 
 static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
-        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL,
+                                         *gshadow_tmp = NULL;
         const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
         int r;
 
@@ -995,12 +998,15 @@ static int add_user(Item *i) {
                         else {
                                 r = uid_is_ok(c, i->name, true);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify uid " UID_FMT ": %m", i->uid);
+                                        return log_error_errno(
+                                                r, "Failed to verify uid " UID_FMT ": %m", i->uid);
                                 else if (r > 0) {
                                         i->uid = c;
                                         i->uid_set = true;
                                 } else
-                                        log_debug("User ID " UID_FMT " of file for %s is already used.", c, i->name);
+                                        log_debug("User ID " UID_FMT " of file for %s is already used.",
+                                                  c,
+                                                  i->name);
                         }
                 }
         }
@@ -1045,7 +1051,11 @@ static int add_user(Item *i) {
                 return log_oom();
 
         i->todo_user = true;
-        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".", i->name, strna(i->description), i->uid, i->gid);
+        log_info("Creating user %s (%s) with uid " UID_FMT " and gid " GID_FMT ".",
+                 i->name,
+                 strna(i->description),
+                 i->uid,
+                 i->gid);
 
         return 0;
 }
@@ -1114,7 +1124,8 @@ static int add_group(Item *i) {
                         return 0;
                 }
                 if (!IN_SET(errno, 0, ENOENT))
-                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
+                        return log_error_errno(
+                                errno, "Failed to check if group %s already exists: %m", i->name);
         }
 
         /* Try to use the suggested numeric gid */
@@ -1128,7 +1139,10 @@ static int add_group(Item *i) {
                          * r == 0: means the gid exists -> nothing more to do.
                          */
                         if (r > 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to create %s: please create GID %d", i->name, i->gid);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to create %s: please create GID %d",
+                                                       i->name,
+                                                       i->gid);
                         if (r == 0)
                                 return 0;
                 }
@@ -1160,12 +1174,15 @@ static int add_group(Item *i) {
                         else {
                                 r = gid_is_ok(c);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                                        return log_error_errno(
+                                                r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                                 else if (r > 0) {
                                         i->gid = c;
                                         i->gid_set = true;
                                 } else
-                                        log_debug("Group ID " GID_FMT " of file for %s already used.", c, i->name);
+                                        log_debug("Group ID " GID_FMT " of file for %s already used.",
+                                                  c,
+                                                  i->name);
                         }
                 }
         }
@@ -1254,7 +1271,8 @@ static Item *item_free(Item *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Item *, item_free);
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        item_hash_ops, char, string_hash_func, string_compare_func, Item, item_free);
 
 static int add_implicit(void) {
         char *g, **l;
@@ -1358,7 +1376,8 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
-DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char *, strv_free);
+DEFINE_PRIVATE_HASH_OPS_FULL(
+        members_hash_ops, char, string_hash_func, string_compare_func, free, char *, strv_free);
 
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
@@ -1370,8 +1389,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                                      { 'V', specifier_var_tmp_dir, NULL },
                                                      {} };
 
-        _cleanup_free_ char *action = NULL, *name = NULL, *resolved_name = NULL, *id = NULL, *resolved_id = NULL, *description = NULL,
-                            *resolved_description = NULL, *home = NULL, *resolved_home = NULL, *shell, *resolved_shell = NULL;
+        _cleanup_free_ char *action = NULL, *name = NULL, *resolved_name = NULL, *id = NULL,
+                            *resolved_id = NULL, *description = NULL, *resolved_description = NULL,
+                            *home = NULL, *resolved_home = NULL, *shell, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
@@ -1384,7 +1404,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = extract_many_words(&p, NULL, EXTRACT_QUOTES, &action, &name, &id, &description, &home, &shell, NULL);
+        r = extract_many_words(
+                &p, NULL, EXTRACT_QUOTES, &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return r;
@@ -1467,7 +1488,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (!valid_home(resolved_home)) {
-                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, resolved_home);
+                        log_error("[%s:%u] '%s' is not a valid home directory field.",
+                                  fname,
+                                  line,
+                                  resolved_home);
                         return -EINVAL;
                 }
         }
@@ -1498,7 +1522,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
 
                 if (!resolved_id) {
-                        log_error("[%s:%u] Lines of type 'r' require a ID range in the third field.", fname, line);
+                        log_error("[%s:%u] Lines of type 'r' require a ID range in the third field.",
+                                  fname,
+                                  line);
                         return -EINVAL;
                 }
 
@@ -1524,12 +1550,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 /* Try to extend an existing member or group item */
                 if (!name) {
-                        log_error("[%s:%u] Lines of type 'm' require a user name in the second field.", fname, line);
+                        log_error("[%s:%u] Lines of type 'm' require a user name in the second field.",
+                                  fname,
+                                  line);
                         return -EINVAL;
                 }
 
                 if (!resolved_id) {
-                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.", fname, line);
+                        log_error("[%s:%u] Lines of type 'm' require a group name in the third field.",
+                                  fname,
+                                  line);
                         return -EINVAL;
                 }
 
@@ -1585,7 +1615,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case ADD_USER:
                 if (!name) {
-                        log_error("[%s:%u] Lines of type 'u' require a user name in the second field.", fname, line);
+                        log_error("[%s:%u] Lines of type 'u' require a user name in the second field.",
+                                  fname,
+                                  line);
                         return -EINVAL;
                 }
 
@@ -1629,7 +1661,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case ADD_GROUP:
                 if (!name) {
-                        log_error("[%s:%u] Lines of type 'g' require a user name in the second field.", fname, line);
+                        log_error("[%s:%u] Lines of type 'g' require a user name in the second field.",
+                                  fname,
+                                  line);
                         return -EINVAL;
                 }
 
@@ -1748,7 +1782,8 @@ static int cat_config(void) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
+        r = conf_files_list_with_replacement(
+                arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
         if (r < 0)
                 return r;
 
@@ -1829,8 +1864,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REPLACE:
                         if (!path_is_absolute(optarg) || !endswith(optarg, ".conf"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The argument to --replace= must an absolute path to a config file");
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "The argument to --replace= must an absolute path to a config file");
 
                         arg_replace = optarg;
                         break;
@@ -1851,10 +1887,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_replace && arg_cat_config)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --replace= is not supported with --cat-config");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --replace= is not supported with --cat-config");
 
         if (arg_replace && optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When --replace= is given, some configuration items must be specified");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "When --replace= is given, some configuration items must be specified");
 
         return 1;
 }
@@ -1940,13 +1978,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
-         * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though
-         * nss-systemd synthesizes these users/groups, they should still appear in /etc/passwd and /etc/group, as the
-         * synthesizing logic is merely supposed to be fallback for cases where we run with a completely unpopulated
-         * /etc. */
+        /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our
+         * detection whether the names or UID/GID area already used otherwise doesn't get confused. After
+         * all, even though nss-systemd synthesizes these users/groups, they should still appear in
+         * /etc/passwd and /etc/group, as the synthesizing logic is merely supposed to be fallback for cases
+         * where we run with a completely unpopulated /etc. */
         if (setenv("SYSTEMD_NSS_BYPASS_SYNTHETIC", "1", 1) < 0)
-                return log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
+                return log_error_errno(errno,
+                                       "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
 
         if (!uid_range) {
                 /* Default to default range of 1..SYSTEM_UID_MAX */

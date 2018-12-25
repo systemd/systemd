@@ -104,21 +104,21 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
 
 static bool is_root_cgroup(const char *path) {
 
-        /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on cgroupsv2 as it
-         * carries only very few attributes in order not to export multiple truth about system state as most
-         * information is available elsewhere in /proc anyway. We need to be able to deal with that, and need to get
-         * our data from different sources in that case.
+        /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on
+         * cgroupsv2 as it carries only very few attributes in order not to export multiple truth about
+         * system state as most information is available elsewhere in /proc anyway. We need to be able to
+         * deal with that, and need to get our data from different sources in that case.
          *
-         * There's one extra complication in all of this, though 😣: if the path to the cgroup indicates we are in the
-         * root cgroup this might actually not be the case, because cgroup namespacing might be in effect
-         * (CLONE_NEWCGROUP). Since there's no nice way to distuingish a real cgroup root from a fake namespaced one we
-         * do an explicit container check here, under the assumption that CLONE_NEWCGROUP is generally used when
-         * container managers are used too.
+         * There's one extra complication in all of this, though 😣: if the path to the cgroup indicates we
+         * are in the root cgroup this might actually not be the case, because cgroup namespacing might be in
+         * effect (CLONE_NEWCGROUP). Since there's no nice way to distuingish a real cgroup root from a fake
+         * namespaced one we do an explicit container check here, under the assumption that CLONE_NEWCGROUP
+         * is generally used when container managers are used too.
          *
-         * Note that checking for a container environment is kinda ugly, since in theory people could use cgtop from
-         * inside a container where cgroup namespacing is turned off to watch the host system. However, that's mostly a
-         * theoretic usecase, and if people actually try all they'll lose is accounting for the top-level cgroup. Which
-         * isn't too bad. */
+         * Note that checking for a container environment is kinda ugly, since in theory people could use
+         * cgtop from inside a container where cgroup namespacing is turned off to watch the host system.
+         * However, that's mostly a theoretic usecase, and if people actually try all they'll lose is
+         * accounting for the top-level cgroup. Which isn't too bad. */
 
         if (detect_container() > 0)
                 return false;
@@ -126,7 +126,8 @@ static bool is_root_cgroup(const char *path) {
         return empty_or_root(path);
 }
 
-static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration, Group **ret) {
+static int process(
+        const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration, Group **ret) {
 
         Group *g;
         int r, all_unified;
@@ -167,7 +168,8 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) &&
+            IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
@@ -410,7 +412,13 @@ static int process(const char *controller, const char *path, Hashmap *a, Hashmap
         return 0;
 }
 
-static int refresh_one(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration, unsigned depth, Group **ret) {
+static int refresh_one(const char *controller,
+                       const char *path,
+                       Hashmap *a,
+                       Hashmap *b,
+                       unsigned iteration,
+                       unsigned depth,
+                       Group **ret) {
 
         _cleanup_closedir_ DIR *d = NULL;
         Group *ours = NULL;
@@ -453,8 +461,8 @@ static int refresh_one(const char *controller, const char *path, Hashmap *a, Has
                 if (r < 0)
                         return r;
 
-                if (arg_recursive && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) && child && child->n_tasks_valid &&
-                    streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                if (arg_recursive && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES) &&
+                    child && child->n_tasks_valid && streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
 
                         /* Recursively sum up processes */
 
@@ -622,7 +630,8 @@ static void display(Hashmap *a) {
                        "Control Group",
                        arg_order == ORDER_PATH ? off : "",
                        arg_order == ORDER_TASKS ? on : "",
-                       arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
+                       arg_count == COUNT_PIDS ? "Tasks" :
+                                                 arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",
                        arg_order == ORDER_TASKS ? off : "",
                        arg_order == ORDER_CPU ? on : "",
                        buffer,
@@ -664,7 +673,10 @@ static void display(Hashmap *a) {
                         else
                                 fputs("      -", stdout);
                 } else
-                        printf(" %*s", maxtcpu, format_timespan(buffer, sizeof(buffer), (usec_t)(g->cpu_usage / NSEC_PER_USEC), 0));
+                        printf(" %*s",
+                               maxtcpu,
+                               format_timespan(
+                                       buffer, sizeof(buffer), (usec_t)(g->cpu_usage / NSEC_PER_USEC), 0));
 
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->memory_valid, g->memory));
                 printf(" %8s", maybe_format_bytes(buffer, sizeof(buffer), g->io_valid, g->io_input_bps));
@@ -756,7 +768,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 else if (streq(optarg, "percentage"))
                                         arg_cpu_type = CPU_PERCENT;
                                 else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --cpu=: %s", optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown argument to --cpu=: %s",
+                                                               optarg);
                         } else
                                 arg_cpu_type = CPU_TIME;
 
@@ -774,14 +788,16 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse delay parameter '%s': %m", optarg);
                         if (arg_delay <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid delay parameter '%s'", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Invalid delay parameter '%s'", optarg);
 
                         break;
 
                 case 'n':
                         r = safe_atou(optarg, &arg_iterations);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse iterations parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse iterations parameter '%s': %m", optarg);
 
                         break;
 
@@ -829,7 +845,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "io"))
                                 arg_order = ORDER_IO;
                         else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid argument to --order=: %s", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Invalid argument to --order=: %s", optarg);
                         break;
 
                 case 'k':
@@ -843,7 +860,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_RECURSIVE:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --recursive= argument '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --recursive= argument '%s': %m", optarg);
 
                         arg_recursive = r;
                         arg_recursive_unset = r == 0;
@@ -877,7 +895,8 @@ static const char *counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare_func, Group, group_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        group_hash_ops, char, path_hash_func, path_compare_func, Group, group_free);
 
 static int run(int argc, char *argv[]) {
         _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
@@ -902,7 +921,8 @@ static int run(int argc, char *argv[]) {
         arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
         if (arg_recursive_unset && arg_count == COUNT_PIDS) {
-                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
+                log_error(
+                        "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
                 return -EINVAL;
         }
 
@@ -1010,7 +1030,8 @@ static int run(int argc, char *argv[]) {
                         break;
 
                 case 'P':
-                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES : COUNT_PIDS;
+                        arg_count = arg_count != COUNT_USERSPACE_PROCESSES ? COUNT_USERSPACE_PROCESSES :
+                                                                             COUNT_PIDS;
                         fprintf(stdout, "\nCounting: %s.", counting_what());
                         fflush(stdout);
                         sleep(1);
@@ -1018,7 +1039,8 @@ static int run(int argc, char *argv[]) {
 
                 case 'r':
                         if (arg_count == COUNT_PIDS)
-                                fprintf(stdout, "\n\aCannot toggle recursive counting, not available in task counting mode.");
+                                fprintf(stdout,
+                                        "\n\aCannot toggle recursive counting, not available in task counting mode.");
                         else {
                                 arg_recursive = !arg_recursive;
                                 fprintf(stdout, "\nRecursive process counting: %s", yes_no(arg_recursive));
@@ -1033,7 +1055,9 @@ static int run(int argc, char *argv[]) {
                         else
                                 arg_delay += USEC_PER_SEC;
 
-                        fprintf(stdout, "\nIncreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
+                        fprintf(stdout,
+                                "\nIncreased delay to %s.",
+                                format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -1046,7 +1070,9 @@ static int run(int argc, char *argv[]) {
                         else
                                 arg_delay -= USEC_PER_SEC;
 
-                        fprintf(stdout, "\nDecreased delay to %s.", format_timespan(h, sizeof(h), arg_delay, 0));
+                        fprintf(stdout,
+                                "\nDecreased delay to %s.",
+                                format_timespan(h, sizeof(h), arg_delay, 0));
                         fflush(stdout);
                         sleep(1);
                         break;
@@ -1058,10 +1084,11 @@ static int run(int argc, char *argv[]) {
 #define OFF ANSI_NORMAL
 
                         fprintf(stdout,
-                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF "> By CPU; <" ON "m" OFF
-                                "> By memory; <" ON "i" OFF
+                                "\t<" ON "p" OFF "> By path; <" ON "t" OFF "> By tasks/procs; <" ON "c" OFF
+                                "> By CPU; <" ON "m" OFF "> By memory; <" ON "i" OFF
                                 "> By I/O\n"
-                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF "> Toggle time; <" ON "SPACE" OFF
+                                "\t<" ON "+" OFF "> Inc. delay; <" ON "-" OFF "> Dec. delay; <" ON "%%" OFF
+                                "> Toggle time; <" ON "SPACE" OFF
                                 "> Refresh\n"
                                 "\t<" ON "P" OFF "> Toggle count userspace processes; <" ON "k" OFF
                                 "> Toggle count all processes\n"

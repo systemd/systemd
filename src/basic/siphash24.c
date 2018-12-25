@@ -95,7 +95,10 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
                 printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t)(state->v1 >> 32), (uint32_t) state->v1);
                 printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t)(state->v2 >> 32), (uint32_t) state->v2);
                 printf("(%3zu) v3 %08x %08x\n", state->inlen, (uint32_t)(state->v3 >> 32), (uint32_t) state->v3);
-                printf("(%3zu) compress padding %08x %08x\n", state->inlen, (uint32_t)(state->padding >> 32), (uint32_t) state->padding);
+                printf("(%3zu) compress padding %08x %08x\n",
+                       state->inlen,
+                       (uint32_t)(state->padding >> 32),
+                       (uint32_t) state->padding);
 #endif
 
                 state->v3 ^= state->padding;
@@ -163,7 +166,10 @@ uint64_t siphash24_finalize(struct siphash *state) {
         printf("(%3zu) v1 %08x %08x\n", state->inlen, (uint32_t)(state->v1 >> 32), (uint32_t) state->v1);
         printf("(%3zu) v2 %08x %08x\n", state->inlen, (uint32_t)(state->v2 >> 32), (uint32_t) state->v2);
         printf("(%3zu) v3 %08x %08x\n", state->inlen, (uint32_t)(state->v3 >> 32), (uint32_t) state->v3);
-        printf("(%3zu) padding   %08x %08x\n", state->inlen, (uint32_t)(state->padding >> 32), (uint32_t) state->padding);
+        printf("(%3zu) padding   %08x %08x\n",
+               state->inlen,
+               (uint32_t)(state->padding >> 32),
+               (uint32_t) state->padding);
 #endif
 
         state->v3 ^= b;

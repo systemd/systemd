@@ -18,7 +18,8 @@ UINT64 ticks_freq(void);
 UINT64 time_usec(void);
 
 EFI_STATUS efivar_set(const CHAR16 *name, const CHAR16 *value, BOOLEAN persistent);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent);
+EFI_STATUS efivar_set_raw(
+        const EFI_GUID *vendor, const CHAR16 *name, const VOID *buf, UINTN size, BOOLEAN persistent);
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent);
 VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec);
 
@@ -30,7 +31,8 @@ CHAR8 *strchra(CHAR8 *s, CHAR8 c);
 CHAR16 *stra_to_path(CHAR8 *stra);
 CHAR16 *stra_to_str(CHAR8 *stra);
 
-EFI_STATUS file_read(EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
+EFI_STATUS file_read(
+        EFI_FILE_HANDLE dir, const CHAR16 *name, UINTN off, UINTN size, CHAR8 **content, UINTN *content_size);
 
 static inline void FreePoolp(void *p) {
         void *q = *(void **) p;

@@ -20,7 +20,8 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
-int bus_image_common_get_os_release(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_get_os_release(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         int r;
 
@@ -32,8 +33,14 @@ int bus_image_common_get_os_release(Manager *m, sd_bus_message *message, const c
                 m = image->userdata;
         }
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_BY_PATH, "org.freedesktop.portable1.inspect-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_BY_PATH,
+                              "org.freedesktop.portable1.inspect-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0) /* Will call us back */
@@ -75,7 +82,8 @@ static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         return sd_bus_message_append_array(m, 'y', buf, n);
 }
 
-int bus_image_common_get_metadata(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_get_metadata(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
@@ -97,8 +105,14 @@ int bus_image_common_get_metadata(Manager *m, sd_bus_message *message, const cha
         if (r < 0)
                 return r;
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_BY_PATH, "org.freedesktop.portable1.inspect-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_BY_PATH,
+                              "org.freedesktop.portable1.inspect-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0) /* Will call us back */
@@ -174,7 +188,8 @@ static int bus_image_method_get_state(sd_bus_message *message, void *userdata, s
         return sd_bus_reply_method_return(message, "s", portable_state_to_string(state));
 }
 
-int bus_image_common_attach(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_attach(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         _cleanup_strv_free_ char **matches = NULL;
         PortableChange *changes = NULL;
@@ -204,19 +219,27 @@ int bus_image_common_attach(Manager *m, sd_bus_message *message, const char *nam
         else if (streq(copy_mode, "copy"))
                 flags |= PORTABLE_PREFER_COPY;
         else if (!isempty(copy_mode))
-                return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
+                return sd_bus_reply_method_errorf(
+                        message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
 
         if (runtime)
                 flags |= PORTABLE_RUNTIME;
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_ALL, "org.freedesktop.portable1.attach-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_ALL,
+                              "org.freedesktop.portable1.attach-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0) /* Will call us back */
                 return 1;
 
-        r = portable_attach(sd_bus_message_get_bus(message), image->path, matches, profile, flags, &changes, &n_changes, error);
+        r = portable_attach(
+                sd_bus_message_get_bus(message), image->path, matches, profile, flags, &changes, &n_changes, error);
         if (r < 0)
                 goto finish;
 
@@ -247,14 +270,25 @@ static int bus_image_method_detach(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.portable1.attach-images", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.portable1.attach-images",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = portable_detach(sd_bus_message_get_bus(message), image->path, runtime ? PORTABLE_RUNTIME : 0, &changes, &n_changes, error);
+        r = portable_detach(sd_bus_message_get_bus(message),
+                            image->path,
+                            runtime ? PORTABLE_RUNTIME : 0,
+                            &changes,
+                            &n_changes,
+                            error);
         if (r < 0)
                 goto finish;
 
@@ -265,7 +299,8 @@ finish:
         return r;
 }
 
-int bus_image_common_remove(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_remove(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_(sigkill_waitp) pid_t child = 0;
@@ -283,8 +318,14 @@ int bus_image_common_remove(Manager *m, sd_bus_message *message, const char *nam
         if (m->n_operations >= OPERATIONS_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing operations.");
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_ALL, "org.freedesktop.portable1.manage-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_ALL,
+                              "org.freedesktop.portable1.manage-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -295,7 +336,8 @@ int bus_image_common_remove(Manager *m, sd_bus_message *message, const char *nam
                 return r;
 
         if (state != PORTABLE_DETACHED)
-                return sd_bus_error_set_errnof(error, EBUSY, "Image '%s' is not detached, refusing.", image->path);
+                return sd_bus_error_set_errnof(
+                        error, EBUSY, "Image '%s' is not detached, refusing.", image->path);
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
@@ -331,7 +373,8 @@ static int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_b
         return bus_image_common_remove(NULL, message, NULL, userdata, error);
 }
 
-int bus_image_common_mark_read_only(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_mark_read_only(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         int r, read_only;
 
@@ -347,8 +390,14 @@ int bus_image_common_mark_read_only(Manager *m, sd_bus_message *message, const c
         if (r < 0)
                 return r;
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_ALL, "org.freedesktop.portable1.manage-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_ALL,
+                              "org.freedesktop.portable1.manage-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -365,7 +414,8 @@ static int bus_image_method_mark_read_only(sd_bus_message *message, void *userda
         return bus_image_common_mark_read_only(NULL, message, NULL, userdata, error);
 }
 
-int bus_image_common_set_limit(Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
+int bus_image_common_set_limit(
+        Manager *m, sd_bus_message *message, const char *name_or_path, Image *image, sd_bus_error *error) {
 
         uint64_t limit;
         int r;
@@ -384,8 +434,14 @@ int bus_image_common_set_limit(Manager *m, sd_bus_message *message, const char *
         if (!FILE_SIZE_VALID_OR_INFINITY(limit))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "New limit out of range");
 
-        r = bus_image_acquire(
-                m, message, name_or_path, image, BUS_IMAGE_AUTHENTICATE_ALL, "org.freedesktop.portable1.manage-images", &image, error);
+        r = bus_image_acquire(m,
+                              message,
+                              name_or_path,
+                              image,
+                              BUS_IMAGE_AUTHENTICATE_ALL,
+                              "org.freedesktop.portable1.manage-images",
+                              &image,
+                              error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -414,8 +470,10 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("Limit", "t", NULL, offsetof(Image, limit), 0),
         SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
         SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
-        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMedatadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetMedatadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetState", NULL, "s", bus_image_method_get_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Attach", "assbs", "a(sss)", bus_image_method_attach, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Detach", "b", "a(sss)", bus_image_method_detach, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -459,7 +517,8 @@ int bus_image_acquire(Manager *m,
         /* Acquires an 'Image' object if not acquired yet, and enforces necessary authentication while doing so. */
 
         if (mode == BUS_IMAGE_AUTHENTICATE_ALL) {
-                r = bus_verify_polkit_async(message, CAP_SYS_ADMIN, polkit_action, NULL, false, UID_INVALID, &m->polkit_registry, error);
+                r = bus_verify_polkit_async(
+                        message, CAP_SYS_ADMIN, polkit_action, NULL, false, UID_INVALID, &m->polkit_registry, error);
                 if (r < 0)
                         return r;
                 if (r == 0) { /* Will call us back */
@@ -486,25 +545,39 @@ int bus_image_acquire(Manager *m,
                 /* If it's a short name, let's search for it */
                 r = image_find(IMAGE_PORTABLE, name_or_path, &loaded);
                 if (r == -ENOENT)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE, "No image '%s' found.", name_or_path);
+                        return sd_bus_error_setf(
+                                error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE, "No image '%s' found.", name_or_path);
 
                 /* other errors are handled below… */
         } else {
                 /* Don't accept path if this is always forbidden */
                 if (mode == BUS_IMAGE_REFUSE_BY_PATH)
-                        return sd_bus_error_setf(
-                                error, SD_BUS_ERROR_INVALID_ARGS, "Expected image name, not path in place of '%s'.", name_or_path);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Expected image name, not path in place of '%s'.",
+                                                 name_or_path);
 
                 if (!path_is_absolute(name_or_path))
-                        return sd_bus_error_setf(
-                                error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is not valid or not a valid path.", name_or_path);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image name '%s' is not valid or not a valid path.",
+                                                 name_or_path);
 
                 if (!path_is_normalized(name_or_path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image path '%s' is not normalized.", name_or_path);
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image path '%s' is not normalized.",
+                                                 name_or_path);
 
                 if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
-                        r = bus_verify_polkit_async(
-                                message, CAP_SYS_ADMIN, polkit_action, NULL, false, UID_INVALID, &m->polkit_registry, error);
+                        r = bus_verify_polkit_async(message,
+                                                    CAP_SYS_ADMIN,
+                                                    polkit_action,
+                                                    NULL,
+                                                    false,
+                                                    UID_INVALID,
+                                                    &m->polkit_registry,
+                                                    error);
                         if (r < 0)
                                 return r;
                         if (r == 0) { /* Will call us back */
@@ -526,9 +599,9 @@ int bus_image_acquire(Manager *m,
         if (r < 0)
                 return r;
 
-        /* Add what we just loaded to the cache. This has as side-effect that the object stays in memory until the
-         * cache is purged again, i.e. at least for the current event loop iteration, which is all we need, and which
-         * means we don't actually need to ref the return object. */
+        /* Add what we just loaded to the cache. This has as side-effect that the object stays in memory
+         * until the cache is purged again, i.e. at least for the current event loop iteration, which is all
+         * we need, and which means we don't actually need to ref the return object. */
         r = manager_image_cache_add(m, loaded);
         if (r < 0)
                 return r;
@@ -537,7 +610,12 @@ int bus_image_acquire(Manager *m,
         return 1;
 }
 
-int bus_image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int bus_image_object_find(sd_bus *bus,
+                          const char *path,
+                          const char *interface,
+                          void *userdata,
+                          void **found,
+                          sd_bus_error *error) {
 
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
@@ -555,7 +633,8 @@ int bus_image_object_find(sd_bus *bus, const char *path, const char *interface, 
         if (r == 0)
                 goto not_found;
 
-        r = bus_image_acquire(m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
+        r = bus_image_acquire(
+                m, sd_bus_get_current_message(bus), e, NULL, BUS_IMAGE_REFUSE_BY_PATH, NULL, &image, error);
         if (r == -ENOENT)
                 goto not_found;
         if (r < 0)

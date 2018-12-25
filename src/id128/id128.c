@@ -26,7 +26,9 @@ static int verb_machine_id(int argc, char **argv, void *userdata) {
         else
                 r = sd_id128_get_machine_app_specific(arg_app, &id);
         if (r < 0)
-                return log_error_errno(r, "Failed to get %smachine-ID: %m", sd_id128_is_null(arg_app) ? "" : "app-specific ");
+                return log_error_errno(r,
+                                       "Failed to get %smachine-ID: %m",
+                                       sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
         return id128_pretty_print(id, arg_pretty);
 }
@@ -40,7 +42,8 @@ static int verb_boot_id(int argc, char **argv, void *userdata) {
         else
                 r = sd_id128_get_boot_app_specific(arg_app, &id);
         if (r < 0)
-                return log_error_errno(r, "Failed to get %sboot-ID: %m", sd_id128_is_null(arg_app) ? "" : "app-specific ");
+                return log_error_errno(
+                        r, "Failed to get %sboot-ID: %m", sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
         return id128_pretty_print(id, arg_pretty);
 }
@@ -50,7 +53,8 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         int r;
 
         if (!sd_id128_is_null(arg_app))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Verb \"invocation-id\" cannot be combined with --app-specific=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb \"invocation-id\" cannot be combined with --app-specific=.");
 
         r = sd_id128_get_invocation(&id);
         if (r < 0)
@@ -123,7 +127,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'a':
                         r = sd_id128_from_string(optarg, &arg_app);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse \"%s\" as application-ID: %m", optarg);
                         break;
 
                 case '?':
@@ -137,9 +142,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int id128_main(int argc, char *argv[]) {
-        static const Verb verbs[] = { { "new", VERB_ANY, 1, 0, verb_new },          { "machine-id", VERB_ANY, 1, 0, verb_machine_id },
-                                      { "boot-id", VERB_ANY, 1, 0, verb_boot_id },  { "invocation-id", VERB_ANY, 1, 0, verb_invocation_id },
-                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help }, {} };
+        static const Verb verbs[] = { { "new", VERB_ANY, 1, 0, verb_new },
+                                      { "machine-id", VERB_ANY, 1, 0, verb_machine_id },
+                                      { "boot-id", VERB_ANY, 1, 0, verb_boot_id },
+                                      { "invocation-id", VERB_ANY, 1, 0, verb_invocation_id },
+                                      { "help", VERB_ANY, VERB_ANY, 0, verb_help },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

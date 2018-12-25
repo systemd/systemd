@@ -39,7 +39,13 @@ int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, siz
 int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p);
 
 int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *part_uuid, char **path, bool *active);
-int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path);
+int efi_add_boot_option(uint16_t id,
+                        const char *title,
+                        uint32_t part,
+                        uint64_t pstart,
+                        uint64_t psize,
+                        sd_id128_t part_uuid,
+                        const char *path);
 int efi_remove_boot_option(uint16_t id);
 int efi_get_boot_order(uint16_t **order);
 int efi_set_boot_order(uint16_t *order, size_t n);
@@ -80,7 +86,8 @@ static inline int efi_set_reboot_to_firmware(bool value) {
         return -EOPNOTSUPP;
 }
 
-static inline int efi_get_variable(sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
+static inline int efi_get_variable(
+        sd_id128_t vendor, const char *name, uint32_t *attribute, void **value, size_t *size) {
         return -EOPNOTSUPP;
 }
 
@@ -96,12 +103,18 @@ static inline int efi_set_variable_string(sd_id128_t vendor, const char *name, c
         return -EOPNOTSUPP;
 }
 
-static inline int efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *part_uuid, char **path, bool *active) {
+static inline int
+        efi_get_boot_option(uint16_t nr, char **title, sd_id128_t *part_uuid, char **path, bool *active) {
         return -EOPNOTSUPP;
 }
 
-static inline int efi_add_boot_option(
-        uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path) {
+static inline int efi_add_boot_option(uint16_t id,
+                                      const char *title,
+                                      uint32_t part,
+                                      uint64_t pstart,
+                                      uint64_t psize,
+                                      sd_id128_t part_uuid,
+                                      const char *path) {
         return -EOPNOTSUPP;
 }
 

@@ -48,8 +48,10 @@ static int setup_mount_namespace(void) {
 static int setup_fake_filesystems(const char *runtime_dir) {
         for (unsigned i = 0; i < ELEMENTSOF(fakefss); i++) {
                 if (mount(runtime_dir, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
-                        log_full_errno(
-                                fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "Failed to mount %s: %m", fakefss[i].target);
+                        log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR,
+                                       errno,
+                                       "Failed to mount %s: %m",
+                                       fakefss[i].target);
                         if (!fakefss[i].ignore_mount_error)
                                 return -errno;
                 } else
@@ -65,8 +67,10 @@ static int cleanup_fake_filesystems(const char *runtime_dir) {
                         continue;
 
                 if (umount(fakefss[i].target) < 0) {
-                        log_full_errno(
-                                fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "Failed to umount %s: %m", fakefss[i].target);
+                        log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR,
+                                       errno,
+                                       "Failed to umount %s: %m",
+                                       fakefss[i].target);
                         if (!fakefss[i].ignore_mount_error)
                                 return -errno;
                 } else

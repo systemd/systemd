@@ -87,9 +87,10 @@ static int acquire_esp(void) {
 
         r = find_esp_and_warn(arg_path, false, &np, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn in this one error case, but in all others */
-                return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
-                                       "Alternatively, use --path= to specify path to mount point.");
+                return log_error_errno(
+                        r,
+                        "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
+                        "Alternatively, use --path= to specify path to mount point.");
         if (r < 0)
                 return r;
 
@@ -117,12 +118,15 @@ static int parse_counter(const char *path, const char **p, uint64_t *ret_left, u
 
         k = strspn(e, DIGITS);
         if (k == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Can't parse empty 'tries left' counter from LoaderBootCountPath: %s",
+                                       path);
 
         z = strndupa(e, k);
         r = safe_atou64(z, &left);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse 'tries left' counter from LoaderBootCountPath: %s", path);
+                return log_error_errno(
+                        r, "Failed to parse 'tries left' counter from LoaderBootCountPath: %s", path);
 
         e += k;
 
@@ -132,12 +136,15 @@ static int parse_counter(const char *path, const char **p, uint64_t *ret_left, u
                 k = strspn(e, DIGITS);
                 if (k == 0) /* If there's a "-" there also needs to be at least one digit */
                         return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL), "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s", path);
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Can't parse empty 'tries done' counter from LoaderBootCountPath: %s",
+                                path);
 
                 z = strndupa(e, k);
                 r = safe_atou64(z, &done);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse 'tries done' counter from LoaderBootCountPath: %s", path);
+                        return log_error_errno(
+                                r, "Failed to parse 'tries done' counter from LoaderBootCountPath: %s", path);
 
                 e += k;
         } else
@@ -158,7 +165,8 @@ static int parse_counter(const char *path, const char **p, uint64_t *ret_left, u
         return 0;
 }
 
-static int acquire_boot_count_path(char **ret_path, char **ret_prefix, uint64_t *ret_left, uint64_t *ret_done, char **ret_suffix) {
+static int acquire_boot_count_path(
+        char **ret_path, char **ret_prefix, uint64_t *ret_left, uint64_t *ret_done, char **ret_suffix) {
 
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL;
         const char *last, *e;
@@ -174,16 +182,22 @@ static int acquire_boot_count_path(char **ret_path, char **ret_prefix, uint64_t 
         efi_tilt_backslashes(path);
 
         if (!path_is_normalized(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath is not normalized, refusing: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path read from LoaderBootCountPath is not normalized, refusing: %s",
+                                       path);
 
         if (!path_is_absolute(path))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath is not absolute, refusing: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path read from LoaderBootCountPath is not absolute, refusing: %s",
+                                       path);
 
         last = last_path_component(path);
         e = strrchr(last, '+');
         if (!e)
                 return log_error_errno(
-                        SYNTHETIC_ERRNO(EINVAL), "Path read from LoaderBootCountPath does not contain a counter, refusing: %s", path);
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "Path read from LoaderBootCountPath does not contain a counter, refusing: %s",
+                        path);
 
         if (ret_prefix) {
                 prefix = strndup(path, e - path);
@@ -222,9 +236,10 @@ static int make_good(const char *prefix, const char *suffix, char **ret) {
         assert(suffix);
         assert(ret);
 
-        /* Generate the path we'd use on good boots. This one is easy. If we are successful, we simple drop the counter
-         * pair entirely from the name. After all, we know all is good, and the logs will contain information about the
-         * tries we needed to come here, hence it's safe to drop the counters from the name. */
+        /* Generate the path we'd use on good boots. This one is easy. If we are successful, we simple drop
+         * the counter pair entirely from the name. After all, we know all is good, and the logs will contain
+         * information about the tries we needed to come here, hence it's safe to drop the counters from the
+         * name. */
 
         good = strjoin(prefix, suffix);
         if (!good)
@@ -241,8 +256,8 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         assert(suffix);
         assert(ret);
 
-        /* Generate the path we'd use on bad boots. Let's simply set the 'left' counter to zero, and keep the 'done'
-         * counter. The information might be interesting to boot loaders, after all. */
+        /* Generate the path we'd use on bad boots. Let's simply set the 'left' counter to zero, and keep the
+         * 'done' counter. The information might be interesting to boot loaders, after all. */
 
         if (done == 0) {
                 bad = strjoin(prefix, "+0", suffix);
@@ -272,8 +287,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
-        if (r ==
-            -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good", "bad" or "indeterminate" don't apply. */
+        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good",
+                                "bad" or "indeterminate" don't apply. */
                 puts("clean");
                 return 0;
         }
@@ -338,7 +353,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_set(int argc, char *argv[], void *userdata) {
-        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL, *parent = NULL;
+        _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL,
+                            *parent = NULL;
         const char *target, *source1, *source2;
         _cleanup_close_ int fd = -1;
         uint64_t done;
@@ -392,7 +408,8 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                         goto exists;
                 else if (r == -ENOENT) {
 
-                        if (access(target, F_OK) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
+                        if (access(target, F_OK) >=
+                            0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
                                 goto exists;
 
                         return log_error_errno(r, "Can't find boot counter source file for '%s': %m", target);
@@ -447,10 +464,12 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (detect_container() > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Marking a boot is not supported in containers.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is not supported in containers.");
 
         if (!is_efi_boot())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Marking a boot is only supported on EFI systems.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Marking a boot is only supported on EFI systems.");
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

@@ -71,9 +71,9 @@ int stub_pid1(sd_id128_t uuid) {
         close_all_fds(NULL, 0);
         log_open();
 
-        /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
-         * set $container= and $container_uuid= so that clients in the container that query it from /proc/1/environ
-         * find them set. */
+        /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the
+         * container. Also, set $container= and $container_uuid= so that clients in the container that query
+         * it from /proc/1/environ find them set. */
         sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
         reset_environ(new_environment, sizeof(new_environment));
 
@@ -93,8 +93,8 @@ int stub_pid1(sd_id128_t uuid) {
                                   SIGRTMIN + 16, /* systemd: kexec */
                                   -1) >= 0);
 
-        /* Note that we ignore SIGTERM (sysv's reexec), SIGHUP (reload), and all other signals here, since we don't
-         * support reexec/reloading in this stub process. */
+        /* Note that we ignore SIGTERM (sysv's reexec), SIGHUP (reload), and all other signals here, since we
+         * don't support reexec/reloading in this stub process. */
 
         for (;;) {
                 siginfo_t si;
@@ -139,7 +139,8 @@ int stub_pid1(sd_id128_t uuid) {
                         r = sigtimedwait(&waitmask, &si, timespec_store(&ts, quit_usec - current_usec));
                 }
                 if (r < 0) {
-                        if (errno == EINTR) /* strace -p attach can result in EINTR, let's handle this nicely. */
+                        if (errno ==
+                            EINTR) /* strace -p attach can result in EINTR, let's handle this nicely. */
                                 continue;
                         if (errno == EAGAIN) /* timeout reached */
                                 continue;
@@ -154,10 +155,11 @@ int stub_pid1(sd_id128_t uuid) {
                 if (state != STATE_RUNNING)
                         continue;
 
-                /* Would love to use a switch() statement here, but SIGRTMIN is actually a function call, not a
-                 * constant… */
+                /* Would love to use a switch() statement here, but SIGRTMIN is actually a function call, not
+                 * a constant… */
 
-                if (si.si_signo == SIGRTMIN + 3 || si.si_signo == SIGRTMIN + 4 || si.si_signo == SIGRTMIN + 13 || si.si_signo == SIGRTMIN + 14)
+                if (si.si_signo == SIGRTMIN + 3 || si.si_signo == SIGRTMIN + 4 ||
+                    si.si_signo == SIGRTMIN + 13 || si.si_signo == SIGRTMIN + 14)
 
                         state = STATE_POWEROFF;
 
@@ -170,10 +172,10 @@ int stub_pid1(sd_id128_t uuid) {
 
                 r = kill_and_sigcont(pid, SIGTERM);
 
-                /* Let's send a SIGHUP after the SIGTERM, as shells tend to ignore SIGTERM but do react to SIGHUP. We
-                 * do it strictly in this order, so that the SIGTERM is dispatched first, and SIGHUP second for those
-                 * processes which handle both. That's because services tend to bind configuration reload or something
-                 * else to SIGHUP. */
+                /* Let's send a SIGHUP after the SIGTERM, as shells tend to ignore SIGTERM but do react to
+                 * SIGHUP. We do it strictly in this order, so that the SIGTERM is dispatched first, and
+                 * SIGHUP second for those processes which handle both. That's because services tend to bind
+                 * configuration reload or something else to SIGHUP. */
 
                 if (r != -ESRCH)
                         (void) kill(pid, SIGHUP);

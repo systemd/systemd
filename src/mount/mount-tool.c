@@ -237,8 +237,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r < 0)
-                                return log_error_errno(
-                                        r, r == -EBADMSG ? "UID or GID of user %s are invalid." : "Cannot use \"%s\" as owner: %m", optarg);
+                                return log_error_errno(r,
+                                                       r == -EBADMSG ? "UID or GID of user %s are invalid." :
+                                                                       "Cannot use \"%s\" as owner: %m",
+                                                       optarg);
                         break;
                 }
 
@@ -268,7 +270,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_AUTOMOUNT:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "--automount= expects a valid boolean parameter: %s", optarg);
+                                return log_error_errno(
+                                        r, "--automount= expects a valid boolean parameter: %s", optarg);
 
                         arg_action = r ? ACTION_AUTOMOUNT : ACTION_MOUNT;
                         break;
@@ -310,14 +313,16 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Execution in user context is not supported on non-local systems.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Execution in user context is not supported on non-local systems.");
 
         if (arg_action == ACTION_LIST) {
                 if (optind < argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
                 if (arg_transport != BUS_TRANSPORT_LOCAL)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Listing devices only supported locally.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Listing devices only supported locally.");
         } else if (arg_action == ACTION_UMOUNT) {
                 if (optind >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "At least one argument required.");
@@ -327,7 +332,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         for (i = optind; i < argc; i++)
                                 if (!path_is_absolute(argv[i]))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only absolute path is supported: %s", argv[i]);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only absolute path is supported: %s",
+                                                               argv[i]);
                 }
         } else {
                 if (optind >= argc)
@@ -336,7 +343,8 @@ static int parse_argv(int argc, char *argv[]) {
                 if (argc > optind + 2)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "At most two arguments required.");
 
-                if (arg_mount_type && (fstype_is_api_vfs(arg_mount_type) || fstype_is_network(arg_mount_type))) {
+                if (arg_mount_type &&
+                    (fstype_is_api_vfs(arg_mount_type) || fstype_is_network(arg_mount_type))) {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
@@ -359,14 +367,17 @@ static int parse_argv(int argc, char *argv[]) {
                         path_simplify(arg_mount_what, false);
 
                         if (!path_is_absolute(arg_mount_what))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Only absolute path is supported: %s", arg_mount_what);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Only absolute path is supported: %s",
+                                                       arg_mount_what);
                 }
 
                 if (argc > optind + 1) {
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                                 r = chase_symlinks(argv[optind + 1], NULL, CHASE_NONEXISTENT, &arg_mount_where);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind + 1]);
+                                        return log_error_errno(
+                                                r, "Failed to make path %s absolute: %m", argv[optind + 1]);
                         } else {
                                 arg_mount_where = strdup(argv[optind + 1]);
                                 if (!arg_mount_where)
@@ -375,14 +386,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 path_simplify(arg_mount_where, false);
 
                                 if (!path_is_absolute(arg_mount_where))
-                                        return log_error_errno(
-                                                SYNTHETIC_ERRNO(EINVAL), "Only absolute path is supported: %s", arg_mount_where);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only absolute path is supported: %s",
+                                                               arg_mount_where);
                         }
                 } else
                         arg_discover = true;
 
                 if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Automatic mount location discovery is only supported locally.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Automatic mount location discovery is only supported locally.");
         }
 
         return 1;
@@ -404,7 +417,8 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(m, "(sv)(sv)", "After", "as", 1, device_unit, "BindsTo", "as", 1, device_unit);
+                r = sd_bus_message_append(
+                        m, "(sv)(sv)", "After", "as", 1, device_unit, "BindsTo", "as", 1, device_unit);
                 if (r < 0)
                         return r;
         }
@@ -516,8 +530,12 @@ static int start_transient_mount(sd_bus *bus, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -552,7 +570,8 @@ static int start_transient_mount(sd_bus *bus, char **argv) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to start transient mount unit: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to start transient mount unit: %s", bus_error_message(&error, r));
 
         if (w) {
                 const char *object;
@@ -600,8 +619,12 @@ static int start_transient_automount(sd_bus *bus, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -664,7 +687,8 @@ static int start_transient_automount(sd_bus *bus, char **argv) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to start transient automount unit: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to start transient automount unit: %s", bus_error_message(&error, r));
 
         if (w) {
                 const char *object;
@@ -824,8 +848,12 @@ static int stop_mount(sd_bus *bus, const char *where, const char *suffix) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StopUnit");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "StopUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -842,9 +870,11 @@ static int stop_mount(sd_bus *bus, const char *where, const char *suffix) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                if (streq(suffix, ".automount") && sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
+                if (streq(suffix, ".automount") &&
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
                         return 0;
-                return log_error_errno(r, "Failed to stop %s unit: %s", suffix + 1, bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to stop %s unit: %s", suffix + 1, bus_error_message(&error, r));
         }
 
         if (w) {
@@ -876,10 +906,12 @@ static int stop_mounts(sd_bus *bus, const char *where) {
         int r;
 
         if (path_equal(where, "/"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing to operate on root directory: %s", where);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Refusing to operate on root directory: %s", where);
 
         if (!path_is_normalized(where))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path contains non-normalized components: %s", where);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Path contains non-normalized components: %s", where);
 
         r = stop_mount(bus, where, ".mount");
         if (r < 0)
@@ -947,7 +979,10 @@ static int umount_loop(sd_bus *bus, const char *backing_file) {
 
         r = find_loop_device(backing_file, &loop_dev);
         if (r < 0)
-                return log_error_errno(r, r == -ENXIO ? "File %s is not mounted." : "Can't get loop device for %s: %m", backing_file);
+                return log_error_errno(r,
+                                       r == -ENXIO ? "File %s is not mounted." :
+                                                     "Can't get loop device for %s: %m",
+                                       backing_file);
 
         return umount_by_device(bus, loop_dev);
 }
@@ -1124,16 +1159,18 @@ static int acquire_mount_where_for_loop_dev(const char *loop_dev) {
         if (r < 0)
                 return r;
         else if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Can't find mount point of %s. It is expected that %s is already mounted on a place.",
-                                       loop_dev,
-                                       loop_dev);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "Can't find mount point of %s. It is expected that %s is already mounted on a place.",
+                        loop_dev,
+                        loop_dev);
         else if (r >= 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s is mounted on %d places. It is expected that %s is mounted on a place.",
-                                       loop_dev,
-                                       r,
-                                       loop_dev);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "%s is mounted on %d places. It is expected that %s is mounted on a place.",
+                        loop_dev,
+                        r,
+                        loop_dev);
 
         arg_mount_where = strdup(list[0]);
         if (!arg_mount_where)
@@ -1359,8 +1396,9 @@ static int compare_item(const struct item *a, const struct item *b) {
 
 static int list_devices(void) {
 
-        static const char *const titles[_COLUMN_MAX] = { [COLUMN_NODE] = "NODE", [COLUMN_PATH] = "PATH",   [COLUMN_MODEL] = "MODEL",
-                                                         [COLUMN_WWN] = "WWN",   [COLUMN_FSTYPE] = "TYPE", [COLUMN_LABEL] = "LABEL",
+        static const char *const titles[_COLUMN_MAX] = { [COLUMN_NODE] = "NODE",   [COLUMN_PATH] = "PATH",
+                                                         [COLUMN_MODEL] = "MODEL", [COLUMN_WWN] = "WWN",
+                                                         [COLUMN_FSTYPE] = "TYPE", [COLUMN_LABEL] = "LABEL",
                                                          [COLUMN_UUID] = "UUID" };
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
@@ -1544,7 +1582,9 @@ static int run(int argc, char *argv[]) {
         if (arg_fsck && arg_mount_type && arg_transport == BUS_TRANSPORT_LOCAL) {
                 r = fsck_exists(arg_mount_type);
                 if (r < 0)
-                        log_warning_errno(r, "Couldn't determine whether fsck for %s exists, proceeding anyway.", arg_mount_type);
+                        log_warning_errno(r,
+                                          "Couldn't determine whether fsck for %s exists, proceeding anyway.",
+                                          arg_mount_type);
                 else if (r == 0) {
                         log_debug("Disabling file system check as fsck for %s doesn't exist.", arg_mount_type);
                         arg_fsck = false; /* fsck doesn't exist, let's not attempt it */
@@ -1558,7 +1598,8 @@ static int run(int argc, char *argv[]) {
          * which incidentally seem to be implemented more carefully and reject unknown options,
          * so it's probably OK that we do the check only when the type is specified.
          */
-        if (arg_mount_type && !streq(arg_mount_type, "auto") && arg_uid != UID_INVALID && !fstype_can_uid_gid(arg_mount_type)) {
+        if (arg_mount_type && !streq(arg_mount_type, "auto") && arg_uid != UID_INVALID &&
+            !fstype_can_uid_gid(arg_mount_type)) {
                 log_error("File system type %s is not known to support uid=/gid=, refusing.", arg_mount_type);
                 return -EOPNOTSUPP;
         }

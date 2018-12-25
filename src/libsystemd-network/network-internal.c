@@ -29,7 +29,8 @@ const char *net_get_name(sd_device *device) {
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
+        FOREACH_STRING(
+                field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC")
         if (sd_device_get_property_value(device, field, &name) >= 0)
                 return name;
 
@@ -204,15 +205,26 @@ int config_parse_ifnames(const char *unit,
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse interface name list: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Failed to parse interface name list: %s",
+                                   rvalue);
                         return 0;
                 }
                 if (r == 0)
                         break;
 
                 if (!ifname_valid(word)) {
-                        log_syntax(
-                                unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Interface name is not valid or too long, ignoring assignment: %s",
+                                   rvalue);
                         return 0;
                 }
 
@@ -250,8 +262,13 @@ int config_parse_ifalias(const char *unit,
                 return log_oom();
 
         if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
-                log_syntax(
-                        unit, LOG_ERR, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Interface alias is not ASCII clean or is too long, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -289,7 +306,13 @@ int config_parse_hwaddr(const char *unit,
 
         r = ether_addr_from_string(rvalue, n);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Not a valid MAC address, ignoring assignment: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -339,7 +362,8 @@ int config_parse_hwaddrs(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(
+                                unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -349,7 +373,8 @@ int config_parse_hwaddrs(const char *unit,
 
                 r = ether_addr_from_string(word, n);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
                         continue;
                 }
 
@@ -392,7 +417,13 @@ int config_parse_bridge_port_priority(const char *unit,
 
         r = safe_atou16(rvalue, &i);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse bridge port priority, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse bridge port priority, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -538,7 +569,10 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
         fputs("\n", f);
 }
 
-int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
+int deserialize_dhcp_routes(struct sd_dhcp_route **ret,
+                            size_t *ret_size,
+                            size_t *ret_allocated,
+                            const char *string) {
         _cleanup_free_ struct sd_dhcp_route *routes = NULL;
         size_t size = 0, allocated = 0;
 

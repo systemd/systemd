@@ -472,10 +472,11 @@ static void test_rename_process_multi(void) {
 static void test_rename_process(void) {
         test_rename_process_one(NULL, -EINVAL);
         test_rename_process_one("", -EINVAL);
-        test_rename_process_one("foo", 1);                                                                    /* should always fit */
-        test_rename_process_one("this is a really really long process name, followed by some more words", 0); /* unlikely to fit */
-        test_rename_process_one("1234567", 1);                                                                /* should always fit */
-        test_rename_process_multi(); /* multiple invocations and dropped privileges */
+        test_rename_process_one("foo", 1); /* should always fit */
+        test_rename_process_one("this is a really really long process name, followed by some more words",
+                                0);            /* unlikely to fit */
+        test_rename_process_one("1234567", 1); /* should always fit */
+        test_rename_process_multi();           /* multiple invocations and dropped privileges */
 }
 
 static void test_getpid_cached(void) {
@@ -540,7 +541,10 @@ static void test_safe_fork(void) {
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        r = safe_fork("(test-child)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_NULL_STDIO | FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(test-child)",
+                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_DEATHSIG | FORK_NULL_STDIO |
+                              FORK_REOPEN_LOG,
+                      &pid);
         assert_se(r >= 0);
 
         if (r == 0) {

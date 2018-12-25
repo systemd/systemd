@@ -160,7 +160,8 @@ static void request_process(Server *s, const struct init_request *req) {
         case INIT_CMD_POWERFAIL:
         case INIT_CMD_POWERFAILNOW:
         case INIT_CMD_POWEROK:
-                log_warning("Received UPS/power initctl request. This is not implemented in systemd. Upgrade your UPS daemon!");
+                log_warning(
+                        "Received UPS/power initctl request. This is not implemented in systemd. Upgrade your UPS daemon!");
                 return;
 
         case INIT_CMD_CHANGECONS:

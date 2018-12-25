@@ -181,7 +181,8 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         /* see RFC4862 section 5.5.3.e */
         r = address_get(link, address->family, &address->in_addr, address->prefixlen, &existing_address);
         if (r > 0) {
-                lifetime_remaining = existing_address->cinfo.tstamp / 100 + existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
+                lifetime_remaining = existing_address->cinfo.tstamp / 100 +
+                        existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
                 if (lifetime_valid > NDISC_PREFIX_LFT_MIN || lifetime_valid > lifetime_remaining)
                         address->cinfo.ifa_valid = lifetime_valid;
                 else if (lifetime_remaining <= NDISC_PREFIX_LFT_MIN)
@@ -570,7 +571,8 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
                 r = dhcp6_request_address(link, !(flags & ND_RA_FLAG_MANAGED));
                 if (r < 0 && r != -EBUSY)
-                        log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
+                        log_link_warning_errno(
+                                link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
                 else {
                         log_link_debug(link, "Acquiring DHCPv6 lease on NDisc request");
                         r = 0;

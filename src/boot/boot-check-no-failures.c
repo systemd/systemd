@@ -32,7 +32,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION,
         };
 
-        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, {} };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 {} };
 
         int c;
 
@@ -85,7 +87,8 @@ static int run(int argc, char *argv[]) {
                                         'u',
                                         &n);
         if (r < 0)
-                return log_error_errno(r, "Failed to get failed units counter: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to get failed units counter: %s", bus_error_message(&error, r));
 
         if (n > 0)
                 log_notice("Health check: %" PRIu32 " units have failed.", n);

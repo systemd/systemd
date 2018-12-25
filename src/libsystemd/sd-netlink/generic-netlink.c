@@ -20,7 +20,8 @@ int sd_genl_socket_open(sd_netlink **ret) {
 }
 static int lookup_id(sd_netlink *nl, sd_genl_family family, uint16_t *id);
 
-static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
+static int genl_message_new(
+        sd_netlink *nl, sd_genl_family family, uint16_t nlmsg_type, uint8_t cmd, sd_netlink_message **ret) {
         int r;
         struct genlmsghdr *genl;
         const NLType *genl_cmd_type, *nl_type;

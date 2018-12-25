@@ -126,7 +126,8 @@ static const struct subst_map_entry map[] = {
         { .name = "sys", .fmt = 'S', .type = SUBST_SYS },
 };
 
-static ssize_t subst_format_var(UdevEvent *event, const struct subst_map_entry *entry, char *attr, char *dest, size_t l) {
+static ssize_t subst_format_var(
+        UdevEvent *event, const struct subst_map_entry *entry, char *attr, char *dest, size_t l) {
         sd_device *parent, *dev = event->dev;
         const char *val = NULL;
         char *s = dest;
@@ -311,7 +312,8 @@ static ssize_t subst_format_var(UdevEvent *event, const struct subst_map_entry *
         return s - dest;
 }
 
-ssize_t udev_event_apply_format(UdevEvent *event, const char *src, char *dest, size_t size, bool replace_whitespace) {
+ssize_t udev_event_apply_format(
+        UdevEvent *event, const char *src, char *dest, size_t size, bool replace_whitespace) {
         const char *from;
         char *s;
         size_t l;
@@ -402,10 +404,15 @@ ssize_t udev_event_apply_format(UdevEvent *event, const char *src, char *dest, s
                 subst_len = subst_format_var(event, entry, attr, s, l);
                 if (subst_len < 0) {
                         if (format_dollar)
-                                log_device_warning_errno(
-                                        event->dev, subst_len, "Failed to substitute variable '$%s', ignoring: %m", entry->name);
+                                log_device_warning_errno(event->dev,
+                                                         subst_len,
+                                                         "Failed to substitute variable '$%s', ignoring: %m",
+                                                         entry->name);
                         else
-                                log_device_warning_errno(event->dev, subst_len, "Failed to apply format '%%%c', ignoring: %m", entry->fmt);
+                                log_device_warning_errno(event->dev,
+                                                         subst_len,
+                                                         "Failed to apply format '%%%c', ignoring: %m",
+                                                         entry->fmt);
 
                         continue;
                 }
@@ -517,11 +524,15 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
                         return 1;
                 }
 
-                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING, "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
+                         "Process '%s' failed with exit code %i.",
+                         spawn->cmd,
+                         si->si_status);
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
-                log_warning("Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
+                log_warning(
+                        "Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
 
                 break;
         default:
@@ -553,15 +564,26 @@ static int spawn_wait(Spawn *spawn) {
                             spawn->timeout_warn_usec > age_usec) {
                                 spawn->timeout_warn_usec -= age_usec;
 
-                                r = sd_event_add_time(
-                                        e, NULL, CLOCK_MONOTONIC, usec + spawn->timeout_warn_usec, USEC_PER_SEC, on_spawn_timeout_warning, spawn);
+                                r = sd_event_add_time(e,
+                                                      NULL,
+                                                      CLOCK_MONOTONIC,
+                                                      usec + spawn->timeout_warn_usec,
+                                                      USEC_PER_SEC,
+                                                      on_spawn_timeout_warning,
+                                                      spawn);
                                 if (r < 0)
                                         return r;
                         }
 
                         spawn->timeout_usec -= age_usec;
 
-                        r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC, usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
+                        r = sd_event_add_time(e,
+                                              NULL,
+                                              CLOCK_MONOTONIC,
+                                              usec + spawn->timeout_usec,
+                                              USEC_PER_SEC,
+                                              on_spawn_timeout,
+                                              spawn);
                         if (r < 0)
                                 return r;
                 }
@@ -590,7 +612,12 @@ static int spawn_wait(Spawn *spawn) {
         return ret;
 }
 
-int udev_event_spawn(UdevEvent *event, usec_t timeout_usec, bool accept_failure, const char *cmd, char *result, size_t ressize) {
+int udev_event_spawn(UdevEvent *event,
+                     usec_t timeout_usec,
+                     bool accept_failure,
+                     const char *cmd,
+                     char *result,
+                     size_t ressize) {
         _cleanup_close_pair_ int outpipe[2] = { -1, -1 }, errpipe[2] = { -1, -1 };
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
@@ -707,15 +734,21 @@ static int rename_netif(UdevEvent *event) {
         strscpy(name, IFNAMSIZ, event->name);
         r = rtnl_set_link_name(&event->rtnl, ifindex, name);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m", ifindex, oldname, name);
+                return log_device_error_errno(dev,
+                                              r,
+                                              "Failed to rename network interface %i from '%s' to '%s': %m",
+                                              ifindex,
+                                              oldname,
+                                              name);
 
         r = device_rename(dev, event->name);
         if (r < 0)
-                return log_warning_errno(r,
-                                         "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m",
-                                         ifindex,
-                                         oldname,
-                                         name);
+                return log_warning_errno(
+                        r,
+                        "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m",
+                        ifindex,
+                        oldname,
+                        name);
 
         log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, name);
 
@@ -772,7 +805,10 @@ static int update_devnode(UdevEvent *event) {
         return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
-static void event_execute_rules_on_remove(UdevEvent *event, usec_t timeout_usec, Hashmap *properties_list, UdevRules *rules) {
+static void event_execute_rules_on_remove(UdevEvent *event,
+                                          usec_t timeout_usec,
+                                          Hashmap *properties_list,
+                                          UdevRules *rules) {
 
         sd_device *dev = event->dev;
         int r;
@@ -783,11 +819,15 @@ static void event_execute_rules_on_remove(UdevEvent *event, usec_t timeout_usec,
 
         r = device_tag_index(dev, NULL, false);
         if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
+                log_device_debug_errno(
+                        dev,
+                        r,
+                        "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
 
         r = device_delete_db(dev);
         if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
+                log_device_debug_errno(
+                        dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(dev);
@@ -832,7 +872,10 @@ int udev_event_execute_rules(UdevEvent *event, usec_t timeout_usec, Hashmap *pro
                         if (streq(action, "move")) {
                                 r = device_copy_properties(dev, event->dev_db_clone);
                                 if (r < 0)
-                                        log_device_debug_errno(dev, r, "Failed to copy properties from cloned device, ignoring: %m");
+                                        log_device_debug_errno(
+                                                dev,
+                                                r,
+                                                "Failed to copy properties from cloned device, ignoring: %m");
                         }
                 } else
                         /* Disable watch during event processing. */
@@ -856,7 +899,8 @@ int udev_event_execute_rules(UdevEvent *event, usec_t timeout_usec, Hashmap *pro
 
         r = device_update_db(dev);
         if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/, ignoring: %m");
+                log_device_debug_errno(
+                        dev, r, "Failed to update database under /run/udev/data/, ignoring: %m");
 
         device_set_is_initialized(dev);
 

@@ -244,7 +244,8 @@ static void test_exec_privatedevices(Manager *m) {
          * properly set, so be sure that it exists */
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
+                log_notice_errno(
+                        r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
                 return;
         }
 
@@ -274,7 +275,10 @@ static void test_exec_protectkernelmodules(Manager *m) {
 
         test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
-        test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m,
+             "exec-protectkernelmodules-yes-mount-propagation.service",
+             can_unshare ? 0 : EXIT_FAILURE,
+             CLD_EXITED);
 }
 
 static void test_exec_readonlypaths(Manager *m) {
@@ -342,7 +346,8 @@ static void test_exec_systemcallfilter(Manager *m) {
 
         r = find_binary("python3", NULL);
         if (r < 0) {
-                log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
+                log_notice_errno(
+                        r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
                 return;
         }
 
@@ -399,12 +404,16 @@ static void test_exec_systemcallfilter_system(Manager *m) {
         test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice(
+                        "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                        __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -416,12 +425,16 @@ static void test_exec_user(Manager *m) {
         test(m, "exec-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice(
+                        "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                        __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -432,12 +445,16 @@ static void test_exec_group(Manager *m) {
         test(m, "exec-group.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice(
+                        "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                        __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                           NOBODY_GROUP_NAME,
+                           __func__);
                 return;
         }
 
@@ -460,7 +477,10 @@ static void test_exec_dynamicuser(Manager *m) {
                 test(m, "exec-dynamicuser-fixeduser-adm.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         if (check_user_has_group_with_same_name("games"))
                 test(m, "exec-dynamicuser-fixeduser-games.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m,
+             "exec-dynamicuser-fixeduser-one-supplementarygroup.service",
+             can_unshare ? 0 : EXIT_NAMESPACE,
+             CLD_EXITED);
         test(m, "exec-dynamicuser-supplementarygroups.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
@@ -545,12 +565,16 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice(
+                        "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                        __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s",
+                           NOBODY_GROUP_NAME,
+                           __func__);
                 return;
         }
 
@@ -566,7 +590,8 @@ static void test_exec_capabilityboundingset(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_FOWNER) <= 0 || have_effective_cap(CAP_KILL) <= 0) {
+        if (have_effective_cap(CAP_CHOWN) <= 0 || have_effective_cap(CAP_FOWNER) <= 0 ||
+            have_effective_cap(CAP_KILL) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }
@@ -603,12 +628,16 @@ static void test_exec_ambientcapabilities(Manager *m) {
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice(
+                        "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s",
+                        __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s",
+                           NOBODY_USER_NAME,
+                           __func__);
                 return;
         }
 
@@ -744,7 +773,8 @@ int main(int argc, char *argv[]) {
 
 #if HAS_FEATURE_ADDRESS_SANITIZER
         if (is_run_on_travis_ci()) {
-                log_notice("Running on TravisCI under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
+                log_notice(
+                        "Running on TravisCI under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
                 return EXIT_TEST_SKIP;
         }
 #endif
@@ -796,7 +826,8 @@ int main(int argc, char *argv[]) {
         r = seccomp_syscall_resolve_name("unshare");
         assert_se(r != __NR_SCMP_ERROR);
         assert_se(hashmap_put(s, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
-        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
+        assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >=
+                  0);
         assert_se(unshare(CLONE_NEWNS) < 0);
         assert_se(errno == EOPNOTSUPP);
 

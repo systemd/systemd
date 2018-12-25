@@ -30,7 +30,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->id <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
         if (!in_addr_is_null(v->remote_family, &v->remote)) {
@@ -41,7 +42,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->remote.in6);
 
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
         }
 
         if (!in_addr_is_null(v->local_family, &v->local)) {
@@ -52,7 +54,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &v->local.in6);
 
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
@@ -62,18 +65,21 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->ttl != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
         }
 
         if (v->tos != 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TOS, v->tos);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_TOS attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_LEARNING, v->learning);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LEARNING attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_LEARNING attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_RSC, v->route_short_circuit);
         if (r < 0)
@@ -94,34 +100,41 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->fdb_ageing != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_AGEING, v->fdb_ageing / USEC_PER_SEC);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_AGEING attribute: %m");
         }
 
         if (v->max_fdb != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LIMIT, v->max_fdb);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LIMIT attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_LIMIT attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_CSUM, v->udpcsum);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_CSUM attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_UDP_CSUM attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_TX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_TX attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_UDP_ZERO_CSUM6_RX attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_REMCSUM_TX, v->remote_csum_tx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_REMCSUM_TX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_REMCSUM_TX attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_VXLAN_REMCSUM_RX, v->remote_csum_rx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_REMCSUM_RX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_VXLAN_REMCSUM_RX attribute: %m");
 
         r = sd_netlink_message_append_u16(m, IFLA_VXLAN_PORT, htobe16(v->dest_port));
         if (r < 0)
@@ -135,7 +148,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
                 r = sd_netlink_message_append_data(m, IFLA_VXLAN_PORT_RANGE, &port_range, sizeof(port_range));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_PORT_RANGE attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_PORT_RANGE attribute: %m");
         }
 
         r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LABEL, htobe32(v->flow_label));
@@ -145,7 +159,8 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->group_policy) {
                 r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GBP);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
         }
 
         return r;
@@ -172,7 +187,14 @@ int config_parse_vxlan_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "vxlan '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "vxlan '%s' address is invalid, ignoring assignment: %s",
+                           lvalue,
+                           rvalue);
                 return 0;
         }
 
@@ -180,8 +202,14 @@ int config_parse_vxlan_address(const char *unit,
 
         if (streq(lvalue, "Group")) {
                 if (r <= 0) {
-                        log_syntax(
-                                unit, LOG_ERR, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "vxlan %s invalid multicast address, ignoring assignment: %s",
+                                   lvalue,
+                                   rvalue);
                         return 0;
                 }
 
@@ -273,8 +301,13 @@ int config_parse_flow_label(const char *unit,
         }
 
         if (f & ~VXLAN_FLOW_LABEL_MAX_MASK) {
-                log_syntax(
-                        unit, LOG_ERR, filename, line, r, "VXLAN flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "VXLAN flow label '%s' not valid. Flow label range should be [0-1048575].",
+                           rvalue);
                 return 0;
         }
 

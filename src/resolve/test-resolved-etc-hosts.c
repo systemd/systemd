@@ -28,10 +28,12 @@ static void test_parse_etc_hosts_system(void) {
 }
 
 #define address_equal_4(_addr, _address) \
-        ((_addr)->family == AF_INET && !memcmp(&(_addr)->address.in, &(struct in_addr){ .s_addr = (_address) }, 4))
+        ((_addr)->family == AF_INET &&   \
+         !memcmp(&(_addr)->address.in, &(struct in_addr){ .s_addr = (_address) }, 4))
 
-#define address_equal_6(_addr, ...) \
-        ((_addr)->family == AF_INET6 && !memcmp(&(_addr)->address.in6, &(struct in6_addr){ .s6_addr = __VA_ARGS__ }, 16))
+#define address_equal_6(_addr, ...)     \
+        ((_addr)->family == AF_INET6 && \
+         !memcmp(&(_addr)->address.in6, &(struct in6_addr){ .s6_addr = __VA_ARGS__ }, 16))
 
 static void test_parse_etc_hosts(void) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";

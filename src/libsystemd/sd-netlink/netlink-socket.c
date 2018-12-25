@@ -380,7 +380,8 @@ int socket_read_message(sd_netlink *rtnl) {
                 r = type_system_get_type(type_system_root, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
-                                log_debug("sd-netlink: ignored message with unknown type: %i", new_msg->nlmsg_type);
+                                log_debug("sd-netlink: ignored message with unknown type: %i",
+                                          new_msg->nlmsg_type);
 
                         continue;
                 }

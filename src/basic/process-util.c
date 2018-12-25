@@ -109,11 +109,12 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         assert(line);
         assert(pid >= 0);
 
-        /* Retrieves a process' command line. Replaces unprintable characters while doing so by whitespace (coalescing
-         * multiple sequential ones into one). If max_length is != 0 will return a string of the specified size at most
-         * (the trailing NUL byte does count towards the length here!), abbreviated with a "..." ellipsis. If
-         * comm_fallback is true and the process has no command line set (the case for kernel threads), or has a
-         * command line that resolves to the empty string will return the "comm" name of the process instead.
+        /* Retrieves a process' command line. Replaces unprintable characters while doing so by whitespace
+         * (coalescing multiple sequential ones into one). If max_length is != 0 will return a string of the
+         * specified size at most (the trailing NUL byte does count towards the length here!), abbreviated
+         * with a "..." ellipsis. If comm_fallback is true and the process has no command line set (the case
+         * for kernel threads), or has a command line that resolves to the empty string will return the
+         * "comm" name of the process instead.
          *
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * comm_fallback is false). Returns 0 and sets *line otherwise. */
@@ -276,11 +277,11 @@ int rename_process(const char name[]) {
         bool truncated = false;
         size_t l;
 
-        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the glibc's
-         * internally used name of the process. For the first one a limit of 16 chars applies; to the second one in
-         * many cases one of 10 (i.e. length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded;
-         * to the third one 7 (i.e. the length of "systemd". If you pass a longer string it will likely be
-         * truncated.
+        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the
+         * glibc's internally used name of the process. For the first one a limit of 16 chars applies; to the
+         * second one in many cases one of 10 (i.e. length of "/sbin/init") — however if we have
+         * CAP_SYS_RESOURCES it is unbounded; to the third one 7 (i.e. the length of "systemd". If you pass a
+         * longer string it will likely be truncated.
          *
          * Returns 0 if a name was set but truncated, > 0 if it was set but not truncated. */
 
@@ -294,8 +295,8 @@ int rename_process(const char name[]) {
 
         l = strlen(name);
 
-        /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
-         * can use PR_SET_NAME, which sets the thread name for the calling thread. */
+        /* First step, change the comm field. The main thread's comm is identical to the process comm. This
+         * means we can use PR_SET_NAME, which sets the thread name for the calling thread. */
         if (prctl(PR_SET_NAME, name) < 0)
                 log_debug_errno(errno, "PR_SET_NAME failed: %m");
         if (l >= TASK_COMM_LEN) /* Linux process names can be 15 chars at max */
@@ -311,15 +312,15 @@ int rename_process(const char name[]) {
                         truncated = true;
         }
 
-        /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
-         * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
-         * the end. This is the best option for changing /proc/self/cmdline. */
+        /* Third step, completely replace the argv[] array the kernel maintains for us. This requires
+         * privileges, but has the advantage that the argv[] array is exactly what we want it to be, and not
+         * filled up with zeros at the end. This is the best option for changing /proc/self/cmdline. */
 
         /* Let's not bother with this if we don't have euid == 0. Strictly speaking we should check for the
-         * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability generally is
-         * present only for euid == 0, hence let's use this as quick bypass check, to avoid calling mmap() if
-         * PR_SET_MM_ARG_{START,END} fails with EPERM later on anyway. After all geteuid() is dead cheap to call, but
-         * mmap() is not. */
+         * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability
+         * generally is present only for euid == 0, hence let's use this as quick bypass check, to avoid
+         * calling mmap() if PR_SET_MM_ARG_{START,END} fails with EPERM later on anyway. After all geteuid()
+         * is dead cheap to call, but mmap() is not. */
         if (geteuid() != 0)
                 log_debug("Skipping PR_SET_MM, as we don't have privileges.");
         else if (mm_size < l + 1) {
@@ -337,30 +338,34 @@ int rename_process(const char name[]) {
 
                 /* Now, let's tell the kernel about this new memory */
                 if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
-                        /* HACK: prctl() API is kind of dumb on this point.  The existing end address may already be
-                         * below the desired start address, in which case the kernel may have kicked this back due
-                         * to a range-check failure (see linux/kernel/sys.c:validate_prctl_map() to see this in
-                         * action).  The proper solution would be to have a prctl() API that could set both start+end
-                         * simultaneously, or at least let us query the existing address to anticipate this condition
-                         * and respond accordingly.  For now, we can only guess at the cause of this failure and try
-                         * a workaround--which will briefly expand the arg space to something potentially huge before
-                         * resizing it to what we want. */
-                        log_debug_errno(errno, "PR_SET_MM_ARG_START failed, attempting PR_SET_MM_ARG_END hack: %m");
+                        /* HACK: prctl() API is kind of dumb on this point.  The existing end address may
+                         * already be below the desired start address, in which case the kernel may have
+                         * kicked this back due to a range-check failure (see
+                         * linux/kernel/sys.c:validate_prctl_map() to see this in action).  The proper
+                         * solution would be to have a prctl() API that could set both start+end
+                         * simultaneously, or at least let us query the existing address to anticipate this
+                         * condition and respond accordingly.  For now, we can only guess at the cause of
+                         * this failure and try a workaround--which will briefly expand the arg space to
+                         * something potentially huge before resizing it to what we want. */
+                        log_debug_errno(errno,
+                                        "PR_SET_MM_ARG_START failed, attempting PR_SET_MM_ARG_END hack: %m");
 
                         if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0) {
-                                log_debug_errno(errno, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
+                                log_debug_errno(errno,
+                                                "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
                                 (void) munmap(nn, nn_size);
                                 goto use_saved_argv;
                         }
 
                         if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
-                                log_debug_errno(errno, "PR_SET_MM_ARG_START still failed, proceeding without: %m");
+                                log_debug_errno(errno,
+                                                "PR_SET_MM_ARG_START still failed, proceeding without: %m");
                                 goto use_saved_argv;
                         }
                 } else {
-                        /* And update the end pointer to the new end, too. If this fails, we don't really know what
-                         * to do, it's pretty unlikely that we can rollback, hence we'll just accept the failure,
-                         * and continue. */
+                        /* And update the end pointer to the new end, too. If this fails, we don't really
+                         * know what to do, it's pretty unlikely that we can rollback, hence we'll just
+                         * accept the failure, and continue. */
                         if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0)
                                 log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
                 }
@@ -379,8 +384,8 @@ int rename_process(const char name[]) {
         }
 
 use_saved_argv:
-        /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
-         * it still looks here */
+        /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it
+         * right too if it still looks here */
 
         if (saved_argc > 0) {
                 int i;
@@ -413,7 +418,8 @@ int is_kernel_thread(pid_t pid) {
         char *q;
         int r;
 
-        if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
+        if (IN_SET(pid, 0, 1) ||
+            pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
         if (!pid_is_valid(pid))
                 return -EINVAL;
@@ -778,16 +784,16 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 /*
  * Return values:
  *
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
- *       was terminated by a signal, or failed for an unknown reason.
+ * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the
+ * process was terminated by a signal, or failed for an unknown reason.
  *
  * >=0 : The process terminated normally with no failures.
  *
- * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
- * states are indicated by error is indicated by a non-zero value.
+ * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child
+ * failure states are indicated by error is indicated by a non-zero value.
  *
- * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
- * to remain entirely race-free.
+ * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been
+ * forked off to remain entirely race-free.
  */
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
         sigset_t mask;
@@ -869,8 +875,8 @@ int kill_and_sigcont(pid_t pid, int sig) {
 
         r = kill(pid, sig) < 0 ? -errno : 0;
 
-        /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent which isn't
-         * affected by a process being suspended anyway. */
+        /* If this worked, also send SIGCONT, unless we already just sent a SIGCONT, or SIGKILL was sent
+         * which isn't affected by a process being suspended anyway. */
         if (r >= 0 && !IN_SET(sig, SIGCONT, SIGKILL))
                 (void) kill(pid, SIGCONT);
 
@@ -955,7 +961,8 @@ bool pid_is_unwaited(pid_t pid) {
         if (pid < 0)
                 return false;
 
-        if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
+        if (pid <=
+            1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
                 return true;
 
         if (pid == getpid_cached())
@@ -1045,9 +1052,9 @@ unsigned long personality_from_string(const char *p) {
         if (!p)
                 return PERSONALITY_INVALID;
 
-        /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than just
-         * hints regarding the register size, since we want to keep things open for multiple locally supported ABIs for
-         * the same register size. */
+        /* Parse a personality specifier. We use our own identifiers that indicate specific ABIs, rather than
+         * just hints regarding the register size, since we want to keep things open for multiple locally
+         * supported ABIs for the same register size. */
 
         architecture = architecture_from_string(p);
         if (architecture < 0)
@@ -1082,10 +1089,11 @@ const char *personality_to_string(unsigned long p) {
 int safe_personality(unsigned long p) {
         int ret;
 
-        /* So here's the deal, personality() is weirdly defined by glibc. In some cases it returns a failure via errno,
-         * and in others as negative return value containing an errno-like value. Let's work around this: this is a
-         * wrapper that uses errno if it is set, and uses the return value otherwise. And then it sets both errno and
-         * the return value indicating the same issue, so that we are definitely on the safe side.
+        /* So here's the deal, personality() is weirdly defined by glibc. In some cases it returns a failure
+         * via errno, and in others as negative return value containing an errno-like value. Let's work
+         * around this: this is a wrapper that uses errno if it is set, and uses the return value otherwise.
+         * And then it sets both errno and the return value indicating the same issue, so that we are
+         * definitely on the safe side.
          *
          * See https://github.com/systemd/systemd/issues/6737 */
 
@@ -1104,9 +1112,9 @@ int safe_personality(unsigned long p) {
 int opinionated_personality(unsigned long *ret) {
         int current;
 
-        /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is a bit
-         * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
-         * two most relevant personalities: PER_LINUX and PER_LINUX32. */
+        /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is
+         * a bit opinionated though, and ignores all the finer-grained bits and exotic personalities, only
+         * distinguishing the two most relevant personalities: PER_LINUX and PER_LINUX32. */
 
         current = safe_personality(PERSONALITY_INVALID);
         if (current < 0)
@@ -1177,8 +1185,8 @@ void reset_cached_pid(void) {
 }
 
 /* We use glibc __register_atfork() + __dso_handle directly here, as they are not included in the glibc
- * headers. __register_atfork() is mostly equivalent to pthread_atfork(), but doesn't require us to link against
- * libpthread, as it is part of glibc anyway. */
+ * headers. __register_atfork() is mostly equivalent to pthread_atfork(), but doesn't require us to link
+ * against libpthread, as it is part of glibc anyway. */
 extern int __register_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void), void *dso_handle);
 extern void *__dso_handle _weak_;
 
@@ -1186,10 +1194,11 @@ pid_t getpid_cached(void) {
         static bool installed = false;
         pid_t current_value;
 
-        /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
-         * system call each time. This restores glibc behaviour from before 2.24, when getpid() was unconditionally
-         * cached. Starting with 2.24 getpid() started to become prohibitively expensive when used for detecting when
-         * objects were used across fork()s. With this caching the old behaviour is somewhat restored.
+        /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to
+         * invoke a system call each time. This restores glibc behaviour from before 2.24, when getpid() was
+         * unconditionally cached. Starting with 2.24 getpid() started to become prohibitively expensive when
+         * used for detecting when objects were used across fork()s. With this caching the old behaviour is
+         * somewhat restored.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=1443976
          * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=c579f48edba88380635ab98cb612030e3ed8691e
@@ -1238,7 +1247,8 @@ int must_be_root(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
 
-int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid) {
+int safe_fork_full(
+        const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid) {
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
@@ -1253,8 +1263,8 @@ int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds
         original_pid = getpid_cached();
 
         if (flags & (FORK_RESET_SIGNALS | FORK_DEATHSIG)) {
-                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
-                 * be sure that SIGTERMs are not lost we might send to the child. */
+                /* We temporarily block all signals, so that the new child has them blocked initially. This
+                 * way, we can be sure that SIGTERMs are not lost we might send to the child. */
 
                 assert_se(sigfillset(&ss) >= 0);
                 block_signals = true;
@@ -1316,7 +1326,9 @@ int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds
         if (name) {
                 r = rename_process(name);
                 if (r < 0)
-                        log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG, r, "Failed to rename process, ignoring: %m");
+                        log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
+                                       r,
+                                       "Failed to rename process, ignoring: %m");
         }
 
         if (flags & FORK_DEATHSIG)
@@ -1424,8 +1436,8 @@ int namespace_fork(const char *outer_name,
         int r;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
-         * process. This ensures that we are fully a member of the destination namespace, with pidns an all, so that
-         * /proc/self/fd works correctly. */
+         * process. This ensures that we are fully a member of the destination namespace, with pidns an all,
+         * so that /proc/self/fd works correctly. */
 
         r = safe_fork_full(outer_name,
                            except_fds,
@@ -1441,16 +1453,19 @@ int namespace_fork(const char *outer_name,
 
                 r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
-                        log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG, r, "Failed to join namespace: %m");
+                        log_full_errno(FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG,
+                                       r,
+                                       "Failed to join namespace: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name,
-                                   except_fds,
-                                   n_except_fds,
-                                   flags & ~(FORK_WAIT | FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_NULL_STDIO),
-                                   &pid);
+                r = safe_fork_full(
+                        inner_name,
+                        except_fds,
+                        n_except_fds,
+                        flags & ~(FORK_WAIT | FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_NULL_STDIO),
+                        &pid);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {
@@ -1481,7 +1496,8 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
-        r = safe_fork_full(name, except, n_except, FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS, ret_pid);
+        r = safe_fork_full(
+                name, except, n_except, FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_CLOSE_ALL_FDS, ret_pid);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1547,12 +1563,15 @@ int set_oom_score_adjust(int value) {
 
         sprintf(t, "%i", value);
 
-        return write_string_file("/proc/self/oom_score_adj", t, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        return write_string_file("/proc/self/oom_score_adj",
+                                 t,
+                                 WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
-static const char *const ioprio_class_table[] = {
-        [IOPRIO_CLASS_NONE] = "none", [IOPRIO_CLASS_RT] = "realtime", [IOPRIO_CLASS_BE] = "best-effort", [IOPRIO_CLASS_IDLE] = "idle"
-};
+static const char *const ioprio_class_table[] = { [IOPRIO_CLASS_NONE] = "none",
+                                                  [IOPRIO_CLASS_RT] = "realtime",
+                                                  [IOPRIO_CLASS_BE] = "best-effort",
+                                                  [IOPRIO_CLASS_IDLE] = "idle" };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
 
@@ -1563,8 +1582,10 @@ static const char *const sigchld_code_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
 
-static const char *const sched_policy_table[] = {
-        [SCHED_OTHER] = "other", [SCHED_BATCH] = "batch", [SCHED_IDLE] = "idle", [SCHED_FIFO] = "fifo", [SCHED_RR] = "rr"
-};
+static const char *const sched_policy_table[] = { [SCHED_OTHER] = "other",
+                                                  [SCHED_BATCH] = "batch",
+                                                  [SCHED_IDLE] = "idle",
+                                                  [SCHED_FIFO] = "fifo",
+                                                  [SCHED_RR] = "rr" };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);

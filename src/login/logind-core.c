@@ -328,8 +328,8 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 button_set_seat(b, sn);
 
                 r = button_open(b);
-                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other error
-                            * opening the device?) let's close the button again. */
+                if (r < 0) /* event device doesn't have any keys or switches relevant to us? (or any other
+                            * error opening the device?) let's close the button again. */
                         button_free(b);
         }
 
@@ -475,12 +475,24 @@ int config_parse_n_autovts(const char *unit,
 
         r = safe_atou(rvalue, &o);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse number of autovts, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse number of autovts, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
         if (o > 15) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "A maximum of 15 autovts are supported, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "A maximum of 15 autovts are supported, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -611,10 +623,10 @@ static int manager_count_external_displays(Manager *m) {
                 if (sd_device_get_sysname(d, &nn) < 0)
                         continue;
 
-                /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash separated item
-                 * (the first is the card name, the last the connector number). We implement a blacklist of external
-                 * displays here, rather than a whitelist of internal ones, to ensure we don't block suspends too
-                 * eagerly. */
+                /* Ignore internal displays: the type is encoded in the sysfs name, as the second dash
+                 * separated item (the first is the card name, the last the connector number). We implement a
+                 * blacklist of external displays here, rather than a whitelist of internal ones, to ensure
+                 * we don't block suspends too eagerly. */
                 dash = strchr(nn, '-');
                 if (!dash)
                         continue;
@@ -673,8 +685,8 @@ bool manager_is_docked_or_external_displays(Manager *m) {
 bool manager_is_on_external_power(void) {
         int r;
 
-        /* For now we only check for AC power, but 'external power' can apply to anything that isn't an internal
-         * battery */
+        /* For now we only check for AC power, but 'external power' can apply to anything that isn't an
+         * internal battery */
         r = on_ac_power();
         if (r < 0)
                 log_warning_errno(r, "Failed to read AC power status: %m");
@@ -757,12 +769,13 @@ int manager_read_utmp(Manager *m) {
 
                 if (s->tty_validity == TTY_FROM_UTMP && !streq_ptr(s->tty, t)) {
                         /* This may happen on multiplexed SSH connection (i.e. 'SSH connection sharing'). In
-                         * this case PAM and utmp sessions don't match. In such a case let's invalidate the TTY
-                         * information and never acquire it again. */
+                         * this case PAM and utmp sessions don't match. In such a case let's invalidate the
+                         * TTY information and never acquire it again. */
 
                         s->tty = mfree(s->tty);
                         s->tty_validity = TTY_UTMP_INCONSISTENT;
-                        log_debug("Session '%s' has inconsistent TTY information, dropping TTY information.", s->id);
+                        log_debug("Session '%s' has inconsistent TTY information, dropping TTY information.",
+                                  s->id);
                         continue;
                 }
 
@@ -788,8 +801,8 @@ static int manager_dispatch_utmp(sd_event_source *s, const struct inotify_event 
 
         assert(m);
 
-        /* If there's indication the file itself might have been removed or became otherwise unavailable, then let's
-         * reestablish the watch on whatever there's now. */
+        /* If there's indication the file itself might have been removed or became otherwise unavailable,
+         * then let's reestablish the watch on whatever there's now. */
         if ((event->mask & (IN_ATTRIB | IN_DELETE_SELF | IN_MOVE_SELF | IN_Q_OVERFLOW | IN_UNMOUNT)) != 0)
                 manager_connect_utmp(m);
 
@@ -805,17 +818,25 @@ void manager_connect_utmp(Manager *m) {
 
         assert(m);
 
-        /* Watch utmp for changes via inotify. We do this to deal with tools such as ssh, which will register the PAM
-         * session early, and acquire a TTY only much later for the connection. Thus during PAM the TTY won't be known
-         * yet. ssh will register itself with utmp when it finally acquired the TTY. Hence, let's make use of this, and
-         * watch utmp for the TTY asynchronously. We use the PAM session's leader PID as key, to find the right entry.
+        /* Watch utmp for changes via inotify. We do this to deal with tools such as ssh, which will register
+         * the PAM session early, and acquire a TTY only much later for the connection. Thus during PAM the
+         * TTY won't be known yet. ssh will register itself with utmp when it finally acquired the TTY.
+         * Hence, let's make use of this, and watch utmp for the TTY asynchronously. We use the PAM session's
+         * leader PID as key, to find the right entry.
          *
-         * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as idle
-         * detection (which, for tty sessions, relies on the TTY used) */
+         * Yes, relying on utmp is pretty ugly, but it's good enough for informational purposes, as well as
+         * idle detection (which, for tty sessions, relies on the TTY used) */
 
-        r = sd_event_add_inotify(m->event, &s, _PATH_UTMPX, IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB, manager_dispatch_utmp, m);
+        r = sd_event_add_inotify(m->event,
+                                 &s,
+                                 _PATH_UTMPX,
+                                 IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_ATTRIB,
+                                 manager_dispatch_utmp,
+                                 m);
         if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                               r,
+                               "Failed to create inotify watch on " _PATH_UTMPX ", ignoring: %m");
         else {
                 r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)

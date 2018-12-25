@@ -79,7 +79,9 @@ static void linebuf_rem_char(struct linebuf *buf) {
         linebuf_rem(buf, 1);
 }
 
-static const struct trie_child_entry_f *trie_node_child(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
+static const struct trie_child_entry_f *trie_node_child(sd_hwdb *hwdb,
+                                                        const struct trie_node_f *node,
+                                                        size_t idx) {
         const char *base = (const char *) node;
 
         base += le64toh(hwdb->head->node_size);
@@ -87,7 +89,9 @@ static const struct trie_child_entry_f *trie_node_child(sd_hwdb *hwdb, const str
         return (const struct trie_child_entry_f *) base;
 }
 
-static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb, const struct trie_node_f *node, size_t idx) {
+static const struct trie_value_entry_f *trie_node_value(sd_hwdb *hwdb,
+                                                        const struct trie_node_f *node,
+                                                        size_t idx) {
         const char *base = (const char *) node;
 
         base += le64toh(hwdb->head->node_size);
@@ -175,10 +179,12 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
 
                         if (entry2->file_priority == 0)
                                 lower = entry2->filename_off < old->filename_off ||
-                                        (entry2->filename_off == old->filename_off && entry2->line_number < old->line_number);
+                                        (entry2->filename_off == old->filename_off &&
+                                         entry2->line_number < old->line_number);
                         else
                                 lower = entry2->file_priority < old->file_priority ||
-                                        (entry2->file_priority == old->file_priority && entry2->line_number < old->line_number);
+                                        (entry2->file_priority == old->file_priority &&
+                                         entry2->line_number < old->line_number);
                         if (lower)
                                 return 0;
                 }
@@ -197,7 +203,8 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
         return 0;
 }
 
-static int trie_fnmatch_f(sd_hwdb *hwdb, const struct trie_node_f *node, size_t p, struct linebuf *buf, const char *search) {
+static int trie_fnmatch_f(
+        sd_hwdb *hwdb, const struct trie_node_f *node, size_t p, struct linebuf *buf, const char *search) {
         size_t len;
         size_t i;
         const char *prefix;
@@ -336,14 +343,16 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
                 return -ENOENT;
         }
 
-        if (fstat(fileno(hwdb->f), &hwdb->st) < 0 || (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
+        if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
+            (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
                 return log_debug_errno(errno, "Failed to read %s: %m", hwdb_bin_path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
                 return log_debug_errno(errno, "Failed to map %s: %m", hwdb_bin_path);
 
-        if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 || (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
+        if (memcmp(hwdb->map, sig, sizeof(hwdb->head->signature)) != 0 ||
+            (size_t) hwdb->st.st_size != le64toh(hwdb->head->file_size)) {
                 log_debug("Failed to recognize the format of %s", hwdb_bin_path);
                 return -EINVAL;
         }

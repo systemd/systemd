@@ -23,9 +23,9 @@ assert_cc(sizeof(JsonValue) == 16U);
 
 #define JSON_VALUE_NULL ((JsonValue){})
 
-/* We use fake JsonVariant objects for some special values, in order to avoid memory allocations for them. Note that
- * effectively this means that there are multiple ways to encode the same objects: via these magic values or as
- * properly allocated JsonVariant. We convert between both on-the-fly as necessary. */
+/* We use fake JsonVariant objects for some special values, in order to avoid memory allocations for them.
+ * Note that effectively this means that there are multiple ways to encode the same objects: via these magic
+ * values or as properly allocated JsonVariant. We convert between both on-the-fly as necessary. */
 #define JSON_VARIANT_MAGIC_TRUE ((JsonVariant *) 1)
 #define JSON_VARIANT_MAGIC_FALSE ((JsonVariant *) 2)
 #define JSON_VARIANT_MAGIC_NULL ((JsonVariant *) 3)
@@ -37,9 +37,9 @@ assert_cc(sizeof(JsonValue) == 16U);
 #define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant *) 9)
 #define _JSON_VARIANT_MAGIC_MAX ((JsonVariant *) 10)
 
-/* This is only safe as long as we don't define more than 4K magic pointers, i.e. the page size of the simplest
- * architectures we support. That's because we rely on the fact that malloc() will never allocate from the first memory
- * page, as it is a faulting page for catching NULL pointer dereferences. */
+/* This is only safe as long as we don't define more than 4K magic pointers, i.e. the page size of the
+ * simplest architectures we support. That's because we rely on the fact that malloc() will never allocate
+ * from the first memory page, as it is a faulting page for catching NULL pointer dereferences. */
 assert_cc((uintptr_t) _JSON_VARIANT_MAGIC_MAX < 4096U);
 
 enum

@@ -93,11 +93,13 @@ static int toggle_utf8(const char *name, int fd, bool utf8) {
 
         r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
-                return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
+                return log_warning_errno(
+                        errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
 
         r = loop_write(fd, utf8 ? "\033%G" : "\033%@", 3, false);
         if (r < 0)
-                return log_warning_errno(r, "Failed to %s UTF-8 term processing on %s: %m", enable_disable(utf8), name);
+                return log_warning_errno(
+                        r, "Failed to %s UTF-8 term processing on %s: %m", enable_disable(utf8), name);
 
         r = tcgetattr(fd, &tc);
         if (r >= 0) {
@@ -105,7 +107,8 @@ static int toggle_utf8(const char *name, int fd, bool utf8) {
                 r = tcsetattr(fd, TCSANOW, &tc);
         }
         if (r < 0)
-                return log_warning_errno(errno, "Failed to %s iutf8 flag on %s: %m", enable_disable(utf8), name);
+                return log_warning_errno(
+                        errno, "Failed to %s iutf8 flag on %s: %m", enable_disable(utf8), name);
 
         log_debug("UTF-8 kbdmode %sd on %s", enable_disable(utf8), name);
         return 0;
@@ -114,7 +117,8 @@ static int toggle_utf8(const char *name, int fd, bool utf8) {
 static int toggle_utf8_sysfs(bool utf8) {
         int r;
 
-        r = write_string_file("/sys/module/vt/parameters/default_utf8", one_zero(utf8), WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(
+                "/sys/module/vt/parameters/default_utf8", one_zero(utf8), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_warning_errno(r, "Failed to %s sysfs UTF-8 flag: %m", enable_disable(utf8));
 
@@ -150,7 +154,9 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork("(loadkeys)",
+                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -193,7 +199,9 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(setfont)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG, &pid);
+        r = safe_fork("(setfont)",
+                      FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -240,16 +248,17 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         else {
                 /* verify parameter sanity first */
                 if (cfo.width > 32 || cfo.height > 32 || cfo.charcount > 512)
-                        log_warning("Invalid font metadata - width: %u (max 32), height: %u (max 32), count: %u (max 512)",
-                                    cfo.width,
-                                    cfo.height,
-                                    cfo.charcount);
+                        log_warning(
+                                "Invalid font metadata - width: %u (max 32), height: %u (max 32), count: %u (max 512)",
+                                cfo.width,
+                                cfo.height,
+                                cfo.charcount);
                 else {
                         /*
-                         * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum 512
-                         * characters. Thus with 1 bit per pixel it requires up to 65536 bytes. The height always
-                         * requries 32 per glyph, regardless of the actual height - see the comment above #define
-                         * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
+                         * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum
+                         * 512 characters. Thus with 1 bit per pixel it requires up to 65536 bytes. The
+                         * height always requries 32 per glyph, regardless of the actual height - see the
+                         * comment above #define max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
                         fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);
                         if (!fontbuf) {
@@ -260,13 +269,17 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         cfo.data = fontbuf;
                         r = ioctl(src_fd, KDFONTOP, &cfo);
                         if (r < 0)
-                                log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to read the font data: %m");
+                                log_warning_errno(
+                                        errno,
+                                        "KD_FONT_OP_GET failed while trying to read the font data: %m");
                         else {
                                 unimapd.entries = unipairs;
                                 unimapd.entry_ct = USHRT_MAX;
                                 r = ioctl(src_fd, GIO_UNIMAP, &unimapd);
                                 if (r < 0)
-                                        log_warning_errno(errno, "GIO_UNIMAP failed while trying to read unicode mappings: %m");
+                                        log_warning_errno(
+                                                errno,
+                                                "GIO_UNIMAP failed while trying to read unicode mappings: %m");
                                 else
                                         cfo.op = KD_FONT_OP_SET;
                         }
@@ -315,7 +328,9 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         if (ioctl(fd_d, KDGETMODE, &mode) >= 0 && mode != KD_TEXT)
                                 log_debug("KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
                         else
-                                log_warning_errno(last_errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
+                                log_warning_errno(last_errno,
+                                                  "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m",
+                                                  i);
 
                         continue;
                 }
@@ -326,13 +341,15 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                  */
                 r = ioctl(fd_d, PIO_UNIMAPCLR, &adv);
                 if (r < 0) {
-                        log_warning_errno(errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%u: %m", i);
+                        log_warning_errno(
+                                errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%u: %m", i);
                         continue;
                 }
 
                 r = ioctl(fd_d, PIO_UNIMAP, &unimapd);
                 if (r < 0) {
-                        log_warning_errno(errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%u: %m", i);
+                        log_warning_errno(
+                                errno, "PIO_UNIMAP failed, unimaps might be incorrect for tty%u: %m", i);
                         continue;
                 }
 
@@ -412,8 +429,8 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_free_ char *vc = NULL, *vc_keymap = NULL, *vc_keymap_toggle = NULL, *vc_font = NULL, *vc_font_map = NULL,
-                            *vc_font_unimap = NULL;
+        _cleanup_free_ char *vc = NULL, *vc_keymap = NULL, *vc_keymap_toggle = NULL, *vc_font = NULL,
+                            *vc_font_map = NULL, *vc_font_unimap = NULL;
         _cleanup_close_ int fd = -1;
         bool utf8, keyboard_ok;
         unsigned idx = 0;

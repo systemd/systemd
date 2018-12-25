@@ -260,7 +260,8 @@ static void test_strv_split(void) {
         strv_free(l);
 
         /* missing last quote ignores the last element. */
-        l = strv_split_full("    'one'  \"  two\t three \" ' four  five'  ' ignored element ", NULL, SPLIT_QUOTES);
+        l = strv_split_full(
+                "    'one'  \"  two\t three \" ' four  five'  ' ignored element ", NULL, SPLIT_QUOTES);
         assert_se(l);
         assert_se(strv_equal(l, (char **) input_table_quoted));
 

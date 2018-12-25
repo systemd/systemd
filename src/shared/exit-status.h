@@ -7,8 +7,8 @@
 #include "macro.h"
 #include "set.h"
 
-/* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with the LSB
- * 'status' verb exit codes which are defined very differently. For details see:
+/* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with
+ * the LSB 'status' verb exit codes which are defined very differently. For details see:
  *
  * https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
  */
@@ -26,8 +26,8 @@ enum
 
         /* BSD's sysexits.h defines a couple EX_xyz exit codes in the range 64 … 78 */
 
-        /* The LSB suggests that error codes >= 200 are "reserved". We use them here under the assumption that they
-         * hence are unused by init scripts. */
+        /* The LSB suggests that error codes >= 200 are "reserved". We use them here under the assumption
+         * that they hence are unused by init scripts. */
         EXIT_CHDIR = 200,
         EXIT_NICE,
         EXIT_FDS,

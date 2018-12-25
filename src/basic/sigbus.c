@@ -104,7 +104,12 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
 
         /* Replace mapping with an anonymous page, so that the
          * execution can continue, however with a zeroed out page */
-        assert_se(mmap(aligned, page_size(), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) == aligned);
+        assert_se(mmap(aligned,
+                       page_size(),
+                       PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                       -1,
+                       0) == aligned);
 }
 
 void sigbus_install(void) {

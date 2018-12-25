@@ -12,7 +12,12 @@
 #include "util.h"
 
 typedef int(compress_t)(const void *src, uint64_t src_size, void *dst, size_t dst_alloc_size, size_t *dst_size);
-typedef int(decompress_t)(const void *src, uint64_t src_size, void **dst, size_t *dst_alloc_size, size_t *dst_size, size_t dst_max);
+typedef int(decompress_t)(const void *src,
+                          uint64_t src_size,
+                          void **dst,
+                          size_t *dst_alloc_size,
+                          size_t *dst_size,
+                          size_t dst_max);
 
 #if HAVE_XZ || HAVE_LZ4
 
@@ -70,7 +75,10 @@ static char *make_buf(size_t count, const char *type) {
         return buf;
 }
 
-static void test_compress_decompress(const char *label, const char *type, compress_t compress, decompress_t decompress) {
+static void test_compress_decompress(const char *label,
+                                     const char *type,
+                                     compress_t compress,
+                                     decompress_t decompress) {
         usec_t n, n2 = 0;
         float dt;
 

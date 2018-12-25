@@ -137,8 +137,8 @@ static inline bool DNS_PACKET_DO(DnsPacket *p) {
 }
 
 static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
-        /* Returns true if this packet is in a version we support. Which means either non-EDNS or EDNS(0), but not EDNS
-         * of any newer versions */
+        /* Returns true if this packet is in a version we support. Which means either non-EDNS or EDNS(0),
+         * but not EDNS of any newer versions */
 
         if (!p->opt)
                 return true;
@@ -155,17 +155,23 @@ static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
 #define DNS_PACKET_NSCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->nscount)
 #define DNS_PACKET_ARCOUNT(p) be16toh(DNS_PACKET_HEADER(p)->arcount)
 
-#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode)                                              \
-        (((uint16_t) !!(qr) << 15) | ((uint16_t)((opcode) &15) << 11) | ((uint16_t) !!(aa) << 10) | /* on LLMNR: c */ \
-         ((uint16_t) !!(tc) << 9) | ((uint16_t) !!(rd) << 8) |                                      /* on LLMNR: t */ \
-         ((uint16_t) !!(ra) << 7) | ((uint16_t) !!(ad) << 5) | ((uint16_t) !!(cd) << 4) | ((uint16_t)((rcode) &15)))
+#define DNS_PACKET_MAKE_FLAGS(qr, opcode, aa, tc, rd, ra, ad, cd, rcode)                  \
+        (((uint16_t) !!(qr) << 15) | ((uint16_t)((opcode) &15) << 11) |                   \
+         ((uint16_t) !!(aa) << 10) |                           /* on LLMNR: c */          \
+         ((uint16_t) !!(tc) << 9) | ((uint16_t) !!(rd) << 8) | /* on LLMNR: t */          \
+         ((uint16_t) !!(ra) << 7) | ((uint16_t) !!(ad) << 5) | ((uint16_t) !!(cd) << 4) | \
+         ((uint16_t)((rcode) &15)))
 
 static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
-        return (unsigned) DNS_PACKET_ANCOUNT(p) + (unsigned) DNS_PACKET_NSCOUNT(p) + (unsigned) DNS_PACKET_ARCOUNT(p);
+        return (unsigned) DNS_PACKET_ANCOUNT(p) + (unsigned) DNS_PACKET_NSCOUNT(p) +
+                (unsigned) DNS_PACKET_ARCOUNT(p);
 }
 
 int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
-int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled);
+int dns_packet_new_query(DnsPacket **p,
+                         DnsProtocol protocol,
+                         size_t min_alloc_dsize,
+                         bool dnssec_checking_disabled);
 
 void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated);
 
@@ -187,9 +193,14 @@ int dns_packet_append_uint32(DnsPacket *p, uint32_t v, size_t *start);
 int dns_packet_append_string(DnsPacket *p, const char *s, size_t *start);
 int dns_packet_append_raw_string(DnsPacket *p, const void *s, size_t size, size_t *start);
 int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonical_candidate, size_t *start);
-int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
+int dns_packet_append_name(
+        DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnswerFlags flags, size_t *start);
-int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
+int dns_packet_append_rr(DnsPacket *p,
+                         const DnsResourceRecord *rr,
+                         const DnsAnswerFlags flags,
+                         size_t *start,
+                         size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
@@ -256,11 +267,15 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
 #define LLMNR_MULTICAST_IPV4_ADDRESS ((struct in_addr){ .s_addr = htobe32(224U << 24 | 252U) })
 #define LLMNR_MULTICAST_IPV6_ADDRESS \
-        ((struct in6_addr){ .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
+        ((struct in6_addr){          \
+                .s6_addr = {         \
+                        0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03 } })
 
 #define MDNS_MULTICAST_IPV4_ADDRESS ((struct in_addr){ .s_addr = htobe32(224U << 24 | 251U) })
 #define MDNS_MULTICAST_IPV6_ADDRESS \
-        ((struct in6_addr){ .s6_addr = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
+        ((struct in6_addr){         \
+                .s6_addr = {        \
+                        0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb } })
 
 extern const struct hash_ops dns_packet_hash_ops;
 
@@ -289,9 +304,9 @@ static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, 
 static inline size_t dns_packet_size_max(DnsPacket *p) {
         assert(p);
 
-        /* Why not insist on a fully initialized max_size during DnsPacket construction? Well, this way it's easy to
-         * allocate a transient, throw-away DnsPacket on the stack by simple zero initialization, without having to
-         * deal with explicit field initialization. */
+        /* Why not insist on a fully initialized max_size during DnsPacket construction? Well, this way it's
+         * easy to allocate a transient, throw-away DnsPacket on the stack by simple zero initialization,
+         * without having to deal with explicit field initialization. */
 
         return p->max_size != 0 ? p->max_size : DNS_PACKET_SIZE_MAX;
 }

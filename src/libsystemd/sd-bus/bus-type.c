@@ -7,33 +7,38 @@
 #include "bus-type.h"
 
 bool bus_type_is_valid(char c) {
-        static const char valid[] = { SD_BUS_TYPE_BYTE,   SD_BUS_TYPE_BOOLEAN, SD_BUS_TYPE_INT16,       SD_BUS_TYPE_UINT16,
-                                      SD_BUS_TYPE_INT32,  SD_BUS_TYPE_UINT32,  SD_BUS_TYPE_INT64,       SD_BUS_TYPE_UINT64,
-                                      SD_BUS_TYPE_DOUBLE, SD_BUS_TYPE_STRING,  SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE,
-                                      SD_BUS_TYPE_ARRAY,  SD_BUS_TYPE_VARIANT, SD_BUS_TYPE_STRUCT,      SD_BUS_TYPE_DICT_ENTRY,
-                                      SD_BUS_TYPE_UNIX_FD };
+        static const char valid[] = { SD_BUS_TYPE_BYTE,       SD_BUS_TYPE_BOOLEAN,     SD_BUS_TYPE_INT16,
+                                      SD_BUS_TYPE_UINT16,     SD_BUS_TYPE_INT32,       SD_BUS_TYPE_UINT32,
+                                      SD_BUS_TYPE_INT64,      SD_BUS_TYPE_UINT64,      SD_BUS_TYPE_DOUBLE,
+                                      SD_BUS_TYPE_STRING,     SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE,
+                                      SD_BUS_TYPE_ARRAY,      SD_BUS_TYPE_VARIANT,     SD_BUS_TYPE_STRUCT,
+                                      SD_BUS_TYPE_DICT_ENTRY, SD_BUS_TYPE_UNIX_FD };
 
         return !!memchr(valid, c, sizeof(valid));
 }
 
 bool bus_type_is_basic(char c) {
-        static const char valid[] = { SD_BUS_TYPE_BYTE,   SD_BUS_TYPE_BOOLEAN, SD_BUS_TYPE_INT16,       SD_BUS_TYPE_UINT16,
-                                      SD_BUS_TYPE_INT32,  SD_BUS_TYPE_UINT32,  SD_BUS_TYPE_INT64,       SD_BUS_TYPE_UINT64,
-                                      SD_BUS_TYPE_DOUBLE, SD_BUS_TYPE_STRING,  SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE,
+        static const char valid[] = { SD_BUS_TYPE_BYTE,   SD_BUS_TYPE_BOOLEAN,     SD_BUS_TYPE_INT16,
+                                      SD_BUS_TYPE_UINT16, SD_BUS_TYPE_INT32,       SD_BUS_TYPE_UINT32,
+                                      SD_BUS_TYPE_INT64,  SD_BUS_TYPE_UINT64,      SD_BUS_TYPE_DOUBLE,
+                                      SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE,
                                       SD_BUS_TYPE_UNIX_FD };
 
         return !!memchr(valid, c, sizeof(valid));
 }
 
 bool bus_type_is_trivial(char c) {
-        static const char valid[] = { SD_BUS_TYPE_BYTE,   SD_BUS_TYPE_BOOLEAN, SD_BUS_TYPE_INT16,  SD_BUS_TYPE_UINT16, SD_BUS_TYPE_INT32,
-                                      SD_BUS_TYPE_UINT32, SD_BUS_TYPE_INT64,   SD_BUS_TYPE_UINT64, SD_BUS_TYPE_DOUBLE };
+        static const char valid[] = { SD_BUS_TYPE_BYTE,   SD_BUS_TYPE_BOOLEAN, SD_BUS_TYPE_INT16,
+                                      SD_BUS_TYPE_UINT16, SD_BUS_TYPE_INT32,   SD_BUS_TYPE_UINT32,
+                                      SD_BUS_TYPE_INT64,  SD_BUS_TYPE_UINT64,  SD_BUS_TYPE_DOUBLE };
 
         return !!memchr(valid, c, sizeof(valid));
 }
 
 bool bus_type_is_container(char c) {
-        static const char valid[] = { SD_BUS_TYPE_ARRAY, SD_BUS_TYPE_VARIANT, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY };
+        static const char valid[] = {
+                SD_BUS_TYPE_ARRAY, SD_BUS_TYPE_VARIANT, SD_BUS_TYPE_STRUCT, SD_BUS_TYPE_DICT_ENTRY
+        };
 
         return !!memchr(valid, c, sizeof(valid));
 }

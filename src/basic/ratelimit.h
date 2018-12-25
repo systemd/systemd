@@ -13,7 +13,8 @@ typedef struct RateLimit {
         unsigned num;
 } RateLimit;
 
-#define RATELIMIT_DEFINE(_name, _interval, _burst) RateLimit _name = { .interval = (_interval), .burst = (_burst), .num = 0, .begin = 0 }
+#define RATELIMIT_DEFINE(_name, _interval, _burst) \
+        RateLimit _name = { .interval = (_interval), .burst = (_burst), .num = 0, .begin = 0 }
 
 #define RATELIMIT_INIT(v, _interval, _burst) \
         do {                                 \

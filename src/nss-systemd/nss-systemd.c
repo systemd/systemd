@@ -101,10 +101,11 @@ static int direct_lookup_name(const char *name, uid_t *ret) {
 
         assert(name);
 
-        /* Normally, we go via the bus to resolve names. That has the benefit that it is available from any mount
-         * namespace and subject to proper authentication. However, there's one problem: if our module is called from
-         * dbus-daemon itself we really can't use D-Bus to communicate. In this case, resort to a client-side hack,
-         * and look for the dynamic names directly. This is pretty ugly, but breaks the cyclic dependency. */
+        /* Normally, we go via the bus to resolve names. That has the benefit that it is available from any
+         * mount namespace and subject to proper authentication. However, there's one problem: if our module
+         * is called from dbus-daemon itself we really can't use D-Bus to communicate. In this case, resort
+         * to a client-side hack, and look for the dynamic names directly. This is pretty ugly, but breaks
+         * the cyclic dependency. */
 
         path = strjoina("/run/systemd/dynamic-uid/direct:", name);
         r = readlink_malloc(path, &s);
@@ -132,7 +133,8 @@ static int direct_lookup_uid(uid_t uid, char **ret) {
         return 0;
 }
 
-enum nss_status _nss_systemd_getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
+enum nss_status
+        _nss_systemd_getpwnam_r(const char *name, struct passwd *pwd, char *buffer, size_t buflen, int *errnop)
 {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -325,7 +327,8 @@ fail:
 
 #pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
 
-enum nss_status _nss_systemd_getgrnam_r(const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
+enum nss_status
+        _nss_systemd_getgrnam_r(const char *name, struct group *gr, char *buffer, size_t buflen, int *errnop)
 {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

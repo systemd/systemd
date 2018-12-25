@@ -82,7 +82,8 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                                        return log_error_errno(
+                                                r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
@@ -169,7 +170,8 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                                        return log_error_errno(
+                                                r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
@@ -271,14 +273,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERIFY:
                         arg_verify = import_verify_from_string(optarg);
                         if (arg_verify < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid verification setting '%s'", optarg);
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL), "Invalid verification setting '%s'", optarg);
 
                         break;
 
                 case ARG_SETTINGS:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --settings= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --settings= parameter '%s': %m", optarg);
 
                         arg_settings = r;
                         break;
@@ -286,7 +290,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOTHASH:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --roothash= parameter '%s': %m", optarg);
+                                return log_error_errno(
+                                        r, "Failed to parse --roothash= parameter '%s': %m", optarg);
 
                         arg_roothash = r;
                         break;
@@ -302,7 +307,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int pull_main(int argc, char *argv[]) {
-        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, pull_tar }, { "raw", 2, 3, 0, pull_raw }, {} };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "tar", 2, 3, 0, pull_tar },
+                                      { "raw", 2, 3, 0, pull_raw },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

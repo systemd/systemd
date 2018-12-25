@@ -162,7 +162,13 @@ int config_parse_dns_servers(const char *unit,
                 /* Otherwise, add to the list */
                 r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse DNS server string '%s'. Ignoring.",
+                                   rvalue);
                         return 0;
                 }
         }
@@ -203,7 +209,13 @@ int config_parse_search_domains(const char *unit,
                 /* Otherwise, add to the list */
                 r = manager_parse_search_domains_and_warn(m, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse search domains string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse search domains string '%s'. Ignoring.",
+                                   rvalue);
                         return 0;
                 }
         }
@@ -240,7 +252,8 @@ int config_parse_dnssd_service_name(const char *unit,
         assert(s);
 
         if (isempty(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
+                log_syntax(
+                        unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
                 return -EINVAL;
         }
 
@@ -253,7 +266,13 @@ int config_parse_dnssd_service_name(const char *unit,
                 return log_debug_errno(r, "Failed to replace specifiers: %m");
 
         if (!dns_service_name_is_valid(name)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "Service instance name template renders to invalid name '%s'. Ignoring.",
+                           name);
                 return -EINVAL;
         }
 
@@ -333,13 +352,15 @@ int config_parse_dnssd_txt(const char *unit,
                 DnsTxtItem *i;
                 int r;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES | EXTRACT_CUNESCAPE | EXTRACT_CUNESCAPE_RELAX);
+                r = extract_first_word(
+                        &rvalue, &word, NULL, EXTRACT_QUOTES | EXTRACT_CUNESCAPE | EXTRACT_CUNESCAPE_RELAX);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return log_syntax(
+                                unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
 
                 r = split_pair(word, "=", &key, &value);
                 if (r == -ENOMEM)
@@ -360,7 +381,13 @@ int config_parse_dnssd_txt(const char *unit,
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0)
-                                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid base64 encoding, ignoring: %s", value);
+                                        return log_syntax(unit,
+                                                          LOG_ERR,
+                                                          filename,
+                                                          line,
+                                                          r,
+                                                          "Invalid base64 encoding, ignoring: %s",
+                                                          value);
                         }
 
                         r = dnssd_txt_item_new_from_data(key, decoded, length, &i);

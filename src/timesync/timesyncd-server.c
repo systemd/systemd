@@ -3,7 +3,10 @@
 #include "alloc-util.h"
 #include "timesyncd-server.h"
 
-int server_address_new(ServerName *n, ServerAddress **ret, const union sockaddr_union *sockaddr, socklen_t socklen) {
+int server_address_new(ServerName *n,
+                       ServerAddress **ret,
+                       const union sockaddr_union *sockaddr,
+                       socklen_t socklen) {
 
         ServerAddress *a, *tail;
 
@@ -75,7 +78,8 @@ int server_name_new(Manager *m, ServerName **ret, ServerType type, const char *s
 
         n->manager = m;
 
-        if (type != SERVER_FALLBACK && m->current_server_name && m->current_server_name->type == SERVER_FALLBACK)
+        if (type != SERVER_FALLBACK && m->current_server_name &&
+            m->current_server_name->type == SERVER_FALLBACK)
                 manager_set_server_name(m, NULL);
 
         log_debug("Added new server %s.", string);

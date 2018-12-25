@@ -18,7 +18,8 @@ static void test_deserialize_in_addr(void) {
         struct in_addr a, b, c;
         struct in6_addr d, e, f;
         int size;
-        const char *addresses_string = "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
+        const char *addresses_string =
+                "192.168.0.1 0:0:0:0:0:FFFF:204.152.189.116 192.168.0.2 ::1 192.168.0.3 1:0:0:0:0:0:0:8";
 
         assert_se(inet_pton(AF_INET, "0:0:0:0:0:FFFF:204.152.189.116", &a) == 0);
         assert_se(inet_pton(AF_INET6, "192.168.0.1", &d) == 0);
@@ -55,7 +56,8 @@ static void test_deserialize_dhcp_routes(void) {
         {
                 /* no errors */
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
+                const char *routes_string =
+                        "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
                 assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
 
@@ -76,7 +78,8 @@ static void test_deserialize_dhcp_routes(void) {
         {
                 /* error in second word */
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                const char *routes_string = "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
+                const char *routes_string =
+                        "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1";
 
                 assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
 
@@ -93,7 +96,8 @@ static void test_deserialize_dhcp_routes(void) {
         {
                 /* error in every word */
                 _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-                const char *routes_string = "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
+                const char *routes_string =
+                        "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X";
 
                 assert_se(deserialize_dhcp_routes(&routes, &size, &allocated, routes_string) >= 0);
                 assert_se(size == 0);
@@ -196,7 +200,8 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong fqdn, cut to first dot, no errors */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &shortened);
+                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com",
+                                     &shortened);
                 assert_se(r == 1);
                 assert_se(streq("name1", shortened));
         }
@@ -204,7 +209,8 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong hostname, cut to HOST_MAX_LEN, no errors */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
+                r = shorten_overlong(
+                        "test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
                 assert_se(r == 1);
                 assert_se(streq("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom", shortened));
         }
@@ -212,7 +218,8 @@ static void test_dhcp_hostname_shorten_overlong(void) {
         {
                 /* overlong fqdn, cut to first dot, empty result error */
                 _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &shortened);
+                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com",
+                                     &shortened);
                 assert_se(r == -EDOM);
                 assert_se(shortened == NULL);
         }

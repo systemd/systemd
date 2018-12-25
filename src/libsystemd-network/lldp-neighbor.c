@@ -61,8 +61,8 @@ static void lldp_neighbor_free(sd_lldp_neighbor *n) {
 
 _public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
 
-        /* Drops one reference from the neighbor. Note that the object is not freed unless it is already unlinked from
-         * the sd_lldp object. */
+        /* Drops one reference from the neighbor. Note that the object is not freed unless it is already
+         * unlinked from the sd_lldp object. */
 
         if (!n)
                 return NULL;
@@ -171,8 +171,9 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                 return -EBADMSG;
         }
 
-        if (h.ether_dhost[0] != 0x01 || h.ether_dhost[1] != 0x80 || h.ether_dhost[2] != 0xc2 || h.ether_dhost[3] != 0x00 ||
-            h.ether_dhost[4] != 0x00 || !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
+        if (h.ether_dhost[0] != 0x01 || h.ether_dhost[1] != 0x80 || h.ether_dhost[2] != 0xc2 ||
+            h.ether_dhost[3] != 0x00 || h.ether_dhost[4] != 0x00 ||
+            !IN_SET(h.ether_dhost[5], 0x00, 0x03, 0x0e)) {
                 log_lldp("Received packet with wrong destination address, ignoring.");
                 return -EBADMSG;
         }
@@ -215,7 +216,8 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         goto end_marker;
 
                 case SD_LLDP_TYPE_CHASSIS_ID:
-                        if (length < 2 || length > 256) { /* includes the chassis subtype, hence one extra byte */
+                        if (length < 2 ||
+                            length > 256) { /* includes the chassis subtype, hence one extra byte */
                                 log_lldp("Chassis ID field size out of range, ignoring datagram.");
                                 return -EBADMSG;
                         }
@@ -232,7 +234,8 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         break;
 
                 case SD_LLDP_TYPE_PORT_ID:
-                        if (length < 2 || length > 256) { /* includes the port subtype, hence one extra byte */
+                        if (length < 2 ||
+                            length > 256) { /* includes the port subtype, hence one extra byte */
                                 log_lldp("Port ID field size out of range, ignoring datagram.");
                                 return -EBADMSG;
                         }

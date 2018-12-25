@@ -90,8 +90,14 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
-        r = config_parse_many(
-                filename, dnssd_service_dirs, dropin_dirname, "Service\0", config_item_perf_lookup, resolved_dnssd_gperf_lookup, false, service);
+        r = config_parse_many(filename,
+                              dnssd_service_dirs,
+                              dropin_dirname,
+                              "Service\0",
+                              config_item_perf_lookup,
+                              resolved_dnssd_gperf_lookup,
+                              false,
+                              service);
         if (r < 0)
                 return r;
 
@@ -340,7 +346,8 @@ void dnssd_signal_conflict(Manager *manager, const char *name) {
                                 return;
                         }
 
-                        r = sd_bus_emit_signal(manager->bus, path, "org.freedesktop.resolve1.DnssdService", "Conflicted", NULL);
+                        r = sd_bus_emit_signal(
+                                manager->bus, path, "org.freedesktop.resolve1.DnssdService", "Conflicted", NULL);
                         if (r < 0) {
                                 log_error_errno(r, "Cannot emit signal: %m");
                                 return;

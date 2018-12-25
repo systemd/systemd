@@ -21,34 +21,36 @@
 #include "unaligned.h"
 #include "user-util.h"
 
-/* This implements a metadata cache for clients, which are identified by their PID. Requesting metadata through /proc
- * is expensive, hence let's cache the data if we can. Note that this means the metadata might be out-of-date when we
- * store it, but it might already be anyway, as we request the data asynchronously from /proc at a different time the
- * log entry was originally created. We hence just increase the "window of inaccuracy" a bit.
+/* This implements a metadata cache for clients, which are identified by their PID. Requesting metadata
+ * through /proc is expensive, hence let's cache the data if we can. Note that this means the metadata might
+ * be out-of-date when we store it, but it might already be anyway, as we request the data asynchronously
+ * from /proc at a different time the log entry was originally created. We hence just increase the "window of
+ * inaccuracy" a bit.
  *
- * The cache is indexed by the PID. Entries may be "pinned" in the cache, in which case the entries are not removed
- * until they are unpinned. Unpinned entries are kept around until cache pressure is seen. Cache entries older than 5s
- * are never used (a sad attempt to deal with the UNIX weakness of PIDs reuse), cache entries older than 1s are
- * refreshed in an incremental way (meaning: data is reread from /proc, but any old data we can't refresh is not
- * flushed out). Data newer than 1s is used immediately without refresh.
+ * The cache is indexed by the PID. Entries may be "pinned" in the cache, in which case the entries are not
+ * removed until they are unpinned. Unpinned entries are kept around until cache pressure is seen. Cache
+ * entries older than 5s are never used (a sad attempt to deal with the UNIX weakness of PIDs reuse), cache
+ * entries older than 1s are refreshed in an incremental way (meaning: data is reread from /proc, but any old
+ * data we can't refresh is not flushed out). Data newer than 1s is used immediately without refresh.
  *
- * Log stream clients (i.e. all clients using the AF_UNIX/SOCK_STREAM stdout/stderr transport) will pin a cache entry
- * as long as their socket is connected. Note that cache entries are shared between different transports. That means a
- * cache entry pinned for the stream connection logic may be reused for the syslog or native protocols.
+ * Log stream clients (i.e. all clients using the AF_UNIX/SOCK_STREAM stdout/stderr transport) will pin a
+ * cache entry as long as their socket is connected. Note that cache entries are shared between different
+ * transports. That means a cache entry pinned for the stream connection logic may be reused for the syslog
+ * or native protocols.
  *
  * Caching metadata like this has two major benefits:
  *
  * 1. Reading metadata is expensive, and we can thus substantially speed up log processing under flood.
  *
- * 2. Because metadata caching is shared between stream and datagram transports and stream connections pin a cache
- *    entry there's a good chance we can properly map a substantial set of datagram log messages to their originating
- *    service, as all services (unless explicitly configured otherwise) will have their stdout/stderr connected to a
- *    stream connection. This should improve cases where a service process logs immediately before exiting and we
- *    previously had trouble associating the log message with the service.
+ * 2. Because metadata caching is shared between stream and datagram transports and stream connections pin a
+ * cache entry there's a good chance we can properly map a substantial set of datagram log messages to their
+ * originating service, as all services (unless explicitly configured otherwise) will have their
+ * stdout/stderr connected to a stream connection. This should improve cases where a service process logs
+ * immediately before exiting and we previously had trouble associating the log message with the service.
  *
- * NB: With and without the metadata cache: the implicitly added entry metadata in the journal (with the exception of
- *     UID/PID/GID and SELinux label) must be understood as possibly slightly out of sync (i.e. sometimes slighly older
- *     and sometimes slightly newer than what was current at the log event).
+ * NB: With and without the metadata cache: the implicitly added entry metadata in the journal (with the
+ * exception of UID/PID/GID and SELinux label) must be understood as possibly slightly out of sync (i.e.
+ * sometimes slighly older and sometimes slightly newer than what was current at the log event).
  */
 
 /* We refresh every 1s */
@@ -57,9 +59,9 @@
 /* Data older than 5s we flush out */
 #define MAX_USEC (5 * USEC_PER_SEC)
 
-/* Keep at most 16K entries in the cache. (Note though that this limit may be violated if enough streams pin entries in
- * the cache, in which case we *do* permit this limit to be breached. That's safe however, as the number of stream
- * clients itself is limited.) */
+/* Keep at most 16K entries in the cache. (Note though that this limit may be violated if enough streams pin
+ * entries in the cache, in which case we *do* permit this limit to be breached. That's safe however, as the
+ * number of stream clients itself is limited.) */
 #define CACHE_MAX (16 * 1024)
 
 static int client_context_compare(const void *a, const void *b) {
@@ -253,9 +255,10 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
         r = cg_pid_get_path_shifted(c->pid, s->cgroup_root, &t);
         if (r < 0 || empty_or_root(t)) {
 
-                /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
-                 * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
-                 * on cgroupsv1 and we want to be able to map log messages from them too. */
+                /* We use the unit ID passed in as fallback if we have nothing cached yet and
+                 * cg_pid_get_path_shifted() failed or process is running in a root cgroup. Zombie processes
+                 * are automatically migrated to root cgroup on cgroupsv1 and we want to be able to map log
+                 * messages from them too. */
                 if (unit_id && !c->unit) {
                         c->unit = strdup(unit_id);
                         if (c->unit)
@@ -374,8 +377,8 @@ static int client_context_read_extra_fields(Server *s, ClientContext *c) {
                 return -errno;
         }
 
-        if (fstat(fileno(f), &st) < 0) /* The file might have been replaced since the stat() above, let's get a new
-                                        * one, that matches the stuff we are reading */
+        if (fstat(fileno(f), &st) < 0) /* The file might have been replaced since the stat() above, let's get
+                                        * a new one, that matches the stuff we are reading */
                 return -errno;
 
         r = read_full_stream(f, (char **) &data, &size);
@@ -462,8 +465,13 @@ static int client_context_read_log_rate_limit_burst(ClientContext *c) {
         return safe_atou(value, &c->log_rate_limit_burst);
 }
 
-static void client_context_really_refresh(
-        Server *s, ClientContext *c, const struct ucred *ucred, const char *label, size_t label_size, const char *unit_id, usec_t timestamp) {
+static void client_context_really_refresh(Server *s,
+                                          ClientContext *c,
+                                          const struct ucred *ucred,
+                                          const char *label,
+                                          size_t label_size,
+                                          const char *unit_id,
+                                          usec_t timestamp) {
 
         assert(s);
         assert(c);
@@ -494,8 +502,13 @@ static void client_context_really_refresh(
         }
 }
 
-void client_context_maybe_refresh(
-        Server *s, ClientContext *c, const struct ucred *ucred, const char *label, size_t label_size, const char *unit_id, usec_t timestamp) {
+void client_context_maybe_refresh(Server *s,
+                                  ClientContext *c,
+                                  const struct ucred *ucred,
+                                  const char *label,
+                                  size_t label_size,
+                                  const char *unit_id,
+                                  usec_t timestamp) {
 
         assert(s);
         assert(c);
@@ -636,14 +649,24 @@ static int client_context_get_internal(Server *s,
         return 0;
 }
 
-int client_context_get(
-        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret) {
+int client_context_get(Server *s,
+                       pid_t pid,
+                       const struct ucred *ucred,
+                       const char *label,
+                       size_t label_len,
+                       const char *unit_id,
+                       ClientContext **ret) {
 
         return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, false, ret);
 }
 
-int client_context_acquire(
-        Server *s, pid_t pid, const struct ucred *ucred, const char *label, size_t label_len, const char *unit_id, ClientContext **ret) {
+int client_context_acquire(Server *s,
+                           pid_t pid,
+                           const struct ucred *ucred,
+                           const char *label,
+                           size_t label_len,
+                           const char *unit_id,
+                           ClientContext **ret) {
 
         return client_context_get_internal(s, pid, ucred, label, label_len, unit_id, true, ret);
 };
@@ -661,8 +684,8 @@ ClientContext *client_context_release(Server *s, ClientContext *c) {
         if (c->n_ref > 0)
                 return NULL;
 
-        /* The entry is not pinned anymore, let's add it to the LRU prioq if we can. If we can't we'll drop it
-         * right-away */
+        /* The entry is not pinned anymore, let's add it to the LRU prioq if we can. If we can't we'll drop
+         * it right-away */
 
         if (prioq_put(s->client_contexts_lru, c, &c->lru_index) < 0)
                 client_context_free(s, c);
@@ -677,8 +700,8 @@ void client_context_acquire_default(Server *s) {
 
         assert(s);
 
-        /* Ensure that our own and PID1's contexts are always pinned. Our own context is particularly useful to
-         * generate driver messages. */
+        /* Ensure that our own and PID1's contexts are always pinned. Our own context is particularly useful
+         * to generate driver messages. */
 
         if (!s->my_context) {
                 struct ucred ucred = {

@@ -15,7 +15,10 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         assert(o);
         assert(si);
 
-        log_debug("Operating " PID_FMT " is now complete with code=%s status=%i", o->pid, sigchld_code_to_string(si->si_code), si->si_status);
+        log_debug("Operating " PID_FMT " is now complete with code=%s status=%i",
+                  o->pid,
+                  sigchld_code_to_string(si->si_code),
+                  si->si_status);
 
         o->pid = 0;
 
@@ -26,7 +29,8 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
 
         if (si->si_status == EXIT_SUCCESS)
                 r = 0;
-        else if (read(o->errno_fd, &r, sizeof(r)) != sizeof(r)) { /* Try to acquire error code for failed operation */
+        else if (read(o->errno_fd, &r, sizeof(r)) !=
+                 sizeof(r)) { /* Try to acquire error code for failed operation */
                 r = sd_bus_error_setf(&error, SD_BUS_ERROR_FAILED, "Child failed.");
                 goto fail;
         }
@@ -42,8 +46,8 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                 }
 
         } else {
-                /* The default operation when done is to simply return an error on failure or an empty success
-                 * message on success. */
+                /* The default operation when done is to simply return an error on failure or an empty
+                 * success message on success. */
                 if (r < 0) {
                         sd_bus_error_set_errno(&error, r);
                         goto fail;
@@ -66,7 +70,12 @@ fail:
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, sd_bus_message *message, int errno_fd, Operation **ret) {
+int operation_new(Manager *manager,
+                  Machine *machine,
+                  pid_t child,
+                  sd_bus_message *message,
+                  int errno_fd,
+                  Operation **ret) {
         Operation *o;
         int r;
 

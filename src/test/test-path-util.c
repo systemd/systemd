@@ -86,12 +86,15 @@ static void test_path(void) {
         test_path_simplify("./", ".", ".");
         test_path_simplify(".///.//./.", "./././.", ".");
         test_path_simplify(".///.//././/", "./././.", ".");
-        test_path_simplify(
-                "//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", "/./aaa/././.bbb/../c./d.dd/..eeee/.", "/aaa/.bbb/../c./d.dd/..eeee");
-        test_path_simplify(
-                "//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..", "/./aaa/././.bbb/../c./d.dd/..eeee/..", "/aaa/.bbb/../c./d.dd/..eeee/..");
-        test_path_simplify(
-                ".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..", "././aaa/././.bbb/../c./d.dd/..eeee/..", "aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/.",
+                           "/aaa/.bbb/../c./d.dd/..eeee");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "/aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify(".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "././aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "aaa/.bbb/../c./d.dd/..eeee/..");
         test_path_simplify("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
                            ".././aaa/././.bbb/../c./d.dd/..eeee/..",
                            "../aaa/.bbb/../c./d.dd/..eeee/..");
@@ -456,7 +459,12 @@ static void test_path_extract_filename_one(const char *input, const char *output
         int r;
 
         r = path_extract_filename(input, &k);
-        log_info("%s → %s/%s [expected: %s/%s]", strnull(input), strnull(k), strerror(-r), strnull(output), strerror(-ret));
+        log_info("%s → %s/%s [expected: %s/%s]",
+                 strnull(input),
+                 strnull(k),
+                 strerror(-r),
+                 strnull(output),
+                 strerror(-ret));
         assert_se(streq_ptr(k, output));
         assert_se(r == ret);
 }

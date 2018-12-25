@@ -203,8 +203,10 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                 if (cname->key->type == DNS_TYPE_CNAME)
                         d = cname->cname.name;
                 else {
-                        r = dns_name_change_suffix(
-                                dns_resource_key_name(key), dns_resource_key_name(cname->key), cname->dname.name, &destination);
+                        r = dns_name_change_suffix(dns_resource_key_name(key),
+                                                   dns_resource_key_name(cname->key),
+                                                   cname->dname.name,
+                                                   &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -355,7 +357,12 @@ int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_
         return 0;
 }
 
-int dns_question_new_service(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool with_txt, bool convert_idna) {
+int dns_question_new_service(DnsQuestion **ret,
+                             const char *service,
+                             const char *type,
+                             const char *domain,
+                             bool with_txt,
+                             bool convert_idna) {
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(dns_question_unrefp) DnsQuestion *q = NULL;
@@ -367,12 +374,12 @@ int dns_question_new_service(DnsQuestion **ret, const char *service, const char 
 
         /* We support three modes of invocation:
          *
-         * 1. Only a domain is specified, in which case we assume a properly encoded SRV RR name, including service
-         *    type and possibly a service name. If specified in this way we assume it's already IDNA converted if
-         *    that's necessary.
+         * 1. Only a domain is specified, in which case we assume a properly encoded SRV RR name, including
+         * service type and possibly a service name. If specified in this way we assume it's already IDNA
+         * converted if that's necessary.
          *
-         * 2. Both service type and a domain specified, in which case a normal SRV RR is assumed, without a DNS-SD
-         *    style prefix. In this case we'll IDNA convert the domain, if that's requested.
+         * 2. Both service type and a domain specified, in which case a normal SRV RR is assumed, without a
+         * DNS-SD style prefix. In this case we'll IDNA convert the domain, if that's requested.
          *
          * 3. All three of service name, type and domain are specified, in which case a DNS-SD service is put
          *    together. The service name is never IDNA converted, and the domain is if requested.

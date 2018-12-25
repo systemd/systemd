@@ -22,47 +22,50 @@
 /*
    A few notes on implementation details:
 
- - TableCell is a 'fake' structure, it's just used as data type to pass references to specific cell positions in the
-   table. It can be easily converted to an index number and back.
+ - TableCell is a 'fake' structure, it's just used as data type to pass references to specific cell positions
+ in the table. It can be easily converted to an index number and back.
 
- - TableData is where the actual data is stored: it encapsulates the data and formatting for a specific cell. It's
-   'pseudo-immutable' and ref-counted. When a cell's data's formatting is to be changed, we duplicate the object if the
-   ref-counting is larger than 1. Note that TableData and its ref-counting is mostly not visible to the outside. The
-   outside only sees Table and TableCell.
+ - TableData is where the actual data is stored: it encapsulates the data and formatting for a specific cell.
+ It's 'pseudo-immutable' and ref-counted. When a cell's data's formatting is to be changed, we duplicate the
+ object if the ref-counting is larger than 1. Note that TableData and its ref-counting is mostly not visible
+ to the outside. The outside only sees Table and TableCell.
 
- - The Table object stores a simple one-dimensional array of references to TableData objects, one row after the
-   previous one.
+ - The Table object stores a simple one-dimensional array of references to TableData objects, one row after
+ the previous one.
 
- - There's no special concept of a "row" or "column" in the table, and no special concept of the "header" row. It's all
-   derived from the cell index: we know how many cells are to be stored in a row, and can determine the rest from
-   that. The first row is always the header row. If header display is turned off we simply skip outputting the first
-   row. Also, when sorting rows we always leave the first row where it is, as the header shouldn't move.
+ - There's no special concept of a "row" or "column" in the table, and no special concept of the "header"
+ row. It's all derived from the cell index: we know how many cells are to be stored in a row, and can
+ determine the rest from that. The first row is always the header row. If header display is turned off we
+ simply skip outputting the first row. Also, when sorting rows we always leave the first row where it is, as
+ the header shouldn't move.
 
- - Note because there's no row and no column object some properties that might be appropriate as row/column properties
-   are exposed as cell properties instead. For example, the "weight" of a column (which is used to determine where to
-   add/remove space preferable when expanding/compressing tables horizontally) is actually made the "weight" of a
-   cell. Given that we usually need it per-column though we will calculate the average across every cell of the column
-   instead.
+ - Note because there's no row and no column object some properties that might be appropriate as row/column
+ properties are exposed as cell properties instead. For example, the "weight" of a column (which is used to
+ determine where to add/remove space preferable when expanding/compressing tables horizontally) is actually
+ made the "weight" of a cell. Given that we usually need it per-column though we will calculate the average
+ across every cell of the column instead.
 
- - To make things easy, when cells are added without any explicit configured formatting, then we'll copy the formatting
-   from the same cell in the previous cell. This is particularly useful for the "weight" of the cell (see above), as
-   this means setting the weight of the cells of the header row will nicely propagate to all cells in the other rows.
+ - To make things easy, when cells are added without any explicit configured formatting, then we'll copy the
+ formatting from the same cell in the previous cell. This is particularly useful for the "weight" of the cell
+ (see above), as this means setting the weight of the cells of the header row will nicely propagate to all
+ cells in the other rows.
 */
 
 typedef struct TableData {
         unsigned n_ref;
         TableDataType type;
 
-        size_t minimum_width;       /* minimum width for the column */
-        size_t maximum_width;       /* maximum width for the column */
-        unsigned weight;            /* the horizontal weight for this column, in case the table is expanded/compressed */
+        size_t minimum_width; /* minimum width for the column */
+        size_t maximum_width; /* maximum width for the column */
+        unsigned weight; /* the horizontal weight for this column, in case the table is expanded/compressed */
         unsigned ellipsize_percent; /* 0 … 100, where to place the ellipsis when compression is needed */
-        unsigned align_percent;     /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
+        unsigned align_percent; /* 0 … 100, where to pad with spaces when expanding is needed. 0: left-aligned, 100: right-aligned */
 
         bool uppercase; /* Uppercase string on display */
 
-        const char *color; /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
-        char *url;       /* A URL to use for a clickable hyperlink */
+        const char *color; /* ANSI color string to use for this cell. When written to terminal should not
+                              move cursor. Will automatically be reset after the cell */
+        char *url;         /* A URL to use for a clickable hyperlink */
         char *formatted; /* A cached textual representation of the cell data, before ellipsation/alignment */
 
         union {
@@ -357,10 +360,13 @@ int table_add_cell_full(Table *t,
         /* Small optimization: Pretty often adjacent cells in two subsequent lines have the same data and
          * formatting. Let's see if we can reuse the cell data and ref it once more. */
 
-        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent))
+        if (p &&
+            table_data_matches(
+                    p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent))
                 d = table_data_ref(p);
         else {
-                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent);
+                d = table_data_new(
+                        type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent);
                 if (!d)
                         return -ENOMEM;
         }
@@ -420,7 +426,13 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
                         return -ENOMEM;
         }
 
-        nd = table_data_new(od->type, od->data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
+        nd = table_data_new(od->type,
+                            od->data,
+                            od->minimum_width,
+                            od->maximum_width,
+                            od->weight,
+                            od->align_percent,
+                            od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
 
@@ -615,7 +627,13 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
                         return -ENOMEM;
         }
 
-        nd = table_data_new(type, data, od->minimum_width, od->maximum_width, od->weight, od->align_percent, od->ellipsize_percent);
+        nd = table_data_new(type,
+                            data,
+                            od->minimum_width,
+                            od->maximum_width,
+                            od->weight,
+                            od->align_percent,
+                            od->ellipsize_percent);
         if (!nd)
                 return -ENOMEM;
 
@@ -788,8 +806,8 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
         if (a->type == b->type) {
 
-                /* We only define ordering for cells of the same data type. If cells with different data types are
-                 * compared we follow the order the cells were originally added in */
+                /* We only define ordering for cells of the same data type. If cells with different data
+                 * types are compared we follow the order the cells were originally added in */
 
                 switch (a->type) {
 
@@ -1058,8 +1076,9 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
 }
 
 int table_print(Table *t, FILE *f) {
-        size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width, i, j, table_minimum_width, table_maximum_width,
-                table_requested_width, table_effective_width, *width;
+        size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width, i, j,
+                table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
+                *width;
         _cleanup_free_ size_t *sorted = NULL;
         uint64_t *column_weight, weight_sum;
         int r;
@@ -1111,8 +1130,8 @@ int table_print(Table *t, FILE *f) {
         for (i = t->header ? 0 : 1; i < n_rows; i++) {
                 TableData **row;
 
-                /* Note that we don't care about ordering at this time, as we just want to determine column sizes,
-                 * hence we don't care for sorted[] during the first pass. */
+                /* Note that we don't care about ordering at this time, as we just want to determine column
+                 * sizes, hence we don't care for sorted[] during the first pass. */
                 row = t->data + i * t->n_columns;
 
                 for (j = 0; j < display_columns; j++) {
@@ -1134,7 +1153,8 @@ int table_print(Table *t, FILE *f) {
                                 minimum_width[j] = d->minimum_width;
 
                         /* Determine the maximum width any cell in this column needs */
-                        if (d->maximum_width != (size_t) -1 && (maximum_width[j] == (size_t) -1 || maximum_width[j] > d->maximum_width))
+                        if (d->maximum_width != (size_t) -1 &&
+                            (maximum_width[j] == (size_t) -1 || maximum_width[j] > d->maximum_width))
                                 maximum_width[j] = d->maximum_width;
 
                         /* Determine the full columns weight */
@@ -1162,7 +1182,8 @@ int table_print(Table *t, FILE *f) {
 
         /* Calculate effective table width */
         if (t->width == (size_t) -1)
-                table_effective_width = pager_have() ? table_requested_width : MIN(table_requested_width, columns());
+                table_effective_width = pager_have() ? table_requested_width :
+                                                       MIN(table_requested_width, columns());
         else
                 table_effective_width = t->width;
 
@@ -1175,8 +1196,8 @@ int table_print(Table *t, FILE *f) {
         if (table_effective_width >= table_requested_width) {
                 size_t extra;
 
-                /* We have extra room, let's distribute it among columns according to their weights. We first provide
-                 * each column with what it asked for and the distribute the rest.  */
+                /* We have extra room, let's distribute it among columns according to their weights. We first
+                 * provide each column with what it asked for and the distribute the rest.  */
 
                 extra = table_effective_width - table_requested_width;
 
@@ -1184,7 +1205,8 @@ int table_print(Table *t, FILE *f) {
                         size_t delta;
 
                         if (weight_sum == 0)
-                                width[j] = requested_width[j] + extra / (display_columns - j); /* Avoid division by zero */
+                                width[j] = requested_width[j] +
+                                        extra / (display_columns - j); /* Avoid division by zero */
                         else
                                 width[j] = requested_width[j] + (extra * column_weight[j]) / weight_sum;
 
@@ -1208,8 +1230,8 @@ int table_print(Table *t, FILE *f) {
                 }
 
         } else {
-                /* We need to compress the table, columns can't get what they asked for. We first provide each column
-                 * with the minimum they need, and then distribute anything left. */
+                /* We need to compress the table, columns can't get what they asked for. We first provide
+                 * each column with the minimum they need, and then distribute anything left. */
                 bool finalize = false;
                 size_t extra;
 
@@ -1229,15 +1251,16 @@ int table_print(Table *t, FILE *f) {
                                         continue;
 
                                 if (weight_sum == 0)
-                                        w = minimum_width[j] + extra / (display_columns - j); /* avoid division by zero */
+                                        w = minimum_width[j] +
+                                                extra / (display_columns - j); /* avoid division by zero */
                                 else
                                         w = minimum_width[j] + (extra * column_weight[j]) / weight_sum;
 
                                 if (w >= requested_width[j]) {
-                                        /* Never give more than requested. If we hit a column like this, there's more
-                                         * space to allocate to other columns which means we need to restart the
-                                         * iteration. However, if we hit a column like this, let's assign it the space
-                                         * it wanted for good early.*/
+                                        /* Never give more than requested. If we hit a column like this,
+                                         * there's more space to allocate to other columns which means we
+                                         * need to restart the iteration. However, if we hit a column like
+                                         * this, let's assign it the space it wanted for good early.*/
 
                                         w = requested_width[j];
                                         restart = true;

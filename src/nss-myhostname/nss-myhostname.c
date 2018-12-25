@@ -27,8 +27,13 @@
 NSS_GETHOSTBYNAME_PROTOTYPES(myhostname);
 NSS_GETHOSTBYADDR_PROTOTYPES(myhostname);
 
-enum nss_status _nss_myhostname_gethostbyname4_r(
-        const char *name, struct gaih_addrtuple **pat, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+enum nss_status _nss_myhostname_gethostbyname4_r(const char *name,
+                                                 struct gaih_addrtuple **pat,
+                                                 char *buffer,
+                                                 size_t buflen,
+                                                 int *errnop,
+                                                 int *h_errnop,
+                                                 int32_t *ttlp)
 {
 
         struct gaih_addrtuple *r_tuple, *r_tuple_prev = NULL;
@@ -134,7 +139,9 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                 r_tuple->next = r_tuple_prev;
                 r_tuple->name = r_name;
                 r_tuple->family = a->family;
-                r_tuple->scopeid = a->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&a->address.in6) ? a->ifindex : 0;
+                r_tuple->scopeid = a->family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&a->address.in6) ?
+                        a->ifindex :
+                        0;
                 memcpy(r_tuple->addr, &a->address, 16);
 
                 idx += ALIGN(sizeof(struct gaih_addrtuple));
@@ -194,8 +201,9 @@ static enum nss_status fill_in_hostent(const char *canonical,
 
         l_canonical = strlen(canonical);
         l_additional = strlen_ptr(additional);
-        ms = ALIGN(l_canonical + 1) + (additional ? ALIGN(l_additional + 1) : 0) + sizeof(char *) + (additional ? sizeof(char *) : 0) +
-                (c > 0 ? c : 1) * ALIGN(alen) + (c > 0 ? c + 1 : 2) * sizeof(char *);
+        ms = ALIGN(l_canonical + 1) + (additional ? ALIGN(l_additional + 1) : 0) + sizeof(char *) +
+                (additional ? sizeof(char *) : 0) + (c > 0 ? c : 1) * ALIGN(alen) +
+                (c > 0 ? c + 1 : 2) * sizeof(char *);
 
         if (buflen < ms) {
                 *errnop = ERANGE;
@@ -289,8 +297,15 @@ static enum nss_status fill_in_hostent(const char *canonical,
         return NSS_STATUS_SUCCESS;
 }
 
-enum nss_status _nss_myhostname_gethostbyname3_r(
-        const char *name, int af, struct hostent *host, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp, char **canonp)
+enum nss_status _nss_myhostname_gethostbyname3_r(const char *name,
+                                                 int af,
+                                                 struct hostent *host,
+                                                 char *buffer,
+                                                 size_t buflen,
+                                                 int *errnop,
+                                                 int *h_errnop,
+                                                 int32_t *ttlp,
+                                                 char **canonp)
 {
 
         _cleanup_free_ struct local_address *addresses = NULL;
@@ -353,12 +368,30 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 local_address_ipv4 = LOCALADDRESS_IPV4;
         }
 
-        return fill_in_hostent(
-                canonical, additional, af, addresses, n_addresses, local_address_ipv4, host, buffer, buflen, errnop, h_errnop, ttlp, canonp);
+        return fill_in_hostent(canonical,
+                               additional,
+                               af,
+                               addresses,
+                               n_addresses,
+                               local_address_ipv4,
+                               host,
+                               buffer,
+                               buflen,
+                               errnop,
+                               h_errnop,
+                               ttlp,
+                               canonp);
 }
 
-enum nss_status _nss_myhostname_gethostbyaddr2_r(
-        const void *addr, socklen_t len, int af, struct hostent *host, char *buffer, size_t buflen, int *errnop, int *h_errnop, int32_t *ttlp)
+enum nss_status _nss_myhostname_gethostbyaddr2_r(const void *addr,
+                                                 socklen_t len,
+                                                 int af,
+                                                 struct hostent *host,
+                                                 char *buffer,
+                                                 size_t buflen,
+                                                 int *errnop,
+                                                 int *h_errnop,
+                                                 int32_t *ttlp)
 {
 
         const char *canonical = NULL, *additional = NULL;
@@ -451,8 +484,19 @@ found:
                         additional = hn;
         }
 
-        return fill_in_hostent(
-                canonical, additional, af, addresses, n_addresses, local_address_ipv4, host, buffer, buflen, errnop, h_errnop, ttlp, NULL);
+        return fill_in_hostent(canonical,
+                               additional,
+                               af,
+                               addresses,
+                               n_addresses,
+                               local_address_ipv4,
+                               host,
+                               buffer,
+                               buflen,
+                               errnop,
+                               h_errnop,
+                               ttlp,
+                               NULL);
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(myhostname);

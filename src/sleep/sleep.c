@@ -45,7 +45,8 @@ static int write_hibernate_location_info(void) {
         if (streq(type, "partition")) {
                 r = write_string_file("/sys/power/resume", device, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0)
-                        return log_debug_errno(r, "Faileed to write partitoin device to /sys/power/resume: %m");
+                        return log_debug_errno(r,
+                                               "Faileed to write partitoin device to /sys/power/resume: %m");
 
                 return r;
         }
@@ -159,7 +160,11 @@ static int execute(char **modes, char **states) {
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
 
-        log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR, LOG_MESSAGE("Suspending system..."), "SLEEP=%s", arg_verb);
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
+                   LOG_MESSAGE("Suspending system..."),
+                   "SLEEP=%s",
+                   arg_verb);
 
         r = write_state(&f, states);
         if (r < 0)
@@ -170,7 +175,11 @@ static int execute(char **modes, char **states) {
                                  "SLEEP=%s",
                                  arg_verb);
         else
-                log_struct(LOG_INFO, "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR, LOG_MESSAGE("System resumed."), "SLEEP=%s", arg_verb);
+                log_struct(LOG_INFO,
+                           "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
+                           LOG_MESSAGE("System resumed."),
+                           "SLEEP=%s",
+                           arg_verb);
 
         arguments[1] = (char *) "post";
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL);
@@ -208,7 +217,8 @@ static int rtc_write_wake_alarm(uint64_t sec) {
 
 static int execute_s2h(usec_t hibernate_delay_sec) {
 
-        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL, **suspend_modes = NULL, **suspend_states = NULL;
+        _cleanup_strv_free_ char **hibernate_modes = NULL, **hibernate_states = NULL, **suspend_modes = NULL,
+                                 **suspend_states = NULL;
         usec_t original_time, wake_time, cmp_time;
         int r;
 
@@ -294,7 +304,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
         };
 
-        static const struct option options[] = { { "help", no_argument, NULL, 'h' }, { "version", no_argument, NULL, ARG_VERSION }, {} };
+        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
+                                                 { "version", no_argument, NULL, ARG_VERSION },
+                                                 {} };
 
         int c;
 
@@ -317,7 +329,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc - optind != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Usage: %s COMMAND", program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "Usage: %s COMMAND", program_invocation_short_name);
 
         arg_verb = argv[optind];
 
@@ -344,7 +357,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (!allow)
-                return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Sleep mode \"%s\" is disabled by configuration, refusing.", arg_verb);
+                return log_error_errno(SYNTHETIC_ERRNO(EACCES),
+                                       "Sleep mode \"%s\" is disabled by configuration, refusing.",
+                                       arg_verb);
 
         if (streq(arg_verb, "suspend-then-hibernate"))
                 return execute_s2h(delay);

@@ -16,8 +16,8 @@
                 printf("systemd not booted skipping '%s'\n", #x); \
         }
 
-#define MANAGER_SKIP_TEST(r)                                                                                  \
-        IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOMEDIUM /* cannot determine cgroup */ \
+#define MANAGER_SKIP_TEST(r) \
+        IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT, -ENOMEDIUM /* cannot determine cgroup */                          \
         )
 
 int enter_cgroup_subroot(void);

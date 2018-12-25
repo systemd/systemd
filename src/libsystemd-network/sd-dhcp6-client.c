@@ -110,7 +110,8 @@ const char *dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
-        _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+        _cleanup_(sd_dhcp6_client_unrefp) \
+                _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
 
 static int client_start(sd_dhcp6_client *client, enum DHCP6State state);
 
@@ -138,7 +139,8 @@ int sd_dhcp6_client_set_local_address(sd_dhcp6_client *client, const struct in6_
 
         assert_return(client, -EINVAL);
         assert_return(local_address, -EINVAL);
-        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) local_address) > 0, -EINVAL);
+        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) local_address) > 0,
+                      -EINVAL);
 
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
@@ -185,7 +187,8 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
  * without further modification. Otherwise, if duid_type is supported, DUID
  * is set based on that type. Otherwise, an error is returned.
  */
-static int dhcp6_client_set_duid_internal(sd_dhcp6_client *client, uint16_t duid_type, const void *duid, size_t duid_len, usec_t llt_time) {
+static int dhcp6_client_set_duid_internal(
+        sd_dhcp6_client *client, uint16_t duid_type, const void *duid, size_t duid_len, usec_t llt_time) {
         int r;
 
         assert_return(client, -EINVAL);
@@ -210,8 +213,12 @@ static int dhcp6_client_set_duid_internal(sd_dhcp6_client *client, uint16_t duid
                         if (client->mac_addr_len == 0)
                                 return -EOPNOTSUPP;
 
-                        r = dhcp_identifier_set_duid_llt(
-                                &client->duid, llt_time, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        r = dhcp_identifier_set_duid_llt(&client->duid,
+                                                         llt_time,
+                                                         client->mac_addr,
+                                                         client->mac_addr_len,
+                                                         client->arp_type,
+                                                         &client->duid_len);
                         if (r < 0)
                                 return r;
                         break;
@@ -224,8 +231,11 @@ static int dhcp6_client_set_duid_internal(sd_dhcp6_client *client, uint16_t duid
                         if (client->mac_addr_len == 0)
                                 return -EOPNOTSUPP;
 
-                        r = dhcp_identifier_set_duid_ll(
-                                &client->duid, client->mac_addr, client->mac_addr_len, client->arp_type, &client->duid_len);
+                        r = dhcp_identifier_set_duid_ll(&client->duid,
+                                                        client->mac_addr,
+                                                        client->mac_addr_len,
+                                                        client->arp_type,
+                                                        &client->duid_len);
                         if (r < 0)
                                 return r;
                         break;
@@ -479,7 +489,11 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 else
                         message->type = DHCP6_RENEW;
 
-                r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_SERVERID, client->lease->serverid_len, client->lease->serverid);
+                r = dhcp6_option_append(&opt,
+                                        &optlen,
+                                        SD_DHCP6_OPTION_SERVERID,
+                                        client->lease->serverid_len,
+                                        client->lease->serverid);
                 if (r < 0)
                         return r;
 
@@ -537,7 +551,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 return -EINVAL;
         }
 
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ORO, client->req_opts_len * sizeof(be16_t), client->req_opts);
+        r = dhcp6_option_append(
+                &opt, &optlen, SD_DHCP6_OPTION_ORO, client->req_opts_len * sizeof(be16_t), client->req_opts);
         if (r < 0)
                 return r;
 
@@ -552,7 +567,8 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         else
                 elapsed_time = 0xffff;
 
-        r = dhcp6_option_append(&opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
+        r = dhcp6_option_append(
+                &opt, &optlen, SD_DHCP6_OPTION_ELAPSED_TIME, sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
 
@@ -719,9 +735,10 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                         client->retransmit_time += client_timeout_compute_random(client->retransmit_time);
         }
 
-        log_dhcp6_client(client,
-                         "Next retransmission in %s",
-                         format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->retransmit_time, USEC_PER_SEC));
+        log_dhcp6_client(
+                client,
+                "Next retransmission in %s",
+                format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->retransmit_time, USEC_PER_SEC));
 
         r = event_reset_time(client->event,
                              &client->timeout_resend,
@@ -738,7 +755,9 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
 
         if (max_retransmit_duration && event_source_is_enabled(client->timeout_resend_expire) <= 0) {
 
-                log_dhcp6_client(client, "Max retransmission duration %" PRIu64 " secs", max_retransmit_duration / USEC_PER_SEC);
+                log_dhcp6_client(client,
+                                 "Max retransmission duration %" PRIu64 " secs",
+                                 max_retransmit_duration / USEC_PER_SEC);
 
                 r = event_reset_time(client->event,
                                      &client->timeout_resend_expire,
@@ -781,7 +800,10 @@ static int client_ensure_iaid(sd_dhcp6_client *client) {
         return 0;
 }
 
-static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, size_t len, sd_dhcp6_lease *lease) {
+static int client_parse_message(sd_dhcp6_client *client,
+                                DHCP6Message *message,
+                                size_t len,
+                                sd_dhcp6_lease *lease) {
 
         uint32_t lt_t1 = ~0, lt_t2 = ~0;
         bool clientid = false;
@@ -815,12 +837,16 @@ static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, 
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         if (clientid) {
-                                log_dhcp6_client(client, "%s contains multiple clientids", dhcp6_message_type_to_string(message->type));
+                                log_dhcp6_client(client,
+                                                 "%s contains multiple clientids",
+                                                 dhcp6_message_type_to_string(message->type));
                                 return -EINVAL;
                         }
 
                         if (optlen != client->duid_len || memcmp(&client->duid, optval, optlen) != 0) {
-                                log_dhcp6_client(client, "%s DUID does not match", dhcp6_message_type_to_string(message->type));
+                                log_dhcp6_client(client,
+                                                 "%s DUID does not match",
+                                                 dhcp6_message_type_to_string(message->type));
 
                                 return -EINVAL;
                         }
@@ -831,7 +857,9 @@ static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, 
                 case SD_DHCP6_OPTION_SERVERID:
                         r = dhcp6_lease_get_serverid(lease, NULL, NULL);
                         if (r >= 0) {
-                                log_dhcp6_client(client, "%s contains multiple serverids", dhcp6_message_type_to_string(message->type));
+                                log_dhcp6_client(client,
+                                                 "%s contains multiple serverids",
+                                                 dhcp6_message_type_to_string(message->type));
                                 return -EINVAL;
                         }
 
@@ -883,7 +911,9 @@ static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, 
                                 return r;
 
                         if (client->ia_na.ia_na.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA NA", dhcp6_message_type_to_string(message->type));
+                                log_dhcp6_client(client,
+                                                 "%s has wrong IAID for IA NA",
+                                                 dhcp6_message_type_to_string(message->type));
                                 return -EINVAL;
                         }
 
@@ -910,7 +940,9 @@ static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, 
                                 return r;
 
                         if (client->ia_pd.ia_pd.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID for IA PD", dhcp6_message_type_to_string(message->type));
+                                log_dhcp6_client(client,
+                                                 "%s has wrong IAID for IA PD",
+                                                 dhcp6_message_type_to_string(message->type));
                                 return -EINVAL;
                         }
 
@@ -961,14 +993,16 @@ static int client_parse_message(sd_dhcp6_client *client, DHCP6Message *message, 
         }
 
         if (!clientid) {
-                log_dhcp6_client(client, "%s has incomplete options", dhcp6_message_type_to_string(message->type));
+                log_dhcp6_client(
+                        client, "%s has incomplete options", dhcp6_message_type_to_string(message->type));
                 return -EINVAL;
         }
 
         if (client->state != DHCP6_STATE_INFORMATION_REQUEST) {
                 r = dhcp6_lease_get_serverid(lease, NULL, NULL);
                 if (r < 0) {
-                        log_dhcp6_client(client, "%s has no server id", dhcp6_message_type_to_string(message->type));
+                        log_dhcp6_client(
+                                client, "%s has no server id", dhcp6_message_type_to_string(message->type));
                         return -EINVAL;
                 }
 
@@ -1211,7 +1245,12 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                 return r;
 
         if (!client->receive_message) {
-                r = sd_event_add_io(client->event, &client->receive_message, client->fd, EPOLLIN, client_receive_message, client);
+                r = sd_event_add_io(client->event,
+                                    &client->receive_message,
+                                    client->fd,
+                                    EPOLLIN,
+                                    client_receive_message,
+                                    client);
                 if (r < 0)
                         goto error;
 
@@ -1261,7 +1300,9 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
                 timeout = client_timeout_compute_random(lifetime_t1 * USEC_PER_SEC);
 
-                log_dhcp6_client(client, "T1 expires in %s", format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
+                log_dhcp6_client(client,
+                                 "T1 expires in %s",
+                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = event_reset_time(client->event,
                                      &client->timeout_t1,
@@ -1278,7 +1319,9 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 
                 timeout = client_timeout_compute_random(lifetime_t2 * USEC_PER_SEC);
 
-                log_dhcp6_client(client, "T2 expires in %s", format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
+                log_dhcp6_client(client,
+                                 "T2 expires in %s",
+                                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
                 r = event_reset_time(client->event,
                                      &client->timeout_t2,
@@ -1344,7 +1387,8 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->ifindex > 0, -EINVAL);
-        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &client->local_address) > 0, -EINVAL);
+        assert_return(in_addr_is_link_local(AF_INET6, (const union in_addr_union *) &client->local_address) > 0,
+                      -EINVAL);
 
         if (!IN_SET(client->state, DHCP6_STATE_STOPPED))
                 return -EBUSY;
@@ -1369,8 +1413,10 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                 if (r < 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union *) &client->local_address, &p);
-                        return log_dhcp6_client_errno(client, r, "Failed to bind to UDP socket at address %s: %m", strna(p));
+                        (void) in_addr_to_string(
+                                AF_INET6, (const union in_addr_union *) &client->local_address, &p);
+                        return log_dhcp6_client_errno(
+                                client, r, "Failed to bind to UDP socket at address %s: %m", strna(p));
                 }
 
                 client->fd = r;
@@ -1379,7 +1425,9 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (client->information_request)
                 state = DHCP6_STATE_INFORMATION_REQUEST;
 
-        log_dhcp6_client(client, "Started in %s mode", client->information_request ? "Information request" : "Managed");
+        log_dhcp6_client(client,
+                         "Started in %s mode",
+                         client->information_request ? "Information request" : "Managed");
 
         return client_start(client, state);
 }

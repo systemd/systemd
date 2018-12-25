@@ -25,7 +25,8 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 
         salen = sockaddr_un_set_path(&sa.un, socket_name);
         if (salen < 0)
-                return log_error_errno(salen, "Specified socket path for AF_UNIX socket invalid, refusing: %s", socket_name);
+                return log_error_errno(
+                        salen, "Specified socket path for AF_UNIX socket invalid, refusing: %s", socket_name);
 
         if (sendto(fd, packet, size, MSG_NOSIGNAL, &sa.sa, salen) < 0)
                 return log_error_errno(errno, "Failed to send: %m");

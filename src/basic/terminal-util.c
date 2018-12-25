@@ -54,8 +54,8 @@ static volatile int cached_underline_enabled = -1;
 int chvt(int vt) {
         _cleanup_close_ int fd;
 
-        /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
-         * if that's configured. */
+        /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log
+         * messages go, if that's configured. */
 
         fd = open_terminal("/dev/tty0", O_RDWR | O_NOCTTY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0)
@@ -355,16 +355,19 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
         int r, wd = -1;
 
         assert(name);
-        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
+        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE,
+                      ACQUIRE_TERMINAL_TRY,
+                      ACQUIRE_TERMINAL_FORCE,
+                      ACQUIRE_TERMINAL_WAIT));
 
-        /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
-         * acquire it, so that we don't lose any event.
+        /* We use inotify to be notified when the tty is closed. We create the watch before checking if we
+         * can actually acquire it, so that we don't lose any event.
          *
-         * Note: strictly speaking this actually watches for the device being closed, it does *not* really watch
-         * whether a tty loses its controlling process. However, unless some rogue process uses TIOCNOTTY on /dev/tty
-         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure to
-         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which they
-         * probably should not do anyway.) */
+         * Note: strictly speaking this actually watches for the device being closed, it does *not* really
+         * watch whether a tty loses its controlling process. However, unless some rogue process uses
+         * TIOCNOTTY on /dev/tty *after* closing its tty otherwise this will not become a problem. As long as
+         * the administrator makes sure to not configure any service on the same tty as an untrusted user
+         * this should not be a problem. (Which they probably should not do anyway.) */
 
         if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
                 notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
@@ -392,8 +395,8 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
                                 return r;
                 }
 
-                /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
-                 * to figure out if we successfully became the controlling process of the tty */
+                /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a
+                 * reliable way to figure out if we successfully became the controlling process of the tty */
                 fd = open_terminal(name, O_RDWR | O_NOCTTY | O_CLOEXEC);
                 if (fd < 0)
                         return fd;
@@ -402,7 +405,9 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                r = ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
+                r = ioctl(fd, TIOCSCTTY, (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ?
+                        -errno :
+                        0;
 
                 /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
@@ -415,12 +420,14 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
                 if (r != -EPERM)
                         return r;
 
-                if (flags & ACQUIRE_TERMINAL_PERMISSIVE) /* If we are in permissive mode, then EPERM is fine, turn this
-                                                          * into a success. Note that EPERM is also returned if we
-                                                          * already are the owner of the TTY. */
+                if (flags &
+                    ACQUIRE_TERMINAL_PERMISSIVE) /* If we are in permissive mode, then EPERM is fine, turn
+                                                  * this into a success. Note that EPERM is also returned if
+                                                  * we already are the owner of the TTY. */
                         break;
 
-                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                if (flags !=
+                    ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
                         return r;
 
                 assert(notify >= 0);
@@ -456,8 +463,8 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
                         }
 
                         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                                if (e->mask &
-                                    IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
+                                if (e->mask & IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply
+                                                                check if the terminal is up for grabs now. */
                                         break;
 
                                 if (e->wd != wd || !(e->mask & IN_CLOSE)) /* Safety checks */
@@ -467,8 +474,8 @@ int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeou
                         break;
                 }
 
-                /* We close the tty fd here since if the old session ended our handle will be dead. It's important that
-                 * we do this after sleeping, so that we don't enter an endless loop. */
+                /* We close the tty fd here since if the old session ended our handle will be dead. It's
+                 * important that we do this after sleeping, so that we don't enter an endless loop. */
                 fd = safe_close(fd);
         }
 
@@ -595,7 +602,8 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE | ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
+        fd = acquire_terminal(
+                "/dev/console", ACQUIRE_TERMINAL_FORCE | ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
 
@@ -654,8 +662,8 @@ int resolve_dev_console(char **ret) {
 
         assert(ret);
 
-        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
-         * sign for container setups) */
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted
+         * which is a sign for container setups) */
 
         if (path_is_read_only_fs("/sys") > 0)
                 return -ENOMEDIUM;
@@ -873,10 +881,11 @@ void reset_terminal_feature_caches(void) {
 bool on_tty(void) {
 
         /* We check both stdout and stderr, so that situations where pipes on the shell are used are reliably
-         * recognized, regardless if only the output or the errors are piped to some place. Since on_tty() is generally
-         * used to default to a safer, non-interactive, non-color mode of operation it's probably good to be defensive
-         * here, and check for both. Note that we don't check for STDIN_FILENO, because it should fine to use fancy
-         * terminal functionality when outputting stuff, even if the input is piped to us. */
+         * recognized, regardless if only the output or the errors are piped to some place. Since on_tty() is
+         * generally used to default to a safer, non-interactive, non-color mode of operation it's probably
+         * good to be defensive here, and check for both. Note that we don't check for STDIN_FILENO, because
+         * it should fine to use fancy terminal functionality when outputting stuff, even if the input is
+         * piped to us. */
 
         if (cached_on_tty < 0)
                 cached_on_tty = isatty(STDOUT_FILENO) > 0 && isatty(STDERR_FILENO) > 0;
@@ -985,17 +994,17 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
                         return r;
 
                 if (major(devnr) == 136) {
-                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't follow the
-                         * Linux device model. This means we have no nice way to match them up against their actual
-                         * device node. Let's hence do the check by the fixed, assigned major number. Normally we try
-                         * to avoid such fixed major/minor matches, but there appears to nother nice way to handle
-                         * this. */
+                        /* This is an ugly hack: PTY devices are not listed in /dev/char/, as they don't
+                         * follow the Linux device model. This means we have no nice way to match them up
+                         * against their actual device node. Let's hence do the check by the fixed, assigned
+                         * major number. Normally we try to avoid such fixed major/minor matches, but there
+                         * appears to nother nice way to handle this. */
 
                         if (asprintf(&b, "pts/%u", minor(devnr)) < 0)
                                 return -ENOMEM;
                 } else {
-                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's return
-                         * something vaguely useful. */
+                        /* Probably something similar to the ptys which have no symlink in /dev/char/. Let's
+                         * return something vaguely useful. */
 
                         r = device_path_make_major_minor(S_IFCHR, devnr, &fn);
                         if (r < 0)
@@ -1085,8 +1094,17 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork(
-                "(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork("(sd-openptns)",
+                           "(sd-openpt)",
+                           NULL,
+                           0,
+                           FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                           pidnsfd,
+                           mntnsfd,
+                           -1,
+                           usernsfd,
+                           rootfd,
+                           &child);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1131,8 +1149,17 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork(
-                "(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork("(sd-terminalns)",
+                           "(sd-terminal)",
+                           NULL,
+                           0,
+                           FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                           pidnsfd,
+                           mntnsfd,
+                           -1,
+                           usernsfd,
+                           rootfd,
+                           &child);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1180,11 +1207,12 @@ bool terminal_is_dumb(void) {
 
 bool colors_enabled(void) {
 
-        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
-         * (which is the explicit way to turn colors on/off). If that didn't work we turn colors off unless we are on a
-         * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
-         * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continously due to fear of SAK, and hence things are a bit weird. */
+        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS
+         * first (which is the explicit way to turn colors on/off). If that didn't work we turn colors off
+         * unless we are on a TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's
+         * one special tweak though: if we are PID 1 then we do not check whether we are connected to a TTY,
+         * because we don't keep /dev/console open continously due to fear of SAK, and hence things are a bit
+         * weird. */
 
         if (cached_colors_enabled < 0) {
                 int val;
@@ -1208,10 +1236,10 @@ bool dev_console_colors_enabled(void) {
 
         /* Returns true if we assume that color is supported on /dev/console.
          *
-         * For that we first check if we explicitly got told to use colors or not, by checking $SYSTEMD_COLORS. If that
-         * isn't set we check whether PID 1 has $TERM set, and if not, whether TERM is set on the kernel command
-         * line. If we find $TERM set we assume color if it's not set to "dumb", similarly to how regular
-         * colors_enabled() operates. */
+         * For that we first check if we explicitly got told to use colors or not, by checking
+         * $SYSTEMD_COLORS. If that isn't set we check whether PID 1 has $TERM set, and if not, whether TERM
+         * is set on the kernel command line. If we find $TERM set we assume color if it's not set to "dumb",
+         * similarly to how regular colors_enabled() operates. */
 
         b = getenv_bool("SYSTEMD_COLORS");
         if (b >= 0)

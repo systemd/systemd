@@ -31,7 +31,8 @@ struct DnsSearchDomain {
         LIST_FIELDS(DnsSearchDomain, domains);
 };
 
-int dns_search_domain_new(Manager *m, DnsSearchDomain **ret, DnsSearchDomainType type, Link *link, const char *name);
+int dns_search_domain_new(
+        Manager *m, DnsSearchDomain **ret, DnsSearchDomainType type, Link *link, const char *name);
 
 DnsSearchDomain *dns_search_domain_ref(DnsSearchDomain *d);
 DnsSearchDomain *dns_search_domain_unref(DnsSearchDomain *d);

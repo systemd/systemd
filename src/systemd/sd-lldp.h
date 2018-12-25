@@ -85,9 +85,10 @@ enum
 
 #define SD_LLDP_SYSTEM_CAPABILITIES_ALL ((uint16_t) -1)
 
-#define SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS                                                                                       \
-        ((uint16_t)(SD_LLDP_SYSTEM_CAPABILITIES_REPEATER | SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE | SD_LLDP_SYSTEM_CAPABILITIES_WLAN_AP | \
-                    SD_LLDP_SYSTEM_CAPABILITIES_ROUTER | SD_LLDP_SYSTEM_CAPABILITIES_DOCSIS | SD_LLDP_SYSTEM_CAPABILITIES_CVLAN |     \
+#define SD_LLDP_SYSTEM_CAPABILITIES_ALL_ROUTERS                                                 \
+        ((uint16_t)(SD_LLDP_SYSTEM_CAPABILITIES_REPEATER | SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE | \
+                    SD_LLDP_SYSTEM_CAPABILITIES_WLAN_AP | SD_LLDP_SYSTEM_CAPABILITIES_ROUTER |  \
+                    SD_LLDP_SYSTEM_CAPABILITIES_DOCSIS | SD_LLDP_SYSTEM_CAPABILITIES_CVLAN |    \
                     SD_LLDP_SYSTEM_CAPABILITIES_SVLAN | SD_LLDP_SYSTEM_CAPABILITIES_TPMR))
 
 #define SD_LLDP_OUI_802_1        \
@@ -168,8 +169,8 @@ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret)
 int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 
-/* Low-level, iterative TLV access. This is for evertyhing else, it iteratively goes through all available TLVs
- * (including the ones covered with the calls above), and allows multiple TLVs for the same fields. */
+/* Low-level, iterative TLV access. This is for evertyhing else, it iteratively goes through all available
+ * TLVs (including the ones covered with the calls above), and allows multiple TLVs for the same fields. */
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type);

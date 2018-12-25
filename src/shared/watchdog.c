@@ -42,13 +42,15 @@ static int update_timeout(void) {
                         return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);
 
                 watchdog_timeout = (usec_t) sec * USEC_PER_SEC;
-                log_info("Set hardware watchdog to %s.", format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
+                log_info("Set hardware watchdog to %s.",
+                         format_timespan(buf, sizeof(buf), watchdog_timeout, 0));
 
                 flags = WDIOS_ENABLECARD;
                 r = ioctl(watchdog_fd, WDIOC_SETOPTIONS, &flags);
                 if (r < 0) {
                         /* ENOTTY means the watchdog is always enabled so we're fine */
-                        log_full(errno == ENOTTY ? LOG_DEBUG : LOG_WARNING, "Failed to enable hardware watchdog: %m");
+                        log_full(errno == ENOTTY ? LOG_DEBUG : LOG_WARNING,
+                                 "Failed to enable hardware watchdog: %m");
                         if (errno != ENOTTY)
                                 return -errno;
                 }

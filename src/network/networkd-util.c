@@ -39,7 +39,10 @@ AddressFamilyBoolean address_family_boolean_from_string(const char *s) {
         return _ADDRESS_FAMILY_BOOLEAN_INVALID;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean, address_family_boolean, AddressFamilyBoolean, "Failed to parse option");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_boolean,
+                         address_family_boolean,
+                         AddressFamilyBoolean,
+                         "Failed to parse option");
 
 int config_parse_address_family_boolean_with_kernel(const char *unit,
                                                     const char *filename,
@@ -72,7 +75,13 @@ int config_parse_address_family_boolean_with_kernel(const char *unit,
                 if (streq(rvalue, "kernel"))
                         s = ADDRESS_FAMILY_NO;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPForward= option, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Failed to parse IPForward= option, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
         }

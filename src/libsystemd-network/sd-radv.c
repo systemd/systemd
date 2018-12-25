@@ -128,7 +128,8 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                 .opthdr =
                         {
                                 .nd_opt_type = ND_OPT_SOURCE_LINKADDR,
-                                .nd_opt_len = (sizeof(struct nd_opt_hdr) + sizeof(struct ether_addr) - 1) / 8 + 1,
+                                .nd_opt_len = (sizeof(struct nd_opt_hdr) + sizeof(struct ether_addr) - 1) / 8 +
+                                        1,
                         },
         };
         struct nd_opt_mtu opt_mtu = {
@@ -184,7 +185,8 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, uint32_t router_li
                         if (time_now > p->preferred_until)
                                 p->opt.preferred_lifetime = 0;
                         else
-                                p->opt.preferred_lifetime = htobe32((p->preferred_until - time_now) / USEC_PER_SEC);
+                                p->opt.preferred_lifetime = htobe32((p->preferred_until - time_now) /
+                                                                    USEC_PER_SEC);
                 }
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&p->opt, sizeof(p->opt));
         }
@@ -299,7 +301,8 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         timeout = radv_compute_timeout(min_timeout, max_timeout);
 
-        log_radv("Next Router Advertisement in %s", format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
+        log_radv("Next Router Advertisement in %s",
+                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, timeout, USEC_PER_SEC));
 
         r = event_reset_time(ra->event,
                              &ra->timeout_event_source,
@@ -338,7 +341,8 @@ _public_ int sd_radv_stop(sd_radv *ra) {
            with zero lifetime  */
         r = radv_send(ra, NULL, 0);
         if (r < 0)
-                log_radv_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
+                log_radv_errno(
+                        r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
@@ -486,7 +490,9 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         int r = 0;
 
         assert_return(ra, -EINVAL);
-        assert_return(IN_SET(preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH), -EINVAL);
+        assert_return(
+                IN_SET(preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH),
+                -EINVAL);
 
         ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
 
@@ -525,8 +531,13 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
                         if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
                                 goto update;
 
-                        (void) in_addr_to_string(AF_INET6, (union in_addr_union *) &cur->opt.in6_addr, &addr_cur);
-                        log_radv("IPv6 prefix %s/%u already configured, ignoring %s/%u", addr_cur, cur->opt.prefixlen, addr_p, p->opt.prefixlen);
+                        (void) in_addr_to_string(
+                                AF_INET6, (union in_addr_union *) &cur->opt.in6_addr, &addr_cur);
+                        log_radv("IPv6 prefix %s/%u already configured, ignoring %s/%u",
+                                 addr_cur,
+                                 cur->opt.prefixlen,
+                                 addr_p,
+                                 p->opt.prefixlen);
 
                         return -EEXIST;
                 }
@@ -575,7 +586,9 @@ update:
         return 0;
 }
 
-_public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix, unsigned char prefixlen) {
+_public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
+                                               const struct in6_addr *prefix,
+                                               unsigned char prefixlen) {
         sd_radv_prefix *cur, *next;
 
         assert_return(ra, NULL);
@@ -585,7 +598,9 @@ _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra, const struct in6_add
                 if (prefixlen != cur->opt.prefixlen)
                         continue;
 
-                if (!in_addr_equal(AF_INET6, (union in_addr_union *) prefix, (union in_addr_union *) &cur->opt.in6_addr))
+                if (!in_addr_equal(AF_INET6,
+                                   (union in_addr_union *) prefix,
+                                   (union in_addr_union *) &cur->opt.in6_addr))
                         continue;
 
                 LIST_REMOVE(prefix, ra->prefixes, cur);
@@ -643,8 +658,8 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime, char **search_lis
                 return 0;
         }
 
-        STRV_FOREACH(s, search_list)
-        len += strlen(*s) + 2;
+        STRV_FOREACH (s, search_list)
+                len += strlen(*s) + 2;
 
         len = (sizeof(struct sd_radv_opt_dns) + len + 7) & ~0x7;
 
@@ -659,7 +674,7 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime, char **search_lis
         p = (uint8_t *) (opt_dnssl + 1);
         len -= sizeof(struct sd_radv_opt_dns);
 
-        STRV_FOREACH(s, search_list) {
+        STRV_FOREACH (s, search_list) {
                 int r;
 
                 r = dns_name_to_wire_format(*s, p, len, false);
@@ -707,7 +722,9 @@ _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_radv_prefix, sd_radv_prefix, mfree);
 
-_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen) {
+_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p,
+                                       const struct in6_addr *in6_addr,
+                                       unsigned char prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 

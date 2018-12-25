@@ -22,7 +22,9 @@ static const char *const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_MA
         [RADV_PREFIX_DELEGATION_BOTH] = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(radv_prefix_delegation, RADVPrefixDelegation, RADV_PREFIX_DELEGATION_BOTH);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(radv_prefix_delegation,
+                                        RADVPrefixDelegation,
+                                        RADV_PREFIX_DELEGATION_BOTH);
 
 int config_parse_router_prefix_delegation(const char *unit,
                                           const char *filename,
@@ -46,7 +48,13 @@ int config_parse_router_prefix_delegation(const char *unit,
 
         d = radv_prefix_delegation_from_string(rvalue);
         if (d < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid router prefix delegation '%s', ignoring assignment.", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           -EINVAL,
+                           "Invalid router prefix delegation '%s', ignoring assignment.",
+                           rvalue);
                 return 0;
         }
 
@@ -80,7 +88,13 @@ int config_parse_router_preference(const char *unit,
         else if (streq(rvalue, "low"))
                 network->router_preference = SD_NDISC_PREFERENCE_LOW;
         else
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router preference '%s' is invalid, ignoring assignment: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           -EINVAL,
+                           "Router preference '%s' is invalid, ignoring assignment: %m",
+                           rvalue);
 
         return 0;
 }
@@ -197,7 +211,8 @@ int config_parse_prefix(const char *unit,
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &in6addr, &prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -237,7 +252,8 @@ int config_parse_prefix_flags(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -282,7 +298,8 @@ int config_parse_prefix_lifetime(const char *unit,
 
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Lifetime is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Lifetime is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -315,7 +332,8 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns, size_t *n_dn
 
                 addr = &network->dns[i].address;
 
-                if (in_addr_is_null(AF_INET6, addr) || in_addr_is_link_local(AF_INET6, addr) || in_addr_is_localhost(AF_INET6, addr))
+                if (in_addr_is_null(AF_INET6, addr) || in_addr_is_link_local(AF_INET6, addr) ||
+                    in_addr_is_localhost(AF_INET6, addr))
                         continue;
 
                 if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
@@ -361,7 +379,8 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
         if (uplink) {
                 if (uplink->network == NULL) {
-                        log_link_debug(uplink, "Cannot fetch DNS servers as uplink interface is not managed by us");
+                        log_link_debug(uplink,
+                                       "Cannot fetch DNS servers as uplink interface is not managed by us");
                         return 0;
                 }
 
@@ -397,7 +416,9 @@ static int radv_set_domains(Link *link, Link *uplink) {
 
         if (uplink) {
                 if (uplink->network == NULL) {
-                        log_link_debug(uplink, "Cannot fetch DNS search domains as uplink interface is not managed by us");
+                        log_link_debug(
+                                uplink,
+                                "Cannot fetch DNS search domains as uplink interface is not managed by us");
                         return 0;
                 }
 
@@ -462,7 +483,8 @@ int radv_configure(Link *link) {
 
         /* a value of 0xffffffff represents infinity, 0x0 means this host is
            not a router */
-        r = sd_radv_set_router_lifetime(link->radv, DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC));
+        r = sd_radv_set_router_lifetime(link->radv,
+                                        DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC));
         if (r < 0)
                 return r;
 
@@ -472,7 +494,9 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        if (IN_SET(link->network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC, RADV_PREFIX_DELEGATION_BOTH)) {
+        if (IN_SET(link->network->router_prefix_delegation,
+                   RADV_PREFIX_DELEGATION_STATIC,
+                   RADV_PREFIX_DELEGATION_BOTH)) {
 
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
                         r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
@@ -480,7 +504,9 @@ int radv_configure(Link *link) {
                                 continue;
                         if (r == -ENOEXEC) {
                                 log_link_warning_errno(
-                                        link, r, "[IPv6Prefix] section configured without Prefix= setting, ignoring section.");
+                                        link,
+                                        r,
+                                        "[IPv6Prefix] section configured without Prefix= setting, ignoring section.");
                                 continue;
                         }
                         if (r < 0)

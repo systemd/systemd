@@ -29,10 +29,12 @@ static void test_bus_path_encode_unique(void) {
 
         assert_se(bus_path_encode_unique(NULL, "/foo/bar", "some.sender", "a.suffix", &a) >= 0 &&
                   streq_ptr(a, "/foo/bar/some_2esender/a_2esuffix"));
-        assert_se(bus_path_decode_unique(a, "/foo/bar", &b, &c) > 0 && streq_ptr(b, "some.sender") && streq_ptr(c, "a.suffix"));
+        assert_se(bus_path_decode_unique(a, "/foo/bar", &b, &c) > 0 && streq_ptr(b, "some.sender") &&
+                  streq_ptr(c, "a.suffix"));
         assert_se(bus_path_decode_unique(a, "/bar/foo", &d, &d) == 0 && !d);
         assert_se(bus_path_decode_unique("/foo/bar/onlyOneSuffix", "/foo/bar", &d, &d) == 0 && !d);
-        assert_se(bus_path_decode_unique("/foo/bar/_/_", "/foo/bar", &d, &e) > 0 && streq_ptr(d, "") && streq_ptr(e, ""));
+        assert_se(bus_path_decode_unique("/foo/bar/_/_", "/foo/bar", &d, &e) > 0 && streq_ptr(d, "") &&
+                  streq_ptr(e, ""));
 }
 
 static void test_bus_path_encode(void) {
@@ -58,12 +60,17 @@ static void test_bus_path_encode_many(void) {
         assert_se(sd_bus_path_decode_many("/foo/bar", "/prefix/%", NULL) == 0);
         assert_se(sd_bus_path_decode_many("/prefix/bar", "/prefix/%bar", NULL) == 1);
         assert_se(sd_bus_path_decode_many("/foo/bar", "/prefix/%/suffix", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/prefix/foobar/suffix", "/prefix/%/suffix", &a) == 1 && streq_ptr(a, "foobar"));
-        assert_se(sd_bus_path_decode_many(
-                          "/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", &b, &c) == 1 &&
+        assert_se(sd_bus_path_decode_many("/prefix/foobar/suffix", "/prefix/%/suffix", &a) == 1 &&
+                  streq_ptr(a, "foobar"));
+        assert_se(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix",
+                                          "/prefix/one_%_two/mid/three_%_four/suffix",
+                                          &b,
+                                          &c) == 1 &&
                   streq_ptr(b, "foo") && streq_ptr(c, "bar"));
-        assert_se(sd_bus_path_decode_many(
-                          "/prefix/one_foo_two/mid/three_bar_four/suffix", "/prefix/one_%_two/mid/three_%_four/suffix", NULL, &d) == 1 &&
+        assert_se(sd_bus_path_decode_many("/prefix/one_foo_two/mid/three_bar_four/suffix",
+                                          "/prefix/one_%_two/mid/three_%_four/suffix",
+                                          NULL,
+                                          &d) == 1 &&
                   streq_ptr(d, "bar"));
 
         assert_se(sd_bus_path_decode_many("/foo/bar", "/foo/bar/%", NULL) == 0);
@@ -71,9 +78,11 @@ static void test_bus_path_encode_many(void) {
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/bar", NULL) == 0);
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%bar", NULL) == 0);
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/bar/suffix") == 1);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%%/suffix", NULL, NULL) == 0); /* multiple '%' are treated verbatim */
+        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%%/suffix", NULL, NULL) ==
+                  0); /* multiple '%' are treated verbatim */
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffi", NULL) == 0);
-        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffix", &e) == 1 && streq_ptr(e, "bar"));
+        assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/suffix", &e) == 1 &&
+                  streq_ptr(e, "bar"));
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/foo/%/%", NULL, NULL) == 1);
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "/%/%/%", NULL, NULL, NULL) == 1);
         assert_se(sd_bus_path_decode_many("/foo/bar/suffix", "%/%/%", NULL, NULL, NULL) == 0);

@@ -62,7 +62,11 @@ int mhd_respond_oom(struct MHD_Connection *connection) {
         return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE, "Out of memory.");
 }
 
-int mhd_respondf(struct MHD_Connection *connection, int error, enum MHD_RequestTerminationCode code, const char *format, ...) {
+int mhd_respondf(struct MHD_Connection *connection,
+                 int error,
+                 enum MHD_RequestTerminationCode code,
+                 const char *format,
+                 ...) {
 
         const char *fmt;
         char *m;
@@ -113,8 +117,15 @@ static void log_func_gnutls(int level, const char *message) {
 
         if (0 <= level && level < (int) ELEMENTSOF(gnutls_log_map)) {
                 if (gnutls_log_map[level].enabled)
-                        log_internal(
-                                gnutls_log_map[level].level, 0, NULL, 0, NULL, "gnutls %d/%s: %s", level, gnutls_log_map[level].names[1], message);
+                        log_internal(gnutls_log_map[level].level,
+                                     0,
+                                     NULL,
+                                     0,
+                                     NULL,
+                                     "gnutls %d/%s: %s",
+                                     level,
+                                     gnutls_log_map[level].names[1],
+                                     message);
         } else {
                 log_debug("Received GNUTLS message with unknown level %d.", level);
                 log_internal(LOG_DEBUG, 0, NULL, 0, NULL, "gnutls: %s", message);
@@ -157,7 +168,7 @@ int setup_gnutls_logger(char **categories) {
         gnutls_global_set_log_function(log_func_gnutls);
 
         if (categories) {
-                STRV_FOREACH(cat, categories) {
+                STRV_FOREACH (cat, categories) {
                         r = log_enable_gnutls_category(*cat);
                         if (r < 0)
                                 return r;
@@ -269,13 +280,16 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
         r = get_client_cert(session, &client_cert);
         if (r < 0) {
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Authorization through certificate is required");
+                *code = mhd_respond(
+                        connection, MHD_HTTP_UNAUTHORIZED, "Authorization through certificate is required");
                 return -EPERM;
         }
 
         r = get_auth_dn(client_cert, &buf);
         if (r < 0) {
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Failed to determine distinguished name from certificate");
+                *code = mhd_respond(connection,
+                                    MHD_HTTP_UNAUTHORIZED,
+                                    "Failed to determine distinguished name from certificate");
                 return -EPERM;
         }
 
@@ -287,7 +301,9 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
         r = verify_cert_authorized(session);
         if (r < 0) {
                 log_warning("Client is not authorized");
-                *code = mhd_respond(connection, MHD_HTTP_UNAUTHORIZED, "Client certificate not signed by recognized authority");
+                *code = mhd_respond(connection,
+                                    MHD_HTTP_UNAUTHORIZED,
+                                    "Client certificate not signed by recognized authority");
         }
         return r;
 }

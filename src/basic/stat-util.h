@@ -63,11 +63,11 @@ int fd_verify_regular(int fd);
 int stat_verify_directory(const struct stat *st);
 int fd_verify_directory(int fd);
 
-/* glibc and the Linux kernel have different ideas about the major/minor size. These calls will check whether the
- * specified major is valid by the Linux kernel's standards, not by glibc's. Linux has 20bits of minor, and 12 bits of
- * major space. See MINORBITS in linux/kdev_t.h in the kernel sources. (If you wonder why we define _y here, instead of
- * comparing directly >= 0: it's to trick out -Wtype-limits, which would otherwise complain if the type is unsigned, as
- * such a test would be pointless in such a case.) */
+/* glibc and the Linux kernel have different ideas about the major/minor size. These calls will check whether
+ * the specified major is valid by the Linux kernel's standards, not by glibc's. Linux has 20bits of minor,
+ * and 12 bits of major space. See MINORBITS in linux/kdev_t.h in the kernel sources. (If you wonder why we
+ * define _y here, instead of comparing directly >= 0: it's to trick out -Wtype-limits, which would otherwise
+ * complain if the type is unsigned, as such a test would be pointless in such a case.) */
 
 #define DEVICE_MAJOR_VALID(x)                        \
         ({                                           \

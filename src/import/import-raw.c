@@ -83,7 +83,11 @@ RawImport *raw_import_unref(RawImport *i) {
         return mfree(i);
 }
 
-int raw_import_new(RawImport **ret, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata) {
+int raw_import_new(RawImport **ret,
+                   sd_event *event,
+                   const char *image_root,
+                   RawImportFinished on_finished,
+                   void *userdata) {
 
         _cleanup_(raw_import_unrefp) RawImport *i = NULL;
         _cleanup_free_ char *root = NULL;

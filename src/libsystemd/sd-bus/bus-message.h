@@ -175,7 +175,13 @@ int bus_message_from_header(sd_bus *bus,
                             size_t extra,
                             sd_bus_message **ret);
 
-int bus_message_from_malloc(sd_bus *bus, void *buffer, size_t length, int *fds, size_t n_fds, const char *label, sd_bus_message **ret);
+int bus_message_from_malloc(sd_bus *bus,
+                            void *buffer,
+                            size_t length,
+                            int *fds,
+                            size_t n_fds,
+                            const char *label,
+                            sd_bus_message **ret);
 
 int bus_message_get_arg(sd_bus_message *m, unsigned i, const char **str);
 int bus_message_get_arg_strv(sd_bus_message *m, unsigned i, char ***strv);
@@ -184,7 +190,8 @@ int bus_message_parse_fields(sd_bus_message *m);
 
 struct bus_body_part *message_append_part(sd_bus_message *m);
 
-#define MESSAGE_FOREACH_PART(part, i, m) for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
+#define MESSAGE_FOREACH_PART(part, i, m) \
+        for ((i) = 0, (part) = &(m)->body; (i) < (m)->n_body_parts; (i)++, (part) = (part)->next)
 
 int bus_body_part_map(struct bus_body_part *part);
 void bus_body_part_unmap(struct bus_body_part *part);

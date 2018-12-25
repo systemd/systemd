@@ -129,8 +129,10 @@
 
 #define _CGROUP_HIEARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
 
-#define SYSTEMD_FEATURES                                                                                                                    \
-        _PAM_FEATURE_ " " _AUDIT_FEATURE_ " " _SELINUX_FEATURE_ " " _IMA_FEATURE_ " " _APPARMOR_FEATURE_ " " _SMACK_FEATURE_                \
-                      " " _SYSVINIT_FEATURE_ " " _UTMP_FEATURE_ " " _LIBCRYPTSETUP_FEATURE_ " " _GCRYPT_FEATURE_ " " _GNUTLS_FEATURE_       \
-                      " " _ACL_FEATURE_ " " _XZ_FEATURE_ " " _LZ4_FEATURE_ " " _SECCOMP_FEATURE_ " " _BLKID_FEATURE_ " " _ELFUTILS_FEATURE_ \
-                      " " _KMOD_FEATURE_ " " _IDN2_FEATURE_ " " _IDN_FEATURE_ " " _PCRE2_FEATURE_ " " _CGROUP_HIEARCHY_
+#define SYSTEMD_FEATURES                                                                                 \
+        _PAM_FEATURE_ " " _AUDIT_FEATURE_ " " _SELINUX_FEATURE_ " " _IMA_FEATURE_ " " _APPARMOR_FEATURE_ \
+                      " " _SMACK_FEATURE_ " " _SYSVINIT_FEATURE_ " " _UTMP_FEATURE_                      \
+                      " " _LIBCRYPTSETUP_FEATURE_ " " _GCRYPT_FEATURE_ " " _GNUTLS_FEATURE_              \
+                      " " _ACL_FEATURE_ " " _XZ_FEATURE_ " " _LZ4_FEATURE_ " " _SECCOMP_FEATURE_         \
+                      " " _BLKID_FEATURE_ " " _ELFUTILS_FEATURE_ " " _KMOD_FEATURE_ " " _IDN2_FEATURE_   \
+                      " " _IDN_FEATURE_ " " _PCRE2_FEATURE_ " " _CGROUP_HIEARCHY_

@@ -35,8 +35,10 @@ int main(int argc, char *argv[]) {
                 else {
                         log_info("referenced: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced)));
                         log_info("exclusive: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive)));
-                        log_info("referenced_max: %s", strna(format_bytes(bs, sizeof(bs), quota.referenced_max)));
-                        log_info("exclusive_max: %s", strna(format_bytes(bs, sizeof(bs), quota.exclusive_max)));
+                        log_info("referenced_max: %s",
+                                 strna(format_bytes(bs, sizeof(bs), quota.referenced_max)));
+                        log_info("exclusive_max: %s",
+                                 strna(format_bytes(bs, sizeof(bs), quota.exclusive_max)));
                 }
 
                 r = btrfs_subvol_get_read_only_fd(fd);
@@ -153,7 +155,8 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to set up quota limit: %m");
 
-        r = btrfs_subvol_snapshot("/xxxquotatest", "/xxxquotatest2", BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+        r = btrfs_subvol_snapshot(
+                "/xxxquotatest", "/xxxquotatest2", BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
         if (r < 0)
                 log_error_errno(r, "Failed to setup snapshot: %m");
 

@@ -88,13 +88,19 @@ int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_
                 return a->in.s_addr == b->in.s_addr;
 
         if (family == AF_INET6)
-                return a->in6.s6_addr32[0] == b->in6.s6_addr32[0] && a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
-                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] && a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
+                return a->in6.s6_addr32[0] == b->in6.s6_addr32[0] &&
+                        a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
+                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] &&
+                        a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
 
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen) {
+int in_addr_prefix_intersect(int family,
+                             const union in_addr_union *a,
+                             unsigned aprefixlen,
+                             const union in_addr_union *b,
+                             unsigned bprefixlen) {
 
         unsigned m;
 
@@ -235,8 +241,8 @@ int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifin
         assert(u);
         assert(ret);
 
-        /* Much like in_addr_to_string(), but optionally appends the zone interface index to the address, to properly
-         * handle IPv6 link-local addresses. */
+        /* Much like in_addr_to_string(), but optionally appends the zone interface index to the address, to
+         * properly handle IPv6 link-local addresses. */
 
         if (family != AF_INET6)
                 goto fallback;
@@ -314,8 +320,8 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
         assert(family);
         assert(ret);
 
-        /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix ("scope id")
-         * if one is found. */
+        /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix
+         * ("scope id") if one is found. */
 
         suffix = strchr(s, '%');
         if (suffix) {
@@ -445,7 +451,10 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         return -EAFNOSUPPORT;
 }
 
-int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address) {
+int in_addr_prefix_covers(int family,
+                          const union in_addr_union *prefix,
+                          unsigned char prefixlen,
+                          const union in_addr_union *address) {
 
         union in_addr_union masked_prefix, masked_address;
         int r;
@@ -484,8 +493,11 @@ int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
         return 0;
 }
 
-int in_addr_prefix_from_string_internal(
-        const char *p, bool use_default_prefixlen, int family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen) {
+int in_addr_prefix_from_string_internal(const char *p,
+                                        bool use_default_prefixlen,
+                                        int family,
+                                        union in_addr_union *ret_prefix,
+                                        unsigned char *ret_prefixlen) {
 
         _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;
@@ -534,8 +546,11 @@ int in_addr_prefix_from_string_internal(
         return 0;
 }
 
-int in_addr_prefix_from_string_auto_internal(
-        const char *p, bool use_default_prefixlen, int *ret_family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen) {
+int in_addr_prefix_from_string_auto_internal(const char *p,
+                                             bool use_default_prefixlen,
+                                             int *ret_family,
+                                             union in_addr_union *ret_prefix,
+                                             unsigned char *ret_prefixlen) {
 
         _cleanup_free_ char *str = NULL;
         union in_addr_union buffer;

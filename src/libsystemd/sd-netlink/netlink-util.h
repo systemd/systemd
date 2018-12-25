@@ -34,7 +34,8 @@ static inline bool rtnl_message_type_is_routing_policy_rule(uint16_t type) {
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
-int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
+int rtnl_set_link_properties(
+        sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
@@ -53,10 +54,15 @@ int rtnl_log_create_error(int r);
                                       __func__);                                                    \
         })
 
-#define netlink_add_match(nl, ret_slot, metch, callback, destroy_callback, userdata)                                                           \
-        ({                                                                                                                                     \
-                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback;                                            \
-                void (*_destroy_)(typeof(userdata)) = destroy_callback;                                                                        \
-                sd_netlink_add_match(                                                                                                          \
-                        nl, ret_slot, match, (sd_netlink_message_handler_t) _callback_, (sd_netlink_destroy_t) _destroy_, userdata, __func__); \
+#define netlink_add_match(nl, ret_slot, metch, callback, destroy_callback, userdata)                \
+        ({                                                                                          \
+                int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
+                void (*_destroy_)(typeof(userdata)) = destroy_callback;                             \
+                sd_netlink_add_match(nl,                                                            \
+                                     ret_slot,                                                      \
+                                     match,                                                         \
+                                     (sd_netlink_message_handler_t) _callback_,                     \
+                                     (sd_netlink_destroy_t) _destroy_,                              \
+                                     userdata,                                                      \
+                                     __func__);                                                     \
         })

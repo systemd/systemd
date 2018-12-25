@@ -42,8 +42,8 @@ int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
         if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
-                /* If STDIO buffering was disabled, then let's append the newline character to the string itself, so
-                 * that the write goes out in one go, instead of two */
+                /* If STDIO buffering was disabled, then let's append the newline character to the string
+                 * itself, so that the write goes out in one go, instead of two */
 
                 line = strjoina(line, "\n");
                 needs_nl = false;
@@ -73,7 +73,10 @@ int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags
         return 0;
 }
 
-static int write_string_file_atomic(const char *fn, const char *line, WriteStringFileFlags flags, struct timespec *ts) {
+static int write_string_file_atomic(const char *fn,
+                                    const char *line,
+                                    WriteStringFileFlags flags,
+                                    struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
@@ -138,7 +141,9 @@ int write_string_file_ts(const char *fn, const char *line, WriteStringFileFlags 
 
                 /* We manually build our own version of fopen(..., "we") that
                  * works without O_CREAT */
-                fd = open(fn, O_WRONLY | O_CLOEXEC | O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                fd = open(fn,
+                          O_WRONLY | O_CLOEXEC | O_NOCTTY |
+                                  ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (fd < 0) {
                         r = -errno;
                         goto fail;
@@ -264,8 +269,8 @@ int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
         n = LINE_MAX; /* Start size */
 
         fd = fileno(f);
-        if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see fmemopen(), let's
-                        * optimize our buffering) */
+        if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see
+                        * fmemopen(), let's optimize our buffering) */
 
                 if (fstat(fileno(f), &st) < 0)
                         return -errno;
@@ -276,9 +281,9 @@ int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
                         if (st.st_size > READ_FULL_BYTES_MAX)
                                 return -E2BIG;
 
-                        /* Start with the right file size, but be prepared for files from /proc which generally report a file
-                         * size of 0. Note that we increase the size to read here by one, so that the first read attempt
-                         * already makes us notice the EOF. */
+                        /* Start with the right file size, but be prepared for files from /proc which
+                         * generally report a file size of 0. Note that we increase the size to read here by
+                         * one, so that the first read attempt already makes us notice the EOF. */
                         if (st.st_size > 0)
                                 n = st.st_size + 1;
                 }
@@ -318,9 +323,9 @@ int read_full_stream(FILE *f, char **ret_contents, size_t *ret_size) {
         }
 
         if (!ret_size) {
-                /* Safety check: if the caller doesn't want to know the size of what we just read it will rely on the
-                 * trailing NUL byte. But if there's an embedded NUL byte, then we should refuse operation as otherwise
-                 * there'd be ambiguity about what we just read. */
+                /* Safety check: if the caller doesn't want to know the size of what we just read it will
+                 * rely on the trailing NUL byte. But if there's an embedded NUL byte, then we should refuse
+                 * operation as otherwise there'd be ambiguity about what we just read. */
 
                 if (memchr(buf, 0, l))
                         return -EBADMSG;
@@ -473,7 +478,8 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         return d;
 }
 
-static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
+static int search_and_fopen_internal(
+        const char *path, const char *mode, const char *root, char **search, FILE **_f) {
         char **i;
 
         assert(path);
@@ -483,7 +489,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
         if (!path_strv_resolve_uniq(search, root))
                 return -ENOMEM;
 
-        STRV_FOREACH(i, search) {
+        STRV_FOREACH (i, search) {
                 _cleanup_free_ char *p = NULL;
                 FILE *f;
 
@@ -625,10 +631,10 @@ int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space)
 
         assert(s);
 
-        /* Outputs the specified string with fputs(), but optionally prefixes it with a separator. The *space parameter
-         * when specified shall initially point to a boolean variable initialized to false. It is set to true after the
-         * first invocation. This call is supposed to be use in loops, where a separator shall be inserted between each
-         * element, but not before the first one. */
+        /* Outputs the specified string with fputs(), but optionally prefixes it with a separator. The *space
+         * parameter when specified shall initially point to a boolean variable initialized to false. It is
+         * set to true after the first invocation. This call is supposed to be use in loops, where a
+         * separator shall be inserted between each element, but not before the first one. */
 
         if (!f)
                 f = stdout;
@@ -684,9 +690,9 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
 
         /* Something like a bounded version of getline().
          *
-         * Considers EOF, \n, \r and \0 end of line delimiters (or combinations of these), and does not include these
-         * delimiters in the string returned. Specifically, recognizes the following combinations of markers as line
-         * endings:
+         * Considers EOF, \n, \r and \0 end of line delimiters (or combinations of these), and does not
+         * include these delimiters in the string returned. Specifically, recognizes the following
+         * combinations of markers as line endings:
          *
          *     • \n        (UNIX)
          *     • \r        (old MacOS)
@@ -698,11 +704,11 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
          *     • \r\n\0
          *     • \n\r\0
          *
-         * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually differs from
-         * the number of characters in the returned string). When EOF is hit, 0 is returned.
+         * Returns the number of bytes read from the files (i.e. including delimiters — this hence usually
+         * differs from the number of characters in the returned string). When EOF is hit, 0 is returned.
          *
-         * The input parameter limit is the maximum numbers of characters in the returned string, i.e. excluding
-         * delimiters. If the limit is hit we fail and return -ENOBUFS.
+         * The input parameter limit is the maximum numbers of characters in the returned string, i.e.
+         * excluding delimiters. If the limit is hit we fail and return -ENOBUFS.
          *
          * If a line shall be skipped ret may be initialized as NULL. */
 
@@ -723,7 +729,8 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         if (n >= limit)
                                 return -ENOBUFS;
 
-                        if (count >= INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
+                        if (count >=
+                            INT_MAX) /* We couldn't return the counter anymore as "int", hence refuse this */
                                 return -ENOBUFS;
 
                         r = safe_fgetc(f, &c);
@@ -734,17 +741,19 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
 
                         eol = categorize_eol(c, flags);
 
-                        if (FLAGS_SET(previous_eol, EOL_ZERO) || (eol == EOL_NONE && previous_eol != EOL_NONE) ||
+                        if (FLAGS_SET(previous_eol, EOL_ZERO) ||
+                            (eol == EOL_NONE && previous_eol != EOL_NONE) ||
                             (eol != EOL_NONE && (previous_eol & eol) != 0)) {
-                                /* Previous char was a NUL? This is not an EOL, but the previous char was? This type of
-                                 * EOL marker has been seen right before?  In either of these three cases we are
-                                 * done. But first, let's put this character back in the queue. (Note that we have to
-                                 * cast this to (unsigned char) here as ungetc() expects a positive 'int', and if we
-                                 * are on an architecture where 'char' equals 'signed char' we need to ensure we don't
-                                 * pass a negative value here. That said, to complicate things further ungetc() is
-                                 * actually happy with most negative characters and implicitly casts them back to
-                                 * positive ones as needed, except for \xff (aka -1, aka EOF), which it refuses. What a
-                                 * godawful API!) */
+                                /* Previous char was a NUL? This is not an EOL, but the previous char was?
+                                 * This type of EOL marker has been seen right before?  In either of these
+                                 * three cases we are done. But first, let's put this character back in the
+                                 * queue. (Note that we have to cast this to (unsigned char) here as ungetc()
+                                 * expects a positive 'int', and if we are on an architecture where 'char'
+                                 * equals 'signed char' we need to ensure we don't pass a negative value
+                                 * here. That said, to complicate things further ungetc() is actually happy
+                                 * with most negative characters and implicitly casts them back to positive
+                                 * ones as needed, except for \xff (aka -1, aka EOF), which it refuses. What
+                                 * a godawful API!) */
                                 assert_se(ungetc((unsigned char) c, f) != EOF);
                                 break;
                         }
@@ -781,9 +790,9 @@ int safe_fgetc(FILE *f, char *ret) {
 
         assert(f);
 
-        /* A safer version of plain fgetc(): let's propagate the error that happened while reading as such, and
-         * separate the EOF condition from the byte read, to avoid those confusion signed/unsigned issues fgetc()
-         * has. */
+        /* A safer version of plain fgetc(): let's propagate the error that happened while reading as such,
+         * and separate the EOF condition from the byte read, to avoid those confusion signed/unsigned issues
+         * fgetc() has. */
 
         errno = 0;
         k = fgetc(f);

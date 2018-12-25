@@ -69,13 +69,21 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make a name -> address query */
-        r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
+        r = sd_resolve_getaddrinfo(
+                resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make an address -> name query */
         sa.sin_addr.s_addr = inet_addr(argc >= 3 ? argv[2] : "193.99.144.71");
-        r = sd_resolve_getnameinfo(resolve, &q2, (struct sockaddr *) &sa, sizeof(sa), 0, SD_RESOLVE_GET_BOTH, getnameinfo_handler, NULL);
+        r = sd_resolve_getnameinfo(resolve,
+                                   &q2,
+                                   (struct sockaddr *) &sa,
+                                   sizeof(sa),
+                                   0,
+                                   SD_RESOLVE_GET_BOTH,
+                                   getnameinfo_handler,
+                                   NULL);
         if (r < 0)
                 log_error_errno(r, "sd_resolve_getnameinfo(): %m");
 
@@ -85,9 +93,9 @@ int main(int argc, char *argv[]) {
                 if (r == 0)
                         break;
                 if (r == -ETIMEDOUT) {
-                        /* Let's catch timeouts here, so that we can run safely in a CI that has no reliable DNS. Note
-                         * that we invoke exit() directly here, as the stuck NSS call will not allow us to exit
-                         * cleanly. */
+                        /* Let's catch timeouts here, so that we can run safely in a CI that has no reliable
+                         * DNS. Note that we invoke exit() directly here, as the stuck NSS call will not
+                         * allow us to exit cleanly. */
 
                         log_notice_errno(r, "sd_resolve_wait() timed out, but that's OK");
                         exit(EXIT_SUCCESS);

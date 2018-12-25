@@ -17,8 +17,8 @@
 /* We never keep any item longer than 2h in our cache */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
-/* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only SERVFAIL for
- * now) */
+/* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only
+ * SERVFAIL for now) */
 #define CACHE_TTL_STRANGE_RCODE_USEC (30 * USEC_PER_SEC)
 
 typedef enum DnsCacheItemType DnsCacheItemType;
@@ -414,7 +414,8 @@ static int dns_cache_put_positive(DnsCache *c,
         /* Entry exists already? Update TTL, timestamp and owner */
         existing = dns_cache_get(c, rr);
         if (existing) {
-                dns_cache_item_update_positive(c, existing, rr, authenticated, shared_owner, timestamp, ifindex, owner_family, owner_address);
+                dns_cache_item_update_positive(
+                        c, existing, rr, authenticated, shared_owner, timestamp, ifindex, owner_family, owner_address);
                 return 0;
         }
 
@@ -512,8 +513,11 @@ static int dns_cache_put_negative(DnsCache *c,
         if (!i)
                 return -ENOMEM;
 
-        i->type = rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA : rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE;
-        i->until = i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC : calculate_until(soa, nsec_ttl, timestamp, true);
+        i->type = rcode == DNS_RCODE_SUCCESS ?
+                DNS_CACHE_NODATA :
+                rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE;
+        i->until = i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
+                                                calculate_until(soa, nsec_ttl, timestamp, true);
         i->authenticated = authenticated;
         i->owner_family = owner_family;
         i->owner_address = *owner_address;
@@ -580,17 +584,19 @@ static void dns_cache_remove_previous(DnsCache *c, DnsResourceKey *key, DnsAnswe
 static bool rr_eligible(DnsResourceRecord *rr) {
         assert(rr);
 
-        /* When we see an NSEC/NSEC3 RR, we'll only cache it if it is from the lower zone, not the upper zone, since
-         * that's where the interesting bits are (with exception of DS RRs). Of course, this way we cannot derive DS
-         * existence from any cached NSEC/NSEC3, but that should be fine. */
+        /* When we see an NSEC/NSEC3 RR, we'll only cache it if it is from the lower zone, not the upper
+         * zone, since that's where the interesting bits are (with exception of DS RRs). Of course, this way
+         * we cannot derive DS existence from any cached NSEC/NSEC3, but that should be fine. */
 
         switch (rr->key->type) {
 
         case DNS_TYPE_NSEC:
-                return !bitmap_isset(rr->nsec.types, DNS_TYPE_NS) || bitmap_isset(rr->nsec.types, DNS_TYPE_SOA);
+                return !bitmap_isset(rr->nsec.types, DNS_TYPE_NS) ||
+                        bitmap_isset(rr->nsec.types, DNS_TYPE_SOA);
 
         case DNS_TYPE_NSEC3:
-                return !bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) || bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA);
+                return !bitmap_isset(rr->nsec3.types, DNS_TYPE_NS) ||
+                        bitmap_isset(rr->nsec3.types, DNS_TYPE_SOA);
 
         default:
                 return true;
@@ -618,10 +624,10 @@ int dns_cache_put(DnsCache *c,
 
         dns_cache_remove_previous(c, key, answer);
 
-        /* We only care for positive replies and NXDOMAINs, on all other replies we will simply flush the respective
-         * entries, and that's it. (Well, with one further exception: since some DNS zones (akamai!) return SERVFAIL
-         * consistently for some lookups, and forwarders tend to propagate that we'll cache that too, but only for a
-         * short time.) */
+        /* We only care for positive replies and NXDOMAINs, on all other replies we will simply flush the
+         * respective entries, and that's it. (Well, with one further exception: since some DNS zones
+         * (akamai!) return SERVFAIL consistently for some lookups, and forwarders tend to propagate that
+         * we'll cache that too, but only for a short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
                 if (dns_answer_size(answer) <= 0) {
@@ -635,8 +641,8 @@ int dns_cache_put(DnsCache *c,
                 }
 
         } else {
-                /* Only cache SERVFAIL as "weird" rcode for now. We can add more later, should that turn out to be
-                 * beneficial. */
+                /* Only cache SERVFAIL as "weird" rcode for now. We can add more later, should that turn out
+                 * to be beneficial. */
                 if (rcode != DNS_RCODE_SERVFAIL)
                         return 0;
 
@@ -658,8 +664,14 @@ int dns_cache_put(DnsCache *c,
                 if ((flags & DNS_ANSWER_CACHEABLE) == 0 || !rr_eligible(rr))
                         continue;
 
-                r = dns_cache_put_positive(
-                        c, rr, flags & DNS_ANSWER_AUTHENTICATED, flags & DNS_ANSWER_SHARED_OWNER, timestamp, ifindex, owner_family, owner_address);
+                r = dns_cache_put_positive(c,
+                                           rr,
+                                           flags & DNS_ANSWER_AUTHENTICATED,
+                                           flags & DNS_ANSWER_SHARED_OWNER,
+                                           timestamp,
+                                           ifindex,
+                                           owner_family,
+                                           owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -683,9 +695,9 @@ int dns_cache_put(DnsCache *c,
         if (r > 0)
                 return 0;
 
-        /* See https://tools.ietf.org/html/rfc2308, which say that a matching SOA record in the packet is used to
-         * enable negative caching. We apply one exception though: if we are about to cache a weird rcode we do so
-         * regardless of a SOA. */
+        /* See https://tools.ietf.org/html/rfc2308, which say that a matching SOA record in the packet is
+         * used to enable negative caching. We apply one exception though: if we are about to cache a weird
+         * rcode we do so regardless of a SOA. */
         r = dns_answer_find_soa(answer, key, &soa, &flags);
         if (r < 0)
                 goto fail;
@@ -698,7 +710,8 @@ int dns_cache_put(DnsCache *c,
                         return 0;
         }
 
-        r = dns_cache_put_negative(c, key, rcode, authenticated, nsec_ttl, timestamp, soa, owner_family, owner_address);
+        r = dns_cache_put_negative(
+                c, key, rcode, authenticated, nsec_ttl, timestamp, soa, owner_family, owner_address);
         if (r < 0)
                 goto fail;
 
@@ -776,7 +789,8 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         return NULL;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **ret, bool *authenticated) {
+int dns_cache_lookup(
+        DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **ret, bool *authenticated) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         unsigned n = 0;
@@ -797,7 +811,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
                 /* If we have ANY lookups we don't use the cache, so
                  * that the caller refreshes via the network. */
 
-                log_debug("Ignoring cache for ANY lookup: %s", dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("Ignoring cache for ANY lookup: %s",
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
 
                 c->n_miss++;
 
@@ -854,10 +869,11 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
         }
 
         if (nsec && !IN_SET(key->type, DNS_TYPE_NSEC, DNS_TYPE_DS)) {
-                /* Note that we won't derive information for DS RRs from an NSEC, because we only cache NSEC RRs from
-                 * the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
+                /* Note that we won't derive information for DS RRs from an NSEC, because we only cache NSEC
+                 * RRs from the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
 
-                log_debug("NSEC NODATA cache hit for %s", dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("NSEC NODATA cache hit for %s",
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
 
                 /* We only found an NSEC record that matches our name.
                  * If it says the type doesn't exist report
@@ -867,7 +883,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
                 *rcode = DNS_RCODE_SUCCESS;
                 *authenticated = nsec->authenticated;
 
-                if (!bitmap_isset(nsec->rr->nsec.types, key->type) && !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
+                if (!bitmap_isset(nsec->rr->nsec.types, key->type) &&
+                    !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
                     !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_DNAME)) {
                         c->n_hit++;
                         return 1;
@@ -911,7 +928,8 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
                                 return r;
                 }
 
-                r = dns_answer_add(answer, rr ?: j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
+                r = dns_answer_add(
+                        answer, rr ?: j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0);
                 if (r < 0)
                         return r;
         }
@@ -926,7 +944,10 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
         return n;
 }
 
-int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address) {
+int dns_cache_check_conflicts(DnsCache *cache,
+                              DnsResourceRecord *rr,
+                              int owner_family,
+                              const union in_addr_union *owner_address) {
         DnsCacheItem *i, *first;
         bool same_owner = true;
 
@@ -944,7 +965,8 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
         /* See if the RR key is owned by the same owner, if so, there
          * isn't a conflict either */
         LIST_FOREACH(by_key, i, first) {
-                if (i->owner_family != owner_family || !in_addr_equal(owner_family, &i->owner_address, owner_address)) {
+                if (i->owner_family != owner_family ||
+                    !in_addr_equal(owner_family, &i->owner_address, owner_address)) {
                         same_owner = false;
                         break;
                 }

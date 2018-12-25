@@ -52,7 +52,8 @@ int ordered_set_consume(OrderedSet *s, void *p);
 int ordered_set_put_strdup(OrderedSet *s, const char *p);
 int ordered_set_put_strdupv(OrderedSet *s, char **l);
 
-#define ORDERED_SET_FOREACH(e, s, i) for ((i) = ITERATOR_FIRST; ordered_set_iterate((s), &(i), (void **) &(e));)
+#define ORDERED_SET_FOREACH(e, s, i) \
+        for ((i) = ITERATOR_FIRST; ordered_set_iterate((s), &(i), (void **) &(e));)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet *, ordered_set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet *, ordered_set_free_free);

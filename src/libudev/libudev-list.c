@@ -40,7 +40,9 @@ static int udev_list_node_is_empty(struct udev_list_node *list) {
         return list->next == list;
 }
 
-static void udev_list_node_insert_between(struct udev_list_node *new, struct udev_list_node *prev, struct udev_list_node *next) {
+static void udev_list_node_insert_between(struct udev_list_node *new,
+                                          struct udev_list_node *prev,
+                                          struct udev_list_node *next) {
         next->prev = new;
         new->next = next;
         new->prev = prev;
@@ -154,7 +156,8 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         add = list->entries_max;
                         if (add < 1)
                                 add = 64;
-                        entries = reallocarray(list->entries, list->entries_max + add, sizeof(struct udev_list_entry *));
+                        entries = reallocarray(
+                                list->entries, list->entries_max + add, sizeof(struct udev_list_entry *));
                         if (!entries) {
                                 free(entry->name);
                                 free(entry->value);
@@ -174,7 +177,9 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         udev_list_entry_append(entry, list);
 
                 /* insert into sorted array */
-                memmove(&list->entries[i + 1], &list->entries[i], (list->entries_cur - i) * sizeof(struct udev_list_entry *));
+                memmove(&list->entries[i + 1],
+                        &list->entries[i],
+                        (list->entries_cur - i) * sizeof(struct udev_list_entry *));
                 list->entries[i] = entry;
                 list->entries_cur++;
         } else
@@ -191,7 +196,9 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
                 /* remove entry from sorted array */
                 i = list_search(list, entry->name);
                 if (i >= 0) {
-                        memmove(&list->entries[i], &list->entries[i + 1], ((list->entries_cur - 1) - i) * sizeof(struct udev_list_entry *));
+                        memmove(&list->entries[i],
+                                &list->entries[i + 1],
+                                ((list->entries_cur - 1) - i) * sizeof(struct udev_list_entry *));
                         list->entries_cur--;
                 }
         }
@@ -202,8 +209,9 @@ static void udev_list_entry_delete(struct udev_list_entry *entry) {
         free(entry);
 }
 
-#define udev_list_entry_foreach_safe(entry, tmp, first) \
-        for (entry = first, tmp = udev_list_entry_get_next(entry); entry; entry = tmp, tmp = udev_list_entry_get_next(tmp))
+#define udev_list_entry_foreach_safe(entry, tmp, first)                   \
+        for (entry = first, tmp = udev_list_entry_get_next(entry); entry; \
+             entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 void udev_list_cleanup(struct udev_list *list) {
         struct udev_list_entry *entry_loop;
@@ -212,7 +220,8 @@ void udev_list_cleanup(struct udev_list *list) {
         list->entries = mfree(list->entries);
         list->entries_cur = 0;
         list->entries_max = 0;
-        udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list)) udev_list_entry_delete(entry_loop);
+        udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
+                udev_list_entry_delete(entry_loop);
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
@@ -250,7 +259,8 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
  *
  * Returns: udev_list_entry, #NULL if no matching entry is found.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
+_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry,
+                                                             const char *name) {
         int i;
 
         if (!list_entry)

@@ -206,7 +206,8 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         c->vc_mtime = t;
         context_free_vconsole(c);
 
-        r = parse_env_file(NULL, "/etc/vconsole.conf", "KEYMAP", &c->vc_keymap, "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
+        r = parse_env_file(
+                NULL, "/etc/vconsole.conf", "KEYMAP", &c->vc_keymap, "KEYMAP_TOGGLE", &c->vc_keymap_toggle);
         if (r < 0)
                 return r;
 
@@ -420,7 +421,8 @@ int x11_write_data(Context *c) {
         struct stat st;
         int r;
 
-        if (isempty(c->x11_layout) && isempty(c->x11_model) && isempty(c->x11_variant) && isempty(c->x11_options)) {
+        if (isempty(c->x11_layout) && isempty(c->x11_model) && isempty(c->x11_variant) &&
+            isempty(c->x11_options)) {
 
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
@@ -481,7 +483,8 @@ fail:
         return r;
 }
 
-static int read_next_mapping(const char *filename, unsigned min_fields, unsigned max_fields, FILE *f, unsigned *n, char ***a) {
+static int read_next_mapping(
+        const char *filename, unsigned min_fields, unsigned max_fields, FILE *f, unsigned *n, char ***a) {
         assert(f);
         assert(n);
         assert(a);
@@ -529,7 +532,8 @@ int vconsole_convert_to_x11(Context *c) {
         map = systemd_kbd_model_map();
 
         if (isempty(c->vc_keymap)) {
-                modified = !isempty(c->x11_layout) || !isempty(c->x11_model) || !isempty(c->x11_variant) || !isempty(c->x11_options);
+                modified = !isempty(c->x11_layout) || !isempty(c->x11_model) || !isempty(c->x11_variant) ||
+                        !isempty(c->x11_options);
 
                 context_free_x11(c);
         } else {
@@ -553,8 +557,10 @@ int vconsole_convert_to_x11(Context *c) {
                         if (!streq(c->vc_keymap, a[0]))
                                 continue;
 
-                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) || !streq_ptr(c->x11_model, strnulldash(a[2])) ||
-                            !streq_ptr(c->x11_variant, strnulldash(a[3])) || !streq_ptr(c->x11_options, strnulldash(a[4]))) {
+                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
+                            !streq_ptr(c->x11_model, strnulldash(a[2])) ||
+                            !streq_ptr(c->x11_variant, strnulldash(a[3])) ||
+                            !streq_ptr(c->x11_options, strnulldash(a[4]))) {
 
                                 if (free_and_strdup(&c->x11_layout, strnulldash(a[1])) < 0 ||
                                     free_and_strdup(&c->x11_model, strnulldash(a[2])) < 0 ||
@@ -576,7 +582,8 @@ int vconsole_convert_to_x11(Context *c) {
                          strempty(c->x11_variant),
                          strempty(c->x11_options));
         else if (modified < 0)
-                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".", c->vc_keymap);
+                log_notice("X11 keyboard layout was not modified: no conversion found for \"%s\".",
+                           c->vc_keymap);
         else
                 log_debug("X11 keyboard layout did not need to be modified.");
 
@@ -775,7 +782,9 @@ int x11_convert_to_vconsole(Context *c) {
         }
 
         if (modified)
-                log_info("Changing virtual console keymap to '%s' toggle '%s'", strempty(c->vc_keymap), strempty(c->vc_keymap_toggle));
+                log_info("Changing virtual console keymap to '%s' toggle '%s'",
+                         strempty(c->vc_keymap),
+                         strempty(c->vc_keymap_toggle));
         else
                 log_debug("Virtual console keymap was not modified.");
 

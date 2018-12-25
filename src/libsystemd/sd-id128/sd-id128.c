@@ -127,7 +127,9 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         gid_t gid;
         int r, c;
 
-#define MAX_PERMS ((unsigned long) (KEY_POS_VIEW | KEY_POS_READ | KEY_POS_SEARCH | KEY_USR_VIEW | KEY_USR_READ | KEY_USR_SEARCH))
+#define MAX_PERMS                                                                                      \
+        ((unsigned long) (KEY_POS_VIEW | KEY_POS_READ | KEY_POS_SEARCH | KEY_USR_VIEW | KEY_USR_READ | \
+                          KEY_USR_SEARCH))
 
         assert(ret);
 
@@ -222,14 +224,15 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
 
         if (sd_id128_is_null(saved_invocation_id)) {
 
-                /* We first try to read the invocation ID from the kernel keyring. This has the benefit that it is not
-                 * fakeable by unprivileged code. If the information is not available in the keyring, we use
-                 * $INVOCATION_ID but ignore the data if our process was called by less privileged code
-                 * (i.e. secure_getenv() instead of getenv()).
+                /* We first try to read the invocation ID from the kernel keyring. This has the benefit that
+                 * it is not fakeable by unprivileged code. If the information is not available in the
+                 * keyring, we use $INVOCATION_ID but ignore the data if our process was called by less
+                 * privileged code (i.e. secure_getenv() instead of getenv()).
                  *
-                 * The kernel keyring is only relevant for system services (as for user services we don't store the
-                 * invocation ID in the keyring, as there'd be no trust benefit in that). The environment variable is
-                 * primarily relevant for user services, and sufficiently safe as no privilege boundary is involved. */
+                 * The kernel keyring is only relevant for system services (as for user services we don't
+                 * store the invocation ID in the keyring, as there'd be no trust benefit in that). The
+                 * environment variable is primarily relevant for user services, and sufficiently safe as no
+                 * privilege boundary is involved. */
 
                 r = get_invocation_from_keyring(&saved_invocation_id);
                 if (r < 0)
@@ -271,8 +274,8 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 
         assert_return(ret, -EINVAL);
 
-        /* We allow usage if x86-64 RDRAND here. It might not be trusted enough for keeping secrets, but it should be
-         * fine for UUIDS. */
+        /* We allow usage if x86-64 RDRAND here. It might not be trusted enough for keeping secrets, but it
+         * should be fine for UUIDS. */
         r = genuine_random_bytes(&t, sizeof t, RANDOM_ALLOW_RDRAND);
         if (r < 0)
                 return r;

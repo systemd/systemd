@@ -27,7 +27,8 @@ static int geneve_netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST)
-                log_netdev_info(netdev, "Geneve netdev exists, using existing without changing its parameters");
+                log_netdev_info(netdev,
+                                "Geneve netdev exists, using existing without changing its parameters");
         else if (r < 0) {
                 log_netdev_warning_errno(netdev, r, "Geneve netdev could not be created: %m");
                 netdev_drop(netdev);
@@ -60,7 +61,8 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (netdev->mac) {
                 r = sd_netlink_message_append_ether_addr(m, IFLA_ADDRESS, netdev->mac);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
         if (netdev->mtu != 0) {
@@ -80,7 +82,8 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (v->id <= GENEVE_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_ID, v->id);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_ID attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_GENEVE_ID attribute: %m");
         }
 
         if (!in_addr_is_null(v->remote_family, &v->remote)) {
@@ -91,13 +94,15 @@ static int netdev_geneve_create(NetDev *netdev) {
                         r = sd_netlink_message_append_in6_addr(m, IFLA_GENEVE_REMOTE6, &v->remote.in6);
 
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
         }
 
         if (v->ttl) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TOS, v->tos);
@@ -106,26 +111,31 @@ static int netdev_geneve_create(NetDev *netdev) {
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_CSUM, v->udpcsum);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_CSUM attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_GENEVE_UDP_CSUM attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_TX, v->udp6zerocsumtx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_TX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_TX attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_RX, v->udp6zerocsumrx);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_RX attribute: %m");
+                return log_netdev_error_errno(
+                        netdev, r, "Could not append IFLA_GENEVE_UDP_ZERO_CSUM6_RX attribute: %m");
 
         if (v->dest_port != DEFAULT_GENEVE_DESTINATION_PORT) {
                 r = sd_netlink_message_append_u16(m, IFLA_GENEVE_PORT, htobe16(v->dest_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_PORT attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_GENEVE_PORT attribute: %m");
         }
 
         if (v->flow_label > 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_LABEL, htobe32(v->flow_label));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_LABEL attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_GENEVE_LABEL attribute: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -136,7 +146,8 @@ static int netdev_geneve_create(NetDev *netdev) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
-        r = netlink_call_async(netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler, netdev_destroy_callback, netdev);
+        r = netlink_call_async(
+                netdev->manager->rtnl, NULL, m, geneve_netdev_create_handler, netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
@@ -204,13 +215,27 @@ int config_parse_geneve_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "geneve '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "geneve '%s' address is invalid, ignoring assignment: %s",
+                           lvalue,
+                           rvalue);
                 return 0;
         }
 
         r = in_addr_is_multicast(f, &buffer);
         if (r > 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "geneve invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           0,
+                           "geneve invalid multicast '%s' address, ignoring assignment: %s",
+                           lvalue,
+                           rvalue);
                 return 0;
         }
 
@@ -246,8 +271,13 @@ int config_parse_geneve_flow_label(const char *unit,
         }
 
         if (f & ~GENEVE_FLOW_LABEL_MAX_MASK) {
-                log_syntax(
-                        unit, LOG_ERR, filename, line, r, "Geneve flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Geneve flow label '%s' not valid. Flow label range should be [0-1048575].",
+                           rvalue);
                 return 0;
         }
 

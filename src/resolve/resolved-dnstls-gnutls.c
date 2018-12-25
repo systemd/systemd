@@ -46,7 +46,8 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 return r;
 
         if (server->dnstls_data.session_data.size > 0) {
-                gnutls_session_set_data(gs, server->dnstls_data.session_data.data, server->dnstls_data.session_data.size);
+                gnutls_session_set_data(
+                        gs, server->dnstls_data.session_data.data, server->dnstls_data.session_data.size);
 
                 // Clear old session ticket
                 gnutls_free(server->dnstls_data.session_data.data);
@@ -87,7 +88,9 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         if (stream->dnstls_data.shutdown) {
                 r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
                 if (r == GNUTLS_E_AGAIN) {
-                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
+                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ?
+                                EPOLLOUT :
+                                EPOLLIN;
                         return -EAGAIN;
                 } else if (r < 0)
                         log_debug("Failed to invoke gnutls_bye: %s", gnutls_strerror(r));
@@ -99,10 +102,13 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         } else if (stream->dnstls_data.handshake < 0) {
                 stream->dnstls_data.handshake = gnutls_handshake(stream->dnstls_data.session);
                 if (stream->dnstls_data.handshake == GNUTLS_E_AGAIN) {
-                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
+                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ?
+                                EPOLLOUT :
+                                EPOLLIN;
                         return -EAGAIN;
                 } else if (stream->dnstls_data.handshake < 0) {
-                        log_debug("Failed to invoke gnutls_handshake: %s", gnutls_strerror(stream->dnstls_data.handshake));
+                        log_debug("Failed to invoke gnutls_handshake: %s",
+                                  gnutls_strerror(stream->dnstls_data.handshake));
                         if (gnutls_error_is_fatal(stream->dnstls_data.handshake))
                                 return -ECONNREFUSED;
                 }
@@ -121,8 +127,10 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         assert(stream->dnstls_data.session);
 
         /* Store TLS Ticket for faster succesive TLS handshakes */
-        if (stream->server && stream->server->dnstls_data.session_data.size == 0 && stream->dnstls_data.handshake == GNUTLS_E_SUCCESS)
-                gnutls_session_get_data2(stream->dnstls_data.session, &stream->server->dnstls_data.session_data);
+        if (stream->server && stream->server->dnstls_data.session_data.size == 0 &&
+            stream->dnstls_data.handshake == GNUTLS_E_SUCCESS)
+                gnutls_session_get_data2(stream->dnstls_data.session,
+                                         &stream->server->dnstls_data.session_data);
 
         if (IN_SET(error, ETIMEDOUT, 0)) {
                 r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
@@ -155,7 +163,9 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE), "Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
+                                               "Failed to invoke gnutls_record_send: %s",
+                                               gnutls_strerror(ss));
                 }
 
         return ss;
@@ -177,7 +187,9 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
                 case GNUTLS_E_AGAIN:
                         return -EAGAIN;
                 default:
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE), "Failed to invoke gnutls_record_recv: %s", gnutls_strerror(ss));
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPIPE),
+                                               "Failed to invoke gnutls_record_recv: %s",
+                                               gnutls_strerror(ss));
                 }
 
         return ss;

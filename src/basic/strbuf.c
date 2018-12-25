@@ -94,7 +94,9 @@ static void bubbleinsert(struct strbuf_node *node, uint8_t c, struct strbuf_node
                         right = middle;
         }
 
-        memmove(node->children + left + 1, node->children + left, sizeof(struct strbuf_child_entry) * (node->children_count - left));
+        memmove(node->children + left + 1,
+                node->children + left,
+                sizeof(struct strbuf_child_entry) * (node->children_count - left));
         node->children[left] = new;
 
         node->children_count++;

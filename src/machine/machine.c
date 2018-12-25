@@ -142,9 +142,8 @@ int machine_save(Machine *m) {
                         goto fail;
                 }
 
-                fprintf(f,
-                        "SCOPE=%s\n",
-                        escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal
+                                                      only, and we want to stay compatible with old files */
         }
 
         if (m->scope_job)
@@ -249,7 +248,8 @@ static void machine_unlink(Machine *m) {
 }
 
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL, *netif = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL,
+                            *netif = NULL;
         int r;
 
         assert(m);
@@ -363,9 +363,11 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
 
                 description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
+                r = manager_start_scope(
+                        m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
+                        return log_error_errno(
+                                r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
                 m->unit = TAKE_PTR(scope);
                 free_and_replace(m->scope_job, job);
@@ -439,7 +441,9 @@ static int machine_stop_scope(Machine *m) {
 
         q = manager_unref_unit(m->manager, m->unit, &error);
         if (q < 0)
-                log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
+                log_warning_errno(q,
+                                  "Failed to drop reference to machine scope, ignoring: %s",
+                                  bus_error_message(&error, r));
 
         return r;
 }

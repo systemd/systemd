@@ -106,14 +106,16 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 ARG_UPDATES_ARE_ENABLED,
         };
 
-        static const struct option options[] = { { "help", no_argument, NULL, 'h' },
-                                                 { "version", no_argument, NULL, ARG_VERSION },
+        static const struct option options[] = {
+                { "help", no_argument, NULL, 'h' },
+                { "version", no_argument, NULL, ARG_VERSION },
 
-                                                 /* The following are specific to Debian's original resolvconf */
-                                                 { "enable-updates", no_argument, NULL, ARG_ENABLE_UPDATES },
-                                                 { "disable-updates", no_argument, NULL, ARG_DISABLE_UPDATES },
-                                                 { "updates-are-enabled", no_argument, NULL, ARG_UPDATES_ARE_ENABLED },
-                                                 {} };
+                /* The following are specific to Debian's original resolvconf */
+                { "enable-updates", no_argument, NULL, ARG_ENABLE_UPDATES },
+                { "disable-updates", no_argument, NULL, ARG_DISABLE_UPDATES },
+                { "updates-are-enabled", no_argument, NULL, ARG_UPDATES_ARE_ENABLED },
+                {}
+        };
 
         enum
         {
@@ -186,11 +188,14 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
                 /* The Debian resolvconf commands we don't support. */
                 case ARG_ENABLE_UPDATES:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --enable-updates not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --enable-updates not supported.");
                 case ARG_DISABLE_UPDATES:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --disable-updates not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --disable-updates not supported.");
                 case ARG_UPDATES_ARE_ENABLED:
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Switch --updates-are-enabled not supported.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Switch --updates-are-enabled not supported.");
 
                 case '?':
                         return -EINVAL;
@@ -200,7 +205,8 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_mode == _MODE_INVALID)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected either -a or -d on the command line.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Expected either -a or -d on the command line.");
 
         if (optind + 1 != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected interface name as argument.");
@@ -249,8 +255,8 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
                 if (type == TYPE_EXCLUSIVE) {
 
-                        /* If -x mode is selected, let's preferably route non-suffixed lookups to this interface. This
-                         * somewhat matches the original -x behaviour */
+                        /* If -x mode is selected, let's preferably route non-suffixed lookups to this
+                         * interface. This somewhat matches the original -x behaviour */
 
                         r = strv_extend(&arg_set_domain, "~.");
                         if (r < 0)
@@ -260,7 +266,8 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         log_debug("Private DNS server data not supported, ignoring.");
 
                 if (!arg_set_dns)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No DNS servers specified, refusing operation.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "No DNS servers specified, refusing operation.");
         }
 
         return 1; /* work to do */

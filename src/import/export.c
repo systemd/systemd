@@ -89,7 +89,10 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.",
+                         local,
+                         path,
+                         import_compress_type_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
@@ -169,7 +172,10 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
                 fd = open_fd;
 
-                log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
+                log_info("Exporting '%s', saving to '%s' with compression '%s'.",
+                         local,
+                         path,
+                         import_compress_type_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
 
@@ -273,9 +279,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int export_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, export_tar }, { "raw", 2, 3, 0, export_raw }, {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "tar", 2, 3, 0, export_tar },
+                                      { "raw", 2, 3, 0, export_raw },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

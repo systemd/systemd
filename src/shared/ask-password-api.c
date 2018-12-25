@@ -130,7 +130,11 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (serial == -1)
                 return -errno;
 
-        if (keyctl(KEYCTL_SET_TIMEOUT, (unsigned long) serial, (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
+        if (keyctl(KEYCTL_SET_TIMEOUT,
+                   (unsigned long) serial,
+                   (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC),
+                   0,
+                   0) < 0)
                 log_debug_errno(errno, "Failed to adjust timeout: %m");
 
         /* Tell everyone to check the keyring */
@@ -198,17 +202,22 @@ static void backspace_string(int ttyfd, const char *str) {
 
         m = utf8_n_codepoints(str);
         if (m == (size_t) -1)
-                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes output. Most
-                                  * likely this happened because we are not in an UTF-8 locale, and in that case that
-                                  * is the correct thing to do. And even if it's not, terminals tend to stop
-                                  * backspacing at the leftmost column, hence backspacing too much should be mostly
-                                  * OK. */
+                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes
+                                  * output. Most likely this happened because we are not in an UTF-8 locale,
+                                  * and in that case that is the correct thing to do. And even if it's not,
+                                  * terminals tend to stop backspacing at the leftmost column, hence
+                                  * backspacing too much should be mostly OK. */
 
         backspace_chars(ttyfd, m);
 }
 
-int ask_password_tty(
-        int ttyfd, const char *message, const char *keyname, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret) {
+int ask_password_tty(int ttyfd,
+                     const char *message,
+                     const char *keyname,
+                     usec_t until,
+                     AskPasswordFlags flags,
+                     const char *flag_file,
+                     char ***ret) {
 
         enum
         {
@@ -377,8 +386,8 @@ int ask_password_tty(
                                 if (!(flags & ASK_PASSWORD_SILENT))
                                         backspace_chars(ttyfd, 1);
 
-                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the last one
-                                 * begins */
+                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the
+                                 * last one begins */
                                 q = 0;
                                 for (;;) {
                                         size_t z;
@@ -402,8 +411,8 @@ int ask_password_tty(
 
                                 flags |= ASK_PASSWORD_SILENT;
 
-                                /* There are two ways to enter silent mode. Either by pressing backspace as first key
-                                 * (and only as first key), or ... */
+                                /* There are two ways to enter silent mode. Either by pressing backspace as
+                                 * first key (and only as first key), or ... */
 
                                 if (ttyfd >= 0)
                                         (void) loop_write(ttyfd, "(no echo) ", 10, false);
@@ -435,7 +444,8 @@ int ask_password_tty(
                                 n = utf8_encoded_valid_unichar(passphrase + codepoint);
                                 if (n >= 0) {
                                         codepoint = p;
-                                        (void) loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                                        (void) loop_write(
+                                                ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
                                 }
                         }
 
@@ -504,8 +514,13 @@ static int create_socket(char **ret) {
         return TAKE_FD(fd);
 }
 
-int ask_password_agent(
-        const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flags, char ***ret) {
+int ask_password_agent(const char *message,
+                       const char *icon,
+                       const char *id,
+                       const char *keyname,
+                       usec_t until,
+                       AskPasswordFlags flags,
+                       char ***ret) {
 
         enum
         {
@@ -649,7 +664,9 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                k = poll(pollfd, notify >= 0 ? _FD_MAX : _FD_MAX - 1, until > 0 ? (int) ((until - t) / USEC_PER_MSEC) : -1);
+                k = poll(pollfd,
+                         notify >= 0 ? _FD_MAX : _FD_MAX - 1,
+                         until > 0 ? (int) ((until - t) / USEC_PER_MSEC) : -1);
                 if (k < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -712,8 +729,9 @@ int ask_password_agent(
                         continue;
                 }
 
-                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) || control.cmsghdr.cmsg_level != SOL_SOCKET ||
-                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS || control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
+                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
+                    control.cmsghdr.cmsg_level != SOL_SOCKET || control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
+                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
                         log_debug("Received message without credentials. Ignoring.");
                         continue;
                 }
@@ -772,15 +790,20 @@ finish:
         return r;
 }
 
-int ask_password_auto(
-        const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flags, char ***ret) {
+int ask_password_auto(const char *message,
+                      const char *icon,
+                      const char *id,
+                      const char *keyname,
+                      usec_t until,
+                      AskPasswordFlags flags,
+                      char ***ret) {
 
         int r;
 
         assert(ret);
 
-        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname && ((flags & ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) &&
-            (flags & ASK_PASSWORD_NO_AGENT)) {
+        if ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname &&
+            ((flags & ASK_PASSWORD_NO_TTY) || !isatty(STDIN_FILENO)) && (flags & ASK_PASSWORD_NO_AGENT)) {
                 r = ask_password_keyring(keyname, flags, ret);
                 if (r != -ENOKEY)
                         return r;

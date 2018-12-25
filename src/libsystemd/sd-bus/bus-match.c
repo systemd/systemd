@@ -54,7 +54,8 @@ static inline bool BUS_MATCH_IS_COMPARE(enum bus_match_node_type t) {
 }
 
 static inline bool BUS_MATCH_CAN_HASH(enum bus_match_node_type t) {
-        return (t >= BUS_MATCH_MESSAGE_TYPE && t <= BUS_MATCH_PATH) || (t >= BUS_MATCH_ARG && t <= BUS_MATCH_ARG_LAST) ||
+        return (t >= BUS_MATCH_MESSAGE_TYPE && t <= BUS_MATCH_PATH) ||
+                (t >= BUS_MATCH_ARG && t <= BUS_MATCH_ARG_LAST) ||
                 (t >= BUS_MATCH_ARG_HAS && t <= BUS_MATCH_ARG_HAS_LAST);
 }
 
@@ -145,9 +146,9 @@ static bool value_node_test(struct bus_match_node *node,
                          * in the credentials, let's make use of that
                          * for an accurate match */
 
-                        STRV_FOREACH(i, m->creds.well_known_names)
-                        if (streq_ptr(node->value.str, *i))
-                                return true;
+                        STRV_FOREACH (i, m->creds.well_known_names)
+                                if (streq_ptr(node->value.str, *i))
+                                        return true;
 
                 } else {
 
@@ -176,9 +177,9 @@ static bool value_node_test(struct bus_match_node *node,
         case BUS_MATCH_ARG_HAS ... BUS_MATCH_ARG_HAS_LAST: {
                 char **i;
 
-                STRV_FOREACH(i, value_strv)
-                if (streq_ptr(node->value.str, *i))
-                        return true;
+                STRV_FOREACH (i, value_strv)
+                        if (streq_ptr(node->value.str, *i))
+                                return true;
 
                 return false;
         }
@@ -203,7 +204,10 @@ static bool value_node_test(struct bus_match_node *node,
         }
 }
 
-static bool value_node_same(struct bus_match_node *node, enum bus_match_node_type parent_type, uint8_t value_u8, const char *value_str) {
+static bool value_node_same(struct bus_match_node *node,
+                            enum bus_match_node_type parent_type,
+                            uint8_t value_u8,
+                            const char *value_str) {
 
         /* Tests parameters against this value node, not doing prefix
          * magic and stuff, i.e. this one actually compares the match
@@ -373,7 +377,7 @@ int bus_match_run(sd_bus *bus, struct bus_match_node *node, sd_bus_message *m) {
                 else if (test_strv) {
                         char **i;
 
-                        STRV_FOREACH(i, test_strv) {
+                        STRV_FOREACH (i, test_strv) {
                                 found = hashmap_get(node->compare.children, *i);
                                 if (found) {
                                         r = bus_match_run(bus, found, m);
@@ -418,8 +422,11 @@ int bus_match_run(sd_bus *bus, struct bus_match_node *node, sd_bus_message *m) {
         return bus_match_run(bus, node->next, m);
 }
 
-static int bus_match_add_compare_value(
-        struct bus_match_node *where, enum bus_match_node_type t, uint8_t value_u8, const char *value_str, struct bus_match_node **ret) {
+static int bus_match_add_compare_value(struct bus_match_node *where,
+                                       enum bus_match_node_type t,
+                                       uint8_t value_u8,
+                                       const char *value_str,
+                                       struct bus_match_node **ret) {
 
         struct bus_match_node *c = NULL, *n = NULL;
         int r;
@@ -874,7 +881,10 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         return buffer;
 }
 
-int bus_match_add(struct bus_match_node *root, struct bus_match_component *components, unsigned n_components, struct match_callback *callback) {
+int bus_match_add(struct bus_match_node *root,
+                  struct bus_match_component *components,
+                  unsigned n_components,
+                  struct match_callback *callback) {
 
         unsigned i;
         struct bus_match_node *n;
@@ -885,7 +895,8 @@ int bus_match_add(struct bus_match_node *root, struct bus_match_component *compo
 
         n = root;
         for (i = 0; i < n_components; i++) {
-                r = bus_match_add_compare_value(n, components[i].type, components[i].value_u8, components[i].value_str, &n);
+                r = bus_match_add_compare_value(
+                        n, components[i].type, components[i].value_u8, components[i].value_str, &n);
                 if (r < 0)
                         return r;
         }
@@ -1019,7 +1030,9 @@ void bus_match_dump(struct bus_match_node *node, unsigned level) {
         } else if (node->type == BUS_MATCH_ROOT)
                 puts(" root");
         else if (node->type == BUS_MATCH_LEAF)
-                printf(" %p/%p\n", node->leaf.callback->callback, container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
+                printf(" %p/%p\n",
+                       node->leaf.callback->callback,
+                       container_of(node->leaf.callback, sd_bus_slot, match_callback)->userdata);
         else
                 putchar('\n');
 

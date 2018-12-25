@@ -56,7 +56,9 @@ typedef struct Uploader {
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)
 
-int start_upload(Uploader *u, size_t (*input_callback)(void *ptr, size_t size, size_t nmemb, void *userdata), void *data);
+int start_upload(Uploader *u,
+                 size_t (*input_callback)(void *ptr, size_t size, size_t nmemb, void *userdata),
+                 void *data);
 
 int open_journal_for_upload(Uploader *u, sd_journal *j, const char *cursor, bool after_cursor, bool follow);
 void close_journal_input(Uploader *u);

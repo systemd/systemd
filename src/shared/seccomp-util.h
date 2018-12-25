@@ -59,9 +59,13 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
 int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
 
-int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint32_t action, char **exclude, bool log_missing);
+int seccomp_add_syscall_filter_item(
+        scmp_filter_ctx *ctx, const char *name, uint32_t action, char **exclude, bool log_missing);
 
-int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing);
+int seccomp_load_syscall_filter_set(uint32_t default_action,
+                                    const SyscallFilterSet *set,
+                                    uint32_t action,
+                                    bool log_missing);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap *set, uint32_t action, bool log_missing);
 
 typedef enum SeccompParseFlags
@@ -72,10 +76,18 @@ typedef enum SeccompParseFlags
         SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
 
-int seccomp_parse_syscall_filter_full(
-        const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags, const char *unit, const char *filename, unsigned line);
+int seccomp_parse_syscall_filter_full(const char *name,
+                                      int errno_num,
+                                      Hashmap *filter,
+                                      SeccompParseFlags flags,
+                                      const char *unit,
+                                      const char *filename,
+                                      unsigned line);
 
-static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
+static inline int seccomp_parse_syscall_filter(const char *name,
+                                               int errno_num,
+                                               Hashmap *filter,
+                                               SeccompParseFlags flags) {
         return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
 }
 

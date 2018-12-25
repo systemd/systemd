@@ -41,8 +41,13 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Machine, machine_get_state, machine_state_to_string);
 
-static int property_get_netif(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_netif(sd_bus *bus,
+                              const char *path,
+                              const char *interface,
+                              const char *property,
+                              sd_bus_message *reply,
+                              void *userdata,
+                              sd_bus_error *error) {
 
         Machine *m = userdata;
 
@@ -62,8 +67,14 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                message, CAP_KILL, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_KILL,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -95,14 +106,21 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         else {
                 who = kill_who_from_string(swho);
                 if (who < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Invalid kill parameter '%s'", swho);
         }
 
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
-        r = bus_verify_polkit_async(
-                message, CAP_KILL, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_KILL,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -152,7 +170,8 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_message_append_array(reply, 'y', &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family));
+                        r = sd_bus_message_append_array(
+                                reply, 'y', &addresses[i].address, FAMILY_ADDRESS_SIZE(addresses[i].family));
                         if (r < 0)
                                 return r;
 
@@ -181,8 +200,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                         return r;
 
                 if (streq(us, them))
-                        return sd_bus_error_setf(
-                                error, BUS_ERROR_NO_PRIVATE_NETWORKING, "Machine %s does not use private networking", m->name);
+                        return sd_bus_error_setf(error,
+                                                 BUS_ERROR_NO_PRIVATE_NETWORKING,
+                                                 "Machine %s does not use private networking",
+                                                 m->name);
 
                 r = namespace_open(m->leader, NULL, NULL, &netns_fd, NULL, NULL);
                 if (r < 0)
@@ -191,7 +212,17 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                r = namespace_fork("(sd-addrns)", "(sd-addr)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, -1, -1, netns_fd, -1, -1, &child);
+                r = namespace_fork("(sd-addrns)",
+                                   "(sd-addr)",
+                                   NULL,
+                                   0,
+                                   FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                                   -1,
+                                   -1,
+                                   netns_fd,
+                                   -1,
+                                   -1,
+                                   &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
@@ -283,8 +314,9 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
         }
 
         default:
-                return sd_bus_error_setf(
-                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting IP address data is only supported on container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Requesting IP address data is only supported on container machines.");
         }
 
         r = sd_bus_message_close_container(reply);
@@ -326,8 +358,17 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                r = namespace_fork(
-                        "(sd-osrelns)", "(sd-osrel)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidns_fd, mntns_fd, -1, -1, root_fd, &child);
+                r = namespace_fork("(sd-osrelns)",
+                                   "(sd-osrel)",
+                                   NULL,
+                                   0,
+                                   FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                                   pidns_fd,
+                                   mntns_fd,
+                                   -1,
+                                   -1,
+                                   root_fd,
+                                   &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
@@ -364,7 +405,9 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_FAILED,
+                                                 "Machine does not contain OS release information");
                 if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
@@ -372,8 +415,9 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
         }
 
         default:
-                return sd_bus_error_setf(
-                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Requesting OS release data is only supported on container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Requesting OS release data is only supported on container machines.");
         }
 
         return bus_reply_pair_array(message, l);
@@ -391,7 +435,8 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
-                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty",
+                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" :
+                                                               "org.freedesktop.machine1.open-pty",
                                     NULL,
                                     false,
                                     UID_INVALID,
@@ -441,7 +486,9 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 if (r < 0)
                         return r;
 
-                if (asprintf(&address, "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI, m->leader) < 0)
+                if (asprintf(&address,
+                             "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI,
+                             m->leader) < 0)
                         return -ENOMEM;
 
                 bus->address = address;
@@ -451,7 +498,8 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
 
                 r = sd_bus_start(bus);
                 if (r == -ENOENT)
-                        return sd_bus_error_set_errnof(error, r, "There is no system bus in container %s.", m->name);
+                        return sd_bus_error_set_errnof(
+                                error, r, "There is no system bus in container %s.", m->name);
                 if (r < 0)
                         return r;
 
@@ -481,7 +529,8 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
-                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" : "org.freedesktop.machine1.login",
+                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" :
+                                                               "org.freedesktop.machine1.login",
                                     NULL,
                                     false,
                                     UID_INVALID,
@@ -579,7 +628,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 }
         } else {
                 if (!path_is_absolute(path))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
+                        return sd_bus_error_setf(
+                                error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
                 args = TAKE_PTR(args_wire);
                 if (strv_isempty(args)) {
                         args = strv_free(args);
@@ -598,7 +648,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
-                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" : "org.freedesktop.machine1.shell",
+                                    m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" :
+                                                               "org.freedesktop.machine1.shell",
                                     NULL,
                                     false,
                                     UID_INVALID,
@@ -803,8 +854,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
-        bool mount_slave_created = false, mount_slave_mounted = false, mount_tmp_created = false, mount_tmp_mounted = false,
-             mount_outside_created = false, mount_outside_mounted = false;
+        bool mount_slave_created = false, mount_slave_mounted = false, mount_tmp_created = false,
+             mount_tmp_mounted = false, mount_outside_created = false, mount_outside_mounted = false;
         _cleanup_free_ char *chased_src = NULL;
         int read_only, make_file_or_directory;
         const char *dest, *src;
@@ -818,22 +869,34 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         assert(m);
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Bind mounting is only supported on container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Bind mounting is only supported on container machines.");
 
         r = sd_bus_message_read(message, "ssbb", &src, &dest, &read_only, &make_file_or_directory);
         if (r < 0)
                 return r;
 
         if (!path_is_absolute(src) || !path_is_normalized(src))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and not contain ../.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         "Source path must be absolute and not contain ../.");
 
         if (isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and not contain ../.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_INVALID_ARGS,
+                                         "Destination path must be absolute and not contain ../.");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -843,7 +906,9 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         if (uid != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Can't bind mount on container with user namespacing applied.");
 
         /* One day, when bind mounting /proc/self/fd/n works across
          * namespace boundaries we should rework this logic to make
@@ -851,7 +916,9 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         p = strjoina("/run/systemd/nspawn/propagate/", m->name, "/");
         if (laccess(p, F_OK) < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Container does not allow propagation of mount points.");
 
         r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src);
         if (r < 0)
@@ -859,8 +926,10 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         if (lstat(chased_src, &st) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to stat() source path: %m");
-        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Source directory can't be a symbolic link");
+        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks
+                                    above, but let's better be safe… */
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Source directory can't be a symbolic link");
 
         /* Our goal is to install a new bind mount into the container,
            possibly read-only. This is irritatingly complex
@@ -895,7 +964,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         else
                 r = touch(mount_tmp);
         if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
+                sd_bus_error_set_errnof(
+                        error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
         }
 
@@ -911,12 +981,13 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         /* Third, we remount the new bind mount read-only if requested. */
         if (read_only)
                 if (mount(NULL, mount_tmp, NULL, MS_BIND | MS_REMOUNT | MS_RDONLY, NULL) < 0) {
-                        r = sd_bus_error_set_errnof(error, errno, "Failed to remount read-only %s: %m", mount_tmp);
+                        r = sd_bus_error_set_errnof(
+                                error, errno, "Failed to remount read-only %s: %m", mount_tmp);
                         goto finish;
                 }
 
-        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
-         * right-away. */
+        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there
+         * read-only right-away. */
 
         mount_outside = strjoina("/run/systemd/nspawn/propagate/", m->name, "/XXXXXX");
         if (S_ISDIR(st.st_mode))
@@ -926,14 +997,16 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 safe_close(r);
         }
         if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Cannot create propagation file or directory %s: %m", mount_outside);
+                sd_bus_error_set_errnof(
+                        error, errno, "Cannot create propagation file or directory %s: %m", mount_outside);
                 goto finish;
         }
 
         mount_outside_created = true;
 
         if (mount(mount_tmp, mount_outside, NULL, MS_MOVE, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
+                r = sd_bus_error_set_errnof(
+                        error, errno, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
                 goto finish;
         }
 
@@ -986,7 +1059,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                                 (void) mkdir_p(dest, 0755);
                         else {
                                 (void) mkdir_parents(dest, 0755);
-                                safe_close(open(dest, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC | O_NOCTTY, 0600));
+                                safe_close(
+                                        open(dest, O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC | O_NOCTTY, 0600));
                         }
                 }
 
@@ -1051,7 +1125,8 @@ finish:
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename, *container_dirname;
+        const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename,
+                *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         CopyFlags copy_flags = COPY_REFLINK | COPY_MERGE;
         _cleanup_close_ int hostfd = -1;
@@ -1069,7 +1144,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many ongoing copies.");
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Copying files is only supported on container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Copying files is only supported on container machines.");
 
         r = sd_bus_message_read(message, "ss", &src, &dest);
         if (r < 0)
@@ -1081,10 +1158,17 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
+                return sd_bus_error_setf(
+                        error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute.");
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1112,7 +1196,8 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         hostfd = open_parent(host_path, O_CLOEXEC, 0);
         if (hostfd < 0)
-                return sd_bus_error_set_errnof(error, hostfd, "Failed to open host directory %s: %m", host_path);
+                return sd_bus_error_set_errnof(
+                        error, hostfd, "Failed to open host directory %s: %m", host_path);
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC | O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
@@ -1145,9 +1230,9 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         goto child_fail;
                 }
 
-                /* Run the actual copy operation. Note that when an UID shift is set we'll either clamp the UID/GID to
-                 * 0 or to the actual UID shift depending on the direction we copy. If no UID shift is set we'll copy
-                 * the UID/GIDs as they are. */
+                /* Run the actual copy operation. Note that when an UID shift is set we'll either clamp the
+                 * UID/GID to 0 or to the actual UID shift depending on the direction we copy. If no UID
+                 * shift is set we'll copy the UID/GIDs as they are. */
                 if (copy_from)
                         r = copy_tree_at(containerfd,
                                          container_basename,
@@ -1202,8 +1287,14 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         assert(message);
         assert(m);
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.machine1.manage-machines", NULL, false, UID_INVALID, &m->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.machine1.manage-machines",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->manager->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1230,8 +1321,17 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                         return -errno;
 
-                r = namespace_fork(
-                        "(sd-openrootns)", "(sd-openroot)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, -1, mntns_fd, -1, -1, root_fd, &child);
+                r = namespace_fork("(sd-openrootns)",
+                                   "(sd-openroot)",
+                                   NULL,
+                                   0,
+                                   FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                                   -1,
+                                   mntns_fd,
+                                   -1,
+                                   -1,
+                                   root_fd,
+                                   &child);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 if (r == 0) {
@@ -1267,8 +1367,9 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         }
 
         default:
-                return sd_bus_error_setf(
-                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Opening the root directory is only supported on container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Opening the root directory is only supported on container machines.");
         }
 
         return sd_bus_reply_method_return(message, "h", fd);
@@ -1282,19 +1383,23 @@ int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd
         assert(message);
         assert(m);
 
-        /* You wonder why this is a method and not a property? Well, properties are not supposed to return errors, but
-         * we kinda have to for this. */
+        /* You wonder why this is a method and not a property? Well, properties are not supposed to return
+         * errors, but we kinda have to for this. */
 
         if (m->class == MACHINE_HOST)
                 return sd_bus_reply_method_return(message, "u", UINT32_C(0));
 
         if (m->class != MACHINE_CONTAINER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "UID/GID shift may only be determined for container machines.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "UID/GID shift may only be determined for container machines.");
 
         r = machine_get_uid_shift(m, &shift);
         if (r == -ENXIO)
-                return sd_bus_error_setf(
-                        error, SD_BUS_ERROR_NOT_SUPPORTED, "Machine %s uses a complex UID/GID mapping, cannot determine shift", m->name);
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Machine %s uses a complex UID/GID mapping, cannot determine shift",
+                                         m->name);
         if (r < 0)
                 return r;
 
@@ -1308,16 +1413,21 @@ const sd_bus_vtable machine_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(Machine, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(Machine, service), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY(
+                "Scope", "s", NULL, offsetof(Machine, unit), SD_BUS_VTABLE_PROPERTY_CONST | SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("Leader", "u", NULL, offsetof(Machine, leader), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "Class", "s", property_get_class, offsetof(Machine, class), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY(
+                "RootDirectory", "s", NULL, offsetof(Machine, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkInterfaces", "ai", property_get_netif, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_machine_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Kill", "si", NULL, bus_machine_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetAddresses", NULL, "a(iay)", bus_machine_method_get_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetOSRelease", NULL, "a{ss}", bus_machine_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUIDShift", NULL, "u", bus_machine_method_get_uid_shift, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenPTY", NULL, "hs", bus_machine_method_open_pty, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("OpenLogin", NULL, "hs", bus_machine_method_open_login, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1325,11 +1435,20 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_METHOD("BindMount", "ssbb", NULL, bus_machine_method_bind_mount, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyFrom", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CopyTo", "ss", NULL, bus_machine_method_copy, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("OpenRootDirectory", NULL, "h", bus_machine_method_open_root_directory, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("OpenRootDirectory",
+                      NULL,
+                      "h",
+                      bus_machine_method_open_root_directory,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
-int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int machine_object_find(sd_bus *bus,
+                        const char *path,
+                        const char *interface,
+                        void *userdata,
+                        void **found,
+                        sd_bus_error *error) {
         Manager *m = userdata;
         Machine *machine;
         int r;

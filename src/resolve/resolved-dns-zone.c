@@ -170,7 +170,9 @@ static int dns_zone_item_probe_start(DnsZoneItem *i) {
                 return 0;
 
         t = dns_scope_find_transaction(
-                i->scope, &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)), false);
+                i->scope,
+                &DNS_RESOURCE_KEY_CONST(i->rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(i->rr->key)),
+                false);
         if (!t) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
 
@@ -305,15 +307,20 @@ static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int i
         return dns_answer_add(a, i->rr, ifindex, flags);
 }
 
-int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
+int dns_zone_lookup(DnsZone *z,
+                    DnsResourceKey *key,
+                    int ifindex,
+                    DnsAnswer **ret_answer,
+                    DnsAnswer **ret_soa,
+                    bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
         DnsZoneItem *j, *first;
         bool tentative = true, need_soa = false;
         int r;
 
-        /* Note that we don't actually need the ifindex for anything. However when it is passed we'll initialize the
-         * ifindex field in the answer with it */
+        /* Note that we don't actually need the ifindex for anything. However when it is passed we'll
+         * initialize the ifindex field in the answer with it */
 
         assert(z);
         assert(key);
@@ -331,7 +338,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
 
                 first = hashmap_get(z->by_name, dns_resource_key_name(key));
                 LIST_FOREACH(by_name, j, first) {
-                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        if (!IN_SET(j->state,
+                                    DNS_ZONE_ITEM_PROBING,
+                                    DNS_ZONE_ITEM_ESTABLISHED,
+                                    DNS_ZONE_ITEM_VERIFYING))
                                 continue;
 
                         found = true;
@@ -356,7 +366,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
 
                 first = hashmap_get(z->by_key, key);
                 LIST_FOREACH(by_key, j, first) {
-                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        if (!IN_SET(j->state,
+                                    DNS_ZONE_ITEM_PROBING,
+                                    DNS_ZONE_ITEM_ESTABLISHED,
+                                    DNS_ZONE_ITEM_VERIFYING))
                                 continue;
 
                         found = true;
@@ -366,7 +379,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                 if (!found) {
                         first = hashmap_get(z->by_name, dns_resource_key_name(key));
                         LIST_FOREACH(by_name, j, first) {
-                                if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                if (!IN_SET(j->state,
+                                            DNS_ZONE_ITEM_PROBING,
+                                            DNS_ZONE_ITEM_ESTABLISHED,
+                                            DNS_ZONE_ITEM_VERIFYING))
                                         continue;
 
                                 need_soa = true;
@@ -397,7 +413,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
 
                 first = hashmap_get(z->by_name, dns_resource_key_name(key));
                 LIST_FOREACH(by_name, j, first) {
-                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        if (!IN_SET(j->state,
+                                    DNS_ZONE_ITEM_PROBING,
+                                    DNS_ZONE_ITEM_ESTABLISHED,
+                                    DNS_ZONE_ITEM_VERIFYING))
                                 continue;
 
                         found = true;
@@ -427,7 +446,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
 
                 first = hashmap_get(z->by_key, key);
                 LIST_FOREACH(by_key, j, first) {
-                        if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        if (!IN_SET(j->state,
+                                    DNS_ZONE_ITEM_PROBING,
+                                    DNS_ZONE_ITEM_ESTABLISHED,
+                                    DNS_ZONE_ITEM_VERIFYING))
                                 continue;
 
                         found = true;
@@ -445,7 +467,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
 
                         first = hashmap_get(z->by_name, dns_resource_key_name(key));
                         LIST_FOREACH(by_name, j, first) {
-                                if (!IN_SET(j->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                                if (!IN_SET(j->state,
+                                            DNS_ZONE_ITEM_PROBING,
+                                            DNS_ZONE_ITEM_ESTABLISHED,
+                                            DNS_ZONE_ITEM_VERIFYING))
                                         continue;
 
                                 if (j->state != DNS_ZONE_ITEM_PROBING)
@@ -455,7 +480,8 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                         }
 
                         if (add_soa) {
-                                r = dns_answer_add_soa(soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL, ifindex);
+                                r = dns_answer_add_soa(
+                                        soa, dns_resource_key_name(key), LLMNR_DEFAULT_TTL, ifindex);
                                 if (r < 0)
                                         return r;
                         }
@@ -517,7 +543,10 @@ void dns_zone_item_notify(DnsZoneItem *i) {
         if (i->block_ready > 0)
                 return;
 
-        if (IN_SET(i->probe_transaction->state, DNS_TRANSACTION_NULL, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING))
+        if (IN_SET(i->probe_transaction->state,
+                   DNS_TRANSACTION_NULL,
+                   DNS_TRANSACTION_PENDING,
+                   DNS_TRANSACTION_VALIDATING))
                 return;
 
         if (i->probe_transaction->state == DNS_TRANSACTION_SUCCESS) {
@@ -549,7 +578,8 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                         return;
                 }
 
-                log_debug("Got a successful probe reply, but peer has lexicographically lower IP address and thus lost.");
+                log_debug(
+                        "Got a successful probe reply, but peer has lexicographically lower IP address and thus lost.");
         }
 
         log_debug("Record %s successfully probed.", strna(dns_resource_record_to_string(i->rr)));

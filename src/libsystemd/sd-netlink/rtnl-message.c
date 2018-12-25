@@ -255,12 +255,18 @@ int sd_rtnl_message_route_get_src_prefixlen(sd_netlink_message *m, unsigned char
         return 0;
 }
 
-int sd_rtnl_message_new_route(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol) {
+int sd_rtnl_message_new_route(sd_netlink *rtnl,
+                              sd_netlink_message **ret,
+                              uint16_t nlmsg_type,
+                              int rtm_family,
+                              unsigned char rtm_protocol) {
         struct rtmsg *rtm;
         int r;
 
         assert_return(rtnl_message_type_is_route(nlmsg_type), -EINVAL);
-        assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) || IN_SET(rtm_family, AF_INET, AF_INET6), -EINVAL);
+        assert_return((nlmsg_type == RTM_GETROUTE && rtm_family == AF_UNSPEC) ||
+                              IN_SET(rtm_family, AF_INET, AF_INET6),
+                      -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -363,7 +369,8 @@ int sd_rtnl_message_neigh_get_ifindex(sd_netlink_message *m, int *index) {
         return 0;
 }
 
-int sd_rtnl_message_new_neigh(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int ndm_family) {
+int sd_rtnl_message_new_neigh(
+        sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int ndm_family) {
         struct ndmsg *ndm;
         int r;
 
@@ -572,13 +579,15 @@ int sd_rtnl_message_addr_get_ifindex(sd_netlink_message *m, int *ifindex) {
         return 0;
 }
 
-int sd_rtnl_message_new_addr(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int family) {
+int sd_rtnl_message_new_addr(
+        sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index, int family) {
         struct ifaddrmsg *ifa;
         int r;
 
         assert_return(rtnl_message_type_is_addr(nlmsg_type), -EINVAL);
         assert_return((nlmsg_type == RTM_GETADDR && index == 0) || index > 0, -EINVAL);
-        assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) || IN_SET(family, AF_INET, AF_INET6), -EINVAL);
+        assert_return((nlmsg_type == RTM_GETADDR && family == AF_UNSPEC) || IN_SET(family, AF_INET, AF_INET6),
+                      -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = message_new(rtnl, ret, nlmsg_type);
@@ -708,7 +717,8 @@ int sd_rtnl_message_get_family(sd_netlink_message *m, int *family) {
         return -EOPNOTSUPP;
 }
 
-int sd_rtnl_message_new_addrlabel(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family) {
+int sd_rtnl_message_new_addrlabel(
+        sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifindex, int ifal_family) {
         struct ifaddrlblmsg *addrlabel;
         int r;
 
@@ -761,7 +771,10 @@ int sd_rtnl_message_addrlabel_get_prefixlen(sd_netlink_message *m, unsigned char
         return 0;
 }
 
-int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifal_family) {
+int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl,
+                                            sd_netlink_message **ret,
+                                            uint16_t nlmsg_type,
+                                            int ifal_family) {
         struct rtmsg *rtm;
         int r;
 

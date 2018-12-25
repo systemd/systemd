@@ -11,6 +11,11 @@ void server_process_native_message(Server *s,
                                    const char *label,
                                    size_t label_len);
 
-void server_process_native_file(Server *s, int fd, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len);
+void server_process_native_file(Server *s,
+                                int fd,
+                                const struct ucred *ucred,
+                                const struct timeval *tv,
+                                const char *label,
+                                size_t label_len);
 
 int server_open_native_socket(Server *s);

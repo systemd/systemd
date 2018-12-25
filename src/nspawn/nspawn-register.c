@@ -22,8 +22,8 @@ static int append_machine_properties(sd_bus_message *m, CustomMount *mounts, uns
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device policies in
-         * sync regardless if we are run with or without the --keep-unit switch. */
+        /* If you make changes here, also make sure to update systemd-nspawn@.service, to keep the device
+         * policies in sync regardless if we are run with or without the --keep-unit switch. */
         r = sd_bus_message_append(m,
                                   "(sv)",
                                   "DeviceAllow",
@@ -63,7 +63,8 @@ static int append_machine_properties(sd_bus_message *m, CustomMount *mounts, uns
                         return log_error_errno(r, "Failed to stat %s: %m", cm->source);
 
                 if (r) {
-                        r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 1, cm->source, cm->read_only ? "r" : "rw");
+                        r = sd_bus_message_append(
+                                m, "(sv)", "DeviceAllow", "a(ss)", 1, cm->source, cm->read_only ? "r" : "rw");
                         if (r < 0)
                                 return log_error_errno(r, "Failed to append message arguments: %m");
                 }
@@ -244,8 +245,12 @@ int allocate_scope(sd_bus *bus,
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
-        r = sd_bus_message_new_method_call(
-                bus, &m, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartTransientUnit");
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.systemd1",
+                                           "/org/freedesktop/systemd1",
+                                           "org.freedesktop.systemd1.Manager",
+                                           "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -340,7 +345,8 @@ int terminate_scope(sd_bus *bus, const char *machine_name) {
                                "s",
                                scope);
         if (r < 0) {
-                log_debug_errno(r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                log_debug_errno(
+                        r, "Failed to abandon scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
                 sd_bus_error_free(&error);
         }
 
@@ -356,7 +362,8 @@ int terminate_scope(sd_bus *bus, const char *machine_name) {
                                "all",
                                (int32_t) SIGKILL);
         if (r < 0) {
-                log_debug_errno(r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                log_debug_errno(
+                        r, "Failed to SIGKILL scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
                 sd_bus_error_free(&error);
         }
 
@@ -370,7 +377,10 @@ int terminate_scope(sd_bus *bus, const char *machine_name) {
                                "s",
                                scope);
         if (r < 0)
-                log_debug_errno(r, "Failed to drop reference to scope '%s', ignoring: %s", scope, bus_error_message(&error, r));
+                log_debug_errno(r,
+                                "Failed to drop reference to scope '%s', ignoring: %s",
+                                scope,
+                                bus_error_message(&error, r));
 
         return 0;
 }

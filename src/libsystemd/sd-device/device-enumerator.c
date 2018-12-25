@@ -83,7 +83,9 @@ static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumer
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_enumerator, sd_device_enumerator, device_enumerator_free);
 
-_public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator, const char *subsystem, int match) {
+_public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator,
+                                                      const char *subsystem,
+                                                      int match) {
         Set **set;
         int r;
 
@@ -108,7 +110,10 @@ _public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enum
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *_sysattr, const char *_value, int match) {
+_public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator,
+                                                    const char *_sysattr,
+                                                    const char *_value,
+                                                    int match) {
         _cleanup_free_ char *sysattr = NULL, *value = NULL;
         Hashmap **hashmap;
         int r;
@@ -147,7 +152,9 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *_property, const char *_value) {
+_public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator,
+                                                     const char *_property,
+                                                     const char *_value) {
         _cleanup_free_ char *property = NULL, *value = NULL;
         int r;
 
@@ -433,7 +440,10 @@ static bool match_sysname(sd_device_enumerator *enumerator, const char *sysname)
         return false;
 }
 
-static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator, const char *basedir, const char *subdir1, const char *subdir2) {
+static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
+                                               const char *basedir,
+                                               const char *subdir1,
+                                               const char *subdir2) {
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
         struct dirent *dent;
@@ -539,7 +549,10 @@ static bool match_subsystem(sd_device_enumerator *enumerator, const char *subsys
         return false;
 }
 
-static int enumerator_scan_dir(sd_device_enumerator *enumerator, const char *basedir, const char *subdir, const char *subsystem) {
+static int enumerator_scan_dir(sd_device_enumerator *enumerator,
+                               const char *basedir,
+                               const char *subdir,
+                               const char *subsystem) {
         _cleanup_closedir_ DIR *dir = NULL;
         char *path;
         struct dirent *dent;
@@ -584,7 +597,8 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
         dir = opendir(path);
         if (!dir) {
                 if (errno != ENOENT)
-                        return log_debug_errno(errno, "sd-device-enumerator: Failed to open tags directory %s: %m", path);
+                        return log_debug_errno(
+                                errno, "sd-device-enumerator: Failed to open tags directory %s: %m", path);
                 return 0;
         }
 
@@ -710,7 +724,8 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 
         dir = opendir(path);
         if (!dir)
-                return log_debug_errno(errno, "sd-device-enumerator: Failed to open parent directory %s: %m", path);
+                return log_debug_errno(
+                        errno, "sd-device-enumerator: Failed to open parent directory %s: %m", path);
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 _cleanup_free_ char *child = NULL;

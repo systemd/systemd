@@ -20,9 +20,9 @@ char *strv_find(char **l, const char *name) {
 
         assert(name);
 
-        STRV_FOREACH(i, l)
-        if (streq(*i, name))
-                return *i;
+        STRV_FOREACH (i, l)
+                if (streq(*i, name))
+                        return *i;
 
         return NULL;
 }
@@ -32,9 +32,9 @@ char *strv_find_prefix(char **l, const char *name) {
 
         assert(name);
 
-        STRV_FOREACH(i, l)
-        if (startswith(*i, name))
-                return *i;
+        STRV_FOREACH (i, l)
+                if (startswith(*i, name))
+                        return *i;
 
         return NULL;
 }
@@ -47,7 +47,7 @@ char *strv_find_startswith(char **l, const char *name) {
         /* Like strv_find_prefix, but actually returns only the
          * suffix, not the whole item */
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 e = startswith(*i, name);
                 if (e)
                         return e;
@@ -76,8 +76,8 @@ char **strv_free(char **l) {
 char **strv_free_erase(char **l) {
         char **i;
 
-        STRV_FOREACH(i, l)
-        string_erase(*i);
+        STRV_FOREACH (i, l)
+                string_erase(*i);
 
         return strv_free(l);
 }
@@ -199,7 +199,7 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
         t[p] = NULL;
         *a = t;
 
-        STRV_FOREACH(s, b) {
+        STRV_FOREACH (s, b) {
 
                 if (filter_duplicates && strv_contains(t, *s))
                         continue;
@@ -228,7 +228,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
         int r;
         char **s;
 
-        STRV_FOREACH(s, b) {
+        STRV_FOREACH (s, b) {
                 char *v;
 
                 v = strappend(*s, suffix);
@@ -354,7 +354,7 @@ char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
         m = strlen_ptr(prefix);
 
         n = 0;
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 if (s != l)
                         n += k;
                 n += m + strlen(*s);
@@ -365,7 +365,7 @@ char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
                 return NULL;
 
         e = r;
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 if (s != l)
                         e = stpcpy(e, separator);
 
@@ -553,8 +553,8 @@ char **strv_uniq(char **l) {
         /* Drops duplicate entries. The first identical string will be
          * kept, the others dropped */
 
-        STRV_FOREACH(i, l)
-        strv_remove(i + 1, *i);
+        STRV_FOREACH (i, l)
+                strv_remove(i + 1, *i);
 
         return l;
 }
@@ -562,9 +562,9 @@ char **strv_uniq(char **l) {
 bool strv_is_uniq(char **l) {
         char **i;
 
-        STRV_FOREACH(i, l)
-        if (strv_find(i + 1, *i))
-                return false;
+        STRV_FOREACH (i, l)
+                if (strv_find(i + 1, *i))
+                        return false;
 
         return true;
 }
@@ -678,7 +678,7 @@ int strv_make_nulstr(char **l, char **p, size_t *q) {
         assert(p);
         assert(q);
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 size_t z;
 
                 z = strlen(*i);
@@ -711,9 +711,9 @@ int strv_make_nulstr(char **l, char **p, size_t *q) {
 bool strv_overlap(char **a, char **b) {
         char **i;
 
-        STRV_FOREACH(i, a)
-        if (strv_contains(b, *i))
-                return true;
+        STRV_FOREACH (i, a)
+                if (strv_contains(b, *i))
+                        return true;
 
         return false;
 }
@@ -745,8 +745,8 @@ bool strv_equal(char **a, char **b) {
 void strv_print(char **l) {
         char **s;
 
-        STRV_FOREACH(s, l)
-        puts(*s);
+        STRV_FOREACH (s, l)
+                puts(*s);
 }
 
 int strv_extendf(char ***l, const char *format, ...) {
@@ -783,7 +783,7 @@ char **strv_shell_escape(char **l, const char *bad) {
         /* Escapes every character in every string in l that is in bad,
          * edits in-place, does not roll-back on error. */
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 char *v;
 
                 v = shell_escape(*s, bad);
@@ -800,9 +800,9 @@ char **strv_shell_escape(char **l, const char *bad) {
 bool strv_fnmatch(char *const *patterns, const char *s, int flags) {
         char *const *p;
 
-        STRV_FOREACH(p, patterns)
-        if (fnmatch(*p, s, flags) == 0)
-                return true;
+        STRV_FOREACH (p, patterns)
+                if (fnmatch(*p, s, flags) == 0)
+                        return true;
 
         return false;
 }
@@ -879,7 +879,7 @@ int fputstrv(FILE *f, char **l, const char *separator, bool *space) {
         if (!space)
                 space = &b;
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH (s, l) {
                 r = fputs_with_space(f, *s, separator, space);
                 if (r < 0)
                         return r;

@@ -24,7 +24,13 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 
-static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, unsigned n_columns, bool extra, bool more, OutputFlags flags) {
+static void show_pid_array(pid_t pids[],
+                           unsigned n_pids,
+                           const char *prefix,
+                           unsigned n_columns,
+                           bool extra,
+                           bool more,
+                           OutputFlags flags) {
 
         unsigned i, j, pid_width;
 
@@ -60,13 +66,15 @@ static void show_pid_array(pid_t pids[], unsigned n_pids, const char *prefix, un
                 else
                         printf("%s%s",
                                prefix,
-                               special_glyph(((more || i < n_pids - 1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
+                               special_glyph(((more || i < n_pids - 1) ? SPECIAL_GLYPH_TREE_BRANCH :
+                                                                         SPECIAL_GLYPH_TREE_RIGHT)));
 
                 printf("%*" PID_PRI " %s\n", pid_width, pids[i], strna(t));
         }
 }
 
-static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigned n_columns, bool more, OutputFlags flags) {
+static int show_cgroup_one_by_path(
+        const char *path, const char *prefix, unsigned n_columns, bool more, OutputFlags flags) {
 
         char *fn;
         _cleanup_fclose_ FILE *f = NULL;
@@ -145,7 +153,10 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
                 }
 
                 if (last) {
-                        printf("%s%s%s\n", prefix, special_glyph(SPECIAL_GLYPH_TREE_BRANCH), cg_unescape(basename(last)));
+                        printf("%s%s%s\n",
+                               prefix,
+                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH),
+                               cg_unescape(basename(last)));
 
                         if (!p1) {
                                 p1 = strappend(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
@@ -181,7 +192,8 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
         return 0;
 }
 
-int show_cgroup(const char *controller, const char *path, const char *prefix, unsigned n_columns, OutputFlags flags) {
+int show_cgroup(
+        const char *controller, const char *path, const char *prefix, unsigned n_columns, OutputFlags flags) {
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -267,10 +279,16 @@ int show_cgroup_get_unit_path_and_warn(sd_bus *bus, const char *unit, char **ret
         if (!path)
                 return log_oom();
 
-        r = sd_bus_get_property_string(
-                bus, "org.freedesktop.systemd1", path, unit_dbus_interface_from_name(unit), "ControlGroup", &error, ret);
+        r = sd_bus_get_property_string(bus,
+                                       "org.freedesktop.systemd1",
+                                       path,
+                                       unit_dbus_interface_from_name(unit),
+                                       "ControlGroup",
+                                       &error,
+                                       ret);
         if (r < 0)
-                return log_error_errno(r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
+                return log_error_errno(
+                        r, "Failed to query unit control group path: %s", bus_error_message(&error, r));
 
         return 0;
 }

@@ -43,7 +43,9 @@ static void test_bus_new_method_call(void) {
 
         assert_se(use_system_bus ? sd_bus_open_system(&bus) >= 0 : sd_bus_open_user(&bus) >= 0);
 
-        assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >= 0);
+        assert_se(sd_bus_message_new_method_call(
+                          bus, &m, "a.service.name", "/an/object/path", "an.interface.name", "AMethodName") >=
+                  0);
 
         printf("after message_new_method_call: refcount %u\n", REFCNT_GET(bus->n_ref));
 

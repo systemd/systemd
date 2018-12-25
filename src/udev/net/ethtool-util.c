@@ -20,10 +20,14 @@ static const char *const duplex_table[_DUP_MAX] = { [DUP_FULL] = "full", [DUP_HA
 DEFINE_STRING_TABLE_LOOKUP(duplex, Duplex);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_duplex, duplex, Duplex, "Failed to parse duplex setting");
 
-static const char *const wol_table[_WOL_MAX] = {
-        [WOL_PHY] = "phy", [WOL_UCAST] = "unicast", [WOL_MCAST] = "multicast",      [WOL_BCAST] = "broadcast",
-        [WOL_ARP] = "arp", [WOL_MAGIC] = "magic",   [WOL_MAGICSECURE] = "secureon", [WOL_OFF] = "off"
-};
+static const char *const wol_table[_WOL_MAX] = { [WOL_PHY] = "phy",
+                                                 [WOL_UCAST] = "unicast",
+                                                 [WOL_MCAST] = "multicast",
+                                                 [WOL_BCAST] = "broadcast",
+                                                 [WOL_ARP] = "arp",
+                                                 [WOL_MAGIC] = "magic",
+                                                 [WOL_MAGICSECURE] = "secureon",
+                                                 [WOL_OFF] = "off" };
 
 DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse WakeOnLan setting");
@@ -357,7 +361,8 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
         if (r < 0)
                 return log_warning_errno(r, "link_config: could not get ethtool features for %s", ifname);
 
-        sfeatures = alloca0(sizeof(struct ethtool_sfeatures) + DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
+        sfeatures = alloca0(sizeof(struct ethtool_sfeatures) +
+                            DIV_ROUND_UP(strings->len, 32U) * sizeof(sfeatures->features[0]));
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
@@ -367,7 +372,9 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
 
                         r = find_feature_index(strings, netdev_feature_table[i]);
                         if (r < 0) {
-                                log_warning_errno(r, "link_config: could not find feature: %s", netdev_feature_table[i]);
+                                log_warning_errno(r,
+                                                  "link_config: could not find feature: %s",
+                                                  netdev_feature_table[i]);
                                 continue;
                         }
 
@@ -562,7 +569,8 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         int r;
 
         if (link->autonegotiation != 0) {
-                log_info("link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
+                log_info(
+                        "link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
                 return 0;
         }
 
@@ -578,7 +586,8 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         if (r < 0) {
                 r = get_gset(*fd, &ifr, &u);
                 if (r < 0)
-                        return log_warning_errno(r, "link_config: Cannot get device settings for %s : %m", ifname);
+                        return log_warning_errno(
+                                r, "link_config: Cannot get device settings for %s : %m", ifname);
         }
 
         if (link->speed)
@@ -630,12 +639,14 @@ int config_parse_channel(const char *unit,
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (k < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -740,7 +751,13 @@ int config_parse_advertise(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split advertise modes '%s', ignoring: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to split advertise modes '%s', ignoring: %m",
+                                   rvalue);
                         break;
                 }
                 if (r == 0)
@@ -748,7 +765,13 @@ int config_parse_advertise(const char *unit,
 
                 mode = ethtool_link_mode_bit_from_string(w);
                 if (mode < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   0,
+                                   "Failed to parse advertise mode, ignoring: %s",
+                                   w);
                         continue;
                 }
 

@@ -208,17 +208,25 @@ int extract_first_word_and_warn(const char **p,
                 r = extract_first_word(p, ret, separators, flags | EXTRACT_CUNESCAPE_RELAX);
                 if (r >= 0) {
                         /* It worked this time, hence it must have been an invalid escape sequence. */
-                        log_syntax(unit, LOG_WARNING, filename, line, EINVAL, "Ignoring unknown escape sequences: \"%s\"", *ret);
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   EINVAL,
+                                   "Ignoring unknown escape sequences: \"%s\"",
+                                   *ret);
                         return r;
                 }
 
                 /* If it's still EINVAL; then it must be unbalanced quoting, report this. */
                 if (r == -EINVAL)
-                        return log_syntax(unit, LOG_ERR, filename, line, r, "Unbalanced quoting, ignoring: \"%s\"", rvalue);
+                        return log_syntax(
+                                unit, LOG_ERR, filename, line, r, "Unbalanced quoting, ignoring: \"%s\"", rvalue);
         }
 
         /* Can be any error, report it */
-        return log_syntax(unit, LOG_ERR, filename, line, r, "Unable to decode word \"%s\", ignoring: %m", rvalue);
+        return log_syntax(
+                unit, LOG_ERR, filename, line, r, "Unable to decode word \"%s\", ignoring: %m", rvalue);
 }
 
 /* We pass ExtractFlags as unsigned int (to avoid undefined behaviour when passing

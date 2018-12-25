@@ -103,10 +103,14 @@ static void test_hourly_bug_4031(void) {
         assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
 
         printf("Now: %s (%" PRIu64 ")\n", format_timestamp_us(buf, sizeof buf, n), n);
-        printf("Next hourly: %s (%" PRIu64 ")\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u), u);
+        printf("Next hourly: %s (%" PRIu64 ")\n",
+               r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u),
+               u);
 
         assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
-        printf("Next hourly: %s (%" PRIu64 ")\n", r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w), w);
+        printf("Next hourly: %s (%" PRIu64 ")\n",
+               r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w),
+               w);
 
         assert_se(n < u);
         assert_se(u <= n + USEC_PER_HOUR);

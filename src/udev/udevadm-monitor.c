@@ -77,8 +77,11 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         HASHMAP_FOREACH_KEY(devtype, subsystem, arg_subsystem_filter, i) {
                 r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, subsystem, devtype);
                 if (r < 0)
-                        return log_error_errno(
-                                r, "Failed to apply subsystem filter '%s%s%s': %m", subsystem, devtype ? "/" : "", strempty(devtype));
+                        return log_error_errno(r,
+                                               "Failed to apply subsystem filter '%s%s%s': %m",
+                                               subsystem,
+                                               devtype ? "/" : "",
+                                               strempty(devtype));
         }
 
         SET_FOREACH(tag, arg_tag_filter, i) {
@@ -92,7 +95,8 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
         (void) sd_event_source_set_description(sd_device_monitor_get_event_source(monitor),
-                                               sender == MONITOR_GROUP_UDEV ? "device-monitor-udev" : "device-monitor-kernel");
+                                               sender == MONITOR_GROUP_UDEV ? "device-monitor-udev" :
+                                                                              "device-monitor-kernel");
 
         *ret = TAKE_PTR(monitor);
         return 0;

@@ -32,8 +32,13 @@ static bool allow_object_pid(const struct ucred *ucred) {
         return ucred && ucred->uid == 0;
 }
 
-static void server_process_entry_meta(
-        const char *p, size_t l, const struct ucred *ucred, int *priority, char **identifier, char **message, pid_t *object_pid) {
+static void server_process_entry_meta(const char *p,
+                                      size_t l,
+                                      const struct ucred *ucred,
+                                      int *priority,
+                                      char **identifier,
+                                      char **message,
+                                      pid_t *object_pid) {
 
         /* We need to determine the priority of this entry for the rate limiting logic */
 
@@ -43,7 +48,8 @@ static void server_process_entry_meta(
         else if (l == 17 && startswith(p, "SYSLOG_FACILITY=") && p[16] >= '0' && p[16] <= '9')
                 *priority = (*priority & LOG_PRIMASK) | ((p[16] - '0') << 3);
 
-        else if (l == 18 && startswith(p, "SYSLOG_FACILITY=") && p[16] >= '0' && p[16] <= '9' && p[17] >= '0' && p[17] <= '9')
+        else if (l == 18 && startswith(p, "SYSLOG_FACILITY=") && p[16] >= '0' && p[16] <= '9' &&
+                 p[17] >= '0' && p[17] <= '9')
                 *priority = (*priority & LOG_PRIMASK) | (((p[16] - '0') * 10 + (p[17] - '0')) << 3);
 
         else if (l >= 19 && startswith(p, "SYSLOG_IDENTIFIER=")) {
@@ -64,8 +70,8 @@ static void server_process_entry_meta(
                         *message = t;
                 }
 
-        } else if (l > STRLEN("OBJECT_PID=") && l < STRLEN("OBJECT_PID=") + DECIMAL_STR_MAX(pid_t) && startswith(p, "OBJECT_PID=") &&
-                   allow_object_pid(ucred)) {
+        } else if (l > STRLEN("OBJECT_PID=") && l < STRLEN("OBJECT_PID=") + DECIMAL_STR_MAX(pid_t) &&
+                   startswith(p, "OBJECT_PID=") && allow_object_pid(ucred)) {
                 char buf[DECIMAL_STR_MAX(pid_t)];
                 memcpy(buf, p + STRLEN("OBJECT_PID="), l - STRLEN("OBJECT_PID="));
                 buf[l - STRLEN("OBJECT_PID=")] = '\0';
@@ -83,8 +89,8 @@ static int server_process_entry(Server *s,
                                 const char *label,
                                 size_t label_len) {
 
-        /* Process a single entry from a native message. Returns 0 if nothing special happened and the message
-         * processing should continue, and a negative or positive value otherwise.
+        /* Process a single entry from a native message. Returns 0 if nothing special happened and the
+         * message processing should continue, and a negative or positive value otherwise.
          *
          * Note that *remaining is altered on both success and failure. */
 
@@ -127,8 +133,10 @@ static int server_process_entry(Server *s,
                 /* A property follows */
 
                 /* n existing properties, 1 new, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(
-                            iovec, m, n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS + client_context_extra_fields_n_iovec(context))) {
+                if (!GREEDY_REALLOC(iovec,
+                                    m,
+                                    n + 2 + N_IOVEC_META_FIELDS + N_IOVEC_OBJECT_FIELDS +
+                                            client_context_extra_fields_n_iovec(context))) {
                         r = log_oom();
                         break;
                 }
@@ -140,12 +148,13 @@ static int server_process_entry(Server *s,
 
                                 l = e - p;
 
-                                /* If the field name starts with an underscore, skip the variable, since that indicates
-                                 * a trusted field */
+                                /* If the field name starts with an underscore, skip the variable, since that
+                                 * indicates a trusted field */
                                 iovec[n++] = IOVEC_MAKE((char *) p, l);
                                 entry_size += l;
 
-                                server_process_entry_meta(p, l, ucred, &priority, &identifier, &message, &object_pid);
+                                server_process_entry_meta(
+                                        p, l, ucred, &priority, &identifier, &message, &object_pid);
                         }
 
                         *remaining -= (e - p) + 1;
@@ -163,11 +172,14 @@ static int server_process_entry(Server *s,
                         l = unaligned_read_le64(e + 1);
 
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block of %" PRIu64 " bytes is too large, ignoring.", l);
+                                log_debug("Received binary data block of %" PRIu64
+                                          " bytes is too large, ignoring.",
+                                          l);
                                 break;
                         }
 
-                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 || e[1 + sizeof(uint64_t) + l] != '\n') {
+                        if ((uint64_t) *remaining < e - p + 1 + sizeof(uint64_t) + l + 1 ||
+                            e[1 + sizeof(uint64_t) + l] != '\n') {
                                 log_debug("Failed to parse message, ignoring.");
                                 break;
                         }
@@ -187,7 +199,8 @@ static int server_process_entry(Server *s,
                                 entry_size += iovec[n].iov_len;
                                 n++;
 
-                                server_process_entry_meta(k, (e - p) + 1 + l, ucred, &priority, &identifier, &message, &object_pid);
+                                server_process_entry_meta(
+                                        k, (e - p) + 1 + l, ucred, &priority, &identifier, &message, &object_pid);
                         } else
                                 free(k);
 
@@ -217,7 +230,8 @@ static int server_process_entry(Server *s,
 
         if (message) {
                 if (s->forward_to_syslog)
-                        server_forward_syslog(s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
+                        server_forward_syslog(
+                                s, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
                 if (s->forward_to_kmsg)
                         server_forward_kmsg(s, priority, identifier, message, ucred);
@@ -265,16 +279,29 @@ void server_process_native_message(Server *s,
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                        log_warning_errno(r,
+                                          "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
+                                          ucred->pid);
         }
 
         do {
-                r = server_process_entry(
-                        s, (const uint8_t *) buffer + (buffer_size - remaining), &remaining, context, ucred, tv, label, label_len);
+                r = server_process_entry(s,
+                                         (const uint8_t *) buffer + (buffer_size - remaining),
+                                         &remaining,
+                                         context,
+                                         ucred,
+                                         tv,
+                                         label,
+                                         label_len);
         } while (r == 0);
 }
 
-void server_process_native_file(Server *s, int fd, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len) {
+void server_process_native_file(Server *s,
+                                int fd,
+                                const struct ucred *ucred,
+                                const struct timeval *tv,
+                                const char *label,
+                                size_t label_len) {
 
         struct stat st;
         bool sealed;
@@ -365,7 +392,8 @@ void server_process_native_file(Server *s, int fd, const struct ucred *ucred, co
                  * https://github.com/systemd/systemd/issues/1822
                  */
                 if (vfs.f_flag & ST_MANDLOCK) {
-                        log_error("Received file descriptor from file system with mandatory locking enabled, refusing.");
+                        log_error(
+                                "Received file descriptor from file system with mandatory locking enabled, refusing.");
                         return;
                 }
 
@@ -441,7 +469,8 @@ int server_open_native_socket(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "SO_TIMESTAMP failed: %m");
 
-        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
+        r = sd_event_add_io(
+                s->event, &s->native_event_source, s->native_fd, EPOLLIN, server_process_datagram, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to add native server fd to event loop: %m");
 

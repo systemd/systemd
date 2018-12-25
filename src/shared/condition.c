@@ -131,8 +131,8 @@ static int condition_test_kernel_command_line(Condition *c) {
 static int condition_test_kernel_version(Condition *c) {
         enum
         {
-                /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
-                 * should be listed first. */
+                /* Listed in order of checking. Note that some comparators are prefixes of others, hence the
+                 * longest should be listed first. */
                 LOWER_OR_EQUAL,
                 GREATER_OR_EQUAL,
                 LOWER,
@@ -142,7 +142,8 @@ static int condition_test_kernel_version(Condition *c) {
         };
 
         static const char *const prefix[_ORDER_MAX] = {
-                [LOWER_OR_EQUAL] = "<=", [GREATER_OR_EQUAL] = ">=", [LOWER] = "<", [GREATER] = ">", [EQUAL] = "=",
+                [LOWER_OR_EQUAL] = "<=", [GREATER_OR_EQUAL] = ">=", [LOWER] = "<", [GREATER] = ">",
+                [EQUAL] = "=",
         };
         const char *p = NULL;
         struct utsname u;
@@ -480,7 +481,10 @@ static int condition_test_needs_update(Condition *c) {
 
                 r = safe_atou64(timestamp_str, &timestamp);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
+                        log_error_errno(r,
+                                        "Failed to parse timestamp value '%s' in file '%s', using mtime: %m",
+                                        timestamp_str,
+                                        p);
                         return true;
                 }
 
@@ -653,7 +657,10 @@ void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_
                 condition_result_to_string(c->result));
 }
 
-void condition_dump_list(Condition *first, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t)) {
+void condition_dump_list(Condition *first,
+                         FILE *f,
+                         const char *prefix,
+                         const char *(*to_string)(ConditionType t)) {
         Condition *c;
 
         LIST_FOREACH(conditions, c, first)
@@ -688,29 +695,31 @@ static const char *const condition_type_table[_CONDITION_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
 
-static const char *const assert_type_table[_CONDITION_TYPE_MAX] = { [CONDITION_ARCHITECTURE] = "AssertArchitecture",
-                                                                    [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
-                                                                    [CONDITION_HOST] = "AssertHost",
-                                                                    [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
-                                                                    [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
-                                                                    [CONDITION_SECURITY] = "AssertSecurity",
-                                                                    [CONDITION_CAPABILITY] = "AssertCapability",
-                                                                    [CONDITION_AC_POWER] = "AssertACPower",
-                                                                    [CONDITION_NEEDS_UPDATE] = "AssertNeedsUpdate",
-                                                                    [CONDITION_FIRST_BOOT] = "AssertFirstBoot",
-                                                                    [CONDITION_PATH_EXISTS] = "AssertPathExists",
-                                                                    [CONDITION_PATH_EXISTS_GLOB] = "AssertPathExistsGlob",
-                                                                    [CONDITION_PATH_IS_DIRECTORY] = "AssertPathIsDirectory",
-                                                                    [CONDITION_PATH_IS_SYMBOLIC_LINK] = "AssertPathIsSymbolicLink",
-                                                                    [CONDITION_PATH_IS_MOUNT_POINT] = "AssertPathIsMountPoint",
-                                                                    [CONDITION_PATH_IS_READ_WRITE] = "AssertPathIsReadWrite",
-                                                                    [CONDITION_DIRECTORY_NOT_EMPTY] = "AssertDirectoryNotEmpty",
-                                                                    [CONDITION_FILE_NOT_EMPTY] = "AssertFileNotEmpty",
-                                                                    [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",
-                                                                    [CONDITION_USER] = "AssertUser",
-                                                                    [CONDITION_GROUP] = "AssertGroup",
-                                                                    [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
-                                                                    [CONDITION_NULL] = "AssertNull" };
+static const char *const assert_type_table[_CONDITION_TYPE_MAX] = {
+        [CONDITION_ARCHITECTURE] = "AssertArchitecture",
+        [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
+        [CONDITION_HOST] = "AssertHost",
+        [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
+        [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
+        [CONDITION_SECURITY] = "AssertSecurity",
+        [CONDITION_CAPABILITY] = "AssertCapability",
+        [CONDITION_AC_POWER] = "AssertACPower",
+        [CONDITION_NEEDS_UPDATE] = "AssertNeedsUpdate",
+        [CONDITION_FIRST_BOOT] = "AssertFirstBoot",
+        [CONDITION_PATH_EXISTS] = "AssertPathExists",
+        [CONDITION_PATH_EXISTS_GLOB] = "AssertPathExistsGlob",
+        [CONDITION_PATH_IS_DIRECTORY] = "AssertPathIsDirectory",
+        [CONDITION_PATH_IS_SYMBOLIC_LINK] = "AssertPathIsSymbolicLink",
+        [CONDITION_PATH_IS_MOUNT_POINT] = "AssertPathIsMountPoint",
+        [CONDITION_PATH_IS_READ_WRITE] = "AssertPathIsReadWrite",
+        [CONDITION_DIRECTORY_NOT_EMPTY] = "AssertDirectoryNotEmpty",
+        [CONDITION_FILE_NOT_EMPTY] = "AssertFileNotEmpty",
+        [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",
+        [CONDITION_USER] = "AssertUser",
+        [CONDITION_GROUP] = "AssertGroup",
+        [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
+        [CONDITION_NULL] = "AssertNull"
+};
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
 

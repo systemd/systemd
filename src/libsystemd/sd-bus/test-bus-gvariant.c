@@ -179,15 +179,20 @@ static int test_marshal(void) {
                 g_type_init();
 #endif
 
-                v = g_variant_new_from_data(
-                        G_VARIANT_TYPE("(yyyyuta{tv})"), m->header, sizeof(struct bus_header) + m->fields_size, false, NULL, NULL);
+                v = g_variant_new_from_data(G_VARIANT_TYPE("(yyyyuta{tv})"),
+                                            m->header,
+                                            sizeof(struct bus_header) + m->fields_size,
+                                            false,
+                                            NULL,
+                                            NULL);
                 assert_se(g_variant_is_normal_form(v));
                 t = g_variant_print(v, TRUE);
                 printf("%s\n", t);
                 g_free(t);
                 g_variant_unref(v);
 
-                v = g_variant_new_from_data(G_VARIANT_TYPE("(a(usv))"), m->body.data, m->user_body_size, false, NULL, NULL);
+                v = g_variant_new_from_data(
+                        G_VARIANT_TYPE("(a(usv))"), m->body.data, m->user_body_size, false, NULL, NULL);
                 assert_se(g_variant_is_normal_form(v));
                 t = g_variant_print(v, TRUE);
                 printf("%s\n", t);

@@ -137,10 +137,10 @@ static int get_os_indications(uint64_t *os_indication) {
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
         if (r == -ENOENT) {
                 /* Some firmware implementations that do support OsIndications and report that with
-                 * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's pretend it's 0
-                 * then, to hide this implementation detail. Note that this call will return -ENOENT then only if the
-                 * support for OsIndications is missing entirely, as determined by efi_reboot_to_firmware_supported()
-                 * above. */
+                 * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's
+                 * pretend it's 0 then, to hide this implementation detail. Note that this call will return
+                 * -ENOENT then only if the support for OsIndications is missing entirely, as determined by
+                 * efi_reboot_to_firmware_supported() above. */
                 *os_indication = 0;
                 return 0;
         } else if (r < 0)
@@ -281,9 +281,9 @@ int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, siz
                      SD_ID128_FORMAT_VAL(vendor)) < 0)
                 return -ENOMEM;
 
-        /* Newer efivarfs protects variables that are not in a whitelist with FS_IMMUTABLE_FL by default, to protect
-         * them for accidental removal and modification. We are not changing these variables accidentally however,
-         * hence let's unset the bit first. */
+        /* Newer efivarfs protects variables that are not in a whitelist with FS_IMMUTABLE_FL by default, to
+         * protect them for accidental removal and modification. We are not changing these variables
+         * accidentally however, hence let's unset the bit first. */
 
         r = chattr_path(p, 0, FS_IMMUTABLE_FL, &saved_flags);
         if (r < 0 && r != -ENOENT)
@@ -426,7 +426,8 @@ int efi_get_boot_option(uint16_t id, char **title, sd_id128_t *part_uuid, char *
                                 break;
 
                         /* Type 0x7F – End of Hardware Device Path, Sub-Type 0xFF – End Entire Device Path */
-                        if (dpath->type == END_DEVICE_PATH_TYPE && dpath->sub_type == END_ENTIRE_DEVICE_PATH_SUBTYPE)
+                        if (dpath->type == END_DEVICE_PATH_TYPE &&
+                            dpath->sub_type == END_ENTIRE_DEVICE_PATH_SUBTYPE)
                                 break;
 
                         dnext += dpath->length;
@@ -508,7 +509,13 @@ static uint16_t *tilt_slashes(uint16_t *s) {
         return s;
 }
 
-int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t pstart, uint64_t psize, sd_id128_t part_uuid, const char *path) {
+int efi_add_boot_option(uint16_t id,
+                        const char *title,
+                        uint32_t part,
+                        uint64_t pstart,
+                        uint64_t psize,
+                        sd_id128_t part_uuid,
+                        const char *path) {
 
         size_t size, title_len, path_len;
         _cleanup_free_ char *buf = NULL;
@@ -522,15 +529,16 @@ int efi_add_boot_option(uint16_t id, const char *title, uint32_t part, uint64_t 
         title_len = (strlen(title) + 1) * 2;
         path_len = (strlen(path) + 1) * 2;
 
-        buf = malloc0(sizeof(struct boot_option) + title_len + sizeof(struct drive_path) + sizeof(struct device_path) + path_len);
+        buf = malloc0(sizeof(struct boot_option) + title_len + sizeof(struct drive_path) +
+                      sizeof(struct device_path) + path_len);
         if (!buf)
                 return -ENOMEM;
 
         /* header */
         option = (struct boot_option *) buf;
         option->attr = LOAD_OPTION_ACTIVE;
-        option->path_len = offsetof(struct device_path, drive) + sizeof(struct drive_path) + offsetof(struct device_path, path) + path_len +
-                offsetof(struct device_path, path);
+        option->path_len = offsetof(struct device_path, drive) + sizeof(struct drive_path) +
+                offsetof(struct device_path, path) + path_len + offsetof(struct device_path, path);
         to_utf16(option->title, title);
         size = offsetof(struct boot_option, title) + title_len;
 
@@ -795,8 +803,8 @@ int efi_loader_get_entries(char ***ret) {
                 /* Is this the end of the variable's data? */
                 end = i * sizeof(char16_t) >= size;
 
-                /* Are we in the middle of a string? (i.e. not at the end of the variable, nor at a NUL terminator?) If
-                 * so, let's go to the next entry. */
+                /* Are we in the middle of a string? (i.e. not at the end of the variable, nor at a NUL
+                 * terminator?) If so, let's go to the next entry. */
                 if (!end && entries[i] != 0)
                         continue;
 
@@ -851,7 +859,8 @@ int efi_loader_get_features(uint64_t *ret) {
                         /* An older systemd-boot version. Let's hardcode the feature set, since it was pretty
                          * static in all its versions. */
 
-                        *ret = EFI_LOADER_FEATURE_CONFIG_TIMEOUT | EFI_LOADER_FEATURE_ENTRY_DEFAULT | EFI_LOADER_FEATURE_ENTRY_ONESHOT;
+                        *ret = EFI_LOADER_FEATURE_CONFIG_TIMEOUT | EFI_LOADER_FEATURE_ENTRY_DEFAULT |
+                                EFI_LOADER_FEATURE_ENTRY_ONESHOT;
 
                         return 0;
                 }
@@ -864,7 +873,8 @@ int efi_loader_get_features(uint64_t *ret) {
                 return r;
 
         if (s != sizeof(uint64_t))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "LoaderFeatures EFI variable doesn't have the right size.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "LoaderFeatures EFI variable doesn't have the right size.");
 
         memcpy(ret, v, sizeof(uint64_t));
         return 0;

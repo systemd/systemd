@@ -58,7 +58,7 @@ static int generate_path(char **var, char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
         int r;
 
-        STRV_FOREACH(filename, filenames) {
+        STRV_FOREACH (filename, filenames) {
                 char *t;
 
                 t = dirname_malloc(*filename);
@@ -116,7 +116,8 @@ static int verify_socket(Unit *u) {
                 log_unit_debug(u, "Using %s", UNIT(service)->id);
 
                 if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_unit_error(u, "Service %s not loaded, %s cannot be started.", UNIT(service)->id, u->id);
+                        log_unit_error(
+                                u, "Service %s not loaded, %s cannot be started.", UNIT(service)->id, u->id);
                         return -ENOENT;
                 }
         }
@@ -143,7 +144,8 @@ static int verify_executables(Unit *u) {
 
         exec = u->type == UNIT_SOCKET ?
                 SOCKET(u)->control_command :
-                u->type == UNIT_MOUNT ? MOUNT(u)->control_command : u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
+                u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
+                                        u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
         k = verify_executable(u, exec);
         if (k < 0 && r == 0)
                 r = k;
@@ -169,7 +171,7 @@ static int verify_documentation(Unit *u, bool check_man) {
         char **p;
         int r = 0, k;
 
-        STRV_FOREACH(p, u->documentation) {
+        STRV_FOREACH (p, u->documentation) {
                 log_unit_debug(u, "Found documentation item: %s", *p);
 
                 if (check_man && startswith(*p, "man:")) {
@@ -255,7 +257,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Loading remaining units from the command line...");
 
-        STRV_FOREACH(filename, filenames) {
+        STRV_FOREACH (filename, filenames) {
                 _cleanup_free_ char *prepared = NULL;
 
                 log_debug("Handling %s...", *filename);

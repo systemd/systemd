@@ -90,7 +90,8 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         if (pid == 0)
                 _exit(EXIT_SUCCESS);
 
-        assert_se(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
+        assert_se(sd_event_add_child(
+                          sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
 
         sd_event_source_unref(s);
@@ -109,7 +110,8 @@ static int defer_handler(sd_event_source *s, void *userdata) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR1, -1) >= 0);
 
-        assert_se(sd_event_add_signal(sd_event_source_get_event(s), &p, SIGUSR1, signal_handler, INT_TO_PTR('e')) >= 0);
+        assert_se(sd_event_add_signal(
+                          sd_event_source_get_event(s), &p, SIGUSR1, signal_handler, INT_TO_PTR('e')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
         raise(SIGUSR1);
 
@@ -128,7 +130,9 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
                 if (do_quit) {
                         sd_event_source *p;
 
-                        assert_se(sd_event_add_defer(sd_event_source_get_event(s), &p, defer_handler, INT_TO_PTR('d')) >= 0);
+                        assert_se(sd_event_add_defer(
+                                          sd_event_source_get_event(s), &p, defer_handler, INT_TO_PTR('d')) >=
+                                  0);
                         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
                 } else {
                         assert_se(!got_c);
@@ -334,7 +338,8 @@ static void test_rtqueue(void) {
         assert_se(n_rtqueue == 4);
         assert_se(last_rtqueue_sigval == 1); /* SIGRTMIN+2 */
 
-        assert_se(sd_event_run(e, 0) == 0); /* the other SIGUSR2 is dropped, because the first one was still queued */
+        assert_se(sd_event_run(e, 0) ==
+                  0); /* the other SIGUSR2 is dropped, because the first one was still queued */
         assert_se(n_rtqueue == 4);
         assert_se(last_rtqueue_sigval == 1);
 
@@ -445,10 +450,12 @@ static void test_inotify(unsigned n_create_events) {
         assert_se(mkdtemp_malloc("/tmp/test-inotify-XXXXXX", &p) >= 0);
 
         assert_se(sd_event_add_inotify(e, &a, p, IN_CREATE | IN_ONLYDIR, inotify_handler, &context) >= 0);
-        assert_se(sd_event_add_inotify(e, &b, p, IN_CREATE | IN_DELETE | IN_DONT_FOLLOW, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(
+                          e, &b, p, IN_CREATE | IN_DELETE | IN_DONT_FOLLOW, inotify_handler, &context) >= 0);
         assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_IDLE) >= 0);
         assert_se(sd_event_source_set_priority(b, SD_EVENT_PRIORITY_NORMAL) >= 0);
-        assert_se(sd_event_add_inotify(e, &c, p, IN_CREATE | IN_DELETE | IN_EXCL_UNLINK, inotify_handler, &context) >= 0);
+        assert_se(sd_event_add_inotify(
+                          e, &c, p, IN_CREATE | IN_DELETE | IN_EXCL_UNLINK, inotify_handler, &context) >= 0);
         assert_se(sd_event_source_set_priority(c, SD_EVENT_PRIORITY_IDLE) >= 0);
 
         assert_se(sd_event_source_set_description(a, "0") >= 0);

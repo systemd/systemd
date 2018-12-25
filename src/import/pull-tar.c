@@ -101,7 +101,8 @@ TarPull *tar_pull_unref(TarPull *i) {
         return mfree(i);
 }
 
-int tar_pull_new(TarPull **ret, sd_event *event, const char *image_root, TarPullFinished on_finished, void *userdata) {
+int tar_pull_new(
+        TarPull **ret, sd_event *event, const char *image_root, TarPullFinished on_finished, void *userdata) {
 
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -240,7 +241,11 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
-                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+                r = copy_file_atomic(i->settings_path,
+                                     local_settings,
+                                     0664,
+                                     0,
+                                     COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -284,7 +289,9 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
         } else if (j->error != 0 && j != i->signature_job) {
                 if (j == i->checksum_job)
-                        log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
+                        log_error_errno(
+                                j->error,
+                                "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
                 else
                         log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
 
@@ -299,8 +306,10 @@ static void tar_pull_job_on_finished(PullJob *j) {
         if (!tar_pull_is_done(i))
                 return;
 
-        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
-                log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY &&
+            i->signature_job->error != 0) {
+                log_error_errno(j->error,
+                                "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
 
                 r = i->signature_job->error;
                 goto finish;
@@ -350,12 +359,12 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 if (i->settings_job && i->settings_job->error == 0) {
 
-                        /* Also move the settings file into place, if it exists. Note that we do so only if we also
-                         * moved the tar file in place, to keep things strictly in sync. */
+                        /* Also move the settings file into place, if it exists. Note that we do so only if
+                         * we also moved the tar file in place, to keep things strictly in sync. */
                         assert(i->settings_temp_path);
 
-                        /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and
-                         * we should incorporate it in the file name if we can */
+                        /* Regenerate final name for this auxiliary file, we might know the etag of the file
+                         * now, and we should incorporate it in the file name if we can */
                         i->settings_path = mfree(i->settings_path);
 
                         r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
@@ -368,7 +377,8 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                         r = rename_noreplace(AT_FDCWD, i->settings_temp_path, AT_FDCWD, i->settings_path);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to rename settings file to %s: %m", i->settings_path);
+                                log_error_errno(
+                                        r, "Failed to rename settings file to %s: %m", i->settings_path);
                                 goto finish;
                         }
 
@@ -462,7 +472,8 @@ static void tar_pull_job_on_progress(PullJob *j) {
         tar_pull_report_progress(i, TAR_DOWNLOADING);
 }
 
-int tar_pull_start(TarPull *i, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings) {
+int tar_pull_start(
+        TarPull *i, const char *url, const char *local, bool force_local, ImportVerify verify, bool settings) {
 
         int r;
 
@@ -503,7 +514,13 @@ int tar_pull_start(TarPull *i, const char *url, const char *local, bool force_lo
 
         /* Set up download job for the settings file (.nspawn) */
         if (settings) {
-                r = pull_make_auxiliary_job(&i->settings_job, url, tar_strip_suffixes, ".nspawn", i->glue, tar_pull_job_on_finished, i);
+                r = pull_make_auxiliary_job(&i->settings_job,
+                                            url,
+                                            tar_strip_suffixes,
+                                            ".nspawn",
+                                            i->glue,
+                                            tar_pull_job_on_finished,
+                                            i);
                 if (r < 0)
                         return r;
 
@@ -513,7 +530,8 @@ int tar_pull_start(TarPull *i, const char *url, const char *local, bool force_lo
         }
 
         /* Set up download of checksum/signature files */
-        r = pull_make_verification_jobs(&i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
+        r = pull_make_verification_jobs(
+                &i->checksum_job, &i->signature_job, verify, url, i->glue, tar_pull_job_on_finished, i);
         if (r < 0)
                 return r;
 

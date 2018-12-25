@@ -24,7 +24,13 @@
 typedef void (*test_function_t)(Manager *m);
 
 static int setup_test(Manager **m) {
-        char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit", "directorynotempty", "makedirectory");
+        char **tests_path = STRV_MAKE("exists",
+                                      "existsglobFOOBAR",
+                                      "changed",
+                                      "modified",
+                                      "unit",
+                                      "directorynotempty",
+                                      "makedirectory");
         char **test_path;
         Manager *tmp = NULL;
         int r;

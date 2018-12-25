@@ -237,7 +237,8 @@ static int get_file_options(const char *vendor, const char *model, int *argc, ch
                 if (vendor == NULL) {
                         if (vendor_in == NULL)
                                 break;
-                } else if (vendor_in && startswith(vendor, vendor_in) && (!model_in || startswith(model, model_in))) {
+                } else if (vendor_in && startswith(vendor, vendor_in) &&
+                           (!model_in || startswith(model, model_in))) {
                         /*
                          * Matched vendor and optionally model.
                          *
@@ -506,7 +507,9 @@ static int scsi_id(char *maj_min_dev) {
                         printf("ID_WWN=0x%s\n", dev_scsi.wwn);
                         if (dev_scsi.wwn_vendor_extension[0] != '\0') {
                                 printf("ID_WWN_VENDOR_EXTENSION=0x%s\n", dev_scsi.wwn_vendor_extension);
-                                printf("ID_WWN_WITH_EXTENSION=0x%s%s\n", dev_scsi.wwn, dev_scsi.wwn_vendor_extension);
+                                printf("ID_WWN_WITH_EXTENSION=0x%s%s\n",
+                                       dev_scsi.wwn,
+                                       dev_scsi.wwn_vendor_extension);
                         } else
                                 printf("ID_WWN_WITH_EXTENSION=0x%s\n", dev_scsi.wwn);
                 }

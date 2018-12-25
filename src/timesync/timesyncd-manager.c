@@ -139,7 +139,10 @@ static int manager_send_request(Manager *m) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
-                log_debug_errno(errno, "Sending NTP request to %s (%s) failed: %m", strna(pretty), m->current_server_name->string);
+                log_debug_errno(errno,
+                                "Sending NTP request to %s (%s) failed: %m",
+                                strna(pretty),
+                                m->current_server_name->string);
                 return manager_connect(m);
         }
 
@@ -196,8 +199,13 @@ static int manager_arm_timer(Manager *m, usec_t next) {
                 return sd_event_source_set_enabled(m->event_timer, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
-                m->event, &m->event_timer, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + next, 0, manager_timer, m);
+        return sd_event_add_time(m->event,
+                                 &m->event_timer,
+                                 clock_boottime_or_monotonic(),
+                                 now(clock_boottime_or_monotonic()) + next,
+                                 0,
+                                 manager_timer,
+                                 m);
 }
 
 static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -234,7 +242,8 @@ static int manager_clock_watch_setup(Manager *m) {
         if (m->clock_watch_fd < 0)
                 return log_error_errno(m->clock_watch_fd, "Failed to create timerfd: %m");
 
-        r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
+        r = sd_event_add_io(
+                m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create clock watch event source: %m");
 
@@ -463,7 +472,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        if (!m->current_server_name || !m->current_server_address || !sockaddr_equal(&server_addr, &m->current_server_address->sockaddr)) {
+        if (!m->current_server_name || !m->current_server_address ||
+            !sockaddr_equal(&server_addr, &m->current_server_address->sockaddr)) {
                 log_debug("Response from unknown server.");
                 return 0;
         }
@@ -497,7 +507,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 || be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
+        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 ||
+            be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
                 log_debug("Invalid reply, returned times before epoch. Ignoring.");
                 return manager_connect(m);
         }
@@ -620,7 +631,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
 
-        (void) sd_bus_emit_properties_changed(m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
+        (void) sd_bus_emit_properties_changed(
+                m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
 
         if (!m->good) {
                 _cleanup_free_ char *pretty = NULL;
@@ -629,7 +641,10 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 server_address_pretty(m->current_server_address, &pretty);
                 log_info("Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
-                sd_notifyf(false, "STATUS=Synchronized to time server %s (%s).", strna(pretty), m->current_server_name->string);
+                sd_notifyf(false,
+                           "STATUS=Synchronized to time server %s (%s).",
+                           strna(pretty),
+                           m->current_server_name->string);
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
@@ -667,7 +682,8 @@ static int manager_listen_setup(Manager *m) {
 
         (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
 
-        return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
+        return sd_event_add_io(
+                m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
 
 static void manager_listen_stop(Manager *m) {
@@ -692,7 +708,10 @@ static int manager_begin(Manager *m) {
 
         server_address_pretty(m->current_server_address, &pretty);
         log_debug("Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
-        sd_notifyf(false, "STATUS=Connecting to time server %s (%s).", strna(pretty), m->current_server_name->string);
+        sd_notifyf(false,
+                   "STATUS=Connecting to time server %s (%s).",
+                   strna(pretty),
+                   m->current_server_name->string);
 
         r = manager_clock_watch_setup(m);
         if (r < 0)
@@ -765,7 +784,8 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
                         continue;
                 }
 
-                r = server_address_new(m->current_server_name, &a, (const union sockaddr_union *) ai->ai_addr, ai->ai_addrlen);
+                r = server_address_new(
+                        m->current_server_name, &a, (const union sockaddr_union *) ai->ai_addr, ai->ai_addrlen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add server address: %m");
 
@@ -867,7 +887,8 @@ int manager_connect(Manager *m) {
                                 r = sd_event_add_time(m->event,
                                                       &m->event_retry,
                                                       clock_boottime_or_monotonic(),
-                                                      now(clock_boottime_or_monotonic()) + m->poll_interval_usec,
+                                                      now(clock_boottime_or_monotonic()) +
+                                                              m->poll_interval_usec,
                                                       0,
                                                       manager_retry_connect,
                                                       m);
@@ -897,8 +918,14 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
-                r = resolve_getaddrinfo(
-                        m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                r = resolve_getaddrinfo(m->resolve,
+                                        &m->resolve_query,
+                                        m->current_server_name->string,
+                                        "123",
+                                        &hints,
+                                        manager_resolve_handler,
+                                        NULL,
+                                        m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -993,7 +1020,8 @@ static int manager_network_read_link_servers(Manager *m) {
 
                 r = dns_name_is_valid_or_address(*i);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *i);
+                        log_error_errno(
+                                r, "Failed to check validity of NTP server name or address '%s': %m", *i);
                         goto clear;
                 } else if (r == 0) {
                         log_error("Invalid NTP server name or address, ignoring: %s", *i);
@@ -1080,7 +1108,8 @@ static int manager_network_monitor_listen(Manager *m) {
 
         r = sd_network_monitor_new(&m->network_monitor, NULL);
         if (r == -ENOENT) {
-                log_info("systemd does not appear to be running, not listening for systemd-networkd events.");
+                log_info(
+                        "systemd does not appear to be running, not listening for systemd-networkd events.");
                 return 0;
         }
         if (r < 0)

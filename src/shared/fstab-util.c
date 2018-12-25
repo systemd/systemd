@@ -57,7 +57,8 @@ int fstab_is_mount_point(const char *mount) {
         return false;
 }
 
-int fstab_filter_options(const char *opts, const char *names, const char **namefound, char **value, char **filtered) {
+int fstab_filter_options(
+        const char *opts, const char *names, const char **namefound, char **value, char **filtered) {
         const char *name, *n = NULL, *x;
         _cleanup_strv_free_ char **stor = NULL;
         _cleanup_free_ char *v = NULL, **strv = NULL;

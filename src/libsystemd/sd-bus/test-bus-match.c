@@ -86,10 +86,13 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_tests_skipped("Failed to connect to bus");
 
-        assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >= 0);
-        assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >= 0);
+        assert_se(match_add(slots, &root, "arg2='wal\\'do',sender='foo',type='signal',interface='bar.x',", 1) >=
+                  0);
+        assert_se(match_add(slots, &root, "arg2='wal\\'do2',sender='foo',type='signal',interface='bar.x',", 2) >=
+                  0);
         assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='signal',interface='bar.x',", 3) >= 0);
-        assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='method_call',interface='bar.x',", 4) >= 0);
+        assert_se(match_add(slots, &root, "arg3='test',sender='foo',type='method_call',interface='bar.x',", 4) >=
+                  0);
         assert_se(match_add(slots, &root, "", 5) >= 0);
         assert_se(match_add(slots, &root, "interface='quux.x'", 6) >= 0);
         assert_se(match_add(slots, &root, "interface='bar.x'", 7) >= 0);
@@ -108,7 +111,8 @@ int main(int argc, char *argv[]) {
         bus_match_dump(&root, 0);
 
         assert_se(sd_bus_message_new_signal(bus, &m, "/foo/bar", "bar.x", "waldo") >= 0);
-        assert_se(sd_bus_message_append(m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >= 0);
+        assert_se(sd_bus_message_append(
+                          m, "ssssas", "one", "two", "/prefix/three", "prefix.four", 3, "pi", "pa", "po") >= 0);
         assert_se(sd_bus_message_seal(m, 1, 0) >= 0);
 
         zero(mask);

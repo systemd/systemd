@@ -49,22 +49,23 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED);
 }
 
-/* Stores the 'reason' a dependency was created as a bit mask, i.e. due to which configuration source it came to be. We
- * use this so that we can selectively flush out parts of dependencies again. Note that the same dependency might be
- * created as a result of multiple "reasons", hence the bitmask. */
+/* Stores the 'reason' a dependency was created as a bit mask, i.e. due to which configuration source it came
+ * to be. We use this so that we can selectively flush out parts of dependencies again. Note that the same
+ * dependency might be created as a result of multiple "reasons", hence the bitmask. */
 typedef enum UnitDependencyMask
 {
-        /* Configured directly by the unit file, .wants/.requries symlink or drop-in, or as an immediate result of a
-         * non-dependency option configured that way.  */
+        /* Configured directly by the unit file, .wants/.requries symlink or drop-in, or as an immediate
+         * result of a non-dependency option configured that way.  */
         UNIT_DEPENDENCY_FILE = 1 << 0,
 
-        /* As unconditional implicit dependency (not affected by unit configuration — except by the unit name and
-         * type) */
+        /* As unconditional implicit dependency (not affected by unit configuration — except by the unit name
+         * and type) */
         UNIT_DEPENDENCY_IMPLICIT = 1 << 1,
 
-        /* A dependency effected by DefaultDependencies=yes. Note that dependencies marked this way are conceptually
-         * just a subset of UNIT_DEPENDENCY_FILE, as DefaultDependencies= is itself a unit file setting that can only
-         * be set in unit files. We make this two separate bits only to help debugging how dependencies came to be. */
+        /* A dependency effected by DefaultDependencies=yes. Note that dependencies marked this way are
+         * conceptually just a subset of UNIT_DEPENDENCY_FILE, as DefaultDependencies= is itself a unit file
+         * setting that can only be set in unit files. We make this two separate bits only to help debugging
+         * how dependencies came to be. */
         UNIT_DEPENDENCY_DEFAULT = 1 << 2,
 
         /* A dependency created from udev rules */
@@ -86,9 +87,9 @@ typedef enum UnitDependencyMask
         _UNIT_DEPENDENCY_MASK_FULL = (1 << 8) - 1,
 } UnitDependencyMask;
 
-/* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can
- * be stored directly as hashmap value, without any indirection. Note that this stores two masks, as both the origin
- * and the destination of a dependency might have created it. */
+/* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer,
+ * and thus can be stored directly as hashmap value, without any indirection. Note that this stores two
+ * masks, as both the origin and the destination of a dependency might have created it. */
 typedef union UnitDependencyInfo {
         void *data;
         struct {
@@ -120,8 +121,8 @@ typedef struct Unit {
 
         Set *names;
 
-        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
-         * dependency exists, using the UnitDependencyInfo type */
+        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value
+         * encodes why the dependency exists, using the UnitDependencyInfo type */
         Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
 
         /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the UnitDependencyInfo type */
@@ -214,8 +215,8 @@ typedef struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
-        /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same event
-         * multiple times on the same unit. */
+        /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same
+         * event multiple times on the same unit. */
         unsigned sigchldgen;
         unsigned notifygen;
 
@@ -252,10 +253,12 @@ typedef struct Unit {
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupMask cgroup_realized_mask; /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroupsv1) */
-        CGroupMask cgroup_enabled_mask;  /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's
-                                            cgroup? (only relevant on cgroupsv2) */
-        CGroupMask cgroup_invalidated_mask; /* A mask specifiying controllers which shall be considered invalidated, and require re-realization */
-        CGroupMask cgroup_members_mask; /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
+        CGroupMask cgroup_enabled_mask; /* Which controllers are enabled (or more correctly: enabled for the
+                                           children) for this unit's cgroup? (only relevant on cgroupsv2) */
+        CGroupMask cgroup_invalidated_mask; /* A mask specifiying controllers which shall be considered
+                                               invalidated, and require re-realization */
+        CGroupMask cgroup_members_mask;     /* A cache for the controllers required by all children of this
+                                               cgroup (only relevant for slice units) */
         int cgroup_inotify_wd;
 
         /* Device Controller BPF program */
@@ -275,8 +278,8 @@ typedef struct Unit {
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
-        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
-         * ones which might have appeared. */
+        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe
+         * to any new ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
 
         /* How to start OnFailure units */
@@ -411,8 +414,8 @@ typedef struct UnitVTable {
          * that */
         size_t exec_runtime_offset;
 
-        /* If greater than 0, the offset into the object where the pointer to DynamicCreds is found, if the unit type
-         * has that. */
+        /* If greater than 0, the offset into the object where the pointer to DynamicCreds is found, if the
+         * unit type has that. */
         size_t dynamic_creds_offset;
 
         /* The name of the configuration file section with the private settings of this unit */
@@ -437,17 +440,17 @@ typedef struct UnitVTable {
          * UNIT_STUB if no configuration could be found. */
         int (*load)(Unit *u);
 
-        /* During deserialization we only record the intended state to return to. With coldplug() we actually put the
-         * deserialized state in effect. This is where unit_notify() should be called to start things up. Note that
-         * this callback is invoked *before* we leave the reloading state of the manager, i.e. *before* we consider the
-         * reloading to be complete. Thus, this callback should just restore the exact same state for any unit that was
-         * in effect before the reload, i.e. units should not catch up with changes happened during the reload. That's
-         * what catchup() below is for. */
+        /* During deserialization we only record the intended state to return to. With coldplug() we actually
+         * put the deserialized state in effect. This is where unit_notify() should be called to start things
+         * up. Note that this callback is invoked *before* we leave the reloading state of the manager, i.e.
+         * *before* we consider the reloading to be complete. Thus, this callback should just restore the
+         * exact same state for any unit that was in effect before the reload, i.e. units should not catch up
+         * with changes happened during the reload. That's what catchup() below is for. */
         int (*coldplug)(Unit *u);
 
-        /* This is called shortly after all units' coldplug() call was invoked, and *after* the manager left the
-         * reloading state. It's supposed to catch up with state changes due to external events we missed so far (for
-         * example because they took place while we were reloading/reexecing) */
+        /* This is called shortly after all units' coldplug() call was invoked, and *after* the manager left
+         * the reloading state. It's supposed to catch up with state changes due to external events we missed
+         * so far (for example because they took place while we were reloading/reexecing) */
         void (*catchup)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
@@ -507,7 +510,11 @@ typedef struct UnitVTable {
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
 
         /* Called for each property that is being set */
-        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
+        int (*bus_set_property)(Unit *u,
+                                const char *name,
+                                sd_bus_message *message,
+                                UnitWriteFlags flags,
+                                sd_bus_error *error);
 
         /* Called after at least one property got changed to apply the necessary change */
         int (*bus_commit_properties)(Unit *u);
@@ -540,19 +547,21 @@ typedef struct UnitVTable {
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
-        /* Returns the exit status to propagate in case of FailureAction=exit/SuccessAction=exit; usually returns the
-         * exit code of the "main" process of the service or similar. */
+        /* Returns the exit status to propagate in case of FailureAction=exit/SuccessAction=exit; usually
+         * returns the exit code of the "main" process of the service or similar. */
         int (*exit_status)(Unit *u);
 
-        /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
-         * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
-         * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
-         * discovered through regular enumeration should be put in place by catchup(), see below. */
+        /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all
+         * units that unconditionally exist and are always active. The main reason to keep both enumeration
+         * functions separate is philosophical: the state of perpetual units should be put in place by
+         * coldplug(), while the state of those discovered through regular enumeration should be put in place
+         * by catchup(), see below. */
         void (*enumerate_perpetual)(Manager *m);
 
-        /* This is called for each unit type and should be used to enumerate units already existing in the system
-         * internally and load them. However, everything that is loaded here should still stay in inactive state. It is
-         * the job of the catchup() call above to put the units into the discovered state. */
+        /* This is called for each unit type and should be used to enumerate units already existing in the
+         * system internally and load them. However, everything that is loaded here should still stay in
+         * inactive state. It is the job of the catchup() call above to put the units into the discovered
+         * state. */
         void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
@@ -620,10 +629,17 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference, UnitDependencyMask mask);
-int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies(
+        Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);
 
-int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask);
-int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
+int unit_add_dependency_by_name(
+        Unit *u, UnitDependency d, const char *name, bool add_reference, UnitDependencyMask mask);
+int unit_add_two_dependencies_by_name(Unit *u,
+                                      UnitDependency d,
+                                      UnitDependency e,
+                                      const char *name,
+                                      bool add_reference,
+                                      UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
@@ -757,9 +773,11 @@ char *unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
 char *unit_concat_strv(char **l, UnitWriteFlags flags);
 
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
-int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4, 5);
+int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...)
+        _printf_(4, 5);
 
-int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+int unit_kill_context(
+        Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
 
@@ -865,7 +883,8 @@ int unit_failure_action_exit_status(Unit *u);
 
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) "MESSAGE=%s: " fmt, (unit)->id, ##__VA_ARGS__
 #define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
-#define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
+#define LOG_UNIT_INVOCATION_ID(unit) \
+        (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
 
 const char *collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;

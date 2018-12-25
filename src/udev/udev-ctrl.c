@@ -214,7 +214,8 @@ static struct udev_ctrl_connection *udev_ctrl_connection_free(struct udev_ctrl_c
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(struct udev_ctrl_connection, udev_ctrl_connection, udev_ctrl_connection_free);
 
-static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, int timeout) {
+static int ctrl_send(
+        struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, int timeout) {
         struct udev_ctrl_msg_wire ctrl_msg_wire;
         int err = 0;
 

@@ -127,7 +127,8 @@ bool in_initrd(void) {
         if (r >= 0)
                 saved_in_initrd = r > 0;
         else
-                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 && statfs("/", &s) >= 0 && is_temporary_fs(&s);
+                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0 && statfs("/", &s) >= 0 &&
+                        is_temporary_fs(&s);
 
         return saved_in_initrd;
 }
@@ -408,11 +409,12 @@ uint64_t physical_memory(void) {
         long sc;
         int r;
 
-        /* We return this as uint64_t in case we are running as 32bit process on a 64bit kernel with huge amounts of
-         * memory.
+        /* We return this as uint64_t in case we are running as 32bit process on a 64bit kernel with huge
+         * amounts of memory.
          *
-         * In order to support containers nicely that have a configured memory limit we'll take the minimum of the
-         * physically reported amount of memory and the limit configured for the root cgroup, if there is any. */
+         * In order to support containers nicely that have a configured memory limit we'll take the minimum
+         * of the physically reported amount of memory and the limit configured for the root cgroup, if there
+         * is any. */
 
         sc = sysconf(_SC_PHYS_PAGES);
         assert(sc > 0);
@@ -434,7 +436,9 @@ uint64_t physical_memory(void) {
         if (r > 0) {
                 r = cg_get_attribute("memory", root, "memory.max", &value);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to read memory.max cgroup attribute, ignoring cgroup memory limit: %m");
+                        log_debug_errno(
+                                r,
+                                "Failed to read memory.max cgroup attribute, ignoring cgroup memory limit: %m");
                         return mem;
                 }
 
@@ -443,7 +447,9 @@ uint64_t physical_memory(void) {
         } else {
                 r = cg_get_attribute("memory", root, "memory.limit_in_bytes", &value);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to read memory.limit_in_bytes cgroup attribute, ignoring cgroup memory limit: %m");
+                        log_debug_errno(
+                                r,
+                                "Failed to read memory.limit_in_bytes cgroup attribute, ignoring cgroup memory limit: %m");
                         return mem;
                 }
         }
@@ -468,8 +474,8 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
 
         assert(max > 0);
 
-        /* Returns the physical memory size, multiplied by v divided by max. Returns UINT64_MAX on overflow. On success
-         * the result is a multiple of the page size (rounds down). */
+        /* Returns the physical memory size, multiplied by v divided by max. Returns UINT64_MAX on overflow.
+         * On success the result is a multiple of the page size (rounds down). */
 
         ps = page_size();
         assert(ps > 0);
@@ -496,8 +502,8 @@ uint64_t system_tasks_max(void) {
         _cleanup_free_ char *root = NULL;
         int r;
 
-        /* Determine the maximum number of tasks that may run on this system. We check three sources to determine this
-         * limit:
+        /* Determine the maximum number of tasks that may run on this system. We check three sources to
+         * determine this limit:
          *
          * a) the maximum tasks value the kernel allows on this architecture
          * b) the cgroups pids_max attribute for the system
@@ -521,7 +527,8 @@ uint64_t system_tasks_max(void) {
                 else if (!streq(value, "max")) {
                         r = safe_atou64(value, &b);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to parse pids.max attribute of cgroup root, ignoring: %m");
+                                log_debug_errno(
+                                        r, "Failed to parse pids.max attribute of cgroup root, ignoring: %m");
                 }
         }
 
@@ -533,8 +540,8 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
 
         assert(max > 0);
 
-        /* Multiply the system's task value by the fraction v/max. Hence, if max==100 this calculates percentages
-         * relative to the system's maximum number of tasks. Returns UINT64_MAX on overflow. */
+        /* Multiply the system's task value by the fraction v/max. Hence, if max==100 this calculates
+         * percentages relative to the system's maximum number of tasks. Returns UINT64_MAX on overflow. */
 
         t = system_tasks_max();
         assert(t > 0);

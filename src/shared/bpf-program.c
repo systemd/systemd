@@ -32,14 +32,14 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
 static BPFProgram *bpf_program_free(BPFProgram *p) {
         assert(p);
 
-        /* Unfortunately, the kernel currently doesn't implicitly detach BPF programs from their cgroups when the last
-         * fd to the BPF program is closed. This has nasty side-effects since this means that abnormally terminated
-         * programs that attached one of their BPF programs to a cgroup will leave this programs pinned for good with
-         * zero chance of recovery, until the cgroup is removed. This is particularly problematic if the cgroup in
-         * question is the root cgroup (or any other cgroup belonging to a service that cannot be restarted during
-         * operation, such as dbus), as the memory for the BPF program can only be reclaimed through a reboot. To
-         * counter this, we track closely to which cgroup a program was attached to and will detach it on our own
-         * whenever we close the BPF fd. */
+        /* Unfortunately, the kernel currently doesn't implicitly detach BPF programs from their cgroups when
+         * the last fd to the BPF program is closed. This has nasty side-effects since this means that
+         * abnormally terminated programs that attached one of their BPF programs to a cgroup will leave this
+         * programs pinned for good with zero chance of recovery, until the cgroup is removed. This is
+         * particularly problematic if the cgroup in question is the root cgroup (or any other cgroup
+         * belonging to a service that cannot be restarted during operation, such as dbus), as the memory for
+         * the BPF program can only be reclaimed through a reboot. To counter this, we track closely to which
+         * cgroup a program was attached to and will detach it on our own whenever we close the BPF fd. */
         (void) bpf_program_cgroup_detach(p);
 
         safe_close(p->kernel_fd);
@@ -107,8 +107,8 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (!IN_SET(flags, 0, BPF_F_ALLOW_OVERRIDE, BPF_F_ALLOW_MULTI))
                 return -EINVAL;
 
-        /* We need to track which cgroup the program is attached to, and we can only track one attachment, hence let's
-         * refuse this early. */
+        /* We need to track which cgroup the program is attached to, and we can only track one attachment,
+         * hence let's refuse this early. */
         if (p->attached_path) {
                 if (!path_equal(p->attached_path, path))
                         return -EBUSY;
@@ -117,12 +117,14 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
                 if (p->attached_flags != flags)
                         return -EBUSY;
 
-                /* Here's a shortcut: if we previously attached this program already, then we don't have to do so
-                 * again. Well, with one exception: if we are in BPF_F_ALLOW_OVERRIDE mode then someone else might have
-                 * replaced our program since the last time, hence let's reattach it again, just to be safe. In flags
-                 * == 0 mode this is not an issue since nobody else can replace our program in that case, and in flags
-                 * == BPF_F_ALLOW_MULTI mode any other's program would be installed in addition to ours hence ours
-                 * would remain in effect. */
+                /* Here's a shortcut: if we previously attached this program already, then we don't have to
+                 * do so again. Well, with one exception: if we are in BPF_F_ALLOW_OVERRIDE mode then someone
+                 * else might have replaced our program since the last time, hence let's reattach it again,
+                 * just to be safe. In flags
+                 * == 0 mode this is not an issue since nobody else can replace our program in that case, and
+                 * in flags
+                 * == BPF_F_ALLOW_MULTI mode any other's program would be installed in addition to ours hence
+                 * ours would remain in effect. */
                 if (flags != BPF_F_ALLOW_OVERRIDE)
                         return 0;
         }
@@ -170,8 +172,8 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
                 if (errno != ENOENT)
                         return -errno;
 
-                /* If the cgroup does not exist anymore, then we don't have to explicitly detach, it got detached
-                 * implicitly by the removal, hence don't complain */
+                /* If the cgroup does not exist anymore, then we don't have to explicitly detach, it got
+                 * detached implicitly by the removal, hence don't complain */
 
         } else {
                 union bpf_attr attr;

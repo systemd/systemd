@@ -140,7 +140,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
         /* must be a subdirectory of /sys */
         if (!path_startswith(_syspath, "/sys/"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "sd-device: Syspath '%s' is not a subdirectory of /sys", _syspath);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "sd-device: Syspath '%s' is not a subdirectory of /sys",
+                                       _syspath);
 
         if (verify) {
                 r = chase_symlinks(_syspath, NULL, 0, &syspath);
@@ -160,10 +162,11 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
 
                         p = path_startswith(syspath, real_sys);
                         if (!p)
-                                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
-                                                       "sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'",
-                                                       syspath,
-                                                       real_sys);
+                                return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENODEV),
+                                        "sd-device: Canonicalized path '%s' does not starts with sysfs mount point '%s'",
+                                        syspath,
+                                        real_sys);
 
                         new_syspath = strjoin("/sys/", p);
                         if (!new_syspath)
@@ -184,7 +187,8 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                         /* this is not a valid device */
                                         return -ENODEV;
 
-                                return log_debug_errno(errno, "sd-device: %s does not have an uevent file: %m", syspath);
+                                return log_debug_errno(
+                                        errno, "sd-device: %s does not have an uevent file: %m", syspath);
                         }
                 } else {
                         /* everything else just needs to be a directory */
@@ -439,7 +443,8 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor) {
         return 0;
 }
 
-static int handle_uevent_line(sd_device *device, const char *key, const char *value, const char **major, const char **minor) {
+static int handle_uevent_line(
+        sd_device *device, const char *key, const char *value, const char **major, const char **minor) {
         int r;
 
         assert(device);
@@ -515,7 +520,8 @@ int device_read_uevent_file(sd_device *device) {
                 /* some devices may not have uevent files, see set_syspath() */
                 return 0;
         if (r < 0)
-                return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file '%s': %m", path);
+                return log_device_debug_errno(
+                        device, r, "sd-device: Failed to read uevent file '%s': %m", path);
 
         device->uevent_loaded = true;
 
@@ -554,7 +560,11 @@ int device_read_uevent_file(sd_device *device) {
                                 r = handle_uevent_line(device, key, value, &major, &minor);
                                 if (r < 0)
                                         log_device_debug_errno(
-                                                device, r, "sd-device: Failed to handle uevent entry '%s=%s', ignoring: %m", key, value);
+                                                device,
+                                                r,
+                                                "sd-device: Failed to handle uevent entry '%s=%s', ignoring: %m",
+                                                key,
+                                                value);
 
                                 state = PRE_KEY;
                         }
@@ -568,7 +578,12 @@ int device_read_uevent_file(sd_device *device) {
                 r = device_set_devnum(device, major, minor);
                 if (r < 0)
                         log_device_debug_errno(
-                                device, r, "sd-device: Failed to set 'MAJOR=%s' or 'MINOR=%s' from '%s', ignoring: %m", major, minor, path);
+                                device,
+                                r,
+                                "sd-device: Failed to set 'MAJOR=%s' or 'MINOR=%s' from '%s', ignoring: %m",
+                                major,
+                                minor,
+                                path);
         }
 
         return 0;
@@ -801,7 +816,8 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                          PATH_STARTSWITH_SET(device->devpath, "/subsystem/", "/class/", "/bus/"))
                         r = device_set_subsystem(device, "subsystem");
                 if (r < 0 && r != -ENOENT)
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);
+                        return log_device_debug_errno(
+                                device, r, "sd-device: Failed to set subsystem for %s: %m", device->devpath);
 
                 device->subsystem_set = true;
         } else if (!device->driver_subsystem_set)
@@ -825,7 +841,10 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                         }
                         if (r < 0 && r != -ENOENT)
                                 return log_device_debug_errno(
-                                        device, r, "sd-device: Failed to set subsystem for driver %s: %m", device->devpath);
+                                        device,
+                                        r,
+                                        "sd-device: Failed to set subsystem for driver %s: %m",
+                                        device->devpath);
                 }
 
                 device->driver_subsystem_set = true;
@@ -857,7 +876,10 @@ _public_ int sd_device_get_devtype(sd_device *device, const char **devtype) {
         return 0;
 }
 
-_public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret) {
+_public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child,
+                                                         const char *subsystem,
+                                                         const char *devtype,
+                                                         sd_device **ret) {
         sd_device *parent = NULL;
         int r;
 
@@ -948,11 +970,15 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                 if (r >= 0) {
                         r = device_set_driver(device, driver);
                         if (r < 0)
-                                return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
+                                return log_device_debug_errno(device,
+                                                              r,
+                                                              "sd-device: Failed to set driver for %s: %m",
+                                                              device->devpath);
                 } else if (r == -ENOENT)
                         device->driver_set = true;
                 else
-                        return log_device_debug_errno(device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
+                        return log_device_debug_errno(
+                                device, r, "sd-device: Failed to set driver for %s: %m", device->devpath);
         }
 
         if (!device->driver)
@@ -1242,7 +1268,11 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         assert(subsystem);
 
                         /* use dev_t — b259:131072, c254:0 */
-                        r = asprintf(&id, "%c%u:%u", streq(subsystem, "block") ? 'b' : 'c', major(devnum), minor(devnum));
+                        r = asprintf(&id,
+                                     "%c%u:%u",
+                                     streq(subsystem, "block") ? 'b' : 'c',
+                                     major(devnum),
+                                     minor(devnum));
                         if (r < 0)
                                 return -ENOMEM;
                 } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
@@ -1338,7 +1368,8 @@ int device_read_db_internal(sd_device *device, bool force) {
                         break;
                 case KEY:
                         if (db[i] != ':') {
-                                log_device_debug(device, "sd-device: Invalid db entry with key '%c', ignoring", key);
+                                log_device_debug(
+                                        device, "sd-device: Invalid db entry with key '%c', ignoring", key);
 
                                 state = INVALID_LINE;
                         } else {
@@ -1365,7 +1396,11 @@ int device_read_db_internal(sd_device *device, bool force) {
                                 r = handle_db_line(device, key, value);
                                 if (r < 0)
                                         log_device_debug_errno(
-                                                device, r, "sd-device: Failed to handle db entry '%c:%s', ignoring: %m", key, value);
+                                                device,
+                                                r,
+                                                "sd-device: Failed to handle db entry '%c:%s', ignoring: %m",
+                                                key,
+                                                value);
 
                                 state = PRE_KEY;
                         }
@@ -1492,7 +1527,8 @@ static int device_properties_prepare(sd_device *device) {
                 size_t devlinks_allocated = 0, devlinks_len = 0;
                 const char *devlink;
 
-                for (devlink = sd_device_get_devlink_first(device); devlink; devlink = sd_device_get_devlink_next(device)) {
+                for (devlink = sd_device_get_devlink_first(device); devlink;
+                     devlink = sd_device_get_devlink_next(device)) {
                         char *e;
 
                         if (!GREEDY_REALLOC(devlinks, devlinks_allocated, devlinks_len + strlen(devlink) + 2))
@@ -1553,7 +1589,8 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
         device->properties_iterator_generation = device->properties_generation;
         device->properties_iterator = ITERATOR_FIRST;
 
-        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void **) &value, (const void **) &key);
+        ordered_hashmap_iterate(
+                device->properties, &device->properties_iterator, (void **) &value, (const void **) &key);
 
         if (_value)
                 *_value = value;
@@ -1575,7 +1612,8 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         if (device->properties_iterator_generation != device->properties_generation)
                 return NULL;
 
-        ordered_hashmap_iterate(device->properties, &device->properties_iterator, (void **) &value, (const void **) &key);
+        ordered_hashmap_iterate(
+                device->properties, &device->properties_iterator, (void **) &value, (const void **) &key);
 
         if (_value)
                 *_value = value;

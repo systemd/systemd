@@ -217,9 +217,9 @@ static bool dns_query_candidate_is_routable(DnsQueryCandidate *c, uint16_t type)
 
         assert(c);
 
-        /* Checks whether the specified RR type matches an address family that is routable on the link(s) the scope of
-         * this candidate belongs to. Specifically, whether there's a routable IPv4 address on it if we query an A RR,
-         * or a routable IPv6 address if we query an AAAA RR. */
+        /* Checks whether the specified RR type matches an address family that is routable on the link(s) the
+         * scope of this candidate belongs to. Specifically, whether there's a routable IPv4 address on it if
+         * we query an A RR, or a routable IPv6 address if we query an AAAA RR. */
 
         if (!c->query->suppress_unroutable_family)
                 return true;
@@ -402,7 +402,12 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         return mfree(q);
 }
 
-int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQuestion *question_idna, int ifindex, uint64_t flags) {
+int dns_query_new(Manager *m,
+                  DnsQuery **ret,
+                  DnsQuestion *question_utf8,
+                  DnsQuestion *question_idna,
+                  int ifindex,
+                  uint64_t flags) {
 
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         DnsResourceKey *key;
@@ -470,7 +475,8 @@ int dns_query_new(Manager *m, DnsQuery **ret, DnsQuestion *question_utf8, DnsQue
                 if (r > 0)
                         continue;
 
-                log_debug("Looking up IDNA RR for %s.", dns_resource_key_to_string(key, key_str, sizeof key_str));
+                log_debug("Looking up IDNA RR for %s.",
+                          dns_resource_key_to_string(key, key_str, sizeof key_str));
         }
 
         LIST_PREPEND(queries, m->dns_queries, q);
@@ -545,7 +551,8 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
                 return r;
 
         /* If this a single-label domain on DNS, we might append a suitable search domain first. */
-        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0 && dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna))) {
+        if ((q->flags & SD_RESOLVED_NO_SEARCH) == 0 &&
+            dns_scope_name_needs_search_domain(s, dns_question_first_name(q->question_idna))) {
                 /* OK, we need a search domain now. Let's find one for this scope */
 
                 r = dns_query_candidate_next_search_domain(c);
@@ -571,9 +578,9 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         assert(q);
         assert(state);
 
-        /* Tries to synthesize localhost RR replies (and others) where appropriate. Note that this is done *after* the
-         * the normal lookup finished. The data from the network hence takes precedence over the data we
-         * synthesize. (But note that many scopes refuse to resolve certain domain names) */
+        /* Tries to synthesize localhost RR replies (and others) where appropriate. Note that this is done
+         * *after* the the normal lookup finished. The data from the network hence takes precedence over the
+         * data we synthesize. (But note that many scopes refuse to resolve certain domain names) */
 
         if (!IN_SET(*state,
                     DNS_TRANSACTION_RCODE_FAILURE,
@@ -619,8 +626,8 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
         assert(q);
 
-        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is done. The
-         * data from /etc/hosts hence takes precedence over the network. */
+        /* Looks in /etc/hosts for matching entries. Note that this is done *before* the normal lookup is
+         * done. The data from /etc/hosts hence takes precedence over the network. */
 
         r = manager_etc_hosts_lookup(q->manager, q->question_utf8, &answer);
         if (r <= 0)
@@ -670,8 +677,8 @@ int dns_query_go(DnsQuery *q) {
                         continue;
                 }
 
-                if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
-                                      * that matches this well */
+                if (match > found) { /* Does this match better? If so, remember how well it matched, and the
+                                      * first one that matches this well */
                         found = match;
                         first = s;
                 }
@@ -753,7 +760,8 @@ fail:
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         bool has_authenticated = false, has_non_authenticated = false;
-        DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID, dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
+        DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID,
+                     dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
         DnsTransaction *t;
         Iterator i;
         int r;
@@ -833,7 +841,8 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
 
         if (state == DNS_TRANSACTION_SUCCESS) {
                 q->answer_authenticated = has_authenticated && !has_non_authenticated;
-                q->answer_dnssec_result = q->answer_authenticated ? dnssec_result_authenticated : dnssec_result_non_authenticated;
+                q->answer_dnssec_result = q->answer_authenticated ? dnssec_result_authenticated :
+                                                                    dnssec_result_non_authenticated;
         }
 
         q->answer_protocol = c->scope->protocol;
@@ -917,7 +926,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r < 0)
                 return r;
         else if (r > 0)
-                log_debug("Following CNAME/DNAME %s → %s.", dns_question_first_name(q->question_idna), dns_question_first_name(nq_idna));
+                log_debug("Following CNAME/DNAME %s → %s.",
+                          dns_question_first_name(q->question_idna),
+                          dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
         if (k < 0)
@@ -940,9 +951,9 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 return -ELOOP;
 
         if (q->answer_protocol == DNS_PROTOCOL_DNS) {
-                /* Don't permit CNAME redirects from unicast DNS to LLMNR or MulticastDNS, so that global resources
-                 * cannot invade the local namespace. The opposite way we permit: local names may redirect to global
-                 * ones. */
+                /* Don't permit CNAME redirects from unicast DNS to LLMNR or MulticastDNS, so that global
+                 * resources cannot invade the local namespace. The opposite way we permit: local names may
+                 * redirect to global ones. */
 
                 q->flags &= ~(SD_RESOLVED_LLMNR | SD_RESOLVED_MDNS); /* mask away the local protocols */
         }
@@ -984,7 +995,8 @@ int dns_query_process_cname(DnsQuery *q) {
                 if (r > 0)
                         return DNS_QUERY_MATCH; /* The answer matches directly, no need to follow cnames */
 
-                r = dns_question_matches_cname_or_dname(question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
+                r = dns_question_matches_cname_or_dname(
+                        question, rr, DNS_SEARCH_DOMAIN_NAME(q->answer_search_domain));
                 if (r < 0)
                         return r;
                 if (r > 0 && !cname)

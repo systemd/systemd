@@ -10,7 +10,8 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = { [TARGET_DEAD] = UNIT_INACTIVE, [TARGET_ACTIVE] = UNIT_ACTIVE };
+static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = { [TARGET_DEAD] = UNIT_INACTIVE,
+                                                                            [TARGET_ACTIVE] = UNIT_ACTIVE };
 
 static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
@@ -23,14 +24,19 @@ static void target_set_state(Target *t, TargetState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s", UNIT(t)->id, target_state_to_string(old_state), target_state_to_string(state));
+                log_debug("%s changed %s -> %s",
+                          UNIT(t)->id,
+                          target_state_to_string(old_state),
+                          target_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int target_add_default_dependencies(Target *t) {
 
-        static const UnitDependency deps[] = { UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_BINDS_TO, UNIT_PART_OF };
+        static const UnitDependency deps[] = {
+                UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_BINDS_TO, UNIT_PART_OF
+        };
 
         int r;
         unsigned k;
@@ -59,7 +65,8 @@ static int target_add_default_dependencies(Target *t) {
                 return 0;
 
         /* Make sure targets are unloaded on shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_two_dependencies_by_name(
+                UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 static int target_load(Unit *u) {

@@ -137,8 +137,8 @@ static int session_device_open(SessionDevice *sd, bool active) {
 
         case DEVICE_TYPE_DRM:
                 if (active) {
-                        /* Weird legacy DRM semantics might return an error even though we're master. No way to detect
-                         * that so fail at all times and let caller retry in inactive state. */
+                        /* Weird legacy DRM semantics might return an error even though we're master. No way
+                         * to detect that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
                                 close_nointr(fd);
@@ -177,11 +177,12 @@ static int session_device_start(SessionDevice *sd) {
 
         case DEVICE_TYPE_DRM:
                 if (sd->fd < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EBADF),
+                                "Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
 
-                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
-                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
+                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it
+                 * fails, we keep the device paused. Maybe at some point we have a drmStealMaster(). */
                 r = sd_drmsetmaster(sd->fd);
                 if (r < 0)
                         return r;
@@ -193,8 +194,8 @@ static int session_device_start(SessionDevice *sd) {
                 if (r < 0)
                         return r;
 
-                /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
-                 * into a session and logind has been restarted right before. */
+                /* For evdev devices, the file descriptor might be left uninitialized. This might happen
+                 * while resuming into a session and logind has been restarted right before. */
                 safe_close(sd->fd);
                 sd->fd = r;
                 break;
@@ -219,7 +220,8 @@ static void session_device_stop(SessionDevice *sd) {
 
         case DEVICE_TYPE_DRM:
                 if (sd->fd < 0) {
-                        log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        log_error(
+                                "Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
                         return;
                 }
 
@@ -494,12 +496,12 @@ int session_device_save(SessionDevice *sd) {
 
         assert(sd);
 
-        /* Store device fd in PID1. It will send it back to us on restart so revocation will continue to work. To make
-         * things simple, send fds for all type of devices even if they don't support the revocation mechanism so we
-         * don't have to handle them differently later.
+        /* Store device fd in PID1. It will send it back to us on restart so revocation will continue to
+         * work. To make things simple, send fds for all type of devices even if they don't support the
+         * revocation mechanism so we don't have to handle them differently later.
          *
-         * Note: for device supporting revocation, PID1 will drop a stored fd automatically if the corresponding device
-         * is revoked. */
+         * Note: for device supporting revocation, PID1 will drop a stored fd automatically if the
+         * corresponding device is revoked. */
 
         if (sd->pushed_fd)
                 return 0;

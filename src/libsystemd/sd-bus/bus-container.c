@@ -45,8 +45,17 @@ int bus_container_connect_socket(sd_bus *b) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork(
-                "(sd-buscntrns)", "(sd-buscntr)", NULL, 0, FORK_RESET_SIGNALS | FORK_DEATHSIG, pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        r = namespace_fork("(sd-buscntrns)",
+                           "(sd-buscntr)",
+                           NULL,
+                           0,
+                           FORK_RESET_SIGNALS | FORK_DEATHSIG,
+                           pidnsfd,
+                           mntnsfd,
+                           -1,
+                           usernsfd,
+                           rootfd,
+                           &child);
         if (r < 0)
                 return r;
         if (r == 0) {

@@ -125,12 +125,13 @@ struct sd_bus_slot {
         sd_bus_destroy_t destroy_callback;
         BusSlotType type : 5;
 
-        /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
-         * they are associated with. This means the bus object stays allocated at least as long as there is a slot
-         * around associated with it. If it is floating, then the slot's lifecycle is bound to the lifecycle of the
-         * bus: it will be disconnected from the bus when the bus is destroyed, and it keeping the slot reffed hence
-         * won't mean the bus stays reffed too. Internally this means the reference direction is reversed: floating
-         * slots objects are referenced by the bus object, and not vice versa. */
+        /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the
+         * bus object they are associated with. This means the bus object stays allocated at least as long as
+         * there is a slot around associated with it. If it is floating, then the slot's lifecycle is bound
+         * to the lifecycle of the bus: it will be disconnected from the bus when the bus is destroyed, and
+         * it keeping the slot reffed hence won't mean the bus stays reffed too. Internally this means the
+         * reference direction is reversed: floating slots objects are referenced by the bus object, and not
+         * vice versa. */
         bool floating : 1;
 
         bool match_added : 1;
@@ -326,8 +327,8 @@ struct sd_bus {
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
 #define BUS_DEFAULT_TIMEOUT ((usec_t)(25 * USEC_PER_SEC))
 
-/* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not filled up
- * with enough entropy yet and might delay the boot */
+/* For the authentication phase we grant 90s, to provide extra room during boot, when RNGs and such are not
+ * filled up with enough entropy yet and might delay the boot */
 #define BUS_AUTH_TIMEOUT ((usec_t) DEFAULT_TIMEOUT_USEC)
 
 #define BUS_WQUEUE_MAX (192 * 1024)

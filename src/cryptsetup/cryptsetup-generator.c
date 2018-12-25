@@ -106,10 +106,12 @@ static int generate_keydev_mount(const char *name, const char *keydev, char **un
         return 0;
 }
 
-static int create_disk(const char *name, const char *device, const char *keydev, const char *password, const char *options) {
+static int create_disk(
+        const char *name, const char *device, const char *keydev, const char *password, const char *options) {
 
-        _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL, *filtered = NULL, *u_escaped = NULL, *password_escaped = NULL,
-                            *filtered_escaped = NULL, *name_escaped = NULL, *keydev_mount = NULL;
+        _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL, *filtered = NULL, *u_escaped = NULL,
+                            *password_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL,
+                            *keydev_mount = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, tmp, swap, netdev;
@@ -129,7 +131,9 @@ static int create_disk(const char *name, const char *device, const char *keydev,
         netdev = fstab_test_option(options, "_netdev\0");
 
         if (tmp && swap)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.", name);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.",
+                                       name);
 
         name_escaped = specifier_escape(name);
         if (!name_escaped)
@@ -162,7 +166,8 @@ static int create_disk(const char *name, const char *device, const char *keydev,
         }
 
         if (keydev && !password)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key device is specified, but path to the password file is missing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Key device is specified, but path to the password file is missing.");
 
         r = generator_open_unit_file(arg_dest, NULL, n, &f);
         if (r < 0)
@@ -285,8 +290,10 @@ static int create_disk(const char *name, const char *device, const char *keydev,
                 if (r < 0)
                         return r;
 
-                r = generator_add_symlink(
-                        arg_dest, netdev ? "remote-cryptsetup.target" : "cryptsetup.target", nofail ? "wants" : "requires", n);
+                r = generator_add_symlink(arg_dest,
+                                          netdev ? "remote-cryptsetup.target" : "cryptsetup.target",
+                                          nofail ? "wants" : "requires",
+                                          n);
                 if (r < 0)
                         return r;
         }
@@ -368,7 +375,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
-                        log_warning("Failed to parse luks.crypttab= kernel command line switch %s. Ignoring.", value);
+                        log_warning(
+                                "Failed to parse luks.crypttab= kernel command line switch %s. Ignoring.",
+                                value);
                 else
                         arg_read_crypttab = r;
 
@@ -419,7 +428,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
                 if (!id128_is_valid(uuid)) {
-                        log_warning("Failed to parse luks.key= kernel command line switch. UUID is invalid, ignoring.");
+                        log_warning(
+                                "Failed to parse luks.key= kernel command line switch. UUID is invalid, ignoring.");
                         return 0;
                 }
 
@@ -490,7 +500,8 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyfile = NULL, *options = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyfile = NULL,
+                                    *options = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
@@ -520,7 +531,9 @@ static int add_crypttab_devices(void) {
                         d = hashmap_get(arg_disks, uuid);
 
                 if (arg_whitelist && !d) {
-                        log_info("Not creating device '%s' because it was not specified on the kernel command line.", name);
+                        log_info(
+                                "Not creating device '%s' because it was not specified on the kernel command line.",
+                                name);
                         continue;
                 }
 

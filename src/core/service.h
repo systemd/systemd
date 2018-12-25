@@ -28,11 +28,12 @@ typedef enum ServiceType
 {
         SERVICE_SIMPLE,  /* we fork and go on right-away (i.e. modern socket activated daemons) */
         SERVICE_FORKING, /* forks by itself (i.e. traditional daemons) */
-        SERVICE_ONESHOT, /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
-        SERVICE_DBUS,   /* we fork and wait until a specific D-Bus name appears on the bus */
-        SERVICE_NOTIFY, /* we fork and wait until a daemon sends us a ready message with sd_notify() */
-        SERVICE_IDLE,   /* much like simple, but delay exec() until all jobs are dispatched. */
-        SERVICE_EXEC,   /* we fork and wait until we execute exec() (this means our own setup is waited for) */
+        SERVICE_ONESHOT, /* we fork and wait until the program finishes (i.e. programs like fsck which run
+                            and need to finish before we continue) */
+        SERVICE_DBUS,    /* we fork and wait until a specific D-Bus name appears on the bus */
+        SERVICE_NOTIFY,  /* we fork and wait until a daemon sends us a ready message with sd_notify() */
+        SERVICE_IDLE,    /* much like simple, but delay exec() until all jobs are dispatched. */
+        SERVICE_EXEC, /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
@@ -104,8 +105,9 @@ struct Service {
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
-        usec_t watchdog_usec; /* the requested watchdog timeout in the unit file */
-        usec_t watchdog_original_usec; /* the watchdog timeout that was in effect when the unit was started, i.e. the timeout the forked off processes currently see */
+        usec_t watchdog_usec;          /* the requested watchdog timeout in the unit file */
+        usec_t watchdog_original_usec; /* the watchdog timeout that was in effect when the unit was started,
+                                          i.e. the timeout the forked off processes currently see */
         usec_t watchdog_override_usec; /* the watchdog timeout requested by the service itself through sd_notify() */
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;

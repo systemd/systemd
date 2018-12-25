@@ -18,7 +18,8 @@ struct Transaction {
 Transaction *transaction_new(bool irreversible);
 void transaction_free(Transaction *tr);
 
-void transaction_add_propagate_reload_jobs(Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e);
+void transaction_add_propagate_reload_jobs(
+        Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e);
 int transaction_add_job_and_dependencies(Transaction *tr,
                                          JobType type,
                                          Unit *unit,

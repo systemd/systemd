@@ -74,7 +74,8 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                                        return log_error_errno(
+                                                r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
@@ -170,7 +171,8 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
-                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                                        return log_error_errno(
+                                                r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
@@ -292,9 +294,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int import_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help }, { "tar", 2, 3, 0, import_tar }, { "raw", 2, 3, 0, import_raw }, {}
-        };
+        static const Verb verbs[] = { { "help", VERB_ANY, VERB_ANY, 0, help },
+                                      { "tar", 2, 3, 0, import_tar },
+                                      { "raw", 2, 3, 0, import_raw },
+                                      {} };
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

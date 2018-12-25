@@ -342,15 +342,21 @@ static void test_receive_oui_packet(sd_event *e) {
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
         assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_TTL) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID) > 0);
+        assert_se(sd_lldp_neighbor_tlv_is_oui(
+                          neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID) > 0);
+        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0],
+                                              SD_LLDP_OUI_802_1,
+                                              SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_VLAN_NAME) > 0);
+        assert_se(sd_lldp_neighbor_tlv_is_oui(
+                          neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_VLAN_NAME) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_MANAGEMENT_VID) > 0);
+        assert_se(sd_lldp_neighbor_tlv_is_oui(
+                          neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_MANAGEMENT_VID) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
-        assert_se(sd_lldp_neighbor_tlv_is_oui(neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION) > 0);
+        assert_se(sd_lldp_neighbor_tlv_is_oui(
+                          neighbors[0], SD_LLDP_OUI_802_1, SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) > 0);
         assert_se(sd_lldp_neighbor_tlv_is_type(neighbors[0], SD_LLDP_TYPE_END) > 0);
         assert_se(sd_lldp_neighbor_tlv_next(neighbors[0]) == 0);

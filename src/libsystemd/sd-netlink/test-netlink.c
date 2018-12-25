@@ -231,7 +231,8 @@ static void test_async(int ifindex) {
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
 
-        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler, test_async_destroy, ifname, 0, "hogehoge") >= 0);
+        assert_se(sd_netlink_call_async(
+                          rtnl, &slot, m, link_handler, test_async_destroy, ifname, 0, "hogehoge") >= 0);
 
         assert_se(sd_netlink_slot_get_netlink(slot) == rtnl);
         assert_se(sd_netlink_slot_get_userdata(slot) == ifname);
@@ -344,7 +345,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is called after processing message */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >=
+                  0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -358,7 +360,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is called when asynchronous call is cancelled, that is, slot is freed. */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(
+                          rtnl, &slot, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));
@@ -371,7 +374,8 @@ static void test_async_destroy_callback(int ifindex) {
 
         /* destroy callback is also called by sd_netlink_unref() */
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >= 0);
+        assert_se(sd_netlink_call_async(rtnl, NULL, m, link_handler2, test_async_object_destroy, t, 0, NULL) >=
+                  0);
 
         assert_se(t->n_ref == 1);
         assert_se(test_async_object_ref(t));

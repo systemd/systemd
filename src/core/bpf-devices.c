@@ -243,19 +243,25 @@ int bpf_devices_supported(void) {
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, &program);
         if (r < 0) {
-                log_debug_errno(r, "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
+                log_debug_errno(
+                        r,
+                        "Can't allocate CGROUP DEVICE BPF program, BPF device control is not supported: %m");
                 return supported = 0;
         }
 
         r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
         if (r < 0) {
-                log_debug_errno(r, "Can't add trivial instructions to CGROUP DEVICE BPF program, BPF device control is not supported: %m");
+                log_debug_errno(
+                        r,
+                        "Can't add trivial instructions to CGROUP DEVICE BPF program, BPF device control is not supported: %m");
                 return supported = 0;
         }
 
         r = bpf_program_load_kernel(program, NULL, 0);
         if (r < 0) {
-                log_debug_errno(r, "Can't load kernel CGROUP DEVICE BPF program, BPF device control is not supported: %m");
+                log_debug_errno(
+                        r,
+                        "Can't load kernel CGROUP DEVICE BPF program, BPF device control is not supported: %m");
                 return supported = 0;
         }
 

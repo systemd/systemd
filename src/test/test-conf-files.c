@@ -46,7 +46,8 @@ static void test_conf_files_list(bool use_root) {
 
         log_debug("/* %s(%s) */", __func__, yes_no(use_root));
 
-        setup_test_dir(tmp_dir, "/dir1/a.conf", "/dir2/a.conf", "/dir2/b.conf", "/dir2/c.foo", "/dir2/d.conf", NULL);
+        setup_test_dir(
+                tmp_dir, "/dir1/a.conf", "/dir2/a.conf", "/dir2/b.conf", "/dir2/c.foo", "/dir2/d.conf", NULL);
 
         mask = strjoina(tmp_dir, "/dir1/d.conf");
         assert_se(symlink("/dev/null", mask) >= 0);
@@ -67,7 +68,9 @@ static void test_conf_files_list(bool use_root) {
 
         log_debug("/* Check when filtered by suffix */");
 
-        assert_se(conf_files_list(&found_files, ".conf", root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) == 0);
+        assert_se(conf_files_list(
+                          &found_files, ".conf", root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) ==
+                  0);
         strv_print(found_files);
 
         assert_se(found_files);
@@ -76,7 +79,9 @@ static void test_conf_files_list(bool use_root) {
         assert_se(!found_files[2]);
 
         log_debug("/* Check when unfiltered */");
-        assert_se(conf_files_list(&found_files2, NULL, root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) == 0);
+        assert_se(conf_files_list(
+                          &found_files2, NULL, root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) ==
+                  0);
         strv_print(found_files2);
 
         assert_se(found_files2);
@@ -95,8 +100,10 @@ static void test_conf_files_insert(const char *root) {
 
         char **dirs = STRV_MAKE("/dir1", "/dir2", "/dir3");
 
-        _cleanup_free_ const char *foo1 = prefix_root(root, "/dir1/foo.conf"), *foo2 = prefix_root(root, "/dir2/foo.conf"),
-                                  *bar2 = prefix_root(root, "/dir2/bar.conf"), *zzz3 = prefix_root(root, "/dir3/zzz.conf"),
+        _cleanup_free_ const char *foo1 = prefix_root(root, "/dir1/foo.conf"),
+                                  *foo2 = prefix_root(root, "/dir2/foo.conf"),
+                                  *bar2 = prefix_root(root, "/dir2/bar.conf"),
+                                  *zzz3 = prefix_root(root, "/dir3/zzz.conf"),
                                   *whatever = prefix_root(root, "/whatever.conf");
 
         assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);

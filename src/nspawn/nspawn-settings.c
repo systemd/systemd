@@ -58,8 +58,8 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         if (r < 0)
                 return r;
 
-        /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice versa. Either
-         * both fields shall be initialized or neither. */
+        /* Make sure that if userns_mode is set, userns_chown is set to something appropriate, and vice
+         * versa. Either both fields shall be initialized or neither. */
         if (s->userns_mode == USER_NAMESPACE_PICK)
                 s->userns_chown = true;
         else if (s->userns_mode != _USER_NAMESPACE_MODE_INVALID && s->userns_chown < 0)
@@ -105,8 +105,8 @@ Settings *settings_free(Settings *s) {
 bool settings_private_network(Settings *s) {
         assert(s);
 
-        return s->private_network > 0 || s->network_veth > 0 || s->network_bridge || s->network_zone || s->network_interfaces ||
-                s->network_macvlan || s->network_ipvlan || s->network_veth_extra;
+        return s->private_network > 0 || s->network_veth > 0 || s->network_bridge || s->network_zone ||
+                s->network_interfaces || s->network_macvlan || s->network_ipvlan || s->network_veth_extra;
 }
 
 bool settings_network_veth(Settings *s) {
@@ -115,7 +115,10 @@ bool settings_network_veth(Settings *s) {
         return s->network_veth > 0 || s->network_bridge || s->network_zone;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode,
+                         volatile_mode,
+                         VolatileMode,
+                         "Failed to parse volatile mode");
 
 int config_parse_expose_port(const char *unit,
                              const char *filename,
@@ -137,7 +140,8 @@ int config_parse_expose_port(const char *unit,
 
         r = expose_port_parse(&s->expose_ports, rvalue);
         if (r == -EEXIST) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
@@ -171,7 +175,13 @@ int config_parse_capability(const char *unit,
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract capability string, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to extract capability string, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -179,7 +189,8 @@ int config_parse_capability(const char *unit,
 
                 r = capability_from_name(word);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
                         continue;
                 }
 
@@ -213,7 +224,8 @@ int config_parse_id128(const char *unit,
 
         r = sd_id128_from_string(rvalue, &t);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -241,7 +253,8 @@ int config_parse_pivot_root(const char *unit,
 
         r = pivot_root_parse(&settings->pivot_root_new, &settings->pivot_root_old, rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
+                log_syntax(
+                        unit, LOG_ERR, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
                 return 0;
         }
 
@@ -295,7 +308,13 @@ int config_parse_tmpfs(const char *unit,
 
         r = tmpfs_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Invalid temporary file system specification %s: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -322,7 +341,13 @@ int config_parse_overlay(const char *unit,
 
         r = overlay_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Invalid overlay file system specification %s, ignoring: %m",
+                           rvalue);
 
         return 0;
 }
@@ -347,7 +372,13 @@ int config_parse_veth_extra(const char *unit,
 
         r = veth_extra_parse(&settings->network_veth_extra, rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Invalid extra virtual Ethernet link specification %s: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -403,7 +434,13 @@ int config_parse_boot(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse Boot= parameter %s, ignoring: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -423,7 +460,12 @@ int config_parse_boot(const char *unit,
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit,
+                   LOG_ERR,
+                   filename,
+                   line,
+                   r,
+                   "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -447,7 +489,13 @@ int config_parse_pid2(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse ProcessTwo= parameter %s, ignoring: %m",
+                           rvalue);
                 return 0;
         }
 
@@ -467,7 +515,12 @@ int config_parse_pid2(const char *unit,
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit,
+                   LOG_ERR,
+                   filename,
+                   line,
+                   r,
+                   "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -518,7 +571,13 @@ int config_parse_private_users(const char *unit,
 
                         r = safe_atou32(range, &rn);
                         if (r < 0 || rn <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
+                                log_syntax(unit,
+                                           LOG_ERR,
+                                           filename,
+                                           line,
+                                           r,
+                                           "UID/GID range invalid, ignoring: %s",
+                                           range);
                                 return 0;
                         }
                 } else {
@@ -528,7 +587,8 @@ int config_parse_private_users(const char *unit,
 
                 r = parse_uid(shift, &sh);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        log_syntax(
+                                unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
                         return 0;
                 }
 
@@ -572,7 +632,13 @@ int config_parse_syscall_filter(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
+                        log_syntax(unit,
+                                   LOG_ERR,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to parse SystemCallFilter= parameter %s, ignoring: %m",
+                                   rvalue);
                         return 0;
                 }
 
@@ -638,11 +704,23 @@ int config_parse_oom_score_adjust(const char *unit,
 
         r = parse_oom_score_adjust(rvalue, &oa);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "OOM score adjust value out of range, ignoring: %s",
+                           rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse the OOM score adjust value, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -700,7 +778,10 @@ int config_parse_cpu_affinity(const char *unit,
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf,
+                         resolv_conf_mode,
+                         ResolvConfMode,
+                         "Failed to parse resolv.conf mode");
 
 static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
         [RESOLV_CONF_OFF] = "off",
@@ -762,7 +843,13 @@ int config_parse_link_journal(const char *unit,
 
         r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_ERR,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse link journal mode, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 

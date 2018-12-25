@@ -17,12 +17,14 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = { [SCOPE_DEAD] = UNIT_INACTIVE,
-                                                                           [SCOPE_RUNNING] = UNIT_ACTIVE,
-                                                                           [SCOPE_ABANDONED] = UNIT_ACTIVE,
-                                                                           [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
-                                                                           [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-                                                                           [SCOPE_FAILED] = UNIT_FAILED };
+static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
+        [SCOPE_DEAD] = UNIT_INACTIVE,
+        [SCOPE_RUNNING] = UNIT_ACTIVE,
+        [SCOPE_ABANDONED] = UNIT_ACTIVE,
+        [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
+        [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
+        [SCOPE_FAILED] = UNIT_FAILED
+};
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 
@@ -63,7 +65,13 @@ static int scope_arm_timer(Scope *s, usec_t usec) {
         if (usec == USEC_INFINITY)
                 return 0;
 
-        r = sd_event_add_time(UNIT(s)->manager->event, &s->timer_event_source, CLOCK_MONOTONIC, usec, 0, scope_dispatch_timer, s);
+        r = sd_event_add_time(UNIT(s)->manager->event,
+                              &s->timer_event_source,
+                              CLOCK_MONOTONIC,
+                              usec,
+                              0,
+                              scope_dispatch_timer,
+                              s);
         if (r < 0)
                 return r;
 
@@ -91,7 +99,10 @@ static void scope_set_state(Scope *s, ScopeState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s", UNIT(s)->id, scope_state_to_string(old_state), scope_state_to_string(state));
+                log_debug("%s changed %s -> %s",
+                          UNIT(s)->id,
+                          scope_state_to_string(old_state),
+                          scope_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
 }
@@ -105,7 +116,8 @@ static int scope_add_default_dependencies(Scope *s) {
                 return 0;
 
         /* Make sure scopes are unloaded on shutdown */
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(
+                UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
 
@@ -118,7 +130,8 @@ static int scope_verify(Scope *s) {
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (set_isempty(UNIT(s)->pids) && !MANAGER_IS_RELOADING(UNIT(s)->manager) && !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
+        if (set_isempty(UNIT(s)->pids) && !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
                 log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
                 return -ENOENT;
         }
@@ -135,8 +148,8 @@ static int scope_load_init_scope(Unit *u) {
         u->transient = true;
         u->perpetual = true;
 
-        /* init.scope is a bit special, as it has to stick around forever. Because of its special semantics we
-         * synthesize it here, instead of relying on the unit file on disk. */
+        /* init.scope is a bit special, as it has to stick around forever. Because of its special semantics
+         * we synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
 
@@ -249,12 +262,12 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         /* Before sending any signal, make sure we track all members of this cgroup */
         (void) unit_watch_all_pids(UNIT(s));
 
-        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some processes have
-         * died now */
+        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some
+         * processes have died now */
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
-        /* If we have a controller set let's ask the controller nicely to terminate the scope, instead of us going
-         * directly into SIGTERM berserk mode */
+        /* If we have a controller set let's ask the controller nicely to terminate the scope, instead of us
+         * going directly into SIGTERM berserk mode */
         if (state == SCOPE_STOP_SIGTERM)
                 skip_signal = bus_scope_send_request_stop(s) > 0;
 
@@ -263,7 +276,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         else {
                 r = unit_kill_context(UNIT(s),
                                       &s->kill_context,
-                                      state != SCOPE_STOP_SIGTERM ? KILL_KILL : s->was_abandoned ? KILL_TERMINATE_AND_LOG : KILL_TERMINATE,
+                                      state != SCOPE_STOP_SIGTERM ?
+                                              KILL_KILL :
+                                              s->was_abandoned ? KILL_TERMINATE_AND_LOG : KILL_TERMINATE,
                                       -1,
                                       -1,
                                       false);
@@ -453,8 +468,8 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(u);
 
-        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to
-         * watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
+        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others
+         * to watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
          * process we watched was probably the parent of them, and they are hence now our children. */
 
         (void) unit_enqueue_rewatch_pids(u);
@@ -507,8 +522,8 @@ int scope_abandon(Scope *s) {
 
         scope_set_state(s, SCOPE_ABANDONED);
 
-        /* The client is no longer watching the remaining processes, so let's step in here, under the assumption that
-         * the remaining processes will be sooner or later reassigned to us as parent. */
+        /* The client is no longer watching the remaining processes, so let's step in here, under the
+         * assumption that the remaining processes will be sooner or later reassigned to us as parent. */
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         return 0;

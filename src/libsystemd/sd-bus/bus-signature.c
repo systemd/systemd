@@ -7,7 +7,8 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 
-static int signature_element_length_internal(const char *s, bool allow_dict_entry, unsigned array_depth, unsigned struct_depth, size_t *l) {
+static int signature_element_length_internal(
+        const char *s, bool allow_dict_entry, unsigned array_depth, unsigned struct_depth, size_t *l) {
 
         int r;
 

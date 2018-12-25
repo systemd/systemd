@@ -17,7 +17,8 @@
 
 static sd_hwdb *hwdb;
 
-int udev_builtin_hwdb_lookup(sd_device *dev, const char *prefix, const char *modalias, const char *filter, bool test) {
+int udev_builtin_hwdb_lookup(
+        sd_device *dev, const char *prefix, const char *modalias, const char *filter, bool test) {
         _cleanup_free_ char *lookup = NULL;
         const char *key, *value;
         int n = 0, r;
@@ -60,7 +61,12 @@ static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
         return s;
 }
 
-static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev, const char *subsystem, const char *prefix, const char *filter, bool test) {
+static int udev_builtin_hwdb_search(sd_device *dev,
+                                    sd_device *srcdev,
+                                    const char *subsystem,
+                                    const char *prefix,
+                                    const char *filter,
+                                    bool test) {
         sd_device *d;
         char s[16];
         bool last = false;
@@ -83,7 +89,8 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev, const cha
 
                 (void) sd_device_get_property_value(d, "MODALIAS", &modalias);
 
-                if (streq(dsubsys, "usb") && sd_device_get_devtype(d, &devtype) >= 0 && streq(devtype, "usb_device")) {
+                if (streq(dsubsys, "usb") && sd_device_get_devtype(d, &devtype) >= 0 &&
+                    streq(devtype, "usb_device")) {
                         /* if the usb_device does not have a modalias, compose one */
                         if (!modalias)
                                 modalias = modalias_usb(d, s, sizeof(s));
@@ -165,7 +172,8 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         if (device) {
                 r = sd_device_new_from_device_id(&srcdev, device);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to create sd_device object '%s': %m", device);
+                        return log_device_debug_errno(
+                                dev, r, "Failed to create sd_device object '%s': %m", device);
         }
 
         r = udev_builtin_hwdb_search(dev, srcdev, subsystem, prefix, filter, test);

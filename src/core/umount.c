@@ -117,7 +117,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * and hence not worth spending time on. Also, in
                  * unprivileged containers we might lack the rights to
                  * unmount these things, hence don't bother. */
-                if (mount_point_is_api(p) || mount_point_ignore(p) || PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
+                if (mount_point_is_api(p) || mount_point_ignore(p) ||
+                    PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc"))
                         continue;
 
                 /* If we are in a container, don't attempt to
@@ -130,8 +131,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * a "dirty fs") and could hang if the network is down.
                  * Note that umount2() is more careful and will not
                  * hang because of the network being down. */
-                try_remount_ro = detect_container() <= 0 && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype) &&
-                        !fstype_is_ro(fstype) && !fstab_test_yes_no_option(options, "ro\0rw\0");
+                try_remount_ro = detect_container() <= 0 && !fstype_is_network(fstype) &&
+                        !fstype_is_api_vfs(fstype) && !fstype_is_ro(fstype) &&
+                        !fstab_test_yes_no_option(options, "ro\0rw\0");
 
                 if (try_remount_ro) {
                         /* mount(2) states that mount flags and options need to be exactly the same
@@ -141,7 +143,8 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
                         r = mnt_fs_get_propagation(fs, &remount_flags);
                         if (r < 0) {
-                                log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
+                                log_warning_errno(
+                                        r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
                                 continue;
                         }
 
@@ -386,7 +389,8 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular remount
          * failed. */
-        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
+        r = safe_fork(
+                "(sd-remount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -395,19 +399,29 @@ static int remount_with_timeout(MountPoint *m, int umount_log_level) {
                 /* Start the mount operation here in the child */
                 r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
                 if (r < 0)
-                        log_full_errno(umount_log_level, errno, "Failed to remount '%s' read-only: %m", m->path);
+                        log_full_errno(
+                                umount_log_level, errno, "Failed to remount '%s' read-only: %m", m->path);
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
         if (r == -ETIMEDOUT) {
-                log_error_errno(r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
+                log_error_errno(
+                        r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
         } else if (r == -EPROTO)
-                log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                log_debug_errno(r,
+                                "Remounting '%s' failed abnormally, child process " PID_FMT
+                                " aborted or exited non-zero.",
+                                m->path,
+                                pid);
         else if (r < 0)
-                log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
+                log_error_errno(r,
+                                "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT
+                                ": %m",
+                                m->path,
+                                pid);
 
         return r;
 }
@@ -424,7 +438,8 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular umount
          * failed. */
-        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
+        r = safe_fork(
+                "(sd-umount)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS | FORK_LOG | FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -446,12 +461,21 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
 
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
         if (r == -ETIMEDOUT) {
-                log_error_errno(r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
+                log_error_errno(
+                        r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
         } else if (r == -EPROTO)
-                log_debug_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                log_debug_errno(r,
+                                "Unmounting '%s' failed abnormally, child process " PID_FMT
+                                " aborted or exited non-zero.",
+                                m->path,
+                                pid);
         else if (r < 0)
-                log_error_errno(r, "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
+                log_error_errno(r,
+                                "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT
+                                ": %m",
+                                m->path,
+                                pid);
 
         return r;
 }
@@ -548,7 +572,8 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
                 int r;
                 struct stat loopback_st;
 
-                if (k >= 0 && major(root_st.st_dev) != 0 && lstat(m->path, &loopback_st) >= 0 && root_st.st_dev == loopback_st.st_rdev) {
+                if (k >= 0 && major(root_st.st_dev) != 0 && lstat(m->path, &loopback_st) >= 0 &&
+                    root_st.st_dev == loopback_st.st_rdev) {
                         n_failed++;
                         continue;
                 }

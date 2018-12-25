@@ -54,8 +54,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
 
-        /* When we load the seed we read it and write it to the device and then immediately update the saved seed with
-         * new data, to make sure the next boot gets seeded differently. */
+        /* When we load the seed we read it and write it to the device and then immediately update the saved
+         * seed with new data, to make sure the next boot gets seeded differently. */
 
         if (streq(argv[1], "load")) {
                 int open_rw_error;
@@ -69,9 +69,12 @@ static int run(int argc, char *argv[]) {
                         if (seed_fd < 0) {
                                 bool missing = errno == ENOENT;
 
-                                log_full_errno(
-                                        missing ? LOG_DEBUG : LOG_ERR, open_rw_error, "Failed to open " RANDOM_SEED " for writing: %m");
-                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR, errno, "Failed to open " RANDOM_SEED " for reading: %m");
+                                log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
+                                               open_rw_error,
+                                               "Failed to open " RANDOM_SEED " for writing: %m");
+                                r = log_full_errno(missing ? LOG_DEBUG : LOG_ERR,
+                                                   errno,
+                                                   "Failed to open " RANDOM_SEED " for reading: %m");
                                 return missing ? 0 : r;
                         }
                 } else
@@ -133,19 +136,21 @@ static int run(int argc, char *argv[]) {
                                 log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
                 }
 
-                /* Let's also write the machine ID into the random seed. Why? As an extra protection against "golden
-                 * images" that are put together sloppily, i.e. images which are duplicated on multiple systems but
-                 * where the random seed file is not properly reset. Frequently the machine ID is properly reset on
-                 * those systems however (simply because it's easier to notice, if it isn't due to address clashes and
-                 * so on, while random seed equivalence is generally not noticed easily), hence let's simply write the
-                 * machined ID into the random pool too. */
+                /* Let's also write the machine ID into the random seed. Why? As an extra protection against
+                 * "golden images" that are put together sloppily, i.e. images which are duplicated on
+                 * multiple systems but where the random seed file is not properly reset. Frequently the
+                 * machine ID is properly reset on those systems however (simply because it's easier to
+                 * notice, if it isn't due to address clashes and so on, while random seed equivalence is
+                 * generally not noticed easily), hence let's simply write the machined ID into the random
+                 * pool too. */
                 z = sd_id128_get_machine(&mid);
                 if (z < 0)
                         log_debug_errno(z, "Failed to get machine ID, ignoring: %m");
                 else {
                         z = loop_write(random_fd, &mid, sizeof(mid), false);
                         if (z < 0)
-                                log_debug_errno(z, "Failed to write machine ID to /dev/urandom, ignoring: %m");
+                                log_debug_errno(z,
+                                                "Failed to write machine ID to /dev/urandom, ignoring: %m");
                 }
         }
 
@@ -160,7 +165,8 @@ static int run(int argc, char *argv[]) {
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Got EOF while reading from /dev/urandom.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Got EOF while reading from /dev/urandom.");
 
                 r = loop_write(seed_fd, buf, (size_t) k, false);
                 if (r < 0)

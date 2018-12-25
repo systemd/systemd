@@ -146,7 +146,13 @@ _pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, int prot,
         return w->fd && f->fd == w->fd->fd && window_matches(w, prot, offset, size);
 }
 
-static Window *window_add(MMapCache *m, MMapFileDescriptor *f, int prot, bool keep_always, uint64_t offset, size_t size, void *ptr) {
+static Window *window_add(MMapCache *m,
+                          MMapFileDescriptor *f,
+                          int prot,
+                          bool keep_always,
+                          uint64_t offset,
+                          size_t size,
+                          void *ptr) {
         Window *w;
 
         assert(m);
@@ -381,7 +387,14 @@ static int find_mmap(MMapCache *m,
         return 1;
 }
 
-static int mmap_try_harder(MMapCache *m, void *addr, MMapFileDescriptor *f, int prot, int flags, uint64_t offset, size_t size, void **res) {
+static int mmap_try_harder(MMapCache *m,
+                           void *addr,
+                           MMapFileDescriptor *f,
+                           int prot,
+                           int flags,
+                           uint64_t offset,
+                           size_t size,
+                           void **res) {
         void *ptr;
 
         assert(m);
@@ -564,7 +577,8 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                         Window *w;
 
                         LIST_FOREACH(by_fd, w, f->windows) {
-                                if ((uint8_t *) addr >= (uint8_t *) w->ptr && (uint8_t *) addr < (uint8_t *) w->ptr + w->size) {
+                                if ((uint8_t *) addr >= (uint8_t *) w->ptr &&
+                                    (uint8_t *) addr < (uint8_t *) w->ptr + w->size) {
                                         found = ours = f->sigbus = true;
                                         break;
                                 }

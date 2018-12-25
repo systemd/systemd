@@ -79,7 +79,8 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
+                        return log_netdev_error_errno(
+                                netdev, r, "Cannot resolve user name %s: %m", t->user_name);
 
                 if (ioctl(fd, TUNSETOWNER, uid) < 0)
                         return log_netdev_error_errno(netdev, -errno, "TUNSETOWNER failed on tun dev: %m");
@@ -90,7 +91,8 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
 
                 r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
+                        return log_netdev_error_errno(
+                                netdev, r, "Cannot resolve group name %s: %m", t->group_name);
 
                 if (ioctl(fd, TUNSETGROUP, gid) < 0)
                         return log_netdev_error_errno(netdev, -errno, "TUNSETGROUP failed on tun dev: %m");
@@ -133,10 +135,12 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
         if (netdev->mtu != 0)
-                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(
+                        netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
 
         if (netdev->mac)
-                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(
+                        netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
 
         return 0;
 }

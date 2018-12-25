@@ -53,7 +53,8 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
 
                 r = safe_atolu(value, &class);
                 if (r < 0)
-                        return log_warning_errno(r, "Cannot parse PCI class '%s' of device %s:%s: %m", value, subsystem, sysname);
+                        return log_warning_errno(
+                                r, "Cannot parse PCI class '%s' of device %s:%s: %m", value, subsystem, sysname);
 
                 /* Graphics card */
                 if (class == 0x30000) {
@@ -159,7 +160,8 @@ static int validate_device(sd_device *device) {
                 if (same_device(device, other) > 0)
                         continue;
 
-                if (sd_device_get_sysattr_value(other, "type", &v) < 0 || !STR_IN_SET(v, "platform", "firmware"))
+                if (sd_device_get_sysattr_value(other, "type", &v) < 0 ||
+                    !STR_IN_SET(v, "platform", "firmware"))
                         continue;
 
                 /* OK, so there's another backlight device, and it's a
@@ -176,9 +178,10 @@ static int validate_device(sd_device *device) {
                         (void) sd_device_get_sysname(device, &device_sysname);
                         (void) sd_device_get_sysname(other, &other_sysname);
 
-                        log_debug("Skipping backlight device %s, since device %s is on same PCI device and takes precedence.",
-                                  device_sysname,
-                                  other_sysname);
+                        log_debug(
+                                "Skipping backlight device %s, since device %s is on same PCI device and takes precedence.",
+                                device_sysname,
+                                other_sysname);
                         return false;
                 }
 
@@ -193,9 +196,10 @@ static int validate_device(sd_device *device) {
                         (void) sd_device_get_sysname(device, &device_sysname);
                         (void) sd_device_get_sysname(other, &other_sysname);
 
-                        log_debug("Skipping backlight device %s, since device %s is a platform device and takes precedence.",
-                                  device_sysname,
-                                  other_sysname);
+                        log_debug(
+                                "Skipping backlight device %s, since device %s is a platform device and takes precedence.",
+                                device_sysname,
+                                other_sysname);
                         return false;
                 }
         }
@@ -217,7 +221,8 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
 
         r = safe_atou(max_brightness_str, &max_brightness);
         if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
+                return log_device_warning_errno(
+                        device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
 
         if (max_brightness <= 0) {
                 log_device_warning(device, "Maximum brightness is 0, ignoring device.");
@@ -313,7 +318,8 @@ static int run(int argc, char *argv[]) {
 
         r = mkdir_p("/var/lib/systemd/backlight", 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
+                return log_error_errno(r,
+                                       "Failed to create backlight directory /var/lib/systemd/backlight: %m");
 
         sysname = strchr(argv[2], ':');
         if (!sysname) {
@@ -353,7 +359,8 @@ static int run(int argc, char *argv[]) {
                 if (!escaped_path_id)
                         return log_oom();
 
-                saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
+                saved = strjoina(
+                        "/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
         } else
                 saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
 
@@ -389,7 +396,8 @@ static int run(int argc, char *argv[]) {
 
                         r = sd_device_get_sysattr_value(device, "brightness", &curval);
                         if (r < 0)
-                                return log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
+                                return log_device_warning_errno(
+                                        device, r, "Failed to read 'brightness' attribute: %m");
 
                         value = strdup(curval);
                         if (!value)
@@ -402,7 +410,8 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_device_set_sysattr_value(device, "brightness", value);
                 if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
+                        return log_device_error_errno(
+                                device, r, "Failed to write system 'brightness' attribute: %m");
 
         } else if (streq(argv[1], "save")) {
                 const char *value;
@@ -414,7 +423,8 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_device_get_sysattr_value(device, "brightness", &value);
                 if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
+                        return log_device_error_errno(
+                                device, r, "Failed to read system 'brightness' attribute: %m");
 
                 r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
                 if (r < 0)

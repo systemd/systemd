@@ -27,28 +27,31 @@
 #include "string-util.h"
 #include "strv.h"
 
-int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, char ***ret_states, usec_t *ret_delay) {
+int parse_sleep_config(
+        const char *verb, bool *ret_allow, char ***ret_modes, char ***ret_states, usec_t *ret_delay) {
         int allow_suspend = -1, allow_hibernate = -1, allow_s2h = -1, allow_hybrid_sleep = -1;
         bool allow;
-        _cleanup_strv_free_ char **suspend_mode = NULL, **suspend_state = NULL, **hibernate_mode = NULL, **hibernate_state = NULL,
-                                 **hybrid_mode = NULL, **hybrid_state = NULL;
+        _cleanup_strv_free_ char **suspend_mode = NULL, **suspend_state = NULL, **hibernate_mode = NULL,
+                                 **hibernate_state = NULL, **hybrid_mode = NULL, **hybrid_state = NULL;
         _cleanup_strv_free_ char **modes, **states; /* always initialized below */
         usec_t delay = 180 * USEC_PER_MINUTE;
 
-        const ConfigTableItem items[] = { { "Sleep", "AllowSuspend", config_parse_tristate, 0, &allow_suspend },
-                                          { "Sleep", "AllowHibernation", config_parse_tristate, 0, &allow_hibernate },
-                                          { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h },
-                                          { "Sleep", "AllowHybridSleep", config_parse_tristate, 0, &allow_hybrid_sleep },
+        const ConfigTableItem items[] = {
+                { "Sleep", "AllowSuspend", config_parse_tristate, 0, &allow_suspend },
+                { "Sleep", "AllowHibernation", config_parse_tristate, 0, &allow_hibernate },
+                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h },
+                { "Sleep", "AllowHybridSleep", config_parse_tristate, 0, &allow_hybrid_sleep },
 
-                                          { "Sleep", "SuspendMode", config_parse_strv, 0, &suspend_mode },
-                                          { "Sleep", "SuspendState", config_parse_strv, 0, &suspend_state },
-                                          { "Sleep", "HibernateMode", config_parse_strv, 0, &hibernate_mode },
-                                          { "Sleep", "HibernateState", config_parse_strv, 0, &hibernate_state },
-                                          { "Sleep", "HybridSleepMode", config_parse_strv, 0, &hybrid_mode },
-                                          { "Sleep", "HybridSleepState", config_parse_strv, 0, &hybrid_state },
+                { "Sleep", "SuspendMode", config_parse_strv, 0, &suspend_mode },
+                { "Sleep", "SuspendState", config_parse_strv, 0, &suspend_state },
+                { "Sleep", "HibernateMode", config_parse_strv, 0, &hibernate_mode },
+                { "Sleep", "HibernateState", config_parse_strv, 0, &hibernate_state },
+                { "Sleep", "HybridSleepMode", config_parse_strv, 0, &hybrid_mode },
+                { "Sleep", "HybridSleepState", config_parse_strv, 0, &hybrid_state },
 
-                                          { "Sleep", "HibernateDelaySec", config_parse_sec, 0, &delay },
-                                          {} };
+                { "Sleep", "HibernateDelaySec", config_parse_sec, 0, &delay },
+                {}
+        };
 
         (void) config_parse_many_nulstr(PKGSYSCONFDIR "/sleep.conf",
                                         CONF_PATHS_NULSTR("systemd/sleep.conf.d"),
@@ -102,7 +105,8 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
         } else
                 assert_not_reached("what verb");
 
-        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) || (!states && !streq(verb, "suspend-then-hibernate")))
+        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
+            (!states && !streq(verb, "suspend-then-hibernate")))
                 return log_oom();
 
         if (ret_allow)
@@ -175,7 +179,8 @@ int can_sleep_disk(char **types) {
                         if (l == k && memcmp(word, *type, l) == 0)
                                 return true;
 
-                        if (l == k + 2 && word[0] == '[' && memcmp(word + 1, *type, l - 2) == 0 && word[l - 1] == ']')
+                        if (l == k + 2 && word[0] == '[' && memcmp(word + 1, *type, l - 2) == 0 &&
+                            word[l - 1] == ']')
                                 return true;
                 }
         }
@@ -191,7 +196,8 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
 
         f = fopen("/proc/swaps", "re");
         if (!f) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, "Failed to retrieve open /proc/swaps: %m");
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to retrieve open /proc/swaps: %m");
                 assert(errno > 0);
                 return -errno;
         }
@@ -277,12 +283,13 @@ static bool enough_swap_for_hibernation(void) {
         }
 
         r = act <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
-        log_debug("%s swap for hibernation, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
-                  r ? "Enough" : "Not enough",
-                  act,
-                  size,
-                  used,
-                  100 * HIBERNATION_SWAP_THRESHOLD);
+        log_debug(
+                "%s swap for hibernation, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
+                r ? "Enough" : "Not enough",
+                act,
+                size,
+                used,
+                100 * HIBERNATION_SWAP_THRESHOLD);
 
         return r;
 }
@@ -332,7 +339,10 @@ int read_fiemap(int fd, struct fiemap **ret) {
 
                 /* Resize fiemap to allow us to read in the extents, result fiemap has to hold all
                  * the extents for the whole file. Add space for the initial struct fiemap. */
-                if (!greedy_realloc0((void **) &fiemap, &fiemap_allocated, n_extra + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
+                if (!greedy_realloc0((void **) &fiemap,
+                                     &fiemap_allocated,
+                                     n_extra + fiemap->fm_mapped_extents,
+                                     sizeof(struct fiemap_extent)))
                         return -ENOMEM;
 
                 fiemap->fm_extent_count = fiemap->fm_mapped_extents;
@@ -379,7 +389,8 @@ static bool can_s2h(void) {
 
         r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
         if (r < 0) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, "/sys/class/rct/rct0/wakealarm is not writable %m");
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "/sys/class/rct/rct0/wakealarm is not writable %m");
                 return false;
         }
 

@@ -52,8 +52,9 @@ bool display_is_local(const char *display) _pure_;
 
 #define NULSTR_FOREACH(i, l) for ((i) = (l); (i) && *(i); (i) = strchr((i), 0) + 1)
 
-#define NULSTR_FOREACH_PAIR(i, j, l) \
-        for ((i) = (l), (j) = strchr((i), 0) + 1; (i) && *(i); (i) = strchr((j), 0) + 1, (j) = *(i) ? strchr((i), 0) + 1 : (i))
+#define NULSTR_FOREACH_PAIR(i, j, l)                           \
+        for ((i) = (l), (j) = strchr((i), 0) + 1; (i) && *(i); \
+             (i) = strchr((j), 0) + 1, (j) = *(i) ? strchr((i), 0) + 1 : (i))
 
 extern int saved_argc;
 extern char **saved_argv;
@@ -78,7 +79,8 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size, _
  * Normal bsearch requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
-static inline void *bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
+static inline void *
+        bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
         if (nmemb <= 0)
                 return NULL;
 
@@ -105,8 +107,8 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn
         qsort(base, nmemb, size, compar);
 }
 
-/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
- * is the prototype for the comparison function */
+/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the
+ * type and so is the prototype for the comparison function */
 #define typesafe_qsort(p, n, func)                                                \
         ({                                                                        \
                 int (*_func_)(const typeof(p[0]) *, const typeof(p[0]) *) = func; \

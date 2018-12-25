@@ -96,14 +96,15 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
         if (renameat2(olddirfd, oldpath, newdirfd, newpath, RENAME_NOREPLACE) >= 0)
                 return 0;
 
-        /* renameat2() exists since Linux 3.15, btrfs and FAT added support for it later. If it is not implemented,
-         * fall back to a different method. */
+        /* renameat2() exists since Linux 3.15, btrfs and FAT added support for it later. If it is not
+         * implemented, fall back to a different method. */
         if (!IN_SET(errno, EINVAL, ENOSYS, ENOTTY))
                 return -errno;
 
-        /* Let's try to use linkat()+unlinkat() as fallback. This doesn't work on directories and on some file systems
-         * that do not support hard links (such as FAT, most prominently), but for files it's pretty close to what we
-         * want — though not atomic (i.e. for a short period both the new and the old filename will exist). */
+        /* Let's try to use linkat()+unlinkat() as fallback. This doesn't work on directories and on some
+         * file systems that do not support hard links (such as FAT, most prominently), but for files it's
+         * pretty close to what we want — though not atomic (i.e. for a short period both the new and the old
+         * filename will exist). */
         if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0) {
 
                 if (unlinkat(olddirfd, oldpath, 0) < 0) {
@@ -216,11 +217,11 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         assert(path);
 
-        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
-         * ownership to avoid a window where access is too open. */
+        /* Under the assumption that we are running privileged we first change the access mode and only then
+         * hand out ownership to avoid a window where access is too open. */
 
-        fd = open(path, O_PATH | O_CLOEXEC | O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change mode/owner
-                                                           * on the same file */
+        fd = open(path, O_PATH | O_CLOEXEC | O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to
+                                                           * change mode/owner on the same file */
         if (fd < 0)
                 return -errno;
 
@@ -250,8 +251,8 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
-        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
-         * ownership to avoid a window where access is too open. */
+        /* Under the assumption that we are running privileged we first change the access mode and only then
+         * hand out ownership to avoid a window where access is too open. */
 
         if (mode != MODE_INVALID) {
 
@@ -308,7 +309,9 @@ int fd_warn_permissions(const char *path, int fd) {
                 return -errno;
 
         if (st.st_mode & 0111)
-                log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
+                log_warning(
+                        "Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.",
+                        path);
 
         if (st.st_mode & 0002)
                 log_warning(
@@ -330,32 +333,34 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 
         assert(path);
 
-        /* Note that touch_file() does not follow symlinks: if invoked on an existing symlink, then it is the symlink
-         * itself which is updated, not its target
+        /* Note that touch_file() does not follow symlinks: if invoked on an existing symlink, then it is the
+         * symlink itself which is updated, not its target
          *
          * Returns the first error we encounter, but tries to apply as much as possible. */
 
         if (parents)
                 (void) mkdir_parents(path, 0755);
 
-        /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is useful in
-         * case the path refers to an existing device or socket node, as we can open it successfully in all cases, and
-         * won't trigger any driver magic or so. */
+        /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is
+         * useful in case the path refers to an existing device or socket node, as we can open it
+         * successfully in all cases, and won't trigger any driver magic or so. */
         fd = open(path, O_PATH | O_CLOEXEC | O_NOFOLLOW);
         if (fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
 
-                /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a regular file
-                 * here, and nothing else */
-                fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
+                /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a
+                 * regular file here, and nothing else */
+                fd = open(path,
+                          O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
+                          IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
                 if (fd < 0)
                         return -errno;
         }
 
-        /* Let's make a path from the fd, and operate on that. With this logic, we can adjust the access mode,
-         * ownership and time of the file node in all cases, even if the fd refers to an O_PATH object — which is
-         * something fchown(), fchmod(), futimensat() don't allow. */
+        /* Let's make a path from the fd, and operate on that. With this logic, we can adjust the access
+         * mode, ownership and time of the file node in all cases, even if the fd refers to an O_PATH object
+         * — which is something fchown(), fchmod(), futimensat() don't allow. */
         xsprintf(fdpath, "/proc/self/fd/%i", fd);
 
         if (mode != MODE_INVALID)
@@ -412,12 +417,14 @@ int symlink_idempotent(const char *from, const char *to, bool make_relative) {
                         return -errno;
 
                 r = readlink_malloc(to, &p);
-                if (r == -EINVAL) /* Not a symlink? In that case return the original error we encountered: -EEXIST */
+                if (r ==
+                    -EINVAL) /* Not a symlink? In that case return the original error we encountered: -EEXIST */
                         return -EEXIST;
                 if (r < 0) /* Any other error? In that case propagate it as is */
                         return r;
 
-                if (!streq(p, from)) /* Not the symlink we want it to be? In that case, propagate the original -EEXIST */
+                if (!streq(p,
+                           from)) /* Not the symlink we want it to be? In that case, propagate the original -EEXIST */
                         return -EEXIST;
         }
 
@@ -627,18 +634,19 @@ static int tmp_dir_internal(const char *def, const char **ret) {
 
 int var_tmp_dir(const char **ret) {
 
-        /* Returns the location for "larger" temporary files, that is backed by physical storage if available, and thus
-         * even might survive a boot: /var/tmp. If $TMPDIR (or related environment variables) are set, its value is
-         * returned preferably however. Note that both this function and tmp_dir() below are affected by $TMPDIR,
-         * making it a variable that overrides all temporary file storage locations. */
+        /* Returns the location for "larger" temporary files, that is backed by physical storage if
+         * available, and thus even might survive a boot: /var/tmp. If $TMPDIR (or related environment
+         * variables) are set, its value is returned preferably however. Note that both this function and
+         * tmp_dir() below are affected by $TMPDIR, making it a variable that overrides all temporary file
+         * storage locations. */
 
         return tmp_dir_internal("/var/tmp", ret);
 }
 
 int tmp_dir(const char **ret) {
 
-        /* Similar to var_tmp_dir() above, but returns the location for "smaller" temporary files, which is usually
-         * backed by an in-memory file system: /tmp. */
+        /* Similar to var_tmp_dir() above, but returns the location for "smaller" temporary files, which is
+         * usually backed by an in-memory file system: /tmp. */
 
         return tmp_dir_internal("/tmp", ret);
 }
@@ -704,13 +712,17 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
 
         (void) fd_get_path(fd, &n1);
 
-        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE), "Detected autofs mount point %s during canonicalization of %s.", n1, path);
+        return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                 "Detected autofs mount point %s during canonicalization of %s.",
+                                 n1,
+                                 path);
 }
 
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
-        unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
+        unsigned max_follow =
+                CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         struct stat previous_stat;
         bool exists = true;
         char *todo;
@@ -728,52 +740,52 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (isempty(path))
                 return -EINVAL;
 
-        /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
-         * symlinks relative to a root directory, instead of the root of the host.
+        /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows
+         * following symlinks relative to a root directory, instead of the root of the host.
          *
-         * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when following
-         * relative symlinks to ensure they cannot be used to "escape" the root directory. The path parameter passed is
-         * assumed to be already prefixed by it, except if the CHASE_PREFIX_ROOT flag is set, in which case it is first
-         * prefixed accordingly.
+         * Note that "root" primarily matters if we encounter an absolute symlink. It is also used when
+         * following relative symlinks to ensure they cannot be used to "escape" the root directory. The path
+         * parameter passed is assumed to be already prefixed by it, except if the CHASE_PREFIX_ROOT flag is
+         * set, in which case it is first prefixed accordingly.
          *
-         * Algorithmically this operates on two path buffers: "done" are the components of the path we already
-         * processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we still need to
-         * process. On each iteration, we move one component from "todo" to "done", processing it's special meaning
-         * each time. The "todo" path always starts with at least one slash, the "done" path always ends in no
-         * slash. We always keep an O_PATH fd to the component we are currently processing, thus keeping lookup races
-         * at a minimum.
+         * Algorithmically this operates on two path buffers: "done" are the components of the path we
+         * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
+         * still need to process. On each iteration, we move one component from "todo" to "done", processing
+         * it's special meaning each time. The "todo" path always starts with at least one slash, the "done"
+         * path always ends in no slash. We always keep an O_PATH fd to the component we are currently
+         * processing, thus keeping lookup races at a minimum.
          *
-         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute path you got
-         * as-is: fully qualified and relative to your host's root. Optionally, specify the root parameter to tell this
-         * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
-         * specified path.
+         * Suggested usage: whenever you want to canonicalize a path, use this function. Pass the absolute
+         * path you got as-is: fully qualified and relative to your host's root. Optionally, specify the root
+         * parameter to tell this function what to do when encountering a symlink with an absolute path as
+         * directory: prefix it by the specified path.
          *
          * There are three ways to invoke this function:
          *
-         * 1. Without CHASE_STEP or CHASE_OPEN: in this case the path is resolved and the normalized path is returned
-         *    in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set 0 is returned if the file
-         *    doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set >= 0 is returned if the destination was
-         *    found, -ENOENT if it doesn't.
+         * 1. Without CHASE_STEP or CHASE_OPEN: in this case the path is resolved and the normalized path is
+         * returned in `ret`. The return value is < 0 on error. If CHASE_NONEXISTENT is also set 0 is
+         * returned if the file doesn't exist, > 0 otherwise. If CHASE_NONEXISTENT is not set >= 0 is
+         * returned if the destination was found, -ENOENT if it doesn't.
          *
-         * 2. With CHASE_OPEN: in this case the destination is opened after chasing it as O_PATH and this file
-         *    descriptor is returned as return value. This is useful to open files relative to some root
-         *    directory. Note that the returned O_PATH file descriptors must be converted into a regular one (using
-         *    fd_reopen() or such) before it can be used for reading/writing. CHASE_OPEN may not be combined with
-         *    CHASE_NONEXISTENT.
+         * 2. With CHASE_OPEN: in this case the destination is opened after chasing it as O_PATH and this
+         * file descriptor is returned as return value. This is useful to open files relative to some root
+         * directory. Note that the returned O_PATH file descriptors must be converted into a regular one
+         * (using fd_reopen() or such) before it can be used for reading/writing. CHASE_OPEN may not be
+         * combined with CHASE_NONEXISTENT.
          *
-         * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only the first
-         *    symlink or ".." component of the path is resolved, and the resulting path is returned. This is useful if
-         *    a caller wants to trace the a path through the file system verbosely. Returns < 0 on error, > 0 if the
-         *    path is fully normalized, and == 0 for each normalization step. This may be combined with
-         *    CHASE_NONEXISTENT, in which case 1 is returned when a component is not found.
+         * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only
+         * the first symlink or ".." component of the path is resolved, and the resulting path is returned.
+         * This is useful if a caller wants to trace the a path through the file system verbosely. Returns <
+         * 0 on error, > 0 if the path is fully normalized, and == 0 for each normalization step. This may be
+         * combined with CHASE_NONEXISTENT, in which case 1 is returned when a component is not found.
          *
-         * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions from
-         *    unprivileged to privileged files or directories. In such cases the return value is -ENOLINK. If
-         *    CHASE_WARN is also set a warning describing the unsafe transition is emitted.
+         * 4. With CHASE_SAFE: in this case the path must not contain unsafe transitions, i.e. transitions
+         * from unprivileged to privileged files or directories. In such cases the return value is -ENOLINK.
+         * If CHASE_WARN is also set a warning describing the unsafe transition is emitted.
          *
-         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path normalization is
-         *    aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the path of the mount point
-         *    is emitted.
+         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, the path
+         * normalization is aborted and -EREMOTE is returned. If CHASE_WARN is also set a warning showing the
+         * path of the mount point is emitted.
          *
          * */
 
@@ -781,9 +793,11 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (empty_or_root(original_root))
                 original_root = NULL;
 
-        if (!original_root && !ret && (flags & (CHASE_NONEXISTENT | CHASE_NO_AUTOFS | CHASE_SAFE | CHASE_OPEN | CHASE_STEP)) == CHASE_OPEN) {
-                /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no root set
-                 * and doesn't care about any of the other special features we provide either. */
+        if (!original_root && !ret &&
+            (flags & (CHASE_NONEXISTENT | CHASE_NO_AUTOFS | CHASE_SAFE | CHASE_OPEN | CHASE_STEP)) ==
+                    CHASE_OPEN) {
+                /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no
+                 * root set and doesn't care about any of the other special features we provide either. */
                 r = open(path, O_PATH | O_CLOEXEC | ((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
@@ -861,8 +875,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -1;
 
-                        /* If we already are at the top, then going up will not change anything. This is in-line with
-                         * how the kernel handles this. */
+                        /* If we already are at the top, then going up will not change anything. This is
+                         * in-line with how the kernel handles this. */
                         if (empty_or_root(done))
                                 continue;
 
@@ -903,11 +917,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 child = openat(fd, first + n, O_CLOEXEC | O_NOFOLLOW | O_PATH);
                 if (child < 0) {
 
-                        if (errno == ENOENT && (flags & CHASE_NONEXISTENT) && (isempty(todo) || path_is_normalized(todo))) {
+                        if (errno == ENOENT && (flags & CHASE_NONEXISTENT) &&
+                            (isempty(todo) || path_is_normalized(todo))) {
 
-                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK, return
-                                 * what we got so far. But don't allow this if the remaining path contains "../ or "./"
-                                 * or something else weird. */
+                                /* If CHASE_NONEXISTENT is set, and the path does not exist, then that's OK,
+                                 * return what we got so far. But don't allow this if the remaining path
+                                 * contains "../ or "./" or something else weird. */
 
                                 /* If done is "/", as first also contains slash at the head, then remove this redundant slash. */
                                 if (streq_ptr(done, "/"))
@@ -938,8 +953,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                         _cleanup_free_ char *destination = NULL;
 
-                        /* This is a symlink, in this case read the destination. But let's make sure we don't follow
-                         * symlinks without bounds. */
+                        /* This is a symlink, in this case read the destination. But let's make sure we don't
+                         * follow symlinks without bounds. */
                         if (--max_follow <= 0)
                                 return -ELOOP;
 
@@ -951,8 +966,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                         if (path_is_absolute(destination)) {
 
-                                /* An absolute destination. Start the loop from the beginning, but use the root
-                                 * directory as base. */
+                                /* An absolute destination. Start the loop from the beginning, but use the
+                                 * root directory as base. */
 
                                 safe_close(fd);
                                 fd = open(root ?: "/", O_CLOEXEC | O_NOFOLLOW | O_PATH);
@@ -980,8 +995,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                                 return -ENOMEM;
                                 }
 
-                                /* Prefix what's left to do with what we just read, and start the loop again, but
-                                 * remain in the current directory. */
+                                /* Prefix what's left to do with what we just read, and start the loop again,
+                                 * but remain in the current directory. */
                                 joined = strjoin(destination, todo);
                         } else
                                 joined = strjoin("/", destination, todo);
@@ -1025,8 +1040,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 *ret = TAKE_PTR(done);
 
         if (flags & CHASE_OPEN) {
-                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
-                 * opening /proc/self/fd/xyz. */
+                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a
+                 * proper fd by opening /proc/self/fd/xyz. */
 
                 assert(fd >= 0);
                 return TAKE_FD(fd);
@@ -1051,7 +1066,8 @@ chased_one:
         return 0;
 }
 
-int chase_symlinks_and_open(const char *path, const char *root, unsigned chase_flags, int open_flags, char **ret_path) {
+int chase_symlinks_and_open(
+        const char *path, const char *root, unsigned chase_flags, int open_flags, char **ret_path) {
 
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
@@ -1083,7 +1099,8 @@ int chase_symlinks_and_open(const char *path, const char *root, unsigned chase_f
         return r;
 }
 
-int chase_symlinks_and_opendir(const char *path, const char *root, unsigned chase_flags, char **ret_path, DIR **ret_dir) {
+int chase_symlinks_and_opendir(
+        const char *path, const char *root, unsigned chase_flags, char **ret_path, DIR **ret_dir) {
 
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int path_fd = -1;
@@ -1121,7 +1138,8 @@ int chase_symlinks_and_opendir(const char *path, const char *root, unsigned chas
         return 0;
 }
 
-int chase_symlinks_and_stat(const char *path, const char *root, unsigned chase_flags, char **ret_path, struct stat *ret_stat) {
+int chase_symlinks_and_stat(
+        const char *path, const char *root, unsigned chase_flags, char **ret_path, struct stat *ret_stat) {
 
         _cleanup_close_ int path_fd = -1;
         _cleanup_free_ char *p = NULL;
@@ -1184,35 +1202,38 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
         struct stat st;
         off_t l, bs;
 
-        /* Operates like unlinkat() but also deallocates the file contents if it is a regular file and there's no other
-         * link to it. This is useful to ensure that other processes that might have the file open for reading won't be
-         * able to keep the data pinned on disk forever. This call is particular useful whenever we execute clean-up
-         * jobs ("vacuuming"), where we want to make sure the data is really gone and the disk space released and
-         * returned to the free pool.
+        /* Operates like unlinkat() but also deallocates the file contents if it is a regular file and
+         * there's no other link to it. This is useful to ensure that other processes that might have the
+         * file open for reading won't be able to keep the data pinned on disk forever. This call is
+         * particular useful whenever we execute clean-up jobs ("vacuuming"), where we want to make sure the
+         * data is really gone and the disk space released and returned to the free pool.
          *
-         * Deallocation is preferably done by FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE (👊) if supported, which means
-         * the file won't change size. That's a good thing since we shouldn't needlessly trigger SIGBUS in other
-         * programs that have mmap()ed the file. (The assumption here is that changing file contents to all zeroes
-         * underneath those programs is the better choice than simply triggering SIGBUS in them which truncation does.)
-         * However if hole punching is not implemented in the kernel or file system we'll fall back to normal file
-         * truncation (🔪), as our goal of deallocating the data space trumps our goal of being nice to readers (💐).
+         * Deallocation is preferably done by FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE (👊) if supported,
+         * which means the file won't change size. That's a good thing since we shouldn't needlessly trigger
+         * SIGBUS in other programs that have mmap()ed the file. (The assumption here is that changing file
+         * contents to all zeroes underneath those programs is the better choice than simply triggering
+         * SIGBUS in them which truncation does.) However if hole punching is not implemented in the kernel
+         * or file system we'll fall back to normal file truncation (🔪), as our goal of deallocating the data
+         * space trumps our goal of being nice to readers (💐).
          *
-         * Note that we attempt deallocation, but failure to succeed with that is not considered fatal, as long as the
-         * primary job – to delete the file – is accomplished. */
+         * Note that we attempt deallocation, but failure to succeed with that is not considered fatal, as
+         * long as the primary job – to delete the file – is accomplished. */
 
         if ((flags & AT_REMOVEDIR) == 0) {
                 truncate_fd = openat(fd, name, O_WRONLY | O_CLOEXEC | O_NOCTTY | O_NOFOLLOW | O_NONBLOCK);
                 if (truncate_fd < 0) {
 
-                        /* If this failed because the file doesn't exist propagate the error right-away. Also,
-                         * AT_REMOVEDIR wasn't set, and we tried to open the file for writing, which means EISDIR is
-                         * returned when this is a directory but we are not supposed to delete those, hence propagate
-                         * the error right-away too. */
+                        /* If this failed because the file doesn't exist propagate the error right-away.
+                         * Also, AT_REMOVEDIR wasn't set, and we tried to open the file for writing, which
+                         * means EISDIR is returned when this is a directory but we are not supposed to
+                         * delete those, hence propagate the error right-away too. */
                         if (IN_SET(errno, ENOENT, EISDIR))
                                 return -errno;
 
                         if (errno != ELOOP) /* don't complain if this is a symlink */
-                                log_debug_errno(errno, "Failed to open file '%s' for deallocation, ignoring: %m", name);
+                                log_debug_errno(errno,
+                                                "Failed to open file '%s' for deallocation, ignoring: %m",
+                                                name);
                 }
         }
 
@@ -1230,8 +1251,8 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
         if (!S_ISREG(st.st_mode) || st.st_blocks == 0 || st.st_nlink > 0)
                 return 0;
 
-        /* If this is a regular file, it actually took up space on disk and there are no other links it's time to
-         * punch-hole/truncate this to release the disk space. */
+        /* If this is a regular file, it actually took up space on disk and there are no other links it's
+         * time to punch-hole/truncate this to release the disk space. */
 
         bs = MAX(st.st_blksize, 512);
         l = DIV_ROUND_UP(st.st_size, bs) * bs; /* Round up to next block size */
@@ -1259,7 +1280,8 @@ int fsync_directory_of_file(int fd) {
 
         r = fd_get_path(fd, &path);
         if (r < 0) {
-                log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m", fd, r == -EOPNOTSUPP ? ", ignoring" : "");
+                log_debug_errno(
+                        r, "Failed to query /proc/self/fd/%d%s: %m", fd, r == -EOPNOTSUPP ? ", ignoring" : "");
 
                 if (r == -EOPNOTSUPP)
                         /* If /proc is not available, we're most likely running in some

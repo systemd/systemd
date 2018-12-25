@@ -54,16 +54,21 @@ typedef struct {
 #define ITERATOR_FIRST ((Iterator){ .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
 
 /* Macros for type checking */
-#define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h)                                                                              \
-        (__builtin_types_compatible_p(typeof(h), HashmapBase *) || __builtin_types_compatible_p(typeof(h), Hashmap *) || \
-         __builtin_types_compatible_p(typeof(h), OrderedHashmap *) || __builtin_types_compatible_p(typeof(h), Set *))
+#define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h)                           \
+        (__builtin_types_compatible_p(typeof(h), HashmapBase *) ||    \
+         __builtin_types_compatible_p(typeof(h), Hashmap *) ||        \
+         __builtin_types_compatible_p(typeof(h), OrderedHashmap *) || \
+         __builtin_types_compatible_p(typeof(h), Set *))
 
-#define PTR_COMPATIBLE_WITH_PLAIN_HASHMAP(h) \
-        (__builtin_types_compatible_p(typeof(h), Hashmap *) || __builtin_types_compatible_p(typeof(h), OrderedHashmap *))
+#define PTR_COMPATIBLE_WITH_PLAIN_HASHMAP(h)                   \
+        (__builtin_types_compatible_p(typeof(h), Hashmap *) || \
+         __builtin_types_compatible_p(typeof(h), OrderedHashmap *))
 
-#define HASHMAP_BASE(h) __builtin_choose_expr(PTR_COMPATIBLE_WITH_HASHMAP_BASE(h), (HashmapBase *) (h), (void) 0)
+#define HASHMAP_BASE(h) \
+        __builtin_choose_expr(PTR_COMPATIBLE_WITH_HASHMAP_BASE(h), (HashmapBase *) (h), (void) 0)
 
-#define PLAIN_HASHMAP(h) __builtin_choose_expr(PTR_COMPATIBLE_WITH_PLAIN_HASHMAP(h), (Hashmap *) (h), (void) 0)
+#define PLAIN_HASHMAP(h) \
+        __builtin_choose_expr(PTR_COMPATIBLE_WITH_PLAIN_HASHMAP(h), (Hashmap *) (h), (void) 0)
 
 #if ENABLE_DEBUG_HASHMAP
 #define HASHMAP_DEBUG_PARAMS , const char *func, const char *file, int line
@@ -110,7 +115,10 @@ static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) 
 }
 
 IteratedCache *iterated_cache_free(IteratedCache *cache);
-int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
+int iterated_cache_get(IteratedCache *cache,
+                       const void ***res_keys,
+                       const void ***res_values,
+                       unsigned *res_n_entries);
 
 HashmapBase *internal_hashmap_copy(HashmapBase *h);
 static inline Hashmap *hashmap_copy(Hashmap *h) {
@@ -121,9 +129,11 @@ static inline OrderedHashmap *ordered_hashmap_copy(OrderedHashmap *h) {
 }
 
 int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
-int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
+int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h,
+                                              const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define hashmap_ensure_allocated(h, ops) internal_hashmap_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
-#define ordered_hashmap_ensure_allocated(h, ops) internal_ordered_hashmap_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
+#define ordered_hashmap_ensure_allocated(h, ops) \
+        internal_ordered_hashmap_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
 
 IteratedCache *internal_hashmap_iterated_cache_new(HashmapBase *h);
 static inline IteratedCache *hashmap_iterated_cache_new(Hashmap *h) {
@@ -192,12 +202,18 @@ static inline void *ordered_hashmap_remove_value(OrderedHashmap *h, const void *
 }
 
 int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key, void *value);
-static inline int ordered_hashmap_remove_and_put(OrderedHashmap *h, const void *old_key, const void *new_key, void *value) {
+static inline int ordered_hashmap_remove_and_put(OrderedHashmap *h,
+                                                 const void *old_key,
+                                                 const void *new_key,
+                                                 void *value) {
         return hashmap_remove_and_put(PLAIN_HASHMAP(h), old_key, new_key, value);
 }
 
 int hashmap_remove_and_replace(Hashmap *h, const void *old_key, const void *new_key, void *value);
-static inline int ordered_hashmap_remove_and_replace(OrderedHashmap *h, const void *old_key, const void *new_key, void *value) {
+static inline int ordered_hashmap_remove_and_replace(OrderedHashmap *h,
+                                                     const void *old_key,
+                                                     const void *new_key,
+                                                     void *value) {
         return hashmap_remove_and_replace(PLAIN_HASHMAP(h), old_key, new_key, value);
 }
 
@@ -390,11 +406,14 @@ static inline char **ordered_hashmap_get_strv(OrderedHashmap *h) {
  * the entries were inserted.
  * It is safe to remove the current entry.
  */
-#define HASHMAP_FOREACH(e, h, i) for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void **) &(e), NULL);)
+#define HASHMAP_FOREACH(e, h, i) \
+        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void **) &(e), NULL);)
 
-#define ORDERED_HASHMAP_FOREACH(e, h, i) for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void **) &(e), NULL);)
+#define ORDERED_HASHMAP_FOREACH(e, h, i) \
+        for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void **) &(e), NULL);)
 
-#define HASHMAP_FOREACH_KEY(e, k, h, i) for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void **) &(e), (const void **) &(k));)
+#define HASHMAP_FOREACH_KEY(e, k, h, i) \
+        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void **) &(e), (const void **) &(k));)
 
 #define ORDERED_HASHMAP_FOREACH_KEY(e, k, h, i) \
         for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void **) &(e), (const void **) &(k));)

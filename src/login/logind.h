@@ -163,7 +163,10 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
+int bus_manager_shutdown_or_sleep_now_or_later(Manager *m,
+                                               const char *unit_name,
+                                               InhibitWhat w,
+                                               sd_bus_error *error);
 
 int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
 
@@ -193,9 +196,11 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 CONFIG_PARSER_PROTOTYPE(config_parse_n_autovts);
 CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs_size);
 
-int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
+int manager_get_session_from_creds(
+        Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);
-int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret);
+int manager_get_seat_from_creds(
+        Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret);
 
 int manager_setup_wall_message_timer(Manager *m);
 bool logind_wall_tty_filter(const char *tty, void *userdata);

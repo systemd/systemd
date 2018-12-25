@@ -184,8 +184,9 @@ bool is_temporary_fs(const struct statfs *s) {
 }
 
 bool is_network_fs(const struct statfs *s) {
-        return is_fs_type(s, CIFS_MAGIC_NUMBER) || is_fs_type(s, CODA_SUPER_MAGIC) || is_fs_type(s, NCP_SUPER_MAGIC) ||
-                is_fs_type(s, NFS_SUPER_MAGIC) || is_fs_type(s, SMB_SUPER_MAGIC) || is_fs_type(s, V9FS_MAGIC) ||
+        return is_fs_type(s, CIFS_MAGIC_NUMBER) || is_fs_type(s, CODA_SUPER_MAGIC) ||
+                is_fs_type(s, NCP_SUPER_MAGIC) || is_fs_type(s, NFS_SUPER_MAGIC) ||
+                is_fs_type(s, SMB_SUPER_MAGIC) || is_fs_type(s, V9FS_MAGIC) ||
                 is_fs_type(s, AFS_SUPER_MAGIC) || is_fs_type(s, OCFS2_SUPER_MAGIC);
 }
 
@@ -211,26 +212,27 @@ int fd_is_network_ns(int fd) {
         struct statfs s;
         int r;
 
-        /* Checks whether the specified file descriptor refers to a network namespace. On old kernels there's no nice
-         * way to detect that, hence on those we'll return a recognizable error (EUCLEAN), so that callers can handle
-         * this somewhat nicely.
+        /* Checks whether the specified file descriptor refers to a network namespace. On old kernels there's
+         * no nice way to detect that, hence on those we'll return a recognizable error (EUCLEAN), so that
+         * callers can handle this somewhat nicely.
          *
-         * This function returns > 0 if the fd definitely refers to a network namespace, 0 if it definitely does not
-         * refer to a network namespace, -EUCLEAN if we can't determine, and other negative error codes on error. */
+         * This function returns > 0 if the fd definitely refers to a network namespace, 0 if it definitely
+         * does not refer to a network namespace, -EUCLEAN if we can't determine, and other negative error
+         * codes on error. */
 
         if (fstatfs(fd, &s) < 0)
                 return -errno;
 
         if (!is_fs_type(&s, NSFS_MAGIC)) {
-                /* On really old kernels, there was no "nsfs", and network namespace sockets belonged to procfs
-                 * instead. Handle that in a somewhat smart way. */
+                /* On really old kernels, there was no "nsfs", and network namespace sockets belonged to
+                 * procfs instead. Handle that in a somewhat smart way. */
 
                 if (is_fs_type(&s, PROC_SUPER_MAGIC)) {
                         struct statfs t;
 
-                        /* OK, so it is procfs. Let's see if our own network namespace is procfs, too. If so, then the
-                         * passed fd might refer to a network namespace, but we can't know for sure. In that case,
-                         * return a recognizable error. */
+                        /* OK, so it is procfs. Let's see if our own network namespace is procfs, too. If so,
+                         * then the passed fd might refer to a network namespace, but we can't know for sure.
+                         * In that case, return a recognizable error. */
 
                         if (statfs("/proc/self/ns/net", &t) < 0)
                                 return -errno;
@@ -244,7 +246,8 @@ int fd_is_network_ns(int fd) {
 
         r = ioctl(fd, NS_GET_NSTYPE);
         if (r < 0) {
-                if (errno == ENOTTY) /* Old kernels didn't know this ioctl, let's also return a recognizable error in that case */
+                if (errno ==
+                    ENOTTY) /* Old kernels didn't know this ioctl, let's also return a recognizable error in that case */
                         return -EUCLEAN;
 
                 return -errno;
@@ -266,8 +269,8 @@ int path_is_temporary_fs(const char *path) {
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
-        /* Checks whether the specified stat() structure refers to a regular file. If not returns an appropriate error
-         * code. */
+        /* Checks whether the specified stat() structure refers to a regular file. If not returns an
+         * appropriate error code. */
 
         if (S_ISDIR(st->st_mode))
                 return -EISDIR;
@@ -344,8 +347,8 @@ int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {
         if (major(devno) == 0 && minor(devno) == 0) {
                 char *s;
 
-                /* A special hack to make sure our 'inaccessible' device nodes work. They won't have symlinks in
-                 * /dev/block/ and /dev/char/, hence we handle them specially here. */
+                /* A special hack to make sure our 'inaccessible' device nodes work. They won't have symlinks
+                 * in /dev/block/ and /dev/char/, hence we handle them specially here. */
 
                 if (S_ISCHR(mode))
                         s = strdup("/run/systemd/inaccessible/chr");
@@ -373,9 +376,9 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
         dev_t devno;
         int r;
 
-        /* Tries to extract the major/minor directly from the device path if we can. Handles /dev/block/ and /dev/char/
-         * paths, as well out synthetic inaccessible device nodes. Never goes to disk. Returns -ENODEV if the device
-         * path cannot be parsed like this.  */
+        /* Tries to extract the major/minor directly from the device path if we can. Handles /dev/block/ and
+         * /dev/char/ paths, as well out synthetic inaccessible device nodes. Never goes to disk. Returns
+         * -ENODEV if the device path cannot be parsed like this.  */
 
         if (path_equal(path, "/run/systemd/inaccessible/chr")) {
                 mode = S_IFCHR;

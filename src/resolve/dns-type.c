@@ -70,10 +70,10 @@ bool dns_type_is_valid_query(uint16_t type) {
                        DNS_TYPE_TSIG,
                        DNS_TYPE_TKEY,
 
-                       /* RRSIG are technically valid as questions, but we refuse doing explicit queries for them, as
-                        * they aren't really payload, but signatures for payload, and cannot be validated on their
-                        * own. After all they are the signatures, and have no signatures of their own validating
-                        * them. */
+                       /* RRSIG are technically valid as questions, but we refuse doing explicit queries for
+                        * them, as they aren't really payload, but signatures for payload, and cannot be
+                        * validated on their own. After all they are the signatures, and have no signatures
+                        * of their own validating them. */
                        DNS_TYPE_RRSIG);
 }
 
@@ -104,8 +104,15 @@ bool dns_type_may_redirect(uint16_t type) {
         if (dns_type_is_pseudo(type))
                 return false;
 
-        return !IN_SET(
-                type, DNS_TYPE_CNAME, DNS_TYPE_DNAME, DNS_TYPE_NSEC3, DNS_TYPE_NSEC, DNS_TYPE_RRSIG, DNS_TYPE_NXT, DNS_TYPE_SIG, DNS_TYPE_KEY);
+        return !IN_SET(type,
+                       DNS_TYPE_CNAME,
+                       DNS_TYPE_DNAME,
+                       DNS_TYPE_NSEC3,
+                       DNS_TYPE_NSEC,
+                       DNS_TYPE_RRSIG,
+                       DNS_TYPE_NXT,
+                       DNS_TYPE_SIG,
+                       DNS_TYPE_KEY);
 }
 
 bool dns_type_may_wildcard(uint16_t type) {
@@ -135,7 +142,13 @@ bool dns_type_apex_only(uint16_t type) {
 }
 
 bool dns_type_is_dnssec(uint16_t type) {
-        return IN_SET(type, DNS_TYPE_DS, DNS_TYPE_DNSKEY, DNS_TYPE_RRSIG, DNS_TYPE_NSEC, DNS_TYPE_NSEC3, DNS_TYPE_NSEC3PARAM);
+        return IN_SET(type,
+                      DNS_TYPE_DS,
+                      DNS_TYPE_DNSKEY,
+                      DNS_TYPE_RRSIG,
+                      DNS_TYPE_NSEC,
+                      DNS_TYPE_NSEC3,
+                      DNS_TYPE_NSEC3PARAM);
 }
 
 bool dns_type_is_obsolete(uint16_t type) {

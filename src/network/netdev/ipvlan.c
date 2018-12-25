@@ -22,7 +22,10 @@ static const char *const ipvlan_flags_table[_NETDEV_IPVLAN_FLAGS_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ipvlan_flags, IPVlanFlags);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_flags, ipvlan_flags, IPVlanFlags, "Failed to parse ipvlan flags");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_flags,
+                         ipvlan_flags,
+                         IPVlanFlags,
+                         "Failed to parse ipvlan flags");
 
 static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
         IPVlan *m;
@@ -39,13 +42,15 @@ static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (m->mode != _NETDEV_IPVLAN_MODE_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_IPVLAN_MODE, m->mode);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPVLAN_MODE attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_IPVLAN_MODE attribute: %m");
         }
 
         if (m->flags != _NETDEV_IPVLAN_FLAGS_INVALID) {
                 r = sd_netlink_message_append_u16(req, IFLA_IPVLAN_FLAGS, m->flags);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPVLAN_FLAGS attribute: %m");
+                        return log_netdev_error_errno(
+                                netdev, r, "Could not append IFLA_IPVLAN_FLAGS attribute: %m");
         }
 
         return 0;

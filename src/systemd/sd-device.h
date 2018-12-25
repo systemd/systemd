@@ -46,7 +46,10 @@ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *subsystem,
 int sd_device_new_from_device_id(sd_device **ret, const char *id);
 
 int sd_device_get_parent(sd_device *child, sd_device **ret);
-int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const char *subsystem, const char *devtype, sd_device **ret);
+int sd_device_get_parent_with_subsystem_devtype(sd_device *child,
+                                                const char *subsystem,
+                                                const char *devtype,
+                                                sd_device **ret);
 
 int sd_device_get_syspath(sd_device *device, const char **ret);
 int sd_device_get_subsystem(sd_device *device, const char **ret);
@@ -89,8 +92,13 @@ sd_device *sd_device_enumerator_get_subsystem_first(sd_device_enumerator *enumer
 sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator *enumerator);
 
 int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator, const char *subsystem, int match);
-int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *sysattr, const char *value, int match);
-int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *property, const char *value);
+int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator,
+                                           const char *sysattr,
+                                           const char *value,
+                                           int match);
+int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator,
+                                            const char *property,
+                                            const char *value);
 int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname);
 int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
 int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent);
@@ -110,7 +118,9 @@ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m);
 int sd_device_monitor_start(sd_device_monitor *m, sd_device_monitor_handler_t callback, void *userdata);
 int sd_device_monitor_stop(sd_device_monitor *m);
 
-int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m, const char *subsystem, const char *devtype);
+int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_monitor *m,
+                                                         const char *subsystem,
+                                                         const char *devtype);
 int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag);
 int sd_device_monitor_filter_update(sd_device_monitor *m);
 int sd_device_monitor_filter_remove(sd_device_monitor *m);

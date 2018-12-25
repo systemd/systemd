@@ -90,8 +90,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         dev_t devt;
         int r;
 
-        /* For the specified block device tries to chase it through the layers, in case LUKS-style DM stacking is used,
-         * trying to find the next underlying layer.  */
+        /* For the specified block device tries to chase it through the layers, in case LUKS-style DM
+         * stacking is used, trying to find the next underlying layer.  */
 
         xsprintf_sys_block_path(p, "/slaves", dt);
         d = opendir(p);
@@ -109,11 +109,11 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                 if (found) {
                         _cleanup_free_ char *u = NULL, *v = NULL, *a = NULL, *b = NULL;
 
-                        /* We found a device backed by multiple other devices. We don't really support automatic
-                         * discovery on such setups, with the exception of dm-verity partitions. In this case there are
-                         * two backing devices: the data partition and the hash partition. We are fine with such
-                         * setups, however, only if both partitions are on the same physical device. Hence, let's
-                         * verify this. */
+                        /* We found a device backed by multiple other devices. We don't really support
+                         * automatic discovery on such setups, with the exception of dm-verity partitions. In
+                         * this case there are two backing devices: the data partition and the hash
+                         * partition. We are fine with such setups, however, only if both partitions are on
+                         * the same physical device. Hence, let's verify this. */
 
                         u = strjoin(p, "/", de->d_name, "/../dev");
                         if (!u)
@@ -131,8 +131,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read %s: %m", v);
 
-                        /* Check if the parent device is the same. If not, then the two backing devices are on
-                         * different physical devices, and we don't support that. */
+                        /* Check if the parent device is the same. If not, then the two backing devices are
+                         * on different physical devices, and we don't support that. */
                         if (!streq(a, b))
                                 return -ENOTUNIQ;
                 }
@@ -166,8 +166,8 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking for its
-         * immediate parent, if there is one. */
+        /* Gets the backing block device for a file system, and handles LUKS encrypted file systems, looking
+         * for its immediate parent, if there is one. */
 
         r = get_block_device(path, ret);
         if (r <= 0)

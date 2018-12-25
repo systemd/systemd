@@ -8,8 +8,10 @@
 #include "process-util.h"
 #include "util.h"
 
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG)) == LOG_REALM_SYSTEMD);
-assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG)) == LOG_REALM_UDEV);
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_FTP | LOG_DEBUG)) ==
+          LOG_REALM_SYSTEMD);
+assert_cc(LOG_REALM_REMOVE_LEVEL(LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_LOCAL7 | LOG_DEBUG)) ==
+          LOG_REALM_UDEV);
 assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_SYSTEMD, LOG_LOCAL3 | LOG_DEBUG) & LOG_FACMASK) == LOG_LOCAL3);
 assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMASK) == LOG_INFO);
 
@@ -25,10 +27,17 @@ assert_cc(!IS_SYNTHETIC_ERRNO(0));
 static void test_log_struct(void) {
         log_struct(LOG_INFO, "MESSAGE=Waldo PID=" PID_FMT " (no errno)", getpid_cached(), "SERVICE=piepapo");
 
-        log_struct_errno(LOG_INFO, EILSEQ, "MESSAGE=Waldo PID=" PID_FMT ": %m (normal)", getpid_cached(), "SERVICE=piepapo");
+        log_struct_errno(LOG_INFO,
+                         EILSEQ,
+                         "MESSAGE=Waldo PID=" PID_FMT ": %m (normal)",
+                         getpid_cached(),
+                         "SERVICE=piepapo");
 
-        log_struct_errno(
-                LOG_INFO, SYNTHETIC_ERRNO(EILSEQ), "MESSAGE=Waldo PID=" PID_FMT ": %m (synthetic)", getpid_cached(), "SERVICE=piepapo");
+        log_struct_errno(LOG_INFO,
+                         SYNTHETIC_ERRNO(EILSEQ),
+                         "MESSAGE=Waldo PID=" PID_FMT ": %m (synthetic)",
+                         getpid_cached(),
+                         "SERVICE=piepapo");
 
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID=" PID_FMT,

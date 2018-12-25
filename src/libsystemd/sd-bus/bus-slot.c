@@ -48,7 +48,9 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
                         ordered_hashmap_remove(slot->bus->reply_callbacks, &slot->reply_callback.cookie);
 
                 if (slot->reply_callback.timeout_usec != 0)
-                        prioq_remove(slot->bus->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
+                        prioq_remove(slot->bus->reply_callbacks_prioq,
+                                     &slot->reply_callback,
+                                     &slot->reply_callback.prioq_idx);
 
                 break;
 
@@ -64,7 +66,8 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
 
                 if (slot->match_callback.install_slot) {
                         bus_slot_disconnect(slot->match_callback.install_slot, true);
-                        slot->match_callback.install_slot = sd_bus_slot_unref(slot->match_callback.install_slot);
+                        slot->match_callback.install_slot = sd_bus_slot_unref(
+                                slot->match_callback.install_slot);
                 }
 
                 slot->bus->match_callbacks_modified = true;
@@ -88,7 +91,8 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
         case BUS_NODE_ENUMERATOR:
 
                 if (slot->node_enumerator.node) {
-                        LIST_REMOVE(enumerators, slot->node_enumerator.node->enumerators, &slot->node_enumerator);
+                        LIST_REMOVE(
+                                enumerators, slot->node_enumerator.node->enumerators, &slot->node_enumerator);
                         slot->bus->nodes_modified = true;
 
                         bus_node_gc(slot->bus, slot->node_enumerator.node);
@@ -99,7 +103,9 @@ void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
         case BUS_NODE_OBJECT_MANAGER:
 
                 if (slot->node_object_manager.node) {
-                        LIST_REMOVE(object_managers, slot->node_object_manager.node->object_managers, &slot->node_object_manager);
+                        LIST_REMOVE(object_managers,
+                                    slot->node_object_manager.node->object_managers,
+                                    &slot->node_object_manager);
                         slot->bus->nodes_modified = true;
 
                         bus_node_gc(slot->bus, slot->node_object_manager.node);
@@ -272,8 +278,8 @@ _public_ int sd_bus_slot_set_floating(sd_bus_slot *slot, int b) {
 
         slot->floating = b;
 
-        /* When a slot is "floating" then the bus references the slot. Otherwise the slot references the bus. Hence,
-         * when we move from one to the other, let's increase one reference and decrease the other. */
+        /* When a slot is "floating" then the bus references the slot. Otherwise the slot references the bus.
+         * Hence, when we move from one to the other, let's increase one reference and decrease the other. */
 
         if (b) {
                 sd_bus_slot_ref(slot);

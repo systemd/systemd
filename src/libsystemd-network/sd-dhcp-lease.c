@@ -417,7 +417,11 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
         return 0;
 }
 
-static int lease_parse_routes(const uint8_t *option, size_t len, struct sd_dhcp_route **routes, size_t *routes_size, size_t *routes_allocated) {
+static int lease_parse_routes(const uint8_t *option,
+                              size_t len,
+                              struct sd_dhcp_route **routes,
+                              size_t *routes_size,
+                              size_t *routes_allocated) {
 
         struct in_addr addr;
 
@@ -442,7 +446,8 @@ static int lease_parse_routes(const uint8_t *option, size_t len, struct sd_dhcp_
                 route->option = SD_DHCP_OPTION_STATIC_ROUTE;
                 r = in4_addr_default_prefixlen((struct in_addr *) option, &route->dst_prefixlen);
                 if (r < 0) {
-                        log_debug("Failed to determine destination prefix length from class based IP, ignoring");
+                        log_debug(
+                                "Failed to determine destination prefix length from class based IP, ignoring");
                         continue;
                 }
 
@@ -461,8 +466,11 @@ static int lease_parse_routes(const uint8_t *option, size_t len, struct sd_dhcp_
 }
 
 /* parses RFC3442 Classless Static Route Option */
-static int lease_parse_classless_routes(
-        const uint8_t *option, size_t len, struct sd_dhcp_route **routes, size_t *routes_size, size_t *routes_allocated) {
+static int lease_parse_classless_routes(const uint8_t *option,
+                                        size_t len,
+                                        struct sd_dhcp_route **routes,
+                                        size_t *routes_size,
+                                        size_t *routes_allocated) {
 
         assert(option || len <= 0);
         assert(routes);
@@ -570,7 +578,11 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:
-                r = lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
+                r = lease_parse_routes(option,
+                                       len,
+                                       &lease->static_route,
+                                       &lease->static_route_size,
+                                       &lease->static_route_allocated);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse static routes, ignoring: %m");
                 break;
@@ -580,7 +592,8 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse MTU, ignoring: %m");
                 if (lease->mtu < DHCP_DEFAULT_MIN_SIZE) {
-                        log_debug("MTU value of %" PRIu16 " too small. Using default MTU value of %d instead.",
+                        log_debug("MTU value of %" PRIu16
+                                  " too small. Using default MTU value of %d instead.",
                                   lease->mtu,
                                   DHCP_DEFAULT_MIN_SIZE);
                         lease->mtu = DHCP_DEFAULT_MIN_SIZE;
@@ -631,7 +644,11 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE:
-                r = lease_parse_classless_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
+                r = lease_parse_classless_routes(option,
+                                                 len,
+                                                 &lease->static_route,
+                                                 &lease->static_route_size,
+                                                 &lease->static_route_allocated);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse classless routes, ignoring: %m");
                 break;
@@ -983,9 +1000,10 @@ fail:
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
 
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
-        _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL, *server_address = NULL, *next_server = NULL,
-                            *broadcast = NULL, *dns = NULL, *ntp = NULL, *mtu = NULL, *routes = NULL, *domains = NULL,
-                            *client_id_hex = NULL, *vendor_specific_hex = NULL, *lifetime = NULL, *t1 = NULL, *t2 = NULL,
+        _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL, *server_address = NULL,
+                            *next_server = NULL, *broadcast = NULL, *dns = NULL, *ntp = NULL, *mtu = NULL,
+                            *routes = NULL, *domains = NULL, *client_id_hex = NULL,
+                            *vendor_specific_hex = NULL, *lifetime = NULL, *t1 = NULL, *t2 = NULL,
                             *options[SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1] = {};
 
         int r, i;
@@ -1179,7 +1197,10 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (routes) {
-                r = deserialize_dhcp_routes(&lease->static_route, &lease->static_route_size, &lease->static_route_allocated, routes);
+                r = deserialize_dhcp_routes(&lease->static_route,
+                                            &lease->static_route_size,
+                                            &lease->static_route_allocated,
+                                            routes);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse DHCP routes %s, ignoring: %m", routes);
         }
@@ -1209,9 +1230,12 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (vendor_specific_hex) {
-                r = unhexmem(vendor_specific_hex, (size_t) -1, &lease->vendor_specific, &lease->vendor_specific_len);
+                r = unhexmem(
+                        vendor_specific_hex, (size_t) -1, &lease->vendor_specific, &lease->vendor_specific_len);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse vendor specific data %s, ignoring: %m", vendor_specific_hex);
+                        log_debug_errno(r,
+                                        "Failed to parse vendor specific data %s, ignoring: %m",
+                                        vendor_specific_hex);
         }
 
         for (i = 0; i <= SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE; i++) {

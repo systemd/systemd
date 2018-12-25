@@ -18,7 +18,8 @@
 
 struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL;
 
-typedef EFI_STATUS(EFIAPI *EFI_INPUT_RESET_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, BOOLEAN ExtendedVerification);
+typedef EFI_STATUS(EFIAPI *EFI_INPUT_RESET_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+                                               BOOLEAN ExtendedVerification);
 
 typedef UINT8 EFI_KEY_TOGGLE_STATE;
 
@@ -32,9 +33,11 @@ typedef struct {
         EFI_KEY_STATE KeyState;
 } EFI_KEY_DATA;
 
-typedef EFI_STATUS(EFIAPI *EFI_INPUT_READ_KEY_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, EFI_KEY_DATA *KeyData);
+typedef EFI_STATUS(EFIAPI *EFI_INPUT_READ_KEY_EX)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+                                                  EFI_KEY_DATA *KeyData);
 
-typedef EFI_STATUS(EFIAPI *EFI_SET_STATE)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, EFI_KEY_TOGGLE_STATE *KeyToggleState);
+typedef EFI_STATUS(EFIAPI *EFI_SET_STATE)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+                                          EFI_KEY_TOGGLE_STATE *KeyToggleState);
 
 typedef EFI_STATUS(EFIAPI *EFI_KEY_NOTIFY_FUNCTION)(EFI_KEY_DATA *KeyData);
 
@@ -43,7 +46,8 @@ typedef EFI_STATUS(EFIAPI *EFI_REGISTER_KEYSTROKE_NOTIFY)(struct _EFI_SIMPLE_TEX
                                                           EFI_KEY_NOTIFY_FUNCTION KeyNotificationFunction,
                                                           VOID **NotifyHandle);
 
-typedef EFI_STATUS(EFIAPI *EFI_UNREGISTER_KEYSTROKE_NOTIFY)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This, VOID *NotificationHandle);
+typedef EFI_STATUS(EFIAPI *EFI_UNREGISTER_KEYSTROKE_NOTIFY)(struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *This,
+                                                            VOID *NotificationHandle);
 
 typedef struct _EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL {
         EFI_INPUT_RESET_EX Reset;
@@ -84,9 +88,11 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
 
                         /* do not distinguish between left and right keys */
                         if (keydata.KeyState.KeyShiftState & EFI_SHIFT_STATE_VALID) {
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_CONTROL_PRESSED | EFI_LEFT_CONTROL_PRESSED))
+                                if (keydata.KeyState.KeyShiftState &
+                                    (EFI_RIGHT_CONTROL_PRESSED | EFI_LEFT_CONTROL_PRESSED))
                                         shift |= EFI_CONTROL_PRESSED;
-                                if (keydata.KeyState.KeyShiftState & (EFI_RIGHT_ALT_PRESSED | EFI_LEFT_ALT_PRESSED))
+                                if (keydata.KeyState.KeyShiftState &
+                                    (EFI_RIGHT_ALT_PRESSED | EFI_LEFT_ALT_PRESSED))
                                         shift |= EFI_ALT_PRESSED;
                         };
 
@@ -159,7 +165,8 @@ static EFI_STATUS mode_auto(UINTN *mode) {
                 /* Start verifying if we are in a resolution larger than Full HD
                  * (1920x1080). If we're not, assume we're in a good mode and do not
                  * try to change it. */
-                if (Info->HorizontalResolution <= HORIZONTAL_MAX_OK && Info->VerticalResolution <= VERTICAL_MAX_OK)
+                if (Info->HorizontalResolution <= HORIZONTAL_MAX_OK &&
+                    Info->VerticalResolution <= VERTICAL_MAX_OK)
                         keep = TRUE;
                 /* For larger resolutions, calculate the ratio of the total screen
                  * area to the text viewport area. If it's less than 10 times bigger,

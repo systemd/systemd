@@ -13,8 +13,8 @@
 #include "string-util.h"
 #include "util.h"
 
-/* On current kernels the maximum digest (according to "grep digestsize /proc/crypto | sort -u") is actually 32, but
- * let's add some extra room, the few wasted bytes don't really matter... */
+/* On current kernels the maximum digest (according to "grep digestsize /proc/crypto | sort -u") is actually
+ * 32, but let's add some extra room, the few wasted bytes don't really matter... */
 #define LONGEST_DIGEST 128
 
 struct khash {
@@ -30,7 +30,9 @@ int khash_supported(void) {
                 struct sockaddr sa;
                 struct sockaddr_alg alg;
         } sa = {
-                .alg.salg_family = AF_ALG, .alg.salg_type = "hash", .alg.salg_name = "sha256", /* a very common algorithm */
+                .alg.salg_family = AF_ALG,
+                .alg.salg_type = "hash",
+                .alg.salg_name = "sha256", /* a very common algorithm */
         };
 
         static int cached = -1;
@@ -49,10 +51,10 @@ int khash_supported(void) {
                 }
 
                 if (bind(fd1, &sa.sa, sizeof(sa)) < 0) {
-                        /* The kernel returns ENOENT if the selected algorithm is not supported at all. We use a check
-                         * for SHA256 as a proxy for whether the whole API is supported at all. After all it's one of
-                         * the most common hash functions, and if it isn't supported, that's ample indication that
-                         * something is really off. */
+                        /* The kernel returns ENOENT if the selected algorithm is not supported at all. We
+                         * use a check for SHA256 as a proxy for whether the whole API is supported at all.
+                         * After all it's one of the most common hash functions, and if it isn't supported,
+                         * that's ample indication that something is really off. */
 
                         if (IN_SET(errno, ENOENT, EOPNOTSUPP))
                                 return (cached = false);

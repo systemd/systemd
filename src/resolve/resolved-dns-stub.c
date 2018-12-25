@@ -5,14 +5,15 @@
 #include "resolved-dns-stub.h"
 #include "socket-util.h"
 
-/* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
- * IP and UDP header sizes */
+/* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the
+ * Ethernet, IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U - 14U - 20U - 8U)
 
 static int manager_dns_stub_udp_fd(Manager *m);
 static int manager_dns_stub_tcp_fd(Manager *m);
 
-static int dns_stub_make_reply_packet(DnsPacket **p, size_t max_size, DnsQuestion *q, DnsAnswer *answer, bool *ret_truncated) {
+static int dns_stub_make_reply_packet(
+        DnsPacket **p, size_t max_size, DnsQuestion *q, DnsAnswer *answer, bool *ret_truncated) {
 
         bool truncated = false;
         DnsResourceRecord *rr;
@@ -21,8 +22,8 @@ static int dns_stub_make_reply_packet(DnsPacket **p, size_t max_size, DnsQuestio
 
         assert(p);
 
-        /* Note that we don't bother with any additional RRs, as this is stub is for local lookups only, and hence
-         * roundtrips aren't expensive. */
+        /* Note that we don't bother with any additional RRs, as this is stub is for local lookups only, and
+         * hence roundtrips aren't expensive. */
 
         if (!*p) {
                 r = dns_packet_new(p, DNS_PROTOCOL_DNS, 0, max_size);
@@ -100,8 +101,15 @@ static int dns_stub_finish_reply_packet(DnsPacket *p,
 
         DNS_PACKET_HEADER(p)->id = id;
 
-        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(
-                1 /* qr */, 0 /* opcode */, 0 /* aa */, tc /* tc */, 1 /* rd */, 1 /* ra */, ad /* ad */, 0 /* cd */, rcode));
+        DNS_PACKET_HEADER(p)->flags = htobe16(DNS_PACKET_MAKE_FLAGS(1 /* qr */,
+                                                                    0 /* opcode */,
+                                                                    0 /* aa */,
+                                                                    tc /* tc */,
+                                                                    1 /* rd */,
+                                                                    1 /* ra */,
+                                                                    ad /* ad */,
+                                                                    0 /* cd */,
+                                                                    rcode));
 
         if (add_opt) {
                 r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
@@ -136,11 +144,12 @@ static int dns_stub_send(Manager *m, DnsStream *s, DnsPacket *p, DnsPacket *repl
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to get reply socket: %m");
 
-                /* Note that it is essential here that we explicitly choose the source IP address for this packet. This
-                 * is because otherwise the kernel will choose it automatically based on the routing table and will
-                 * thus pick 127.0.0.1 rather than 127.0.0.53. */
+                /* Note that it is essential here that we explicitly choose the source IP address for this
+                 * packet. This is because otherwise the kernel will choose it automatically based on the
+                 * routing table and will thus pick 127.0.0.1 rather than 127.0.0.53. */
 
-                r = manager_send(m, fd, LOOPBACK_IFINDEX, p->family, &p->sender, p->sender_port, &p->destination, reply);
+                r = manager_send(
+                        m, fd, LOOPBACK_IFINDEX, p->family, &p->sender, p->sender_port, &p->destination, reply);
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
@@ -159,7 +168,8 @@ static int dns_stub_send_failure(Manager *m, DnsStream *s, DnsPacket *p, int rco
         if (r < 0)
                 return log_debug_errno(r, "Failed to make failure packet: %m");
 
-        r = dns_stub_finish_reply_packet(reply, DNS_PACKET_ID(p), rcode, false, !!p->opt, DNS_PACKET_DO(p), authenticated);
+        r = dns_stub_finish_reply_packet(
+                reply, DNS_PACKET_ID(p), rcode, false, !!p->opt, DNS_PACKET_DO(p), authenticated);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
@@ -177,8 +187,11 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_SUCCESS: {
                 bool truncated;
 
-                r = dns_stub_make_reply_packet(
-                        &q->reply_dns_packet, DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_dns_packet), q->question_idna, q->answer, &truncated);
+                r = dns_stub_make_reply_packet(&q->reply_dns_packet,
+                                               DNS_PACKET_PAYLOAD_SIZE_MAX(q->request_dns_packet),
+                                               q->question_idna,
+                                               q->answer,
+                                               &truncated);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to build reply packet: %m");
                         break;
@@ -186,7 +199,11 @@ static void dns_stub_query_complete(DnsQuery *q) {
 
                 r = dns_query_process_cname(q);
                 if (r == -ELOOP) {
-                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                        (void) dns_stub_send_failure(q->manager,
+                                                     q->request_dns_stream,
+                                                     q->request_dns_packet,
+                                                     DNS_RCODE_SERVFAIL,
+                                                     false);
                         break;
                 }
                 if (r < 0) {
@@ -208,18 +225,25 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         break;
                 }
 
-                (void) dns_stub_send(q->manager, q->request_dns_stream, q->request_dns_packet, q->reply_dns_packet);
+                (void) dns_stub_send(
+                        q->manager, q->request_dns_stream, q->request_dns_packet, q->reply_dns_packet);
                 break;
         }
 
         case DNS_TRANSACTION_RCODE_FAILURE:
-                (void) dns_stub_send_failure(
-                        q->manager, q->request_dns_stream, q->request_dns_packet, q->answer_rcode, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_failure(q->manager,
+                                             q->request_dns_stream,
+                                             q->request_dns_packet,
+                                             q->answer_rcode,
+                                             dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_NOT_FOUND:
-                (void) dns_stub_send_failure(
-                        q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_NXDOMAIN, dns_query_fully_authenticated(q));
+                (void) dns_stub_send_failure(q->manager,
+                                             q->request_dns_stream,
+                                             q->request_dns_packet,
+                                             DNS_RCODE_NXDOMAIN,
+                                             dns_query_fully_authenticated(q));
                 break;
 
         case DNS_TRANSACTION_TIMEOUT:
@@ -235,7 +259,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
         case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
-                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                (void) dns_stub_send_failure(
+                        q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
                 break;
 
         case DNS_TRANSACTION_NULL:
@@ -248,8 +273,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
         /* If there's a packet to write set, let's leave the stream around */
         if (q->request_dns_stream && DNS_STREAM_QUEUED(q->request_dns_stream)) {
 
-                /* Detach the stream from our query (make it an orphan), but do not drop the reference to it. The
-                 * default completion action of the stream will drop the reference. */
+                /* Detach the stream from our query (make it an orphan), but do not drop the reference to it.
+                 * The default completion action of the stream will drop the reference. */
 
                 dns_stub_detach_stream(q->request_dns_stream);
                 q->request_dns_stream = NULL;
@@ -279,7 +304,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
 
         /* Takes ownership of the *s stream object */
 
-        if (in_addr_is_localhost(p->family, &p->sender) <= 0 || in_addr_is_localhost(p->family, &p->destination) <= 0) {
+        if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
+            in_addr_is_localhost(p->family, &p->destination) <= 0) {
                 log_error("Got packet on unexpected IP range, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 goto fail;
@@ -323,7 +349,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 goto fail;
         }
 
-        r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL | SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(
+                m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL | SD_RESOLVED_NO_SEARCH);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
@@ -334,7 +361,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         q->clamp_ttl = true;
 
         q->request_dns_packet = dns_packet_ref(p);
-        q->request_dns_stream = dns_stream_ref(s); /* make sure the stream stays around until we can send a reply through it */
+        q->request_dns_stream = dns_stream_ref(
+                s); /* make sure the stream stays around until we can send a reply through it */
         q->complete = dns_stub_query_complete;
 
         if (s) {
@@ -438,8 +466,8 @@ static int on_dns_stub_stream_packet(DnsStream *s) {
         } else
                 log_debug("Invalid DNS stub TCP packet, ignoring.");
 
-        /* Drop the reference to the stream. Either a query was created and added its own reference to the stream now,
-         * or that didn't happen in which case we want to free the stream */
+        /* Drop the reference to the stream. Either a query was created and added its own reference to the
+         * stream now, or that didn't happen in which case we want to free the stream */
         dns_stream_unref(s);
 
         return 0;
@@ -466,8 +494,8 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
 
         stream->on_packet = on_dns_stub_stream_packet;
 
-        /* We let the reference to the stream dangling here, it will either be dropped by the default "complete" action
-         * of the stream, or by our packet callback, or when the manager is shut down. */
+        /* We let the reference to the stream dangling here, it will either be dropped by the default
+         * "complete" action of the stream, or by our packet callback, or when the manager is shut down. */
 
         return 0;
 }

@@ -134,7 +134,10 @@ int dhcp6_lease_get_pd_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
         return 0;
 }
 
-int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr, uint32_t *lifetime_preferred, uint32_t *lifetime_valid) {
+int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease,
+                               struct in6_addr *addr,
+                               uint32_t *lifetime_preferred,
+                               uint32_t *lifetime_valid) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
         assert_return(lifetime_preferred, -EINVAL);
@@ -157,8 +160,11 @@ void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
                 lease->addr_iter = lease->ia.addresses;
 }
 
-int sd_dhcp6_lease_get_pd(
-        sd_dhcp6_lease *lease, struct in6_addr *prefix, uint8_t *prefix_len, uint32_t *lifetime_preferred, uint32_t *lifetime_valid) {
+int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease,
+                          struct in6_addr *prefix,
+                          uint8_t *prefix_len,
+                          uint32_t *lifetime_preferred,
+                          uint32_t *lifetime_valid) {
         assert_return(lease, -EINVAL);
         assert_return(prefix, -EINVAL);
         assert_return(prefix_len, -EINVAL);
@@ -271,7 +277,8 @@ int dhcp6_lease_set_ntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
                         if (sublen != 16)
                                 return 0;
 
-                        s = dhcp6_option_parse_ip6addrs(subval, sublen, &lease->ntp, lease->ntp_count, &lease->ntp_allocated);
+                        s = dhcp6_option_parse_ip6addrs(
+                                subval, sublen, &lease->ntp, lease->ntp_count, &lease->ntp_allocated);
                         if (s < 0)
                                 return s;
 

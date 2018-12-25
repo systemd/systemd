@@ -112,13 +112,15 @@ int fw_add_masquerade(bool add,
         entry = alloca0(sz);
         entry->next_offset = sz;
         entry->target_offset = XT_ALIGN(sizeof(struct ipt_entry));
-        r = entry_fill_basics(entry, protocol, NULL, source, source_prefixlen, out_interface, destination, destination_prefixlen);
+        r = entry_fill_basics(
+                entry, protocol, NULL, source, source_prefixlen, out_interface, destination, destination_prefixlen);
         if (r < 0)
                 return r;
 
         /* Fill in target part */
         t = ipt_get_target(entry);
-        t->u.target_size = XT_ALIGN(sizeof(struct ipt_entry_target)) + XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
+        t->u.target_size = XT_ALIGN(sizeof(struct ipt_entry_target)) +
+                XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
         strncpy(t->u.user.name, "MASQUERADE", sizeof(t->u.user.name));
         mr = (struct nf_nat_ipv4_multi_range_compat *) t->data;
         mr->rangesize = 1;
@@ -190,8 +192,9 @@ int fw_add_local_dnat(bool add,
         if (!h)
                 return -errno;
 
-        sz = XT_ALIGN(sizeof(struct ipt_entry)) + XT_ALIGN(sizeof(struct ipt_entry_match)) + XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) +
-                XT_ALIGN(sizeof(struct ipt_entry_target)) + XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
+        sz = XT_ALIGN(sizeof(struct ipt_entry)) + XT_ALIGN(sizeof(struct ipt_entry_match)) +
+                XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) + XT_ALIGN(sizeof(struct ipt_entry_target)) +
+                XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
 
         if (protocol == IPPROTO_TCP)
                 msz = XT_ALIGN(sizeof(struct ipt_entry_match)) + XT_ALIGN(sizeof(struct xt_tcp));
@@ -203,9 +206,10 @@ int fw_add_local_dnat(bool add,
         /* Fill in basic part */
         entry = alloca0(sz);
         entry->next_offset = sz;
-        entry->target_offset = XT_ALIGN(sizeof(struct ipt_entry)) + XT_ALIGN(sizeof(struct ipt_entry_match)) +
-                XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) + msz;
-        r = entry_fill_basics(entry, protocol, in_interface, source, source_prefixlen, NULL, destination, destination_prefixlen);
+        entry->target_offset = XT_ALIGN(sizeof(struct ipt_entry)) +
+                XT_ALIGN(sizeof(struct ipt_entry_match)) + XT_ALIGN(sizeof(struct xt_addrtype_info_v1)) + msz;
+        r = entry_fill_basics(
+                entry, protocol, in_interface, source, source_prefixlen, NULL, destination, destination_prefixlen);
         if (r < 0)
                 return r;
 
@@ -233,7 +237,8 @@ int fw_add_local_dnat(bool add,
 
         /* Fill in second match */
         m = (struct ipt_entry_match *) ((uint8_t *) entry + XT_ALIGN(sizeof(struct ipt_entry)) + msz);
-        m->u.match_size = XT_ALIGN(sizeof(struct ipt_entry_match)) + XT_ALIGN(sizeof(struct xt_addrtype_info_v1));
+        m->u.match_size = XT_ALIGN(sizeof(struct ipt_entry_match)) +
+                XT_ALIGN(sizeof(struct xt_addrtype_info_v1));
         strncpy(m->u.user.name, "addrtype", sizeof(m->u.user.name));
         m->u.user.revision = 1;
         at = (struct xt_addrtype_info_v1 *) m->data;
@@ -241,7 +246,8 @@ int fw_add_local_dnat(bool add,
 
         /* Fill in target part */
         t = ipt_get_target(entry);
-        t->u.target_size = XT_ALIGN(sizeof(struct ipt_entry_target)) + XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
+        t->u.target_size = XT_ALIGN(sizeof(struct ipt_entry_target)) +
+                XT_ALIGN(sizeof(struct nf_nat_ipv4_multi_range_compat));
         strncpy(t->u.user.name, "DNAT", sizeof(t->u.user.name));
         mr = (struct nf_nat_ipv4_multi_range_compat *) t->data;
         mr->rangesize = 1;

@@ -98,7 +98,10 @@ static int write_access2_rules(const char *srcdir) {
                         /* if 3 args -> load rule   : subject object access1 */
                         /* if 4 args -> change rule : subject object access1 access2 */
                         if (sscanf(buf, "%ms %ms %ms %ms", &sbj, &obj, &acc1, &acc2) < 3) {
-                                log_error_errno(errno, "Failed to parse rule '%s' in '%s', ignoring.", buf, entry->d_name);
+                                log_error_errno(errno,
+                                                "Failed to parse rule '%s' in '%s', ignoring.",
+                                                buf,
+                                                entry->d_name);
                                 continue;
                         }
 
@@ -108,7 +111,8 @@ static int write_access2_rules(const char *srcdir) {
                                 log_error_errno(errno,
                                                 "Failed to write '%s' to '%s' in '%s': %m",
                                                 buf,
-                                                isempty(acc2) ? "/sys/fs/smackfs/load2" : "/sys/fs/smackfs/change-rule",
+                                                isempty(acc2) ? "/sys/fs/smackfs/load2" :
+                                                                "/sys/fs/smackfs/change-rule",
                                                 entry->d_name);
                         }
                 }
@@ -183,7 +187,10 @@ static int write_cipso2_rules(const char *srcdir) {
                         if (write(cipso2_fd, buf, strlen(buf)) < 0) {
                                 if (r == 0)
                                         r = -errno;
-                                log_error_errno(errno, "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m", buf, entry->d_name);
+                                log_error_errno(errno,
+                                                "Failed to write '%s' to '/sys/fs/smackfs/cipso2' in '%s': %m",
+                                                buf,
+                                                entry->d_name);
                                 break;
                         }
                 }
@@ -254,7 +261,8 @@ static int write_netlabel_rules(const char *srcdir) {
                         if (!fputs(buf, dst)) {
                                 if (r == 0)
                                         r = -EINVAL;
-                                log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel: %m");
+                                log_error_errno(errno,
+                                                "Failed to write line to /sys/fs/smackfs/netlabel: %m");
                                 break;
                         }
                         q = fflush_and_check(dst);
@@ -320,7 +328,8 @@ static int write_onlycap_list(void) {
 
         r = write(onlycap_fd, list, len);
         if (r < 0)
-                return log_error_errno(errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap': %m", list);
+                return log_error_errno(
+                        errno, "Failed to write onlycap list(%s) to '/sys/fs/smackfs/onlycap': %m", list);
 
         return 0;
 }
@@ -358,9 +367,11 @@ int mac_smack_setup(bool *loaded_policy) {
         r = write_string_file("/sys/fs/smackfs/ambient", SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK ambient label \"" SMACK_RUN_LABEL "\": %m");
-        r = write_string_file("/sys/fs/smackfs/netlabel", "0.0.0.0/0 " SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(
+                "/sys/fs/smackfs/netlabel", "0.0.0.0/0 " SMACK_RUN_LABEL, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                log_warning_errno(r, "Failed to set SMACK netlabel rule \"0.0.0.0/0 " SMACK_RUN_LABEL "\": %m");
+                log_warning_errno(r,
+                                  "Failed to set SMACK netlabel rule \"0.0.0.0/0 " SMACK_RUN_LABEL "\": %m");
         r = write_string_file("/sys/fs/smackfs/netlabel", "127.0.0.1 -CIPSO", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SMACK netlabel rule \"127.0.0.1 -CIPSO\": %m");

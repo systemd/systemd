@@ -297,7 +297,8 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         return 1;
 }
 
-_public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr *addr, unsigned addr_len, int listening) {
+_public_ int sd_is_socket_sockaddr(
+        int fd, int type, const struct sockaddr *addr, unsigned addr_len, int listening) {
         union sockaddr_union sockaddr = {};
         socklen_t l = sizeof(sockaddr);
         int r;
@@ -346,7 +347,9 @@ _public_ int sd_is_socket_sockaddr(int fd, int type, const struct sockaddr *addr
                 if (in->sin6_scope_id != 0 && sockaddr.in6.sin6_scope_id != in->sin6_scope_id)
                         return false;
 
-                return memcmp(sockaddr.in6.sin6_addr.s6_addr, in->sin6_addr.s6_addr, sizeof(in->sin6_addr.s6_addr)) == 0;
+                return memcmp(sockaddr.in6.sin6_addr.s6_addr,
+                              in->sin6_addr.s6_addr,
+                              sizeof(in->sin6_addr.s6_addr)) == 0;
         }
 }
 
@@ -384,7 +387,8 @@ _public_ int sd_is_socket_unix(int fd, int type, int listening, const char *path
                                 memcmp(path, sockaddr.un.sun_path, length + 1) == 0;
                 else
                         /* Abstract namespace socket */
-                        return (l == offsetof(struct sockaddr_un, sun_path) + length) && memcmp(path, sockaddr.un.sun_path, length) == 0;
+                        return (l == offsetof(struct sockaddr_un, sun_path) + length) &&
+                                memcmp(path, sockaddr.un.sun_path, length) == 0;
         }
 
         return 1;
@@ -425,7 +429,8 @@ _public_ int sd_is_mq(int fd, const char *path) {
         return 1;
 }
 
-_public_ int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds) {
+_public_ int sd_pid_notify_with_fds(
+        pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds) {
 
         union sockaddr_union sockaddr = {};
         struct iovec iovec;

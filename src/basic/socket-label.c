@@ -68,7 +68,9 @@ int socket_address_listen(const SocketAddress *a,
 
         if (IN_SET(socket_address_family(a), AF_INET, AF_INET6)) {
                 if (bind_to_device)
-                        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device) + 1) < 0)
+                        if (setsockopt(
+                                    fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device) + 1) <
+                            0)
                                 return -errno;
 
                 if (reuse_port) {
@@ -122,8 +124,8 @@ int socket_address_listen(const SocketAddress *a,
                 if (listen(fd, backlog) < 0)
                         return -errno;
 
-        /* Let's trigger an inotify event on the socket node, so that anyone waiting for this socket to be connectable
-         * gets notified */
+        /* Let's trigger an inotify event on the socket node, so that anyone waiting for this socket to be
+         * connectable gets notified */
         if (p)
                 (void) touch(p);
 
@@ -143,7 +145,8 @@ int make_socket_fd(int log_level, const char *address, int type, int flags) {
 
         a.type = type;
 
-        fd = socket_address_listen(&a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT, NULL, false, false, false, 0755, 0644, NULL);
+        fd = socket_address_listen(
+                &a, type | flags, SOMAXCONN, SOCKET_ADDRESS_DEFAULT, NULL, false, false, false, 0755, 0644, NULL);
         if (fd < 0 || log_get_max_level() >= log_level) {
                 _cleanup_free_ char *p = NULL;
 

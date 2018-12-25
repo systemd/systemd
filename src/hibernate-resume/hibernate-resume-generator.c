@@ -37,7 +37,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "noresume")) {
                 if (value) {
-                        log_warning("\"noresume\" kernel command line switch specified with an argument, ignoring.");
+                        log_warning(
+                                "\"noresume\" kernel command line switch specified with an argument, ignoring.");
                         return 0;
                 }
 

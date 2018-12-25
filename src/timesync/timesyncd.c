@@ -74,8 +74,9 @@ settime:
                 struct timespec ts;
                 char date[FORMAT_TIMESTAMP_MAX];
 
-                log_info("System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
-                         format_timestamp(date, sizeof(date), min));
+                log_info(
+                        "System clock time unset or jumped backwards, restoring from recorded timestamp: %s",
+                        format_timestamp(date, sizeof(date), min));
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
                         log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
@@ -113,8 +114,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
-         * privileges are already dropped. */
+        /* Drop privileges, but only if we have been started as root. If we are not running as root we assume
+         * all privileges are already dropped. */
         if (uid_current == 0) {
                 r = drop_privileges(uid, gid, (1ULL << CAP_SYS_TIME));
                 if (r < 0)

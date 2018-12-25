@@ -75,7 +75,8 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
         return 1;
 }
 
-int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata) {
+int import_uncompress(
+        ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata) {
         int r;
 
         assert(c);
@@ -241,7 +242,12 @@ static int enlarge_buffer(void **buffer, size_t *buffer_size, size_t *buffer_all
         return 1;
 }
 
-int import_compress(ImportCompress *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated) {
+int import_compress(ImportCompress *c,
+                    const void *data,
+                    size_t size,
+                    void **buffer,
+                    size_t *buffer_size,
+                    size_t *buffer_allocated) {
         int r;
 
         assert(c);

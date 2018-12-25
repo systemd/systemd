@@ -7,7 +7,8 @@
 
 const sd_bus_vtable bus_slice_vtable[] = { SD_BUS_VTABLE_START(0), SD_BUS_VTABLE_END };
 
-int bus_slice_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
+int bus_slice_set_property(
+        Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
 
         Slice *s = SLICE(u);
 

@@ -54,8 +54,11 @@ struct duid {
 } _packed_;
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len, bool strict);
-int dhcp_identifier_set_duid_llt(struct duid *duid, usec_t t, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
-int dhcp_identifier_set_duid_ll(struct duid *duid, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
+int dhcp_identifier_set_duid_llt(
+        struct duid *duid, usec_t t, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
+int dhcp_identifier_set_duid_ll(
+        struct duid *duid, const uint8_t *addr, size_t addr_len, uint16_t arp_type, size_t *len);
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len);
 int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len);
-int dhcp_identifier_set_iaid(int ifindex, const uint8_t *mac, size_t mac_len, bool legacy_unstable_byteorder, void *_id);
+int dhcp_identifier_set_iaid(
+        int ifindex, const uint8_t *mac, size_t mac_len, bool legacy_unstable_byteorder, void *_id);

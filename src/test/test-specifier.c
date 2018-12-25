@@ -36,8 +36,9 @@ static void test_specifier_escape_strv(void) {
         test_specifier_escape_strv_one(STRV_MAKE(""), STRV_MAKE(""));
         test_specifier_escape_strv_one(STRV_MAKE("foo"), STRV_MAKE("foo"));
         test_specifier_escape_strv_one(STRV_MAKE("%"), STRV_MAKE("%%"));
-        test_specifier_escape_strv_one(STRV_MAKE("foo", "%", "foo%", "%foo", "foo%foo", "quux", "%%%"),
-                                       STRV_MAKE("foo", "%%", "foo%%", "%%foo", "foo%%foo", "quux", "%%%%%%"));
+        test_specifier_escape_strv_one(
+                STRV_MAKE("foo", "%", "foo%", "%foo", "foo%foo", "quux", "%%%"),
+                STRV_MAKE("foo", "%%", "foo%%", "%%foo", "foo%%foo", "quux", "%%%%%%"));
 }
 
 int main(int argc, char *argv[]) {

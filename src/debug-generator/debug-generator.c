@@ -59,7 +59,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (value) {
                         r = parse_boolean(value);
                         if (r < 0)
-                                log_error("Failed to parse systemd.debug_shell= argument '%s', ignoring.", value);
+                                log_error("Failed to parse systemd.debug_shell= argument '%s', ignoring.",
+                                          value);
                         else
                                 arg_debug_shell = r;
                 } else
@@ -95,7 +96,7 @@ static int generate_mask_symlinks(void) {
         if (strv_isempty(arg_mask))
                 return 0;
 
-        STRV_FOREACH(u, arg_mask) {
+        STRV_FOREACH (u, arg_mask) {
                 _cleanup_free_ char *p = NULL;
 
                 p = strjoin(arg_dest, "/", *u);
@@ -116,7 +117,7 @@ static int generate_wants_symlinks(void) {
         if (strv_isempty(arg_wants))
                 return 0;
 
-        STRV_FOREACH(u, arg_wants) {
+        STRV_FOREACH (u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;
                 const char *target = arg_default_unit ?: SPECIAL_DEFAULT_TARGET;
 
@@ -142,7 +143,8 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest_early);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_RD_STRICT | PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(
+                parse_proc_cmdline_item, NULL, PROC_CMDLINE_RD_STRICT | PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 

@@ -270,8 +270,8 @@ int catalog_import_file(Hashmap *h, const char *path) {
                 if (strchr(COMMENTS, line[0]))
                         continue;
 
-                if (empty_line && strlen(line) >= 2 + 1 + 32 && line[0] == '-' && line[1] == '-' && line[2] == ' ' &&
-                    IN_SET(line[2 + 1 + 32], ' ', '\0')) {
+                if (empty_line && strlen(line) >= 2 + 1 + 32 && line[0] == '-' && line[1] == '-' &&
+                    line[2] == ' ' && IN_SET(line[2 + 1 + 32], ' ', '\0')) {
 
                         bool with_language;
                         sd_id128_t jd;
@@ -285,7 +285,10 @@ int catalog_import_file(Hashmap *h, const char *path) {
 
                                 if (got_id) {
                                         if (payload_size == 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "[%s:%u] No payload text.", path, n);
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                       "[%s:%u] No payload text.",
+                                                                       path,
+                                                                       n);
 
                                         r = finish_item(h, id, lang ?: deflang, payload, payload_size);
                                         if (r < 0)
@@ -314,10 +317,13 @@ int catalog_import_file(Hashmap *h, const char *path) {
 
                 /* Payload */
                 if (!got_id)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "[%s:%u] Got payload before ID.", path, n);
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL), "[%s:%u] Got payload before ID.", path, n);
 
                 line_len = strlen(line);
-                if (!GREEDY_REALLOC(payload, payload_allocated, payload_size + (empty_line ? 1 : 0) + line_len + 1 + 1))
+                if (!GREEDY_REALLOC(payload,
+                                    payload_allocated,
+                                    payload_size + (empty_line ? 1 : 0) + line_len + 1 + 1))
                         return log_oom();
 
                 if (empty_line)
@@ -430,7 +436,7 @@ int catalog_update(const char *database, const char *root, const char *const *di
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
-        STRV_FOREACH(f, files) {
+        STRV_FOREACH (f, files) {
                 log_debug("Reading file '%s'", *f);
                 r = catalog_import_file(h, *f);
                 if (r < 0)
@@ -449,7 +455,9 @@ int catalog_update(const char *database, const char *root, const char *const *di
 
         n = 0;
         HASHMAP_FOREACH_KEY(payload, i, h, j) {
-                log_debug("Found " SD_ID128_FORMAT_STR ", language %s", SD_ID128_FORMAT_VAL(i->id), isempty(i->language) ? "C" : i->language);
+                log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
+                          SD_ID128_FORMAT_VAL(i->id),
+                          isempty(i->language) ? "C" : i->language);
 
                 offset = strbuf_add_string(sb, payload, strlen(payload));
                 if (offset < 0)
@@ -468,7 +476,11 @@ int catalog_update(const char *database, const char *root, const char *const *di
         if (sz < 0)
                 return log_error_errno(sz, "Failed to write %s: %m", database);
 
-        log_debug("%s: wrote %u items, with %zu bytes of strings, %" PRIi64 " total size.", database, n, sb->len, sz);
+        log_debug("%s: wrote %u items, with %zu bytes of strings, %" PRIi64 " total size.",
+                  database,
+                  n,
+                  sb->len,
+                  sz);
         return 0;
 }
 
@@ -503,9 +515,12 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
         }
 
         h = p;
-        if (memcmp(h->signature, CATALOG_SIGNATURE, sizeof(h->signature)) != 0 || le64toh(h->header_size) < sizeof(CatalogHeader) ||
-            le64toh(h->catalog_item_size) < sizeof(CatalogItem) || h->incompatible_flags != 0 || le64toh(h->n_items) <= 0 ||
-            st.st_size < (off_t)(le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
+        if (memcmp(h->signature, CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
+            le64toh(h->header_size) < sizeof(CatalogHeader) ||
+            le64toh(h->catalog_item_size) < sizeof(CatalogItem) || h->incompatible_flags != 0 ||
+            le64toh(h->n_items) <= 0 ||
+            st.st_size <
+                    (off_t)(le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
                 safe_close(fd);
                 munmap(p, st.st_size);
                 return -EBADMSG;
@@ -560,7 +575,8 @@ static const char *find_id(void *p, sd_id128_t id) {
         if (!f)
                 return NULL;
 
-        return (const char *) p + le64toh(h->header_size) + le64toh(h->n_items) * le64toh(h->catalog_item_size) + le64toh(f->offset);
+        return (const char *) p + le64toh(h->header_size) +
+                le64toh(h->n_items) * le64toh(h->catalog_item_size) + le64toh(f->offset);
 }
 
 int catalog_get(const char *database, sd_id128_t id, char **_text) {
@@ -622,7 +638,11 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
                 subject = find_header(s, "Subject:");
                 defined_by = find_header(s, "Defined-By:");
 
-                fprintf(f, SD_ID128_FORMAT_STR " %s: %s\n", SD_ID128_FORMAT_VAL(id), strna(defined_by), strna(subject));
+                fprintf(f,
+                        SD_ID128_FORMAT_STR " %s: %s\n",
+                        SD_ID128_FORMAT_VAL(id),
+                        strna(defined_by),
+                        strna(subject));
         } else
                 fprintf(f, "-- " SD_ID128_FORMAT_STR "\n%s\n", SD_ID128_FORMAT_VAL(id), s);
 }
@@ -668,7 +688,7 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
         char **item;
         int r = 0;
 
-        STRV_FOREACH(item, items) {
+        STRV_FOREACH (item, items) {
                 sd_id128_t id;
                 int k;
                 _cleanup_free_ char *msg = NULL;
@@ -683,7 +703,10 @@ int catalog_list_items(FILE *f, const char *database, bool oneline, char **items
 
                 k = catalog_get(database, id, &msg);
                 if (k < 0) {
-                        log_full_errno(k == -ENOENT ? LOG_NOTICE : LOG_ERR, k, "Failed to retrieve catalog entry for '%s': %m", *item);
+                        log_full_errno(k == -ENOENT ? LOG_NOTICE : LOG_ERR,
+                                       k,
+                                       "Failed to retrieve catalog entry for '%s': %m",
+                                       *item);
                         if (r == 0)
                                 r = k;
                         continue;

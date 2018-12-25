@@ -19,8 +19,8 @@ int asynchronous_job(void *(*func)(void *p), void *arg) {
         pthread_t t;
         int r, k;
 
-        /* It kinda sucks that we have to resort to threads to implement an asynchronous close(), but well, such is
-         * life. */
+        /* It kinda sucks that we have to resort to threads to implement an asynchronous close(), but well,
+         * such is life. */
 
         r = pthread_attr_init(&a);
         if (r > 0)
@@ -63,9 +63,9 @@ int asynchronous_sync(pid_t *ret_pid) {
         int r;
 
         /* This forks off an invocation of fork() as a child process, in order to initiate synchronization to
-         * disk. Note that we implement this as helper process rather than thread as we don't want the sync() to hang our
-         * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
-         * syscalls. */
+         * disk. Note that we implement this as helper process rather than thread as we don't want the sync()
+         * to hang our original process ever, and a thread would do that as the process can't exit with
+         * threads hanging in blocking syscalls. */
 
         r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS | FORK_CLOSE_ALL_FDS, ret_pid);
         if (r < 0)

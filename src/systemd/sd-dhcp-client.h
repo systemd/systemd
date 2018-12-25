@@ -109,7 +109,12 @@ int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast);
 int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int interface_index);
 int sd_dhcp_client_set_mac(sd_dhcp_client *client, const uint8_t *addr, size_t addr_len, uint16_t arp_type);
 int sd_dhcp_client_set_client_id(sd_dhcp_client *client, uint8_t type, const uint8_t *data, size_t data_len);
-int sd_dhcp_client_set_iaid_duid(sd_dhcp_client *client, bool iaid_set, uint32_t iaid, uint16_t duid_type, const void *duid, size_t duid_len);
+int sd_dhcp_client_set_iaid_duid(sd_dhcp_client *client,
+                                 bool iaid_set,
+                                 uint32_t iaid,
+                                 uint16_t duid_type,
+                                 const void *duid,
+                                 size_t duid_len);
 int sd_dhcp_client_set_iaid_duid_llt(sd_dhcp_client *client, bool iaid_set, uint32_t iaid, uint64_t llt_time);
 int sd_dhcp_client_set_duid(sd_dhcp_client *client, uint16_t duid_type, const void *duid, size_t duid_len);
 int sd_dhcp_client_set_duid_llt(sd_dhcp_client *client, uint64_t llt_time);

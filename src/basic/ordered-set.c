@@ -35,7 +35,7 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l) {
         int n = 0, r;
         char **i;
 
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH (i, l) {
                 r = ordered_set_put_strdup(s, *i);
                 if (r < 0)
                         return r;

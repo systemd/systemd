@@ -58,8 +58,9 @@ static void test_execute_directory(bool gather_stdout) {
         char template_lo[] = "/tmp/test-exec-util.lo.XXXXXXX";
         char template_hi[] = "/tmp/test-exec-util.hi.XXXXXXX";
         const char *dirs[] = { template_hi, template_lo, NULL };
-        const char *name, *name2, *name3, *overridden, *override, *masked, *mask, *masked2, *mask2, /* the mask is non-executable */
-                *masked2e, *mask2e;                                                                 /* the mask is executable */
+        const char *name, *name2, *name3, *overridden, *override, *masked, *mask, *masked2,
+                *mask2,             /* the mask is non-executable */
+                *masked2e, *mask2e; /* the mask is executable */
 
         log_info("/* %s (%s) */", __func__, gather_stdout ? "gathering stdout" : "asynchronous");
 
@@ -78,13 +79,25 @@ static void test_execute_directory(bool gather_stdout) {
         masked2e = strjoina(template_lo, "/masked2e");
         mask2e = strjoina(template_hi, "/masked2e");
 
-        assert_se(write_string_file(name, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(name2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(overridden, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/it_works2",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(overridden,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                    WRITE_STRING_FILE_CREATE) == 0);
         assert_se(write_string_file(override, "#!/bin/sh\necho 'Executing '$0", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(write_string_file(masked2e, "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked2,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(masked2e,
+                                    "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
+                                    WRITE_STRING_FILE_CREATE) == 0);
         assert_se(symlink("/dev/null", mask) == 0);
         assert_se(touch(mask2) == 0);
         assert_se(touch(mask2e) == 0);
@@ -235,7 +248,8 @@ static void test_stdout_gathering(void) {
         name2 = strjoina(template, "/20-bar");
         name3 = strjoina(template, "/30-last");
 
-        assert_se(write_string_file(name, "#!/bin/sh\necho a\necho b\necho c\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name, "#!/bin/sh\necho a\necho b\necho c\n", WRITE_STRING_FILE_CREATE) ==
+                  0);
         assert_se(write_string_file(name2, "#!/bin/sh\necho d\n", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(write_string_file(name3, "#!/bin/sh\nsleep 1", WRITE_STRING_FILE_CREATE) == 0);
 

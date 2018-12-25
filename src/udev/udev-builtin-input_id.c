@@ -37,7 +37,8 @@ struct range {
 };
 
 /* key code ranges above BTN_MISC (start is inclusive, stop is exclusive)*/
-static const struct range high_key_blocks[] = { { KEY_OK, BTN_DPAD_UP }, { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY } };
+static const struct range high_key_blocks[] = { { KEY_OK, BTN_DPAD_UP },
+                                                { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY } };
 
 static inline int abs_size_mm(const struct input_absinfo *absinfo) {
         /* Resolution is defined to be in units/mm for ABS_X/Y */
@@ -72,7 +73,8 @@ static void extract_info(sd_device *dev, const char *devpath, bool test) {
  * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array which has a sizeof of bitmask_size
  */
-static void get_cap_mask(sd_device *pdev, const char *attr, unsigned long *bitmask, size_t bitmask_size, bool test) {
+static void get_cap_mask(
+        sd_device *pdev, const char *attr, unsigned long *bitmask, size_t bitmask_size, bool test) {
         const char *v;
         char text[4096];
         unsigned i;
@@ -92,7 +94,8 @@ static void get_cap_mask(sd_device *pdev, const char *attr, unsigned long *bitma
                 if (i < bitmask_size / sizeof(unsigned long))
                         bitmask[i] = val;
                 else
-                        log_device_debug(pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
+                        log_device_debug(
+                                pdev, "Ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
@@ -164,8 +167,10 @@ static bool test_pointers(sd_device *dev,
         finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
         for (button = BTN_MOUSE; button < BTN_JOYSTICK && !has_mouse_button; button++)
                 has_mouse_button = test_bit(button, bitmask_key);
-        has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) && test_bit(REL_Y, bitmask_rel);
-        has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) && test_bit(ABS_MT_POSITION_Y, bitmask_abs);
+        has_rel_coordinates = test_bit(EV_REL, bitmask_ev) && test_bit(REL_X, bitmask_rel) &&
+                test_bit(REL_Y, bitmask_rel);
+        has_mt_coordinates = test_bit(ABS_MT_POSITION_X, bitmask_abs) &&
+                test_bit(ABS_MT_POSITION_Y, bitmask_abs);
 
         /* unset has_mt_coordinates if devices claims to have all abs axis */
         if (has_mt_coordinates && test_bit(ABS_MT_SLOT, bitmask_abs) && test_bit(ABS_MT_SLOT - 1, bitmask_abs))
@@ -184,7 +189,9 @@ static bool test_pointers(sd_device *dev,
         if (!test_bit(BTN_JOYSTICK - 1, bitmask_key)) {
                 for (button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-                for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
+                for (button = BTN_TRIGGER_HAPPY1;
+                     button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons;
+                     button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
                 for (button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
                         has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
@@ -239,7 +246,10 @@ static bool test_pointers(sd_device *dev,
 }
 
 /* key like devices */
-static bool test_key(sd_device *dev, const unsigned long *bitmask_ev, const unsigned long *bitmask_key, bool test) {
+static bool test_key(sd_device *dev,
+                     const unsigned long *bitmask_ev,
+                     const unsigned long *bitmask_key,
+                     bool test) {
         unsigned i;
         unsigned long found;
         unsigned long mask;
@@ -255,7 +265,10 @@ static bool test_key(sd_device *dev, const unsigned long *bitmask_ev, const unsi
         found = 0;
         for (i = 0; i < BTN_MISC / BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_device_debug(dev, "test_key: checking bit block %lu for any keys; found=%i", (unsigned long) i * BITS_PER_LONG, found > 0);
+                log_device_debug(dev,
+                                 "test_key: checking bit block %lu for any keys; found=%i",
+                                 (unsigned long) i * BITS_PER_LONG,
+                                 found > 0);
         }
         /* If there are no keys in the lower block, check the higher blocks */
         if (!found) {
@@ -324,7 +337,8 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
                 get_cap_mask(pdev, "capabilities/rel", bitmask_rel, sizeof(bitmask_rel), test);
                 get_cap_mask(pdev, "capabilities/key", bitmask_key, sizeof(bitmask_key), test);
                 get_cap_mask(pdev, "properties", bitmask_props, sizeof(bitmask_props), test);
-                is_pointer = test_pointers(dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, bitmask_props, test);
+                is_pointer = test_pointers(
+                        dev, bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel, bitmask_props, test);
                 is_key = test_key(dev, bitmask_ev, bitmask_key, test);
                 /* Some evdev nodes have only a scrollwheel */
                 if (!is_pointer && !is_key && test_bit(EV_REL, bitmask_ev) &&
@@ -334,7 +348,8 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_INPUT_SWITCH", "1");
         }
 
-        if (sd_device_get_devname(dev, &devnode) >= 0 && sd_device_get_sysname(dev, &sysname) >= 0 && startswith(sysname, "event"))
+        if (sd_device_get_devname(dev, &devnode) >= 0 && sd_device_get_sysname(dev, &sysname) >= 0 &&
+            startswith(sysname, "event"))
                 extract_info(dev, devnode, test);
 
         return 0;

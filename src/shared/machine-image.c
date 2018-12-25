@@ -73,7 +73,8 @@ static Image *image_free(Image *i) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Image, image, image_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, string_compare_func, Image, image_unref);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        image_hash_ops, char, string_hash_func, string_compare_func, Image, image_unref);
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
@@ -113,8 +114,14 @@ static char *image_roothash_path(Image *image) {
         return file_in_same_dir(image->path, fn);
 }
 
-static int image_new(
-        ImageType t, const char *pretty, const char *path, const char *filename, bool read_only, usec_t crtime, usec_t mtime, Image **ret) {
+static int image_new(ImageType t,
+                     const char *pretty,
+                     const char *path,
+                     const char *filename,
+                     bool read_only,
+                     usec_t crtime,
+                     usec_t mtime,
+                     Image **ret) {
 
         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -186,7 +193,12 @@ static int extract_pretty(const char *path, const char *suffix, char **ret) {
         return 0;
 }
 
-static int image_make(const char *pretty, int dfd, const char *path, const char *filename, const struct stat *st, Image **ret) {
+static int image_make(const char *pretty,
+                      int dfd,
+                      const char *path,
+                      const char *filename,
+                      const struct stat *st,
+                      Image **ret) {
 
         _cleanup_free_ char *pretty_buffer = NULL;
         struct stat stbuf;
@@ -196,11 +208,11 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
         assert(dfd >= 0 || dfd == AT_FDCWD);
         assert(filename);
 
-        /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
-         * devices into /var/lib/machines/, and treat them normally.
+        /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and
+         * block devices into /var/lib/machines/, and treat them normally.
          *
-         * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a file we
-         * recognize. */
+         * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a
+         * file we recognize. */
 
         if (!st) {
                 if (fstatat(dfd, filename, &stbuf, 0) < 0)
@@ -209,7 +221,8 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
                 st = &stbuf;
         }
 
-        read_only = (path && path_startswith(path, "/usr")) || (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
+        read_only = (path && path_startswith(path, "/usr")) ||
+                (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
                 _cleanup_close_ int fd = -1;
@@ -245,7 +258,14 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
                                 if (r < 0)
                                         return r;
 
-                                r = image_new(IMAGE_SUBVOLUME, pretty, path, filename, info.read_only || read_only, info.otime, 0, ret);
+                                r = image_new(IMAGE_SUBVOLUME,
+                                              pretty,
+                                              path,
+                                              filename,
+                                              info.read_only || read_only,
+                                              info.otime,
+                                              0,
+                                              ret);
                                 if (r < 0)
                                         return r;
 
@@ -272,7 +292,14 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
-                r = image_new(IMAGE_DIRECTORY, pretty, path, filename, read_only || (file_attr & FS_IMMUTABLE_FL), 0, 0, ret);
+                r = image_new(IMAGE_DIRECTORY,
+                              pretty,
+                              path,
+                              filename,
+                              read_only || (file_attr & FS_IMMUTABLE_FL),
+                              0,
+                              0,
+                              ret);
                 if (r < 0)
                         return r;
 
@@ -296,7 +323,14 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
                         pretty = pretty_buffer;
                 }
 
-                r = image_new(IMAGE_RAW, pretty, path, filename, !(st->st_mode & 0222) || read_only, crtime, timespec_load(&st->st_mtim), ret);
+                r = image_new(IMAGE_RAW,
+                              pretty,
+                              path,
+                              filename,
+                              !(st->st_mode & 0222) || read_only,
+                              crtime,
+                              timespec_load(&st->st_mtim),
+                              ret);
                 if (r < 0)
                         return r;
 
@@ -324,7 +358,8 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
 
                 block_fd = openat(dfd, filename, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
+                        log_debug_errno(
+                                errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
                 else {
                         /* Refresh stat data after opening the node */
                         if (fstat(block_fd, &stbuf) < 0)
@@ -338,18 +373,25 @@ static int image_make(const char *pretty, int dfd, const char *path, const char 
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path, filename);
+                                        log_debug_errno(errno,
+                                                        "Failed to issue BLKROGET on device %s/%s, ignoring: %m",
+                                                        path,
+                                                        filename);
                                 else if (state)
                                         read_only = true;
                         }
 
                         if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path, filename);
+                                log_debug_errno(errno,
+                                                "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m",
+                                                path,
+                                                filename);
 
                         block_fd = safe_close(block_fd);
                 }
 
-                r = image_new(IMAGE_BLOCK, pretty, path, filename, !(st->st_mode & 0222) || read_only, 0, 0, ret);
+                r = image_new(
+                        IMAGE_BLOCK, pretty, path, filename, !(st->st_mode & 0222) || read_only, 0, 0, ret);
                 if (r < 0)
                         return r;
 
@@ -386,8 +428,8 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         return -errno;
                 }
 
-                /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
-                 * symlink block devices into the search path */
+                /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people
+                 * to symlink block devices into the search path */
                 if (fstatat(dirfd(d), name, &st, 0) < 0) {
                         _cleanup_free_ char *raw = NULL;
 
@@ -444,9 +486,9 @@ int image_find(ImageClass class, const char *name, Image **ret) {
 
 int image_from_path(const char *path, Image **ret) {
 
-        /* Note that we don't set the 'discoverable' field of the returned object, because we don't check here whether
-         * the image is in the image search path. And if it is we don't know if the path we used is actually not
-         * overridden by another, different image earlier in the search path */
+        /* Note that we don't set the 'discoverable' field of the returned object, because we don't check
+         * here whether the image is in the image search path. And if it is we don't know if the path we used
+         * is actually not overridden by another, different image earlier in the search path */
 
         if (path_equal(path, "/"))
                 return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
@@ -490,8 +532,8 @@ int image_discover(ImageClass class, Hashmap *h) {
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people
-                         * to symlink block devices into the search path */
+                        /* As mentioned above, we follow symlinks on this fstatat(), because we want to
+                         * permit people to symlink block devices into the search path */
                         if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
                                 if (errno == ENOENT)
                                         continue;
@@ -586,8 +628,8 @@ int image_remove(Image *i) {
 
         case IMAGE_SUBVOLUME:
 
-                /* Let's unlink first, maybe it is a symlink? If that works we are happy. Otherwise, let's get out the
-                 * big guns */
+                /* Let's unlink first, maybe it is a symlink? If that works we are happy. Otherwise, let's
+                 * get out the big guns */
                 if (unlink(i->path) < 0) {
                         r = btrfs_subvol_remove(i->path, BTRFS_REMOVE_RECURSIVE | BTRFS_REMOVE_QUOTA);
                         if (r < 0)
@@ -607,9 +649,9 @@ int image_remove(Image *i) {
 
         case IMAGE_BLOCK:
 
-                /* If this is inside of /dev, then it's a real block device, hence let's not touch the device node
-                 * itself (but let's remove the stuff stored alongside it). If it's anywhere else, let's try to unlink
-                 * the thing (it's most likely a symlink after all). */
+                /* If this is inside of /dev, then it's a real block device, hence let's not touch the device
+                 * node itself (but let's remove the stuff stored alongside it). If it's anywhere else, let's
+                 * try to unlink the thing (it's most likely a symlink after all). */
 
                 if (path_startswith(i->path, "/dev"))
                         break;
@@ -649,7 +691,8 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 }
 
 int image_rename(Image *i, const char *new_name) {
-        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT,
+                                              name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
@@ -807,16 +850,17 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY:
-                /* If we can we'll always try to create a new btrfs subvolume here, even if the source is a plain
-                 * directory. */
+                /* If we can we'll always try to create a new btrfs subvolume here, even if the source is a
+                 * plain directory. */
 
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path,
-                                          new_path,
-                                          (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY | BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                                  BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
+                r = btrfs_subvol_snapshot(
+                        i->path,
+                        new_path,
+                        (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) | BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY | BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                BTRFS_SNAPSHOT_RECURSIVE | BTRFS_SNAPSHOT_QUOTA);
                 if (r >= 0)
                         /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
                         (void) btrfs_subvol_auto_qgroup(new_path, 0, true);
@@ -965,9 +1009,15 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
 
         if (stat(path, &st) >= 0) {
                 if (S_ISBLK(st.st_mode))
-                        r = asprintf(&p, "/run/systemd/nspawn/locks/block-%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        r = asprintf(&p,
+                                     "/run/systemd/nspawn/locks/block-%u:%u",
+                                     major(st.st_rdev),
+                                     minor(st.st_rdev));
                 else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))
-                        r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                        r = asprintf(&p,
+                                     "/run/systemd/nspawn/locks/inode-%lu:%lu",
+                                     (unsigned long) st.st_dev,
+                                     (unsigned long) st.st_ino);
                 else
                         return -ENOTTY;
 
@@ -975,8 +1025,8 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         return -ENOMEM;
         }
 
-        /* For block devices we don't need the "local" lock, as the major/minor lock above should be sufficient, since
-         * block devices are device local anyway. */
+        /* For block devices we don't need the "local" lock, as the major/minor lock above should be
+         * sufficient, since block devices are device local anyway. */
         if (!path_startswith(path, "/dev")) {
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {

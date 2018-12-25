@@ -9,7 +9,8 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-static const struct ip_protocol_name *lookup_ip_protocol(register const char *str, register GPERF_LEN_TYPE len);
+static const struct ip_protocol_name *lookup_ip_protocol(register const char *str,
+                                                         register GPERF_LEN_TYPE len);
 
 #include "ip-protocol-from-name.h"
 #include "ip-protocol-to-name.h"

@@ -21,8 +21,14 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
         m = s->manager;
 
-        r = bus_verify_polkit_async(
-                message, CAP_SYS_ADMIN, "org.freedesktop.resolve1.unregister-service", NULL, false, s->originator, &m->polkit_registry, error);
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.unregister-service",
+                                    NULL,
+                                    false,
+                                    s->originator,
+                                    &m->polkit_registry,
+                                    error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -59,14 +65,21 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable dnssd_vtable[] = { SD_BUS_VTABLE_START(0),
+const sd_bus_vtable dnssd_vtable[] = {
+        SD_BUS_VTABLE_START(0),
 
-                                       SD_BUS_METHOD("Unregister", NULL, NULL, bus_dnssd_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
-                                       SD_BUS_SIGNAL("Conflicted", NULL, 0),
+        SD_BUS_METHOD("Unregister", NULL, NULL, bus_dnssd_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_SIGNAL("Conflicted", NULL, 0),
 
-                                       SD_BUS_VTABLE_END };
+        SD_BUS_VTABLE_END
+};
 
-int dnssd_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+int dnssd_object_find(sd_bus *bus,
+                      const char *path,
+                      const char *interface,
+                      void *userdata,
+                      void **found,
+                      sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
         Manager *m = userdata;
         DnssdService *service;

@@ -46,7 +46,8 @@ int manager_mdns_start(Manager *m) {
         return 0;
 
 eaddrinuse:
-        log_warning("Another mDNS responder prohibits binding the socket to the same port. Turning off mDNS support.");
+        log_warning(
+                "Another mDNS responder prohibits binding the socket to the same port. Turning off mDNS support.");
         m->mdns_support = RESOLVE_SUPPORT_NO;
         manager_mdns_stop(m);
 
@@ -229,7 +230,8 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (dns_answer_isempty(full_answer))
                 return 0;
 
-        r = dns_scope_make_reply_packet(s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, full_answer, NULL, false, &reply);
+        r = dns_scope_make_reply_packet(
+                s, DNS_PACKET_ID(p), DNS_RCODE_SUCCESS, NULL, full_answer, NULL, false, &reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
@@ -290,7 +292,8 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                         /* If the received reply packet contains ANY record that is not .local or .in-addr.arpa,
                          * we assume someone's playing tricks on us and discard the packet completely. */
-                        if (!(dns_name_endswith(name, "in-addr.arpa") > 0 || dns_name_endswith(name, "local") > 0))
+                        if (!(dns_name_endswith(name, "in-addr.arpa") > 0 ||
+                              dns_name_endswith(name, "local") > 0))
                                 return 0;
 
                         if (rr->ttl == 0) {
@@ -305,22 +308,39 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                         /* Also look for the various types of ANY transactions */
                         t = dns_scope_find_transaction(
-                                scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                                scope,
+                                &DNS_RESOURCE_KEY_CONST(
+                                        rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)),
+                                false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
                         t = dns_scope_find_transaction(
-                                scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), false);
+                                scope,
+                                &DNS_RESOURCE_KEY_CONST(
+                                        DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)),
+                                false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
                         t = dns_scope_find_transaction(
-                                scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                                scope,
+                                &DNS_RESOURCE_KEY_CONST(
+                                        DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)),
+                                false);
                         if (t)
                                 dns_transaction_process_reply(t, p);
                 }
 
-                dns_cache_put(&scope->cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
+                dns_cache_put(&scope->cache,
+                              NULL,
+                              DNS_PACKET_RCODE(p),
+                              p->answer,
+                              false,
+                              (uint32_t) -1,
+                              0,
+                              p->family,
+                              &p->sender);
 
         } else if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));

@@ -74,7 +74,8 @@ typedef enum AcquireTerminalFlags
         /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
         ACQUIRE_TERMINAL_WAIT = 2,
 
-        /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
+        /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we
+           can't become controlling process then don't mind */
         ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
 } AcquireTerminalFlags;
 

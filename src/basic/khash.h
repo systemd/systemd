@@ -15,9 +15,9 @@ int khash_supported(void);
  * sha224, sha256, sha512, sha384, sha1, md5, md4, sha3-224, sha3-256, sha3-384, sha3-512, and more. */
 int khash_new(khash **ret, const char *algorithm);
 
-/* For keyed hash functions. Hash functions commonly supported on today's kernels are: hmac(sha256), cmac(aes),
- * cmac(des3_ede), hmac(sha3-512), hmac(sha3-384), hmac(sha3-256), hmac(sha3-224), hmac(rmd160), hmac(rmd128),
- * hmac(sha224), hmac(sha512), hmac(sha384), hmac(sha1), hmac(md5), and more. */
+/* For keyed hash functions. Hash functions commonly supported on today's kernels are: hmac(sha256),
+ * cmac(aes), cmac(des3_ede), hmac(sha3-512), hmac(sha3-384), hmac(sha3-256), hmac(sha3-224), hmac(rmd160),
+ * hmac(rmd128), hmac(sha224), hmac(sha512), hmac(sha384), hmac(sha1), hmac(md5), and more. */
 int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size_t key_size);
 
 int khash_dup(khash *h, khash **ret);

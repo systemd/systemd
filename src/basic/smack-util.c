@@ -166,7 +166,8 @@ static int smack_fix_fd(int fd, const char *abspath, LabelFixFlags flags) {
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                if (getxattr_malloc(procfs_path, "security.SMACK64", &old_label, false) >= 0 && streq(old_label, label))
+                if (getxattr_malloc(procfs_path, "security.SMACK64", &old_label, false) >= 0 &&
+                    streq(old_label, label))
                         return 0;
 
                 return log_debug_errno(r, "Unable to fix SMACK label of %s: %m", abspath);

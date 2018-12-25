@@ -22,16 +22,16 @@ typedef enum ConfigParseFlags
 } ConfigParseFlags;
 
 /* Argument list for parsers of specific configuration settings. */
-#define CONFIG_PARSER_ARGUMENTS                                                                                                           \
-        const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, \
-                const char *rvalue, void *data, void *userdata
+#define CONFIG_PARSER_ARGUMENTS                                                                            \
+        const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, \
+                const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata
 
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
 
-/* A macro declaring the a function prototype, following the typedef above, simply because it's so cumbersomely long
- * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
- * prototypes on the same screen…) */
+/* A macro declaring the a function prototype, following the typedef above, simply because it's so
+ * cumbersomely long otherwise. (And current emacs gets irritatingly slow when editing files that contain
+ * lots of very long function prototypes on the same screen…) */
 #define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
 
 /* Wraps information for parsing a specific configuration variable, to
@@ -57,18 +57,33 @@ typedef struct ConfigPerfItem {
 typedef const ConfigPerfItem *(*ConfigPerfItemLookup)(const char *section_and_lvalue, unsigned length);
 
 /* Prototype for a generic high-level lookup function */
-typedef int (*ConfigItemLookup)(
-        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+typedef int (*ConfigItemLookup)(const void *table,
+                                const char *section,
+                                const char *lvalue,
+                                ConfigParserCallback *func,
+                                int *ltype,
+                                void **data,
+                                void *userdata);
 
 /* Linear table search implementation of ConfigItemLookup, based on
  * ConfigTableItem arrays */
-int config_item_table_lookup(
-        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_table_lookup(const void *table,
+                             const char *section,
+                             const char *lvalue,
+                             ConfigParserCallback *func,
+                             int *ltype,
+                             void **data,
+                             void *userdata);
 
 /* gperf implementation of ConfigItemLookup, based on gperf
  * ConfigPerfItem tables */
-int config_item_perf_lookup(
-        const void *table, const char *section, const char *lvalue, ConfigParserCallback *func, int *ltype, void **data, void *userdata);
+int config_item_perf_lookup(const void *table,
+                            const char *section,
+                            const char *lvalue,
+                            ConfigParserCallback *func,
+                            int *ltype,
+                            void **data,
+                            void *userdata);
 
 int config_parse(const char *unit,
                  const char *filename,
@@ -212,57 +227,63 @@ typedef enum Disabled
                 return 0;                                                                           \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)                                                         \
-        CONFIG_PARSER_PROTOTYPE(function) {                                                                                   \
-                type **enums = data, x, *ys;                                                                                  \
-                _cleanup_free_ type *xs = NULL;                                                                               \
-                const char *word, *state;                                                                                     \
-                size_t l, i = 0;                                                                                              \
-                                                                                                                              \
-                assert(filename);                                                                                             \
-                assert(lvalue);                                                                                               \
-                assert(rvalue);                                                                                               \
-                assert(data);                                                                                                 \
-                                                                                                                              \
-                xs = new0(type, 1);                                                                                           \
-                if (!xs)                                                                                                      \
-                        return -ENOMEM;                                                                                       \
-                                                                                                                              \
-                *xs = invalid;                                                                                                \
-                                                                                                                              \
-                FOREACH_WORD(word, l, rvalue, state) {                                                                        \
-                        _cleanup_free_ char *en = NULL;                                                                       \
-                        type *new_xs;                                                                                         \
-                                                                                                                              \
-                        en = strndup(word, l);                                                                                \
-                        if (!en)                                                                                              \
-                                return -ENOMEM;                                                                               \
-                                                                                                                              \
-                        if ((x = name##_from_string(en)) < 0) {                                                               \
-                                log_syntax(unit, LOG_ERR, filename, line, 0, msg ", ignoring: %s", en);                       \
-                                continue;                                                                                     \
-                        }                                                                                                     \
-                                                                                                                              \
-                        for (ys = xs; x != invalid && *ys != invalid; ys++) {                                                 \
-                                if (*ys == x) {                                                                               \
-                                        log_syntax(unit, LOG_NOTICE, filename, line, 0, "Duplicate entry, ignoring: %s", en); \
-                                        x = invalid;                                                                          \
-                                }                                                                                             \
-                        }                                                                                                     \
-                                                                                                                              \
-                        if (x == invalid)                                                                                     \
-                                continue;                                                                                     \
-                                                                                                                              \
-                        *(xs + i) = x;                                                                                        \
-                        new_xs = realloc(xs, (++i + 1) * sizeof(type));                                                       \
-                        if (new_xs)                                                                                           \
-                                xs = new_xs;                                                                                  \
-                        else                                                                                                  \
-                                return -ENOMEM;                                                                               \
-                                                                                                                              \
-                        *(xs + i) = invalid;                                                                                  \
-                }                                                                                                             \
-                                                                                                                              \
-                free_and_replace(*enums, xs);                                                                                 \
-                return 0;                                                                                                     \
+#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)                                   \
+        CONFIG_PARSER_PROTOTYPE(function) {                                                             \
+                type **enums = data, x, *ys;                                                            \
+                _cleanup_free_ type *xs = NULL;                                                         \
+                const char *word, *state;                                                               \
+                size_t l, i = 0;                                                                        \
+                                                                                                        \
+                assert(filename);                                                                       \
+                assert(lvalue);                                                                         \
+                assert(rvalue);                                                                         \
+                assert(data);                                                                           \
+                                                                                                        \
+                xs = new0(type, 1);                                                                     \
+                if (!xs)                                                                                \
+                        return -ENOMEM;                                                                 \
+                                                                                                        \
+                *xs = invalid;                                                                          \
+                                                                                                        \
+                FOREACH_WORD(word, l, rvalue, state) {                                                  \
+                        _cleanup_free_ char *en = NULL;                                                 \
+                        type *new_xs;                                                                   \
+                                                                                                        \
+                        en = strndup(word, l);                                                          \
+                        if (!en)                                                                        \
+                                return -ENOMEM;                                                         \
+                                                                                                        \
+                        if ((x = name##_from_string(en)) < 0) {                                         \
+                                log_syntax(unit, LOG_ERR, filename, line, 0, msg ", ignoring: %s", en); \
+                                continue;                                                               \
+                        }                                                                               \
+                                                                                                        \
+                        for (ys = xs; x != invalid && *ys != invalid; ys++) {                           \
+                                if (*ys == x) {                                                         \
+                                        log_syntax(unit,                                                \
+                                                   LOG_NOTICE,                                          \
+                                                   filename,                                            \
+                                                   line,                                                \
+                                                   0,                                                   \
+                                                   "Duplicate entry, ignoring: %s",                     \
+                                                   en);                                                 \
+                                        x = invalid;                                                    \
+                                }                                                                       \
+                        }                                                                               \
+                                                                                                        \
+                        if (x == invalid)                                                               \
+                                continue;                                                               \
+                                                                                                        \
+                        *(xs + i) = x;                                                                  \
+                        new_xs = realloc(xs, (++i + 1) * sizeof(type));                                 \
+                        if (new_xs)                                                                     \
+                                xs = new_xs;                                                            \
+                        else                                                                            \
+                                return -ENOMEM;                                                         \
+                                                                                                        \
+                        *(xs + i) = invalid;                                                            \
+                }                                                                                       \
+                                                                                                        \
+                free_and_replace(*enums, xs);                                                           \
+                return 0;                                                                               \
         }

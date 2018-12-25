@@ -14,7 +14,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL, *unit_with_multiple_dashes = NULL;
+        Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL,
+             *unit_with_multiple_dashes = NULL;
         Job *j;
         int r;
 
@@ -121,9 +122,11 @@ int main(int argc, char *argv[]) {
         assert_se(!hashmap_get(a->dependencies[UNIT_PROPAGATES_RELOAD_TO], c));
         assert_se(!hashmap_get(c->dependencies[UNIT_RELOAD_PROPAGATED_FROM], a));
 
-        assert_se(manager_load_unit(m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
+        assert_se(manager_load_unit(
+                          m, "unit-with-multiple-dashes.service", NULL, NULL, &unit_with_multiple_dashes) >= 0);
 
-        assert_se(strv_equal(unit_with_multiple_dashes->documentation, STRV_MAKE("man:test", "man:override2", "man:override3")));
+        assert_se(strv_equal(unit_with_multiple_dashes->documentation,
+                             STRV_MAKE("man:test", "man:override2", "man:override3")));
         assert_se(streq_ptr(unit_with_multiple_dashes->description, "override4"));
 
         return 0;

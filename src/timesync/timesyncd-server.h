@@ -37,7 +37,10 @@ struct ServerName {
         LIST_FIELDS(ServerName, names);
 };
 
-int server_address_new(ServerName *n, ServerAddress **ret, const union sockaddr_union *sockaddr, socklen_t socklen);
+int server_address_new(ServerName *n,
+                       ServerAddress **ret,
+                       const union sockaddr_union *sockaddr,
+                       socklen_t socklen);
 ServerAddress *server_address_free(ServerAddress *a);
 static inline int server_address_pretty(ServerAddress *a, char **pretty) {
         return sockaddr_pretty(&a->sockaddr.sa, a->socklen, true, true, pretty);

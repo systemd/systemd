@@ -57,7 +57,10 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
                 return r;
 
         /* We have a full event */
-        log_trace("Received full event from source@%p fd:%d (%s)", source, source->importer.fd, source->importer.name);
+        log_trace("Received full event from source@%p fd:%d (%s)",
+                  source,
+                  source->importer.fd,
+                  source->importer.name);
 
         if (source->importer.iovw.count == 0) {
                 log_warning("Entry with no payload, skipping");

@@ -60,7 +60,8 @@ static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setu
         handover(image, ST, setup);
 }
 #else
-typedef VOID (*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup) __attribute__((regparm(0)));
+typedef VOID (*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup)
+        __attribute__((regparm(0)));
 static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
         handover_f handover;
 
@@ -69,8 +70,13 @@ static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setu
 }
 #endif
 
-EFI_STATUS linux_exec(
-        EFI_HANDLE *image, CHAR8 *cmdline, UINTN cmdline_len, UINTN linux_addr, UINTN initrd_addr, UINTN initrd_size, BOOLEAN secure) {
+EFI_STATUS linux_exec(EFI_HANDLE *image,
+                      CHAR8 *cmdline,
+                      UINTN cmdline_len,
+                      UINTN linux_addr,
+                      UINTN initrd_addr,
+                      UINTN initrd_size,
+                      BOOLEAN secure) {
         struct SetupHeader *image_setup;
         struct SetupHeader *boot_setup;
         EFI_PHYSICAL_ADDRESS addr;
@@ -84,7 +90,8 @@ EFI_STATUS linux_exec(
                 return EFI_LOAD_ERROR;
 
         addr = 0x3fffffff;
-        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(0x4000), &addr);
+        err = uefi_call_wrapper(
+                BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(0x4000), &addr);
         if (EFI_ERROR(err))
                 return err;
         boot_setup = (struct SetupHeader *) (UINTN) addr;
@@ -107,7 +114,12 @@ EFI_STATUS linux_exec(
 
         if (cmdline) {
                 addr = 0xA0000;
-                err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(cmdline_len + 1), &addr);
+                err = uefi_call_wrapper(BS->AllocatePages,
+                                        4,
+                                        AllocateMaxAddress,
+                                        EfiLoaderData,
+                                        EFI_SIZE_TO_PAGES(cmdline_len + 1),
+                                        &addr);
                 if (EFI_ERROR(err))
                         return err;
                 CopyMem((VOID *) (UINTN) addr, cmdline, cmdline_len);

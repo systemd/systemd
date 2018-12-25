@@ -92,8 +92,14 @@ void dns_scope_next_dns_server(DnsScope *s);
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
 int dns_scope_mdns_membership(DnsScope *s, bool b);
 
-int dns_scope_make_reply_packet(
-        DnsScope *s, uint16_t id, int rcode, DnsQuestion *q, DnsAnswer *answer, DnsAnswer *soa, bool tentative, DnsPacket **ret);
+int dns_scope_make_reply_packet(DnsScope *s,
+                                uint16_t id,
+                                int rcode,
+                                DnsQuestion *q,
+                                DnsAnswer *answer,
+                                DnsAnswer *soa,
+                                bool tentative,
+                                DnsPacket **ret);
 void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p);
 
 DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok);

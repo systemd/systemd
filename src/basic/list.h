@@ -135,7 +135,8 @@
 
 #define LIST_FOREACH(name, i, head) for ((i) = (head); (i); (i) = (i)->name##_next)
 
-#define LIST_FOREACH_SAFE(name, i, n, head) for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
+#define LIST_FOREACH_SAFE(name, i, n, head) \
+        for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
 
 #define LIST_FOREACH_BEFORE(name, i, p) for ((i) = (p)->name##_prev; (i); (i) = (i)->name##_prev)
 
@@ -155,7 +156,8 @@
 
 /* Loop starting from p->next until p->prev.
    p can be adjusted meanwhile. */
-#define LIST_LOOP_BUT_ONE(name, i, head, p) \
-        for ((i) = (p)->name##_next ? (p)->name##_next : (head); (i) != (p); (i) = (i)->name##_next ? (i)->name##_next : (head))
+#define LIST_LOOP_BUT_ONE(name, i, head, p)                                  \
+        for ((i) = (p)->name##_next ? (p)->name##_next : (head); (i) != (p); \
+             (i) = (i)->name##_next ? (i)->name##_next : (head))
 
 #define LIST_IS_EMPTY(head) (!(head))

@@ -196,9 +196,9 @@ int manager_read_resolv_conf(Manager *m) {
         if (m->unicast_scope)
                 dns_cache_flush(&m->unicast_scope->cache);
 
-        /* If /etc/resolv.conf changed, make sure to forget everything we learned about the DNS servers. After all we
-         * might now talk to a very different DNS server that just happens to have the same IP address as an old one
-         * (think 192.168.1.1). */
+        /* If /etc/resolv.conf changed, make sure to forget everything we learned about the DNS servers.
+         * After all we might now talk to a very different DNS server that just happens to have the same IP
+         * address as an old one (think 192.168.1.1). */
         dns_server_reset_features_all(m->dns_servers);
 
         return 0;
@@ -221,12 +221,15 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
                 return;
         }
 
-        /* Check if the scope this DNS server belongs to is suitable as 'default' route for lookups; resolv.conf does
-         * not have a syntax to express that, so it must not appear as a global name server to avoid routing unrelated
-         * domains to it (which is a privacy violation, will most probably fail anyway, and adds unnecessary load) */
+        /* Check if the scope this DNS server belongs to is suitable as 'default' route for lookups;
+         * resolv.conf does not have a syntax to express that, so it must not appear as a global name server
+         * to avoid routing unrelated domains to it (which is a privacy violation, will most probably fail
+         * anyway, and adds unnecessary load) */
         scope = dns_server_scope(s);
         if (scope && !dns_scope_is_default_route(scope)) {
-                log_debug("Scope of DNS server %s has only route-only domains, not using as global name server", dns_server_string(s));
+                log_debug(
+                        "Scope of DNS server %s has only route-only domains, not using as global name server",
+                        dns_server_string(s));
                 return;
         }
 
@@ -254,7 +257,8 @@ static void write_resolv_conf_search(OrderedSet *domains, FILE *f) {
                 }
                 length += strlen(domain) + 1;
                 if (length > 256) {
-                        fputs("\n# Total length of all search domains is too long, remaining ones ignored.", f);
+                        fputs("\n# Total length of all search domains is too long, remaining ones ignored.",
+                              f);
                         break;
                 }
                 fputc(' ', f);
@@ -346,7 +350,8 @@ int manager_write_resolv_conf(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to compile list of search domains: %m");
 
-        r = fopen_temporary_label(PRIVATE_UPLINK_RESOLV_CONF, PRIVATE_UPLINK_RESOLV_CONF, &f_uplink, &temp_path_uplink);
+        r = fopen_temporary_label(
+                PRIVATE_UPLINK_RESOLV_CONF, PRIVATE_UPLINK_RESOLV_CONF, &f_uplink, &temp_path_uplink);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
 

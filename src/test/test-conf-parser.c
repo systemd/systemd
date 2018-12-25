@@ -13,35 +13,40 @@
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
         _cleanup_free_ char *path = NULL;
 
-        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
+        assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >=
+                  0);
         assert_se(streq_ptr(expected, path));
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
         int log_level = 0;
 
-        assert_se(config_parse_log_level("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >= 0);
+        assert_se(config_parse_log_level(
+                          "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_level, NULL) >= 0);
         assert_se(expected == log_level);
 }
 
 static void test_config_parse_log_facility_one(const char *rvalue, int expected) {
         int log_facility = 0;
 
-        assert_se(config_parse_log_facility("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >= 0);
+        assert_se(config_parse_log_facility(
+                          "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &log_facility, NULL) >= 0);
         assert_se(expected == log_facility);
 }
 
 static void test_config_parse_iec_size_one(const char *rvalue, size_t expected) {
         size_t iec_size = 0;
 
-        assert_se(config_parse_iec_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >= 0);
+        assert_se(config_parse_iec_size(
+                          "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &iec_size, NULL) >= 0);
         assert_se(expected == iec_size);
 }
 
 static void test_config_parse_si_size_one(const char *rvalue, size_t expected) {
         size_t si_size = 0;
 
-        assert_se(config_parse_si_size("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_size, NULL) >= 0);
+        assert_se(config_parse_si_size(
+                          "unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &si_size, NULL) >= 0);
         assert_se(expected == si_size);
 }
 
@@ -55,14 +60,16 @@ static void test_config_parse_int_one(const char *rvalue, int expected) {
 static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected) {
         unsigned v = 0;
 
-        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
+        assert_se(config_parse_unsigned("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >=
+                  0);
         assert_se(expected == v);
 }
 
 static void test_config_parse_strv_one(const char *rvalue, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
-        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
+        assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >=
+                  0);
         assert_se(strv_equal(expected, strv));
 }
 
@@ -204,10 +211,12 @@ static void test_config_parse_nsec(void) {
 
 static void test_config_parse_iec_uint64(void) {
         uint64_t offset = 0;
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(
+                          NULL, "/this/file", 11, "Section", 22, "Size", 0, "4M", &offset, NULL) == 0);
         assert_se(offset == 4 * 1024 * 1024);
 
-        assert_se(config_parse_iec_uint64(NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
+        assert_se(config_parse_iec_uint64(
+                          NULL, "/this/file", 11, "Section", 22, "Size", 0, "4.5M", &offset, NULL) == 0);
 }
 
 #define x10(x) x x x x x x x x x x

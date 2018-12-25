@@ -32,7 +32,8 @@ typedef enum DnsServerFeatureLevel
 
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
-#define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) \
+        IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
 
 const char *dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
@@ -91,7 +92,13 @@ struct DnsServer {
         LIST_FIELDS(DnsServer, servers);
 };
 
-int dns_server_new(Manager *m, DnsServer **ret, DnsServerType type, Link *link, int family, const union in_addr_union *address, int ifindex);
+int dns_server_new(Manager *m,
+                   DnsServer **ret,
+                   DnsServerType type,
+                   Link *link,
+                   int family,
+                   const union in_addr_union *address,
+                   int ifindex);
 
 DnsServer *dns_server_ref(DnsServer *s);
 DnsServer *dns_server_unref(DnsServer *s);

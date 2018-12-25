@@ -40,16 +40,18 @@ int udev_watch_restore(void) {
 
         if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
                 if (errno != ENOENT)
-                        return log_warning_errno(errno,
-                                                 "Failed to move watches directory /run/udev/watch. Old watches will not be restored: %m");
+                        return log_warning_errno(
+                                errno,
+                                "Failed to move watches directory /run/udev/watch. Old watches will not be restored: %m");
 
                 return 0;
         }
 
         dir = opendir("/run/udev/watch.old");
         if (!dir)
-                return log_warning_errno(errno,
-                                         "Failed to open old watches directory /run/udev/watch.old. Old watches will not be restored: %m");
+                return log_warning_errno(
+                        errno,
+                        "Failed to open old watches directory /run/udev/watch.old. Old watches will not be restored: %m");
 
         FOREACH_DIRENT_ALL(ent, dir, break) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -60,7 +62,8 @@ int udev_watch_restore(void) {
 
                 r = readlinkat_malloc(dirfd(dir), ent->d_name, &device);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
+                        log_debug_errno(
+                                r, "Failed to read link '/run/udev/watch.old/%s', ignoring: %m", ent->d_name);
                         goto unlink;
                 }
 
@@ -97,14 +100,19 @@ int udev_watch_begin(sd_device *dev) {
         log_device_debug(dev, "Adding watch on '%s'", devnode);
         wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
         if (wd < 0)
-                return log_device_full(dev, errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to add device '%s' to watch: %m", devnode);
+                return log_device_full(dev,
+                                       errno == ENOENT ? LOG_DEBUG : LOG_ERR,
+                                       errno,
+                                       "Failed to add device '%s' to watch: %m",
+                                       devnode);
 
         device_set_watch_handle(dev, wd);
 
         xsprintf(filename, "/run/udev/watch/%d", wd);
         r = mkdir_parents(filename, 0755);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to create parent directory of '%s': %m", filename);
+                return log_device_error_errno(
+                        dev, r, "Failed to create parent directory of '%s': %m", filename);
         (void) unlink(filename);
 
         r = device_get_id_filename(dev, &id_filename);

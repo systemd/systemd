@@ -36,7 +36,7 @@ struct User {
 
         Session *display;
 
-        dual_timestamp timestamp;      /* When this User object was 'started' the first time */
+        dual_timestamp timestamp; /* When this User object was 'started' the first time */
         usec_t last_session_timestamp; /* When the number of sessions of this user went from 1 to 0 the last time */
 
         /* Set up when the last session of the user logs out */
@@ -72,7 +72,12 @@ void user_update_last_session_timer(User *u);
 
 extern const sd_bus_vtable user_vtable[];
 int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
-int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+int user_object_find(sd_bus *bus,
+                     const char *path,
+                     const char *interface,
+                     void *userdata,
+                     void **found,
+                     sd_bus_error *error);
 char *user_bus_path(User *s);
 
 int user_send_signal(User *u, bool new_user);

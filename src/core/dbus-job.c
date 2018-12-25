@@ -14,8 +14,13 @@
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);
 
-static int property_get_unit(
-        sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+static int property_get_unit(sd_bus *bus,
+                             const char *path,
+                             const char *interface,
+                             const char *property,
+                             sd_bus_message *reply,
+                             void *userdata,
+                             sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
         Job *j = userdata;
@@ -112,12 +117,15 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetAfter", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetAfter", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD(
+                "GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY(
+                "State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
 };
 
@@ -134,7 +142,8 @@ static int send_new_signal(sd_bus *bus, void *userdata) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew");
+        r = sd_bus_message_new_signal(
+                bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobNew");
         if (r < 0)
                 return r;
 
@@ -172,7 +181,8 @@ void bus_job_send_change_signal(Job *j) {
                 j->in_dbus_queue = false;
         }
 
-        r = bus_foreach_bus(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
+        r = bus_foreach_bus(
+                j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);
         if (r < 0)
                 log_debug_errno(r, "Failed to send job change signal for %u: %m", j->id);
 
@@ -207,7 +217,8 @@ static int send_removed_signal(sd_bus *bus, void *userdata) {
         if (!p)
                 return -ENOMEM;
 
-        r = sd_bus_message_new_signal(bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved");
+        r = sd_bus_message_new_signal(
+                bus, &m, "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "JobRemoved");
         if (r < 0)
                 return r;
 

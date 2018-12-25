@@ -7,7 +7,8 @@
 #define FRA_TUN_ID 12
 #endif
 
-#if !HAVE_FRA_SUPPRESS_PREFIXLEN /* linux@6ef94cfafba159d6b1a902ccb3349ac6a34ff6ad, 73f5698e77219bfc3ea1903759fe8e20ab5b285e (3.12) */
+#if !HAVE_FRA_SUPPRESS_PREFIXLEN /* linux@6ef94cfafba159d6b1a902ccb3349ac6a34ff6ad, \
+                                    73f5698e77219bfc3ea1903759fe8e20ab5b285e (3.12) */
 #define FRA_SUPPRESS_IFGROUP 13
 #define FRA_SUPPRESS_PREFIXLEN 14
 #endif
@@ -29,7 +30,8 @@ struct fib_rule_uid_range {
 };
 #endif
 
-#if !HAVE_FRA_DPORT_RANGE /* linux@1b71af6053af1bd2f849e9fda4f71c1e3f145dcf, bfff4862653bb96001ab57c1edd6d03f48e5f035 (4.17) */
+#if !HAVE_FRA_DPORT_RANGE /* linux@1b71af6053af1bd2f849e9fda4f71c1e3f145dcf, \
+                             bfff4862653bb96001ab57c1edd6d03f48e5f035 (4.17) */
 #define FRA_PROTOCOL 21
 #define FRA_IP_PROTO 22
 #define FRA_SPORT_RANGE 23

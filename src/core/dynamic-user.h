@@ -11,15 +11,15 @@ typedef struct DynamicCreds {
 
 #include "manager.h"
 
-/* Note that this object always allocates a pair of user and group under the same name, even if one of them isn't
- * used. This means, if you want to allocate a group and user pair, and they might have two different names, then you
- * need to allocated two of these objects. DynamicCreds below makes that easy. */
+/* Note that this object always allocates a pair of user and group under the same name, even if one of them
+ * isn't used. This means, if you want to allocate a group and user pair, and they might have two different
+ * names, then you need to allocated two of these objects. DynamicCreds below makes that easy. */
 struct DynamicUser {
         unsigned n_ref;
         Manager *manager;
 
-        /* An AF_UNIX socket pair that contains a datagram containing both the numeric ID assigned, as well as a lock
-         * file fd locking the user ID we picked. */
+        /* An AF_UNIX socket pair that contains a datagram containing both the numeric ID assigned, as well
+         * as a lock file fd locking the user ID we picked. */
         int storage_socket[2];
 
         char name[];

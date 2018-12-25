@@ -68,7 +68,9 @@ static void print_device(struct udev_device *device) {
 
         count = 0;
         udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device)) {
-                log_info("property:  '%s=%s'", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
+                log_info("property:  '%s=%s'",
+                         udev_list_entry_get_name(list_entry),
+                         udev_list_entry_get_value(list_entry));
                 count++;
         }
         if (count > 0)
@@ -148,9 +150,12 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
                 struct udev_device *device;
 
-                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate), udev_list_entry_get_name(list_entry));
+                device = udev_device_new_from_syspath(udev_enumerate_get_udev(enumerate),
+                                                      udev_list_entry_get_name(list_entry));
                 if (device != NULL) {
-                        log_info("device: '%s' (%s)", udev_device_get_syspath(device), udev_device_get_subsystem(device));
+                        log_info("device: '%s' (%s)",
+                                 udev_device_get_syspath(device),
+                                 udev_device_get_subsystem(device));
                         udev_device_unref(device);
                         count++;
                 }
@@ -373,7 +378,10 @@ static void test_util_replace_whitespace(void) {
         test_util_replace_whitespace_one_len("         hoge   hoge    ", 0, "");
 }
 
-static void test_util_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
+static void test_util_resolve_subsys_kernel_one(const char *str,
+                                                bool read_value,
+                                                int retval,
+                                                const char *expected) {
         char result[UTIL_PATH_SIZE];
         int r;
 

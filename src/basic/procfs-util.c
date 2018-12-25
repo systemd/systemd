@@ -21,19 +21,19 @@ int procfs_tasks_get_limit(uint64_t *ret) {
 
         /* So there are two sysctl files that control the system limit of processes:
          *
-         * 1. kernel.threads-max: this is probably the sysctl that makes more sense, as it directly puts a limit on
-         *    concurrent tasks.
+         * 1. kernel.threads-max: this is probably the sysctl that makes more sense, as it directly puts a
+         * limit on concurrent tasks.
          *
-         * 2. kernel.pid_max: this limits the numeric range PIDs can take, and thus indirectly also limits the number
-         *    of concurrent threads. AFAICS it's primarily a compatibility concept: some crappy old code used a signed
-         *    16bit type for PIDs, hence the kernel provides a way to ensure the PIDs never go beyond INT16_MAX by
-         *    default.
+         * 2. kernel.pid_max: this limits the numeric range PIDs can take, and thus indirectly also limits
+         * the number of concurrent threads. AFAICS it's primarily a compatibility concept: some crappy old
+         * code used a signed 16bit type for PIDs, hence the kernel provides a way to ensure the PIDs never
+         * go beyond INT16_MAX by default.
          *
-         * By default #2 is set to much lower values than #1, hence the limit people come into contact with first, as
-         * it's the lowest boundary they need to bump when they want higher number of processes.
+         * By default #2 is set to much lower values than #1, hence the limit people come into contact with
+         * first, as it's the lowest boundary they need to bump when they want higher number of processes.
          *
-         * Also note the weird definition of #2: PIDs assigned will be kept below this value, which means the number of
-         * tasks that can be created is one lower, as PID 0 is not a valid process ID. */
+         * Also note the weird definition of #2: PIDs assigned will be kept below this value, which means the
+         * number of tasks that can be created is one lower, as PID 0 is not a valid process ID. */
 
         r = read_one_line_file("/proc/sys/kernel/pid_max", &value);
         if (r < 0)
@@ -63,15 +63,15 @@ int procfs_tasks_set_limit(uint64_t limit) {
         uint64_t pid_max;
         int r;
 
-        if (limit == 0) /* This makes no sense, we are userspace and hence count as tasks too, and we want to live,
-                         * hence the limit conceptually has to be above 0. Also, most likely if anyone asks for a zero
-                         * limit he/she probably means "no limit", hence let's better refuse this to avoid
-                         * confusion. */
+        if (limit == 0) /* This makes no sense, we are userspace and hence count as tasks too, and we want to
+                         * live, hence the limit conceptually has to be above 0. Also, most likely if anyone
+                         * asks for a zero limit he/she probably means "no limit", hence let's better refuse
+                         * this to avoid confusion. */
                 return -EINVAL;
 
-        /* The Linux kernel doesn't allow this value to go below 20, hence don't allow this either, higher values than
-         * TASKS_MAX are not accepted by the pid_max sysctl. We'll treat anything this high as "unbounded" and hence
-         * set it to the maximum. */
+        /* The Linux kernel doesn't allow this value to go below 20, hence don't allow this either, higher
+         * values than TASKS_MAX are not accepted by the pid_max sysctl. We'll treat anything this high as
+         * "unbounded" and hence set it to the maximum. */
         limit = CLAMP(limit, 20U, TASKS_MAX);
 
         r = read_one_line_file("/proc/sys/kernel/pid_max", &value);
@@ -81,8 +81,8 @@ int procfs_tasks_set_limit(uint64_t limit) {
         if (r < 0)
                 return r;
 
-        /* As pid_max is about the numeric pid_t range we'll bump it if necessary, but only ever increase it, never
-         * decrease it, as threads-max is the much more relevant sysctl. */
+        /* As pid_max is about the numeric pid_t range we'll bump it if necessary, but only ever increase it,
+         * never decrease it, as threads-max is the much more relevant sysctl. */
         if (limit > pid_max - 1) {
                 sprintf(buffer, "%" PRIu64, limit + 1); /* Add one, since PID 0 is not a valid PID */
                 r = write_string_file("/proc/sys/kernel/pid_max", buffer, WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -95,8 +95,8 @@ int procfs_tasks_set_limit(uint64_t limit) {
         if (r < 0) {
                 uint64_t threads_max;
 
-                /* Hmm, we couldn't write this? If so, maybe it was already set properly? In that case let's not
-                 * generate an error */
+                /* Hmm, we couldn't write this? If so, maybe it was already set properly? In that case let's
+                 * not generate an error */
 
                 value = mfree(value);
                 if (read_one_line_file("/proc/sys/kernel/threads-max", &value) < 0)
@@ -126,8 +126,8 @@ int procfs_tasks_get_current(uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        /* Look for the second part of the fourth field, which is separated by a slash from the first part. None of the
-         * earlier fields use a slash, hence let's use this to find the right spot. */
+        /* Look for the second part of the fourth field, which is separated by a slash from the first part.
+         * None of the earlier fields use a slash, hence let's use this to find the right spot. */
         p = strchr(value, '/');
         if (!p)
                 return -EINVAL;
@@ -155,7 +155,8 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
 
 int procfs_cpu_get_usage(nsec_t *ret) {
         _cleanup_free_ char *first_line = NULL;
-        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks, guest_ticks = 0, guest_nice_ticks = 0;
+        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks, guest_ticks = 0,
+                                                                                      guest_nice_ticks = 0;
         long ticks_per_second;
         uint64_t sum, gcd, a, b;
         const char *p;
@@ -187,8 +188,8 @@ int procfs_cpu_get_usage(nsec_t *ret) {
                 return -errno;
         assert(ticks_per_second > 0);
 
-        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks + (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
-                (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
+        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks + (uint64_t) irq_ticks +
+                (uint64_t) softirq_ticks + (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
 
         /* Let's reduce this fraction before we apply it to avoid overflows when converting this to µsec */
         gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);

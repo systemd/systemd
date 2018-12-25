@@ -54,7 +54,8 @@ int calc_acl_mask_if_needed(acl_t *acl_p) {
 
         assert(acl_p);
 
-        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0;
+             r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
 
                 if (acl_get_tag_type(i, &tag) < 0)
@@ -84,7 +85,8 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
 
         assert(acl_p);
 
-        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i); r > 0;
+             r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
 
                 if (acl_get_tag_type(i, &tag) < 0)
@@ -110,14 +112,16 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
         if (!basic)
                 return -errno;
 
-        for (r = acl_get_entry(basic, ACL_FIRST_ENTRY, &i); r > 0; r = acl_get_entry(basic, ACL_NEXT_ENTRY, &i)) {
+        for (r = acl_get_entry(basic, ACL_FIRST_ENTRY, &i); r > 0;
+             r = acl_get_entry(basic, ACL_NEXT_ENTRY, &i)) {
                 acl_tag_t tag;
                 acl_entry_t dst;
 
                 if (acl_get_tag_type(i, &tag) < 0)
                         return -errno;
 
-                if ((tag == ACL_USER_OBJ && have_user_obj) || (tag == ACL_GROUP_OBJ && have_group_obj) || (tag == ACL_OTHER && have_other))
+                if ((tag == ACL_USER_OBJ && have_user_obj) || (tag == ACL_GROUP_OBJ && have_group_obj) ||
+                    (tag == ACL_OTHER && have_other))
                         continue;
 
                 r = acl_create_entry(acl_p, &dst);
@@ -372,7 +376,8 @@ int add_acls_for_user(int fd, uid_t uid) {
 
         r = acl_find_uid(acl, uid, &entry);
         if (r <= 0) {
-                if (acl_create_entry(&acl, &entry) < 0 || acl_set_tag_type(entry, ACL_USER) < 0 || acl_set_qualifier(entry, &uid) < 0)
+                if (acl_create_entry(&acl, &entry) < 0 || acl_set_tag_type(entry, ACL_USER) < 0 ||
+                    acl_set_qualifier(entry, &uid) < 0)
                         return -errno;
         }
 

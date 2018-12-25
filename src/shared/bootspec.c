@@ -328,14 +328,16 @@ static int boot_entries_select_default(const BootConfig *config) {
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_oneshot, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot", config->entries[i].id);
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
+                                          config->entries[i].id);
                                 return i;
                         }
 
         if (config->entry_default)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_default, config->entries[i].id)) {
-                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault", config->entries[i].id);
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
+                                          config->entries[i].id);
                                 return i;
                         }
 
@@ -418,8 +420,8 @@ static int verify_esp(const char *p,
 
         relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
 
-        /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
-         * issues. Let's also, silence the error messages. */
+        /* Non-root user can only check the status, so if an error occured in the following, it does not
+         * cause any issues. Let's also, silence the error messages. */
 
         if (!relax_checks) {
                 if (statfs(p, &sfs) < 0) {
@@ -437,7 +439,8 @@ static int verify_esp(const char *p,
                         if (searching)
                                 return -EADDRNOTAVAIL;
 
-                        log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
+                        log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.",
+                                  p);
                         return -ENODEV;
                 }
         }
@@ -462,7 +465,8 @@ static int verify_esp(const char *p,
                                       p);
 
         if (st.st_dev == st2.st_dev) {
-                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
+                log_error("Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.",
+                          p);
                 return -ENODEV;
         }
 
@@ -599,10 +603,12 @@ int find_esp_and_warn(const char *path,
         if (path) {
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL), "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s", path);
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "$SYSTEMD_ESP_PATH does not refer to absolute path, refusing to use it: %s",
+                                path);
 
-                /* Note: when the user explicitly configured things with an env var we won't validate the mount
-                 * point. After all we want this to be useful for testing. */
+                /* Note: when the user explicitly configured things with an env var we won't validate the
+                 * mount point. After all we want this to be useful for testing. */
                 goto found;
         }
 
@@ -649,7 +655,8 @@ int find_default_boot_entry(const char *esp_path, char **esp_where, BootConfig *
                 return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
         if (config->default_entry < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No entry suitable as default, refusing to guess.");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No entry suitable as default, refusing to guess.");
 
         *e = &config->entries[config->default_entry];
         log_debug("Found default boot entry in file \"%s\"", (*e)->path);
