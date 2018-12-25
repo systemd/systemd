@@ -17,3 +17,8 @@ sed -i 's/2\.30/2.27/' meson.build
 meson --werror -Db_sanitize=address,undefined -Dsplit-usr=true build
 ninja -v -C build
 make -C test/TEST-01-BASIC clean setup run TEST_NO_QEMU=yes NSPAWN_ARGUMENTS=--keep-unit RUN_IN_UNPRIVILEGED_CONTAINER=no
+
+# Now that we're more or less sure that ASan isn't going to crash systemd and cause a kernel panic
+# let's also run the test with QEMU to cover udevd, sysctl and everything else that isn't run
+# in containers.
+make -C test/TEST-01-BASIC clean setup run TEST_NO_NSPAWN=yes
