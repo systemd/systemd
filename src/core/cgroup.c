@@ -396,26 +396,31 @@ static void cgroup_xattr_apply(Unit *u) {
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
-        struct stat st = {};
+        dev_t rdev, dev = 0;
+        mode_t mode;
         int r;
 
         assert(p);
         assert(ret);
 
-        r = device_path_parse_major_minor(p, &st.st_mode, &st.st_rdev);
+        r = device_path_parse_major_minor(p, &mode, &rdev);
         if (r == -ENODEV) { /* not a parsable device node, need to go to disk */
+                struct stat st;
                 if (stat(p, &st) < 0)
                         return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+                rdev = (dev_t)st.st_rdev;
+                dev = (dev_t)st.st_dev;
+                mode = st.st_mode;
         } else if (r < 0)
                 return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
 
-        if (S_ISCHR(st.st_mode)) {
+        if (S_ISCHR(mode)) {
                 log_warning("Device node '%s' is a character device, but block device needed.", p);
                 return -ENOTBLK;
-        } else if (S_ISBLK(st.st_mode))
-                *ret = st.st_rdev;
-        else if (major(st.st_dev) != 0)
-                *ret = st.st_dev; /* If this is not a device node then use the block device this file is stored on */
+        } else if (S_ISBLK(mode))
+                *ret = rdev;
+        else if (major(dev) != 0)
+                *ret = dev; /* If this is not a device node then use the block device this file is stored on */
         else {
                 /* If this is btrfs, getting the backing block device is a bit harder */
                 r = btrfs_get_block_device(p, ret);
@@ -436,7 +441,8 @@ static int lookup_block_device(const char *p, dev_t *ret) {
 }
 
 static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
-        struct stat st = {};
+        dev_t rdev;
+        mode_t mode;
         int r;
 
         assert(path);
@@ -445,11 +451,12 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
         /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
          * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
          * means clients can use these path without the device node actually around */
-        r = device_path_parse_major_minor(node, &st.st_mode, &st.st_rdev);
+        r = device_path_parse_major_minor(node, &mode, &rdev);
         if (r < 0) {
                 if (r != -ENODEV)
                         return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
 
+                struct stat st;
                 if (stat(node, &st) < 0)
                         return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
 
@@ -457,22 +464,24 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
                         log_warning("%s is not a device.", node);
                         return -ENODEV;
                 }
+                rdev = (dev_t) st.st_rdev;
+                mode = st.st_mode;
         }
 
         if (cg_all_unified() > 0) {
                 if (!prog)
                         return 0;
 
-                return cgroup_bpf_whitelist_device(prog, S_ISCHR(st.st_mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
-                                                   major(st.st_rdev), minor(st.st_rdev), acc);
+                return cgroup_bpf_whitelist_device(prog, S_ISCHR(mode) ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                   major(rdev), minor(rdev), acc);
 
         } else {
                 char buf[2+DECIMAL_STR_MAX(dev_t)*2+2+4];
 
                 sprintf(buf,
                         "%c %u:%u %s",
-                        S_ISCHR(st.st_mode) ? 'c' : 'b',
-                        major(st.st_rdev), minor(st.st_rdev),
+                        S_ISCHR(mode) ? 'c' : 'b',
+                        major(rdev), minor(rdev),
                         acc);
 
                 /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore EINVAL here. */
