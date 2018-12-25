@@ -344,6 +344,7 @@ if [[ "\$PATH_TO_ASAN" ]]; then
   DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=\$PATH_TO_ASAN"
 fi
 echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
+echo DefaultTimeoutStartSec=180s >>/etc/systemd/system.conf
 
 # ASAN and syscall filters aren't compatible with each other.
 find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\)/#\\1/'
