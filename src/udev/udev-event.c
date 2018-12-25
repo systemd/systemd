@@ -570,13 +570,17 @@ static int spawn_wait(Spawn *spawn) {
                 }
         }
 
-        r = sd_event_add_io(e, NULL, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
-        if (r < 0)
-                return r;
+        if (spawn->fd_stdout >= 0) {
+                r = sd_event_add_io(e, NULL, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
+                if (r < 0)
+                        return r;
+        }
 
-        r = sd_event_add_io(e, NULL, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
-        if (r < 0)
-                return r;
+        if (spawn->fd_stderr >= 0) {
+                r = sd_event_add_io(e, NULL, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_event_add_child(e, NULL, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
         if (r < 0)
