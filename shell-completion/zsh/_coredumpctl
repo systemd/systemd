@@ -39,5 +39,5 @@ _arguments \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
-    '--debugger=[Use the given debugger]' \
+    '--debugger=[Use the given debugger]:debugger: _command_names -e' \
     '*::coredumpctl commands:_coredumpctl_command'
