@@ -41,4 +41,5 @@ _arguments \
     '--version[Show package version]' \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \
     {-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
+    {-q,--quiet}'[Do not show info messages and privilege warning]' \
     '*::coredumpctl commands:_coredumpctl_command'
