@@ -795,7 +795,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['ip', 'neigh', 'list']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '2004:da8:1:0::1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
 
     def test_sysctl(self):
         self.copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
