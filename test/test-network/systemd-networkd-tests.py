@@ -20,7 +20,6 @@ networkd_ci_path='/run/networkd-ci'
 network_sysctl_ipv6_path='/proc/sys/net/ipv6/conf'
 network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 
-dnsmasq_config_file='/run/networkd-ci/test-dnsmasq.conf'
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
