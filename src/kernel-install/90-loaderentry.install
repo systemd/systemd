@@ -84,7 +84,7 @@ cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
 }
 
 if [[ -f "${INITRD_FILE}" ]]; then
-    cp "${INITRD_FILE}" "$BOOT_DIR_ABS/initd" &&
+    cp "${INITRD_FILE}" "$BOOT_DIR_ABS/initrd" &&
         chown root:root "$BOOT_DIR_ABS/initrd" &&
         chmod 0644 "$BOOT_DIR_ABS/initrd" || {
          echo "Could not copy '$INITRD_FILE' to '$BOOT_DIR_ABS/initrd'." >&2
