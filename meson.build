@@ -287,10 +287,8 @@ want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 install_tests = get_option('install-tests')
 
-cxx = find_program('c++', required : fuzzer_build)
-if cxx.found()
+if add_languages('cpp', required : fuzzer_build)
         #  Used only for tests
-        add_languages('cpp')
         cxx_cmd = ' '.join(meson.get_compiler('cpp').cmd_array())
 else
         cxx_cmd = ''

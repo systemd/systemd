@@ -957,7 +957,7 @@ tests += [
 
 ]
 
-if cxx.found()
+if cxx_cmd != ''
         tests += [
                 [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc'],
                  [],
