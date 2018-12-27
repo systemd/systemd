@@ -6,6 +6,7 @@ COMMAND="$1"
 KERNEL_VERSION="$2"
 BOOT_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
+INITRD_FILE="$5"
 
 if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
     exit 0
@@ -81,6 +82,15 @@ cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
     echo "Could not copy '$KERNEL_IMAGE to '$BOOT_DIR_ABS/linux'." >&2
     exit 1
 }
+
+if [[ -f "${INITRD_IMAGE}" ]]; then
+    cp "${INITRD_IMAGE}" "$BOOT_DIR_ABS/initd" &&
+        chown root:root "$BOOT_DIR_ABS/initrd" &&
+        chmod 0644 "$BOOT_DIR_ABS/initrd" || {
+         echo "Could not copy '$INITRD_FILE' to '$BOOT_DIR_ABS/initrd'." >&2
+         exit 1
+    }
+fi
 
 mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
