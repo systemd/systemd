@@ -52,8 +52,7 @@ if cc.has_argument('-std=iso9899:2017')
         opts += [['c', '-std=iso9899:2017']]
 endif
 
-cxx = find_program('c++', required : false)
-if cxx.found()
+if add_languages('cpp', required : false)
         opts += [['c++'],
                  ['c++', '-std=c++98'],
                  ['c++', '-std=c++11']]
