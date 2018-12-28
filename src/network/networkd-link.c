@@ -1207,15 +1207,16 @@ static int link_request_set_addresses(Link *link) {
                                         return r;
                         }
                 }
+                if (!sd_dhcp_server_is_running(link->dhcp_server)) {
+                        r = sd_dhcp_server_start(link->dhcp_server);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Could not start DHCPv4 server instance: %m");
 
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Could not start DHCPv4 server instance: %m");
+                                link_enter_failed(link);
 
-                        link_enter_failed(link);
-
-                        return 0;
-                }
+                                return 0;
+                        }
+                }    
 
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
