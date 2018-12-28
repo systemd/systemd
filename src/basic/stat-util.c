@@ -338,7 +338,6 @@ int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret) {
                 return -ENOMEM;
 
         return 0;
-
 }
 
 int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {
