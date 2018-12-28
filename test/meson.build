@@ -94,6 +94,7 @@ test_data_files = '''
         test-execute/exec-privatenetwork-yes.service
         test-execute/exec-privatetmp-no.service
         test-execute/exec-privatetmp-yes.service
+        test-execute/exec-protecthome-tmpfs-vs-protectsystem-strict.service
         test-execute/exec-protectkernelmodules-no-capabilities.service
         test-execute/exec-protectkernelmodules-yes-capabilities.service
         test-execute/exec-protectkernelmodules-yes-mount-propagation.service
