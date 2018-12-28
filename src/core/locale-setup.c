@@ -74,9 +74,9 @@ int locale_setup(char ***environment) {
         }
 
         if (strv_isempty(add)) {
-                /* If no locale is configured then default to C.UTF-8. */
+                /* If no locale is configured then default to compile-time default. */
 
-                add = strv_new("LANG=C.UTF-8");
+                add = strv_new("LANG=" SYSTEMD_DEFAULT_LOCALE);
                 if (!add)
                         return -ENOMEM;
         }
