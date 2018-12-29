@@ -62,7 +62,7 @@
     <para>The following commands are understood:</para>
     <variablelist>
       <varlistentry>
-        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> <replaceable>INITRD-FILE</replaceable></command></term>
+        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable>]</command></term>
         <listitem>
           <para>This command expects a kernel version string and a path to a kernel image file as
           arguments. <command>kernel-install</command> creates the directory
