@@ -50,6 +50,7 @@ typedef enum MountMode {
         READWRITE,
         TMPFS,
         READWRITE_IMPLICIT, /* Should have the lowest priority. */
+        _MOUNT_MODE_MAX,
 } MountMode;
 
 typedef struct MountEntry {
@@ -180,6 +181,24 @@ static const MountEntry protect_system_strict_table[] = {
         { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
         { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
+
+static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
+        [INACCESSIBLE]         = "inaccessible",
+        [BIND_MOUNT]           = "bind",
+        [BIND_MOUNT_RECURSIVE] = "rbind",
+        [PRIVATE_TMP]          = "private-tmp",
+        [PRIVATE_DEV]          = "private-dev",
+        [BIND_DEV]             = "bind-dev",
+        [EMPTY_DIR]            = "empty",
+        [SYSFS]                = "sysfs",
+        [PROCFS]               = "procfs",
+        [READONLY]             = "read-only",
+        [READWRITE]            = "read-write",
+        [TMPFS]                = "tmpfs",
+        [READWRITE_IMPLICIT]   = "rw-implicit",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
 static const char *mount_entry_path(const MountEntry *p) {
         assert(p);
@@ -447,7 +466,7 @@ static void drop_duplicates(MountEntry *m, size_t *n) {
                 if (previous &&
                     path_equal(mount_entry_path(f), mount_entry_path(previous)) &&
                     !f->applied && !previous->applied) {
-                        log_debug("%s is duplicate.", mount_entry_path(f));
+                        log_debug("%s (%s) is duplicate.", mount_entry_path(f), mount_mode_to_string(f->mode));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
                         mount_entry_done(f);
                         continue;
@@ -516,7 +535,9 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
-                                log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
+                                log_debug("%s (%s) is made redundant by %s (%s)",
+                                          mount_entry_path(f), mount_mode_to_string(f->mode),
+                                          mount_entry_path(p), mount_mode_to_string(p->mode));
                                 mount_entry_done(f);
                                 continue;
                         }
