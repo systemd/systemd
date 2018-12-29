@@ -195,7 +195,7 @@ option('default-kill-user-processes', type : 'boolean',
        description : 'the default value for KillUserProcesses= setting')
 option('gshadow', type : 'boolean',
        description : 'support for shadow group')
-option('default-locale', type : 'string', value : 'C',
+option('default-locale', type : 'string', value : '',
        description : 'default locale used when /etc/locale.conf does not exist')
 
 option('default-dnssec', type : 'combo',
