@@ -24,7 +24,7 @@ SKIP_REMAINING=77
 usage()
 {
     echo "Usage:"
-    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE"
+    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE]"
     echo "        $0 remove KERNEL-VERSION"
 }
 
@@ -72,6 +72,7 @@ fi
 
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
+INITRD_FILE="$3"
 
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
@@ -123,7 +124,7 @@ case $COMMAND in
 
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
-                "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE"
+                "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE" "$INITRD_FILE"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
                     ret=0

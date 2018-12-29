@@ -28,7 +28,8 @@
       <command>kernel-install</command>
       <arg choice="plain">COMMAND</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
-      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
+      <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
+      <arg choice="opt"><replaceable>INITRD-FILE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -61,7 +62,7 @@
     <para>The following commands are understood:</para>
     <variablelist>
       <varlistentry>
-        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable></command></term>
+        <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable>]</command></term>
         <listitem>
           <para>This command expects a kernel version string and a path to a kernel image file as
           arguments. <command>kernel-install</command> creates the directory
@@ -69,7 +70,7 @@
           and calls the executables from <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
 
-          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable></programlisting>
+          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> <replaceable>INITRD-FILE</replaceable></programlisting>
           </para>
 
           <para>Two default plugins execute the following operations in this case:</para>
@@ -83,14 +84,15 @@
             <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
             to
             <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
+            If <replaceable>INITRD-FILE</replaceable> is provided, it also copies <replaceable>INITRD-FILE</replaceable>
+            to
+            <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/initrd</filename>.
             It also creates a boot loader entry according to the <ulink
             url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> in
             <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
             The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
             <filename>/etc/os-release</filename> or <filename>/usr/lib/os-release</filename> (if the former is
-            missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.  If the file
-            <filename>initrd</filename> is found next to the kernel image file, the initrd will be added to the
-            configuration.</para></listitem>
+            missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.</para></listitem>
           </itemizedlist>
         </listitem>
       </varlistentry>
