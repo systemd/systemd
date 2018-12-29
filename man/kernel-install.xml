@@ -28,7 +28,7 @@
       <command>kernel-install</command>
       <arg choice="plain">COMMAND</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
-      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
+      <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt"><replaceable>INITRD-FILE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
