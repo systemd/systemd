@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+# Used to determine if components with libudev dependencies are built
+if have_libshared
+        have_libudev = true
+else
+        have_libudev = false
+        warning('libudev will not be built')
+endif
+
 udevadm_sources = files('''
         udevadm.c
         udevadm.h

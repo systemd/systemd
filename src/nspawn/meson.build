@@ -32,13 +32,17 @@ nspawn_gperf_c = custom_target(
 
 libnspawn_core_sources += [nspawn_gperf_c]
 
-libnspawn_core = static_library(
-        'nspawn-core',
-        libnspawn_core_sources,
-        include_directories : includes,
-        dependencies : [libacl,
-                        libseccomp,
-                        libselinux])
+if gperf.found() and libcap.found()
+        libnspawn_core = static_library(
+                'nspawn-core',
+                libnspawn_core_sources,
+                include_directories : includes,
+                dependencies : [libacl,
+                                libseccomp,
+                                libselinux])
+else
+        libnspawn_core = disabler()
+endif
 
 systemd_nspawn_sources = files('nspawn.c')
 

@@ -22,16 +22,20 @@ if conf.get('HAVE_MICROHTTPD') == 1
 '''.split())
 endif
 
-libsystemd_journal_remote = static_library(
-        'systemd-journal-remote',
-        libsystemd_journal_remote_sources,
-        include_directories : includes,
-        dependencies : [threads,
-                        libmicrohttpd,
-                        libgnutls,
-                        libxz,
-                        liblz4],
-        install : false)
+if gperf.found()
+        libsystemd_journal_remote = static_library(
+                'systemd-journal-remote',
+                libsystemd_journal_remote_sources,
+                include_directories : includes,
+                dependencies : [threads,
+                                libmicrohttpd,
+                                libgnutls,
+                                libxz,
+                                liblz4],
+                install : false)
+else
+        libsystemd_journal_remote = disabler()
+endif
 
 systemd_journal_remote_sources = files('''
         journal-remote-main.c

@@ -288,17 +288,23 @@ basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
 
-libbasic = static_library(
-        'basic',
-        basic_sources,
-        include_directories : includes,
-        dependencies : [versiondep,
-                        threads,
-                        libcap,
-                        libselinux,
-                        libm],
-        c_args : ['-fvisibility=default'],
-        install : false)
+if gperf.found()
+        libbasic = static_library(
+                'basic',
+                basic_sources,
+                include_directories : includes,
+                dependencies : [versiondep,
+                                threads,
+                                libcap,
+                                libselinux,
+                                libm],
+                c_args : ['-fvisibility=default'],
+                install : false)
+        have_libbasic = true
+else
+        libbasic = disabler()
+        have_libbasic = false
+endif
 
 # A convenience library that is separate from libbasic to avoid
 # unnecessary linking to libgcrypt.

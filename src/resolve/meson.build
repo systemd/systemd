@@ -132,11 +132,16 @@ resolved_dnssd_gperf_c = custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-libsystemd_resolve_core = static_library(
-        'systemd-resolve-core',
-        basic_dns_sources,
-        dns_type_headers,
-        include_directories : includes)
+if gperf.found()
+        libsystemd_resolve_core = static_library(
+                'systemd-resolve-core',
+                basic_dns_sources,
+                dns_type_headers,
+                include_directories : includes)
+else
+        libsystemd_resolve_core = disabler()
+endif
+
 
 systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 

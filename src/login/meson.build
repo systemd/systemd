@@ -44,11 +44,15 @@ if conf.get('HAVE_ACL') == 1
         liblogind_core_sources += logind_acl_c
 endif
 
-liblogind_core = static_library(
-        'logind-core',
-        liblogind_core_sources,
-        include_directories : includes,
-        dependencies : [libacl])
+if gperf.found()
+        liblogind_core = static_library(
+                'logind-core',
+                liblogind_core_sources,
+                include_directories : includes,
+                dependencies : [libacl])
+else
+        liblogind_core = disabler()
+endif
 
 loginctl_sources = files('''
         loginctl.c

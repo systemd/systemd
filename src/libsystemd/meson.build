@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+# Used to determine if components with libsystemd dependencies are built
+if have_libbasic
+        have_libsystemd = true
+else
+        have_libsystemd = false
+        warning('libsystemd will not be built')
+endif
+
 id128_sources = files('''
         sd-id128/id128-util.c
         sd-id128/id128-util.h

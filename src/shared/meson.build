@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+# Used to determine if components with libshared dependencies are built
+if gperf.found() and libcap.found() and libmount.found()
+        have_libshared = true
+else
+        have_libshared = false
+        warning('libshared will not be built')
+endif
+
 shared_sources = files('''
         acl-util.h
         acpi-fpdt.c
