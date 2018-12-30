@@ -156,7 +156,7 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
         return 0;
 }
 
-int ask_password_keyring(const char *keyname, AskPasswordFlags flags, char ***ret) {
+static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, char ***ret) {
 
         key_serial_t serial;
         int r;
