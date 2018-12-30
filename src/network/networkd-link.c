@@ -794,6 +794,9 @@ static int link_request_set_routing_policy_rule(Link *link) {
         assert(link);
         assert(link->network);
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+        link->routing_policy_rules_configured = false;
+
         LIST_FOREACH(rules, rule, link->network->rules) {
                 r = routing_policy_rule_get(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
                                             rule->to_prefixlen, rule->tos, rule->fwmark, rule->table, rule->iif, rule->oif,
@@ -865,6 +868,7 @@ static int link_request_set_routes(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+        link->static_routes_configured = false;
 
         r = link_request_set_routing_policy_rule(link);
         if (r < 0)
@@ -905,6 +909,7 @@ static int link_request_set_neighbors(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+        link->neighbors_configured = false;
 
         LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
                 r = neighbor_configure(neighbor, link, NULL);
@@ -1075,11 +1080,17 @@ static int link_request_set_addresses(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
+        /* Reset all *_configured flags we are configuring. */
+        link->addresses_configured = false;
+        link->neighbors_configured = false;
+        link->static_routes_configured = false;
+        link->routing_policy_rules_configured = false;
+
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
-
-        link_set_state(link, LINK_STATE_CONFIGURING);
 
         r = link_request_set_neighbors(link);
         if (r < 0)
