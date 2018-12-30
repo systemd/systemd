@@ -787,7 +787,7 @@ void link_check_ready(Link *link) {
         return;
 }
 
-static int link_set_routing_policy_rule(Link *link) {
+static int link_request_set_routing_policy_rule(Link *link) {
         RoutingPolicyRule *rule, *rrule = NULL;
         int r;
 
@@ -866,7 +866,7 @@ static int link_request_set_routes(Link *link) {
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = link_set_routing_policy_rule(link);
+        r = link_request_set_routing_policy_rule(link);
         if (r < 0)
                 return r;
 
