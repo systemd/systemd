@@ -341,7 +341,7 @@ int ask_password_tty(
                         goto finish;
                 }
 
-                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0) {
+                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0 && keyname) {
                         (void) flush_fd(notify);
 
                         r = ask_password_keyring(keyname, flags, ret);
