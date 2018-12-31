@@ -157,3 +157,53 @@ void loop_device_relinquish(LoopDevice *d) {
 
         d->relinquished = true;
 }
+
+int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret) {
+        _cleanup_close_ int loop_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+        LoopDevice *d;
+
+        assert(loop_path);
+        assert(ret);
+
+        loop_fd = open(loop_path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
+        if (loop_fd < 0)
+                return -errno;
+
+        if (fstat(loop_fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        p = strdup(loop_path);
+        if (!p)
+                return -ENOMEM;
+
+        d = new(LoopDevice, 1);
+        if (!d)
+                return -ENOMEM;
+
+        *d = (LoopDevice) {
+                .fd = TAKE_FD(loop_fd),
+                .nr = -1,
+                .node = TAKE_PTR(p),
+                .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
+        };
+
+        *ret = d;
+        return d->fd;
+}
+
+int loop_device_refresh_size(LoopDevice *d) {
+        assert(d);
+
+        if (d->fd < 0)
+                return -EBADF;
+
+        if (ioctl(d->fd, LOOP_SET_CAPACITY) < 0)
+                return -errno;
+
+        return 0;
+}
