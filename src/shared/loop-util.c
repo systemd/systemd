@@ -88,8 +88,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         };
 
         *ret = d;
-
-        return (*ret)->fd;
+        return d->fd;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret) {
