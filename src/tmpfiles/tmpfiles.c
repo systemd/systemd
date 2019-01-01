@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <getopt.h>
-#include <glob.h>
 #include <limits.h>
 #include <linux/fs.h>
 #include <stdbool.h>

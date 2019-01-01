@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <glob.h>
 #include <grp.h>
 #include <poll.h>
 #include <sys/capability.h>
