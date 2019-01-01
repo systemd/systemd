@@ -128,7 +128,7 @@ basic_sources = files('''
         missing/stdlib.h
         missing/syscall.h
         missing/timerfd.h
-        missing/type.h
+        missing/uchar.h
         missing/vxcan.h
         mkdir-label.c
         mkdir.c

@@ -5,10 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <uchar.h>
 
+#include "missing/uchar.h"
 #include "string-util.h"
-#include "missing/type.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
