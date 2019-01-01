@@ -485,12 +485,13 @@ static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterS
         const char *syscall;
 
         NULSTR_FOREACH(syscall, f->value) {
-                bool b;
+                bool bad;
 
                 if (syscall[0] == '@') {
                         const SyscallFilterSet *g;
                         assert_se(g = syscall_filter_set_find(syscall));
-                        b = syscall_names_in_filter(s, whitelist, g);
+                        /* true for param whitelist to always get uninverted results */
+                        bad = syscall_names_in_filter(s, true, g);
                 } else {
                         int id;
 
@@ -499,10 +500,14 @@ static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterS
                         if (id < 0)
                                 continue;
 
-                        b = set_contains(s, syscall);
+                        bad = set_contains(s, syscall);
                 }
 
-                if (whitelist == b) {
+                /* In whitelist mode all system calls must be included
+                   in filter for it to be effective, in blacklist mode
+                   we want to know if any of the system calls is
+                   included for it not to be effective */
+                if (whitelist == bad) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         return true; /* bad! */
                 }
