@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/capability.h>
 #include <unistd.h>
 
 #include "all-units.h"
