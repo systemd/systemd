@@ -310,6 +310,8 @@ mouse:usb:v17efp6050:name:Lenovo Precision USB Mouse:
 
 # Lenovo MOBGUL
 mouse:usb:v17efp601d:name:Primax Lenovo Laser Mouse:
+ MOUSE_DPI=1600@125
+
 # Lenovo MOBGULA
 mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
  MOUSE_DPI=1600@125
@@ -331,6 +333,8 @@ mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:
 
 # Logitech G5 Laser Mouse
 mouse:usb:v046dpc049:name:Logitech USB Gaming Mouse:
+ MOUSE_DPI=400@500 *800@500 2000@500
+
 # Logitech G500s Laser Gaming Mouse
 mouse:usb:v046dpc24e:name:Logitech G500s Laser Gaming Mouse:
  MOUSE_DPI=400@500 *800@500 2000@500
@@ -384,8 +388,12 @@ mouse:usb:v046dpc539:name:Logitech USB Receiver Mouse:
 # Logitech Wireless Mouse M185
 mouse:usb:v046dp4008:name:Logitech M185:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:4008:
+ MOUSE_DPI=1000@125
+
 # Logitech Wireless Mouse M510
 mouse:usb:v046dp1025:name:Logitech M510:
+ MOUSE_DPI=1000@125
+
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
@@ -431,6 +439,8 @@ mouse:bluetooth:v046dpb003:name:Logitech MX1000 mouse:
 # Logitech Anywhere MX
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:1017:
 mouse:usb:v046dp1017:name:Logitech Anywhere MX:
+ MOUSE_WHEEL_CLICK_ANGLE=20
+
 # Logitech Anywhere MX 2S
 mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
  MOUSE_WHEEL_CLICK_ANGLE=20
@@ -466,12 +476,20 @@ mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:
 
 # Logitech M-BJ58 Optical Mouse
 mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125
+
 # Logitech Mini Optical Mouse
 mouse:usb:v046dpc016:name:Logitech Optical USB Mouse:
+ MOUSE_DPI=400@125
+
 # Logitech MX310 Optical Mouse
 mouse:usb:v046dpc01b:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125
+
 # Logitech USB-PS/2 M-BT58
 mouse:usb:v046dpc03e:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=400@125
+
 # Logitech TrackMan Marble Wheel USB
 mouse:usb:v046dpc401:name:Logitech USB-PS/2 Trackball:
  MOUSE_DPI=400@125
@@ -486,10 +504,16 @@ mouse:usb:v046dpc045:name:Logitech USB-PS/2 Optical Mouse:
 
 # Logitech MX400 Performance Laser Mouse
 mouse:usb:v046dpc043:name:Logitech USB-PS/2 Optical Mouse:
+ MOUSE_DPI=800@125
+
 # Logitech MX1000 Laser Cordless Mouse
 mouse:usb:v046dpc50e:name:Logitech USB RECEIVER:
+ MOUSE_DPI=800@125
+
 # Logitech Cordless Click! Plus
 mouse:usb:v046dpc50e:name:Logitech USB Receiver:
+ MOUSE_DPI=800@125
+
 # Logitech, Inc. RX 300 Optical Mouse
 mouse:usb:v046dpc040:name:Logitech USB-PS/2 Optical Mouse:
  MOUSE_DPI=800@125
@@ -510,14 +534,24 @@ mouse:usb:v046dpc517:name:Logitech USB Receiver:
 
 # Logitech RX1000 Laser Mouse
 mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:
+ MOUSE_DPI=1000@125
+
 # Logitech M100 Optical Mouse
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:
+ MOUSE_DPI=1000@125
+
 # Logitech USB Laser Mouse M-U0011-O rebranded as "terra Laser"
 mouse:usb:v046dpc065:name:Logitech USB Laser Mouse:
+ MOUSE_DPI=1000@125
+
 # Logitech USB Laser Mouse M-U0007 [M500]
 mouse:usb:v046dpc069:name:Logitech USB Laser Mouse:
+ MOUSE_DPI=1000@125
+
 # Logitech V500 Cordless Notebook Mouse
 mouse:usb:v046dpc510:name:Logitech USB Receiver:
+ MOUSE_DPI=1000@125
+
 # Logitech M560 Wireless Mouse
 mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
@@ -577,6 +611,8 @@ mouse:usb:v045ep076c:name:Microsoft Microsoft® Comfort Mouse 4500:
 
 # Microsoft Wireless Mobile Mouse 4000
 mouse:usb:v045ep0745:name:Microsoft Microsoft® Nano Transceiver v2.0:
+ MOUSE_DPI=1000@142
+
 # Microsoft Sculpt Ergonomic Mouse
 mouse:usb:v045ep07a5:name:Microsoft Microsoft® 2.4GHz Transceiver v9.0:
  MOUSE_DPI=1000@142
