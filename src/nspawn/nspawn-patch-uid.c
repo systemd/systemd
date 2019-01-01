@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#if HAVE_ACL
-#include <sys/acl.h>
-#endif
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>
