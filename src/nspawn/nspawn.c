@@ -5,10 +5,8 @@
 #endif
 #include <errno.h>
 #include <getopt.h>
-#include <grp.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
-#include <pwd.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif

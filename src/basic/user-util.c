@@ -3,8 +3,6 @@
 #include <alloca.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <grp.h>
-#include <pwd.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
