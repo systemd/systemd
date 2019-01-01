@@ -10,7 +10,6 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "sd-messages.h"

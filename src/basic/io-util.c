@@ -4,7 +4,6 @@
 #include <limits.h>
 #include <poll.h>
 #include <stdio.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "io-util.h"

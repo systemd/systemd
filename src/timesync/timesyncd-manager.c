@@ -9,7 +9,6 @@
 #include <sys/timerfd.h>
 #include <sys/timex.h>
 #include <sys/types.h>
-#include <time.h>
 
 #include "sd-daemon.h"
 

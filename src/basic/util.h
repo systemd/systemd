@@ -20,7 +20,6 @@
 #include <sys/statfs.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "format-util.h"

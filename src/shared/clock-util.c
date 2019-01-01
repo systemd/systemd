@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <time.h>
 #include <linux/rtc.h>
 #include <stdio.h>
 #include <sys/ioctl.h>

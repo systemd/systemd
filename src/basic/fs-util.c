@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <stddef.h>
 #include <linux/magic.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
