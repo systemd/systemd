@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fd-util.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "resolved-dns-stub.h"
 #include "socket-util.h"
 

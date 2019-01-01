@@ -12,7 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "logind-button.h"
-#include "missing_input.h"
+#include "missing/input.h"
 #include "string-util.h"
 #include "util.h"
 

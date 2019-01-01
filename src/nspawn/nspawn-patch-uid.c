@@ -14,7 +14,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "missing_magic.h"
+#include "missing/magic.h"
 #include "nspawn-def.h"
 #include "nspawn-patch-uid.h"
 #include "stat-util.h"

@@ -22,7 +22,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_socket.h"
+#include "missing/socket.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

@@ -14,7 +14,7 @@
 #include "extract-word.h"
 #include "locale-util.h"
 #include "macro.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"

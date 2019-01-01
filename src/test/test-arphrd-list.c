@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "macro.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "string-util.h"
 
 _unused_ \

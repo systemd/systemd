@@ -6,7 +6,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "resolved-dns-stream.h"
 
 #define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)

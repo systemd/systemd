@@ -14,7 +14,7 @@
 #include <sys/un.h>
 
 #include "macro.h"
-#include "missing_socket.h"
+#include "missing/socket.h"
 #include "sparse-endian.h"
 
 union sockaddr_union {

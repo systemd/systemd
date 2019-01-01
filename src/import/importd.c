@@ -15,7 +15,7 @@
 #include "import-util.h"
 #include "machine-pool.h"
 #include "main-func.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

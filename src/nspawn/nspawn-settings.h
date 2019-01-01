@@ -8,7 +8,7 @@
 
 #include "conf-parser.h"
 #include "macro.h"
-#include "missing_resource.h"
+#include "missing/resource.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
 

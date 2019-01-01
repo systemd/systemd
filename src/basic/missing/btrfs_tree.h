@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 
-#include "missing_btrfs.h"
+#include "missing/btrfs.h"
 
 /* linux@db6711600e27c885aed89751f04e727f3af26715 (4.7) */
 #if HAVE_LINUX_BTRFS_TREE_H

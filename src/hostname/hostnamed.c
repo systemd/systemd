@@ -17,7 +17,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "main-func.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "nscd-flush.h"
 #include "os-util.h"
 #include "parse-util.h"

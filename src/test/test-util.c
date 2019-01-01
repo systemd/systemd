@@ -8,7 +8,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_syscall.h"
+#include "missing/syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "raw-clone.h"

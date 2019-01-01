@@ -7,7 +7,7 @@
 #include <uchar.h>
 
 #include "macro.h"
-#include "missing_type.h"
+#include "missing/type.h"
 
 #define UTF8_REPLACEMENT_CHARACTER "\xef\xbf\xbd"
 #define UTF8_BYTE_ORDER_MARK "\xef\xbb\xbf"

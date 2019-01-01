@@ -9,7 +9,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"

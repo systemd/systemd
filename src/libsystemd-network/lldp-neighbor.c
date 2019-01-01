@@ -7,7 +7,7 @@
 #include "in-addr-util.h"
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "unaligned.h"
 #include "util.h"
 

@@ -21,7 +21,7 @@
 #include "machine-image.h"
 #include "machine-pool.h"
 #include "machined.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"

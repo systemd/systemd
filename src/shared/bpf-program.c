@@ -9,7 +9,7 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing_syscall.h"
+#include "missing/syscall.h"
 #include "path-util.h"
 #include "util.h"
 

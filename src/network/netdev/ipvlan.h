@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "missing_if_link.h"
+#include "missing/if_link.h"
 #include "netdev/netdev.h"
 
 typedef enum IPVlanMode {

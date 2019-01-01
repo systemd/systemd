@@ -25,7 +25,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "logind.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"

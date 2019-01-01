@@ -9,7 +9,7 @@
 #include "hexdecoct.h"
 #include "khash.h"
 #include "macro.h"
-#include "missing_socket.h"
+#include "missing/socket.h"
 #include "string-util.h"
 #include "util.h"
 

@@ -96,40 +96,40 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
-        missing_audit.h
-        missing_btrfs.h
-        missing_btrfs_tree.h
-        missing_capability.h
-        missing_drm.h
-        missing_ethtool.h
-        missing_fcntl.h
-        missing_fib_rules.h
-        missing_fou.h
-        missing_fs.h
-        missing_if_addr.h
-        missing_if_bonding.h
-        missing_if_bridge.h
-        missing_if_link.h
-        missing_if_tunnel.h
-        missing_input.h
-        missing_keyctl.h
-        missing_magic.h
-        missing_mman.h
-        missing_netdevice.h
-        missing_network.h
-        missing_prctl.h
-        missing_random.h
-        missing_resource.h
-        missing_rtnetlink.h
-        missing_sched.h
-        missing_securebits.h
-        missing_socket.h
-        missing_stat.h
-        missing_stdlib.h
-        missing_syscall.h
-        missing_timerfd.h
-        missing_type.h
-        missing_vxcan.h
+        missing/audit.h
+        missing/btrfs.h
+        missing/btrfs_tree.h
+        missing/capability.h
+        missing/drm.h
+        missing/ethtool.h
+        missing/fcntl.h
+        missing/fib_rules.h
+        missing/fou.h
+        missing/fs.h
+        missing/if_addr.h
+        missing/if_bonding.h
+        missing/if_bridge.h
+        missing/if_link.h
+        missing/if_tunnel.h
+        missing/input.h
+        missing/keyctl.h
+        missing/magic.h
+        missing/mman.h
+        missing/netdevice.h
+        missing/network.h
+        missing/prctl.h
+        missing/random.h
+        missing/resource.h
+        missing/rtnetlink.h
+        missing/sched.h
+        missing/securebits.h
+        missing/socket.h
+        missing/stat.h
+        missing/stdlib.h
+        missing/syscall.h
+        missing/timerfd.h
+        missing/type.h
+        missing/vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h
@@ -221,10 +221,10 @@ basic_sources = files('''
 
 basic_sources += version_h
 
-missing_audit_h = files('missing_audit.h')
-missing_capability_h = files('missing_capability.h')
-missing_network_h = files('missing_network.h')
-missing_socket_h = files('missing_socket.h')
+missing_audit_h = files('missing/audit.h')
+missing_capability_h = files('missing/capability.h')
+missing_network_h = files('missing/network.h')
+missing_socket_h = files('missing/socket.h')
 
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(

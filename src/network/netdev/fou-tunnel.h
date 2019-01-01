@@ -2,7 +2,7 @@
 #pragma once
 
 #include "in-addr-util.h"
-#include "missing_fou.h"
+#include "missing/fou.h"
 #include "netdev/netdev.h"
 
 typedef enum FooOverUDPEncapType {

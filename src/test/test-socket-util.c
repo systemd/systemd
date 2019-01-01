@@ -13,7 +13,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing_network.h"
+#include "missing/network.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"

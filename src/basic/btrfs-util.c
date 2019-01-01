@@ -27,7 +27,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing_btrfs_tree.h"
+#include "missing/btrfs_tree.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "smack-util.h"

@@ -19,7 +19,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "missing_fs.h"
+#include "missing/fs.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"

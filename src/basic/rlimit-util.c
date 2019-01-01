@@ -8,7 +8,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing_resource.h"
+#include "missing/resource.h"
 #include "rlimit-util.h"
 #include "string-table.h"
 #include "time-util.h"

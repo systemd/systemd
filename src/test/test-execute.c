@@ -13,7 +13,7 @@
 #include "fs-util.h"
 #include "macro.h"
 #include "manager.h"
-#include "missing_prctl.h"
+#include "missing/prctl.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"

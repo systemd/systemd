@@ -8,7 +8,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "machine-image.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "portable.h"
 #include "portabled-bus.h"
 #include "portabled-image-bus.h"

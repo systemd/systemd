@@ -5,7 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include <stddef.h>
 #include "conf-parser.h"
 #include "load-fragment.h"
-#include "missing_resource.h"
+#include "missing/resource.h"
 
 #include "all-units.h"
 %}

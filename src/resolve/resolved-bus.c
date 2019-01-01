@@ -4,7 +4,7 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "dns-domain.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
 #include "resolved-dns-synthesize.h"

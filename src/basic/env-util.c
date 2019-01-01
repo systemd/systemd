@@ -12,7 +12,7 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "macro.h"
-#include "missing_stdlib.h"
+#include "missing/stdlib.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"

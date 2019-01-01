@@ -9,7 +9,7 @@
 #include "bus-slot.h"
 #include "bus-type.h"
 #include "bus-util.h"
-#include "missing_capability.h"
+#include "missing/capability.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"

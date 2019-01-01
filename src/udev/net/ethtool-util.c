@@ -9,7 +9,7 @@
 #include "ethtool-util.h"
 #include "link-config.h"
 #include "log.h"
-#include "missing_ethtool.h"
+#include "missing/ethtool.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"

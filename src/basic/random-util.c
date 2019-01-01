@@ -25,8 +25,8 @@
 
 #include "fd-util.h"
 #include "io-util.h"
-#include "missing_random.h"
-#include "missing_syscall.h"
+#include "missing/random.h"
+#include "missing/syscall.h"
 #include "random-util.h"
 #include "time-util.h"
 

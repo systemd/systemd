@@ -8,7 +8,7 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
-#include "missing_if_bonding.h"
+#include "missing/if_bonding.h"
 #include "netdev/bond.h"
 #include "string-table.h"
 #include "string-util.h"

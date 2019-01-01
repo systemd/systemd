@@ -19,7 +19,7 @@
 #include "fd-util.h"
 #include "io-util.h"
 #include "list.h"
-#include "missing_syscall.h"
+#include "missing/syscall.h"
 #include "process-util.h"
 #include "resolve-private.h"
 #include "socket-util.h"

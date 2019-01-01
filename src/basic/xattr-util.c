@@ -11,7 +11,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
-#include "missing_syscall.h"
+#include "missing/syscall.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-util.h"
