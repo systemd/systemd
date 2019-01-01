@@ -27,7 +27,6 @@
  * http://eprint.iacr.org/2013/397
  */
 
-#include <gcrypt.h>
 #include <string.h>
 
 #include "fsprg.h"
