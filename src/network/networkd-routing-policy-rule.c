@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <net/if.h>
-#include <linux/fib_rules.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"

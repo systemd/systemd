@@ -1,25 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <netinet/in.h>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <linux/genetlink.h>
-#include <linux/ip.h>
-#include <linux/if.h>
 #include <linux/can/netlink.h>
+#include <linux/can/vxcan.h>
+#include <linux/fib_rules.h>
+#include <linux/fou.h>
+#include <linux/genetlink.h>
+#include <linux/if.h>
 #include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
+#include <linux/if_bridge.h>
+#include <linux/if_link.h>
+#include <linux/if_tunnel.h>
+#include <linux/ip.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include <linux/veth.h>
+#include <stdint.h>
+#include <sys/socket.h>
 
 #include "macro.h"
-#include "missing/fib_rules.h"
-#include "missing/fou.h"
-#include "missing/if_bridge.h"
-#include "missing/if_link.h"
-#include "missing/if_tunnel.h"
-#include "missing/rtnetlink.h"
-#include "missing/vxcan.h"
 #include "netlink-types.h"
 #include "sd-netlink.h"
 #include "string-table.h"

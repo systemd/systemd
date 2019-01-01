@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
+#include <linux/rtnetlink.h>
 #include <stdio_ext.h>
 
 #include "sd-daemon.h"
@@ -17,7 +18,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "local-addresses.h"
-#include "missing/rtnetlink.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "ordered-set.h"

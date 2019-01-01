@@ -3,12 +3,12 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <linux/if_addr.h>
+#include <netinet/icmp6.h>
 
 #include "sd-ndisc.h"
 
-#include "missing/if_addr.h"
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "strv.h"

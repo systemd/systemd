@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <netinet/ether.h>
-#include <linux/if.h>
 #include <linux/can/netlink.h>
-#include <unistd.h>
+#include <linux/if.h>
+#include <linux/if_link.h>
 #include <stdio_ext.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bus-util.h"
@@ -13,7 +14,6 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing/if_link.h"
 #include "missing/network.h"
 #include "netlink-util.h"
 #include "network-internal.h"

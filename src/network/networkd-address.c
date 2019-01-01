@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/if_addr.h>
 #include <net/if.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
-#include "missing/if_addr.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"

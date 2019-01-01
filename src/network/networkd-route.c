@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/icmpv6.h>
+#include <linux/rtnetlink.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "in-addr-util.h"
-#include "missing/rtnetlink.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-route.h"

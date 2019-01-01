@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "missing/vxcan.h"
+#include <linux/can/vxcan.h>
+
 #include "netdev/vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

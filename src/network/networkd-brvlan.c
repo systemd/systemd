@@ -4,11 +4,11 @@
 ***/
 
 #include <netinet/in.h>
+#include <linux/if_bridge.h>
 #include <stdbool.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "missing/if_bridge.h"
 #include "netlink-util.h"
 #include "networkd-brvlan.h"
 #include "networkd-link.h"

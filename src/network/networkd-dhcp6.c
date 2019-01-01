@@ -5,19 +5,19 @@
 
 #include <netinet/ether.h>
 #include <linux/if.h>
-#include "sd-radv.h"
+#include <linux/if_addr.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-radv.h"
 
 #include "hashmap.h"
 #include "hostname-util.h"
-#include "missing/if_addr.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "radv-internal.h"
 #include "siphash24.h"
 #include "string-util.h"
-#include "radv-internal.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 

@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <arpa/inet.h>
-#include <linux/ip.h>
-#include <net/if.h>
 #include <linux/if_tunnel.h>
+#include <linux/ip.h>
 
 #include "sd-netlink.h"
 

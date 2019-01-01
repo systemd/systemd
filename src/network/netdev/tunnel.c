@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <arpa/inet.h>
-#include <net/if.h>
+#include <linux/if_tunnel.h>
 #include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
 
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
-#include "missing/if_tunnel.h"
 #include "netdev/tunnel.h"
 #include "networkd-link.h"
 #include "parse-util.h"

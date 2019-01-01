@@ -84,6 +84,16 @@ basic_sources = files('''
         khash.h
         label.c
         label.h
+        linux/ethtool.h
+        linux/fib_rules.h
+        linux/fou.h
+        linux/if_addr.h
+        linux/if_bonding.h
+        linux/if_bridge.h
+        linux/if_link.h
+        linux/if_tunnel.h
+        linux/rtnetlink.h
+        linux/can/vxcan.h
         list.h
         locale-util.c
         locale-util.h
@@ -101,16 +111,8 @@ basic_sources = files('''
         missing/btrfs_tree.h
         missing/capability.h
         missing/drm.h
-        missing/ethtool.h
         missing/fcntl.h
-        missing/fib_rules.h
-        missing/fou.h
         missing/fs.h
-        missing/if_addr.h
-        missing/if_bonding.h
-        missing/if_bridge.h
-        missing/if_link.h
-        missing/if_tunnel.h
         missing/input.h
         missing/keyctl.h
         missing/magic.h
@@ -120,7 +122,6 @@ basic_sources = files('''
         missing/prctl.h
         missing/random.h
         missing/resource.h
-        missing/rtnetlink.h
         missing/sched.h
         missing/securebits.h
         missing/socket.h
@@ -129,7 +130,6 @@ basic_sources = files('''
         missing/syscall.h
         missing/timerfd.h
         missing/uchar.h
-        missing/vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h

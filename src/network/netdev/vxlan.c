@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/if_link.h>
+
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "extract-word.h"
-#include "missing/if_link.h"
 #include "netdev/vxlan.h"
 #include "networkd-link.h"
 #include "parse-util.h"
