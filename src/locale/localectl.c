@@ -2,7 +2,6 @@
 
 #include <ftw.h>
 #include <getopt.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 

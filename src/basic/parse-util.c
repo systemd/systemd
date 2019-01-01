@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/oom.h>
-#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>

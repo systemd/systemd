@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <locale.h>
 #include <math.h>
 #include <net/if.h>
 #include <netinet/in.h>
