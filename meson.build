@@ -2392,6 +2392,9 @@ executable('systemd-sleep',
            install : true,
            install_dir : rootlibexecdir)
 
+install_data('src/sleep/sleep.conf',
+             install_dir : pkgsysconfdir)
+
 exe = executable('systemd-sysctl',
                  'src/sysctl/sysctl.c',
                  include_directories : includes,
