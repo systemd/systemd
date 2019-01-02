@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <mqueue.h>
 #include <netinet/tcp.h>
 #include <signal.h>
