@@ -661,7 +661,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         };
 
         dropin_dirname = strjoina(basename(filename), ".d");
-        r = config_parse_many(filename, network_dirs, dropin_dirname,
+        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
                               "Match\0NetDev\0",
                               config_item_perf_lookup, network_netdev_gperf_lookup,
                               CONFIG_PARSE_WARN|CONFIG_PARSE_RELAXED, netdev_raw);
@@ -702,7 +702,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
 
-        r = config_parse_many(filename, network_dirs, dropin_dirname,
+        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
                               NETDEV_VTABLE(netdev)->sections,
                               config_item_perf_lookup, network_netdev_gperf_lookup,
                               CONFIG_PARSE_WARN, netdev);
@@ -802,7 +802,7 @@ int netdev_load(Manager *manager) {
 
         hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, 0, network_dirs);
+        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 

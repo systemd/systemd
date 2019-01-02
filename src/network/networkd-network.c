@@ -211,7 +211,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
         };
 
-        r = config_parse_many(filename, network_dirs, dropin_dirname,
+        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
                               "Match\0"
                               "Link\0"
                               "Network\0"
@@ -291,7 +291,7 @@ int network_load(Manager *manager) {
         while ((network = manager->networks))
                 network_free(network);
 
-        r = conf_files_list_strv(&files, ".network", NULL, 0, network_dirs);
+        r = conf_files_list_strv(&files, ".network", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate network files: %m");
 

@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "device-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -36,17 +37,8 @@ struct link_config_ctx {
 
         sd_netlink *rtnl;
 
-        usec_t link_dirs_ts_usec;
+        usec_t network_dirs_ts_usec;
 };
-
-static const char* const link_dirs[] = {
-        "/etc/systemd/network",
-        "/run/systemd/network",
-        "/usr/lib/systemd/network",
-#if HAVE_SPLIT_USR
-        "/lib/systemd/network",
-#endif
-        NULL};
 
 static void link_config_free(link_config *link) {
         if (!link)
@@ -216,9 +208,9 @@ int link_config_load(link_config_ctx *ctx) {
         }
 
         /* update timestamp */
-        paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, true);
+        paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, true);
 
-        r = conf_files_list_strv(&files, ".link", NULL, 0, link_dirs);
+        r = conf_files_list_strv(&files, ".link", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 
@@ -232,7 +224,7 @@ int link_config_load(link_config_ctx *ctx) {
 }
 
 bool link_config_should_reload(link_config_ctx *ctx) {
-        return paths_check_timestamp(link_dirs, &ctx->link_dirs_ts_usec, false);
+        return paths_check_timestamp(NETWORK_DIRS, &ctx->network_dirs_ts_usec, false);
 }
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
