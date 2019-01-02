@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "conf-files.h"
 #include "conf-parser.h"
