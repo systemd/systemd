@@ -1810,7 +1810,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         <option>syslog</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>syslog+console</option>, <option>kmsg+console</option>,
         <option>file:<replaceable>path</replaceable></option>, <option>append:<replaceable>path</replaceable></option>,
-        <option>socket</option> or<option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
