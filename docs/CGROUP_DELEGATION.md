@@ -1,3 +1,7 @@
+---
+title: Control Group APIs and Delegation
+---
+
 # Control Group APIs and Delegation
 
 *Intended audience: hackers working on userspace subsystems that require direct

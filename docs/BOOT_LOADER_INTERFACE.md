@@ -1,3 +1,7 @@
+---
+title: The Boot Loader Interface
+---
+
 # The Boot Loader Interface
 
 systemd can interface with the boot loader to receive performance data and

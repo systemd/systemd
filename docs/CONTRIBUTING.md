@@ -1,3 +1,7 @@
+---
+title: Contributing
+---
+
 # Contributing
 
 We welcome contributions from everyone. However, please follow the following guidelines when posting a GitHub Pull Request or filing a GitHub Issue on the systemd project:

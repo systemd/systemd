@@ -1,3 +1,7 @@
+---
+title: systemd Documentation
+---
+
 # systemd Documentation
 
 * [Automatic Boot Assessment](https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT)

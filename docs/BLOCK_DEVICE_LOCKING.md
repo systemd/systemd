@@ -1,3 +1,7 @@
+---
+title: Locking Block Device Access
+---
+
 # Locking Block Device Access
 
 *TL;DR: Use BSD file locks
