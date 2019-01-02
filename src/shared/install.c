@@ -15,6 +15,7 @@
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -2821,40 +2822,26 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
 }
 
 static int presets_find_config(UnitFileScope scope, const char *root_dir, char ***files) {
-        int r;
+        const char* const* dirs;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
-        assert(files);
 
         switch (scope) {
         case UNIT_FILE_SYSTEM:
-                r = conf_files_list(files, ".preset", root_dir, 0,
-                                    "/etc/systemd/system-preset",
-                                    "/run/systemd/system-preset",
-                                    "/usr/local/lib/systemd/system-preset",
-                                    "/usr/lib/systemd/system-preset",
-#if HAVE_SPLIT_USR
-                                    "/lib/systemd/system-preset",
-#endif
-                                    NULL);
+                dirs = (const char* const*) CONF_PATHS_STRV("systemd/system-preset");
                 break;
 
         case UNIT_FILE_GLOBAL:
         case UNIT_FILE_USER:
-                r = conf_files_list(files, ".preset", root_dir, 0,
-                                    "/etc/systemd/user-preset",
-                                    "/run/systemd/user-preset",
-                                    "/usr/local/lib/systemd/user-preset",
-                                    "/usr/lib/systemd/user-preset",
-                                    NULL);
+                dirs = (const char* const*) CONF_PATHS_USR_STRV("systemd/user-preset");
                 break;
 
         default:
                 assert_not_reached("Invalid unit file scope");
         }
 
-        return r;
+        return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
 }
 
 static int read_presets(UnitFileScope scope, const char *root_dir, Presets *presets) {
