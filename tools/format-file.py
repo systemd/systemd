@@ -20,6 +20,11 @@ def run_post_clang_format(file):
 	content = re.sub('(\s*typedef enum [a-zA-Z0-9]+)\n\s*{', r'\1 {', content)
 	# this fixes the undesired space between the name and the brace of a foreach macro
 	content = re.sub('(\s*[A-Z0-9_]*FOREACH[A-Z0-9_]*)\s*(\()', r'\1\2', content)
+	# reindent pragma conditionals with two spaces as indent
+	content = re.sub('\n# {32}', r'\n#        ', content)
+	content = re.sub('\n# {24}', r'\n#      ', content)
+	content = re.sub('\n# {16}', r'\n#    ', content)
+	content = re.sub('\n# {8}', r'\n#  ', content)
 	open(file, "w").write(content)
 
 if __name__ == '__main__':
