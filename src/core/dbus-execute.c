@@ -4,10 +4,6 @@
 #include <sys/prctl.h>
 #include <stdio_ext.h>
 
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-util.h"

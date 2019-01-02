@@ -7,9 +7,6 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #include <sched.h>
 #include <sys/resource.h>
 #include <sys/stat.h>

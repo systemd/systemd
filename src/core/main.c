@@ -10,9 +10,6 @@
 #include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #if HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif

@@ -27,10 +27,6 @@
 #include <selinux/selinux.h>
 #endif
 
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #if HAVE_APPARMOR
 #include <sys/apparmor.h>
 #endif

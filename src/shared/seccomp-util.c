@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <linux/seccomp.h>
-#include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
