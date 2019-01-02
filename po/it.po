@@ -2,14 +2,14 @@
 #
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
-# Daniele Medri <dmedri@gmail.com>, 2013-2018.
+# Daniele Medri <dmedri@gmail.com>, 2013-2019.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-08-30 13:50+0200\n"
-"PO-Revision-Date: 2018-08-30 14:15+0200\n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
+"POT-Creation-Date: 2019-01-02 13:27+0100\n"
+"PO-Revision-Date: 2019-01-02 13:35+0100\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: Italian\n"
 "Language: it\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 2.0.9\n"
+"X-Generator: Poedit 2.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -491,11 +491,11 @@ msgstr ""
 "Autenticazione richiesta per indicare al firmware di avviare l'interfaccia "
 "di configurazione."
 
-#: src/login/org.freedesktop.login1.policy:351
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Set a wall message"
 msgstr "Configura un messaggio per gli utenti"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set a wall message"
 msgstr "Autenticazione richiesta per configurare un messaggio per gli utenti"
 
@@ -678,8 +678,12 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autenticazione richiesta per riavviare '$(unit)'."
 
 #: src/core/dbus-unit.c:437
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "Autenticazione richiesta per terminare '$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di "
+"'$(unit)'."
 
 #: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
