@@ -133,13 +133,13 @@ CHANGES WITH 240:
 
         * The new "MemoryMin=" unit file property may now be used to set the
           memory usage protection limit of processes invoked by the unit. This
-          controls the cgroupsv2 memory.min attribute. Similarly, the new
+          controls the cgroup v2 memory.min attribute. Similarly, the new
           "IODeviceLatencyTargetSec=" property has been added, wrapping the new
-          cgroupsv2 io.latency cgroup property for configuring per-service I/O
+          cgroup v2 io.latency cgroup property for configuring per-service I/O
           latency.
 
-        * systemd now supports the cgroupsv2 devices BPF logic, as counterpart
-          to the cgroupsv1 "devices" cgroup controller.
+        * systemd now supports the cgroup v2 devices BPF logic, as counterpart
+          to the cgroup v1 "devices" cgroup controller.
 
         * systemd-escape now is able to combine --unescape with --template. It
           also learnt a new option --instance for extracting and unescaping the
@@ -355,7 +355,7 @@ CHANGES WITH 240:
 
         * The JoinControllers= option in system.conf is no longer supported, as
           it didn't work correctly, is hard to support properly, is legacy (as
-          the concept only exists on cgroupsv1) and apparently wasn't used.
+          the concept only exists on cgroup v1) and apparently wasn't used.
 
         * Journal messages that are generated whenever a unit enters the failed
           state are now tagged with a unique MESSAGE_ID. Similarly, messages
@@ -992,7 +992,7 @@ CHANGES WITH 238:
           instance to migrate processes if it itself gets the request to
           migrate processes and the kernel refuses this due to access
           restrictions.  Thanks to this "systemd-run --scope --user …" works
-          again in pure cgroups v2 environments when invoked from the user
+          again in pure cgroup v2 environments when invoked from the user
           session scope.
 
         * A new TemporaryFileSystem= setting can be used to mask out part of
@@ -2708,7 +2708,7 @@ CHANGES WITH 231:
           desired options.
 
         * systemd now supports the "memory" cgroup controller also on
-          cgroupsv2.
+          cgroup v2.
 
         * The systemd-cgtop tool now optionally takes a control group path as
           command line argument. If specified, the control group list shown is

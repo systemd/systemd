@@ -104,7 +104,7 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
 
 static bool is_root_cgroup(const char *path) {
 
-        /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on cgroupsv2 as it
+        /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on cgroup v2 as it
          * carries only very few attributes in order not to export multiple truth about system state as most
          * information is available elsewhere in /proc anyway. We need to be able to deal with that, and need to get
          * our data from different sources in that case.

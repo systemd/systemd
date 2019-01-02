@@ -257,7 +257,7 @@ static int client_context_read_cgroup(Server *s, ClientContext *c, const char *u
 
                 /* We use the unit ID passed in as fallback if we have nothing cached yet and cg_pid_get_path_shifted()
                  * failed or process is running in a root cgroup. Zombie processes are automatically migrated to root cgroup
-                 * on cgroupsv1 and we want to be able to map log messages from them too. */
+                 * on cgroup v1 and we want to be able to map log messages from them too. */
                 if (unit_id && !c->unit) {
                         c->unit = strdup(unit_id);
                         if (c->unit)
