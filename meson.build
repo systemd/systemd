@@ -828,6 +828,13 @@ ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
 substs.set('NTP_SERVERS', ntp_servers)
 
+default_locale = get_option('default-locale')
+if default_locale == ''
+        choose_default_locale_sh = find_program('tools/choose-default-locale.sh')
+        default_locale = run_command(choose_default_locale_sh).stdout().strip()
+endif
+conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
+
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
 substs.set('SUSHELL', get_option('debug-shell'))
@@ -3096,7 +3103,8 @@ status = [
         'default DNS-over-TLS mode:         @0@'.format(default_dns_over_tls),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
         'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
-        'default KillUserProcesses setting: @0@'.format(kill_user_processes)]
+        'default KillUserProcesses setting: @0@'.format(kill_user_processes),
+        'default locale:                    @0@'.format(default_locale)]
 
 alt_dns_servers = '\n                                            '.join(dns_servers.split(' '))
 alt_ntp_servers = '\n                                            '.join(ntp_servers.split(' '))
