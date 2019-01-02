@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sys/resource.h>
-
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "macro.h"

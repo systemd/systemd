@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <sys/resource.h>
 
 #include "alloc-util.h"
 #include "extract-word.h"
