@@ -118,8 +118,8 @@
 
       <para>When outputting to a tty, lines are colored according to
       priority: lines of level ERROR and higher are colored red; lines
-      of level NOTICE and higher are highlighted; other lines are
-      displayed normally.</para>
+      of level NOTICE and higher are highlighted; lines of level DEBUG
+      are colored lighter grey; other lines are displayed normally.</para>
     </refsect1>
 
     <refsect1>
