@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/magic.h>
 #include <sched.h>
 #include <sys/statvfs.h>
 #include <sys/types.h>

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <linux/magic.h>
 #if HAVE_ACL
 #include <sys/acl.h>
 #endif
