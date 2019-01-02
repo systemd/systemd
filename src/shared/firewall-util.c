@@ -11,7 +11,6 @@
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <net/if.h>
 #ifndef IFNAMSIZ
 #define IFNAMSIZ 16

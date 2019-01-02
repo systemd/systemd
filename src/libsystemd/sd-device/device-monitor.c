@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
-#include <sys/socket.h>
 
 #include "sd-device.h"
 #include "sd-event.h"

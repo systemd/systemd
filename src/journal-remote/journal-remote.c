@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
-#include <sys/socket.h>
 #include <stdint.h>
 
 #include "sd-daemon.h"

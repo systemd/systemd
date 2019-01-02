@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stddef.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 
 #include "alloc-util.h"

@@ -2,7 +2,6 @@
 
 #include <linux/if_alg.h>
 #include <stdbool.h>
-#include <sys/socket.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

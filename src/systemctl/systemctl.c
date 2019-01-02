@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-bus.h"

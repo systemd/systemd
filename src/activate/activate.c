@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include <sys/epoll.h>
 #include <sys/prctl.h>
-#include <sys/socket.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
