@@ -11,8 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
 #include <unistd.h>
 
 #include "sd-id128.h"

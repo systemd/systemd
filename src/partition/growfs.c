@@ -6,7 +6,6 @@
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
 

@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <linux/magic.h>
-#include <sys/statfs.h>
 
 #include "btrfs-util.h"
 #include "label.h"

@@ -4,8 +4,6 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

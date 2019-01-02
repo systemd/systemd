@@ -5,7 +5,6 @@
 #if HAVE_ACL
 #include <sys/acl.h>
 #endif
-#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>

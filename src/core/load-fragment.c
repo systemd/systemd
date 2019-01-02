@@ -9,7 +9,6 @@
 #include <linux/oom.h>
 #include <sched.h>
 #include <sys/resource.h>
-#include <sys/stat.h>
 
 #include "af-list.h"
 #include "alloc-util.h"

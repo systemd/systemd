@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/magic.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
