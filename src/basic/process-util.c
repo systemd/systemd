@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <linux/oom.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdio_ext.h>

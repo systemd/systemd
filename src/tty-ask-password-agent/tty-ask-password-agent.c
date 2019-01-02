@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/inotify.h>

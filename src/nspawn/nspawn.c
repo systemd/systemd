@@ -12,7 +12,6 @@
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>

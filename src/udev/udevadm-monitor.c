@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <signal.h>
 
 #include "sd-device.h"
 #include "sd-event.h"

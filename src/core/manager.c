@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/kd.h>
-#include <signal.h>
 #include <stdio_ext.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
