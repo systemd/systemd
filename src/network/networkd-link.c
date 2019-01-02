@@ -787,12 +787,15 @@ void link_check_ready(Link *link) {
         return;
 }
 
-static int link_set_routing_policy_rule(Link *link) {
+static int link_request_set_routing_policy_rule(Link *link) {
         RoutingPolicyRule *rule, *rrule = NULL;
         int r;
 
         assert(link);
         assert(link->network);
+
+        link_set_state(link, LINK_STATE_CONFIGURING);
+        link->routing_policy_rules_configured = false;
 
         LIST_FOREACH(rules, rule, link->network->rules) {
                 r = routing_policy_rule_get(link->manager, rule->family, &rule->from, rule->from_prefixlen, &rule->to,
@@ -865,8 +868,11 @@ static int link_request_set_routes(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+        link->static_routes_configured = false;
 
-        (void) link_set_routing_policy_rule(link);
+        r = link_request_set_routing_policy_rule(link);
+        if (r < 0)
+                return r;
 
         /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
         for (phase = 0; phase < _PHASE_MAX; phase++)
@@ -903,6 +909,7 @@ static int link_request_set_neighbors(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+        link->neighbors_configured = false;
 
         LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
                 r = neighbor_configure(neighbor, link, NULL);
@@ -1073,13 +1080,21 @@ static int link_request_set_addresses(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
+        /* Reset all *_configured flags we are configuring. */
+        link->addresses_configured = false;
+        link->neighbors_configured = false;
+        link->static_routes_configured = false;
+        link->routing_policy_rules_configured = false;
+
         r = link_set_bridge_fdb(link);
         if (r < 0)
                 return r;
 
-        link_set_state(link, LINK_STATE_CONFIGURING);
-
-        link_request_set_neighbors(link);
+        r = link_request_set_neighbors(link);
+        if (r < 0)
+                return r;
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 r = address_configure(ad, link, address_handler, false);
@@ -1216,7 +1231,7 @@ static int link_request_set_addresses(Link *link) {
 
                                 return 0;
                         }
-                }    
+                }
 
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
