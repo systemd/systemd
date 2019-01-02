@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <sys/file.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>

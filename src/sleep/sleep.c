@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <getopt.h>
 #include <linux/fiemap.h>
-#include <stdio.h>
 
 #include "sd-messages.h"
 

@@ -5,7 +5,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
 

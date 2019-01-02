@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <linux/magic.h>
 #include <time.h>
