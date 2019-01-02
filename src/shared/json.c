@@ -5,7 +5,6 @@
 #include <stdarg.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 
 #include "sd-messages.h"

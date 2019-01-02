@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>

@@ -7,7 +7,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>

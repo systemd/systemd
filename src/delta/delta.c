@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <string.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 

@@ -7,7 +7,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/time.h>

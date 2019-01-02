@@ -8,7 +8,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/statfs.h>

@@ -4,7 +4,6 @@
 ***/
 
 #include <errno.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <linux/if_infiniband.h>
 

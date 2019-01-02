@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "strbuf.h"
 #include "string-util.h"

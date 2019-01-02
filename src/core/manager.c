@@ -5,7 +5,6 @@
 #include <linux/kd.h>
 #include <signal.h>
 #include <stdio_ext.h>
-#include <string.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>

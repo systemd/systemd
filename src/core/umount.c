@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/loop.h>
-#include <string.h>
 #include <sys/mount.h>
 #include <sys/swap.h>
 

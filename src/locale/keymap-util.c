@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdio_ext.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "bus-util.h"

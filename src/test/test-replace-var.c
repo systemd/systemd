@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <string.h>
-
 #include "macro.h"
 #include "replace-var.h"
 #include "string-util.h"

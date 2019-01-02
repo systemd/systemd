@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <mntent.h>
-#include <string.h>
 #include <sys/mman.h>
 
 #include "sd-device.h"

@@ -11,7 +11,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>

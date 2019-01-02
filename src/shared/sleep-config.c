@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <syslog.h>
 #include <unistd.h>

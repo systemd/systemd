@@ -5,7 +5,6 @@
 #include <netdb.h>
 #include <nss.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "hostname-util.h"

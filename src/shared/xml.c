@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "macro.h"
 #include "string-util.h"

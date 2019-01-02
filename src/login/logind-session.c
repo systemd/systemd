@@ -6,7 +6,6 @@
 #include <linux/vt.h>
 #include <signal.h>
 #include <stdio_ext.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <poll.h>
-#include <string.h>
 
 #include "sd-login.h"
 

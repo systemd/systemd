@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <string.h>
 #include <syslog.h>
 
 #include "hexdecoct.h"

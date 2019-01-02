@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-id128.h"
 #include "sd-ipv4acd.h"

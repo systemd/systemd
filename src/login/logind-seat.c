@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio_ext.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-messages.h"

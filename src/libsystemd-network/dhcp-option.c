@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "utf8.h"

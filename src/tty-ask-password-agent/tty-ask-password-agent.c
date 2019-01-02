@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/prctl.h>
 #include <sys/signalfd.h>
