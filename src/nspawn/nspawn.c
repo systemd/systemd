@@ -9,7 +9,6 @@
 #include <linux/fs.h>
 #include <linux/loop.h>
 #include <pwd.h>
-#include <sched.h>
 #if HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif

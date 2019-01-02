@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sched.h>
 #include <sys/utsname.h>
 
 #include "analyze-security.h"
