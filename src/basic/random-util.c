@@ -14,13 +14,7 @@
 #include <sys/time.h>
 
 #if HAVE_SYS_AUXV_H
-#  include <sys/auxv.h>
-#endif
-
-#if USE_SYS_RANDOM_H
-#  include <sys/random.h>
-#else
-#  include <linux/random.h>
+#include <sys/auxv.h>
 #endif
 
 #include "fd-util.h"
