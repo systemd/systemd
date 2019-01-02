@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <linux/magic.h>
 #include <time.h>
