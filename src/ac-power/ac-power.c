@@ -8,12 +8,14 @@
 static bool arg_verbose = false;
 
 static void help(void) {
+        /* clang-format off */
         printf("%s\n\n"
                "Report whether we are connected to an external power source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
                , program_invocation_short_name);
+        /* clang-format on */
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -23,9 +25,9 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "verbose", no_argument, NULL, 'v'         },
+                { "help" /*****/, no_argument /****/, NULL, 'h' /**********/ },
+                { "version" /**/, no_argument /****/, NULL, ARG_VERSION /**/ },
+                { "verbose" /**/, no_argument /****/, NULL, 'v' /**********/ },
                 {}
         };
 
@@ -57,9 +59,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no arguments.",
-                                       program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         return 1;
 }

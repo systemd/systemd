@@ -1,0 +1,109 @@
+# This configuration file can be used to auto-format the code base
+# To apply the coding style you can run the following command (assuming you installed clang-format-6.0 on your system):
+# $ find ./src -iregex '.*\.\(cpp\|hpp\|c\|h\|cc\|hh\|cxx\|hxx\)$' | xargs clang-format-6.0 -i -style=file
+# You can find more information on the different config parameters in this file here:
+# https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormatStyleOptions.html
+---
+TabWidth: 2
+UseTab: Never
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands: false
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: true
+BinPackArguments: false
+BinPackParameters: false
+BreakAfterJavaFieldAnnotations: true
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: Custom
+BreakBeforeInheritanceComma: true
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: BeforeColon
+BreakStringLiterals: false
+ColumnLimit: 109
+CompactNamespaces: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 8
+ContinuationIndentWidth: 8
+Cpp11BracedListStyle: false
+ExperimentalAutoDetectBinPacking: false
+FixNamespaceComments: true
+ForEachMacros: [BITMAP_FOREACH, CMSG_FOREACH, _DNS_ANSWER_FOREACH, DNS_ANSWER_FOREACH, \
+  _DNS_ANSWER_FOREACH_FLAGS, DNS_ANSWER_FOREACH_FLAGS, _DNS_ANSWER_FOREACH_FULL, \
+  DNS_ANSWER_FOREACH_FULL, _DNS_ANSWER_FOREACH_IFINDEX, DNS_ANSWER_FOREACH_IFINDEX, \
+  _DNS_QUESTION_FOREACH, DNS_QUESTION_FOREACH, FDSET_FOREACH, \
+  FOREACH_BTRFS_IOCTL_SEARCH_HEADER, FOREACH_DEVICE, FOREACH_DEVICE_AND_SUBSYSTEM, \
+  FOREACH_DEVICE_DEVLINK, FOREACH_DEVICE_PROPERTY, FOREACH_DEVICE_SYSATTR, \
+  FOREACH_DEVICE_TAG, FOREACH_DIRENT, FOREACH_DIRENT_ALL, FOREACH_INOTIFY_EVENT, \
+  FOREACH_STRING, FOREACH_SUBSYSTEM, _FOREACH_WORD, FOREACH_WORD, \
+  FOREACH_WORD_SEPARATOR, HASHMAP_FOREACH, HASHMAP_FOREACH_IDX, HASHMAP_FOREACH_KEY, \
+  JOURNAL_FOREACH_DATA_RETVAL, JSON_VARIANT_ARRAY_FOREACH, 
+  JSON_VARIANT_OBJECT_FOREACH, LIST_FOREACH, LIST_FOREACH_AFTER, LIST_FOREACH_BEFORE, \
+  LIST_FOREACH_OTHERS, LIST_FOREACH_SAFE, MESSAGE_FOREACH_PART, NULSTR_FOREACH, \
+  NULSTR_FOREACH_PAIR, OBJECT_PATH_FOREACH_PREFIX, ORDERED_HASHMAP_FOREACH, \
+  ORDERED_HASHMAP_FOREACH_KEY, ORDERED_SET_FOREACH, PATH_FOREACH_PREFIX, \
+  PATH_FOREACH_PREFIX_MORE, SD_HWDB_FOREACH_PROPERTY, SD_JOURNAL_FOREACH, \
+  SD_JOURNAL_FOREACH_BACKWARDS, SD_JOURNAL_FOREACH_DATA, SD_JOURNAL_FOREACH_FIELD, \
+  SD_JOURNAL_FOREACH_UNIQUE, SECCOMP_FOREACH_LOCAL_ARCH, SET_FOREACH, \
+  SET_FOREACH_MOVE, STRV_FOREACH, STRV_FOREACH_BACKWARDS, STRV_FOREACH_PAIR]
+IncludeBlocks: Preserve
+IndentCaseLabels: false
+IndentPPDirectives: AfterHash
+IndentWidth: 8
+IndentWrappedFunctionNames: true
+JavaScriptQuotes: Leave
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+ObjCBlockIndentWidth: 2
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
+PenaltyBreakAssignment: 65
+PenaltyBreakBeforeFirstCallParameter: 16
+PenaltyBreakComment: 320
+PenaltyBreakFirstLessLess: 50
+PenaltyBreakString: 0
+PenaltyExcessCharacter: 10
+PenaltyReturnTypeOnItsOwnLine: 100
+PointerAlignment: Right
+SortIncludes: true
+SortUsingDeclarations: true
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: true
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: true
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: Cpp03
+BraceWrapping: 
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: false
+  AfterNamespace: false
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  AfterExternBlock: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false

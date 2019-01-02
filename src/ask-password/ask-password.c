@@ -32,6 +32,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
+        /* clang-format off */
         printf("%s [OPTIONS...] MESSAGE\n\n"
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help           Show this help\n"
@@ -48,7 +49,7 @@ static int help(void) {
                , program_invocation_short_name
                , link
         );
-
+        /* clang-format on */
         return 0;
 }
 
@@ -68,17 +69,17 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'               },
-                { "version",       no_argument,       NULL, ARG_VERSION       },
-                { "icon",          required_argument, NULL, ARG_ICON          },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
-                { "echo",          no_argument,       NULL, ARG_ECHO          },
-                { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
-                { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
-                { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
-                { "id",            required_argument, NULL, ARG_ID            },
-                { "keyname",       required_argument, NULL, ARG_KEYNAME       },
-                { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
+                { "help" /***********/, no_argument /***/, NULL, 'h' },
+                { "version" /********/, no_argument /***/, NULL, ARG_VERSION },
+                { "icon" /***********/, required_argument, NULL, ARG_ICON },
+                { "timeout" /********/, required_argument, NULL, ARG_TIMEOUT },
+                { "echo" /***********/, no_argument /***/, NULL, ARG_ECHO },
+                { "no-tty" /*********/, no_argument /***/, NULL, ARG_NO_TTY },
+                { "accept-cached" /**/, no_argument /***/, NULL, ARG_ACCEPT_CACHED },
+                { "multiple" /*******/, no_argument /***/, NULL, ARG_MULTIPLE },
+                { "id" /*************/, required_argument, NULL, ARG_ID },
+                { "keyname" /********/, required_argument, NULL, ARG_KEYNAME },
+                { "no-output" /******/, no_argument /***/, NULL, ARG_NO_OUTPUT },
                 {}
         };
 
