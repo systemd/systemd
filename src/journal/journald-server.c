@@ -41,7 +41,7 @@
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
-#include "missing.h"
+#include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"

@@ -58,3 +58,8 @@ struct sockaddr_vm {
 #ifndef IP_TRANSPARENT
 #define IP_TRANSPARENT 19
 #endif
+
+/* linux/netlink.h */
+#ifndef NETLINK_LIST_MEMBERSHIPS /* b42be38b2778eda2237fc759e55e3b698b05b315 (4.2) */
+#define NETLINK_LIST_MEMBERSHIPS 9
+#endif

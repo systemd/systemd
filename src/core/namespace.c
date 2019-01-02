@@ -17,7 +17,6 @@
 #include "label.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"

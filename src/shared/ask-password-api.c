@@ -31,7 +31,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "random-util.h"

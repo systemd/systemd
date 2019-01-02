@@ -3,19 +3,14 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <linux/ip.h>
-#include <linux/if_tunnel.h>
 #include <linux/ip6_tunnel.h>
-
-#if HAVE_LINUX_FOU_H
-#include <linux/fou.h>
-#endif
 
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
-#include "missing.h"
-#include "networkd-link.h"
+#include "missing_if_tunnel.h"
 #include "netdev/tunnel.h"
+#include "networkd-link.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"

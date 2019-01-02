@@ -19,7 +19,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_stdlib.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"

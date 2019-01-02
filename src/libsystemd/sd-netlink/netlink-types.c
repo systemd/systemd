@@ -4,29 +4,22 @@
 #include <stdint.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/ip.h>
 #include <linux/if.h>
 #include <linux/can/netlink.h>
-#include <linux/fib_rules.h>
 #include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
-#include <linux/if_bridge.h>
-#include <linux/if_link.h>
-#include <linux/if_tunnel.h>
 #include <linux/veth.h>
 
-#if HAVE_LINUX_FOU_H
-#include <linux/fou.h>
-#endif
-
-#if HAVE_LINUX_CAN_VXCAN_H
-#include <linux/can/vxcan.h>
-#endif
-
 #include "macro.h"
-#include "missing.h"
+#include "missing_fib_rules.h"
+#include "missing_fou.h"
+#include "missing_if_bridge.h"
+#include "missing_if_link.h"
+#include "missing_if_tunnel.h"
+#include "missing_rtnetlink.h"
+#include "missing_vxcan.h"
 #include "netlink-types.h"
 #include "sd-netlink.h"
 #include "string-table.h"

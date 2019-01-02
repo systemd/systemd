@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "missing_prctl.h"
 #include "parse-util.h"
 #include "tests.h"
 #include "util.h"

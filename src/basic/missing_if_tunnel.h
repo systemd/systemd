@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/if_tunnel.h>
+
 #if !HAVE_IFLA_VTI_FWMARK /* linux@0a473b82cb23e7a35c4be6e9765c8487a65e8f55 (4.12) */
 #define IFLA_VTI_FWMARK 6
 

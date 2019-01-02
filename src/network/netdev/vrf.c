@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if.h>
-
 #include "sd-netlink.h"
-#include "missing.h"
+
+#include "missing_if_link.h"
 #include "netdev/vrf.h"
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

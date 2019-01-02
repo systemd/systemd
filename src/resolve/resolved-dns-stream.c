@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "resolved-dns-stream.h"
 
 #define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)

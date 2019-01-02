@@ -3,8 +3,6 @@
 
 typedef struct VCan VCan;
 
-#include <linux/can/netlink.h>
-
 #include "netdev/netdev.h"
 
 struct VCan {

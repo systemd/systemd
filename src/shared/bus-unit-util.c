@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/fs.h>
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-unit-util.h"
@@ -18,7 +20,6 @@
 #include "ip-protocol-list.h"
 #include "list.h"
 #include "locale-util.h"
-#include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"

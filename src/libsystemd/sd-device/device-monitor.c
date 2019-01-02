@@ -17,7 +17,6 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "io-util.h"
-#include "missing.h"
 #include "mountpoint-util.h"
 #include "set.h"
 #include "socket-util.h"

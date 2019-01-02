@@ -1,19 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if.h>
-
 #include "sd-netlink.h"
 
-#include "conf-parser.h"
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "extract-word.h"
+#include "missing_if_link.h"
+#include "netdev/vxlan.h"
+#include "networkd-link.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "parse-util.h"
-#include "missing.h"
-
-#include "networkd-link.h"
-#include "netdev/vxlan.h"
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v;

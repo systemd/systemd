@@ -21,7 +21,6 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"

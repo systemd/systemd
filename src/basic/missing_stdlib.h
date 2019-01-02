@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 
-/* stdlib.h */
 #if !HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv

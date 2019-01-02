@@ -1,18 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <ctype.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "libudev.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "missing.h"
-#include "string-util.h"
+#include "log.h"
+#include "macro.h"
 
 /**
  * SECTION:libudev

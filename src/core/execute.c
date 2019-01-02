@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/capability.h>
 #include <sys/eventfd.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -65,7 +66,7 @@
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "namespace.h"
 #include "parse-util.h"

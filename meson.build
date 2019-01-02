@@ -529,7 +529,6 @@ foreach decl : [['ETHTOOL_LINK_MODE_10baseT_Half_BIT',      'linux/ethtool.h'],
                 ['IFLA_GRE_FWMARK',                         'linux/if_tunnel.h', '#include <net/if.h>'],
                 ['IFLA_GRE_ERSPAN_INDEX',                   'linux/if_tunnel.h', '#include <net/if.h>'],
                 ['IFLA_GRE_ERSPAN_HWID',                    'linux/if_tunnel.h', '#include <net/if.h>'],
-                ['LO_FLAGS_PARTSCAN',                       'linux/loop.h'],
                ]
         prefix = decl.length() > 2 ? decl[2] : ''
         have = cc.has_header_symbol(decl[1], decl[0], prefix : prefix)

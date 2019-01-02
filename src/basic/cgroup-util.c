@@ -28,7 +28,7 @@
 #include "log.h"
 #include "login-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_magic.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"

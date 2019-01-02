@@ -14,7 +14,6 @@
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "set.h"
 #include "stat-util.h"

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/if_bridge.h>
+
 #if !HAVE_IFLA_BRIDGE_VLAN_TUNNEL_INFO /* linux@b3c7ef0adadc5768e0baa786213c6bd1ce521a77 (4.11) */
 #define IFLA_BRIDGE_VLAN_TUNNEL_INFO 3
 

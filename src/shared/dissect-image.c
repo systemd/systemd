@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/loop.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -26,7 +27,6 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
-#include "missing.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "os-util.h"

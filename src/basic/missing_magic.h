@@ -32,3 +32,8 @@
 #ifndef MQUEUE_MAGIC
 #define MQUEUE_MAGIC 0x19800202
 #endif
+
+/* Not exposed yet (4.20). Defined at fs/cifs/cifsglob.h */
+#ifndef CIFS_MAGIC_NUMBER
+#define CIFS_MAGIC_NUMBER 0xFF534D42
+#endif

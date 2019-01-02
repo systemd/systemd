@@ -17,7 +17,7 @@
 
 #include "device-util.h"
 #include "fd-util.h"
-#include "missing.h"
+#include "missing_input.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"

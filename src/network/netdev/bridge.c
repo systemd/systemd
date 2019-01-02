@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if.h>
-
-#include "missing.h"
-#include "netlink-util.h"
+#include "missing_if_link.h"
 #include "netdev/bridge.h"
+#include "netlink-util.h"
 #include "networkd-manager.h"
 #include "vlan-util.h"
 

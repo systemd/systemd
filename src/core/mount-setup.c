@@ -19,7 +19,6 @@
 #include "label.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mountpoint-util.h"

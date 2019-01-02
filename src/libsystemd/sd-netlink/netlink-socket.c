@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
-#include "missing.h"
+#include "missing_socket.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"

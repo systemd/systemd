@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <linux/magic.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 
@@ -9,7 +10,6 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing.h"
 #include "parse-util.h"
 #include "stat-util.h"
 

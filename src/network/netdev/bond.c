@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <netinet/ether.h>
-#include <linux/if_bonding.h>
 
 #include "sd-netlink.h"
 
@@ -9,7 +8,7 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
-#include "missing.h"
+#include "missing_if_bonding.h"
 #include "netdev/bond.h"
 #include "string-table.h"
 #include "string-util.h"

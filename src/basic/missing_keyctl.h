@@ -3,45 +3,7 @@
 
 #include <linux/keyctl.h>
 
-#ifndef KEYCTL_JOIN_SESSION_KEYRING
-#define KEYCTL_JOIN_SESSION_KEYRING 1
-#endif
-
-#ifndef KEYCTL_CHOWN
-#define KEYCTL_CHOWN 4
-#endif
-
-#ifndef KEYCTL_SETPERM
-#define KEYCTL_SETPERM 5
-#endif
-
-#ifndef KEYCTL_DESCRIBE
-#define KEYCTL_DESCRIBE 6
-#endif
-
-#ifndef KEYCTL_LINK
-#define KEYCTL_LINK 8
-#endif
-
-#ifndef KEYCTL_READ
-#define KEYCTL_READ 11
-#endif
-
-#ifndef KEYCTL_SET_TIMEOUT
-#define KEYCTL_SET_TIMEOUT 15
-#endif
-
-#ifndef KEY_SPEC_USER_KEYRING
-#define KEY_SPEC_USER_KEYRING -4
-#endif
-
-#ifndef KEY_SPEC_SESSION_KEYRING
-#define KEY_SPEC_SESSION_KEYRING -3
-#endif
-
-/* From linux/key.h */
-#ifndef KEY_POS_VIEW
-
+/* Not exposed yet. Defined at linux/key.h */
 typedef int32_t key_serial_t;
 
 #define KEY_POS_VIEW    0x01000000
@@ -75,4 +37,3 @@ typedef int32_t key_serial_t;
 #define KEY_OTH_LINK    0x00000010
 #define KEY_OTH_SETATTR 0x00000020
 #define KEY_OTH_ALL     0x0000003f
-#endif

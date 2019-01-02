@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <linux/types.h>
+#include <linux/fib_rules.h>
 
 #if !HAVE_FRA_TUN_ID /* linux@e7030878fc8448492b6e5cecd574043f63271298 (4.3) */
 #define FRA_TUN_ID      12

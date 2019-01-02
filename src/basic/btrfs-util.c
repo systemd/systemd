@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <linux/fs.h>
 #include <linux/loop.h>
+#include <linux/magic.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +27,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_btrfs_tree.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "smack-util.h"

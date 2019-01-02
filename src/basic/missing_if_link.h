@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <linux/if_link.h>
+
 #if !HAVE_IFLA_INET6_ADDR_GEN_MODE /* linux@bc91b0f07ada5535427373a4e2050877bcc12218 (3.17) */
 #define IFLA_INET6_ADDR_GEN_MODE 8
 

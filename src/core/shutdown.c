@@ -24,7 +24,6 @@
 #include "fileio.h"
 #include "killall.h"
 #include "log.h"
-#include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "reboot-util.h"

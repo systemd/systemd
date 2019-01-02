@@ -10,7 +10,6 @@
 #include "fuzz.h"
 #include "log.h"
 #include "mkdir.h"
-#include "missing.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"

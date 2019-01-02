@@ -96,7 +96,6 @@ basic_sources = files('''
         memfd-util.h
         mempool.c
         mempool.h
-        missing.h
         missing_audit.h
         missing_btrfs.h
         missing_btrfs_tree.h
@@ -107,6 +106,8 @@ basic_sources = files('''
         missing_fib_rules.h
         missing_fou.h
         missing_fs.h
+        missing_if_addr.h
+        missing_if_bonding.h
         missing_if_bridge.h
         missing_if_link.h
         missing_if_tunnel.h
@@ -114,10 +115,12 @@ basic_sources = files('''
         missing_keyctl.h
         missing_magic.h
         missing_mman.h
+        missing_netdevice.h
         missing_network.h
         missing_prctl.h
         missing_random.h
         missing_resource.h
+        missing_rtnetlink.h
         missing_sched.h
         missing_securebits.h
         missing_socket.h

@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "missing_fcntl.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"

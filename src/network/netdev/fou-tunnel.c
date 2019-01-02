@@ -5,7 +5,6 @@
 #include <linux/ip.h>
 
 #include "conf-parser.h"
-#include "missing.h"
 #include "netdev/fou-tunnel.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

@@ -18,7 +18,6 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"

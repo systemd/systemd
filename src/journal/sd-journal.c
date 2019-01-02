@@ -31,7 +31,6 @@
 #include "journal-internal.h"
 #include "list.h"
 #include "lookup3.h"
-#include "missing.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "replace-var.h"

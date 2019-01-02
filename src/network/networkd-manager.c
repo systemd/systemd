@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "local-addresses.h"
+#include "missing_rtnetlink.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "ordered-set.h"

@@ -35,7 +35,6 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "process-util.h"

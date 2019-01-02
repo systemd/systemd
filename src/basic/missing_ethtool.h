@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <linux/types.h>
-
-/* Missing definitions in ethtool.h */
+#include <linux/ethtool.h>
 
 #if !HAVE_ETHTOOL_LINK_MODE_10baseT_Half_BIT /* linux@3f1ac7a700d039c61d8d8b99f28d605d489a60cf (4.6) */
 

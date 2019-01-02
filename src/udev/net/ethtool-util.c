@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if.h>
-#include <sys/ioctl.h>
 #include <linux/ethtool.h>
 #include <linux/sockios.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"
 #include "log.h"
-#include "missing.h"
+#include "missing_ethtool.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"

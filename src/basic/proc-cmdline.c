@@ -8,6 +8,7 @@
 #include "extract-word.h"
 #include "fileio.h"
 #include "macro.h"
+#include "missing_stdlib.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"

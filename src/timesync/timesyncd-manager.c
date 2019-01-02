@@ -20,7 +20,6 @@
 #include "fs-util.h"
 #include "list.h"
 #include "log.h"
-#include "missing.h"
 #include "network-util.h"
 #include "ratelimit.h"
 #include "resolve-private.h"
