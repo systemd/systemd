@@ -270,14 +270,13 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get timestamp properties: %s", bus_error_message(&error, r));
 
-        if (times.finish_time <= 0) {
-                log_error("Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
-                          "Please try again later.\n"
-                          "Hint: Use 'systemctl%s list-jobs' to see active jobs",
-                          times.finish_time,
-                          arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
-                return -EINPROGRESS;
-        }
+        if (times.finish_time <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINPROGRESS),
+                                       "Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
+                                       "Please try again later.\n"
+                                       "Hint: Use 'systemctl%s list-jobs' to see active jobs",
+                                       times.finish_time,
+                                       arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
 
         if (arg_scope == UNIT_FILE_SYSTEM && times.security_start_time > 0) {
                 /* security_start_time is set when systemd is not running under container environment. */
@@ -312,7 +311,6 @@ finish:
 }
 
 static void free_host_info(struct host_info *hi) {
-
         if (!hi)
                 return;
 
@@ -385,7 +383,8 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                                 NULL,
                                 t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s", u.id, bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s",
+                                               u.id, bus_error_message(&error, r));
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
                 subtract_timestamp(&t->activated, boot_times->reverse_offset);
@@ -458,7 +457,8 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    NULL,
                                    host);
         if (r < 0) {
-                log_debug_errno(r, "Failed to get host information from systemd-hostnamed, ignoring: %s", bus_error_message(&error, r));
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed, ignoring: %s",
+                                bus_error_message(&error, r));
                 sd_bus_error_free(&error);
         }
 
@@ -472,10 +472,10 @@ manager:
                                    NULL,
                                    host);
         if (r < 0)
-                return log_error_errno(r, "Failed to get host information from systemd: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get host information from systemd: %s",
+                                       bus_error_message(&error, r));
 
         *hi = TAKE_PTR(host);
-
         return 0;
 }
 
@@ -1328,7 +1328,8 @@ static int dump(int argc, char *argv[], void *userdata) {
         if (r < 0) {
                 /* fall back to Dump if DumpByFileDescriptor is not supported */
                 if (!IN_SET(r, -EACCES, -EBADR))
-                        return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s",
+                                               bus_error_message(&error, r));
 
                 return dump_fallback(bus);
         }
@@ -1365,8 +1366,7 @@ static int cat_config(int argc, char *argv[], void *userdata) {
 
                         if (!t)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Path %s does not start with any known prefix.",
-                                                       *arg);
+                                                       "Path %s does not start with any known prefix.", *arg);
                 } else
                         t = *arg;
 
@@ -1628,8 +1628,8 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                                 /* make sure the error appears below normal output */
                                 fflush(stdout);
 
-                                log_error("Filter set \"%s\" not found.", *name);
-                                return -ENOENT;
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "Filter set \"%s\" not found.", *name);
                         }
 
                         dump_syscall_filter(set);
