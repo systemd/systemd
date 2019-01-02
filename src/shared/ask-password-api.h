@@ -17,5 +17,4 @@ typedef enum AskPasswordFlags {
 
 int ask_password_tty(int tty_fd, const char *message, const char *keyname, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
 int ask_password_agent(const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flag, char ***ret);
-int ask_password_keyring(const char *keyname, AskPasswordFlags flags, char ***ret);
 int ask_password_auto(const char *message, const char *icon, const char *id, const char *keyname, usec_t until, AskPasswordFlags flag, char ***ret);
