@@ -180,7 +180,7 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
         if (arg_inetd) {
                 assert(n_fds == 1);
 
-                /* invalidates start_fd on success + error */
+                /* Invalidate start_fd on success + error */
                 r = rearrange_stdio(start_fd, start_fd, STDERR_FILENO);
                 if (r < 0)
                         return log_error_errno(r, "Failed to move fd to stdin+stdout: %m");
