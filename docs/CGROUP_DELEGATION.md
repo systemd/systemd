@@ -17,7 +17,7 @@ container managers.
 
 Before you read on, please make sure you read the low-level [kernel
 documentation about
-cgroupsv2](https://www.kernel.org/doc/Documentation/cgroup-v2.txt). This
+cgroup v2](https://www.kernel.org/doc/Documentation/cgroup-v2.txt). This
 documentation then adds in the higher-level view from systemd.
 
 This document augments the existing documentation we already have:
@@ -34,8 +34,8 @@ wiki documentation into this very document, too.)
 ## Two Key Design Rules
 
 Much of the philosophy behind these concepts is based on a couple of basic
-design ideas of cgroupsv2 (which we however try to adapt as far as we can to
-cgroupsv1 too). Specifically two cgroupsv2 rules are the most relevant:
+design ideas of cgroup v2 (which we however try to adapt as far as we can to
+cgroup v1 too). Specifically two cgroup v2 rules are the most relevant:
 
 1. The **no-processes-in-inner-nodes** rule: this means that it's not permitted
 to have processes directly attached to a cgroup that also has child cgroups and
@@ -58,45 +58,45 @@ your container manager creates and manages cgroups in the system's root cgroup
 you violate rule #2, as the root cgroup is managed by systemd and hence off
 limits to everybody else.
 
-Note that rule #1 is generally enforced by the kernel if cgroupsv2 is used: as
+Note that rule #1 is generally enforced by the kernel if cgroup v2 is used: as
 soon as you add a process to a cgroup it is ensured the rule is not
-violated. On cgroupsv1 this rule didn't exist, and hence isn't enforced, even
+violated. On cgroup v1 this rule didn't exist, and hence isn't enforced, even
 though it's a good thing to follow it then too. Rule #2 is not enforced on
-either cgroupsv1 nor cgroupsv2 (this is UNIX after all, in the general case
+either cgroup v1 nor cgroup v2 (this is UNIX after all, in the general case
 root can do anything, modulo SELinux and friends), but if you ignore it you'll
 be in constant pain as various pieces of software will fight over cgroup
 ownership.
 
-Note that cgroupsv1 is currently the most deployed implementation, even though
+Note that cgroup v1 is currently the most deployed implementation, even though
 it's semantically broken in many ways, and in many cases doesn't actually do
-what people think it does. cgroupsv2 is where things are going, and most new
-kernel features in this area are only added to cgroupsv2, and not cgroupsv1
-anymore. For example cgroupsv2 provides proper cgroup-empty notifications, has
+what people think it does. cgroup v2 is where things are going, and most new
+kernel features in this area are only added to cgroup v2, and not cgroup v1
+anymore. For example cgroup v2 provides proper cgroup-empty notifications, has
 support for all kinds of per-cgroup BPF magic, supports secure delegation of
 cgroup trees to less privileged processes and so on, which all are not
-available on cgroupsv1.
+available on cgroup v1.
 
 ## Three Different Tree Setups 🌳
 
 systemd supports three different modes how cgroups are set up. Specifically:
 
-1. **Unified** — this is the simplest mode, and exposes a pure cgroupsv2
+1. **Unified** — this is the simplest mode, and exposes a pure cgroup v2
 logic. In this mode `/sys/fs/cgroup` is the only mounted cgroup API file system
 and all available controllers are exclusively exposed through it.
 
-2. **Legacy** — this is the traditional cgroupsv1 mode. In this mode the
+2. **Legacy** — this is the traditional cgroup v1 mode. In this mode the
 various controllers each get their own cgroup file system mounted to
 `/sys/fs/cgroup/<controller>/`. On top of that systemd manages its own cgroup
 hierarchy for managing purposes as `/sys/fs/cgroup/systemd/`.
 
 3. **Hybrid** — this is a hybrid between the unified and legacy mode. It's set
 up mostly like legacy, except that there's also an additional hierarchy
-`/sys/fs/cgroup/unified/` that contains the cgroupsv2 hierarchy. (Note that in
+`/sys/fs/cgroup/unified/` that contains the cgroup v2 hierarchy. (Note that in
 this mode the unified hierarchy won't have controllers attached, the
 controllers are all mounted as separate hierarchies as in legacy mode,
-i.e. `/sys/fs/cgroup/unified/` is purely and exclusively about core cgroupsv2
+i.e. `/sys/fs/cgroup/unified/` is purely and exclusively about core cgroup v2
 functionality and not about resource management.) In this mode compatibility
-with cgroupsv1 is retained while some cgroupsv2 features are available
+with cgroup v1 is retained while some cgroup v2 features are available
 too. This mode is a stopgap. Don't bother with this too much unless you have
 too much free time.
 
@@ -116,7 +116,7 @@ to talk of one specific cgroup and actually mean the same cgroup in all
 available controller hierarchies. E.g. if we talk about the cgroup `/foo/bar/`
 then we actually mean `/sys/fs/cgroup/cpu/foo/bar/` as well as
 `/sys/fs/cgroup/memory/foo/bar/`, `/sys/fs/cgroup/pids/foo/bar/`, and so on.
-Note that in cgroupsv2 the controller hierarchies aren't orthogonal, hence
+Note that in cgroup v2 the controller hierarchies aren't orthogonal, hence
 thinking about them as orthogonal won't help you in the long run anyway.
 
 If you wonder how to detect which of these three modes is currently used, use
@@ -168,7 +168,7 @@ cgroup `/foo.slice/foo-bar.slice/foo-bar-baz.slice/quux.service/`.
 By default systemd sets up four slice units:
 
 1. `-.slice` is the root slice. i.e. the parent of everything else. On the host
-   system it maps directly to the top-level directory of cgroupsv2.
+   system it maps directly to the top-level directory of cgroup v2.
 
 2. `system.slice` is where system services are by default placed, unless
    configured otherwise.
@@ -187,8 +187,8 @@ above are just the defaults.
 
 Container managers and suchlike often want to control cgroups directly using
 the raw kernel APIs. That's entirely fine and supported, as long as proper
-*delegation* is followed. Delegation is a concept we inherited from cgroupsv2,
-but we expose it on cgroupsv1 too. Delegation means that some parts of the
+*delegation* is followed. Delegation is a concept we inherited from cgroup v2,
+but we expose it on cgroup v1 too. Delegation means that some parts of the
 cgroup tree may be managed by different managers than others. As long as it is
 clear which manager manages which part of the tree each one can do within its
 sub-graph of the tree whatever it wants.
@@ -217,7 +217,7 @@ guarantees:
    hierarchy (in unified and hybrid mode) as well as on systemd's own private
    hierarchy (in legacy and hybrid mode). It won't pass ownership of the legacy
    controller hierarchies. Delegation to less privileges processes is not safe
-   in cgroupsv1 (as a limitation of the kernel), hence systemd won't facilitate
+   in cgroup v1 (as a limitation of the kernel), hence systemd won't facilitate
    access to it.
 
 3. Any BPF IP filter programs systemd installs will be installed with
@@ -322,19 +322,19 @@ to work on that, and widen your horizon a bit. You are welcome.
 systemd supports a number of controllers (but not all). Specifically, supported
 are:
 
-* on cgroupsv1: `cpu`, `cpuacct`, `blkio`, `memory`, `devices`, `pids`
-* on cgroupsv2: `cpu`, `io`, `memory`, `pids`
+* on cgroup v1: `cpu`, `cpuacct`, `blkio`, `memory`, `devices`, `pids`
+* on cgroup v2: `cpu`, `io`, `memory`, `pids`
 
-It is our intention to natively support all cgroupsv2 controllers as they are
-added to the kernel. However, regarding cgroupsv1: at this point we will not
+It is our intention to natively support all cgroup v2 controllers as they are
+added to the kernel. However, regarding cgroup v1: at this point we will not
 add support for any other controllers anymore. This means systemd currently
-does not and will never manage the following controllers on cgroupsv1:
+does not and will never manage the following controllers on cgroup v1:
 `freezer`, `cpuset`, `net_cls`, `perf_event`, `net_prio`, `hugetlb`. Why not?
 Depending on the case, either their API semantics or implementations aren't
-really usable, or it's very clear they have no future on cgroupsv2, and we
+really usable, or it's very clear they have no future on cgroup v2, and we
 won't add new code for stuff that clearly has no future.
 
-Effectively this means that all those mentioned cgroupsv1 controllers are up
+Effectively this means that all those mentioned cgroup v1 controllers are up
 for grabs: systemd won't manage them, and hence won't delegate them to your
 code (however, systemd will still mount their hierarchies, simply because it
 mounts all controller hierarchies it finds available in the kernel). If you
@@ -355,9 +355,9 @@ cgroups in them — from previous runs, and be extra careful with them as they
 might still carry settings that might not be valid anymore.
 
 Note a particular asymmetry here: if your systemd version doesn't support a
-specific controller on cgroupsv1 you can still make use of it for delegation,
+specific controller on cgroup v1 you can still make use of it for delegation,
 by directly fiddling with its hierarchy and replicating the cgroup tree there
-as necessary (as suggested above). However, on cgroupsv2 this is different:
+as necessary (as suggested above). However, on cgroup v2 this is different:
 separately mounted hierarchies are not available, and delegation has always to
 happen through systemd itself. This means: when you update your kernel and it
 adds a new, so far unseen controller, and you want to use it for delegation,
@@ -417,7 +417,7 @@ unified you (of course, I guess) need to provide only `/sys/fs/cgroup/` itself.
    arbitrary naming, you might need to escape some of the names (for example,
    you really don't want to create a cgroup named `tasks`, just because the
    user created a container by that name, because `tasks` after all is a magic
-   attribute in cgroupsv1, and your `mkdir()` will hence fail with `EEXIST`. In
+   attribute in cgroup v1, and your `mkdir()` will hence fail with `EEXIST`. In
    systemd we do escaping by prefixing names that might collide with a kernel
    attribute name with an underscore. You might want to do the same, but this
    is really up to you how you do it. Just do it, and be careful.
@@ -462,9 +462,9 @@ unified you (of course, I guess) need to provide only `/sys/fs/cgroup/` itself.
    to get the cgroup for a unit. The method `GetUnitByControlGroup()` may be
    used to get the unit for a cgroup.)
 
-6. ⚡ Think twice before delegating cgroupsv1 controllers to less privileged
+6. ⚡ Think twice before delegating cgroup v1 controllers to less privileged
    containers. It's not safe, you basically allow your containers to freeze the
-   system with that and worse. Delegation is a strongpoint of cgroupsv2 though,
+   system with that and worse. Delegation is a strongpoint of cgroup v2 though,
    and there it's safe to treat delegation boundaries as privilege boundaries.
 
 And that's it for now. If you have further questions, refer to the systemd

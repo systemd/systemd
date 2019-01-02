@@ -33,7 +33,7 @@ if grep -q cgroup2 /proc/filesystems ; then
         # And now check again, "io" should have vanished
         grep -qv io /sys/fs/cgroup/system.slice/cgroup.controllers
 else
-        echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroupsv2" >&2
+        echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
 fi
 
 echo OK > /testok

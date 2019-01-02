@@ -58,7 +58,7 @@ Features:
 * when a socket unit is spawned with an AF_UNIX path in /var/run, complain and
   patch it to use /run instead
 
-* set memory.oom.group in cgroupsv2 for all leaf cgroups (kernel v4.19+)
+* set memory.oom.group in cgroup v2 for all leaf cgroups (kernel v4.19+)
 
 * add a new syscall group "@esoteric" for more esoteric stuff such as bpf() and
   usefaultd() and make systemd-analyze check for it.

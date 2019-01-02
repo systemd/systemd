@@ -872,7 +872,7 @@ int cg_set_access(
                 bool fatal;
         };
 
-        /* cgroupsv1, aka legacy/non-unified */
+        /* cgroup v1, aka legacy/non-unified */
         static const struct Attribute legacy_attributes[] = {
                 { "cgroup.procs",           true  },
                 { "tasks",                  false },
@@ -880,7 +880,7 @@ int cg_set_access(
                 {},
         };
 
-        /* cgroupsv2, aka unified */
+        /* cgroup v2, aka unified */
         static const struct Attribute unified_attributes[] = {
                 { "cgroup.procs",           true  },
                 { "cgroup.subtree_control", true  },
@@ -2039,7 +2039,7 @@ int cg_get_keyed_attribute(
         char **v;
         int r;
 
-        /* Reads one or more fields of a cgroupsv2 keyed attribute file. The 'keys' parameter should be an strv with
+        /* Reads one or more fields of a cgroup v2 keyed attribute file. The 'keys' parameter should be an strv with
          * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
          * entries as 'keys'. On success each entry will be set to the value of the matching key.
          *
@@ -2491,7 +2491,7 @@ int cg_kernel_controllers(Set **ret) {
 
 static thread_local CGroupUnified unified_cache = CGROUP_UNIFIED_UNKNOWN;
 
-/* The hybrid mode was initially implemented in v232 and simply mounted cgroup v2 on /sys/fs/cgroup/systemd.  This
+/* The hybrid mode was initially implemented in v232 and simply mounted cgroup2 on /sys/fs/cgroup/systemd.  This
  * unfortunately broke other tools (such as docker) which expected the v1 "name=systemd" hierarchy on
  * /sys/fs/cgroup/systemd.  From v233 and on, the hybrid mode mountnbs v2 on /sys/fs/cgroup/unified and maintains
  * "name=systemd" hierarchy on /sys/fs/cgroup/systemd for compatibility with other tools.
@@ -2739,13 +2739,13 @@ bool cg_is_legacy_wanted(void) {
         if (wanted >= 0)
                 return wanted;
 
-        /* Check if we have cgroups2 already mounted. */
+        /* Check if we have cgroup v2 already mounted. */
         if (cg_unified_flush() >= 0 &&
             unified_cache == CGROUP_UNIFIED_ALL)
                 return (wanted = false);
 
         /* Otherwise, assume that at least partial legacy is wanted,
-         * since cgroups2 should already be mounted at this point. */
+         * since cgroup v2 should already be mounted at this point. */
         return (wanted = true);
 }
 

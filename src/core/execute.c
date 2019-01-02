@@ -3137,9 +3137,9 @@ static int exec_child(
                 }
         }
 
-        /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroupsv1
+        /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
          * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
-         * safe. On cgroupsv2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
+         * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
          * touch a single hierarchy too. */
         if (params->cgroup_path && context->user && (params->flags & EXEC_CGROUP_DELEGATE)) {
                 r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
