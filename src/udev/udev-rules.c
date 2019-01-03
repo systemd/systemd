@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "def.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -41,6 +42,7 @@
 #include "util.h"
 
 #define PREALLOC_TOKEN          2048
+#define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
 
 struct uid_gid {
         unsigned name_off;
@@ -48,13 +50,6 @@ struct uid_gid {
                 uid_t uid;
                 gid_t gid;
         };
-};
-
-static const char* const rules_dirs[] = {
-        "/etc/udev/rules.d",
-        "/run/udev/rules.d",
-        UDEVLIBEXECDIR "/rules.d",
-        NULL
 };
 
 struct UdevRules {
@@ -1609,7 +1604,7 @@ int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing)
 
         udev_rules_check_timestamp(rules);
 
-        r = conf_files_list_strv(&files, ".rules", NULL, 0, rules_dirs);
+        r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate rules files: %m");
 
@@ -1661,7 +1656,7 @@ bool udev_rules_check_timestamp(UdevRules *rules) {
         if (!rules)
                 return false;
 
-        return paths_check_timestamp(rules_dirs, &rules->dirs_ts_usec, true);
+        return paths_check_timestamp(RULES_DIRS, &rules->dirs_ts_usec, true);
 }
 
 static bool match_key(UdevRules *rules, struct token *token, const char *val) {
