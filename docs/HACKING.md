@@ -1,3 +1,7 @@
+---
+title: Hacking on systemd
+---
+
 # Hacking on systemd
 
 We welcome all contributions to systemd. If you notice a bug or a missing

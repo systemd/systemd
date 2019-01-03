@@ -1,3 +1,7 @@
+---
+title: Code Quality Tools
+---
+
 # Code Quality Tools
 
 The systemd project has a number of code quality tools set up in the source

@@ -1,3 +1,7 @@
+---
+title: Steps to a Successful Release
+---
+
 # Steps to a Successful Release
 
 1. Add all items to NEWS

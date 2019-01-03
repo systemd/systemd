@@ -1,3 +1,7 @@
+---
+title: Automatic Boot Assessment
+---
+
 # Automatic Boot Assessment
 
 systemd provides support for automatically reverting back to the previous

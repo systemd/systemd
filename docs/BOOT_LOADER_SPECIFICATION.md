@@ -1,3 +1,7 @@
+---
+title: The Boot Loader Specification
+---
+
 # The Boot Loader Specification
 
 _TL;DR: Currently there's little cooperation between multiple distributions in dual-boot (or triple, ... multi-boot) setups, and we'd like to improve this situation by getting everybody to commit to a single boot configuration format that is based on drop-in files, and thus is robust, simple, works without rewriting configuration files and is free of namespace clashes._

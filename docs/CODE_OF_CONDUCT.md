@@ -1,3 +1,7 @@
+---
+title: The systemd Community Conduct Guidelines
+---
+
 # The systemd Community Conduct Guidelines
 
 This document provides community guidelines for a safe, respectful, productive, and collaborative place for any person who is willing to contribute to systemd. It applies to all “collaborative spaces”, which is defined as community communications channels (such as mailing lists, submitted patches, commit comments, etc.).

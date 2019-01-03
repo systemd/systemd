@@ -1,3 +1,7 @@
+---
+title: Notes for Translators
+---
+
 # Notes for Translators
 
 systemd depends on the `gettext` package for multilingual support.

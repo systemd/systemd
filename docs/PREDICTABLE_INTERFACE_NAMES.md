@@ -1,3 +1,7 @@
+---
+title: Predictable Network Interface Names
+---
+
 # Predictable Network Interface Names
 
 Starting with v197 systemd/udev will automatically assign predictable, stable network interface names for all local Ethernet, WLAN and WWAN interfaces. This is a departure from the traditional interface naming scheme ("eth0", "eth1", "wlan0", ...), but should fix real problems.
