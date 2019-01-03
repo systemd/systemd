@@ -133,15 +133,20 @@
  * OS versions, but not fully stabilize them. */
 typedef enum NamingSchemeFlags {
         /* First, the individual features */
-        NAMING_SR_IOV_V        = 1 << 0, /* Use "v" suffix for SR-IOV, see 609948c7043a40008b8299529c978ed8e11de8f6*/
-        NAMING_NPAR_ARI        = 1 << 1, /* Use NPAR "ARI", see 6bc04997b6eab35d1cb9fa73889892702c27be09 */
-        NAMING_INFINIBAND      = 1 << 2, /* Use "ib" prefix for infiniband, see 938d30aa98df887797c9e05074a562ddacdcdf5e */
-        NAMING_ZERO_ACPI_INDEX = 1 << 3, /* Allow zero acpi_index field, see d81186ef4f6a888a70f20a1e73a812d6acb9e22f */
+        NAMING_DEVICE_FUNCTION_STRIPPING = 1 << 0, /* The bug in how function device suffixes (.01) are stripped was
+                                                    * introduced in 73fc96c8ac0aa95477e53838a22ce94918c9d06f,
+                                                    * and fixed in 8eebb6a9e5e74ec0ef40902e2da53d24559b94a4, so v238
+                                                    * was released with the bug. In v239 this again worked as expected.
+                                                    * See https://github.com/systemd/systemd/issues/11277. */
+        NAMING_SR_IOV_V        = 1 << 1, /* Use "v" suffix for SR-IOV, see 609948c7043a40008b8299529c978ed8e11de8f6 */
+        NAMING_NPAR_ARI        = 1 << 2, /* Use NPAR "ARI", see 6bc04997b6eab35d1cb9fa73889892702c27be09 */
+        NAMING_INFINIBAND      = 1 << 3, /* Use "ib" prefix for infiniband, see 938d30aa98df887797c9e05074a562ddacdcdf5e */
+        NAMING_ZERO_ACPI_INDEX = 1 << 4, /* Allow zero acpi_index field, see d81186ef4f6a888a70f20a1e73a812d6acb9e22f */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
-        NAMING_V239 = NAMING_V238|NAMING_SR_IOV_V|NAMING_NPAR_ARI,
-        NAMING_V240 = NAMING_V239|NAMING_INFINIBAND|NAMING_ZERO_ACPI_INDEX,
+        NAMING_V239 = NAMING_V238 | NAMING_DEVICE_FUNCTION_STRIPPING | NAMING_SR_IOV_V | NAMING_NPAR_ARI,
+        NAMING_V240 = NAMING_V239 | NAMING_INFINIBAND | NAMING_ZERO_ACPI_INDEX,
 
         _NAMING_SCHEME_FLAGS_INVALID = -1,
 } NamingSchemeFlags;
@@ -510,9 +515,13 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                                 continue;
 
                         /* match slot address with device by stripping the function */
-                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
-                            read_one_line_file(str, &address) >= 0 &&
-                            startswith(sysname, address)) {
+                        if (!snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) ||
+                            read_one_line_file(str, &address) < 0)
+                                continue;
+
+                        if (naming_scheme_has(NAMING_DEVICE_FUNCTION_STRIPPING)
+                            ? (bool) startswith(sysname, address)
+                            : streq(sysname, address)) {
                                 hotplug_slot = i;
                                 break;
                         }
