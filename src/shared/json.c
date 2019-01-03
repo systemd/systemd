@@ -3420,6 +3420,16 @@ int json_dispatch_strv(const char *name, JsonVariant *variant, JsonDispatchFlags
                 return 0;
         }
 
+        /* Let's be flexible here: accept a single string in place of a single-item array */
+        if (json_variant_is_string(variant)) {
+                l = strv_new(json_variant_string(variant));
+                if (!l)
+                        return log_oom();
+
+                strv_free_and_replace(*s, l);
+                return 0;
+        }
+
         if (!json_variant_is_array(variant))
                 return json_log(variant, SYNTHETIC_ERRNO(EINVAL), flags, "JSON field '%s' is not an array.", strna(name));
 
