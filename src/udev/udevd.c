@@ -535,7 +535,7 @@ static int worker_spawn(Manager *manager, struct event *event) {
         if (r < 0)
                 return log_error_errno(r, "Worker: Failed to enable receiving of device: %m");
 
-        r = safe_fork("(worker)", FORK_DEATHSIG, &pid);
+        r = safe_fork(NULL, FORK_DEATHSIG, &pid);
         if (r < 0) {
                 event->state = EVENT_QUEUED;
                 return log_error_errno(r, "Failed to fork() worker: %m");

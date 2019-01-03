@@ -24,10 +24,42 @@ static int monitor_handler(sd_device_monitor *m, sd_device *d, void *userdata) {
         return sd_event_exit(sd_device_monitor_get_event(m), 0);
 }
 
-static int test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
+static int test_receive_device_fail(void) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *loopback = NULL;
+        const char *syspath;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        /* Try to send device with invalid action and without seqnum. */
+        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
+        assert_se(device_add_property(loopback, "ACTION", "hoge") >= 0);
+
+        assert_se(sd_device_get_syspath(loopback, &syspath) >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_server, MONITOR_GROUP_NONE, -1) >= 0);
+        assert_se(sd_device_monitor_start(monitor_server, NULL, NULL) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_server), "sender") >= 0);
+
+        assert_se(device_monitor_new_full(&monitor_client, MONITOR_GROUP_NONE, -1) >= 0);
+        assert_se(device_monitor_allow_unicast_sender(monitor_client, monitor_server) >= 0);
+        assert_se(sd_device_monitor_start(monitor_client, monitor_handler, (void *) syspath) >= 0);
+        assert_se(sd_event_source_set_description(sd_device_monitor_get_event_source(monitor_client), "receiver") >= 0);
+
+        /* Do not use assert_se() here. */
+        r = device_monitor_send_device(monitor_server, monitor_client, loopback);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send loopback device: %m");
+
+        assert_se(sd_event_run(sd_device_monitor_get_event(monitor_client), 0) >= 0);
+
+        return 0;
+}
+
+static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         const char *syspath, *subsystem, *tag, *devtype = NULL;
-        int r;
 
         log_device_info(device, "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */", __func__,
                         true_false(subsystem_filter), true_false(tag_filter), true_false(use_bpf));
@@ -56,14 +88,8 @@ static int test_send_receive_one(sd_device *device, bool subsystem_filter, bool 
         if ((subsystem_filter || tag_filter) && use_bpf)
                 assert_se(sd_device_monitor_filter_update(monitor_client) >= 0);
 
-        /* Do not use assert_se() here. */
-        r = device_monitor_send_device(monitor_server, monitor_client, device);
-        if (r < 0)
-                return log_error_errno(r, "Failed to send loopback device: %m");
-
+        assert_se(device_monitor_send_device(monitor_server, monitor_client, device) >= 0);
         assert_se(sd_event_loop(sd_device_monitor_get_event(monitor_client)) == 0);
-
-        return 0;
 }
 
 static void test_subsystem_filter(sd_device *device) {
@@ -111,22 +137,23 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
-        assert_se(device_add_property(loopback, "ACTION", "add") >= 0);
-        assert_se(device_add_property(loopback, "SEQNUM", "10") >= 0);
-
-        r = test_send_receive_one(loopback, false, false, false);
+        r = test_receive_device_fail();
         if (r < 0) {
                 assert_se(r == -EPERM && detect_container() > 0);
                 return log_tests_skipped("Running in container? Skipping remaining tests");
         }
 
-        assert_se(test_send_receive_one(loopback,  true, false, false) >= 0);
-        assert_se(test_send_receive_one(loopback, false,  true, false) >= 0);
-        assert_se(test_send_receive_one(loopback,  true,  true, false) >= 0);
-        assert_se(test_send_receive_one(loopback,  true, false,  true) >= 0);
-        assert_se(test_send_receive_one(loopback, false,  true,  true) >= 0);
-        assert_se(test_send_receive_one(loopback,  true,  true,  true) >= 0);
+        assert_se(sd_device_new_from_syspath(&loopback, "/sys/class/net/lo") >= 0);
+        assert_se(device_add_property(loopback, "ACTION", "add") >= 0);
+        assert_se(device_add_property(loopback, "SEQNUM", "10") >= 0);
+
+        test_send_receive_one(loopback, false, false, false);
+        test_send_receive_one(loopback,  true, false, false);
+        test_send_receive_one(loopback, false,  true, false);
+        test_send_receive_one(loopback,  true,  true, false);
+        test_send_receive_one(loopback,  true, false,  true);
+        test_send_receive_one(loopback, false,  true,  true);
+        test_send_receive_one(loopback,  true,  true,  true);
 
         test_subsystem_filter(loopback);
 
@@ -139,13 +166,13 @@ int main(int argc, char *argv[]) {
         assert_se(device_add_property(sda, "ACTION", "change") >= 0);
         assert_se(device_add_property(sda, "SEQNUM", "11") >= 0);
 
-        assert_se(test_send_receive_one(sda, false, false, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true, false, false) >= 0);
-        assert_se(test_send_receive_one(sda, false,  true, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true,  true, false) >= 0);
-        assert_se(test_send_receive_one(sda,  true, false,  true) >= 0);
-        assert_se(test_send_receive_one(sda, false,  true,  true) >= 0);
-        assert_se(test_send_receive_one(sda,  true,  true,  true) >= 0);
+        test_send_receive_one(sda, false, false, false);
+        test_send_receive_one(sda,  true, false, false);
+        test_send_receive_one(sda, false,  true, false);
+        test_send_receive_one(sda,  true,  true, false);
+        test_send_receive_one(sda,  true, false,  true);
+        test_send_receive_one(sda, false,  true,  true);
+        test_send_receive_one(sda,  true,  true,  true);
 
         return 0;
 }
