@@ -1,0 +1,4 @@
+The files in this directory are copied from kernel-4.20, and the following modifications are applied:
+- btrfs.h: drop '__user' attributes
+- ethtool.h: add a type cast to SPEED_UNKNOWN
+- ethtool.h: define __KERNEL_DIV_ROUND_UP if not defined
