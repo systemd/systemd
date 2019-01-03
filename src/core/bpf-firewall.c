@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/libbpf.h>
+#include <linux/bpf_insn.h>
 #include <net/ethernet.h>
 #include <net/if.h>
 #include <netinet/ip.h>

@@ -91,6 +91,12 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        linux/auto_dev-ioctl.h
+        linux/bpf_common.h
+        linux/bpf.h
+        linux/bpf_insn.h
+        linux/dm-ioctl.h
+        linux/wireguard.h
         lockfile-util.c
         lockfile-util.h
         logs-show.c
@@ -161,7 +167,6 @@ shared_sources = files('''
         watchdog.h
         web-util.c
         web-util.h
-        wireguard-netlink.h
         xml.c
         xml.h
 '''.split())

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.0+ WITH Linux-syscall-note */
 /*
  * Copyright (C) 2001 - 2003 Sistina Software (UK) Limited.
  * Copyright (C) 2004 - 2009 Red Hat, Inc. All rights reserved.
@@ -240,7 +241,8 @@ enum {
 	/* Added later */
 	DM_LIST_VERSIONS_CMD,
 	DM_TARGET_MSG_CMD,
-	DM_DEV_SET_GEOMETRY_CMD
+	DM_DEV_SET_GEOMETRY_CMD,
+	DM_DEV_ARM_POLL_CMD,
 };
 
 #define DM_IOCTL 0xfd
@@ -255,6 +257,7 @@ enum {
 #define DM_DEV_SUSPEND   _IOWR(DM_IOCTL, DM_DEV_SUSPEND_CMD, struct dm_ioctl)
 #define DM_DEV_STATUS    _IOWR(DM_IOCTL, DM_DEV_STATUS_CMD, struct dm_ioctl)
 #define DM_DEV_WAIT      _IOWR(DM_IOCTL, DM_DEV_WAIT_CMD, struct dm_ioctl)
+#define DM_DEV_ARM_POLL  _IOWR(DM_IOCTL, DM_DEV_ARM_POLL_CMD, struct dm_ioctl)
 
 #define DM_TABLE_LOAD    _IOWR(DM_IOCTL, DM_TABLE_LOAD_CMD, struct dm_ioctl)
 #define DM_TABLE_CLEAR   _IOWR(DM_IOCTL, DM_TABLE_CLEAR_CMD, struct dm_ioctl)
@@ -269,7 +272,7 @@ enum {
 #define DM_VERSION_MAJOR	4
 #define DM_VERSION_MINOR	27
 #define DM_VERSION_PATCHLEVEL	0
-#define DM_VERSION_EXTRA	"-ioctl (2013-10-30)"
+#define DM_VERSION_EXTRA	"-ioctl (2018-04-03)"
 
 /* Status bits */
 #define DM_READONLY_FLAG	(1 << 0) /* In/Out */
@@ -351,5 +354,10 @@ enum {
  * gets closed.
  */
 #define DM_DEFERRED_REMOVE		(1 << 17) /* In/Out */
+
+/*
+ * If set, the device is suspended internally.
+ */
+#define DM_INTERNAL_SUSPEND_FLAG	(1 << 18) /* Out */
 
 #endif				/* _LINUX_DM_IOCTL_H */

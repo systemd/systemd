@@ -3,8 +3,9 @@
   Copyright © 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
 
-#include <sys/ioctl.h>
+#include <linux/wireguard.h>
 #include <net/if.h>
+#include <sys/ioctl.h>
 
 #include "sd-resolve.h"
 
@@ -19,7 +20,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "wireguard.h"
-#include "wireguard-netlink.h"
 
 static void resolve_endpoints(NetDev *netdev);
 

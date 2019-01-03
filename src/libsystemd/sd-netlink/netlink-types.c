@@ -16,6 +16,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/veth.h>
+#include <linux/wireguard.h>
 #include <stdint.h>
 #include <sys/socket.h>
 
@@ -24,7 +25,6 @@
 #include "sd-netlink.h"
 #include "string-table.h"
 #include "util.h"
-#include "wireguard-netlink.h"
 
 /* Maximum ARP IP target defined in kernel */
 #define BOND_MAX_ARP_TARGETS    16

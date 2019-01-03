@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-#include <linux/libbpf.h>
+
+#include <linux/bpf_insn.h>
 
 #include "bpf-devices.h"
 #include "bpf-program.h"
