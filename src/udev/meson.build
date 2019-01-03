@@ -187,12 +187,11 @@ endforeach
 install_data('udev.conf',
              install_dir : join_paths(sysconfdir, 'udev'))
 
-udev_pc = configure_file(
+configure_file(
         input : 'udev.pc.in',
         output : 'udev.pc',
-        configuration : substs)
-install_data(udev_pc,
-             install_dir : pkgconfigdatadir)
+        configuration : substs,
+        install_dir : pkgconfigdatadir == 'no' ? '' : pkgconfigdatadir)
 
 meson.add_install_script('sh', '-c',
                          mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))

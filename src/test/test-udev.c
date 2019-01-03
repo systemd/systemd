@@ -11,6 +11,7 @@
 #include <sys/signalfd.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "device-private.h"
 #include "fs-util.h"
 #include "log.h"
@@ -81,7 +82,7 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        log_debug("version %s", PACKAGE_VERSION);
+        log_debug("version %s", GIT_VERSION);
         mac_selinux_init();
 
         action = argv[1];

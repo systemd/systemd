@@ -1914,7 +1914,7 @@ static void log_execution_mode(bool *ret_first_boot) {
         if (arg_system) {
                 int v;
 
-                log_info(PACKAGE_STRING " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
+                log_info("systemd " GIT_VERSION " running in %ssystem mode. (" SYSTEMD_FEATURES ")",
                          arg_action == ACTION_TEST ? "test " : "" );
 
                 v = detect_virtualization();
@@ -1942,7 +1942,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                         _cleanup_free_ char *t;
 
                         t = uid_to_name(getuid());
-                        log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                        log_debug("systemd " GIT_VERSION " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
                                   arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
                 }
 

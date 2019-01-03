@@ -1,0 +1,1 @@
+#define GIT_VERSION "@VCS_TAG@"

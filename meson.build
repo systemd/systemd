@@ -20,12 +20,11 @@ libudev_version = '1.6.12'
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set_quoted('PACKAGE_STRING',  meson.project_name() + ' ' + meson.project_version())
-conf.set_quoted('PACKAGE_VERSION', meson.project_version())
+conf.set('PROJECT_VERSION',        meson.project_version())
 
 substs = configuration_data()
-substs.set('PACKAGE_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
-substs.set('PACKAGE_VERSION',      meson.project_version())
+substs.set('PROJECT_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
+substs.set('PROJECT_VERSION',      meson.project_version())
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -581,6 +580,11 @@ else
 endif
 
 #####################################################################
+
+vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
+              meson.source_root(),
+              get_option('version-tag'),
+              meson.project_version()]
 
 sed = find_program('sed')
 awk = find_program('awk')
@@ -2892,8 +2896,9 @@ foreach tuple : fuzzers
 endforeach
 endif
 
-run_target('fuzzers',
-        depends : fuzzer_exes,
+run_target(
+        'fuzzers',
+        depends : [fuzzer_exes, version_h],
         command : ['true'])
 
 ############################################################

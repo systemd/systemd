@@ -557,7 +557,7 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
 }
 
 int version(void) {
-        puts(PACKAGE_STRING "\n"
+        puts("systemd " GIT_VERSION "\n"
              SYSTEMD_FEATURES);
         return 0;
 }

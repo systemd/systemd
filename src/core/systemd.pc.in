@@ -36,5 +36,5 @@ containeruidbasemax=@containeruidbasemax@
 
 Name: systemd
 Description: systemd System and Service Manager
-URL: @PACKAGE_URL@
-Version: @PACKAGE_VERSION@
+URL: @PROJECT_URL@
+Version: @PROJECT_VERSION@

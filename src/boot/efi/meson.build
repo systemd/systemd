@@ -78,7 +78,6 @@ endif
 
 if have_gnu_efi
         efi_conf = configuration_data()
-        efi_conf.set_quoted('PACKAGE_VERSION', meson.project_version())
         efi_conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
         efi_conf.set10('ENABLE_TPM', get_option('tpm'))
         efi_conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
@@ -117,7 +116,8 @@ if have_gnu_efi
                         '-Wno-missing-field-initializers',
                         '-isystem', efi_incdir,
                         '-isystem', join_paths(efi_incdir, gnu_efi_path_arch),
-                        '-include', efi_config_h]
+                        '-include', efi_config_h,
+                        '-include', version_h]
         if efi_arch == 'x86_64'
                 compile_args += ['-mno-red-zone',
                                  '-mno-sse',
