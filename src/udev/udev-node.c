@@ -303,6 +303,9 @@ static unsigned short get_sema_index(const char *link) {
 static int _slink_semop(int semid, unsigned short semidx, int op, const char *msg) {
         struct sembuf sb = { .sem_num = semidx, .sem_op = op, .sem_flg = 0 };
 
+        /* semid < 0: semaphore setup failed, locking is disabled */
+        if (semid < 0)
+                return 0;
         if (semop(semid, &sb, 1) == -1)
                 return log_warning_errno(-errno, "Failed to %s semaphore: %m", msg);
         return 0;
@@ -313,23 +316,30 @@ static int _slink_semop(int semid, unsigned short semidx, int op, const char *ms
 #define unlock_slink(semid, semidx) \
         _slink_semop((semid), (semidx), 1, "release")
 
+enum {
+        SEMID_UNSET = -1,
+        SEMID_BAD = -2,
+};
+
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *target = NULL, *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
         const char *id_filename;
-        static int semid = -1;
+        static int semid = SEMID_UNSET;
         unsigned short semidx;
-        int r;
+        int r, lock_failed;
 
         assert(dev);
         assert(slink);
 
-        if (semid == -1) {
+        if (semid == SEMID_UNSET) {
                 semid = init_link_semaphores(links_dirname);
-                if (semid == -1)
-                        return log_device_error_errno(dev, r,
-                                                      "Failed to set up semaphores: %m");
+                if (semid < 0) {
+                        log_error_errno(semid, "Locking under %s is disabled: %m",
+                                        links_dirname);
+                        semid = SEMID_BAD;
+                }
         }
 
         r = device_get_id_filename(dev, &id_filename);
@@ -346,9 +356,9 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
         mkdir_parents(dirname, 0755);
         semidx = get_sema_index(slink);
-        r = lock_slink(semid, semidx);
-        if (r != 0)
-                return r;
+        lock_failed = lock_slink(semid, semidx);
+        if (lock_failed)
+                log_error_errno(-errno, "Failed to lock %s: %m", slink);
 
         if (!add && unlink(filename) == 0)
                 (void) rmdir(dirname);
@@ -373,8 +383,10 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                                 r = -errno;
                 } while (r == -ENOENT);
 
-        (void)unlock_slink(semid, semidx);
-        return r;
+        if (!lock_failed)
+                unlock_slink(semid, semidx);
+
+        return 0;
 }
 
 int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
