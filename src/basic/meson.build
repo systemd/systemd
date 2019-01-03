@@ -84,6 +84,8 @@ basic_sources = files('''
         khash.h
         label.c
         label.h
+        linux/btrfs.h
+        linux/btrfs_tree.h
         linux/ethtool.h
         linux/fib_rules.h
         linux/fou.h
@@ -107,8 +109,6 @@ basic_sources = files('''
         mempool.c
         mempool.h
         missing/audit.h
-        missing/btrfs.h
-        missing/btrfs_tree.h
         missing/capability.h
         missing/drm.h
         missing/fcntl.h

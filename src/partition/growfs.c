@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/btrfs.h>
 #include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
@@ -17,7 +18,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing/btrfs.h"
 #include "missing/fs.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
