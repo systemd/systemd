@@ -3140,10 +3140,7 @@ int json_log_internal(
         va_list ap;
         int r;
 
-        if (error < 0)
-                error = -error;
-
-        errno = error;
+        errno = ERRNO_VALUE(error);
 
         va_start(ap, format);
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
