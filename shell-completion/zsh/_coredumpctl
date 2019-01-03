@@ -16,7 +16,7 @@ _coredumpctl_command(){
         local -a _dumps
         cmd="${${_coredumpctl_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd  )); then
-            _dumps=( "${(f)$(coredumpctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $4,$0}' 2>/dev/null)}" )
+            _dumps=( "${(f)$(coredumpctl list -q --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $4,$0}' 2>/dev/null)}" )
             if [[ -n "$_dumps" ]]; then
                 _describe -V -t pids 'coredumps' _dumps
             else
@@ -39,5 +39,7 @@ _arguments \
     '--no-legend[Do not print the column headers]' \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
-    '--debugger=[Use the given debugger]' \
+    '--debugger=[Use the given debugger]:debugger: _command_names -e' \
+    {-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
+    {-q,--quiet}'[Do not show info messages and privilege warning]' \
     '*::coredumpctl commands:_coredumpctl_command'
