@@ -2000,6 +2000,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --global only makes sense with verbs dot, unit-paths, verify.");
 
+        if (streq_ptr(argv[optind], "cat-config") && arg_scope == UNIT_FILE_USER)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --user is not supported for cat-config right now.");
+
         if (arg_root && !streq_ptr(argv[optind], "cat-config"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --root is only supported for cat-config right now.");
