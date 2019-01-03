@@ -135,7 +135,6 @@ systemsleepdir = join_paths(rootlibexecdir, 'system-sleep')
 systemunitdir = join_paths(rootprefixdir, 'lib/systemd/system')
 systempresetdir = join_paths(rootprefixdir, 'lib/systemd/system-preset')
 udevlibexecdir = join_paths(rootprefixdir, 'lib/udev')
-udevhomedir = udevlibexecdir
 udevrulesdir = join_paths(udevlibexecdir, 'rules.d')
 udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
 catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
