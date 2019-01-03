@@ -690,7 +690,7 @@ int dhcp4_set_client_identifier(Link *link) {
 
                 if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                         r = sd_dhcp_client_set_duid_llt(link->dhcp_client,
-                                                             duid->llt_time);
+                                                        duid->llt_time);
                 else
                         r = sd_dhcp_client_set_duid(link->dhcp_client,
                                                     duid->type,

@@ -118,19 +118,19 @@ static const uint8_t default_req_opts[] = {
 */
 /* NOTE: using PRL options that Windows 10 RFC7844 implementation uses */
 static const uint8_t default_req_opts_anonymize[] = {
-       SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
-       SD_DHCP_OPTION_ROUTER,                          /* 3 */
-       SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
-       SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
-       SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
-       SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
-       SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
-       SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
-       SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
-       SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
-       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
-       SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
-       SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
+        SD_DHCP_OPTION_SUBNET_MASK,                     /* 1 */
+        SD_DHCP_OPTION_ROUTER,                          /* 3 */
+        SD_DHCP_OPTION_DOMAIN_NAME_SERVER,              /* 6 */
+        SD_DHCP_OPTION_DOMAIN_NAME,                     /* 15 */
+        SD_DHCP_OPTION_ROUTER_DISCOVER,                 /* 31 */
+        SD_DHCP_OPTION_STATIC_ROUTE,                    /* 33 */
+        SD_DHCP_OPTION_VENDOR_SPECIFIC,                 /* 43 */
+        SD_DHCP_OPTION_NETBIOS_NAMESERVER,              /* 44 */
+        SD_DHCP_OPTION_NETBIOS_NODETYPE,                /* 46 */
+        SD_DHCP_OPTION_NETBIOS_SCOPE,                   /* 47 */
+        SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE,          /* 121 */
+        SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE,  /* 249 */
+        SD_DHCP_OPTION_PRIVATE_PROXY_AUTODISCOVERY,     /* 252 */
 };
 
 static int client_receive_message_raw(
@@ -353,9 +353,9 @@ static int dhcp_client_set_iaid_duid_internal(
         size_t len;
 
         assert_return(client, -EINVAL);
-        assert_return(duid_len == 0 || duid != NULL, -EINVAL);
+        assert_return(duid_len == 0 || duid, -EINVAL);
 
-        if (duid != NULL) {
+        if (duid) {
                 r = dhcp_validate_duid_len(duid_type, duid_len, true);
                 if (r < 0)
                         return r;
@@ -377,7 +377,7 @@ static int dhcp_client_set_iaid_duid_internal(
                 }
         }
 
-        if (duid != NULL) {
+        if (duid) {
                 client->client_id.ns.duid.type = htobe16(duid_type);
                 memcpy(&client->client_id.ns.duid.raw.data, duid, duid_len);
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
@@ -1795,7 +1795,7 @@ static int client_receive_message_raw(
         } else if ((size_t)len < sizeof(DHCPPacket))
                 return 0;
 
-        CMSG_FOREACH(cmsg, &msg) {
+        CMSG_FOREACH(cmsg, &msg)
                 if (cmsg->cmsg_level == SOL_PACKET &&
                     cmsg->cmsg_type == PACKET_AUXDATA &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct tpacket_auxdata))) {
@@ -1804,7 +1804,6 @@ static int client_receive_message_raw(
                         checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
                         break;
                 }
-        }
 
         r = dhcp_packet_verify_headers(packet, len, checksum, client->port);
         if (r < 0)
