@@ -42,11 +42,11 @@ static int fake_filesystems(void) {
         if (unshare(CLONE_NEWNS) < 0)
                 return log_error_errno(errno, "Failed to call unshare(): %m");
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+        if (mount(NULL, "/", "", MS_SLAVE|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount / as private: %m");
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++)
-                if (mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
+                if (mount(fakefss[i].src, fakefss[i].target, "", MS_BIND, NULL) < 0) {
                         log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "%s: %m", fakefss[i].error);
                         if (!fakefss[i].ignore_mount_error)
                                 return -errno;
