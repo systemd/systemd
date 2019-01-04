@@ -1675,6 +1675,75 @@ int json_variant_filter(JsonVariant **v, char **to_remove) {
         return (int) n;
 }
 
+int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value) {
+        _cleanup_(json_variant_unrefp) JsonVariant *field_variant = NULL, *w = NULL;
+        _cleanup_free_ JsonVariant **array = NULL;
+        size_t i, k = 0;
+        int r;
+
+        assert(v);
+        assert(field);
+
+        if (json_variant_is_blank_object(*v)) {
+                array = new(JsonVariant*, 2);
+                if (!array)
+                        return -ENOMEM;
+
+        } else {
+                if (!json_variant_is_object(*v))
+                        return -EINVAL;
+
+                for (i = 0; i < json_variant_elements(*v); i += 2) {
+                        JsonVariant *p;
+
+                        p = json_variant_by_index(*v, i);
+                        if (!json_variant_is_string(p))
+                                return -EINVAL;
+
+                        if (streq(json_variant_string(p), field)) {
+
+                                if (!array) {
+                                        array = new(JsonVariant*, json_variant_elements(*v));
+                                        if (!array)
+                                                return -ENOMEM;
+
+                                        for (k = 0; k < i; k++)
+                                                array[k] = json_variant_by_index(*v, k);
+                                }
+
+                        } else if (array) {
+                                array[k++] = p;
+                                array[k++] = json_variant_by_index(*v, i + 1);
+                        }
+                }
+
+                if (!array) {
+                        array = new(JsonVariant*, json_variant_elements(*v) + 2);
+                        if (!array)
+                                return -ENOMEM;
+
+                        for (k = 0; k < json_variant_elements(*v); k++)
+                                array[k] = json_variant_by_index(*v, k);
+                }
+        }
+
+        r = json_variant_new_string(&field_variant, field);
+        if (r < 0)
+                return r;
+
+        array[k++] = field_variant;
+        array[k++] = value;
+
+        r = json_variant_new_object(&w, array, k);
+        if (r < 0)
+                return r;
+
+        json_variant_unref(*v);
+        *v = TAKE_PTR(w);
+
+        return 1;
+}
+
 static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         JsonVariantType t;
         JsonVariant *c;

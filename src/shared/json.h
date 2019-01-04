@@ -169,6 +169,8 @@ void json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const cha
 
 int json_variant_filter(JsonVariant **v, char **to_remove);
 
+int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
+
 int json_parse(const char *string, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
 int json_parse_continue(const char **p, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
 int json_parse_file(FILE *f, const char *path, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column);
