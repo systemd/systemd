@@ -38,6 +38,7 @@
  * The default maximum semaphore set size under Linux (SEMMSL) is 32000.
  */
 #define N_SEMAPHORES 1024
+static unsigned int n_semaphores = N_SEMAPHORES;
 static const char links_dirname[] = "/run/udev/links/";
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
@@ -202,32 +203,61 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
 }
 
 static int init_link_semaphores(const char *path) {
-        key_t key = ftok(path, 0);
+        key_t key;
+        struct seminfo si;
         int semid;
 
-        semid = semget(key, N_SEMAPHORES, 0600|IPC_CREAT|IPC_EXCL);
-        if (semid != -1) {
-                unsigned short val[N_SEMAPHORES];
-                int i;
-                struct sembuf dummy_op[]  = {
-                        { .sem_op = -1, },
-                        { .sem_op = 1, },
+        /* make sure n_semaphores starts out as a power of 2 */
+        assert((n_semaphores & (n_semaphores - 1)) == 0);
+
+        if (semctl(0, 0, IPC_INFO, &si) < 0)
+                return log_error_errno(-errno, "Failed to query IPC_INFO: %m");
+
+        if (si.semmsl <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "SEMMSL is 0");
+
+        while (n_semaphores > (unsigned int)si.semmsl)
+                n_semaphores >>= 1;
+
+        key = ftok(path, 0);
+        semid = semget(key, n_semaphores, 0600|IPC_CREAT|IPC_EXCL);
+
+        if (semid >= 0) {
+                _cleanup_free_ unsigned short *val = NULL;
+                unsigned int i;
+                int err;
+
+                val = malloc(n_semaphores * sizeof(*val));
+                if (val) {
+                        for (i = 0; i < n_semaphores; i++)
+                                val[i] = 1;
+                        if (semctl(semid, 0, SETALL, val) == 0) {
+                                /* Dummy semop to initialize sem_otime */
+                                struct sembuf dummy_op[]  = {
+                                        { .sem_op = -1, },
+                                        { .sem_op = 1, },
+                                };
+                                if (semop(semid, dummy_op, (sizeof(dummy_op)/sizeof(*dummy_op))) == 0) {
+                                        log_debug("Created semaphore set with %u members",
+                                                  n_semaphores);
+                                        return semid;
+                                } else
+                                        log_error_errno(-errno, "Failed to set sem_otime: %m");
+                        } else
+                                log_error_errno(-errno, "Failed to initialize semaphores: %m");
                 };
 
-                for (i = 0; i < N_SEMAPHORES; i++)
-                        val[i] = 1;
-                if (semctl(semid, 0, SETALL, val) == -1)
-                        return log_error_errno(-errno, "Failed to initialize semaphores: %m");
+                err = -errno;
+                /* Cleanup after error */
+                if (semctl(semid, 0, IPC_RMID) != 0)
+                        log_error_errno(-errno, "Failed to remove semaphore set: %m");
+                return err;
 
-                /* Dummy semop to set sem_otime */
-                if (semop(semid, dummy_op, (sizeof(dummy_op)/sizeof(*dummy_op))) == -1)
-                        return log_error_errno(-errno, "Failed to set sem_otime: %m");
-                return semid;
-        } else {
+        } else if (errno == EEXIST) {
                 const unsigned int RETRIES = 10, SLEEP_US = 10000;
                 unsigned int i;
 
-                semid = semget(key, N_SEMAPHORES, 0);
+                semid = semget(key, 0, 0);
                 if (semid == -1)
                         return log_error_errno(-errno, "Failed to get semaphore set: %m");
 
@@ -235,15 +265,21 @@ static int init_link_semaphores(const char *path) {
                         struct semid_ds ds;
 
                         /* Wait for initialization to finish */
-                        if (semctl(semid, 0, IPC_STAT, &ds) != -1 &&
-                            ds.sem_otime != 0)
+                        if (semctl(semid, 0, IPC_STAT, &ds) == 0 && ds.sem_otime != 0) {
+                                if (ds.sem_nsems == 0 || (ds.sem_nsems & (ds.sem_nsems - 1)) != 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Semaphore set has invalid size %lu",
+                                                               ds.sem_nsems);
+                                n_semaphores = ds.sem_nsems;
                                 return semid;
+                        }
                         usleep(SLEEP_US);
                 }
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Semaphore set not initialized after %d us",
                                        RETRIES * SLEEP_US);
-        }
+        } else
+                return log_error_errno(-errno, "Failed to create semaphore set: %m");
 }
 
 static unsigned short get_sema_index(const char *link) {
@@ -254,11 +290,14 @@ static unsigned short get_sema_index(const char *link) {
         struct siphash state;
         uint64_t hash;
 
+        if (n_semaphores == 1)
+                return 0;
+
         siphash24_init(&state, seed);
         path_hash_func(link, &state);
         hash = siphash24_finalize(&state);
 
-        return hash & (N_SEMAPHORES-1);
+        return hash & (n_semaphores-1);
 }
 
 static int _slink_semop(int semid, unsigned short semidx, int op, const char *msg) {
