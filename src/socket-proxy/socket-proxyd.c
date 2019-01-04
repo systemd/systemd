@@ -86,7 +86,7 @@ static void context_clear(Context *context) {
         sd_resolve_unref(context->resolve);
 }
 
-static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
+static int connection_create_pipes(Connection *c, int buffer[static 2], size_t *sz) {
         int r;
 
         assert(c);

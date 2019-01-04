@@ -35,7 +35,7 @@ static DynamicUser* dynamic_user_free(DynamicUser *d) {
         return mfree(d);
 }
 
-static int dynamic_user_add(Manager *m, const char *name, int storage_socket[2], DynamicUser **ret) {
+static int dynamic_user_add(Manager *m, const char *name, int storage_socket[static 2], DynamicUser **ret) {
         DynamicUser *d;
         int r;
 

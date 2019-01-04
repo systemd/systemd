@@ -1628,7 +1628,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_netns(int netns_storage_socket[2]) {
+int setup_netns(int netns_storage_socket[static 2]) {
         _cleanup_close_ int netns = -1;
         int r, q;
 

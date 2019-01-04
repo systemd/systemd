@@ -14,7 +14,7 @@
 
 int close_nointr(int fd);
 int safe_close(int fd);
-void safe_close_pair(int p[]);
+void safe_close_pair(int p[static 2]);
 
 static inline int safe_close_above_stdio(int fd) {
         if (fd < 3) /* Don't close stdin/stdout/stderr, but still invalidate the fd by returning -1 */
