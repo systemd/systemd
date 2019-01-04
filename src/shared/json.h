@@ -153,7 +153,7 @@ typedef enum JsonFormatFlags {
         JSON_FORMAT_NEWLINE    = 1 << 0, /* suffix with newline */
         JSON_FORMAT_PRETTY     = 1 << 1, /* add internal whitespace to appeal to human readers */
         JSON_FORMAT_COLOR      = 1 << 2, /* insert ANSI color sequences */
-        JSON_FORMAT_COLOR_AUTO = 1 << 3, /* insetr ANSI color sequences if colors_enabled() says so */
+        JSON_FORMAT_COLOR_AUTO = 1 << 3, /* insert ANSI color sequences if colors_enabled() says so */
         JSON_FORMAT_SOURCE     = 1 << 4, /* prefix with source filename/line/column */
         JSON_FORMAT_SSE        = 1 << 5, /* prefix/suffix with W3C server-sent events */
         JSON_FORMAT_SEQ        = 1 << 6, /* prefix/suffix with RFC 7464 application/json-seq */
