@@ -979,6 +979,8 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         JsonVariantType rt;
 
         v = json_variant_dereference(v);
+        if (!v)
+                return false;
 
         rt = json_variant_type(v);
         if (rt == type)
