@@ -460,7 +460,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                 }
         }
 
-        /* kernel provided front panel port name for multiple port PCI device */
+        /* kernel provided front panel port name for multi-port PCI device */
         (void) sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
@@ -478,7 +478,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         if (l == 0)
                 names->pci_path[0] = '\0';
 
-        /* ACPI _SUN  — slot user number */
+        /* ACPI _SUN — slot user number */
         r = sd_device_new_from_subsystem_sysname(&pci, "subsystem", "pci");
         if (r < 0)
                 return r;
