@@ -29,7 +29,7 @@
 #include "util.h"
 
 int device_new_aux(sd_device **ret) {
-        sd_device *device = NULL;
+        sd_device *device;
 
         assert(ret);
 
@@ -205,9 +205,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 return r;
 
         free_and_replace(device->syspath, syspath);
-
         device->devpath = devpath;
-
         return 0;
 }
 
@@ -227,7 +225,6 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
                 return r;
 
         *ret = TAKE_PTR(device);
-
         return 0;
 }
 
@@ -610,8 +607,8 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
 
                 return sd_device_new_from_devnum(ret, id[0], devt);
         }
-        case 'n':
-        {
+
+        case 'n': {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
                 _cleanup_close_ int sk = -1;
                 struct ifreq ifr = {};
@@ -642,11 +639,10 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                         return -ENODEV;
 
                 *ret = TAKE_PTR(device);
-
                 return 0;
         }
-        case '+':
-        {
+
+        case '+': {
                 char subsys[PATH_MAX];
                 char *sysname;
 
@@ -660,6 +656,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
 
                 return sd_device_new_from_subsystem_sysname(ret, subsys, sysname);
         }
+
         default:
                 return -EINVAL;
         }
@@ -727,7 +724,6 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
                 return -ENOENT;
 
         *ret = child->parent;
-
         return 0;
 }
 
@@ -746,11 +742,8 @@ int device_set_subsystem(sd_device *device, const char *_subsystem) {
         if (r < 0)
                 return r;
 
-        free_and_replace(device->subsystem, subsystem);
-
         device->subsystem_set = true;
-
-        return 0;
+        return free_and_replace(device->subsystem, subsystem);
 }
 
 static int device_set_drivers_subsystem(sd_device *device, const char *_subsystem) {
@@ -769,9 +762,7 @@ static int device_set_drivers_subsystem(sd_device *device, const char *_subsyste
         if (r < 0)
                 return r;
 
-        free_and_replace(device->driver_subsystem, subsystem);
-
-        return 0;
+        return free_and_replace(device->driver_subsystem, subsystem);
 }
 
 _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
@@ -836,7 +827,6 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 return -ENOENT;
 
         *ret = device->subsystem;
-
         return 0;
 }
 
@@ -886,7 +876,6 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
                 return r;
 
         *ret = parent;
-
         return 0;
 }
 
@@ -923,11 +912,8 @@ int device_set_driver(sd_device *device, const char *_driver) {
         if (r < 0)
                 return r;
 
-        free_and_replace(device->driver, driver);
-
         device->driver_set = true;
-
-        return 0;
+        return free_and_replace(device->driver, driver);
 }
 
 _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
@@ -960,7 +946,6 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
                 return -ENOENT;
 
         *ret = device->driver;
-
         return 0;
 }
 
@@ -972,7 +957,6 @@ _public_ int sd_device_get_devpath(sd_device *device, const char **devpath) {
         assert(device->devpath[0] == '/');
 
         *devpath = device->devpath;
-
         return 0;
 }
 
@@ -992,7 +976,6 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         assert(path_startswith(device->devname, "/dev/"));
 
         *devname = device->devname;
-
         return 0;
 }
 
@@ -1033,13 +1016,9 @@ static int device_set_sysname(sd_device *device) {
         if (len == 0)
                 sysnum = NULL;
 
-        free_and_replace(device->sysname, sysname);
-
-        device->sysnum = sysnum;
-
         device->sysname_set = true;
-
-        return 0;
+        device->sysnum = sysnum;
+        return free_and_replace(device->sysname, sysname);
 }
 
 _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
@@ -1057,7 +1036,6 @@ _public_ int sd_device_get_sysname(sd_device *device, const char **ret) {
         assert_return(device->sysname, -ENOENT);
 
         *ret = device->sysname;
-
         return 0;
 }
 
@@ -1077,7 +1055,6 @@ _public_ int sd_device_get_sysnum(sd_device *device, const char **ret) {
                 return -ENOENT;
 
         *ret = device->sysnum;
-
         return 0;
 }
 
@@ -1286,7 +1263,6 @@ int device_get_id_filename(sd_device *device, const char **ret) {
         }
 
         *ret = device->id_filename;
-
         return 0;
 }
 
@@ -1418,7 +1394,6 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *u
                 return -EIO;
 
         *usec = now_ts - device->usec_initialized;
-
         return 0;
 }
 
@@ -1561,7 +1536,6 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
 
         if (_value)
                 *_value = value;
-
         return key;
 }
 
@@ -1583,7 +1557,6 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
 
         if (_value)
                 *_value = value;
-
         return key;
 }
 
@@ -1694,7 +1667,6 @@ _public_ int sd_device_get_property_value(sd_device *device, const char *key, co
 
         if (_value)
                 *_value = value;
-
         return 0;
 }
 
@@ -1721,8 +1693,7 @@ static int device_add_sysattr_value(sd_device *device, const char *_key, char *v
         r = hashmap_put(device->sysattr_values, key, value);
         if (r < 0)
                 return r;
-
-        key = NULL;
+        TAKE_PTR(key);
 
         return 0;
 }
@@ -1739,7 +1710,6 @@ static int device_get_sysattr_value(sd_device *device, const char *_key, const c
 
         if (_value)
                 *_value = value;
-
         return 0;
 }
 
@@ -1823,14 +1793,11 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
 static void device_remove_sysattr_value(sd_device *device, const char *_key) {
         _cleanup_free_ char *key = NULL;
-        _cleanup_free_ char *value = NULL;
 
         assert(device);
         assert(_key);
 
-        value = hashmap_remove2(device->sysattr_values, _key, (void **) &key);
-
-        return;
+        free(hashmap_remove2(device->sysattr_values, _key, (void **) &key));
 }
 
 /* set the attribute and save it in the cache. If a NULL value is passed the
@@ -1846,7 +1813,6 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         if (!_value) {
                 device_remove_sysattr_value(device, sysattr);
-
                 return 0;
         }
 
@@ -1877,23 +1843,22 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 if (r == -EISDIR)
                         return r;
 
-                free(value);
-                value = strdup("");
-                if (!value)
-                        return -ENOMEM;
+                r = free_and_strdup(&value, "");
+                if (r < 0)
+                        return r;
 
                 r = device_add_sysattr_value(device, sysattr, value);
                 if (r < 0)
                         return r;
+                TAKE_PTR(value);
 
-                value = NULL;
                 return -ENXIO;
         }
 
         r = device_add_sysattr_value(device, sysattr, value);
         if (r < 0)
                 return r;
+        TAKE_PTR(value);
 
-        value = NULL;
         return 0;
 }
