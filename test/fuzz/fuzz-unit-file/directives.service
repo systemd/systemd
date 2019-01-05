@@ -96,6 +96,7 @@ ForceUnmount=
 FreeBind=
 Group=
 GuessMainPID=
+InterruptedBy=
 IOAccounting=
 IODeviceWeight=
 IOReadBandwidthMax=

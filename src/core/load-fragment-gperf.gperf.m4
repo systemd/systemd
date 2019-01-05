@@ -206,6 +206,7 @@ Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUIS
 Unit.Wants,                      config_parse_unit_deps,             UNIT_WANTS,                    0
 Unit.BindsTo,                    config_parse_unit_deps,             UNIT_BINDS_TO,                 0
 Unit.BindTo,                     config_parse_unit_deps,             UNIT_BINDS_TO,                 0
+Unit.InterruptedBy,              config_parse_unit_deps,             UNIT_INTERRUPTED_BY,           0
 Unit.Conflicts,                  config_parse_unit_deps,             UNIT_CONFLICTS,                0
 Unit.Before,                     config_parse_unit_deps,             UNIT_BEFORE,                   0
 Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,                    0

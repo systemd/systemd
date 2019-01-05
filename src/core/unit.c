@@ -2093,6 +2093,9 @@ static void retroactively_stop_dependencies(Unit *u) {
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_INTERRUPTS], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
 }
 
 void unit_start_on_failure(Unit *u) {
@@ -2816,11 +2819,13 @@ int unit_add_dependency(
                 [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
                 [UNIT_BINDS_TO] = UNIT_BOUND_BY,
                 [UNIT_PART_OF] = UNIT_CONSISTS_OF,
+                [UNIT_INTERRUPTED_BY] = UNIT_INTERRUPTS,
                 [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
                 [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
                 [UNIT_WANTED_BY] = UNIT_WANTS,
                 [UNIT_BOUND_BY] = UNIT_BINDS_TO,
                 [UNIT_CONSISTS_OF] = UNIT_PART_OF,
+                [UNIT_INTERRUPTS] = UNIT_INTERRUPTED_BY,
                 [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
                 [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,

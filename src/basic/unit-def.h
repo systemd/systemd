@@ -182,6 +182,7 @@ typedef enum UnitDependency {
         UNIT_WANTS,
         UNIT_BINDS_TO,
         UNIT_PART_OF,
+        UNIT_INTERRUPTED_BY,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' is 'required_by' */
@@ -189,6 +190,7 @@ typedef enum UnitDependency {
         UNIT_WANTED_BY,               /* inverse of 'wants' */
         UNIT_BOUND_BY,                /* inverse of 'binds_to' */
         UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
+        UNIT_INTERRUPTS,              /* inverse of 'interrupted_by' is 'interrupts' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */

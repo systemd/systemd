@@ -635,6 +635,16 @@
       </varlistentry>
 
       <varlistentry>
+	<term><varname>InterruptedBy=</varname></term>
+
+	<listitem><para>Configures propagation of unit state changes that do not go through systemd's job engine, like abrupt
+	disappearance of units (on direct transition to inactive and failed). This is mostly useful on its own but can be combined with
+	other dependency types to get roughly the same propagation effects like <varname>BindsTo=</varname>, in particular
+	<varname>Requires=</varname>, and <varname>PartOf=</varname>.</para>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PartOf=</varname></term>
 
         <listitem><para>Configures dependencies similar to
