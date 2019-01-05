@@ -93,6 +93,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--stderr-priority=</option></term>
+
+        <listitem><para>Specifies the default priority level for
+        messages from the process's standard error output (stderr).
+        Usage of this option is the same as the
+        <option>--priority=</option> option, above, and both can be
+        used at once. When both are used, <option>--priority=</option>
+        will specify the default priority for standard output (stdout).
+        </para>
+
+        <para>If <option>--stderr-priority=</option> is not specified,
+        messages from stderr will still be logged, with the same
+        default priority level as stdout.</para>
+
+        <para>Also, note that when stdout and stderr use the same
+        default priority, the messages will be strictly ordered,
+        because one channel is used for both. When the default priority
+        differs, two channels are used, and so stdout messages will not
+        be strictly ordered with respect to stderr messages - though
+        they will tend to be approximately ordered.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--level-prefix=</option></term>
 
         <listitem><para>Controls whether lines read are parsed for

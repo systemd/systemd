@@ -20,6 +20,7 @@
 
 static const char *arg_identifier = NULL;
 static int arg_priority = LOG_INFO;
+static int arg_stderr_priority = -1;
 static bool arg_level_prefix = true;
 
 static int help(void) {
@@ -32,11 +33,12 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Execute process with stdout/stderr connected to the journal.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "  -t --identifier=STRING  Set syslog identifier\n"
-               "  -p --priority=PRIORITY  Set priority value (0..7)\n"
-               "     --level-prefix=BOOL  Control whether level prefix shall be parsed\n"
+               "  -h --help                      Show this help\n"
+               "     --version                   Show package version\n"
+               "  -t --identifier=STRING         Set syslog identifier\n"
+               "  -p --priority=PRIORITY         Set priority value (0..7)\n"
+               "     --stderr-priority=PRIORITY  Set priority value (0..7) used for stderr\n"
+               "     --level-prefix=BOOL         Control whether level prefix shall be parsed\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -49,15 +51,17 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_STDERR_PRIORITY,
                 ARG_LEVEL_PREFIX
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "identifier",   required_argument, NULL, 't'              },
-                { "priority",     required_argument, NULL, 'p'              },
-                { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "identifier",      required_argument, NULL, 't'                 },
+                { "priority",        required_argument, NULL, 'p'                 },
+                { "stderr-priority", required_argument, NULL, ARG_STDERR_PRIORITY },
+                { "level-prefix",    required_argument, NULL, ARG_LEVEL_PREFIX    },
                 {}
         };
 
@@ -91,6 +95,13 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Failed to parse priority value.");
                         break;
 
+                case ARG_STDERR_PRIORITY:
+                        arg_stderr_priority = log_level_from_string(optarg);
+                        if (arg_stderr_priority < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse stderr priority value.");
+                        break;
+
                 case ARG_LEVEL_PREFIX: {
                         int k;
 
@@ -113,7 +124,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_ int  fd = -1, saved_stderr = -1;
+        _cleanup_close_ int outfd = -1, errfd = -1, saved_stderr = -1;
         int r;
 
         log_parse_environment();
@@ -123,14 +134,21 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        fd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to create stream fd: %m");
+        outfd = sd_journal_stream_fd(arg_identifier, arg_priority, arg_level_prefix);
+        if (outfd < 0)
+                return log_error_errno(outfd, "Failed to create stream fd: %m");
+
+        if (arg_stderr_priority >= 0 && arg_stderr_priority != arg_priority) {
+                errfd = sd_journal_stream_fd(arg_identifier, arg_stderr_priority, arg_level_prefix);
+                if (errfd < 0)
+                        return log_error_errno(errfd, "Failed to create stream fd: %m");
+        }
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        r = rearrange_stdio(STDIN_FILENO, fd, fd); /* Invalidates fd on succcess + error! */
-        TAKE_FD(fd);
+        r = rearrange_stdio(STDIN_FILENO, outfd, errfd < 0 ? outfd : errfd); /* Invalidates fd on succcess + error! */
+        TAKE_FD(outfd);
+        TAKE_FD(errfd);
         if (r < 0)
                 return log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
 
