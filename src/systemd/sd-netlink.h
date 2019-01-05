@@ -200,7 +200,6 @@ int sd_netlink_slot_set_floating(sd_netlink_slot *slot, int b);
 int sd_netlink_slot_get_description(sd_netlink_slot *slot, const char **description);
 int sd_netlink_slot_set_description(sd_netlink_slot *slot, const char *description);
 
-
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink, sd_netlink_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_message, sd_netlink_message_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_netlink_slot, sd_netlink_slot_unref);

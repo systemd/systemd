@@ -1859,7 +1859,6 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "PrivateNetwork",          "b",       NULL,                                    offsetof(struct security_info, private_network)           },
                 { "PrivateTmp",              "b",       NULL,                                    offsetof(struct security_info, private_tmp)               },
                 { "PrivateUsers",            "b",       NULL,                                    offsetof(struct security_info, private_users)             },
-                { "PrivateUsers",            "b",       NULL,                                    offsetof(struct security_info, private_users)             },
                 { "ProtectControlGroups",    "b",       NULL,                                    offsetof(struct security_info, protect_control_groups)    },
                 { "ProtectHome",             "s",       NULL,                                    offsetof(struct security_info, protect_home)              },
                 { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },

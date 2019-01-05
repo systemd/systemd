@@ -912,7 +912,6 @@ static int alloc_query(sd_resolve *resolve, bool floating, sd_resolve_query **_q
         return 0;
 }
 
-
 int resolve_getaddrinfo_with_destroy_callback(
                 sd_resolve *resolve,
                 sd_resolve_query **ret_query,

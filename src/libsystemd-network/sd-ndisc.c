@@ -34,7 +34,6 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event event, sd_ndisc_route
         assert(ndisc);
         assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
-
         if (!ndisc->callback) {
                 log_ndisc("Received '%s' event.", ndisc_event_to_string(event));
                 return;

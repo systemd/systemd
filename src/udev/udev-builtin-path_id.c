@@ -110,7 +110,6 @@ static sd_device *handle_scsi_fibre_channel(sd_device *parent, char **path) {
         assert(parent);
         assert(path);
 
-
         if (sd_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target", &targetdev) < 0)
                 return NULL;
         if (sd_device_get_sysname(targetdev, &sysname) < 0)

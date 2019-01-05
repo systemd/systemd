@@ -36,7 +36,6 @@
 #include "process-util.h"
 #include "replace-var.h"
 #include "stat-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

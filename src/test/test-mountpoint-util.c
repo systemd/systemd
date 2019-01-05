@@ -8,7 +8,6 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
-#include "log.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "rm-rf.h"

@@ -212,7 +212,6 @@ static void test_format_timespan(usec_t accuracy) {
         test_format_timespan_one(12345678, accuracy);
         test_format_timespan_one(1200000, accuracy);
         test_format_timespan_one(1230000, accuracy);
-        test_format_timespan_one(1230000, accuracy);
         test_format_timespan_one(1234000, accuracy);
         test_format_timespan_one(1234500, accuracy);
         test_format_timespan_one(1234560, accuracy);
@@ -288,7 +287,6 @@ static void test_usec_sub_signed(void) {
         assert_se(usec_sub_signed(4, 1) == 3);
         assert_se(usec_sub_signed(4, 4) == 0);
         assert_se(usec_sub_signed(4, 5) == 0);
-        assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -3) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -4) == USEC_INFINITY);
         assert_se(usec_sub_signed(USEC_INFINITY-3, -5) == USEC_INFINITY);
