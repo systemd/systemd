@@ -254,7 +254,6 @@ static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link
         return 1;
 }
 
-
 static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
         int r;
         sd_dhcp6_lease *lease;

@@ -234,7 +234,6 @@ static void test_unbase32hexmem(void) {
         test_unbase32hexmem_one("CPNMUOJ1E8======", false, -EINVAL, NULL);
 
         test_unbase32hexmem_one("A", false, -EINVAL, NULL);
-        test_unbase32hexmem_one("A", false, -EINVAL, NULL);
         test_unbase32hexmem_one("AAA", false, -EINVAL, NULL);
         test_unbase32hexmem_one("AAAAAA", false, -EINVAL, NULL);
         test_unbase32hexmem_one("AB", false, -EINVAL, NULL);

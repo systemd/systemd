@@ -202,7 +202,6 @@ int cgroup_apply_device_bpf(Unit *u, BPFProgram *prog, CGroupDevicePolicy policy
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 
-
         r = bpf_program_cgroup_attach(prog, BPF_CGROUP_DEVICE, path, BPF_F_ALLOW_MULTI);
         if (r < 0)
                 return log_error_errno(r, "Attaching device control BPF program to cgroup %s failed: %m", path);

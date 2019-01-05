@@ -209,7 +209,6 @@ static void test_2(JsonVariant *v) {
         assert_se(p && json_variant_type(p) == JSON_VARIANT_REAL && fabsl(json_variant_real(p) - 1.27) < 0.001);
 }
 
-
 static void test_zeroes(JsonVariant *v) {
         size_t i;
 

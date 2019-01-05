@@ -425,7 +425,6 @@ int info_main(int argc, char *argv[], void *userdata) {
                         assert_not_reached("Unknown option");
                 }
 
-
         if (action == ACTION_DEVICE_ID_FILE) {
                 if (argv[optind])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
