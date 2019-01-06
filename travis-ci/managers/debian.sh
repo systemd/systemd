@@ -39,21 +39,15 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
             $DOCKER_EXEC apt-get -y install "${ADDITIONAL_DEPS[@]}"
-            # overlayfs on TravisCI is having trouble delivering inotify events to test-path and test-event.
-            # Let's use tmpfs instead for now.
-            $DOCKER_EXEC mount -t tmpfs tmpfs /tmp
             ;;
-        RUN)
-            info "Run phase"
-            $DOCKER_EXEC meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
+        RUN|RUN_CLANG)
+            if [[ "$phase" = "RUN_CLANG" ]]; then
+                ENV_VARS="-e CC=clang -e CXX=clang++"
+            fi
+            docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
             $DOCKER_EXEC ninja -v -C build
-            $DOCKER_EXEC ninja -C build test
+            docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME ninja -C build test
             $DOCKER_EXEC tools/check-directives.sh
-            ;;
-        RUN_CLANG)
-            docker exec -e CC=clang -e CXX=clang++ -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
-            $DOCKER_EXEC ninja -v -C build
-            $DOCKER_EXEC ninja -C build test
             ;;
         RUN_ASAN|RUN_CLANG_ASAN)
             if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then

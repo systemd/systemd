@@ -30,6 +30,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        if (is_run_on_travis_ci())
+                return log_tests_skipped("test-bpf fails on Travis CI: https://github.com/systemd/systemd/issues/9666");
+
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
