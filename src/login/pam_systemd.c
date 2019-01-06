@@ -198,18 +198,6 @@ static int export_legacy_dbus_address(
         _cleanup_free_ char *s = NULL;
         int r = PAM_BUF_ERR;
 
-        /* FIXME: We *really* should move the access() check into the
-         * daemons that spawn dbus-daemon, instead of forcing
-         * DBUS_SESSION_BUS_ADDRESS= here. */
-
-        s = strjoin(runtime, "/bus");
-        if (!s)
-                goto error;
-
-        if (access(s, F_OK) < 0)
-                return PAM_SUCCESS;
-
-        s = mfree(s);
         if (asprintf(&s, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
                 goto error;
 
