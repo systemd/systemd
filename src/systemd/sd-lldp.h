@@ -27,7 +27,7 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* IEEE 802.3AB Clause 9: TLV Types */
+/* IEEE 802.1AB-2009 Clause 8: TLV Types */
 enum {
         SD_LLDP_TYPE_END                 = 0,
         SD_LLDP_TYPE_CHASSIS_ID          = 1,
@@ -41,7 +41,7 @@ enum {
         SD_LLDP_TYPE_PRIVATE             = 127,
 };
 
-/* IEEE 802.3AB Clause 9.5.2: Chassis subtypes */
+/* IEEE 802.1AB-2009 Clause 8.5.2: Chassis subtypes */
 enum {
         SD_LLDP_CHASSIS_SUBTYPE_RESERVED            = 0,
         SD_LLDP_CHASSIS_SUBTYPE_CHASSIS_COMPONENT   = 1,
@@ -53,7 +53,7 @@ enum {
         SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED    = 7,
 };
 
-/* IEEE 802.3AB Clause 9.5.3: Port subtype */
+/* IEEE 802.1AB-2009 Clause 8.5.3: Port subtype */
 enum {
         SD_LLDP_PORT_SUBTYPE_RESERVED         = 0,
         SD_LLDP_PORT_SUBTYPE_INTERFACE_ALIAS  = 1,
@@ -65,6 +65,7 @@ enum {
         SD_LLDP_PORT_SUBTYPE_LOCALLY_ASSIGNED = 7,
 };
 
+/* IEEE 802.1AB-2009 Clause 8.5.8: System capabilities */
 enum {
         SD_LLDP_SYSTEM_CAPABILITIES_OTHER    = 1 << 0,
         SD_LLDP_SYSTEM_CAPABILITIES_REPEATER = 1 << 1,
@@ -95,6 +96,7 @@ enum {
 #define SD_LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
 #define SD_LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
 
+/* IEEE 802.1AB-2009 Annex E */
 enum {
         SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID          = 1,
         SD_LLDP_OUI_802_1_SUBTYPE_PORT_PROTOCOL_VLAN_ID = 2,
@@ -103,6 +105,14 @@ enum {
         SD_LLDP_OUI_802_1_SUBTYPE_VID_USAGE_DIGEST      = 5,
         SD_LLDP_OUI_802_1_SUBTYPE_MANAGEMENT_VID        = 6,
         SD_LLDP_OUI_802_1_SUBTYPE_LINK_AGGREGATION      = 7,
+};
+
+/* IEEE 802.1AB-2009 Annex F */
+enum {
+        SD_LLDP_OUI_802_3_SUBTYPE_MAC_PHY_CONFIG_STATUS = 1,
+        SD_LLDP_OUI_802_3_SUBTYPE_POWER_VIA_MDI         = 2,
+        SD_LLDP_OUI_802_3_SUBTYPE_LINK_AGGREGATION      = 3,
+        SD_LLDP_OUI_802_3_SUBTYPE_MAXIMUM_FRAME_SIZE    = 4,
 };
 
 typedef struct sd_lldp sd_lldp;
