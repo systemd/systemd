@@ -504,38 +504,34 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
 static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Spawn *spawn = userdata;
+        int ret = -EIO;
 
         assert(spawn);
 
         switch (si->si_code) {
         case CLD_EXITED:
-                if (si->si_status == 0) {
+                if (si->si_status == 0)
                         log_debug("Process '%s' succeeded.", spawn->cmd);
-                        sd_event_exit(sd_event_source_get_event(s), 0);
-
-                        return 1;
-                }
-
-                log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
-                         "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                else
+                        log_full(spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
+                                 "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
+                ret = si->si_status;
                 break;
         case CLD_KILLED:
         case CLD_DUMPED:
-                log_warning("Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
-
+                log_error("Process '%s' terminated by signal %s.", spawn->cmd, signal_to_string(si->si_status));
                 break;
         default:
                 log_error("Process '%s' failed due to unknown reason.", spawn->cmd);
         }
 
-        sd_event_exit(sd_event_source_get_event(s), -EIO);
-
+        sd_event_exit(sd_event_source_get_event(s), ret);
         return 1;
 }
 
 static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        int r, ret;
+        int r;
 
         assert(spawn);
 
@@ -586,15 +582,7 @@ static int spawn_wait(Spawn *spawn) {
         if (r < 0)
                 return r;
 
-        r = sd_event_loop(e);
-        if (r < 0)
-                return r;
-
-        r = sd_event_get_exit_code(e, &ret);
-        if (r < 0)
-                return r;
-
-        return ret;
+        return sd_event_loop(e);
 }
 
 int udev_event_spawn(UdevEvent *event,
@@ -679,12 +667,12 @@ int udev_event_spawn(UdevEvent *event,
         };
         r = spawn_wait(&spawn);
         if (r < 0)
-                return log_error_errno(r, "Failed to wait spawned command '%s': %m", cmd);
+                return log_error_errno(r, "Failed to wait for spawned command '%s': %m", cmd);
 
         if (result)
                 result[spawn.result_len] = '\0';
 
-        return r;
+        return r; /* 0 for success, and positive if the program failed */
 }
 
 static int rename_netif(UdevEvent *event) {
@@ -899,7 +887,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
                                 (void) usleep(event->exec_delay_usec);
                         }
 
-                        udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
+                        (void) udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
                 }
         }
 }

@@ -645,11 +645,13 @@ static int import_program_into_properties(UdevEvent *event,
                                           const char *program) {
         char result[UTIL_LINE_SIZE];
         char *line;
-        int err;
+        int r;
 
-        err = udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result));
-        if (err < 0)
-                return err;
+        r = udev_event_spawn(event, timeout_usec, false, program, result, sizeof result);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return -EIO;
 
         line = result;
         while (line) {
@@ -1959,7 +1961,7 @@ int udev_rules_apply_to_event(
                                          rules_str(rules, rule->rule.filename_off),
                                          rule->rule.filename_line);
 
-                        if (udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result)) < 0) {
+                        if (udev_event_spawn(event, timeout_usec, true, program, result, sizeof(result)) != 0) {
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         } else {
