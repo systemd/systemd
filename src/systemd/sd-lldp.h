@@ -168,8 +168,8 @@ int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_get_type(sd_lldp_neighbor *n, uint8_t *type);
 int sd_lldp_neighbor_tlv_is_type(sd_lldp_neighbor *n, uint8_t type);
-int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[3], uint8_t *subtype);
-int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[3], uint8_t subtype);
+int sd_lldp_neighbor_tlv_get_oui(sd_lldp_neighbor *n, uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t *subtype);
+int sd_lldp_neighbor_tlv_is_oui(sd_lldp_neighbor *n, const uint8_t oui[_SD_ARRAY_STATIC 3], uint8_t subtype);
 int sd_lldp_neighbor_tlv_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_lldp, sd_lldp_unref);

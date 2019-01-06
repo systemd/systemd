@@ -70,7 +70,7 @@ int safe_close(int fd) {
         return -1;
 }
 
-void safe_close_pair(int p[]) {
+void safe_close_pair(int p[static 2]) {
         assert(p);
 
         if (p[0] == p[1]) {

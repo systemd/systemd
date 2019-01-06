@@ -630,7 +630,7 @@ int efi_set_boot_order(uint16_t *order, size_t n) {
         return efi_set_variable(EFI_VENDOR_GLOBAL, "BootOrder", order, n * sizeof(uint16_t));
 }
 
-static int boot_id_hex(const char s[4]) {
+static int boot_id_hex(const char s[static 4]) {
         int id = 0, i;
 
         for (i = 0; i < 4; i++)

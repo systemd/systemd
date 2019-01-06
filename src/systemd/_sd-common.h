@@ -72,6 +72,14 @@ typedef void (*_sd_destroy_t)(void *userdata);
 #  endif
 #endif
 
+#ifndef _SD_ARRAY_STATIC
+#  if __STDC_VERSION__ >= 199901L
+#    define _SD_ARRAY_STATIC static
+#  else
+#    define _SD_ARRAY_STATIC
+#  endif
+#endif
+
 #define _SD_DEFINE_POINTER_CLEANUP_FUNC(type, func)             \
         static __inline__ void func##p(type **p) {              \
                 if (*p)                                         \

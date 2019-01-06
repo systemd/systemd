@@ -1595,7 +1595,7 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 
 #endif
 
-static void do_idle_pipe_dance(int idle_pipe[4]) {
+static void do_idle_pipe_dance(int idle_pipe[static 4]) {
         assert(idle_pipe);
 
         idle_pipe[1] = safe_close(idle_pipe[1]);
@@ -2618,7 +2618,7 @@ out:
         return r;
 }
 
-static void append_socket_pair(int *array, size_t *n, const int pair[2]) {
+static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) {
         assert(array);
         assert(n);
 
@@ -3942,7 +3942,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
         }
 }
 
-static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
+static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]) {
         size_t i, targets;
         const char* stdio_fdname[3];
         size_t n_fds;
