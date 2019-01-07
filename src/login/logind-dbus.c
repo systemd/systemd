@@ -1502,7 +1502,6 @@ static int execute_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char *c = NULL;
         const char *p;
         int r;
 
@@ -1530,15 +1529,11 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto error;
 
-        c = strdup(p);
-        if (!c) {
-                r = -ENOMEM;
+        r = free_and_strdup(&m->action_job, p);
+        if (r < 0)
                 goto error;
-        }
 
         m->action_unit = unit_name;
-        free(m->action_job);
-        m->action_job = c;
         m->action_what = w;
 
         /* Make sure the lid switch is ignored for a while */
