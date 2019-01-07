@@ -17,6 +17,7 @@
 #include "signal-util.h"
 #include "string-util.h"
 #include "udevadm.h"
+#include "virt.h"
 
 static bool arg_show_property = false;
 static bool arg_print_kernel = false;
@@ -209,6 +210,11 @@ int monitor_main(int argc, char *argv[], void *userdata) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finalize;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
 
         /* Callers are expecting to see events as they happen: Line buffering */
         setlinebuf(stdout);

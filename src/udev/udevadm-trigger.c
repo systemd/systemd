@@ -15,6 +15,7 @@
 #include "strv.h"
 #include "udevadm.h"
 #include "udevadm-util.h"
+#include "virt.h"
 
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
@@ -157,6 +158,11 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         _cleanup_set_free_free_ Set *settle_set = NULL;
         bool settle = false;
         int c, r;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
