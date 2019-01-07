@@ -162,9 +162,9 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
 int cg_read_subgroup(DIR *d, char **fn);
 
 typedef enum CGroupFlags {
-        CGROUP_SIGCONT     = 1,
-        CGROUP_IGNORE_SELF = 2,
-        CGROUP_REMOVE      = 4,
+        CGROUP_SIGCONT     = 1 << 0,
+        CGROUP_IGNORE_SELF = 1 << 1,
+        CGROUP_REMOVE      = 1 << 2,
 } CGroupFlags;
 
 typedef void (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);

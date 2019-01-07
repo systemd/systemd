@@ -9,9 +9,9 @@
 #define UNIT_NAME_MAX 256
 
 typedef enum UnitNameFlags {
-        UNIT_NAME_PLAIN = 1,      /* Allow foo.service */
-        UNIT_NAME_INSTANCE = 2,   /* Allow foo@bar.service */
-        UNIT_NAME_TEMPLATE = 4,   /* Allow foo@.service */
+        UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
+        UNIT_NAME_INSTANCE = 1 << 1, /* Allow foo@bar.service */
+        UNIT_NAME_TEMPLATE = 1 << 2, /* Allow foo@.service */
         UNIT_NAME_ANY = UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE,
 } UnitNameFlags;
 
@@ -50,8 +50,8 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
 int unit_name_to_path(const char *name, char **ret);
 
 typedef enum UnitNameMangle {
-        UNIT_NAME_MANGLE_GLOB = 1,
-        UNIT_NAME_MANGLE_WARN = 2,
+        UNIT_NAME_MANGLE_GLOB = 1 << 0,
+        UNIT_NAME_MANGLE_WARN = 1 << 1,
 } UnitNameMangle;
 
 int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret);

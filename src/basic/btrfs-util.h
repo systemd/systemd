@@ -28,17 +28,17 @@ typedef struct BtrfsQuotaInfo {
 } BtrfsQuotaInfo;
 
 typedef enum BtrfsSnapshotFlags {
-        BTRFS_SNAPSHOT_FALLBACK_COPY = 1,        /* If the source isn't a subvolume, reflink everything */
-        BTRFS_SNAPSHOT_READ_ONLY = 2,
-        BTRFS_SNAPSHOT_RECURSIVE = 4,
-        BTRFS_SNAPSHOT_QUOTA = 8,
-        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 16,  /* If the destination doesn't support subvolumes, reflink/copy instead */
-        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 32,  /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
+        BTRFS_SNAPSHOT_FALLBACK_COPY      = 1 << 0, /* If the source isn't a subvolume, reflink everything */
+        BTRFS_SNAPSHOT_READ_ONLY          = 1 << 1,
+        BTRFS_SNAPSHOT_RECURSIVE          = 1 << 2,
+        BTRFS_SNAPSHOT_QUOTA              = 1 << 3,
+        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY = 1 << 4, /* If the destination doesn't support subvolumes, reflink/copy instead */
+        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 1 << 5, /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
 } BtrfsSnapshotFlags;
 
 typedef enum BtrfsRemoveFlags {
-        BTRFS_REMOVE_RECURSIVE = 1,
-        BTRFS_REMOVE_QUOTA = 2,
+        BTRFS_REMOVE_RECURSIVE = 1 << 0,
+        BTRFS_REMOVE_QUOTA     = 1 << 1,
 } BtrfsRemoveFlags;
 
 int btrfs_is_filesystem(int fd);

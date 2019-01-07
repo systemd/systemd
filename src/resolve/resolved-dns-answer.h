@@ -15,11 +15,11 @@ typedef struct DnsAnswerItem DnsAnswerItem;
  * Note that we usually encode the empty DnsAnswer object as a simple NULL. */
 
 typedef enum DnsAnswerFlags {
-        DNS_ANSWER_AUTHENTICATED = 1,  /* Item has been authenticated */
-        DNS_ANSWER_CACHEABLE     = 2,  /* Item is subject to caching */
-        DNS_ANSWER_SHARED_OWNER  = 4,  /* For mDNS: RRset may be owner by multiple peers */
-        DNS_ANSWER_CACHE_FLUSH   = 8,  /* For mDNS: sets cache-flush bit in the rrclass of response records */
-        DNS_ANSWER_GOODBYE       = 16, /* For mDNS: item is subject to disappear */
+        DNS_ANSWER_AUTHENTICATED = 1 << 0, /* Item has been authenticated */
+        DNS_ANSWER_CACHEABLE     = 1 << 1, /* Item is subject to caching */
+        DNS_ANSWER_SHARED_OWNER  = 1 << 2, /* For mDNS: RRset may be owner by multiple peers */
+        DNS_ANSWER_CACHE_FLUSH   = 1 << 3, /* For mDNS: sets cache-flush bit in the rrclass of response records */
+        DNS_ANSWER_GOODBYE       = 1 << 4, /* For mDNS: item is subject to disappear */
 } DnsAnswerFlags;
 
 struct DnsAnswerItem {
