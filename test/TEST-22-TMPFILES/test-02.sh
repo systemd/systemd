@@ -6,8 +6,8 @@
 set -e
 set -x
 
-rm -fr /tmp/{d,D,e}
-mkdir  /tmp/{d,D,e}
+rm -fr /tmp/{C,d,D,e}
+mkdir  /tmp/{C,d,D,e}
 
 #
 # 'd'
@@ -93,3 +93,30 @@ test $(stat -c %U:%G:%a /tmp/e/3/d2) = "daemon:daemon:755"
 
 test -f /tmp/e/3/f1
 test $(stat -c %U:%G:%a /tmp/e/3/f1) = "root:root:644"
+
+#
+# 'C'
+#
+
+mkdir /tmp/C/{1,2,3}-origin
+touch /tmp/C/{1,2,3}-origin/f1
+chmod 755 /tmp/C/{1,2,3}-origin/f1
+
+mkdir /tmp/C/{2,3}
+touch /tmp/C/3/f1
+
+systemd-tmpfiles --create - <<EOF
+C     /tmp/C/1    0755 daemon daemon - /tmp/C/1-origin
+C     /tmp/C/2    0755 daemon daemon - /tmp/C/2-origin
+EOF
+
+test -d /tmp/C/1
+test $(stat -c %U:%G:%a /tmp/C/1/f1) = "daemon:daemon:755"
+test -d /tmp/C/2
+test $(stat -c %U:%G:%a /tmp/C/2/f1) = "daemon:daemon:755"
+
+! systemd-tmpfiles --create - <<EOF
+C     /tmp/C/3    0755 daemon daemon - /tmp/C/3-origin
+EOF
+
+test $(stat -c %U:%G:%a /tmp/C/3/f1) = "root:root:644"
