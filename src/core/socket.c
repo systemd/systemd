@@ -1465,6 +1465,17 @@ static int socket_address_listen_do(
                         label);
 }
 
+static int log_address_error_errno(Unit *u, const SocketAddress *address, int error, const char *fmt) {
+        _cleanup_free_ char *t = NULL;
+
+        (void) socket_address_print(address, &t);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        return log_unit_error_errno(u, error, fmt, strna(t));
+#pragma GCC diagnostic pop
+}
+
 static int socket_address_listen_in_cgroup(
                 Socket *s,
                 const SocketAddress *address,
@@ -1503,13 +1514,13 @@ static int socket_address_listen_in_cgroup(
 
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0) {
-                        log_unit_error_errno(UNIT(s), fd, "Failed to create listening socket: %m");
+                        log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = send_one_fd(pair[1], fd, 0);
                 if (r < 0) {
-                        log_unit_error_errno(UNIT(s), r, "Failed to send listening socket to parent: %m");
+                        log_address_error_errno(UNIT(s), address, r, "Failed to send listening socket (%s) to parent: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -1527,14 +1538,14 @@ static int socket_address_listen_in_cgroup(
         }
 
         if (fd < 0)
-                return log_unit_error_errno(UNIT(s), fd, "Failed to receive listening socket: %m");
+                return log_address_error_errno(UNIT(s), address, fd, "Failed to receive listening socket (%s): %m");
 
         return fd;
 
 shortcut:
         fd = socket_address_listen_do(s, address, label);
         if (fd < 0)
-                return log_unit_error_errno(UNIT(s), fd, "Failed to create listening socket: %m");
+                return log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
 
         return fd;
 }
@@ -1565,7 +1576,7 @@ static int socket_open_fds(Socket *_s) {
 
                                 r = socket_determine_selinux_label(s, &label);
                                 if (r < 0)
-                                        return r;
+                                        return log_unit_error_errno(UNIT(s), r, "Failed to determine SELinux label: %m");
 
                                 know_label = true;
                         }
@@ -1598,7 +1609,7 @@ static int socket_open_fds(Socket *_s) {
 
                         r = special_address_create(p->path, s->writable);
                         if (r < 0)
-                                return r;
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open special file %s: %m", p->path);
 
                         p->fd = r;
                         break;
@@ -1610,7 +1621,7 @@ static int socket_open_fds(Socket *_s) {
                                         s->directory_mode,
                                         s->socket_mode);
                         if (r < 0)
-                                return r;
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open FIFO %s: %m", p->path);
 
                         p->fd = r;
                         socket_apply_fifo_options(s, p->fd);
@@ -1625,7 +1636,7 @@ static int socket_open_fds(Socket *_s) {
                                         s->mq_maxmsg,
                                         s->mq_msgsize);
                         if (r < 0)
-                                return r;
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open message queue %s: %m", p->path);
 
                         p->fd = r;
                         break;
