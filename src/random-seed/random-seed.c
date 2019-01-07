@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "util.h"
@@ -26,6 +27,7 @@ static enum {
         ACTION_LOAD,
         ACTION_SAVE,
 } arg_action = ACTION_NONE;
+static int entropy_credit;
 
 #define POOL_SIZE_MIN 512
 #define POOL_SIZE_MAX (10*1024*1024)
@@ -54,15 +56,27 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CREDIT,
         };
 
         static const struct option options[] = {
                 { "help",               no_argument,       NULL, 'h'                    },
                 { "version",            no_argument,       NULL, ARG_VERSION            },
+                { "entropy-credit",     required_argument, NULL, ARG_CREDIT             },
                 {},
         };
 
+        const char *e;
         int c;
+
+        e = getenv("SYSTEMD_ENTROPY_CREDIT");
+        if (e) {
+                entropy_credit = parse_permille(e);
+                if (entropy_credit < 0) {
+                        log_warning("Invalid value '%s' of 'SYSTEMD_ENTROPY_CREDIT'. Ignoring.", e);
+                        entropy_credit = 0;
+                }
+        }
 
         assert(argc >= 0);
         assert(argv);
@@ -76,6 +90,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CREDIT:
+                        entropy_credit = parse_permille(optarg);
+                        if (entropy_credit < 0) {
+                                log_warning("Ignoring invalid argument to --entropy-credit=: %s.",
+                                            optarg);
+                                entropy_credit = 0;
+                        }
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -212,6 +235,8 @@ static int run(int argc, char *argv[]) {
                         (void) lseek(seed_fd, 0, SEEK_SET);
                         entropy_count = 0;
                         entropy_count = MIN(entropy_count, 8*k);
+                        entropy_count *= entropy_credit;
+                        entropy_count /= 1000;
 
                         info->buf_size = k;
                         info->entropy_count = entropy_count;
