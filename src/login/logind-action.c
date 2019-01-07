@@ -121,7 +121,7 @@ int manager_handle_action(
                 return -EOPNOTSUPP;
         }
 
-        if (m->action_what) {
+        if (m->action_what > 0) {
                 log_debug("Action already in progress, ignoring.");
                 return -EALREADY;
         }
