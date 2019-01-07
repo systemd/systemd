@@ -3,6 +3,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <linux/ethtool.h>
+#include <linux/netdevice.h>
 #include <linux/sockios.h>
 
 #include "conf-parser.h"
@@ -213,6 +214,46 @@ int ethtool_get_link_info(int *fd, const char *ifname,
 
         if (ret_port)
                 *ret_port = ecmd.port;
+
+        return 0;
+}
+
+int ethtool_get_permanent_macaddr(int *fd, const char *ifname, struct ether_addr *ret) {
+        _cleanup_free_ struct ethtool_perm_addr *epaddr = NULL;
+        struct ifreq ifr;
+        int r;
+
+        assert(fd);
+        assert(ifname);
+        assert(ret);
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        epaddr = malloc(offsetof(struct ethtool_perm_addr, data) + MAX_ADDR_LEN);
+        if (!epaddr)
+                return -ENOMEM;
+
+        epaddr->cmd = ETHTOOL_GPERMADDR;
+        epaddr->size = MAX_ADDR_LEN;
+
+        ifr = (struct ifreq) {
+                .ifr_data = (caddr_t) epaddr,
+        };
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (epaddr->size != 6)
+                return -EOPNOTSUPP;
+
+        for (size_t i = 0; i < epaddr->size; i++)
+                ret->ether_addr_octet[i] = epaddr->data[i];
 
         return 0;
 }
