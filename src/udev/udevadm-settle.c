@@ -18,6 +18,7 @@
 #include "udevadm.h"
 #include "udev-ctrl.h"
 #include "util.h"
+#include "virt.h"
 
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static const char *arg_exists = NULL;
@@ -87,6 +88,11 @@ int settle_main(int argc, char *argv[], void *userdata) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
 
         deadline = now(CLOCK_MONOTONIC) + arg_timeout;
 
