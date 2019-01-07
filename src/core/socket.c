@@ -561,7 +561,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         r = getpeername(fd, &sa.peer.sa, &salen);
         if (r < 0)
-                return log_error_errno(errno, "getpeername failed: %m");
+                return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                 *p = NULL;
@@ -1534,7 +1534,7 @@ static int socket_address_listen_in_cgroup(
 shortcut:
         fd = socket_address_listen_do(s, address, label);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to create listening socket: %m");
+                return log_unit_error_errno(UNIT(s), fd, "Failed to create listening socket: %m");
 
         return fd;
 }
@@ -2521,14 +2521,14 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
                 copy = fdset_put_dup(fds, p->fd);
                 if (copy < 0)
-                        return log_warning_errno(copy, "Failed to serialize socket fd: %m");
+                        return log_unit_warning_errno(u, copy, "Failed to serialize socket fd: %m");
 
                 if (p->type == SOCKET_SOCKET) {
                         _cleanup_free_ char *t = NULL;
 
                         r = socket_address_print(&p->address, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to format socket address: %m");
+                                return log_unit_error_errno(u, r, "Failed to format socket address: %m");
 
                         if (socket_address_family(&p->address) == AF_NETLINK)
                                 (void) serialize_item_format(f, "netlink", "%i %s", copy, t);
