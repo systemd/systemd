@@ -1474,23 +1474,15 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
 }
 
 static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
-
-        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
-                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
-                [INHIBIT_SLEEP] = "PrepareForSleep"
-        };
-
         int active = _active;
 
         assert(m);
-        assert(w >= 0);
-        assert(w < _INHIBIT_WHAT_MAX);
-        assert(signal_name[w]);
+        assert(IN_SET(w, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
         return sd_bus_emit_signal(m->bus,
                                   "/org/freedesktop/login1",
                                   "org.freedesktop.login1.Manager",
-                                  signal_name[w],
+                                  w == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
                                   "b",
                                   active);
 }
