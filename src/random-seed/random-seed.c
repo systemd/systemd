@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -31,6 +33,8 @@ static int entropy_credit;
 
 #define POOL_SIZE_MIN 512
 #define POOL_SIZE_MAX (10*1024*1024)
+
+#define XATTR_NAME "trusted.entropy_count"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -120,6 +124,39 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Unknown verb '%s'.", argv[1]);
 
         return 1;
+}
+
+static void write_entropy_xattr(int fd, int entropy_count)
+{
+        char buf[32];
+        int len;
+
+        len = snprintf(buf, sizeof(buf), "%d", entropy_count);
+        if (fsetxattr(fd, XATTR_NAME, buf, len+1, 0)) {
+                if (errno != ENOTSUP)
+                        log_warning_errno(errno, "Failed to set xattr '%s'", XATTR_NAME);
+                /* If we fail for any reason, attempt to delete the xattr. We
+                 * can't do much if that fails as well. */
+                fremovexattr(fd, XATTR_NAME);
+        }
+}
+
+static int read_entropy_xattr(int fd)
+{
+        char buf[32];
+        int len, entropy_count;
+
+        len = fgetxattr(fd, XATTR_NAME, buf, sizeof(buf));
+        if (len < 0 || len > (int) sizeof(buf))
+                return 0;
+        buf[sizeof(buf) - 1] = '\0';
+        if (safe_atoi(buf, &entropy_count) < 0)
+                return 0;
+        /* Make sure we never end up crediting the same bits twice. */
+        if (fremovexattr(fd, XATTR_NAME) < 0)
+                return 0;
+
+        return entropy_count;
 }
 
 static int run(int argc, char *argv[]) {
@@ -233,7 +270,7 @@ static int run(int argc, char *argv[]) {
                         int entropy_count;
 
                         (void) lseek(seed_fd, 0, SEEK_SET);
-                        entropy_count = 0;
+                        entropy_count = read_entropy_xattr(seed_fd);
                         entropy_count = MIN(entropy_count, 8*k);
                         entropy_count *= entropy_credit;
                         entropy_count /= 1000;
@@ -262,13 +299,19 @@ static int run(int argc, char *argv[]) {
         }
 
         if (write_seed_file) {
+                int e1, e2;
+
                 /* This is just a safety measure. Given that we are root and
                  * most likely created the file ourselves the mode and owner
                  * should be correct anyway. */
                 (void) fchmod(seed_fd, 0600);
                 (void) fchown(seed_fd, 0, 0);
 
+                if (ioctl(random_fd, RNDGETENTCNT, &e1) < 0)
+                        e1 = 0;
                 k = loop_read(random_fd, info->buf, buf_size, false);
+                if (ioctl(random_fd, RNDGETENTCNT, &e2) < 0)
+                        e2 = 0;
                 if (k < 0)
                         return log_error_errno(k, "Failed to read new seed from /dev/urandom: %m");
                 if (k == 0)
@@ -278,6 +321,7 @@ static int run(int argc, char *argv[]) {
                 r = loop_write(seed_fd, info->buf, (size_t) k, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write new random seed file: %m");
+                write_entropy_xattr(seed_fd, MIN(e1, e2));
         }
 
         return r;
