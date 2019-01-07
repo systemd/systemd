@@ -1539,7 +1539,10 @@ shortcut:
         return fd;
 }
 
-static int socket_open_fds(Socket *s) {
+DEFINE_TRIVIAL_CLEANUP_FUNC(Socket *, socket_close_fds);
+
+static int socket_open_fds(Socket *_s) {
+        _cleanup_(socket_close_fdsp) Socket *s = _s;
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
         SocketPort *p;
@@ -1562,7 +1565,7 @@ static int socket_open_fds(Socket *s) {
 
                                 r = socket_determine_selinux_label(s, &label);
                                 if (r < 0)
-                                        goto rollback;
+                                        return r;
 
                                 know_label = true;
                         }
@@ -1584,7 +1587,7 @@ static int socket_open_fds(Socket *s) {
 
                         r = socket_address_listen_in_cgroup(s, &p->address, label);
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         p->fd = r;
                         socket_apply_socket_options(s, p->fd);
@@ -1593,39 +1596,38 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_SPECIAL:
 
-                        p->fd = special_address_create(p->path, s->writable);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        r = special_address_create(p->path, s->writable);
+                        if (r < 0)
+                                return r;
+
+                        p->fd = r;
                         break;
 
                 case SOCKET_FIFO:
 
-                        p->fd = fifo_address_create(
+                        r = fifo_address_create(
                                         p->path,
                                         s->directory_mode,
                                         s->socket_mode);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        if (r < 0)
+                                return r;
 
+                        p->fd = r;
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
                         break;
 
                 case SOCKET_MQUEUE:
 
-                        p->fd = mq_address_create(
+                        r = mq_address_create(
                                         p->path,
                                         s->socket_mode,
                                         s->mq_maxmsg,
                                         s->mq_msgsize);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        if (r < 0)
+                                return r;
+
+                        p->fd = r;
                         break;
 
                 case SOCKET_USB_FUNCTION: {
@@ -1633,19 +1635,19 @@ static int socket_open_fds(Socket *s) {
 
                         ep = path_make_absolute("ep0", p->path);
 
-                        p->fd = usbffs_address_create(ep);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        r = usbffs_address_create(ep);
+                        if (r < 0)
+                                return r;
+
+                        p->fd = r;
 
                         r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         r = usbffs_dispatch_eps(p);
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         break;
                 }
@@ -1654,11 +1656,8 @@ static int socket_open_fds(Socket *s) {
                 }
         }
 
+        s = NULL;
         return 0;
-
-rollback:
-        socket_close_fds(s);
-        return r;
 }
 
 static void socket_unwatch_fds(Socket *s) {
