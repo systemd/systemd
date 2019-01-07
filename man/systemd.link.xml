@@ -81,6 +81,17 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>PermanentMACAddress=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of hardware's permanent addresses. While
+          <varname>MACAddress=</varname> matches the device's current MAC address, this matches the
+          device's permanent MAC address, which may be different from the current one. Use full
+          colon-, hyphen- or dot-delimited hexadecimal. This option may appear more than once, in
+          which case the lists are merged. If the empty string is assigned to this option, the list
+          of hardware addresses defined prior to this is reset.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>OriginalName=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching

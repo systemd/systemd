@@ -20,6 +20,7 @@ struct ConfigPerfItem;
 %includes
 %%
 Match.MACAddress,                config_parse_hwaddrs,                  0,                             offsetof(link_config, match_mac)
+Match.PermanentMACAddress,       config_parse_hwaddrs,                  0,                             offsetof(link_config, match_permanent_mac)
 Match.OriginalName,              config_parse_match_ifnames,            0,                             offsetof(link_config, match_name)
 Match.Path,                      config_parse_match_strv,               0,                             offsetof(link_config, match_path)
 Match.Driver,                    config_parse_match_strv,               0,                             offsetof(link_config, match_driver)

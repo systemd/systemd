@@ -167,6 +167,7 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
 
 bool net_match_config(Set *match_mac,
+                      Set *match_permanent_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
                       char * const *match_types,
@@ -177,6 +178,7 @@ bool net_match_config(Set *match_mac,
                       Set *match_bssid,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
+                      const struct ether_addr *dev_permanent_mac,
                       const char *dev_name,
                       char * const *alternative_names,
                       enum nl80211_iftype wifi_iftype,
@@ -198,6 +200,12 @@ bool net_match_config(Set *match_mac,
         }
 
         if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
+                return false;
+
+        if (match_permanent_mac &&
+            (!dev_permanent_mac ||
+             ether_addr_is_null(dev_permanent_mac) ||
+             !set_contains(match_permanent_mac, dev_permanent_mac)))
                 return false;
 
         if (!net_condition_test_strv(match_paths, dev_path))

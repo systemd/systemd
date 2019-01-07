@@ -64,6 +64,7 @@ struct Network {
         unsigned n_ref;
 
         Set *match_mac;
+        Set *match_permanent_mac;
         char **match_path;
         char **match_driver;
         char **match_type;
@@ -302,7 +303,8 @@ int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, sd_device *device, const char *ifname, char * const *alternative_names,
-                const struct ether_addr *mac, enum nl80211_iftype wlan_iftype, const char *ssid,
+                const struct ether_addr *mac, const struct ether_addr *permanent_mac,
+                enum nl80211_iftype wlan_iftype, const char *ssid,
                 const struct ether_addr *bssid, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
