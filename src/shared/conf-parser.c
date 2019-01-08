@@ -137,7 +137,7 @@ static int next_assignment(
 
         /* Warn about unknown non-extension fields. */
         if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(lvalue, "X-"))
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown lvalue '%s' in section '%s'", lvalue, section);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown lvalue '%s' in section '%s', ignoring", lvalue, section);
 
         return 0;
 }
@@ -321,7 +321,7 @@ int config_parse(const char *unit,
                         return r;
                 }
 
-                if (strchr(COMMENTS, *buf))
+                if (strchr(COMMENTS, *skip_leading_chars(buf, WHITESPACE)))
                         continue;
 
                 l = buf;
