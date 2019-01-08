@@ -82,7 +82,7 @@ static void test_variant(const char *data, Test test) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        r = json_parse(data, &v, NULL, NULL);
+        r = json_parse(data, 0, &v, NULL, NULL);
         assert_se(r == 0);
         assert_se(v);
 
@@ -93,7 +93,7 @@ static void test_variant(const char *data, Test test) {
 
         log_info("formatted normally: %s\n", s);
 
-        r = json_parse(data, &w, NULL, NULL);
+        r = json_parse(data, JSON_PARSE_SENSITIVE, &w, NULL, NULL);
         assert_se(r == 0);
         assert_se(w);
         assert_se(json_variant_has_type(v, json_variant_type(w)));
@@ -110,7 +110,7 @@ static void test_variant(const char *data, Test test) {
 
         log_info("formatted prettily:\n%s", s);
 
-        r = json_parse(data, &w, NULL, NULL);
+        r = json_parse(data, 0, &w, NULL, NULL);
         assert_se(r == 0);
         assert_se(w);
 
@@ -302,7 +302,7 @@ static void test_build(void) {
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
-        assert_se(json_parse(s, &b, NULL, NULL) >= 0);
+        assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
@@ -313,7 +313,7 @@ static void test_build(void) {
         s = mfree(s);
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
-        assert_se(json_parse(s, &b, NULL, NULL) >= 0);
+        assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_format(b, 0, &t) >= 0);
         log_info("GOT: %s\n", t);
 
@@ -365,7 +365,7 @@ static void test_source(void) {
 
         assert_se(f = fmemopen_unlocked((void*) data, strlen(data), "r"));
 
-        assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) >= 0);
 
         printf("--- non-pretty begin ---\n");
         json_variant_dump(v, 0, stdout, NULL);

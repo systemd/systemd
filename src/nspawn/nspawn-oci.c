@@ -2214,7 +2214,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
 
         path = strjoina(bundle, "/config.json");
 
-        r = json_parse_file(f, path, &oci, &line, &column);
+        r = json_parse_file(f, path, 0, &oci, &line, &column);
         if (r < 0) {
                 if (line != 0 && column != 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", path, line, column);

@@ -2479,6 +2479,7 @@ static void json_stack_release(JsonStack *s) {
 static int json_parse_internal(
                 const char **input,
                 JsonSource *source,
+                JsonParseFlags flags,
                 JsonVariant **ret,
                 unsigned *line,
                 unsigned *column,
@@ -2797,6 +2798,12 @@ static int json_parse_internal(
                 }
 
                 if (add) {
+                        /* If we are asked to make this parsed object sensitive, then let's apply this
+                         * immediately after allocating each variant, so that when we abort half-way
+                         * everything we already allocated that is then freed is correctly marked. */
+                        if (FLAGS_SET(flags, JSON_PARSE_SENSITIVE))
+                                json_variant_sensitive(add);
+
                         (void) json_variant_set_source(&add, source, line_token, column_token);
 
                         if (!GREEDY_REALLOC(current->elements, current->n_elements_allocated, current->n_elements + 1)) {
@@ -2825,15 +2832,15 @@ finish:
         return r;
 }
 
-int json_parse(const char *input, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
-        return json_parse_internal(&input, NULL, ret, ret_line, ret_column, false);
+int json_parse(const char *input, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_internal(&input, NULL, flags, ret, ret_line, ret_column, false);
 }
 
-int json_parse_continue(const char **p, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
-        return json_parse_internal(p, NULL, ret, ret_line, ret_column, true);
+int json_parse_continue(const char **p, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+        return json_parse_internal(p, NULL, flags, ret, ret_line, ret_column, true);
 }
 
-int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
+int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags flags, JsonVariant **ret, unsigned *ret_line, unsigned *ret_column) {
         _cleanup_(json_source_unrefp) JsonSource *source = NULL;
         _cleanup_free_ char *text = NULL;
         const char *p;
@@ -2855,7 +2862,7 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonVariant **ret,
         }
 
         p = text;
-        return json_parse_internal(&p, source, ret, ret_line, ret_column, false);
+        return json_parse_internal(&p, source, flags, ret, ret_line, ret_column, false);
 }
 
 int json_buildv(JsonVariant **ret, va_list ap) {
@@ -3093,7 +3100,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 /* Note that we don't care for current->n_suppress here, we should generate parsing
                                  * errors even in suppressed object properties */
 
-                                r = json_parse(l, &add, NULL, NULL);
+                                r = json_parse(l, 0, &add, NULL, NULL);
                                 if (r < 0)
                                         goto finish;
                         } else
