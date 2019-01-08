@@ -181,6 +181,9 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
                 priority = db_prio;
         }
 
+        if (!target)
+                return -ENOENT;
+
         *ret = TAKE_PTR(target);
         return 0;
 }
