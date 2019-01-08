@@ -1719,15 +1719,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         return 0;
 }
 
-static int main_loop(int fd_ctrl, int fd_uevent, const char *cgroup) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
+static int main_loop(Manager *manager) {
         int r;
-
-        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
-        if (r < 0) {
-                r = log_error_errno(r, "Failed to allocate manager object: %m");
-                goto exit;
-        }
 
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
@@ -1749,13 +1742,12 @@ exit:
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
-        if (manager)
-                udev_ctrl_cleanup(manager->ctrl);
         return r;
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
+        _cleanup_(manager_freep) Manager *manager = NULL;
         int fd_ctrl = -1, fd_uevent = -1;
         int r;
 
@@ -1832,10 +1824,14 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
+        r = manager_new(&manager, fd_ctrl, fd_uevent, cgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create manager: %m");
+
         if (arg_daemonize) {
                 pid_t pid;
 
-                log_info("starting version " GIT_VERSION);
+                log_info("Starting version " GIT_VERSION);
 
                 /* connect /dev/null to stdin, stdout, stderr */
                 if (log_get_max_level() < LOG_DEBUG) {
@@ -1859,7 +1855,10 @@ static int run(int argc, char *argv[]) {
                         log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
-        return main_loop(fd_ctrl, fd_uevent, cgroup);
+        r = main_loop(manager);
+        /* FIXME: move this into manager_free() */
+        udev_ctrl_cleanup(manager->ctrl);
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
