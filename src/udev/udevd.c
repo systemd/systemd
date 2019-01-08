@@ -465,7 +465,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
 static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device *first_device) {
         _cleanup_(sd_device_unrefp) sd_device *dev = first_device;
         _cleanup_(manager_freep) Manager *manager = _manager;
-        int r, ret;
+        int r;
 
         assert(manager);
         assert(monitor);
@@ -508,11 +508,7 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         if (r < 0)
                 return log_error_errno(r, "Event loop failed: %m");
 
-        r = sd_event_get_exit_code(manager->event, &ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get exit code: %m");
-
-        return ret;
+        return 0;
 }
 
 static int worker_spawn(Manager *manager, struct event *event) {
@@ -1738,14 +1734,9 @@ static int main_loop(int fd_ctrl, int fd_uevent, const char *cgroup) {
                           "STATUS=Processing with %u children at max", arg_children_max);
 
         r = sd_event_loop(manager->event);
-        if (r < 0) {
+        if (r < 0)
                 log_error_errno(r, "Event loop failed: %m");
-                goto exit;
-        }
 
-        sd_event_get_exit_code(manager->event, &r);
-
-exit:
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
