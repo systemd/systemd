@@ -379,9 +379,13 @@ int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n) {
 
         assert_return(ret, -EINVAL);
         if (!s) {
-                assert_return(n == 0, -EINVAL);
+                assert_return(IN_SET(n, 0, (size_t) -1), -EINVAL);
                 return json_variant_new_null(ret);
         }
+        if (n == (size_t) -1) /* determine length automatically */
+                n = strlen(s);
+        else if (memchr(s, 0, n)) /* don't allow embedded NUL, as we can't express that in JSON */
+                return -EINVAL;
         if (n == 0) {
                 *ret = JSON_VARIANT_MAGIC_EMPTY_STRING;
                 return 0;
@@ -585,7 +589,7 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                 if (k > INLINE_STRING_MAX) {
                         /* If string is too long, store it as reference. */
 
-                        r = json_variant_new_stringn(&w->reference, l[v->n_elements], k);
+                        r = json_variant_new_string(&w->reference, l[v->n_elements]);
                         if (r < 0)
                                 return r;
 

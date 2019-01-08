@@ -65,7 +65,7 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n);
 int json_variant_new_null(JsonVariant **ret);
 
 static inline int json_variant_new_string(JsonVariant **ret, const char *s) {
-        return json_variant_new_stringn(ret, s, strlen_ptr(s));
+        return json_variant_new_stringn(ret, s, (size_t) -1);
 }
 
 JsonVariant *json_variant_ref(JsonVariant *v);
