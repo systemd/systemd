@@ -649,6 +649,21 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
+    def test_address_peer(self):
+        self.copy_unit_to_networkd_unit_path('25-address-section.network', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 10.2.3.4 peer 10.2.3.5/16 scope global 32')
+        self.assertRegex(output, 'inet 10.6.7.8/16 brd 10.6.255.255 scope global 33')
+
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
     def test_address_preferred_lifetime_zero_ipv6(self):
         self.copy_unit_to_networkd_unit_path('25-address-section-miscellaneous.network', '12-dummy.netdev')
         self.start_networkd()
