@@ -169,9 +169,7 @@ static int run(int argc, char *argv[]) {
                         log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
         }
 
-        (void) sd_event_get_exit_code(m->event, &r);
-
-        return r;
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);
