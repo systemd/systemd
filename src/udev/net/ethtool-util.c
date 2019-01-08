@@ -31,18 +31,18 @@ static const char* const wol_table[_WOL_MAX] = {
         [WOL_ARP]         = "arp",
         [WOL_MAGIC]       = "magic",
         [WOL_MAGICSECURE] = "secureon",
-        [WOL_OFF]         = "off"
+        [WOL_OFF]         = "off",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(wol, WakeOnLan);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_wol, wol, WakeOnLan, "Failed to parse WakeOnLan setting");
 
-static const char* const port_table[_NET_DEV_PORT_MAX] = {
+static const char* const port_table[] = {
         [NET_DEV_PORT_TP]     = "tp",
         [NET_DEV_PORT_AUI]    = "aui",
         [NET_DEV_PORT_MII]    = "mii",
         [NET_DEV_PORT_FIBRE]  = "fibre",
-        [NET_DEV_PORT_BNC]    = "bnc"
+        [NET_DEV_PORT_BNC]    = "bnc",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);

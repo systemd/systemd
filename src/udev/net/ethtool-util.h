@@ -42,14 +42,14 @@ typedef enum NetDevFeature {
 } NetDevFeature;
 
 typedef enum NetDevPort {
-        NET_DEV_PORT_TP     = 0x00,
-        NET_DEV_PORT_AUI    = 0x01,
-        NET_DEV_PORT_MII    = 0x02,
-        NET_DEV_PORT_FIBRE  = 0x03,
-        NET_DEV_PORT_BNC    = 0x04,
-        NET_DEV_PORT_DA     = 0x05,
-        NET_DEV_PORT_NONE   = 0xef,
-        NET_DEV_PORT_OTHER  = 0xff,
+        NET_DEV_PORT_TP     = PORT_TP,
+        NET_DEV_PORT_AUI    = PORT_AUI,
+        NET_DEV_PORT_MII    = PORT_MII,
+        NET_DEV_PORT_FIBRE  = PORT_FIBRE,
+        NET_DEV_PORT_BNC    = PORT_BNC,
+        NET_DEV_PORT_DA     = PORT_DA,
+        NET_DEV_PORT_NONE   = PORT_NONE,
+        NET_DEV_PORT_OTHER  = PORT_OTHER,
         _NET_DEV_PORT_MAX,
         _NET_DEV_PORT_INVALID = -1
 } NetDevPort;
