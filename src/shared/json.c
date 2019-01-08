@@ -71,6 +71,9 @@ struct JsonVariant {
         /* While comparing two arrays, we use this for marking what we already have seen */
         bool is_marked:1;
 
+        /* Ersase from memory when freeing */
+        bool sensitive:1;
+
         /* The current 'depth' of the JsonVariant, i.e. how many levels of member variants this has */
         uint16_t depth;
 
@@ -650,7 +653,46 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n) {
         return 0;
 }
 
-static void json_variant_free_inner(JsonVariant *v) {
+static size_t json_variant_size(JsonVariant* v) {
+
+        if (!json_variant_is_regular(v))
+                return 0;
+
+        if (v->is_reference)
+                return offsetof(JsonVariant, reference) + sizeof(JsonVariant*);
+
+        switch (v->type) {
+
+        case JSON_VARIANT_STRING:
+                return offsetof(JsonVariant, string) + strlen(v->string) + 1;
+
+        case JSON_VARIANT_REAL:
+                return offsetof(JsonVariant, value) + sizeof(long double);
+
+        case JSON_VARIANT_UNSIGNED:
+                return offsetof(JsonVariant, value) + sizeof(uintmax_t);
+
+        case JSON_VARIANT_INTEGER:
+                return offsetof(JsonVariant, value) + sizeof(intmax_t);
+
+        case JSON_VARIANT_BOOLEAN:
+                return offsetof(JsonVariant, value) + sizeof(bool);
+
+        case JSON_VARIANT_ARRAY:
+        case JSON_VARIANT_OBJECT:
+                return offsetof(JsonVariant, n_elements) + sizeof(size_t);
+
+        case JSON_VARIANT_NULL:
+                return offsetof(JsonVariant, value);
+
+        default:
+                assert_not_reached("unexpected type");
+        }
+}
+
+static void json_variant_free_inner(JsonVariant *v, bool force_sensitive) {
+        bool sensitive;
+
         assert(v);
 
         if (!json_variant_is_regular(v))
@@ -658,7 +700,12 @@ static void json_variant_free_inner(JsonVariant *v) {
 
         json_source_unref(v->source);
 
+        sensitive = v->sensitive || force_sensitive;
+
         if (v->is_reference) {
+                if (sensitive)
+                        json_variant_sensitive(v->reference);
+
                 json_variant_unref(v->reference);
                 return;
         }
@@ -667,8 +714,11 @@ static void json_variant_free_inner(JsonVariant *v) {
                 size_t i;
 
                 for (i = 0; i < v->n_elements; i++)
-                        json_variant_free_inner(v + 1 + i);
+                        json_variant_free_inner(v + 1 + i, sensitive);
         }
+
+        if (sensitive)
+                explicit_bzero_safe(v, json_variant_size(v));
 }
 
 JsonVariant *json_variant_ref(JsonVariant *v) {
@@ -700,7 +750,7 @@ JsonVariant *json_variant_unref(JsonVariant *v) {
                 v->n_ref--;
 
                 if (v->n_ref == 0) {
-                        json_variant_free_inner(v);
+                        json_variant_free_inner(v, false);
                         free(v);
                 }
         }
@@ -1240,6 +1290,26 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
         default:
                 assert_not_reached("Unknown variant type.");
         }
+}
+
+void json_variant_sensitive(JsonVariant *v) {
+        assert(v);
+
+        /* Marks a variant as "sensitive", so that it is erased from memory when it is destroyed. This is a
+         * one-way operation: as soon as it is marked this way it remains marked this way until it's
+         * destoryed. A magic variant is never sensitive though, even when asked, since it's too
+         * basic. Similar, const string variant are never sensitive either, after all they are included in
+         * the source code as they are, which is not suitable for inclusion of secrets.
+         *
+         * Note that this flag has a recursive effect: when we destroy an object or array we'll propagate the
+         * flag to all contained variants. And if those are then destroyed this is propagated further down,
+         * and so on. */
+
+        v = json_variant_normalize(v);
+        if (!json_variant_is_regular(v))
+                return;
+
+        v->sensitive = true;
 }
 
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column) {
