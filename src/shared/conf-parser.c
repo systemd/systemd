@@ -321,7 +321,7 @@ int config_parse(const char *unit,
                         return r;
                 }
 
-                if (strchr(COMMENTS, *buf))
+                if (strchr(COMMENTS, *skip_leading_chars(buf, WHITESPACE)))
                         continue;
 
                 l = buf;
