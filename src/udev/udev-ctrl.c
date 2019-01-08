@@ -213,7 +213,7 @@ static struct udev_ctrl_connection *udev_ctrl_connection_free(struct udev_ctrl_c
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(struct udev_ctrl_connection, udev_ctrl_connection, udev_ctrl_connection_free);
 
-static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, int timeout) {
+static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, usec_t timeout) {
         struct udev_ctrl_msg_wire ctrl_msg_wire = {
                 .version = "udev-" STRINGIFY(PROJECT_VERSION),
                 .magic = UDEV_CTRL_MAGIC,
@@ -241,7 +241,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
                 };
                 int r;
 
-                r = poll(&pfd, 1, timeout * MSEC_PER_SEC);
+                r = poll(&pfd, 1, DIV_ROUND_UP(timeout, USEC_PER_MSEC));
                 if (r < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -255,35 +255,35 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
         }
 }
 
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout) {
+int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL, timeout);
 }
 
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout) {
+int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout) {
+int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_reload(struct udev_ctrl *uctrl, int timeout) {
+int udev_ctrl_send_reload(struct udev_ctrl *uctrl, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_RELOAD, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout) {
+int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key, timeout);
 }
 
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout) {
+int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL, timeout);
 }
 
-int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout) {
+int udev_ctrl_send_ping(struct udev_ctrl *uctrl, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_PING, 0, NULL, timeout);
 }
 
-int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout) {
+int udev_ctrl_send_exit(struct udev_ctrl *uctrl, usec_t timeout) {
         return ctrl_send(uctrl, UDEV_CTRL_EXIT, 0, NULL, timeout);
 }
 

@@ -48,7 +48,7 @@ static int help(void) {
 
 int control_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
-        int timeout = 60;
+        usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
         static const struct option options[] = {
@@ -135,19 +135,11 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return r;
                         break;
                 }
-                case 't': {
-                        usec_t s;
-
-                        r = parse_sec(optarg, &s);
+                case 't':
+                        r = parse_sec(optarg, &timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
-
-                        if (DIV_ROUND_UP(s, USEC_PER_SEC) > INT_MAX)
-                                log_error("Timeout value is out of range, ignoring.");
-                        else
-                                timeout = s != USEC_INFINITY ? (int) DIV_ROUND_UP(s, USEC_PER_SEC) : INT_MAX;
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
-                }
                 case 'V':
                         return print_version();
                 case 'h':

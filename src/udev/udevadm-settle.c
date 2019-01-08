@@ -102,9 +102,9 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
                 uctrl = udev_ctrl_new();
                 if (uctrl) {
-                        r = udev_ctrl_send_ping(uctrl, MAX(5U, arg_timeout / USEC_PER_SEC));
+                        r = udev_ctrl_send_ping(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout));
                         if (r < 0) {
-                                log_debug_errno(r, "Failed to connect to udev daemon.");
+                                log_debug_errno(r, "Failed to connect to udev daemon: %m");
                                 return 0;
                         }
                 }

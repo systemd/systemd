@@ -2,6 +2,7 @@
 #pragma once
 
 #include "macro.h"
+#include "time-util.h"
 
 struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new(void);
@@ -10,14 +11,14 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
 int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, int timeout);
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_reload(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_ping(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_exit(struct udev_ctrl *uctrl, int timeout);
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, int timeout);
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, int timeout);
+int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, usec_t timeout);
+int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, usec_t timeout);
+int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, usec_t timeout);
+int udev_ctrl_send_reload(struct udev_ctrl *uctrl, usec_t timeout);
+int udev_ctrl_send_ping(struct udev_ctrl *uctrl, usec_t timeout);
+int udev_ctrl_send_exit(struct udev_ctrl *uctrl, usec_t timeout);
+int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, usec_t timeout);
+int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, usec_t timeout);
 
 struct udev_ctrl_connection;
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl);
