@@ -1593,49 +1593,43 @@ static int socket_open_fds(Socket *_s) {
                                 break;
                         }
 
-                        r = socket_address_listen_in_cgroup(s, &p->address, label);
-                        if (r < 0)
-                                return r;
+                        p->fd = socket_address_listen_in_cgroup(s, &p->address, label);
+                        if (p->fd < 0)
+                                return p->fd;
 
-                        p->fd = r;
                         socket_apply_socket_options(s, p->fd);
                         socket_symlink(s);
                         break;
 
                 case SOCKET_SPECIAL:
 
-                        r = special_address_create(p->path, s->writable);
-                        if (r < 0)
-                                return log_unit_error_errno(UNIT(s), r, "Failed to open special file %s: %m", p->path);
-
-                        p->fd = r;
+                        p->fd = special_address_create(p->path, s->writable);
+                        if (p->fd < 0)
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open special file %s: %m", p->path);
                         break;
 
                 case SOCKET_FIFO:
 
-                        r = fifo_address_create(
+                        p->fd = fifo_address_create(
                                         p->path,
                                         s->directory_mode,
                                         s->socket_mode);
-                        if (r < 0)
-                                return log_unit_error_errno(UNIT(s), r, "Failed to open FIFO %s: %m", p->path);
+                        if (p->fd < 0)
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open FIFO %s: %m", p->path);
 
-                        p->fd = r;
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
                         break;
 
                 case SOCKET_MQUEUE:
 
-                        r = mq_address_create(
+                        p->fd = mq_address_create(
                                         p->path,
                                         s->socket_mode,
                                         s->mq_maxmsg,
                                         s->mq_msgsize);
-                        if (r < 0)
-                                return log_unit_error_errno(UNIT(s), r, "Failed to open message queue %s: %m", p->path);
-
-                        p->fd = r;
+                        if (p->fd < 0)
+                                return log_unit_error_errno(UNIT(s), p->fd, "Failed to open message queue %s: %m", p->path);
                         break;
 
                 case SOCKET_USB_FUNCTION: {
@@ -1643,11 +1637,9 @@ static int socket_open_fds(Socket *_s) {
 
                         ep = path_make_absolute("ep0", p->path);
 
-                        r = usbffs_address_create(ep);
-                        if (r < 0)
-                                return r;
-
-                        p->fd = r;
+                        p->fd = usbffs_address_create(ep);
+                        if (p->fd < 0)
+                                return p->fd;
 
                         r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
