@@ -1465,16 +1465,13 @@ static int socket_address_listen_do(
                         label);
 }
 
-static int log_address_error_errno(Unit *u, const SocketAddress *address, int error, const char *fmt) {
-        _cleanup_free_ char *t = NULL;
-
-        (void) socket_address_print(address, &t);
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-        return log_unit_error_errno(u, error, fmt, strna(t));
-#pragma GCC diagnostic pop
-}
+#define log_address_error_errno(u, address, error, fmt)          \
+        ({                                                       \
+                _cleanup_free_ char *_t = NULL;                  \
+                                                                 \
+                (void) socket_address_print(address, &_t);       \
+                log_unit_error_errno(u, error, fmt, strna(_t));  \
+        })
 
 static int socket_address_listen_in_cgroup(
                 Socket *s,
