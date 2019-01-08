@@ -680,6 +680,81 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         return d;
 }
 
+static int mode_to_flags(const char *mode) {
+        const char *p;
+        int flags;
+
+        if ((p = startswith(mode, "r+")))
+                flags = O_RDWR;
+        else if ((p = startswith(mode, "r")))
+                flags = O_RDONLY;
+        else if ((p = startswith(mode, "w+")))
+                flags = O_RDWR|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "w")))
+                flags = O_WRONLY|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "a+")))
+                flags = O_RDWR|O_CREAT|O_APPEND;
+        else if ((p = startswith(mode, "a")))
+                flags = O_WRONLY|O_CREAT|O_APPEND;
+        else
+                return -EINVAL;
+
+        for (; *p != 0; p++) {
+
+                switch (*p) {
+
+                case 'e':
+                        flags |= O_CLOEXEC;
+                        break;
+
+                case 'x':
+                        flags |= O_EXCL;
+                        break;
+
+                case 'm':
+                        /* ignore this here, fdopen() might care later though */
+                        break;
+
+                case 'c': /* not sure what to do about this one */
+                default:
+                        return -EINVAL;
+                }
+        }
+
+        return flags;
+}
+
+int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret) {
+        FILE *f;
+
+        /* A combination of fopen() with openat() */
+
+        if (dir_fd == AT_FDCWD && flags == 0) {
+                f = fopen(path, mode);
+                if (!f)
+                        return -errno;
+        } else {
+                int fd, mode_flags;
+
+                mode_flags = mode_to_flags(mode);
+                if (mode_flags < 0)
+                        return mode_flags;
+
+                fd = openat(dir_fd, path, mode_flags | flags);
+                if (fd < 0)
+                        return -errno;
+
+                f = fdopen(fd, mode);
+                if (!f) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        *ret = f;
+        return 0;
+}
+
 static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
         char **i;
 

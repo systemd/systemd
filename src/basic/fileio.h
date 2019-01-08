@@ -69,6 +69,7 @@ int executable_is_script(const char *path, char **interpreter);
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
+int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret);
 
 int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);
