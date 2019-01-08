@@ -248,6 +248,18 @@ static const char* const config_file[] = {
         "3\n",
 
         "[Section]\n"
+        "   #hogehoge\\\n"   /* whitespaces before comments */
+        "   setting1=1\\\n"  /* whitespaces before key */
+        "2\\\n"
+        "3\n",
+
+        "[Section]\n"
+        "   setting1=1\\\n"  /* whitespaces before key */
+        "   #hogehoge\\\n"   /* commented out line prefixed with whitespaces in continuation */
+        "2\\\n"
+        "3\n",
+
+        "[Section]\n"
         "setting1=1\\\n"     /* continuation with extra trailing backslash at the end */
         "2\\\n"
         "3\\\n",
@@ -323,27 +335,27 @@ static void test_config_parse(unsigned i, const char *s) {
                 assert_se(streq(setting1, "1"));
                 break;
 
-        case 4 ... 7:
+        case 4 ... 9:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
-        case 8:
+        case 10:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
-        case 9:
+        case 11:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
-        case 10 ... 11:
+        case 12 ... 13:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
-        case 12 ... 13:
+        case 14 ... 15:
                 assert_se(r == -ENOBUFS);
                 assert_se(setting1 == NULL);
                 break;
