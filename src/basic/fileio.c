@@ -543,16 +543,18 @@ finalize:
         return r;
 }
 
-int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
+int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(filename);
         assert(contents);
 
-        r = fopen_unlocked(filename, "re", &f);
+        r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0)
                 return r;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream_full(f, filename, flags, contents, size);
 }
