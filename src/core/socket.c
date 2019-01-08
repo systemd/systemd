@@ -561,7 +561,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         r = getpeername(fd, &sa.peer.sa, &salen);
         if (r < 0)
-                return log_error_errno(errno, "getpeername failed: %m");
+                return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
                 *p = NULL;
@@ -1465,6 +1465,17 @@ static int socket_address_listen_do(
                         label);
 }
 
+static int log_address_error_errno(Unit *u, const SocketAddress *address, int error, const char *fmt) {
+        _cleanup_free_ char *t = NULL;
+
+        (void) socket_address_print(address, &t);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        return log_unit_error_errno(u, error, fmt, strna(t));
+#pragma GCC diagnostic pop
+}
+
 static int socket_address_listen_in_cgroup(
                 Socket *s,
                 const SocketAddress *address,
@@ -1503,13 +1514,13 @@ static int socket_address_listen_in_cgroup(
 
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0) {
-                        log_unit_error_errno(UNIT(s), fd, "Failed to create listening socket: %m");
+                        log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = send_one_fd(pair[1], fd, 0);
                 if (r < 0) {
-                        log_unit_error_errno(UNIT(s), r, "Failed to send listening socket to parent: %m");
+                        log_address_error_errno(UNIT(s), address, r, "Failed to send listening socket (%s) to parent: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -1527,19 +1538,22 @@ static int socket_address_listen_in_cgroup(
         }
 
         if (fd < 0)
-                return log_unit_error_errno(UNIT(s), fd, "Failed to receive listening socket: %m");
+                return log_address_error_errno(UNIT(s), address, fd, "Failed to receive listening socket (%s): %m");
 
         return fd;
 
 shortcut:
         fd = socket_address_listen_do(s, address, label);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to create listening socket: %m");
+                return log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
 
         return fd;
 }
 
-static int socket_open_fds(Socket *s) {
+DEFINE_TRIVIAL_CLEANUP_FUNC(Socket *, socket_close_fds);
+
+static int socket_open_fds(Socket *_s) {
+        _cleanup_(socket_close_fdsp) Socket *s = _s;
         _cleanup_(mac_selinux_freep) char *label = NULL;
         bool know_label = false;
         SocketPort *p;
@@ -1562,7 +1576,7 @@ static int socket_open_fds(Socket *s) {
 
                                 r = socket_determine_selinux_label(s, &label);
                                 if (r < 0)
-                                        goto rollback;
+                                        return log_unit_error_errno(UNIT(s), r, "Failed to determine SELinux label: %m");
 
                                 know_label = true;
                         }
@@ -1584,7 +1598,7 @@ static int socket_open_fds(Socket *s) {
 
                         r = socket_address_listen_in_cgroup(s, &p->address, label);
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         p->fd = r;
                         socket_apply_socket_options(s, p->fd);
@@ -1593,39 +1607,38 @@ static int socket_open_fds(Socket *s) {
 
                 case SOCKET_SPECIAL:
 
-                        p->fd = special_address_create(p->path, s->writable);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        r = special_address_create(p->path, s->writable);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open special file %s: %m", p->path);
+
+                        p->fd = r;
                         break;
 
                 case SOCKET_FIFO:
 
-                        p->fd = fifo_address_create(
+                        r = fifo_address_create(
                                         p->path,
                                         s->directory_mode,
                                         s->socket_mode);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open FIFO %s: %m", p->path);
 
+                        p->fd = r;
                         socket_apply_fifo_options(s, p->fd);
                         socket_symlink(s);
                         break;
 
                 case SOCKET_MQUEUE:
 
-                        p->fd = mq_address_create(
+                        r = mq_address_create(
                                         p->path,
                                         s->socket_mode,
                                         s->mq_maxmsg,
                                         s->mq_msgsize);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open message queue %s: %m", p->path);
+
+                        p->fd = r;
                         break;
 
                 case SOCKET_USB_FUNCTION: {
@@ -1633,19 +1646,19 @@ static int socket_open_fds(Socket *s) {
 
                         ep = path_make_absolute("ep0", p->path);
 
-                        p->fd = usbffs_address_create(ep);
-                        if (p->fd < 0) {
-                                r = p->fd;
-                                goto rollback;
-                        }
+                        r = usbffs_address_create(ep);
+                        if (r < 0)
+                                return r;
+
+                        p->fd = r;
 
                         r = usbffs_write_descs(p->fd, SERVICE(UNIT_DEREF(s->service)));
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         r = usbffs_dispatch_eps(p);
                         if (r < 0)
-                                goto rollback;
+                                return r;
 
                         break;
                 }
@@ -1654,11 +1667,8 @@ static int socket_open_fds(Socket *s) {
                 }
         }
 
+        s = NULL;
         return 0;
-
-rollback:
-        socket_close_fds(s);
-        return r;
 }
 
 static void socket_unwatch_fds(Socket *s) {
@@ -2521,14 +2531,14 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
                 copy = fdset_put_dup(fds, p->fd);
                 if (copy < 0)
-                        return log_warning_errno(copy, "Failed to serialize socket fd: %m");
+                        return log_unit_warning_errno(u, copy, "Failed to serialize socket fd: %m");
 
                 if (p->type == SOCKET_SOCKET) {
                         _cleanup_free_ char *t = NULL;
 
                         r = socket_address_print(&p->address, &t);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to format socket address: %m");
+                                return log_unit_error_errno(u, r, "Failed to format socket address: %m");
 
                         if (socket_address_family(&p->address) == AF_NETLINK)
                                 (void) serialize_item_format(f, "netlink", "%i %s", copy, t);
