@@ -736,7 +736,8 @@ static int vtable_append_all_properties(
         if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
                 return 1;
 
-        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        v = c->vtable;
+        for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                         continue;
 
@@ -1610,6 +1611,99 @@ static int vtable_member_compare_func(const struct vtable_member *x, const struc
 
 DEFINE_PRIVATE_HASH_OPS(vtable_member_hash_ops, struct vtable_member, vtable_member_hash_func, vtable_member_compare_func);
 
+typedef enum {
+        NAMES_FIRST_PART        = 1 << 0, /* first part of argument name list (input names). It is reset by names_are_valid() */
+        NAMES_PRESENT           = 1 << 1, /* at least one argument name is present, so the names will checked.
+                                             This flag is set and used internally by names_are_valid(), but needs to be stored across calls for 2-parts list  */
+        NAMES_SINGLE_PART       = 1 << 2, /* argument name list consisting of a single part */
+} names_flags;
+
+static bool names_are_valid(const char *signature, const char **names, names_flags *flags) {
+        int r;
+
+        if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
+                *flags |= NAMES_PRESENT;
+
+        for (;*flags & NAMES_PRESENT;) {
+                size_t l;
+
+                if (!*signature)
+                        break;
+
+                r = signature_element_length(signature, &l);
+                if (r < 0)
+                        return false;
+
+                if (**names != '\0') {
+                        if (!member_name_is_valid(*names))
+                                return false;
+                        *names += strlen(*names) + 1;
+                } else if (*flags & NAMES_PRESENT)
+                        return false;
+
+                signature += l;
+        }
+        /* let's check if there are more argument names specified than the signature allows */
+        if (*flags & NAMES_PRESENT && **names != '\0' && !(*flags & NAMES_FIRST_PART))
+                return false;
+        *flags &= ~NAMES_FIRST_PART;
+        return true;
+}
+
+/* the current version of this struct is defined in sd-bus-vtable.h, but we need to list here the historical versions
+   to make sure the calling code is compatible with one of these */
+struct sd_bus_vtable_original {
+        uint8_t type:8;
+        uint64_t flags:56;
+        union {
+                struct {
+                        size_t element_size;
+                } start;
+                struct {
+                        const char *member;
+                        const char *signature;
+                        const char *result;
+                        sd_bus_message_handler_t handler;
+                        size_t offset;
+                } method;
+                struct {
+                        const char *member;
+                        const char *signature;
+                } signal;
+                struct {
+                        const char *member;
+                        const char *signature;
+                        sd_bus_property_get_t get;
+                        sd_bus_property_set_t set;
+                        size_t offset;
+                } property;
+        } x;
+};
+/* Structure size up to v241 */
+#define VTABLE_ELEMENT_SIZE_ORIGINAL sizeof(struct sd_bus_vtable_original)
+/* Current structure size */
+#define VTABLE_ELEMENT_SIZE sizeof(struct sd_bus_vtable)
+
+static int vtable_features(const sd_bus_vtable *vtable) {
+        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL)
+                return 0;
+        return vtable[0].x.start.features;
+}
+
+bool bus_vtable_has_names(const sd_bus_vtable *vtable) {
+        return vtable_features(vtable) & _SD_BUS_VTABLE_PARAM_NAMES;
+}
+
+const sd_bus_vtable* bus_vtable_next(const sd_bus_vtable *vtable, const sd_bus_vtable *v) {
+        if (vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL) {
+                const struct sd_bus_vtable_original *v2 = (const struct sd_bus_vtable_original *)v;
+                v2++;
+                v = (const sd_bus_vtable*)v2;
+        } else /* current version */
+                v++;
+        return v;
+}
+
 static int add_object_vtable_internal(
                 sd_bus *bus,
                 sd_bus_slot **slot,
@@ -1625,6 +1719,8 @@ static int add_object_vtable_internal(
         const sd_bus_vtable *v;
         struct node *n;
         int r;
+        const char *names = "";
+        names_flags nf;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -1632,7 +1728,7 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(vtable[0].x.start.element_size == sizeof(struct sd_bus_vtable), -EINVAL);
+        assert_return(IN_SET(vtable[0].x.start.element_size, VTABLE_ELEMENT_SIZE_ORIGINAL, VTABLE_ELEMENT_SIZE), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
                       !streq(interface, "org.freedesktop.DBus.Introspectable") &&
@@ -1684,16 +1780,23 @@ static int add_object_vtable_internal(
                 goto fail;
         }
 
-        for (v = s->node_vtable.vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+        v = s->node_vtable.vtable;
+        for (v = bus_vtable_next(vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
 
                 switch (v->type) {
 
                 case _SD_BUS_VTABLE_METHOD: {
                         struct vtable_member *m;
+                        nf = NAMES_FIRST_PART;
+
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.method.names);
 
                         if (!member_name_is_valid(v->x.method.member) ||
                             !signature_is_valid(strempty(v->x.method.signature), false) ||
                             !signature_is_valid(strempty(v->x.method.result), false) ||
+                            !names_are_valid(strempty(v->x.method.signature), &names, &nf) ||
+                            !names_are_valid(strempty(v->x.method.result), &names, &nf) ||
                             !(v->x.method.handler || (isempty(v->x.method.signature) && isempty(v->x.method.result))) ||
                             v->flags & (SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)) {
                                 r = -EINVAL;
@@ -1770,9 +1873,14 @@ static int add_object_vtable_internal(
                 }
 
                 case _SD_BUS_VTABLE_SIGNAL:
+                        nf = NAMES_SINGLE_PART;
+
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.signal.names);
 
                         if (!member_name_is_valid(v->x.signal.member) ||
                             !signature_is_valid(strempty(v->x.signal.signature), false) ||
+                            !names_are_valid(strempty(v->x.signal.signature), &names, &nf) ||
                             v->flags & SD_BUS_VTABLE_UNPRIVILEGED) {
                                 r = -EINVAL;
                                 goto fail;
@@ -1977,7 +2085,8 @@ static int emit_properties_changed_on_interface(
                          * we include all properties that are marked
                          * as changing in the message. */
 
-                        for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                        v = c->vtable;
+                        for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                                 if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                         continue;
 
@@ -2048,7 +2157,8 @@ static int emit_properties_changed_on_interface(
                         } else {
                                 const sd_bus_vtable *v;
 
-                                for (v = c->vtable+1; v->type != _SD_BUS_VTABLE_END; v++) {
+                                v = c->vtable;
+                                for (v = bus_vtable_next(c->vtable, v); v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(c->vtable, v)) {
                                         if (!IN_SET(v->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY))
                                                 continue;
 
