@@ -80,7 +80,7 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
         packet->ip.ihl = DHCP_IP_SIZE / 4;
         packet->ip.tot_len = htobe16(len);
 
-        packet->ip.tos = IPTOS_CLASS_CS6;
+        packet->ip.tos = IPTOS_CLASS_CS4;
 
         packet->ip.protocol = IPPROTO_UDP;
         packet->ip.saddr = source_addr;

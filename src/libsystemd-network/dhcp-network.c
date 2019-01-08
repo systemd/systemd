@@ -155,7 +155,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (s < 0)
                 return -errno;
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS6);
+        r = setsockopt_int(s, IPPROTO_IP, IP_TOS, IPTOS_CLASS_CS4);
         if (r < 0)
                 return r;
 
