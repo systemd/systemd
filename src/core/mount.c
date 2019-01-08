@@ -1528,10 +1528,10 @@ static int mount_setup_existing_unit(
         if (r > 0)
                 flags |= MOUNT_PROC_JUST_CHANGED;
 
-        if (!MOUNT(u)->from_proc_self_mountinfo) {
+        if (!MOUNT(u)->from_proc_self_mountinfo || FLAGS_SET(MOUNT(u)->proc_flags, MOUNT_PROC_JUST_MOUNTED))
                 flags |= MOUNT_PROC_JUST_MOUNTED;
-                MOUNT(u)->from_proc_self_mountinfo = true;
-        }
+
+        MOUNT(u)->from_proc_self_mountinfo = true;
 
         if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
