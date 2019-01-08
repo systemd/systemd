@@ -45,11 +45,11 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 *d = (LoopDevice) {
                         .fd = copy,
                         .nr = -1,
+                        .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
                 };
 
                 *ret = d;
-
-                return 0;
+                return d->fd;
         }
 
         r = stat_verify_regular(&st);
@@ -88,8 +88,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         };
 
         *ret = d;
-
-        return (*ret)->fd;
+        return d->fd;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, LoopDevice **ret) {

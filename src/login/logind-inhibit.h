@@ -4,15 +4,15 @@
 typedef struct Inhibitor Inhibitor;
 
 typedef enum InhibitWhat {
-        INHIBIT_SHUTDOWN = 1,
-        INHIBIT_SLEEP = 2,
-        INHIBIT_IDLE = 4,
-        INHIBIT_HANDLE_POWER_KEY = 8,
-        INHIBIT_HANDLE_SUSPEND_KEY = 16,
-        INHIBIT_HANDLE_HIBERNATE_KEY = 32,
-        INHIBIT_HANDLE_LID_SWITCH = 64,
-        _INHIBIT_WHAT_MAX = 128,
-        _INHIBIT_WHAT_INVALID = -1
+        INHIBIT_SHUTDOWN             = 1 << 0,
+        INHIBIT_SLEEP                = 1 << 1,
+        INHIBIT_IDLE                 = 1 << 2,
+        INHIBIT_HANDLE_POWER_KEY     = 1 << 3,
+        INHIBIT_HANDLE_SUSPEND_KEY   = 1 << 4,
+        INHIBIT_HANDLE_HIBERNATE_KEY = 1 << 5,
+        INHIBIT_HANDLE_LID_SWITCH    = 1 << 6,
+        _INHIBIT_WHAT_MAX            = 1 << 7,
+        _INHIBIT_WHAT_INVALID        = -1
 } InhibitWhat;
 
 typedef enum InhibitMode {

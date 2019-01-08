@@ -979,6 +979,8 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         JsonVariantType rt;
 
         v = json_variant_dereference(v);
+        if (!v)
+                return false;
 
         rt = json_variant_type(v);
         if (rt == type)
@@ -3140,10 +3142,7 @@ int json_log_internal(
         va_list ap;
         int r;
 
-        if (error < 0)
-                error = -error;
-
-        errno = error;
+        errno = ERRNO_VALUE(error);
 
         va_start(ap, format);
         (void) vsnprintf(buffer, sizeof buffer, format, ap);

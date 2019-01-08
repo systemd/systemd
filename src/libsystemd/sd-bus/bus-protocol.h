@@ -54,9 +54,9 @@ enum {
 /* Flags */
 
 enum {
-        BUS_MESSAGE_NO_REPLY_EXPECTED = 1,
-        BUS_MESSAGE_NO_AUTO_START = 2,
-        BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION = 4,
+        BUS_MESSAGE_NO_REPLY_EXPECTED               = 1 << 0,
+        BUS_MESSAGE_NO_AUTO_START                   = 1 << 1,
+        BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION = 1 << 2,
 };
 
 /* Header fields */
@@ -78,9 +78,9 @@ enum {
 /* RequestName parameters */
 
 enum  {
-        BUS_NAME_ALLOW_REPLACEMENT = 1,
-        BUS_NAME_REPLACE_EXISTING = 2,
-        BUS_NAME_DO_NOT_QUEUE = 4
+        BUS_NAME_ALLOW_REPLACEMENT = 1 << 0,
+        BUS_NAME_REPLACE_EXISTING  = 1 << 1,
+        BUS_NAME_DO_NOT_QUEUE      = 1 << 2,
 };
 
 /* RequestName returns */
