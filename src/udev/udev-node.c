@@ -260,10 +260,10 @@ static int create_target_entry(int dirfd, const char *prioname,
         mkdirat(dirfd, prioname, 0755);
         priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
         if (priofd == -1)
-                return log_error_errno(-errno, "Failed to open %s: %m", prioname);
+                return log_error_errno(errno, "Failed to open %s: %m", prioname);
 
         if (symlinkat(".", priofd, filename) != 0 && errno != -EEXIST)
-                return log_error_errno(-errno,
+                return log_error_errno(errno,
                                        "Failed to add target %s/%s for %s: %m",
                                        prioname, filename, slink);
         log_debug("Added target %s/%s for %s", prioname, filename, slink);
@@ -283,13 +283,13 @@ static int delete_target_entry(int dirfd, const char *prioname,
                 if (errno == ENOENT)
                         return 0;
                 else
-                        return log_error_errno(-errno, "Failed to open %s: %m",
+                        return log_error_errno(errno, "Failed to open %s: %m",
                                                prioname);
         }
 
         r = unlinkat(priofd, filename, 0);
         if (r != 0 && errno != ENOENT)
-                return log_error_errno(-errno,
+                return log_error_errno(errno,
                                        "Failed to remove target %s/%s for %s: %m",
                                        prioname, filename, slink);
         else if (r == 0)
@@ -298,7 +298,7 @@ static int delete_target_entry(int dirfd, const char *prioname,
 
         r = unlinkat(dirfd, prioname, AT_REMOVEDIR);
         if (r != 0 && errno != ENOTEMPTY && errno != ENOENT)
-                log_warning_errno(-errno, "Failed to remove prio dir %s for %s: %m",
+                log_warning_errno(errno, "Failed to remove prio dir %s for %s: %m",
                                   prioname, slink);
         else if (r == 0)
                 log_debug("Removed prio dir %s for %s", prioname, slink);
@@ -314,7 +314,7 @@ static int init_link_semaphores(const char *path) {
         assert((n_semaphores & (n_semaphores - 1)) == 0);
 
         if (semctl(0, 0, IPC_INFO, &si) < 0)
-                return log_error_errno(-errno, "Failed to query IPC_INFO: %m");
+                return log_error_errno(errno, "Failed to query IPC_INFO: %m");
 
         if (si.semmsl <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "SEMMSL is 0");
@@ -345,15 +345,15 @@ static int init_link_semaphores(const char *path) {
                                                   n_semaphores);
                                         return semid;
                                 } else
-                                        log_error_errno(-errno, "Failed to set sem_otime: %m");
+                                        log_error_errno(errno, "Failed to set sem_otime: %m");
                         } else
-                                log_error_errno(-errno, "Failed to initialize semaphores: %m");
+                                log_error_errno(errno, "Failed to initialize semaphores: %m");
                 };
 
                 err = -errno;
                 /* Cleanup after error */
                 if (semctl(semid, 0, IPC_RMID) != 0)
-                        log_error_errno(-errno, "Failed to remove semaphore set: %m");
+                        log_error_errno(errno, "Failed to remove semaphore set: %m");
                 return err;
 
         } else if (errno == EEXIST) {
@@ -362,7 +362,7 @@ static int init_link_semaphores(const char *path) {
 
                 semid = semget(key, 0, 0);
                 if (semid == -1)
-                        return log_error_errno(-errno, "Failed to get semaphore set: %m");
+                        return log_error_errno(errno, "Failed to get semaphore set: %m");
 
                 for (i = 0; i < RETRIES; i++) {
                         struct semid_ds ds;
@@ -382,7 +382,7 @@ static int init_link_semaphores(const char *path) {
                                        "Semaphore set not initialized after %d us",
                                        RETRIES * SLEEP_US);
         } else
-                return log_error_errno(-errno, "Failed to create semaphore set: %m");
+                return log_error_errno(errno, "Failed to create semaphore set: %m");
 }
 
 static unsigned short get_sema_index(const char *link) {
@@ -410,7 +410,7 @@ static int _slink_semop(int semid, unsigned short semidx, int op, const char *ms
         if (semid < 0)
                 return 0;
         if (semop(semid, &sb, 1) == -1)
-                return log_warning_errno(-errno, "Failed to %s semaphore: %m", msg);
+                return log_warning_errno(errno, "Failed to %s semaphore: %m", msg);
         return 0;
 }
 
@@ -437,7 +437,7 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
         /* Use scandir here to avoid races with deleting entries */
         n = scandir(dirname, &darr, cleanup_filter, alphasort);
         if (n < 0)
-                return log_error_errno(-errno, "Error scanning %s: %m", dirname);
+                return log_error_errno(errno, "Error scanning %s: %m", dirname);
 
         if (n == 0)
                 return 0;
@@ -446,7 +446,7 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
         if (dir != NULL)
                 dfd = dirfd(dir);
         if (dfd == -1)
-                return log_error_errno(-errno, "Error opening %s: %m", dirname);
+                return log_error_errno(errno, "Error opening %s: %m", dirname);
 
         while (n--) {
                 _cleanup_(sd_device_unrefp) sd_device *ud = NULL;
@@ -462,7 +462,7 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
                 if (r == 0)
                         log_debug("Removed %s/%s", dirname, de->d_name);
                 else
-                        log_error_errno(-errno, "Failed to remove %s/%s: %m",
+                        log_error_errno(errno, "Failed to remove %s/%s: %m",
                                         dirname, de->d_name);
 
                 /* Now create the new-style entry */
@@ -510,7 +510,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         mkdir_p(links_dirname, 0755);
         links_fd = open(links_dirname, O_RDONLY|O_DIRECTORY);
         if (links_fd == -1)
-                return log_error_errno(-errno, "Failed to open %s: %m", dirname);
+                return log_error_errno(errno, "Failed to open %s: %m", dirname);
 
         r = device_get_id_filename(dev, &id_filename);
         if (r < 0)
@@ -531,30 +531,28 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 mkdirat(links_fd, name_enc, 0755);
                 dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
                 if (dfd == -1)
-                        return log_device_error_errno(dev, -errno,
-                                                      "Failed to open %s: %m",
-                                                      dirname);
+                        return log_device_error_errno(dev, errno,
+                                                      "Failed to open %s: %m", dirname);
                 create_target_entry(dfd, prioname, id_filename, slink);
         } else {
                 dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
                 if (dfd == -1 && errno != ENOENT)
-                        return log_device_error_errno(dev, -errno,
-                                                      "Failed to open %s: %m",
-                                                      dirname);
+                        return log_device_error_errno(dev, errno,
+                                                      "Failed to open %s: %m", dirname);
                 delete_target_entry(dfd, prioname, id_filename, slink);
         }
 
         dir = fdopendir(dfd);
         if (!dir) {
                 close(dfd);
-                return log_device_error_errno(dev, -errno,
+                return log_device_error_errno(dev, errno,
                                               "Failed to fdopendir %d: %m", dfd);
         }
 
         semidx = get_sema_index(slink);
         lock_failed = lock_slink(semid, semidx);
         if (lock_failed)
-                log_error_errno(-errno, "Failed to lock %s: %m", slink);
+                log_error_errno(errno, "Failed to lock %s: %m", slink);
 
         r = link_find_prioritized(dev, add, dir, slink, &target);
         if (r == TARGET_NEEDS_CLEANUP) {
