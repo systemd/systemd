@@ -39,7 +39,7 @@
  */
 #define N_SEMAPHORES 1024
 static unsigned int n_semaphores = N_SEMAPHORES;
-static const char links_dirname[] = "/run/udev/links/";
+#define LINKS_DIRNAME "/run/udev/links/"
 static const char prio_prefix[] = "L:";
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
@@ -500,15 +500,14 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         assert(slink);
 
         if (semid == SEMID_UNSET) {
-                semid = init_link_semaphores(links_dirname);
+                semid = init_link_semaphores(LINKS_DIRNAME);
                 if (semid < 0) {
-                        log_error_errno(semid, "Locking under %s is disabled: %m",
-                                        links_dirname);
+                        log_error_errno(semid, "Locking under "LINKS_DIRNAME" is disabled: %m");
                         semid = SEMID_BAD;
                 }
         }
-        mkdir_p(links_dirname, 0755);
-        links_fd = open(links_dirname, O_RDONLY|O_DIRECTORY);
+        (void) mkdir_p(LINKS_DIRNAME, 0755);
+        links_fd = open(LINKS_DIRNAME, O_RDONLY|O_DIRECTORY);
         if (links_fd == -1)
                 return log_error_errno(errno, "Failed to open %s: %m", dirname);
 
@@ -517,7 +516,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return log_device_debug_errno(dev, r, "Failed to get id_filename: %m");
 
         util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
-        dirname = path_join(links_dirname, name_enc);
+        dirname = path_join(LINKS_DIRNAME, name_enc);
         if (!dirname)
                 return log_oom();
 
