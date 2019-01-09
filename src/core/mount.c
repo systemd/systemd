@@ -101,20 +101,6 @@ static bool mount_is_bind(const MountParameters *p) {
         return false;
 }
 
-static bool mount_is_auto(const MountParameters *p) {
-        assert(p);
-
-        return !fstab_test_option(p->options, "noauto\0");
-}
-
-static bool mount_is_automount(const MountParameters *p) {
-        assert(p);
-
-        return fstab_test_option(p->options,
-                                 "comment=systemd.automount\0"
-                                 "x-systemd.automount\0");
-}
-
 static bool mount_is_bound_to_device(const Mount *m) {
         const MountParameters *p;
 
