@@ -338,7 +338,6 @@ static int mount_add_mount_dependencies(Mount *m) {
 }
 
 static int mount_add_device_dependencies(Mount *m) {
-        bool device_wants_mount;
         UnitDependencyMask mask;
         MountParameters *p;
         UnitDependency dep;
@@ -368,9 +367,6 @@ static int mount_add_device_dependencies(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        device_wants_mount =
-                mount_is_auto(p) && !mount_is_automount(p) && MANAGER_IS_SYSTEM(UNIT(m)->manager);
-
         /* Mount units from /proc/self/mountinfo are not bound to devices
          * by default since they're subject to races when devices are
          * unplugged. But the user can still force this dep with an
@@ -381,7 +377,7 @@ static int mount_add_device_dependencies(Mount *m) {
         /* We always use 'what' from /proc/self/mountinfo if mounted */
         mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
-        r = unit_add_node_dependency(UNIT(m), p->what, device_wants_mount, dep, mask);
+        r = unit_add_node_dependency(UNIT(m), p->what, false, dep, mask);
         if (r < 0)
                 return r;
 
