@@ -74,7 +74,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
-                        *errnop = ENOMEM;
+                        *errnop = DISARM_PROTECT_ERRNO(ENOMEM);
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
                 }
@@ -96,7 +96,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO(ERANGE);
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -171,7 +171,7 @@ static enum nss_status fill_in_hostent(
                 uint32_t local_address_ipv4,
                 struct hostent *result,
                 char *buffer, size_t buflen,
-                int *errnop, int *h_errnop,
+                int *errnop, int *h_errnop, int* _saved_errno_p,
                 int32_t *ttlp,
                 char **canonp) {
 
@@ -185,6 +185,7 @@ static enum nss_status fill_in_hostent(
         assert(buffer);
         assert(errnop);
         assert(h_errnop);
+        assert(_saved_errno_p);
 
         alen = FAMILY_ADDRESS_SIZE(af);
 
@@ -202,7 +203,7 @@ static enum nss_status fill_in_hostent(
                 (c > 0 ? c+1 : 2) * sizeof(char*);
 
         if (buflen < ms) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO_INNER(ERANGE);
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -321,7 +322,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 af = AF_INET;
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
-                *errnop = EAFNOSUPPORT;
+                *errnop = DISARM_PROTECT_ERRNO(EAFNOSUPPORT);
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
@@ -343,7 +344,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
-                        *errnop = ENOMEM;
+                        *errnop = DISARM_PROTECT_ERRNO(ENOMEM);
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
                 }
@@ -369,7 +370,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                         local_address_ipv4,
                         host,
                         buffer, buflen,
-                        errnop, h_errnop,
+                        errnop, h_errnop, &_saved_errno_,
                         ttlp,
                         canonp);
 }
@@ -401,13 +402,13 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         assert(h_errnop);
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
-                *errnop = EAFNOSUPPORT;
+                *errnop = DISARM_PROTECT_ERRNO(EAFNOSUPPORT);
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
 
         if (len != FAMILY_ADDRESS_SIZE(af)) {
-                *errnop = EINVAL;
+                *errnop = DISARM_PROTECT_ERRNO(EINVAL);
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;
         }
@@ -461,7 +462,7 @@ found:
         if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
                 if (!hn) {
-                        *errnop = ENOMEM;
+                        *errnop = DISARM_PROTECT_ERRNO(ENOMEM);
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
                 }
@@ -479,7 +480,7 @@ found:
                         local_address_ipv4,
                         host,
                         buffer, buflen,
-                        errnop, h_errnop,
+                        errnop, h_errnop, &_saved_errno_,
                         ttlp,
                         NULL);
 }

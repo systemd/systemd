@@ -213,6 +213,70 @@ static void test_protect_errno(void) {
         assert_se(errno == 12);
 }
 
+static void test_protect_errno_disarmed(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 12;
+        /**
+         * Simulate dynamically-linked glibc calling the NSS module with errnop
+         * and &errno being the same.
+         */
+        int *errnop = &errno;
+
+        {
+                PROTECT_ERRNO;
+
+                *errnop = DISARM_PROTECT_ERRNO(25);
+        }
+
+        assert_se(errno == 25);
+        assert_se(*errnop == 25);
+}
+
+static void test_protect_errno_disarmed_inner(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 12;
+        int *errnop = &errno;
+
+        {
+                PROTECT_ERRNO;
+
+                int *_saved_errno_p = &_saved_errno_;
+                *errnop = DISARM_PROTECT_ERRNO_INNER(25);
+        }
+
+        assert_se(errno == 25);
+        assert_se(*errnop == 25);
+}
+
+static void test_protect_errno_disarmed_static(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 12;
+        /*
+         * "In statically linked programs, the main application and NSS
+         * modules do not share the same thread-local variable errno,
+         * which is the reason why there is an explicit errnop function
+         * argument."
+         */
+        int errno2 = 15;
+        int *errnop = &errno2;
+
+        {
+                PROTECT_ERRNO;
+
+                errno = 13;
+                *errnop = DISARM_PROTECT_ERRNO(25);
+                assert_se(errno == 12);
+
+                errno = 14;
+        }
+
+        assert_se(errno == 14);
+        assert_se(*errnop == 25);
+}
+
 static void test_in_set(void) {
         log_info("/* %s */", __func__);
 
@@ -383,6 +447,9 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
+        test_protect_errno_disarmed();
+        test_protect_errno_disarmed_inner();
+        test_protect_errno_disarmed_static();
         test_in_set();
         test_log2i();
         test_eqzero();
