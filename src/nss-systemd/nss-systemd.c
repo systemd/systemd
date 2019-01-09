@@ -210,7 +210,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         l = strlen(name);
         if (buflen < l+1) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO(ERANGE);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -227,7 +227,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
-        *errnop = -r;
+        *errnop = DISARM_PROTECT_ERRNO(r);
         return NSS_STATUS_UNAVAIL;
 }
 
@@ -310,7 +310,7 @@ enum nss_status _nss_systemd_getpwuid_r(
 
         l = strlen(translated) + 1;
         if (buflen < l) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO(ERANGE);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -327,7 +327,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
-        *errnop = -r;
+        *errnop = DISARM_PROTECT_ERRNO(r);
         return NSS_STATUS_UNAVAIL;
 }
 
@@ -408,7 +408,7 @@ enum nss_status _nss_systemd_getgrnam_r(
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO(ERANGE);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -423,7 +423,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
-        *errnop = -r;
+        *errnop = DISARM_PROTECT_ERRNO(r);
         return NSS_STATUS_UNAVAIL;
 }
 
@@ -506,7 +506,7 @@ enum nss_status _nss_systemd_getgrgid_r(
 
         l = sizeof(char*) + strlen(translated) + 1;
         if (buflen < l) {
-                *errnop = ERANGE;
+                *errnop = DISARM_PROTECT_ERRNO(ERANGE);
                 return NSS_STATUS_TRYAGAIN;
         }
 
@@ -521,7 +521,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
-        *errnop = -r;
+        *errnop = DISARM_PROTECT_ERRNO(r);
         return NSS_STATUS_UNAVAIL;
 }
 
