@@ -21,6 +21,7 @@
 #include "libudev-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "parse-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
 #include "stdio-util.h"
@@ -40,7 +41,6 @@
 #define N_SEMAPHORES 1024
 static unsigned int n_semaphores = N_SEMAPHORES;
 #define LINKS_DIRNAME "/run/udev/links/"
-static const char prio_prefix[] = "L:";
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -120,38 +120,24 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         return r;
 }
 
-static int make_prio_name(int prio, char **buf) {
-        return asprintf(buf, "%s%d", prio_prefix, prio);
-}
+static int dirent_prio(DIR *dir, struct dirent *de, int *ret_prio) {
+        int r, prio;
+        const char *e;
 
-static bool is_prio_name(const char *name, int *priority) {
-        int len = sizeof(prio_prefix) - 1;
-        long prio;
-        char *e;
+        e = startswith(de->d_name, "L:");
+        if (!e)
+                return -EINVAL;
 
-        if (!name || strncmp(name, prio_prefix, len) || name[len] == '\0')
-                return false;
-
-        prio = strtol(name + len, &e, 10);
-        if (*e != '\0' || prio < INT_MIN || prio >INT_MAX)
-                return false;
-
-        *priority = prio;
-        return true;
-}
-
-static bool is_prio_dirent(DIR *dir, struct dirent *de, int *priority) {
-        int prio;
-
-        if (!is_prio_name(de->d_name, &prio))
-                return  false;
+        r = safe_atoi(e, &prio);
+        if (r < 0)
+                return r;
 
         dirent_ensure_type(dir, de);
         if (de->d_type != DT_DIR)
-                return false;
+                return -ENOTDIR;
 
-        *priority = prio;
-        return true;
+        *ret_prio = prio;
+        return 0;
 }
 
 enum {
@@ -197,7 +183,8 @@ static int link_find_prioritized(sd_device *dev, bool add, DIR *dir,
                         break;
                 if (dot_or_dot_dot(dent->d_name))
                         continue;
-                if (!is_prio_dirent(dir, dent, &prio))
+
+                if (dirent_prio(dir, dent, &prio) < 0)
                         return TARGET_NEEDS_CLEANUP;
 
                 if (prio > priority) {
@@ -253,9 +240,11 @@ static int link_find_prioritized(sd_device *dev, bool add, DIR *dir,
         return TARGET_FOUND;
 }
 
-static int create_target_entry(int dirfd, const char *prioname,
-                               const char *filename, const char *slink) {
+static int create_target_entry(int dirfd, int prio, const char *filename, const char *slink) {
+        char prioname[STRLEN("L:") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int priofd = -1;
+
+        xsprintf(prioname, "L:%d", prio);
 
         mkdirat(dirfd, prioname, 0755);
         priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
@@ -270,21 +259,22 @@ static int create_target_entry(int dirfd, const char *prioname,
         return 0;
 }
 
-static int delete_target_entry(int dirfd, const char *prioname,
-                               const char *filename, const char *slink) {
-        _cleanup_close_ int priofd;
+static int delete_target_entry(int dirfd, int prio, const char *filename, const char *slink) {
+        char prioname[STRLEN("L:") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int priofd = -1;
         int r;
 
         /* Unlink legacy name, if present */
         unlinkat(dirfd, filename, 0);
 
+        xsprintf(prioname, "L:%d", prio);
+
         priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
         if (priofd == -1) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return log_error_errno(errno, "Failed to open %s: %m",
-                                               prioname);
+
+                return log_error_errno(errno, "Failed to open %s: %m", prioname);
         }
 
         r = unlinkat(priofd, filename, 0);
@@ -451,19 +441,19 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
         while (n--) {
                 _cleanup_(sd_device_unrefp) sd_device *ud = NULL;
                 _cleanup_free_ struct dirent *de = darr[n];
-                _cleanup_free_ char *prioname = NULL;
                 int prio, r;
 
-                if (is_prio_dirent(dir, de, &prio))
+                if (dirent_prio(dir, de, &prio) < 0)
                         continue;
+
                 /* is_prio_dirent() called dirent_ensure_type() */
                 r = unlinkat(dfd, de->d_name,
                              de->d_type == DT_DIR ? AT_REMOVEDIR : 0);
-                if (r == 0)
-                        log_debug("Removed %s/%s", dirname, de->d_name);
-                else
+                if (r < 0)
                         log_error_errno(errno, "Failed to remove %s/%s: %m",
                                         dirname, de->d_name);
+                else
+                        log_debug("Removed %s/%s", dirname, de->d_name);
 
                 /* Now create the new-style entry */
                 if (sd_device_new_from_device_id(&ud, de->d_name) < 0)
@@ -472,9 +462,7 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
                 if (device_get_devlink_priority(ud, &prio) < 0)
                         continue;
 
-                if (make_prio_name(prio, &prioname) < 0)
-                        return log_oom();
-                create_target_entry(dfd, prioname, de->d_name, dirname);
+                create_target_entry(dfd, prio, de->d_name, dirname);
         }
         return 0;
 }
@@ -486,7 +474,7 @@ enum {
 
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
-        _cleanup_free_ char *target = NULL, *dirname = NULL, *prioname = NULL;
+        _cleanup_free_ char *target = NULL, *dirname = NULL;
         _cleanup_close_ int links_fd;
         _cleanup_closedir_ DIR *dir = NULL;
         char name_enc[PATH_MAX];
@@ -523,8 +511,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         r = device_get_devlink_priority(dev, &priority);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get devlink prio: %m");
-        if (make_prio_name(priority, &prioname) < 0)
-                return log_oom();
 
         if (add) {
                 mkdirat(links_fd, name_enc, 0755);
@@ -532,13 +518,13 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 if (dfd == -1)
                         return log_device_error_errno(dev, errno,
                                                       "Failed to open %s: %m", dirname);
-                create_target_entry(dfd, prioname, id_filename, slink);
+                create_target_entry(dfd, priority, id_filename, slink);
         } else {
                 dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
                 if (dfd == -1 && errno != ENOENT)
                         return log_device_error_errno(dev, errno,
                                                       "Failed to open %s: %m", dirname);
-                delete_target_entry(dfd, prioname, id_filename, slink);
+                delete_target_entry(dfd, priority, id_filename, slink);
         }
 
         dir = fdopendir(dfd);
