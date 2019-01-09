@@ -376,7 +376,7 @@ int seat_read_active_vt(Seat *s) {
 
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
         if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror(-errno) : "EOF");
+                log_error("Failed to read current console: %s", k < 0 ? strerror(errno) : "EOF");
                 return k < 0 ? -errno : -EIO;
         }
 
