@@ -342,10 +342,11 @@
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/system</filename></entry>
-            <entry morerows="1">Units of installed packages</entry>
+            <entry>Local units installed by the system administrator</entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/system</filename></entry>
+            <entry>Units of installed packages</entry>
           </row>
           <row>
             <entry><filename>/run/systemd/generator.late</filename></entry>
@@ -419,10 +420,11 @@
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/user</filename></entry>
-            <entry morerows="1">Units of packages that have been installed system-wide</entry>
+            <entry>Local units installed system-wide by the system administrator</entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed system-wide</entry>
           </row>
           <row>
             <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename></entry>
