@@ -1,5 +1,27 @@
 systemd System and Service Manager
 
+CHANGES WITH 241 in spe:
+
+        * The default locale can now be configured at compile time. Otherwise,
+          a suitable default will be selected automatically (one of C.UTF-8,
+          en_US.UTF-8, and C).
+
+        * The version string shown by systemd and other tools now includes the
+          git commit hash when built from git. An override may be specified
+          during compilation, which is intended to be used by distributions to
+          include the package release information.
+
+        * systemd-cat can now filter standard input and standard error streams
+          for different syslog priorities using the new --stderr-priority=
+          option.
+
+        * systemd-journald and systemd-journal-remote reject entries which
+          contain too many fields (CVE-2018-16865) and set limits on the
+          process' command line length (CVE-2018-16864).
+
+        * $DBUS_SESSION_BUS_ADDRESS environment variable is set by pam_systemd
+          again.
+
 CHANGES WITH 240:
 
         * NoNewPrivileges=yes has been set for all long-running services
@@ -454,6 +476,9 @@ CHANGES WITH 240:
           incompatible kernel change. The relevant kernel developers have been
           notified about this userspace breakage quickly, but they chose to
           ignore it.
+
+        * $DBUS_SESSION_BUS_ADDRESS environment variable is not set by
+          pam_systemd anymore.
 
         Contributions from: afg, Alan Jenkins, Aleksei Timofeyev, Alexander
         Filippov, Alexander Kurtz, Alexey Bogdanenko, Andreas Henriksson,
