@@ -28,6 +28,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
@@ -414,11 +415,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         if (streq_ptr(service, "systemd-user")) {
-                _cleanup_free_ char *rt = NULL;
+                char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
-                if (asprintf(&rt, "/run/user/"UID_FMT, pw->pw_uid) < 0)
-                        return PAM_BUF_ERR;
-
+                xsprintf(rt, "/run/user/"UID_FMT, pw->pw_uid);
                 if (validate_runtime_directory(handle, rt, pw->pw_uid)) {
                         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
                         if (r != PAM_SUCCESS) {
