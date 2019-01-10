@@ -1474,23 +1474,15 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
 }
 
 static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
-
-        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
-                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
-                [INHIBIT_SLEEP] = "PrepareForSleep"
-        };
-
         int active = _active;
 
         assert(m);
-        assert(w >= 0);
-        assert(w < _INHIBIT_WHAT_MAX);
-        assert(signal_name[w]);
+        assert(IN_SET(w, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
         return sd_bus_emit_signal(m->bus,
                                   "/org/freedesktop/login1",
                                   "org.freedesktop.login1.Manager",
-                                  signal_name[w],
+                                  w == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
                                   "b",
                                   active);
 }
@@ -1502,7 +1494,6 @@ static int execute_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char *c = NULL;
         const char *p;
         int r;
 
@@ -1530,15 +1521,11 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto error;
 
-        c = strdup(p);
-        if (!c) {
-                r = -ENOMEM;
+        r = free_and_strdup(&m->action_job, p);
+        if (r < 0)
                 goto error;
-        }
 
         m->action_unit = unit_name;
-        free(m->action_job);
-        m->action_job = c;
         m->action_what = w;
 
         /* Make sure the lid switch is ignored for a while */
@@ -1656,7 +1643,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         assert(m);
         assert(unit_name);
         assert(w > 0);
-        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(w < _INHIBIT_WHAT_MAX);
         assert(!m->action_job);
 
         r = unit_load_state(m->bus, unit_name, &load_state);
@@ -1773,7 +1760,7 @@ static int method_do_shutdown_or_sleep(
                 return r;
 
         /* Don't allow multiple jobs being executed at the same time */
-        if (m->action_what)
+        if (m->action_what > 0)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS, "There's already a shutdown or sleep operation in progress");
 
         if (sleep_verb) {
@@ -2012,7 +1999,7 @@ static int manager_scheduled_shutdown_handler(
                 assert_not_reached("unexpected shutdown type");
 
         /* Don't allow multiple jobs being executed at the same time */
-        if (m->action_what) {
+        if (m->action_what > 0) {
                 r = -EALREADY;
                 log_error("Scheduled shutdown to %s failed: shutdown or sleep operation already in progress", target);
                 goto error;
