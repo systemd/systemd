@@ -11,6 +11,7 @@
 #include "network-internal.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
+#include "stdio-util.h"
 #include "virt.h"
 
 #define SYSTEMD_PEN    43793
@@ -169,10 +170,10 @@ int dhcp_identifier_set_iaid(
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
-                char ifindex_str[2 + DECIMAL_STR_MAX(int)];
+                char ifindex_str[1 + DECIMAL_STR_MAX(int)];
                 int r;
 
-                sprintf(ifindex_str, "n%d", ifindex);
+                xsprintf(ifindex_str, "n%d", ifindex);
                 if (sd_device_new_from_device_id(&device, ifindex_str) >= 0) {
                         r = sd_device_get_is_initialized(device);
                         if (r < 0)
