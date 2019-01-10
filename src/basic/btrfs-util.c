@@ -941,7 +941,7 @@ int btrfs_qgroup_destroy_recursive(int fd, uint64_t qgroupid) {
 
         /* Destroys the specified qgroup, but unassigns it from all
          * its parents first. Also, it recursively destroys all
-         * qgroups it is assgined to that have the same id part of the
+         * qgroups it is assigned to that have the same id part of the
          * qgroupid as the specified group. */
 
         r = btrfs_qgroupid_split(qgroupid, NULL, &subvol_id);

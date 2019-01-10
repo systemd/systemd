@@ -256,13 +256,13 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
 
                                 if (name_assign_type == NET_NAME_ENUM) {
                                         log_warning("Config file %s applies to device based on potentially unpredictable interface name '%s'",
-                                                  link->filename, sysname);
+                                                    link->filename, sysname);
                                         *ret = link;
 
                                         return 0;
                                 } else if (name_assign_type == NET_NAME_RENAMED) {
                                         log_warning("Config file %s matches device based on renamed interface name '%s', ignoring",
-                                                  link->filename, sysname);
+                                                    link->filename, sysname);
 
                                         continue;
                                 }
@@ -272,13 +272,11 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
                                   link->filename, sysname);
 
                         *ret = link;
-
                         return 0;
                 }
         }
 
         *ret = NULL;
-
         return -ENOENT;
 }
 
@@ -303,7 +301,7 @@ static bool should_rename(sd_device *device, bool respect_predictable) {
         unsigned type;
         int r;
 
-        /* if we can't get the assgin type, assume we should rename */
+        /* if we can't get the assign type, assume we should rename */
         if (sd_device_get_sysattr_value(device, "name_assign_type", &s) < 0)
                 return true;
 
