@@ -1227,54 +1227,26 @@ error:
 }
 
 static void session_restore_vt(Session *s) {
-        pid_t pid;
-        int r;
+        int r, vt, old_fd;
 
-        if (s->vtnr < 1)
+        /* We need to get a fresh handle to the virtual terminal,
+         * since the old file-descriptor is potentially in a hung-up
+         * state after the controlling process exited; we do a
+         * little dance to avoid having the terminal be available
+         * for reuse before we've cleaned it up.
+         */
+        old_fd = TAKE_FD(s->vtfd);
+
+        vt = session_open_vt(s);
+        safe_close(old_fd);
+
+        if (vt < 0)
                 return;
 
-        if (s->vtfd < 0)
-                return;
+        r = vt_restore(vt);
+        if (r < 0)
+                log_warning_errno(r, "Failed to restore VT, ignoring: %m");
 
-        /* The virtual terminal can potentially be entering in hung-up state at any time
-         * depending on when the controlling process exits.
-         *
-         * If the controlling process exits while we're restoring the virtual terminal,
-         * the VT will enter in hung-up state and we'll fail at restoring it. To prevent
-         * this case, we kick off the current controlling process (if any) in a child
-         * process so logind doesn't play around with tty ownership.
-         *
-         * If the controlling process already exited, getting a fresh handle to the
-         * virtual terminal reset the hung-up state. */
-        r = safe_fork("(logind)", FORK_REOPEN_LOG|FORK_CLOSE_ALL_FDS|FORK_RESET_SIGNALS|FORK_WAIT|FORK_LOG, &pid);
-        if (r == 0) {
-                char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
-                int vt;
-
-                /* We must be a session leader in order to become the controlling process. */
-                pid = setsid();
-                if (pid < 0) {
-                        log_error_errno(errno, "Failed to become session leader: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                sprintf(path, "/dev/tty%u", s->vtnr);
-                vt = acquire_terminal(path, ACQUIRE_TERMINAL_FORCE, USEC_INFINITY);
-                if (vt < 0) {
-                        log_error_errno(vt, "Cannot acquire VT %s of session %s: %m", path, s->id);
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = vt_restore(vt);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to restore VT, ignoring: %m");
-
-                /* Give up and release the controlling terminal. */
-                safe_close(vt);
-                _exit(EXIT_SUCCESS);
-        }
-
-        /* Close the fd in any cases.  */
         s->vtfd = safe_close(s->vtfd);
 }
 
