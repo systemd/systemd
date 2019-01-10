@@ -407,6 +407,9 @@ int journal_remote_handle_raw_source(
                 log_debug("%zu active sources remaining", s->active);
                 return 0;
         } else if (r == -E2BIG) {
+                log_notice("Entry with too many fields, skipped");
+                return 1;
+        } else if (r == -ENOBUFS) {
                 log_notice("Entry too big, skipped");
                 return 1;
         } else if (r == -EAGAIN) {
