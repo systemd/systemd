@@ -359,13 +359,6 @@ possible_link_flags = [
         '-Wl,-z,now',
 ]
 
-# the oss-fuzz fuzzers are not built with -fPIE, so don't
-# enable it when we are linking against them
-if not fuzzer_build
-        possible_cc_flags += '-fPIE'
-        possible_link_flags += '-pie'
-endif
-
 if cc.get_id() == 'clang'
         possible_cc_flags += [
                 '-Wno-typedef-redefinition',
