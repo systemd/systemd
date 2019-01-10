@@ -109,12 +109,19 @@
     <function>udev_device_get_property_value()</function> and
     <function>udev_device_get_sysattr_value()</function> return a
     pointer to a constant string of the requested value. On error,
-    <constant>NULL</constant> is returned.</para>
+    <constant>NULL</constant> is returned. Attributes that may
+    contain <constant>NUL</constant> bytes should not be retrieved
+    with <function>udev_device_get_sysattr_value()</function>;
+    instead, read them directly from the files within the device's
+    <property>syspath</property>.</para>
 
     <para>On success,
     <function>udev_device_set_sysattr_value()</function> returns
     an integer greater than, or equal to, <constant>0</constant>.
-    On failure, a negative error code is returned.</para>
+    On failure, a negative error code is returned. Values that
+    contain <constant>NUL</constant> bytes should not be set with
+    this function; instead, write them directly to the files within
+    the device's <property>syspath</property>.</para>
 
     <para>On success, <function>udev_device_has_tag()</function>
     returns <constant>1</constant> or <constant>0</constant>,
