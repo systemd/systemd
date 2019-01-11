@@ -519,13 +519,17 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 if (dfd == -1)
                         return log_device_error_errno(dev, errno,
                                                       "Failed to open %s: %m", dirname);
-                create_target_entry(dfd, priority, id_filename, slink);
+                r = create_target_entry(dfd, priority, id_filename, slink);
+                if (r < 0)
+                        return r;
         } else {
                 dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
                 if (dfd == -1 && errno != ENOENT)
                         return log_device_error_errno(dev, errno,
                                                       "Failed to open %s: %m", dirname);
-                delete_target_entry(dfd, priority, id_filename, slink);
+                r = delete_target_entry(dfd, priority, id_filename, slink);
+                if (r < 0)
+                        return r;
         }
 
         dir = fdopendir(dfd);
