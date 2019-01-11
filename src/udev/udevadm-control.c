@@ -77,11 +77,12 @@ int control_main(int argc, char *argv[], void *userdata) {
         }
 
         if (argc <= 1)
-                log_error("Option missing");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This command expects one or more options.");
 
         uctrl = udev_ctrl_new();
         if (!uctrl)
-                return -ENOMEM;
+                return log_oom();
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -158,13 +159,9 @@ int control_main(int argc, char *argv[], void *userdata) {
                         assert_not_reached("Unknown option.");
                 }
 
-        if (optind < argc) {
-                log_error("Extraneous argument: %s", argv[optind]);
-                return -EINVAL;
-        } else if (optind == 1) {
-                log_error("Option missing");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous argument: %s", argv[optind]);
 
         return 0;
 }
