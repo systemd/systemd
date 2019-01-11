@@ -288,7 +288,7 @@ static int delete_target_entry(int dirfd, int prio, const char *filename, const 
 
         r = unlinkat(dirfd, prioname, AT_REMOVEDIR);
         if (r != 0 && errno != ENOTEMPTY && errno != ENOENT)
-                log_warning_errno(errno, "Failed to remove prio dir %s for %s: %m",
+                log_warning_errno(errno, "Failed to remove prio dir %s for %s: %m, ignoring",
                                   prioname, slink);
         else if (r == 0)
                 log_debug("Removed prio dir %s for %s", prioname, slink);
