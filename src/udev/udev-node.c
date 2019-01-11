@@ -482,7 +482,8 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         static int semid = SEMID_UNSET;
         int dfd, priority;
         unsigned short semidx;
-        int r, lock_failed;
+        int r;
+        bool lock_failed;
 
         assert(dev);
         assert(slink);
@@ -537,9 +538,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         }
 
         semidx = get_sema_index(slink);
-        lock_failed = lock_slink(semid, semidx);
-        if (lock_failed)
-                log_error_errno(errno, "Failed to lock %s: %m", slink);
+        lock_failed = (lock_slink(semid, semidx) < 0);
 
         r = link_find_prioritized(dev, add, dir, slink, &target);
         if (r == TARGET_NEEDS_CLEANUP) {
