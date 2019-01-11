@@ -338,7 +338,7 @@ static int init_link_semaphores(const char *path) {
                                         log_error_errno(errno, "Failed to set sem_otime: %m");
                         } else
                                 log_error_errno(errno, "Failed to initialize semaphores: %m");
-                };
+                }
 
                 err = -errno;
                 /* Cleanup after error */
