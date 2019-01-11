@@ -93,14 +93,8 @@ _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, siz
         assert_return(m, -EINVAL);
         assert_return((size_t) n == size, -EINVAL);
 
-        if (m->bound)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "sd-device-monitor: Socket fd is already bound. "
-                                       "It may be dangerous to change buffer size. "
-                                       "Refusing to change buffer size.");
-
-        if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n) < 0) {
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n);
+        if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n) < 0) {
+                r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n);
                 if (r < 0)
                         return r;
         }
