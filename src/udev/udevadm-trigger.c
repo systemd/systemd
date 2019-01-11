@@ -188,18 +188,14 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 device_type = TYPE_DEVICES;
                         else if (streq(optarg, "subsystems"))
                                 device_type = TYPE_SUBSYSTEMS;
-                        else {
-                                log_error("Unknown type --type=%s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c':
                         if (STR_IN_SET(optarg, "add", "remove", "change"))
                                 action = optarg;
-                        else {
-                                log_error("Unknown action '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
 
                         break;
                 case 's':

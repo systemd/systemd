@@ -116,10 +116,9 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return r;
                         break;
                 case 'p':
-                        if (!strchr(optarg, '=')) {
-                                log_error("expect <KEY>=<value> instead of '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
+
                         r = udev_ctrl_send_set_env(uctrl, optarg, timeout);
                         if (r < 0)
                                 return r;

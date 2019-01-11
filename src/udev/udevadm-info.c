@@ -387,10 +387,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                                 query = QUERY_PATH;
                         else if (streq(optarg, "all"))
                                 query = QUERY_ALL;
-                        else {
-                                log_error("unknown query type");
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "unknown query type");
                         break;
                 case 'r':
                         arg_root = true;
