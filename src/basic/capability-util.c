@@ -13,6 +13,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_prctl.h"
 #include "parse-util.h"
 #include "user-util.h"
 #include "util.h"

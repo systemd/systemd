@@ -110,6 +110,9 @@ enum ipvlan_mode {
 #define IFLA_MAX                51
 #endif
 
+#if !HAVE_IFLA_BOND_MODE /* linux@90af231106c0b8d223c27d35464af95cb3d9cacf (3.13) */
+#define IFLA_BOND_MODE              1
+#endif
 #if !HAVE_IFLA_BOND_ACTIVE_SLAVE /* linux@ec76aa49855f6d6fea5e01de179fb57dd47c619d (3.13) */
 #define IFLA_BOND_ACTIVE_SLAVE      2
 #endif

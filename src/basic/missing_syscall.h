@@ -3,6 +3,7 @@
 
 /* Missing glibc definitions to access certain kernel APIs */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/types.h>

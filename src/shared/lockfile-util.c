@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "lockfile-util.h"
 #include "macro.h"
+#include "missing_fcntl.h"
 #include "path-util.h"
 
 int make_lock_file(const char *p, int operation, LockFile *ret) {
