@@ -13,6 +13,7 @@
 #include <sys/mount.h>
 #include <sys/reboot.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -30,6 +31,7 @@
 #include "reboot-util.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "smack-util.h"
 #include "string-util.h"
 #include "switch-root.h"
 #include "terminal-util.h"
@@ -146,6 +148,23 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int switch_root_initramfs(void) {
+        struct statfs st;
+        int r;
+
+        r = statfs("/run", &st);
+        if (r < 0)
+                log_error_errno(errno, "Failed to determine mount flags for /run: %m");
+
+        /* If /run is mounted with NOEXEC, remount without it, as otherwise exec /shutdown post switch_root will fail */
+        if (r == 0 && (st.f_flags & ST_NOEXEC)) {
+                if (mac_smack_use())
+                        r = mount(NULL, "/run", NULL, MS_REMOUNT|MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=755,smackfsroot=*");
+                else
+                        r = mount(NULL, "/run", NULL, MS_REMOUNT|MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=755");
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to remount /run without MS_NOEXEC: %m");
+        }
+
         if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
 
