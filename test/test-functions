@@ -53,6 +53,7 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     SKIP_INITRD=yes
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
     QEMU_MEM="1536M"
+    QEMU_SMP=4
 fi
 
 function find_qemu_bin() {
