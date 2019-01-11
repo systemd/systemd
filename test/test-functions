@@ -15,6 +15,7 @@ TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 [[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="$(bootctl -p 2>/dev/null || echo /boot)"
+QEMU_MEM="${QEMU_MEM:-512M}"
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
@@ -156,7 +157,7 @@ $KERNEL_APPEND \
 
     QEMU_OPTIONS="-smp $QEMU_SMP \
 -net none \
--m 512M \
+-m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
 -drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
