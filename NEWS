@@ -477,6 +477,11 @@ CHANGES WITH 240:
           notified about this userspace breakage quickly, but they chose to
           ignore it.
 
+        * PermissionsStartOnly= setting is deprecated (but is still supported
+          for backwards compatibility). The same functionality is provided by
+          the more flexible "+", "!", and "!!" prefixes to ExecStart= and other
+          commands.
+
         * $DBUS_SESSION_BUS_ADDRESS environment variable is not set by
           pam_systemd anymore.
 
