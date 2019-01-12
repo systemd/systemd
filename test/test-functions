@@ -360,8 +360,9 @@ printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/sys
 
 # 90s isn't enough for some services to finish when literally everything is run
 # under ASan+UBSan in containers, which, in turn, are run in VMs.
+# Let's limit which environments such services should be executed in.
 mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
-printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/timeout.conf
+printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
