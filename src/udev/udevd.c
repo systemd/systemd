@@ -1113,7 +1113,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
-                log_debug("Received udev control message (SYNC)");
+                log_debug("Received udev control message (PING)");
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("Received udev control message (EXIT)");
