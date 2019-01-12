@@ -186,20 +186,11 @@ static void worker_free(struct worker *worker) {
         free(worker);
 }
 
-static void manager_workers_free(Manager *manager) {
-        struct worker *worker;
-        Iterator i;
-
-        assert(manager);
-
-        HASHMAP_FOREACH(worker, manager->workers, i)
-                worker_free(worker);
-
-        manager->workers = hashmap_free(manager->workers);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct worker *, worker_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, struct worker, worker_free);
 
 static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *worker_monitor, pid_t pid) {
-        _cleanup_free_ struct worker *worker = NULL;
+        _cleanup_(worker_freep) struct worker *worker = NULL;
         int r;
 
         assert(ret);
@@ -207,17 +198,20 @@ static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *
         assert(worker_monitor);
         assert(pid > 1);
 
-        worker = new0(struct worker, 1);
+        /* close monitor, but keep address around */
+        device_monitor_disconnect(worker_monitor);
+
+        worker = new(struct worker, 1);
         if (!worker)
                 return -ENOMEM;
 
-        worker->manager = manager;
-        /* close monitor, but keep address around */
-        device_monitor_disconnect(worker_monitor);
-        worker->monitor = sd_device_monitor_ref(worker_monitor);
-        worker->pid = pid;
+        *worker = (struct worker) {
+                .manager = manager,
+                .monitor = sd_device_monitor_ref(worker_monitor),
+                .pid = pid,
+        };
 
-        r = hashmap_ensure_allocated(&manager->workers, NULL);
+        r = hashmap_ensure_allocated(&manager->workers, &worker_hash_op);
         if (r < 0)
                 return r;
 
@@ -291,7 +285,7 @@ static void manager_clear_for_worker(Manager *manager) {
 
         manager->event = sd_event_unref(manager->event);
 
-        manager_workers_free(manager);
+        manager->workers = hashmap_free(manager->workers);
         event_queue_cleanup(manager, EVENT_UNDEF);
 
         manager->monitor = sd_device_monitor_unref(manager->monitor);
@@ -397,7 +391,7 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
-        const char *seqnum;
+        const char *seqnum, *action;
         int r;
 
         assert(manager);
@@ -405,9 +399,13 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         r = sd_device_get_property_value(dev, "SEQNUM", &seqnum);
         if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
+                return log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
 
-        log_device_debug(dev, "Processing device (SEQNUM=%s)", seqnum);
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get ACTION: %m");
+
+        log_device_debug(dev, "Processing device (SEQNUM=%s, ACTION=%s)", seqnum, action);
 
         udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
         if (!udev_event)
@@ -433,7 +431,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                         return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
         }
 
-        log_device_debug(dev, "Device (SEQNUM=%s) processed", seqnum);
+        log_device_debug(dev, "Device (SEQNUM=%s, ACTION=%s) processed", seqnum, action);
 
         return 0;
 }
@@ -589,8 +587,8 @@ static void event_run(Manager *manager, struct event *event) {
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
+        const char *val, *action;
         struct event *event;
-        const char *val;
         uint64_t seqnum;
         int r;
 
@@ -614,6 +612,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         if (seqnum == 0)
                 return -EINVAL;
+
+        /* Refuse devices do not have ACTION property. */
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return r;
 
         /* Save original device to restore the state on failures. */
         r = device_shallow_clone(dev, &clone);
@@ -644,12 +647,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         LIST_APPEND(event, manager->events, event);
 
-        if (DEBUG_LOGGING) {
-                if (sd_device_get_property_value(dev, "ACTION", &val) < 0)
-                        val = NULL;
-
-                log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, strnull(val));
-        }
+        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, action);
 
         return 0;
 }
@@ -872,7 +870,7 @@ static void event_queue_start(Manager *manager) {
         assert_se(sd_event_now(manager->event, CLOCK_MONOTONIC, &usec) >= 0);
         /* check for changed config, every 3 seconds at most */
         if (manager->last_usec == 0 ||
-            (usec - manager->last_usec) > 3 * USEC_PER_SEC) {
+            usec - manager->last_usec > 3 * USEC_PER_SEC) {
                 if (udev_rules_check_timestamp(manager->rules) ||
                     udev_builtin_validate())
                         manager_reload(manager);
@@ -957,12 +955,11 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                CMSG_FOREACH(cmsg, &msghdr) {
+                CMSG_FOREACH(cmsg, &msghdr)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_CREDENTIALS &&
                             cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
                                 ucred = (struct ucred*) CMSG_DATA(cmsg);
-                }
 
                 if (!ucred || ucred->pid <= 0) {
                         log_warning("Ignoring worker message without valid PID");
@@ -1335,9 +1332,9 @@ static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, voi
                                 log_debug("Worker ["PID_FMT"] exited", pid);
                         else
                                 log_warning("Worker ["PID_FMT"] exited with return code %i", pid, WEXITSTATUS(status));
-                } else if (WIFSIGNALED(status)) {
+                } else if (WIFSIGNALED(status))
                         log_warning("Worker ["PID_FMT"] terminated by signal %i (%s)", pid, WTERMSIG(status), signal_to_string(WTERMSIG(status)));
-                } else if (WIFSTOPPED(status)) {
+                else if (WIFSTOPPED(status)) {
                         log_info("Worker ["PID_FMT"] stopped", pid);
                         continue;
                 } else if (WIFCONTINUED(status)) {
