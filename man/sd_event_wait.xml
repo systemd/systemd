@@ -157,7 +157,7 @@
         <listitem><para>An event source is currently being prepared,
         i.e. the preparation handler is currently being executed, as
         set with
-        <citerefentry><refentrytitle>sd_event_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
+        <citerefentry><refentrytitle>sd_event_source_set_prepare</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
         state is only seen in the event source preparation handler
         that is invoked from the
         <function>sd_event_prepare()</function> call and is
