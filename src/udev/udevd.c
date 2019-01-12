@@ -587,8 +587,8 @@ static void event_run(Manager *manager, struct event *event) {
 
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
+        const char *val, *action;
         struct event *event;
-        const char *val;
         uint64_t seqnum;
         int r;
 
@@ -612,6 +612,11 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         if (seqnum == 0)
                 return -EINVAL;
+
+        /* Refuse devices do not have ACTION property. */
+        r = sd_device_get_property_value(dev, "ACTION", &action);
+        if (r < 0)
+                return r;
 
         /* Save original device to restore the state on failures. */
         r = device_shallow_clone(dev, &clone);
@@ -642,12 +647,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         LIST_APPEND(event, manager->events, event);
 
-        if (DEBUG_LOGGING) {
-                if (sd_device_get_property_value(dev, "ACTION", &val) < 0)
-                        val = NULL;
-
-                log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, strnull(val));
-        }
+        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued", seqnum, action);
 
         return 0;
 }
