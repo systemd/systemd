@@ -50,12 +50,12 @@ _udevadm() {
                 [DEBUG]='-d --debug'
                 [INFO_STANDALONE]='-r --root -a --attribute-walk -x --export -e --export-db -c --cleanup-db'
                 [INFO_ARG]='-q --query -p --path -n --name -P --export-prefix -d --device-id-of-file'
-                [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -w --settle'
+                [TRIGGER_STANDALONE]='-v --verbose -n --dry-run -w --settle --wait-daemon'
                 [TRIGGER_ARG]='-t --type -c --action -s --subsystem-match -S --subsystem-nomatch
                                -a --attr-match -A --attr-nomatch -p --property-match
                                -g --tag-match -y --sysname-match --name-match -b --parent-match'
                 [SETTLE]='-t --timeout -E --exit-if-exists'
-                [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload'
+                [CONTROL_STANDALONE]='-e --exit -s --stop-exec-queue -S --start-exec-queue -R --reload --ping'
                 [CONTROL_ARG]='-l --log-priority -p --property -m --children-max -t --timeout'
                 [MONITOR_STANDALONE]='-k --kernel -u --udev -p --property'
                 [MONITOR_ARG]='-s --subsystem-match -t --tag-match'
