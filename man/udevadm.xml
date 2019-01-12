@@ -420,6 +420,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><option>--ping</option></term>
+          <listitem>
+            <para>Send a ping message to systemd-udevd and wait for the reply. This may be useful to check that
+            systemd-udevd daemon is running.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><option>-t</option></term>
           <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
           <listitem>
