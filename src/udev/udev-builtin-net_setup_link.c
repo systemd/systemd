@@ -16,7 +16,7 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
         int r;
 
         if (argc > 1)
-                return log_device_error_errno(dev, EINVAL, "This program takes no arguments.");
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         r = link_get_driver(ctx, dev, &driver);
         if (r >= 0)

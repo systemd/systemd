@@ -74,7 +74,7 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
                 /* check if it's a numeric code already */
                 keycode_num = strtoul(keycode, &endptr, 0);
                 if (endptr[0] !='\0')
-                        return log_device_error_errno(dev, EINVAL, "Failed to parse key identifier '%s'", keycode);
+                        return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Failed to parse key identifier '%s'", keycode);
         }
 
         map.scan = scancode;
@@ -152,7 +152,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to parse POINTINGSTICK_SENSITIVITY '%s': %m", value);
         else if (val_i < 0 || val_i > 255)
-                return log_device_error_errno(dev, ERANGE, "POINTINGSTICK_SENSITIVITY %d outside range [0..255]", val_i);
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(ERANGE), "POINTINGSTICK_SENSITIVITY %d outside range [0..255]", val_i);
 
         xsprintf(val_s, "%d", val_i);
 

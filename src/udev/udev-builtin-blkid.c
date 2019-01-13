@@ -240,7 +240,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                         if (r < 0)
                                 return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
                         if (offset < 0)
-                                return log_device_error_errno(dev, -ERANGE, "Invalid offset %"PRIi64": %m", offset);
+                                return log_device_error_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid offset %"PRIi64": %m", offset);
                         break;
                 case 'R':
                         noraid = true;
