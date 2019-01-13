@@ -732,7 +732,7 @@ static const NLTypeSystem genl_wireguard_peer_type_system = {
 
 static const NLType genl_wireguard_set_device_types[] = {
         [WGDEVICE_A_IFINDEX] = { .type = NETLINK_TYPE_U32 },
-        [WGDEVICE_A_IFNAME] = { .type = NETLINK_TYPE_STRING },
+        [WGDEVICE_A_IFNAME] = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ-1 },
         [WGDEVICE_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
         [WGDEVICE_A_PRIVATE_KEY] = { .size = WG_KEY_LEN },
         [WGDEVICE_A_LISTEN_PORT] = { .type = NETLINK_TYPE_U16 },
