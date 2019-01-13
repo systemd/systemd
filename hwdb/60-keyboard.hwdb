@@ -624,14 +624,14 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*
 
 # Huawei WMI hotkeys driver
 evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*
- KEYBOARD_KEY_287=FW250                                 # Microphone mute button, should be micmute
+ KEYBOARD_KEY_287=f20                                   # Microphone mute button, should be micmute
 
 # Huawei MACH-WX9
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:pvr*
  KEYBOARD_KEY_f7=unknown
  KEYBOARD_KEY_f8=fn
- KEYBOARD_KEY_281=unknown                               # Disable brightness down (Huawei WMI hotkeys driver)
- KEYBOARD_KEY_282=unknown                               # Disable brightness up (Huawei WMI hotkeys driver)
+ KEYBOARD_KEY_281=unknown                               # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_282=unknown                               # Brightness Ul, also emitted by acpi-video, ignore
 
 ###########################################################
 # IBM
