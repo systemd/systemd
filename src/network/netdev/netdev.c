@@ -148,11 +148,16 @@ static void netdev_callbacks_clear(NetDev *netdev) {
         }
 }
 
+bool netdev_is_managed(NetDev *netdev) {
+        if (!netdev || !netdev->manager || !netdev->ifname)
+                return false;
+
+        return hashmap_get(netdev->manager->netdevs, netdev->ifname) == netdev;
+}
+
 static void netdev_detach_from_manager(NetDev *netdev) {
         if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
-
-        netdev->manager = NULL;
 }
 
 static NetDev *netdev_free(NetDev *netdev) {

@@ -517,8 +517,6 @@ static void link_detach_from_manager(Link *link) {
         hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
         set_remove(link->manager->links_requesting_uuid, link);
         link_clean(link);
-
-        link->manager = NULL;
 }
 
 static Link *link_free(Link *link) {
