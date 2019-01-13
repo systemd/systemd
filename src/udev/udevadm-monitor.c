@@ -144,11 +144,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         slash = strchr(optarg, '/');
                         if (slash) {
-                                devtype = strdup(devtype + 1);
+                                devtype = strdup(slash + 1);
                                 if (!devtype)
                                         return -ENOMEM;
 
-                                subsystem = strndup(optarg, devtype - optarg);
+                                subsystem = strndup(optarg, slash - optarg);
                         } else
                                 subsystem = strdup(optarg);
 
