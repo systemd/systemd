@@ -224,8 +224,7 @@ static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        if (!netdev->manager)
-                /* The netdev is detached. */
+        if (!netdev_is_managed(netdev))
                 return 0;
 
         assert(!w->unresolved_endpoints);
@@ -260,8 +259,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
         w = WIREGUARD(netdev);
         assert(w);
 
-        if (!netdev->manager)
-                /* The netdev is detached. */
+        if (!netdev_is_managed(netdev))
                 return 0;
 
         if (ret != 0) {
