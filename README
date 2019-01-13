@@ -163,7 +163,9 @@ REQUIREMENTS:
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-lxml (optional, required to build the indices)
-        python >= 3.5, meson >= 0.46, ninja
+        python >= 3.5
+        meson >= 0.46 (>= 0.49 is required to build position-independent executables)
+        ninja
         gcc, awk, sed, grep, m4, and similar tools
 
         During runtime, you need the following additional
