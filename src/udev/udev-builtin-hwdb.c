@@ -165,7 +165,7 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to lookup hwdb: %m");
                 if (r == 0)
-                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT), "No entry found from hwdb.");
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENODATA), "No entry found from hwdb.");
                 return r;
         }
 
@@ -180,7 +180,7 @@ static int builtin_hwdb(sd_device *dev, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to lookup hwdb: %m");
         if (r == 0)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT), "No entry found from hwdb.");
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENODATA), "No entry found from hwdb.");
         return r;
 }
 
