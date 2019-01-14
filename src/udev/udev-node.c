@@ -579,7 +579,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                         (void) rmdir_parents(slink, "/");
         } else {
                 log_debug("Creating link '%s' to '%s'", slink, target);
-                mkdir_parents(slink, 0755);
                 node_symlink(dev, target, slink);
         }
 
