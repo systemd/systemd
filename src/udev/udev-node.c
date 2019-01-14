@@ -558,7 +558,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (!dir) {
                 int err = errno;
 
-                close(dfd);
+                (void) close(dfd);
                 return log_device_error_errno(dev, err,
                                               "Failed to fdopendir %d: %m", dfd);
         }
