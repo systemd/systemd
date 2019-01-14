@@ -246,7 +246,7 @@ static int create_target_entry(int dirfd, int prio, const char *filename, const 
 
         xsprintf(prioname, "L:%d", prio);
 
-        mkdirat(dirfd, prioname, 0755);
+        (void) mkdirat(dirfd, prioname, 0755);
         priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
         if (priofd == -1)
                 return log_error_errno(errno, "Failed to open %s: %m", prioname);
@@ -265,7 +265,7 @@ static int delete_target_entry(int dirfd, int prio, const char *filename, const 
         int r;
 
         /* Unlink legacy name, if present */
-        unlinkat(dirfd, filename, 0);
+        (void) unlinkat(dirfd, filename, 0);
 
         xsprintf(prioname, "L:%d", prio);
 
