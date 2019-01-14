@@ -483,7 +483,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         int dfd, priority;
         unsigned short semidx;
         int r;
-        bool lock_failed;
+        bool is_locked;
 
         assert(dev);
         assert(slink);
@@ -542,7 +542,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         }
 
         semidx = get_sema_index(slink);
-        lock_failed = (lock_slink(semid, semidx) < 0);
+        is_locked = lock_slink(semid, semidx) == 0;
 
         r = link_find_prioritized(dev, add, dir, slink, &target);
         if (r == TARGET_NEEDS_CLEANUP) {
@@ -561,7 +561,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 node_symlink(dev, target, slink);
         }
 
-        if (!lock_failed)
+        if (is_locked)
                 unlock_slink(semid, semidx);
 
         return 0;
