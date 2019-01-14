@@ -538,6 +538,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-link-section-unmanaged.network',
         '25-route-gateway.network',
         '25-route-gateway-on-link.network',
+        '25-route-ipv6-src.network',
         '25-route-reverse-order.network',
         '25-route-section.network',
         '25-route-tcp-window-settings.network',
@@ -769,6 +770,22 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'kernel')
         self.assertRegex(output, 'scope')
         self.assertRegex(output, 'link')
+
+    def test_ip_route_ipv6_src_route(self):
+        # a dummy device does not make the addresses go through tentative state, so we
+        # reuse a bond from an earlier test, which does make the addresses go through
+        # tentative state, and do our test on that
+        self.copy_unit_to_networkd_unit_path('23-active-slave.network', '25-route-ipv6-src.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+        self.assertTrue(self.link_exits('bond199'))
+
+        output = subprocess.check_output(['ip', '-6', 'route', 'list', 'dev', 'bond199']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'abcd::/16')
+        self.assertRegex(output, 'src')
+        self.assertRegex(output, '2001:1234:56:8f63::2')
 
     def test_ip_link_mac_address(self):
         self.copy_unit_to_networkd_unit_path('25-address-link-section.network', '12-dummy.netdev')
