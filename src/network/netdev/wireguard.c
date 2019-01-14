@@ -45,22 +45,137 @@ static WireguardPeer *wireguard_peer_new(Wireguard *w, unsigned section) {
         return peer;
 }
 
-static int set_wireguard_interface(NetDev *netdev) {
+static int wireguard_set_ipmask_one(NetDev *netdev, sd_netlink_message *message, const WireguardIPmask *mask, uint16_t index) {
         int r;
-        unsigned i, j;
-        WireguardPeer *peer, *peer_start;
-        WireguardIPmask *mask, *mask_start = NULL;
+
+        assert(message);
+        assert(mask);
+        assert(index > 0);
+
+        /* This returns 1 on success, 0 on recoverable error, and negative errno on failure. */
+
+        r = sd_netlink_message_open_array(message, index);
+        if (r < 0)
+                return 0;
+
+        r = sd_netlink_message_append_u16(message, WGALLOWEDIP_A_FAMILY, mask->family);
+        if (r < 0)
+                goto cancel;
+
+        if (mask->family == AF_INET)
+                r = sd_netlink_message_append_in_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in);
+        else if (mask->family == AF_INET6)
+                r = sd_netlink_message_append_in6_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in6);
+        if (r < 0)
+                goto cancel;
+
+        r = sd_netlink_message_append_u8(message, WGALLOWEDIP_A_CIDR_MASK, mask->cidr);
+        if (r < 0)
+                goto cancel;
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
+
+        return 1;
+
+cancel:
+        r = sd_netlink_message_cancel_array(message);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not cancel wireguard allowed ip message attribute: %m");
+
+        return 0;
+}
+
+static int wireguard_set_peer_one(NetDev *netdev, sd_netlink_message *message, const WireguardPeer *peer, uint16_t index, WireguardIPmask **mask_start) {
+        WireguardIPmask *mask, *start;
+        uint16_t j = 0;
+        int r;
+
+        assert(message);
+        assert(peer);
+        assert(index > 0);
+        assert(mask_start);
+
+        /* This returns 1 on success, 0 on recoverable error, and negative errno on failure. */
+
+        start = *mask_start ?: peer->ipmasks;
+
+        r = sd_netlink_message_open_array(message, index);
+        if (r < 0)
+                return 0;
+
+        r = sd_netlink_message_append_data(message, WGPEER_A_PUBLIC_KEY, &peer->public_key, sizeof(peer->public_key));
+        if (r < 0)
+                goto cancel;
+
+        if (!start) {
+                r = sd_netlink_message_append_data(message, WGPEER_A_PRESHARED_KEY, &peer->preshared_key, WG_KEY_LEN);
+                if (r < 0)
+                        goto cancel;
+
+                r = sd_netlink_message_append_u32(message, WGPEER_A_FLAGS, peer->flags);
+                if (r < 0)
+                        goto cancel;
+
+                r = sd_netlink_message_append_u16(message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
+                if (r < 0)
+                        goto cancel;
+
+                if (peer->endpoint.sa.sa_family == AF_INET)
+                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
+                else if (peer->endpoint.sa.sa_family == AF_INET6)
+                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
+                if (r < 0)
+                        goto cancel;
+        }
+
+        r = sd_netlink_message_open_container(message, WGPEER_A_ALLOWEDIPS);
+        if (r < 0)
+                goto cancel;
+
+        LIST_FOREACH(ipmasks, mask, start) {
+                r = wireguard_set_ipmask_one(netdev, message, mask, ++j);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+        }
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not add wireguard peer: %m");
+
+        *mask_start = mask; /* Start next cycle from this mask. */
+        return !mask;
+
+cancel:
+        r = sd_netlink_message_cancel_array(message);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not cancel wireguard peers: %m");
+
+        return 0;
+}
+
+static int wireguard_set_interface(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
-        Wireguard *w;
+        WireguardIPmask *mask_start = NULL;
+        WireguardPeer *peer, *peer_start;
         uint32_t serial;
+        Wireguard *w;
+        int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        peer_start = w->peers;
+        for (peer_start = w->peers; peer_start; ) {
+                uint16_t i = 0;
 
-        do {
                 message = sd_netlink_message_unref(message);
 
                 r = sd_genl_message_new(netdev->manager->genl, SD_GENL_WIREGUARD, WG_CMD_SET_DEVICE, &message);
@@ -93,97 +208,14 @@ static int set_wireguard_interface(NetDev *netdev) {
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append wireguard peer attributes: %m");
 
-                i = 0;
-
                 LIST_FOREACH(peers, peer, peer_start) {
-                        r = sd_netlink_message_open_array(message, ++i);
+                        r = wireguard_set_peer_one(netdev, message, peer, ++i, &mask_start);
                         if (r < 0)
+                                return r;
+                        if (r == 0)
                                 break;
-
-                        r = sd_netlink_message_append_data(message, WGPEER_A_PUBLIC_KEY, &peer->public_key, sizeof(peer->public_key));
-                        if (r < 0)
-                                break;
-
-                        if (!mask_start) {
-                                r = sd_netlink_message_append_data(message, WGPEER_A_PRESHARED_KEY, &peer->preshared_key, WG_KEY_LEN);
-                                if (r < 0)
-                                        break;
-
-                                r = sd_netlink_message_append_u32(message, WGPEER_A_FLAGS, peer->flags);
-                                if (r < 0)
-                                        break;
-
-                                r = sd_netlink_message_append_u16(message, WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, peer->persistent_keepalive_interval);
-                                if (r < 0)
-                                        break;
-
-                                if (peer->endpoint.sa.sa_family == AF_INET) {
-                                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
-                                        if (r < 0)
-                                                break;
-                                } else if (peer->endpoint.sa.sa_family == AF_INET6) {
-                                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
-                                        if (r < 0)
-                                                break;
-                                }
-
-                                mask_start = peer->ipmasks;
-                        }
-
-                        r = sd_netlink_message_open_container(message, WGPEER_A_ALLOWEDIPS);
-                        if (r < 0) {
-                                mask_start = NULL;
-                                break;
-                        }
-                        j = 0;
-                        LIST_FOREACH(ipmasks, mask, mask_start) {
-                                r = sd_netlink_message_open_array(message, ++j);
-                                if (r < 0)
-                                        break;
-
-                                r = sd_netlink_message_append_u16(message, WGALLOWEDIP_A_FAMILY, mask->family);
-                                if (r < 0)
-                                        break;
-
-                                if (mask->family == AF_INET) {
-                                        r = sd_netlink_message_append_in_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in);
-                                        if (r < 0)
-                                                break;
-                                } else if (mask->family == AF_INET6) {
-                                        r = sd_netlink_message_append_in6_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in6);
-                                        if (r < 0)
-                                                break;
-                                }
-
-                                r = sd_netlink_message_append_u8(message, WGALLOWEDIP_A_CIDR_MASK, mask->cidr);
-                                if (r < 0)
-                                        break;
-
-                                r = sd_netlink_message_close_container(message);
-                                if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
-                        }
-                        mask_start = mask;
-                        if (mask_start) {
-                                r = sd_netlink_message_cancel_array(message);
-                                if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not cancel wireguard allowed ip message attribute: %m");
-                        }
-                        r = sd_netlink_message_close_container(message);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not add wireguard allowed ip: %m");
-
-                        r = sd_netlink_message_close_container(message);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not add wireguard peer: %m");
                 }
-
-                peer_start = peer;
-                if (peer_start && !mask_start) {
-                        r = sd_netlink_message_cancel_array(message);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not cancel wireguard peers: %m");
-                }
+                peer_start = peer; /* Start next cycle from this peer. */
 
                 r = sd_netlink_message_close_container(message);
                 if (r < 0)
@@ -192,8 +224,7 @@ static int set_wireguard_interface(NetDev *netdev) {
                 r = sd_netlink_send(netdev->manager->genl, message, &serial);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not set wireguard device: %m");
-
-        } while (peer || mask_start);
+        }
 
         return 0;
 }
@@ -280,7 +311,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
                 return 0;
         }
 
-        set_wireguard_interface(netdev);
+        (void) wireguard_set_interface(netdev);
         if (w->failed_endpoints) {
                 _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
 
@@ -355,7 +386,7 @@ static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_m
         w = WIREGUARD(netdev);
         assert(w);
 
-        set_wireguard_interface(netdev);
+        (void) wireguard_set_interface(netdev);
         resolve_endpoints(netdev);
         return 0;
 }
