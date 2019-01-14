@@ -160,7 +160,7 @@ static int context_ntp_service_is_active(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += streq_ptr(info->active_state, "active");
+                count += !STRPTR_IN_SET(info->active_state, "inactive", "failed");
 
         return count;
 }
@@ -174,7 +174,7 @@ static int context_ntp_service_is_enabled(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += STRPTR_IN_SET(info->unit_file_state, "enabled", "enabled-runtime");
+                count += !STRPTR_IN_SET(info->unit_file_state, "masked", "masked-runtime", "disabled", "bad");
 
         return count;
 }
