@@ -583,7 +583,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         }
 
         if (is_locked)
-                unlock_slink(semid, semidx);
+                (void) unlock_slink(semid, semidx);
 
         return 0;
 }
