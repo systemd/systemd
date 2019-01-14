@@ -313,6 +313,9 @@ static int init_link_semaphores(const char *path) {
                 n_semaphores >>= 1;
 
         key = ftok(path, 0);
+        if (key == (key_t) -1)
+                return log_error_errno(errno, "Failed in ftok() for %s", path);
+
         semid = semget(key, n_semaphores, 0600|IPC_CREAT|IPC_EXCL);
 
         if (semid >= 0) {
@@ -505,6 +508,9 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         assert(dev);
         assert(slink);
 
+        r = mkdir_p(LINKS_DIRNAME, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s", LINKS_DIRNAME);
         if (semid == SEMID_UNSET) {
                 semid = init_link_semaphores(LINKS_DIRNAME);
                 if (semid < 0) {
@@ -512,7 +518,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                         semid = SEMID_BAD;
                 }
         }
-        (void) mkdir_p(LINKS_DIRNAME, 0755);
         links_fd = open(LINKS_DIRNAME, O_RDONLY|O_DIRECTORY);
         if (links_fd == -1)
                 return log_error_errno(errno, "Failed to open %s: %m", dirname);
