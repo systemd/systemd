@@ -600,18 +600,11 @@ DnsScopeMatch dns_scope_good_domain(
                         return m;
 
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
-                        return DNS_SCOPE_MAYBE;
-
-                if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
+                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0) ||
+                    (dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
-                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative for
-                                                        * single-label names, i.e. one label. This is particular
-                                                        * relevant as it means a "." route on some other scope won't
-                                                        * pull all traffic away from us. (If people actually want to
-                                                        * pull traffic away from us they should turn off LLMNR on the
-                                                        * link) */
+                        return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
         }
