@@ -421,6 +421,7 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
         _cleanup_free_ struct dirent **darr = NULL;
         _cleanup_closedir_ DIR *dir;
         int dfd = -1, n;
+        int err = 0;
 
         log_info("Migrating symlink targets in %s", dirname);
 
@@ -449,22 +450,38 @@ static int cleanup_old_targets(const char *dirname, struct sd_device *dev) {
                 /* is_prio_dirent() called dirent_ensure_type() */
                 r = unlinkat(dfd, de->d_name,
                              de->d_type == DT_DIR ? AT_REMOVEDIR : 0);
-                if (r < 0)
+                if (r < 0) {
+                        if (err == 0)
+                                err = r;
                         log_error_errno(errno, "Failed to remove %s/%s: %m",
                                         dirname, de->d_name);
-                else
+                } else
                         log_debug("Removed %s/%s", dirname, de->d_name);
 
                 /* Now create the new-style entry */
-                if (sd_device_new_from_device_id(&ud, de->d_name) < 0)
+                r = sd_device_new_from_device_id(&ud, de->d_name);
+                if (r == -ENODEV)
                         continue;
-
-                if (device_get_devlink_priority(ud, &prio) < 0)
+                else if (r < 0) {
+                        if (err == 0)
+                                err = r;
+                        log_debug_errno(r, "Failed to get device %s", de->d_name);
                         continue;
+                }
 
-                create_target_entry(dfd, prio, de->d_name, dirname);
+                r = device_get_devlink_priority(ud, &prio);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to get devlink prio");
+                        if (err == 0)
+                                err = r;
+                        continue;
+                }
+
+                r = create_target_entry(dfd, prio, de->d_name, dirname);
+                if (err == 0 && r < 0)
+                        err = r;
         }
-        return 0;
+        return err;
 }
 
 enum {
@@ -546,7 +563,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
         r = link_find_prioritized(dev, add, dir, slink, &target);
         if (r == TARGET_NEEDS_CLEANUP) {
-                cleanup_old_targets(dirname, dev);
+                (void) cleanup_old_targets(dirname, dev);
                 r = link_find_prioritized(dev, add, dir, slink, &target);
                 /* A single cleanup must be enough */
                 assert(r != TARGET_NEEDS_CLEANUP);
