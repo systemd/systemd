@@ -35,7 +35,6 @@ static int parse_env_file_internal(
                 VALUE,
                 VALUE_ESCAPE,
                 SINGLE_QUOTE_VALUE,
-                SINGLE_QUOTE_VALUE_ESCAPE,
                 DOUBLE_QUOTE_VALUE,
                 DOUBLE_QUOTE_VALUE_ESCAPE,
                 COMMENT,
@@ -186,8 +185,6 @@ static int parse_env_file_internal(
                 case SINGLE_QUOTE_VALUE:
                         if (c == '\'')
                                 state = PRE_VALUE;
-                        else if (c == '\\')
-                                state = SINGLE_QUOTE_VALUE_ESCAPE;
                         else {
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
@@ -195,17 +192,6 @@ static int parse_env_file_internal(
                                 value[n_value++] = c;
                         }
 
-                        break;
-
-                case SINGLE_QUOTE_VALUE_ESCAPE:
-                        state = SINGLE_QUOTE_VALUE;
-
-                        if (!strchr(NEWLINE, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
-                                        return -ENOMEM;
-
-                                value[n_value++] = c;
-                        }
                         break;
 
                 case DOUBLE_QUOTE_VALUE:
@@ -225,12 +211,17 @@ static int parse_env_file_internal(
                 case DOUBLE_QUOTE_VALUE_ESCAPE:
                         state = DOUBLE_QUOTE_VALUE;
 
-                        if (!strchr(NEWLINE, c)) {
+                        if (c == '"') {
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
-
+                                value[n_value++] = '"';
+                        } else if (!strchr(NEWLINE, c)) {
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+3))
+                                        return -ENOMEM;
+                                value[n_value++] = '\\';
                                 value[n_value++] = c;
                         }
+
                         break;
 
                 case COMMENT:
@@ -253,7 +244,6 @@ static int parse_env_file_internal(
                    VALUE,
                    VALUE_ESCAPE,
                    SINGLE_QUOTE_VALUE,
-                   SINGLE_QUOTE_VALUE_ESCAPE,
                    DOUBLE_QUOTE_VALUE,
                    DOUBLE_QUOTE_VALUE_ESCAPE)) {
 
