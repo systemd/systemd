@@ -659,6 +659,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4 peer 10.2.3.5/16 scope global 32')
         self.assertRegex(output, 'inet 10.6.7.8/16 brd 10.6.255.255 scope global 33')
+        self.assertRegex(output, 'inet6 2001:db8::20 peer 2001:db8::10/128 scope global')
 
         output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
         print(output)
