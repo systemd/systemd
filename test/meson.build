@@ -252,7 +252,8 @@ if perl.found()
         udev_test_pl = find_program('udev-test.pl')
         if want_tests != 'false'
                 test('udev-test',
-                     udev_test_pl)
+                     udev_test_pl,
+                     timeout : 90)
         endif
 else
         message('Skipping udev-test because perl is not available')
