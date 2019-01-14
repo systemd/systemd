@@ -61,7 +61,7 @@ static void udev_list_node_remove(struct udev_list_node *entry) {
 }
 
 /* return list entry which embeds this node */
-static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *node) {
+static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node) {
         return container_of(node, struct udev_list_entry, node);
 }
 

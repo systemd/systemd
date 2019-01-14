@@ -118,7 +118,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou);
 DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64);
 
-static inline int bus_append_string(sd_bus_message *m, const char *field, const char *eq) {
+static int bus_append_string(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
         r = sd_bus_message_append(m, "(sv)", field, "s", eq);

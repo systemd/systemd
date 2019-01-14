@@ -87,7 +87,7 @@ char *getusername_malloc(void) {
         return uid_to_name(getuid());
 }
 
-static inline bool is_nologin_shell(const char *shell) {
+static bool is_nologin_shell(const char *shell) {
 
         return PATH_IN_SET(shell,
                            /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice

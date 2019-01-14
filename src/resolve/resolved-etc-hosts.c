@@ -12,12 +12,12 @@
 /* Recheck /etc/hosts at most once every 2s */
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
-static inline void etc_hosts_item_free(EtcHostsItem *item) {
+static void etc_hosts_item_free(EtcHostsItem *item) {
         strv_free(item->names);
         free(item);
 }
 
-static inline void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
+static void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
         free(item->name);
         free(item->addresses);
         free(item);

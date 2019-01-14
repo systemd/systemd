@@ -52,7 +52,7 @@ struct SetupHeader {
 
 #ifdef __x86_64__
 typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup);
-static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
+static VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
         handover_f handover;
 
         asm volatile ("cli");
@@ -61,7 +61,7 @@ static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setu
 }
 #else
 typedef VOID(*handover_f)(VOID *image, EFI_SYSTEM_TABLE *table, struct SetupHeader *setup) __attribute__((regparm(0)));
-static inline VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
+static VOID linux_efi_handover(EFI_HANDLE image, struct SetupHeader *setup) {
         handover_f handover;
 
         handover = (handover_f)((UINTN)setup->code32_start + setup->handover_offset);

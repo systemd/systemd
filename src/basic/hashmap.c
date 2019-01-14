@@ -345,7 +345,7 @@ static unsigned base_bucket_hash(HashmapBase *h, const void *p) {
 }
 #define bucket_hash(h, p) base_bucket_hash(HASHMAP_BASE(h), p)
 
-static inline void base_set_dirty(HashmapBase *h) {
+static void base_set_dirty(HashmapBase *h) {
         h->dirty = true;
 }
 #define hashmap_set_dirty(h) base_set_dirty(HASHMAP_BASE(h))

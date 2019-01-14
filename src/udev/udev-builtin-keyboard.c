@@ -89,7 +89,7 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
         return 0;
 }
 
-static inline char* parse_token(const char *current, int32_t *val_out) {
+static char* parse_token(const char *current, int32_t *val_out) {
         char *next;
         int32_t val;
 

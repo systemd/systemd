@@ -68,7 +68,7 @@ typedef struct {
         size_t n_rules;
 } Presets;
 
-static inline bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
+static bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->aliases) ||
@@ -76,13 +76,13 @@ static inline bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i
                !strv_isempty(i->required_by);
 }
 
-static inline bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
+static bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
         assert(i);
 
         return !strv_isempty(i->also);
 }
 
-static inline void presets_freep(Presets *p) {
+static void presets_freep(Presets *p) {
         size_t i;
 
         if (!p)

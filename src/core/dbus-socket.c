@@ -134,11 +134,11 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static inline bool check_size_t_truncation(uint64_t t) {
+static bool check_size_t_truncation(uint64_t t) {
         return (size_t) t == t;
 }
 
-static inline const char* socket_protocol_to_string(int32_t i) {
+static const char* socket_protocol_to_string(int32_t i) {
         if (i == IPPROTO_IP)
                 return "";
 
