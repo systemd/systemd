@@ -19,11 +19,13 @@ jobs:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
           install:
-              - $CI_ROOT/travis-centos.sh SETUP
+              - RHEL_VERSION="rhel7"
+              - [ -f meson.build ] && RHEL_VERSION="rhel8"
+              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh SETUP
           script:
               - set -e
               # Build systemd
-              - $CI_ROOT/travis-centos.sh RUN
+              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh RUN
               - set +e
           after_script:
-              - $CI_ROOT/travis-centos.sh CLEANUP
+              - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh CLEANUP
