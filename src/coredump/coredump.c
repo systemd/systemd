@@ -142,7 +142,7 @@ static int parse_config(void) {
                                         CONFIG_PARSE_WARN, NULL);
 }
 
-static inline uint64_t storage_size_max(void) {
+static uint64_t storage_size_max(void) {
         if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 return arg_external_size_max;
         if (arg_storage == COREDUMP_STORAGE_JOURNAL)
@@ -229,7 +229,7 @@ static int fix_xattr(int fd, const char *context[_CONTEXT_MAX]) {
 
 #define filename_escape(s) xescape((s), "./ ")
 
-static inline const char *coredump_tmpfile_name(const char *s) {
+static const char *coredump_tmpfile_name(const char *s) {
         return s ? s : "(unnamed temporary file)";
 }
 

@@ -48,7 +48,7 @@ struct expire_data {
         int ioctl_fd;
 };
 
-static inline void expire_data_free(struct expire_data *data) {
+static void expire_data_free(struct expire_data *data) {
         if (!data)
                 return;
 

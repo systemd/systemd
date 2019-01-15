@@ -276,11 +276,11 @@ _public_ int sd_network_link_get_carrier_bound_by(int ifindex, int **ret) {
         return network_link_get_ifindexes(ifindex, "CARRIER_BOUND_BY", ret);
 }
 
-static inline int MONITOR_TO_FD(sd_network_monitor *m) {
+static int MONITOR_TO_FD(sd_network_monitor *m) {
         return (int) (unsigned long) m - 1;
 }
 
-static inline sd_network_monitor* FD_TO_MONITOR(int fd) {
+static sd_network_monitor* FD_TO_MONITOR(int fd) {
         return (sd_network_monitor*) (unsigned long) (fd + 1);
 }
 

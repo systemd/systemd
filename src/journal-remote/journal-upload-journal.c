@@ -235,7 +235,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
         assert_not_reached("WTF?");
 }
 
-static inline void check_update_watchdog(Uploader *u) {
+static void check_update_watchdog(Uploader *u) {
         usec_t after;
         usec_t elapsed_time;
 

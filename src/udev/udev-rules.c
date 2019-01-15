@@ -441,8 +441,8 @@ static void dump_rules(UdevRules *rules) {
                 dump_token(rules, &rules->tokens[i]);
 }
 #else
-static inline void dump_token(UdevRules *rules, struct token *token) {}
-static inline void dump_rules(UdevRules *rules) {}
+static void dump_token(UdevRules *rules, struct token *token) {}
+static void dump_rules(UdevRules *rules) {}
 #endif /* ENABLE_DEBUG_UDEV */
 
 static int add_token(UdevRules *rules, struct token *token) {

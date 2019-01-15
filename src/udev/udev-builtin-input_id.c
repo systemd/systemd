@@ -42,7 +42,7 @@ static const struct range high_key_blocks[] = {
         { KEY_ALS_TOGGLE, BTN_TRIGGER_HAPPY }
 };
 
-static inline int abs_size_mm(const struct input_absinfo *absinfo) {
+static int abs_size_mm(const struct input_absinfo *absinfo) {
         /* Resolution is defined to be in units/mm for ABS_X/Y */
         return (absinfo->maximum - absinfo->minimum) / absinfo->resolution;
 }
