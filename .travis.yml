@@ -19,8 +19,7 @@ jobs:
               - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
               - docker --version
           install:
-              - RHEL_VERSION="rhel7"
-              - [ -f meson.build ] && RHEL_VERSION="rhel8"
+              - if [ -f meson.build ]; then RHEL_VERSION=rhel8; else RHEL_VERSION=rhel7; fi
               - $CI_ROOT/travis-centos-${RHEL_VERSION}.sh SETUP
           script:
               - set -e
