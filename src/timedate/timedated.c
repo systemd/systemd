@@ -523,6 +523,10 @@ static int property_get_can_ntp(
         assert(reply);
         assert(error);
 
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is enabled. */
+                return sd_bus_message_append(reply, "b", true);
+
         r = context_update_ntp_status(c, bus, reply);
         if (r < 0)
                 return r;
@@ -547,6 +551,10 @@ static int property_get_ntp(
         assert(property);
         assert(reply);
         assert(error);
+
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is active. */
+                return sd_bus_message_append(reply, "b", true);
 
         r = context_update_ntp_status(c, bus, reply);
         if (r < 0)
@@ -734,6 +742,9 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         assert(m);
         assert(c);
+
+        if (c->slot_job_removed)
+                return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Previous request is not finished, refusing.");
 
         r = context_update_ntp_status(c, bus, m);
         if (r < 0)
