@@ -369,8 +369,8 @@
           common transmission parameters, such as speed, duplex mode, and flow control.
           When unset, the kernel's default will be used.</para>
 
-          <para>Note that if autonegotiation is enabled, speed, duplex and advertise settings are
-          read-only. If autonegotation is disabled, speed, duplex and advertise settings are writable
+          <para>Note that if autonegotiation is enabled, speed and duplex settings are
+          read-only. If autonegotation is disabled, speed and duplex settings are writable
           if the driver supports multiple link modes.</para>
         </listitem>
       </varlistentry>
@@ -481,7 +481,7 @@
         <term><varname>Advertise=</varname></term>
         <listitem>
           <para>This sets what speeds and duplex modes of operation are advertised for auto-negotiation.
-          The supported values are:
+          This implies <literal>AutoNegotiation=yes</literal>. The supported values are:
 
           <table>
             <title>Supported advertise values</title>
