@@ -131,7 +131,7 @@ static bool check_user_has_group_with_same_name(const char *name) {
 }
 
 static bool is_inaccessible_available(void) {
-        char *p;
+        const char *p;
 
         FOREACH_STRING(p,
                 "/run/systemd/inaccessible/reg",
