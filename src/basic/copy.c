@@ -24,6 +24,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "mountpoint-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -501,7 +502,7 @@ static int fd_copy_directory(
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        bool created;
+        bool exists, created;
         int r;
 
         assert(st);
@@ -522,13 +523,26 @@ static int fd_copy_directory(
                 return -errno;
         fdf = -1;
 
-        r = mkdirat(dt, to, st->st_mode & 07777);
-        if (r >= 0)
-                created = true;
-        else if (errno == EEXIST && (copy_flags & COPY_MERGE))
+        exists = false;
+        if (copy_flags & COPY_MERGE_EMPTY) {
+                r = dir_is_empty_at(dt, to);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                else if (r == 1)
+                        exists = true;
+        }
+
+        if (exists)
                 created = false;
-        else
-                return -errno;
+        else {
+                r = mkdirat(dt, to, st->st_mode & 07777);
+                if (r >= 0)
+                        created = true;
+                else if (errno == EEXIST && (copy_flags & COPY_MERGE))
+                        created = false;
+                else
+                        return -errno;
+        }
 
         fdt = openat(dt, to, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fdt < 0)

@@ -67,13 +67,22 @@ int is_device_node(const char *path) {
         return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
 }
 
-int dir_is_empty(const char *path) {
-        _cleanup_closedir_ DIR *d;
+int dir_is_empty_at(int dir_fd, const char *path) {
+        _cleanup_close_ int fd = -1;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
 
-        d = opendir(path);
+        if (path)
+                fd = openat(dir_fd, path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        else
+                fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (fd < 0)
+                return -errno;
+
+        d = fdopendir(fd);
         if (!d)
                 return -errno;
+        fd = -1;
 
         FOREACH_DIRENT(de, d, return -errno)
                 return 0;
