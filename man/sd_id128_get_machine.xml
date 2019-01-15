@@ -122,8 +122,8 @@
     <function>sd_id128_get_machine()</function>,
     <function>sd_id128_get_machine_app_specific()</function>, and
     <function>sd_id128_get_boot_app_specific()</function> return <constant>-ENOENT</constant> if
-    <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if is empty
-    or all zeros.</para>
+    <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if
+    <filename>/etc/machine-id</filename> is empty or all zeros.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
