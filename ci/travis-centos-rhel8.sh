@@ -45,7 +45,7 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC curl "$COPR_REPO" -o "$COPR_REPO_PATH"
             $DOCKER_EXEC yum -q -y install epel-release yum-utils
             $DOCKER_EXEC yum-config-manager -q --enable epel
-            $DOCKER_EXEC yum -y --exclude selinux-policy\* upgrade
+            $DOCKER_EXEC yum -y upgrade
             # Install necessary build/test requirements
             $DOCKER_EXEC yum -y install "${ADDITIONAL_DEPS[@]}"
             $DOCKER_EXEC python3.6 -m ensurepip

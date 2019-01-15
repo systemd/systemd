@@ -40,7 +40,7 @@ for phase in "${PHASES[@]}"; do
             sleep 1
             $DOCKER_EXEC yum makecache
             # Install necessary build/test requirements
-            $DOCKER_EXEC yum -y --exclude selinux-policy\* upgrade
+            $DOCKER_EXEC yum -y upgrade
             $DOCKER_EXEC yum -y install "${ADDITIONAL_DEPS[@]}"
             $DOCKER_EXEC yum-builddep -y systemd
             ;;
