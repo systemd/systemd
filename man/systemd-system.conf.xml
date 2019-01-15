@@ -251,7 +251,9 @@
         <varname>TimeoutStopSec=</varname> and
         <varname>RestartSec=</varname> (for services, see
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings). For non-service units,
+        for details on the per-unit settings). Disabled by default, when
+        service with <varname>Type=oneshot</varname> is used.
+        For non-service units,
         <varname>DefaultTimeoutStartSec=</varname> sets the default
         <varname>TimeoutSec=</varname>
         value. <varname>DefaultTimeoutStartSec=</varname> and
