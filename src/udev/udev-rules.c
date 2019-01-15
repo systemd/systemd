@@ -2231,13 +2231,12 @@ int udev_rules_apply_to_event(
                         r = hashmap_put(event->seclabel_list, name, label);
                         if (r < 0)
                                 return log_oom();
-
-                        name = label = NULL;
-
                         log_device_debug(dev, "SECLABEL{%s}='%s' %s:%u",
                                          name, label,
                                          rules_str(rules, rule->rule.filename_off),
                                          rule->rule.filename_line);
+                        name = label = NULL;
+
                         break;
                 }
                 case TK_A_ENV: {
