@@ -583,7 +583,7 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         struct ifreq ifr = {};
         int r;
 
-        if (link->autonegotiation != 0) {
+        if (link->autonegotiation != AUTONEG_DISABLE && eqzero(link->advertise)) {
                 log_info("link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.");
                 return 0;
         }
@@ -612,9 +612,11 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
         if (link->port != _NET_DEV_PORT_INVALID)
                 u->base.port = link->port;
 
-        u->base.autoneg = link->autonegotiation;
+        if (link->autonegotiation >= 0)
+                u->base.autoneg = link->autonegotiation;
 
         if (!eqzero(link->advertise)) {
+                u->base.autoneg = AUTONEG_ENABLE;
                 memcpy(&u->link_modes.advertising, link->advertise, sizeof(link->advertise));
                 memzero((uint8_t*) &u->link_modes.advertising + sizeof(link->advertise),
                         ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(link->advertise));
