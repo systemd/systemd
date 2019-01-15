@@ -733,10 +733,6 @@ int maybe_setgroups(size_t size, const gid_t *list) {
 }
 
 bool synthesize_nobody(void) {
-
-#ifdef NOLEGACY
-        return true;
-#else
         /* Returns true when we shall synthesize the "nobody" user (which we do by default). This can be turned off by
          * touching /etc/systemd/dont-synthesize-nobody in order to provide upgrade compatibility with legacy systems
          * that used the "nobody" user name and group name for other UIDs/GIDs than 65534.
@@ -750,7 +746,6 @@ bool synthesize_nobody(void) {
                 cache = access("/etc/systemd/dont-synthesize-nobody", F_OK) < 0;
 
         return cache;
-#endif
 }
 
 int putpwent_sane(const struct passwd *pw, FILE *stream) {
