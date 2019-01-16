@@ -1269,6 +1269,7 @@ static void bump_file_max_and_nr_open(void) {
 }
 
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
+        struct rlimit new_rlimit;
         int r, nr;
 
         assert(saved_rlimit);
@@ -1306,9 +1307,22 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
+        /* Calculate the new limits to use for us. Never lower from what we inherited. */
+        new_rlimit = (struct rlimit) {
+                .rlim_cur = MAX((rlim_t) nr, saved_rlimit->rlim_cur),
+                .rlim_max = MAX((rlim_t) nr, saved_rlimit->rlim_max),
+        };
+
+        /* Shortcut if nothing changes. */
+        if (saved_rlimit->rlim_max >= new_rlimit.rlim_max &&
+            saved_rlimit->rlim_cur >= new_rlimit.rlim_cur) {
+                log_debug("RLIMIT_NOFILE is already as high or higher than we need it, not bumping.");
+                return 0;
+        }
+
         /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows, for
          * both hard and soft. */
-        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(nr));
+        r = setrlimit_closest(RLIMIT_NOFILE, &new_rlimit);
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
 
@@ -1316,6 +1330,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 }
 
 static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
+        struct rlimit new_rlimit;
         int r;
 
         assert(saved_rlimit);
@@ -1338,7 +1353,22 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
                 arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
         }
 
-        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(HIGH_RLIMIT_MEMLOCK));
+        /* Using MAX() on resource limits only is safe if RLIM_INFINITY is > 0. POSIX declares that rlim_t
+         * must be unsigned, hence this is a given, but let's make this clear here. */
+        assert_cc(RLIM_INFINITY > 0);
+
+        new_rlimit = (struct rlimit) {
+                .rlim_cur = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur),
+                .rlim_max = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_max),
+        };
+
+        if (saved_rlimit->rlim_max >= new_rlimit.rlim_cur &&
+            saved_rlimit->rlim_cur >= new_rlimit.rlim_max) {
+                log_debug("RLIMIT_MEMLOCK is already as high or higher than we need it, not bumping.");
+                return 0;
+        }
+
+        r = setrlimit_closest(RLIMIT_MEMLOCK, &new_rlimit);
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
 
