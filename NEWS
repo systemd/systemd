@@ -25,6 +25,10 @@ CHANGES WITH 241 in spe:
         * kernel-install script now optionally takes a path to an initrd file,
           and passes it to all plugins.
 
+        * The mincore() system call has been dropped from the @system-service
+          system call filter group, as it is pretty exotic and may potentially
+          used for side-channel attacks.
+
         * -fPIE is dropped from compiler and linker options. Please specify
           -Db_pie=true option to meson to build position-independent
           executables. Note that the meson option is supported since meson-0.49.

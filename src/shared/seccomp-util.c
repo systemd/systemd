@@ -793,7 +793,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "ioprio_get\0"
                 "kcmp\0"
                 "madvise\0"
-                "mincore\0"
                 "mprotect\0"
                 "mremap\0"
                 "name_to_handle_at\0"
