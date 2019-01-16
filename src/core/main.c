@@ -1675,12 +1675,11 @@ static void do_reexecute(
          * we do that */
         watchdog_close(true);
 
-        /* Reset the RLIMIT_NOFILE to the kernel default, so that the new systemd can pass the kernel default to its
-         * child processes */
-
-        if (saved_rlimit_nofile->rlim_cur > 0)
+        /* Reset RLIMIT_NOFILE + RLIMIT_MEMLOCK back to the kernel defaults, so that the new systemd can pass
+         * the kernel default to its child processes */
+        if (saved_rlimit_nofile->rlim_cur != 0)
                 (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
-        if (saved_rlimit_memlock->rlim_cur != (rlim_t) -1)
+        if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         if (switch_root_dir) {
@@ -2313,7 +2312,11 @@ int main(int argc, char *argv[]) {
 
         dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
                 security_start_timestamp = DUAL_TIMESTAMP_NULL, security_finish_timestamp = DUAL_TIMESTAMP_NULL;
-        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0),
+                saved_rlimit_memlock = RLIMIT_MAKE_CONST(RLIM_INFINITY); /* The original rlimits we passed
+                                                                          * in. Note we use different values
+                                                                          * for the two that indicate whether
+                                                                          * these fields are initialized! */
         bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false, reexecute = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;
