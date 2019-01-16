@@ -396,7 +396,7 @@
     loaded into memory are those for which at least one of the following conditions is true:</para>
 
     <orderedlist>
-      <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>dead</literal>)</para></listitem>
+      <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
       <listitem><para>It has a job queued for it</para></listitem>
       <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
       <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
@@ -452,6 +452,17 @@
     means that before executing a requested operation, systemd will
     verify that it makes sense, fixing it if possible, and only
     failing if it really cannot work.</para>
+    
+    <para>Note that transactions are generated independently of a unit's
+    state at runtime, hence, for example, if a start job is requested on an
+    already started unit, it will still generate a transaction and wake up any
+    inactive dependencies (and cause propagation of other jobs as per the
+    defined relationships). This is because the enqueued job is at the time of
+    execution compared to the target unit's state and is marked successful and
+    complete when both satisfy. However, this job also pulls in other
+    dependencies due to the defined relationships and thus leads to, in our
+    our example, start jobs for any of those inactive units getting queued as
+    well.</para>
 
     <para>systemd contains native implementations of various tasks
     that need to be executed as part of the boot process. For example,
