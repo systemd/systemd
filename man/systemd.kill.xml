@@ -139,8 +139,11 @@
         <constant>SIGKILL</constant> (or the signal specified by
         <varname>FinalKillSignal=</varname>) to remaining processes
         after a timeout, if the normal shutdown procedure left
-        processes of the service around. Takes a boolean value.
-        Defaults to "yes".
+        processes of the service around. When disabled, a
+        <varname>KillMode=</varname> of <constant>control-group</constant>
+        or <constant>mixed</constant> service will not restart if
+        processes from prior services exist within the control group.
+        Takes a boolean value. Defaults to "yes".
         </para></listitem>
       </varlistentry>
 

@@ -2006,6 +2006,26 @@ static void service_kill_control_process(Service *s) {
         }
 }
 
+static int service_adverse_to_leftover_processes(Service *s) {
+        assert(s);
+
+        /* KillMode=mixed and control group are used to indicate that all process should be killed off.
+         * SendSIGKILL is used for services that require a clean shutdown. These are typically database
+         * service where a SigKilled process would result in a lengthy recovery and who's shutdown or
+         * startup time is quite variable (so Timeout settings aren't of use).
+         *
+         * Here we take these two factors and refuse to start a service if there are existing processes
+         * within a control group. Databases, while generally having some protection against multiple
+         * instances running, lets not stress the rigor of these. Also ExecStartPre parts of the service
+         * aren't as rigoriously written to protect aganst against multiple use. */
+        if (unit_warn_leftover_processes(UNIT(s)) &&
+            IN_SET(s->kill_context.kill_mode, KILL_MIXED, KILL_CONTROL_GROUP) &&
+            !s->kill_context.send_sigkill) {
+               return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EBUSY), "Will not start SendSIGKILL=no service of type KillMode=control-group or mixed while processes exist");
+        }
+        return 0;
+}
+
 static void service_enter_start(Service *s) {
         ExecCommand *c;
         usec_t timeout;
@@ -2017,7 +2037,9 @@ static void service_enter_start(Service *s) {
         service_unwatch_control_pid(s);
         service_unwatch_main_pid(s);
 
-        unit_warn_leftover_processes(UNIT(s));
+        r = service_adverse_to_leftover_processes(s);
+        if (r < 0)
+                goto fail;
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2110,7 +2132,9 @@ static void service_enter_start_pre(Service *s) {
         s->control_command = s->exec_command[SERVICE_EXEC_START_PRE];
         if (s->control_command) {
 
-                unit_warn_leftover_processes(UNIT(s));
+                r = service_adverse_to_leftover_processes(s);
+                if (r < 0)
+                        goto fail;
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 

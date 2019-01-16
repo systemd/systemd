@@ -804,7 +804,7 @@ void unit_unlink_state_files(Unit *u);
 
 int unit_prepare_exec(Unit *u);
 
-void unit_warn_leftover_processes(Unit *u);
+int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
