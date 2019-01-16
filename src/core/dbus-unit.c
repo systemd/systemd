@@ -1387,7 +1387,7 @@ static int bus_set_transient_emergency_action(
         r = parse_emergency_action(s, system, &v);
         if (r < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         r == -EOPNOTSUPP ? "EmergencyAction setting invalid for manager type: %s"
+                                         r == -EOPNOTSUPP ? "%s setting invalid for manager type: %s"
                                                           : "Invalid %s setting: %s",
                                          name, s);
 
