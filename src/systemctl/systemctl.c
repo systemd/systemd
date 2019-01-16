@@ -6933,9 +6933,9 @@ static int run_editor(char **paths) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                char **editor_args = NULL, **tmp_path, **original_path, *p;
+                char **editor_args = NULL, **tmp_path, **original_path;
                 size_t n_editor_args = 0, i = 1, argc;
-                const char **args, *editor;
+                const char **args, *editor, *p;
 
                 argc = strv_length(paths)/2 + 1;
 

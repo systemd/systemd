@@ -1964,11 +1964,11 @@ static int setup_hostname(void) {
 }
 
 static int setup_journal(const char *directory) {
-        sd_id128_t this_id;
         _cleanup_free_ char *d = NULL;
-        const char *p, *q;
+        const char *dirname, *p, *q;
+        sd_id128_t this_id;
+        char id[33];
         bool try;
-        char id[33], *dirname;
         int r;
 
         /* Don't link journals in ephemeral mode */
