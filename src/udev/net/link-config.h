@@ -27,6 +27,7 @@ typedef enum NamePolicy {
         NAMEPOLICY_SLOT,
         NAMEPOLICY_PATH,
         NAMEPOLICY_MAC,
+        NAMEPOLICY_ONCE,
         _NAMEPOLICY_MAX,
         _NAMEPOLICY_INVALID = -1
 } NamePolicy;

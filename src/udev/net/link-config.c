@@ -296,7 +296,7 @@ static bool mac_is_random(sd_device *device) {
         return type == NET_ADDR_RANDOM;
 }
 
-static bool should_rename(sd_device *device, bool respect_predictable) {
+static bool should_rename(sd_device *device, bool respect_predictable, bool once) {
         const char *s;
         unsigned type;
         int r;
@@ -310,6 +310,12 @@ static bool should_rename(sd_device *device, bool respect_predictable) {
                 return true;
 
         switch (type) {
+        case NET_NAME_USER:
+        case NET_NAME_RENAMED:
+                if (once)
+                        /* these were already named by userspace, do not touch again */
+                        return false;
+                return true;
         case NET_NAME_PREDICTABLE:
                 /* the kernel claims to have given a predictable name */
                 if (respect_predictable)
@@ -347,7 +353,7 @@ static int get_mac(sd_device *device, bool want_random,
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       sd_device *device, const char **name) {
-        bool respect_predictable = false;
+        bool respect_predictable = false, rename_only_once = false;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         const char *new_name = NULL;
@@ -429,13 +435,16 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                                 case NAMEPOLICY_MAC:
                                         (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &new_name);
                                         break;
+                                case NAMEPOLICY_ONCE:
+                                        rename_only_once = true;
+                                        break;
                                 default:
                                         break;
                         }
                 }
         }
 
-        if (!new_name && should_rename(device, respect_predictable))
+        if (!new_name && should_rename(device, respect_predictable, rename_only_once))
                 new_name = config->name;
 
         switch (config->mac_policy) {
@@ -508,7 +517,8 @@ static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",
         [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac"
+        [NAMEPOLICY_MAC] = "mac",
+        [NAMEPOLICY_ONCE] = "once",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
