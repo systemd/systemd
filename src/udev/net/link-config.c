@@ -14,6 +14,7 @@
 #include "link-config.h"
 #include "log.h"
 #include "missing_network.h"
+#include "naming-scheme.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "parse-util.h"
@@ -398,6 +399,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
 
         (void) link_name_type(device, &name_type);
+
+        if (IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED)
+            && !naming_scheme_has(NAMING_ALLOW_RERENAMES)) {
+                log_device_debug(device, "Device already has a name given by userspace, not renaming.");
+                goto no_rename;
+        }
 
         if (ctx->enable_name_policy && config->name_policy)
                 for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
