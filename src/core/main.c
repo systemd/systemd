@@ -1327,6 +1327,17 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
 
+        /* Pass the original value down to invoked processes */
+        if (!arg_default_rlimit[RLIMIT_MEMLOCK]) {
+                struct rlimit *rl;
+
+                rl = newdup(struct rlimit, saved_rlimit, 1);
+                if (!rl)
+                        return log_oom();
+
+                arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
+        }
+
         r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(HIGH_RLIMIT_MEMLOCK));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
