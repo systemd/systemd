@@ -130,8 +130,8 @@ title: Coding Style
   }
   ```
 
-- Unless you allocate an array, `double` is always the better choice
-  than `float`. Processors speak `double` natively anyway, so this is
+- Unless you allocate an array, `double` is always a better choice
+  than `float`. Processors speak `double` natively anyway, so there is
   no speed benefit, and on calls like `printf()` `float`s get promoted
   to `double`s anyway, so there is no point.
 
