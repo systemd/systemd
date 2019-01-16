@@ -8,5 +8,5 @@
 #  (at your option) any later version.
 
 [Link]
-NamePolicy=kernel database onboard slot path
+NamePolicy=keep kernel database onboard slot path
 MACAddressPolicy=persistent

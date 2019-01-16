@@ -399,11 +399,6 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         (void) link_name_type(device, &name_type);
 
-        if (IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED)) {
-                log_device_info(device, "Device already has a name given by userspace, not renaming.");
-                goto no_rename;
-        }
-
         if (ctx->enable_name_policy && config->name_policy)
                 for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
                         policy = *p;
@@ -415,6 +410,13 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
                                 /* The kernel claims to have given a predictable name, keep it. */
                                 log_device_debug(device, "Policy *%s*: keeping predictable kernel name",
+                                                 name_policy_to_string(policy));
+                                goto no_rename;
+                        case NAMEPOLICY_KEEP:
+                                if (!IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED))
+                                        continue;
+
+                                log_device_debug(device, "Policy *%s*: keeping existing userspace name",
                                                  name_policy_to_string(policy));
                                 goto no_rename;
                         case NAMEPOLICY_DATABASE:
@@ -503,7 +505,7 @@ int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
 static const char* const mac_policy_table[_MACPOLICY_MAX] = {
         [MACPOLICY_PERSISTENT] = "persistent",
         [MACPOLICY_RANDOM] = "random",
-        [MACPOLICY_NONE] = "none"
+        [MACPOLICY_NONE] = "none",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
@@ -512,11 +514,12 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy,
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_KERNEL] = "kernel",
+        [NAMEPOLICY_KEEP] = "keep",
         [NAMEPOLICY_DATABASE] = "database",
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",
         [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac"
+        [NAMEPOLICY_MAC] = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);

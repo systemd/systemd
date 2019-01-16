@@ -250,17 +250,12 @@
       <varlistentry>
         <term><varname>NamePolicy=</varname></term>
         <listitem>
-          <para>An ordered, space-separated list of policies by which
-          the interface name should be set.
-          <literal>NamePolicy</literal> may be disabled by specifying
-          <literal>net.ifnames=0</literal> on the kernel command line.
-          Each of the policies may fail, and the first successful one
-          is used. The name is not set directly, but is exported to
-          udev as the property <literal>ID_NET_NAME</literal>, which
-          is, by default, used by a udev rule to set
-          <literal>NAME</literal>. If the name has already been set by
-          userspace, no renaming is performed. The available policies
-          are:</para>
+          <para>An ordered, space-separated list of policies by which the interface name should be set.
+          <literal>NamePolicy</literal> may be disabled by specifying <literal>net.ifnames=0</literal> on the
+          kernel command line.  Each of the policies may fail, and the first successful one is used. The name
+          is not set directly, but is exported to udev as the property <literal>ID_NET_NAME</literal>, which
+          is, by default, used by a udev rule to set <literal>NAME</literal>. The available policies are:
+          </para>
 
           <variablelist>
             <varlistentry>
@@ -312,6 +307,13 @@
                 <para>The name is set based on the device's persistent
                 MAC address, as exported by the udev property
                 <literal>ID_NET_NAME_MAC</literal>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><literal>keep</literal></term>
+              <listitem>
+                <para>If the device already had a name given by userspace (as part of creation of the device
+                or a rename), keep it.</para>
               </listitem>
             </varlistentry>
           </variablelist>
