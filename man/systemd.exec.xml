@@ -820,7 +820,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         names must be relative, and may not include <literal>..</literal>. If set, one or more
         directories by the specified names will be created (including their parents) below the locations
         defined in the following table, when the unit is started. Also, the corresponding environment variable
-        is defined with the full path of directories. If multiple directories are set, then int the environment variable
+        is defined with the full path of directories. If multiple directories are set, then in the environment variable
         the paths are concatenated with colon (<literal>:</literal>).</para>
         <table>
           <title>Automatic directory creation and environment variables</title>
