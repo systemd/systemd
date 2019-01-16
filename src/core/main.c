@@ -1304,6 +1304,11 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 if (arg_system)
                         rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
 
+                /* If for some reason we were invoked with a soft limit above 1024 (which should never
+                 * happen!, but who knows what we get passed in from pam_limit when invoked as --user
+                 * instance), then lower what we pass on to not confuse our children */
+                rl->rlim_cur = MIN(rl->rlim_cur, (rlim_t) FD_SETSIZE);
+
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
