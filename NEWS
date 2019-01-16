@@ -22,6 +22,23 @@ CHANGES WITH 241 in spe:
         * $DBUS_SESSION_BUS_ADDRESS environment variable is set by pam_systemd
           again.
 
+        * A new network device NamePolicy "keep" is implemented for link files,
+          and used by default in 99-default.link (the fallback configuration
+          provided by systemd). With this policy, if the network device name
+          was already set by userspace, the device will not be renamed again.
+          This matches the naming scheme that was implemented before
+          systemd-240. If naming-scheme < 240 is specified, the "keep" policy
+          is also enabled by default, even if not specified. Effectively, this
+          means that if naming-scheme >= 240 is specified, network devices will
+          be renamed according to the configuration, even if they have been
+          renamed already, if "keep" is not specified as the naming policy in
+          the .link file. The 99-default.link file provided by systemd includes
+          "keep" for backwards compatibility, but it is recommended for user
+          installed .link files to *not* include it.
+
+          The "kernel" policy, which keeps kernel names declared to be
+          "persistent", now works again as documented.
+
         * kernel-install script now optionally takes a path to an initrd file,
           and passes it to all plugins.
 
@@ -491,6 +508,11 @@ CHANGES WITH 240:
 
         * $DBUS_SESSION_BUS_ADDRESS environment variable is not set by
           pam_systemd anymore.
+
+        * The naming scheme for network devices was changed to always rename
+          devices, even if they were already renamed by userspace. The "kernel"
+          policy was changed to only apply as a fallback, if no other naming
+          policy took effect.
 
         * The requirements to build systemd is bumped to meson-0.46 and
           python-3.5.
