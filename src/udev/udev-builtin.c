@@ -139,7 +139,7 @@ int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const 
                                               key, val ? "=" : "", strempty(val));
 
         if (test)
-                printf("%s=%s\n", key, val);
+                printf("%s=%s\n", key, strempty(val));
 
         return 0;
 }
