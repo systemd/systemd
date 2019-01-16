@@ -310,11 +310,16 @@ static bool should_rename(sd_device *device, bool respect_predictable) {
                 return true;
 
         switch (type) {
+        case NET_NAME_USER:
+        case NET_NAME_RENAMED:
+                /* these were already named by userspace, do not touch again */
+                return false;
         case NET_NAME_PREDICTABLE:
                 /* the kernel claims to have given a predictable name */
                 if (respect_predictable)
                         return false;
                 _fallthrough_;
+        case NET_NAME_ENUM:
         default:
                 /* the name is known to be bad, or of an unknown type */
                 return true;
@@ -435,8 +440,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 }
         }
 
-        if (!new_name && should_rename(device, respect_predictable))
-                new_name = config->name;
+        if (should_rename(device, respect_predictable)) {
+                /* if not set by policy, fall back manually set name */
+                if (!new_name)
+                        new_name = config->name;
+        } else
+                new_name = NULL;
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
