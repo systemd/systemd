@@ -93,3 +93,46 @@ C 06  PHS standard interface
 C 07  WLAN interface
 C 08  Embedded SDIO-ATA standard interface
 C 09  Bluetooth AMP standard interface
+
+# List of known/observed SD card manfid's
+#
+# Syntax:
+# MANFID id manufacturer_name(s)
+
+MANFID 000001 Panasonic
+MANFID 000002 Toshiba
+MANFID 000003 SanDisk
+MANFID 00001b Samsung
+MANFID 00001d ADATA
+MANFID 000027 Phison
+MANFID 000028 Lexar
+MANFID 000031 Silicon Power
+MANFID 000041 Kingston
+MANFID 000074 Transcend
+MANFID 000076 Patriot
+MANFID 000082 Sony
+MANFID 00009c Angelbird / Hoodman
+
+# List of known/observed SD card oemid's
+#
+# Syntax:
+# OEMID id vendor_name(s)
+#
+# The id is normally composed of two ascii
+# characters read as a big-endian 16-bit
+# value.
+
+OEMID 3432 Kingston # "42"
+OEMID 4144 ADATA # "AD"
+OEMID 4245 Lexar / Angelbird / Hoodman # "BE"
+OEMID 4a45 Transcend # "JE"
+OEMID 4a54 Sony # "JT"
+OEMID 4a60 Transcend # "J`"
+OEMID 5041 Panasonic # "PA"
+OEMID 5048 Phison # "PH"
+OEMID 5054 SanDisk # "PT"
+OEMID 5344 SanDisk # "SD"
+OEMID 534d Samsung # "SM"
+OEMID 534f Angelbird / Hoodman # "SO"
+OEMID 5350 Silicon Power # "SP"
+OEMID 544d Toshiba # "TM"
