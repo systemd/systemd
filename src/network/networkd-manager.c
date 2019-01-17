@@ -1456,7 +1456,7 @@ void manager_free(Manager *m) {
 
         sd_device_monitor_unref(m->device_monitor);
 
-        sd_bus_unref(m->bus);
+        sd_bus_flush_close_unref(m->bus);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);

@@ -91,7 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         bool is_unix;
         int r, in_fd, out_fd;

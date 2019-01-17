@@ -22,7 +22,7 @@
 
 static int acquire_runtime_dir_size(uint64_t *ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = sd_bus_default_system(&bus);
