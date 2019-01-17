@@ -1080,8 +1080,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
-        sd_bus_close(*bus);
-        *bus = sd_bus_unref(*bus);
+        *bus = sd_bus_close_unref(*bus);
 }
 
 void bus_done_api(Manager *m) {
