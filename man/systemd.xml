@@ -452,7 +452,7 @@
     means that before executing a requested operation, systemd will
     verify that it makes sense, fixing it if possible, and only
     failing if it really cannot work.</para>
-    
+
     <para>Note that transactions are generated independently of a unit's
     state at runtime, hence, for example, if a start job is requested on an
     already started unit, it will still generate a transaction and wake up any

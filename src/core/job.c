@@ -207,7 +207,7 @@ Job* job_install(Job *j) {
                                 job_merge_into_installed(uj, j);
                                 log_unit_debug(uj->unit,
                                                "Merged %s/%s into installed job %s/%s as %"PRIu32,
-                                               j->unit->id, job_type_to_string(j->type), uj->unit->id, 
+                                               j->unit->id, job_type_to_string(j->type), uj->unit->id,
                                                job_type_to_string(uj->type), uj->id);
                                 return uj;
                         } else {
