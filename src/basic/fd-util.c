@@ -189,6 +189,27 @@ _pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         return false;
 }
 
+static int get_max_fd(void) {
+        struct rlimit rl;
+        rlim_t m;
+
+        /* Return the highest possible fd, based RLIMIT_NOFILE, but enforcing FD_SETSIZE-1 as lower boundary
+         * and INT_MAX as upper boundary. */
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return -errno;
+
+        m = MAX(rl.rlim_cur, rl.rlim_max);
+        if (m < FD_SETSIZE) /* Let's always cover at least 1024 fds */
+                return FD_SETSIZE-1;
+
+        if (m == RLIM_INFINITY || m > INT_MAX) /* Saturate on overflow. After all fds are "int", hence can
+                                                * never be above INT_MAX */
+                return INT_MAX;
+
+        return (int) (m - 1);
+}
+
 int close_all_fds(const int except[], size_t n_except) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -198,20 +219,14 @@ int close_all_fds(const int except[], size_t n_except) {
 
         d = opendir("/proc/self/fd");
         if (!d) {
-                struct rlimit rl;
                 int fd, max_fd;
 
-                /* When /proc isn't available (for example in chroots) the fallback is brute forcing through the fd
-                 * table */
+                /* When /proc isn't available (for example in chroots) the fallback is brute forcing through
+                 * the fd table */
 
-                assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
-
-                if (rl.rlim_max == 0)
-                        return -EINVAL;
-
-                /* Let's take special care if the resource limit is set to unlimited, or actually larger than the range
-                 * of 'int'. Let's avoid implicit overflows. */
-                max_fd = (rl.rlim_max == RLIM_INFINITY || rl.rlim_max > INT_MAX) ? INT_MAX : (int) (rl.rlim_max - 1);
+                max_fd = get_max_fd();
+                if (max_fd < 0)
+                        return max_fd;
 
                 for (fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
                         int q;
