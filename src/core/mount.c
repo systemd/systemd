@@ -378,7 +378,8 @@ static int mount_add_device_dependencies(Mount *m) {
          * automatically stopped when the device disappears suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
+        /* We always use 'what' from /proc/self/mountinfo if mounted */
+        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
         r = unit_add_node_dependency(UNIT(m), p->what, device_wants_mount, dep, mask);
         if (r < 0)
@@ -849,6 +850,9 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         unit_unref_uid_gid(UNIT(m), true);
 
         dynamic_creds_destroy(&m->dynamic_creds);
+
+        /* Any dependencies based on /proc/self/mountinfo are now stale */
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1844,6 +1848,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         }
 
                         mount->from_proc_self_mountinfo = false;
+                        assert_se(update_parameters_proc_self_mount_info(mount, NULL, NULL, NULL) >= 0);
 
                         switch (mount->state) {
 
