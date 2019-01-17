@@ -1095,7 +1095,11 @@ static int link_request_set_addresses(Link *link) {
                 return r;
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
-                r = address_configure(ad, link, address_handler, false);
+                bool update;
+
+                update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
+
+                r = address_configure(ad, link, address_handler, update);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set addresses: %m");
                         link_enter_failed(link);
