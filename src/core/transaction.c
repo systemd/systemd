@@ -300,7 +300,7 @@ rescan:
                                 goto next_unit;
                 }
 
-                /* log_debug("Found redundant job %s/%s, dropping.", j->unit->id, job_type_to_string(j->type)); */
+                log_trace("Found redundant job %s/%s, dropping from transaction.", j->unit->id, job_type_to_string(j->type));
                 transaction_delete_job(tr, j, false);
                 goto rescan;
         next_unit:;
@@ -494,15 +494,17 @@ static void transaction_collect_garbage(Transaction *tr) {
 
 rescan:
         HASHMAP_FOREACH(j, tr->jobs, i) {
-                if (tr->anchor_job == j || j->object_list) {
-                        /* log_debug("Keeping job %s/%s because of %s/%s", */
-                        /*           j->unit->id, job_type_to_string(j->type), */
-                        /*           j->object_list->subject ? j->object_list->subject->unit->id : "root", */
-                        /*           j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root"); */
+                if (tr->anchor_job == j)
+                        continue;
+                if (j->object_list) {
+                        log_trace("Keeping job %s/%s because of %s/%s",
+                                  j->unit->id, job_type_to_string(j->type),
+                                  j->object_list->subject ? j->object_list->subject->unit->id : "root",
+                                  j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root");
                         continue;
                 }
 
-                /* log_debug("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type)); */
+                log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
                 transaction_delete_job(tr, j, true);
                 goto rescan;
         }
@@ -798,7 +800,7 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         if (is_new)
                 *is_new = true;
 
-        /* log_debug("Added job %s/%s to transaction.", unit->id, job_type_to_string(type)); */
+        log_trace("Added job %s/%s to transaction.", unit->id, job_type_to_string(type));
 
         return j;
 }
@@ -892,10 +894,8 @@ int transaction_add_job_and_dependencies(
         if (MANAGER_IS_RELOADING(unit->manager))
                 unit_coldplug(unit);
 
-        /* log_debug("Pulling in %s/%s from %s/%s", */
-        /*           unit->id, job_type_to_string(type), */
-        /*           by ? by->unit->id : "NA", */
-        /*           by ? job_type_to_string(by->type) : "NA"); */
+        if (by)
+                log_trace("Pulling in %s/%s from %s/%s", unit->id, job_type_to_string(type), by->unit->id, job_type_to_string(by->type));
 
         /* Safety check that the unit is a valid state, i.e. not in UNIT_STUB or UNIT_MERGED which should only be set
          * temporarily. */
@@ -1053,7 +1053,7 @@ int transaction_add_job_and_dependencies(
                 if (type == JOB_RELOAD)
                         transaction_add_propagate_reload_jobs(tr, ret->unit, ret, ignore_order, e);
 
-                /* JOB_VERIFY_STARTED require no dependency handling */
+                /* JOB_VERIFY_ACTIVE requires no dependency handling */
         }
 
         return 0;
