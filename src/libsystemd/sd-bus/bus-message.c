@@ -138,8 +138,6 @@ static sd_bus_message* message_free(sd_bus_message *m) {
         return mfree(m);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, message_free);
-
 static void *message_extend_fields(sd_bus_message *m, size_t align, size_t sz, bool add_offset) {
         void *op, *np;
         size_t old_size, new_size, start;
@@ -531,7 +529,7 @@ int bus_message_from_malloc(
                 const char *label,
                 sd_bus_message **ret) {
 
-        _cleanup_(message_freep) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         size_t sz;
         int r;
 
@@ -651,7 +649,7 @@ _public_ int sd_bus_message_new_method_call(
                 const char *interface,
                 const char *member) {
 
-        _cleanup_(message_freep) sd_bus_message *t = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
         int r;
 
         assert_return(bus, -ENOTCONN);
@@ -696,7 +694,7 @@ static int message_new_reply(
                 uint8_t type,
                 sd_bus_message **m) {
 
-        _cleanup_(message_freep) sd_bus_message *t = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
         uint64_t cookie;
         int r;
 
@@ -747,7 +745,7 @@ _public_ int sd_bus_message_new_method_error(
                 sd_bus_message **m,
                 const sd_bus_error *e) {
 
-        _cleanup_(message_freep) sd_bus_message *t = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
         int r;
 
         assert_return(sd_bus_error_is_set(e), -EINVAL);
@@ -850,7 +848,7 @@ int bus_message_new_synthetic_error(
                 const sd_bus_error *e,
                 sd_bus_message **m) {
 
-        _cleanup_(message_freep) sd_bus_message *t = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *t = NULL;
         int r;
 
         assert(bus);
