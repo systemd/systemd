@@ -2675,7 +2675,6 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                                 SD_BUS_ERROR_UNKNOWN_METHOD,
                                  "Unknown method '%s' on interface '%s'.", m->member, m->interface);
         }
-
         if (r < 0)
                 return r;
 
@@ -2799,7 +2798,6 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
                         return r;
 
                 *ret = TAKE_PTR(m);
-
                 return 1;
         }
 
