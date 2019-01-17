@@ -40,8 +40,8 @@ static void test_bus_set_address_system_remote(char **args) {
                                  -EINVAL, NULL);
         test_one_address(b, "user@host",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
-         test_one_address(b, "user@host@host",
-                                 -EINVAL, NULL);
+        test_one_address(b, "user@host@host",
+                         -EINVAL, NULL);
         test_one_address(b, "[::1]",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]",
