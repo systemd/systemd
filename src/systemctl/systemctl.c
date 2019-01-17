@@ -4752,6 +4752,20 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         }
 
                         return 1;
+                } else if (STR_IN_SET(name, "SELinuxContext", "AppArmorProfile", "SmackProcessLabel")) {
+                        int ignore;
+                        const char *s;
+
+                        r = sd_bus_message_read(m, "(bs)", &ignore, &s);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!isempty(s))
+                                bus_print_property_value(name, expected_value, value, "%s%s", ignore ? "-" : "", s);
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "%s", "");
+
+                        return 1;
                 }
 
                 break;
