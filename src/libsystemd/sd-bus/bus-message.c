@@ -459,7 +459,6 @@ int bus_message_from_header(
         if (!m)
                 return -ENOMEM;
 
-        m->n_ref = 1;
         m->sealed = true;
         m->header = header;
         m->header_accessible = header_accessible;
@@ -513,7 +512,9 @@ int bus_message_from_header(
                 m->creds.mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
         }
 
+        m->n_ref = 1;
         m->bus = sd_bus_ref(bus);
+
         *ret = TAKE_PTR(m);
 
         return 0;
@@ -585,13 +586,13 @@ _public_ int sd_bus_message_new(
                 return -ENOMEM;
 
         t->n_ref = 1;
+        t->bus = sd_bus_ref(bus);
         t->header = (struct bus_header*) ((uint8_t*) t + ALIGN(sizeof(struct sd_bus_message)));
         t->header->endian = BUS_NATIVE_ENDIAN;
         t->header->type = type;
         t->header->version = bus->message_version;
         t->allow_fds = bus->can_fds || !IN_SET(bus->state, BUS_HELLO, BUS_RUNNING);
         t->root_container.need_offsets = BUS_MESSAGE_IS_GVARIANT(t);
-        t->bus = sd_bus_ref(bus);
 
         if (bus->allow_interactive_authorization)
                 t->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
