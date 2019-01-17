@@ -41,6 +41,8 @@ libudev_core_sources = '''
         net/link-config.h
         net/ethtool-util.c
         net/ethtool-util.h
+        net/naming-scheme.c
+        net/naming-scheme.h
 '''.split()
 
 if conf.get('HAVE_KMOD') == 1

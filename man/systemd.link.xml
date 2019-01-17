@@ -50,27 +50,21 @@
     same name pointing to <filename>/dev/null</filename> disables the
     configuration file entirely (it is "masked").</para>
 
-    <para>The link file contains a <literal>[Match]</literal> section,
-    which determines if a given link file may be applied to a given
-    device, as well as a <literal>[Link]</literal> section specifying
-    how the device should be configured. The first (in lexical order)
-    of the link files that matches a given device is applied. Note
-    that a default file <filename>99-default.link</filename> is
-    shipped by the system. Any user-supplied
-    <filename>.link</filename> should hence have a lexically earlier
-    name to be considered at all.</para>
+    <para>The link file contains a [Match] section, which determines if a given link file may be applied to a
+    given device, as well as a [Link] section specifying how the device should be configured. The first (in
+    lexical order) of the link files that matches a given device is applied. Note that a default file
+    <filename>99-default.link</filename> is shipped by the system. Any user-supplied
+    <filename>.link</filename> should hence have a lexically earlier name to be considered at all.</para>
 
-    <para>See
-    <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for diagnosing problems with <filename>.link</filename> files.</para>
+    <para>See <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    diagnosing problems with <filename>.link</filename> files.</para>
   </refsect1>
 
   <refsect1>
     <title>[Match] Section Options</title>
 
-    <para>A link file is said to match a device if each of the entries
-    in the <literal>[Match]</literal> section matches, or if the
-    section is empty. The following keys are accepted:</para>
+    <para>A link file is said to match a device if each of the entries in the [Match] section matches, or if
+    the section is empty. The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -100,18 +94,15 @@
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching
           the persistent path, as exposed by the udev property
-          <literal>ID_PATH</literal>.</para>
+          <varname>ID_PATH</varname>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Driver=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of shell-style globs matching
-          the driver currently bound to the device,
-          as exposed by the udev property <literal>DRIVER</literal>
-          of its parent device, or if that is not set, the
-          driver as exposed by <literal>ethtool -i</literal>
-          of the device itself.</para>
+          <para>A whitespace-separated list of shell-style globs matching the driver currently bound to the
+          device, as exposed by the udev property <varname>DRIVER</varname> of its parent device, or if that
+          is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -119,14 +110,14 @@
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching
           the device type, as exposed by the udev
-          property <literal>DEVTYPE</literal>.</para>
+          property <varname>DEVTYPE</varname>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Host=</varname></term>
         <listitem>
           <para>Matches against the hostname or machine
-          ID of the host. See <literal>ConditionHost=</literal> in
+          ID of the host. See <varname>ConditionHost=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.</para>
         </listitem>
@@ -137,7 +128,7 @@
           <para>Checks whether the system is executed in
           a virtualized environment and optionally test
           whether it is a specific implementation. See
-          <literal>ConditionVirtualization=</literal> in
+          <varname>ConditionVirtualization=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.</para>
         </listitem>
@@ -147,7 +138,7 @@
         <listitem>
           <para>Checks whether a specific kernel command line option
           is set (or if prefixed with the exclamation mark unset). See
-          <literal>ConditionKernelCommandLine=</literal> in
+          <varname>ConditionKernelCommandLine=</varname> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.</para>
         </listitem>
@@ -157,7 +148,7 @@
           <listitem>
             <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
             expression (or if prefixed with the exclamation mark does not match it). See
-            <literal>ConditionKernelVersion=</literal> in
+            <varname>ConditionKernelVersion=</varname> in
             <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
             details.
             </para>
@@ -167,7 +158,7 @@
         <term><varname>Architecture=</varname></term>
         <listitem>
           <para>Checks whether the system is running on a specific
-          architecture. See <literal>ConditionArchitecture=</literal>
+          architecture. See <varname>ConditionArchitecture=</varname>
           in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.</para>
@@ -180,7 +171,7 @@
   <refsect1>
     <title>[Link] Section Options</title>
 
-    <para>The <literal>[Link]</literal> section accepts the following
+    <para>The [Link] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -193,8 +184,7 @@
       <varlistentry>
         <term><varname>Alias=</varname></term>
         <listitem>
-          <para>The <literal>ifalias</literal> is set to this
-          value.</para>
+          <para>The <varname>ifalias</varname> interface property is set to this value.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -206,7 +196,7 @@
 
           <variablelist>
             <varlistentry>
-              <term><literal>persistent</literal></term>
+              <term><option>persistent</option></term>
               <listitem>
                 <para>If the hardware has a persistent MAC address, as
                 most hardware should, and if it is used by the kernel,
@@ -220,7 +210,7 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>random</literal></term>
+              <term><option>random</option></term>
               <listitem>
                 <para>If the kernel is using a random MAC address,
                 nothing is done. Otherwise, a new address is randomly
@@ -231,7 +221,7 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>none</literal></term>
+              <term><option>none</option></term>
               <listitem>
                 <para>Keeps the MAC address assigned by the kernel.</para>
               </listitem>
@@ -243,28 +233,23 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>The MAC address to use, if no
-          <literal>MACAddressPolicy=</literal>
+          <varname>MACAddressPolicy=</varname>
           is specified.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>NamePolicy=</varname></term>
         <listitem>
-          <para>An ordered, space-separated list of policies by which
-          the interface name should be set.
-          <literal>NamePolicy</literal> may be disabled by specifying
-          <literal>net.ifnames=0</literal> on the kernel command line.
-          Each of the policies may fail, and the first successful one
-          is used. The name is not set directly, but is exported to
-          udev as the property <literal>ID_NET_NAME</literal>, which
-          is, by default, used by a udev rule to set
-          <literal>NAME</literal>. If the name has already been set by
-          userspace, no renaming is performed. The available policies
-          are:</para>
+          <para>An ordered, space-separated list of policies by which the interface name should be set.
+          <varname>NamePolicy=</varname> may be disabled by specifying <option>net.ifnames=0</option> on the
+          kernel command line.  Each of the policies may fail, and the first successful one is used. The name
+          is not set directly, but is exported to udev as the property <option>ID_NET_NAME</option>, which
+          is, by default, used by a udev rule to set <varname>NAME</varname>. The available policies are:
+          </para>
 
           <variablelist>
             <varlistentry>
-              <term><literal>kernel</literal></term>
+              <term><option>kernel</option></term>
               <listitem>
                 <para>If the kernel claims that the name it has set
                 for a device is predictable, then no renaming is
@@ -272,46 +257,53 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>database</literal></term>
+              <term><option>database</option></term>
               <listitem>
                 <para>The name is set based on entries in the udev's
                 Hardware Database with the key
-                <literal>ID_NET_NAME_FROM_DATABASE</literal>.
+                <varname>ID_NET_NAME_FROM_DATABASE</varname>.
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>onboard</literal></term>
+              <term><option>onboard</option></term>
               <listitem>
                 <para>The name is set based on information given by
                 the firmware for on-board devices, as exported by the
-                udev property <literal>ID_NET_NAME_ONBOARD</literal>.
+                udev property <varname>ID_NET_NAME_ONBOARD</varname>.
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>slot</literal></term>
+              <term><option>slot</option></term>
               <listitem>
                 <para>The name is set based on information given by
                 the firmware for hot-plug devices, as exported by the
-                udev property <literal>ID_NET_NAME_SLOT</literal>.
+                udev property <varname>ID_NET_NAME_SLOT</varname>.
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>path</literal></term>
+              <term><option>path</option></term>
               <listitem>
                 <para>The name is set based on the device's physical
                 location, as exported by the udev property
-                <literal>ID_NET_NAME_PATH</literal>.</para>
+                <varname>ID_NET_NAME_PATH</varname>.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>mac</literal></term>
+              <term><option>mac</option></term>
               <listitem>
                 <para>The name is set based on the device's persistent
                 MAC address, as exported by the udev property
-                <literal>ID_NET_NAME_MAC</literal>.</para>
+                <varname>ID_NET_NAME_MAC</varname>.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>keep</option></term>
+              <listitem>
+                <para>If the device already had a name given by userspace (as part of creation of the device
+                or a rename), keep it.</para>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -356,9 +348,8 @@
       <varlistentry>
         <term><varname>Duplex=</varname></term>
         <listitem>
-          <para>The duplex mode to set for the device. The accepted
-          values are <literal>half</literal> and
-          <literal>full</literal>.</para>
+          <para>The duplex mode to set for the device. The accepted values are <option>half</option> and
+          <option>full</option>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -382,58 +373,58 @@
 
           <variablelist>
             <varlistentry>
-              <term><literal>phy</literal></term>
+              <term><option>phy</option></term>
               <listitem>
                 <para>Wake on PHY activity.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>unicast</literal></term>
+              <term><option>unicast</option></term>
               <listitem>
                 <para>Wake on unicast messages.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>multicast</literal></term>
+              <term><option>multicast</option></term>
               <listitem>
                 <para>Wake on multicast messages.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>broadcast</literal></term>
+              <term><option>broadcast</option></term>
               <listitem>
                 <para>Wake on broadcast messages.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>arp</literal></term>
+              <term><option>arp</option></term>
               <listitem>
                 <para>Wake on ARP.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>magic</literal></term>
+              <term><option>magic</option></term>
               <listitem>
                 <para>Wake on receipt of a magic packet.
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>secureon</literal></term>
+              <term><option>secureon</option></term>
               <listitem>
                 <para>Enable secureon(tm) password for MagicPacket(tm).
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>off</literal></term>
+              <term><option>off</option></term>
               <listitem>
                 <para>Never wake.</para>
               </listitem>
             </varlistentry>
           </variablelist>
 
-          <para>Defaults to <literal>off</literal>.</para>
+          <para>Defaults to <option>off</option>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -444,32 +435,32 @@
 
           <variablelist>
             <varlistentry>
-              <term><literal>tp</literal></term>
+              <term><option>tp</option></term>
               <listitem>
                 <para>An Ethernet interface using Twisted-Pair cable as the medium.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>aui</literal></term>
+              <term><option>aui</option></term>
               <listitem>
                 <para>Attachment Unit Interface (AUI). Normally used with hubs.
                 </para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>bnc</literal></term>
+              <term><option>bnc</option></term>
               <listitem>
                 <para>An Ethernet interface using BNC connectors and co-axial cable.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>mii</literal></term>
+              <term><option>mii</option></term>
               <listitem>
                 <para>An Ethernet interface using a Media Independent Interface (MII).</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><literal>fibre</literal></term>
+              <term><option>fibre</option></term>
               <listitem>
                 <para>An Ethernet interface using Optical Fibre as the medium.</para>
               </listitem>
@@ -496,47 +487,46 @@
                 <entry>Duplex Mode</entry>
               </row></thead>
               <tbody>
-
-                <row><entry><literal>10baset-half</literal></entry>
+                <row><entry><option>10baset-half</option></entry>
                 <entry>10</entry><entry>half</entry></row>
 
-                <row><entry><literal>10baset-full</literal></entry>
+                <row><entry><option>10baset-full</option></entry>
                 <entry>10</entry><entry>full</entry></row>
 
-                <row><entry><literal>100baset-half</literal></entry>
+                <row><entry><option>100baset-half</option></entry>
                 <entry>100</entry><entry>half</entry></row>
 
-                <row><entry><literal>100baset-full</literal></entry>
+                <row><entry><option>100baset-full</option></entry>
                 <entry>100</entry><entry>full</entry></row>
 
-                <row><entry><literal>1000baset-half</literal></entry>
+                <row><entry><option>1000baset-half</option></entry>
                 <entry>1000</entry><entry>half</entry></row>
 
-                <row><entry><literal>1000baset-full</literal></entry>
+                <row><entry><option>1000baset-full</option></entry>
                 <entry>1000</entry><entry>full</entry></row>
 
-                <row><entry><literal>10000baset-full</literal></entry>
+                <row><entry><option>10000baset-full</option></entry>
                 <entry>10000</entry><entry>full</entry></row>
 
-                <row><entry><literal>2500basex-full</literal></entry>
+                <row><entry><option>2500basex-full</option></entry>
                 <entry>2500</entry><entry>full</entry></row>
 
-                <row><entry><literal>1000basekx-full</literal></entry>
+                <row><entry><option>1000basekx-full</option></entry>
                 <entry>1000</entry><entry>full</entry></row>
 
-                <row><entry><literal>10000basekx4-full</literal></entry>
+                <row><entry><option>10000basekx4-full</option></entry>
                 <entry>10000</entry><entry>full</entry></row>
 
-                <row><entry><literal>10000basekr-full</literal></entry>
+                <row><entry><option>10000basekr-full</option></entry>
                 <entry>10000</entry><entry>full</entry></row>
 
-                <row><entry><literal>10000baser-fec</literal></entry>
+                <row><entry><option>10000baser-fec</option></entry>
                 <entry>10000</entry><entry>full</entry></row>
 
-                <row><entry><literal>20000basemld2-full</literal></entry>
+                <row><entry><option>20000basemld2-full</option></entry>
                 <entry>20000</entry><entry>full</entry></row>
 
-                <row><entry><literal>20000basekr2-full</literal></entry>
+                <row><entry><option>20000basekr2-full</option></entry>
                 <entry>20000</entry><entry>full</entry></row>
               </tbody>
             </tgroup>

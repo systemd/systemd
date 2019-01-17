@@ -14,6 +14,7 @@
 #include "link-config.h"
 #include "log.h"
 #include "missing_network.h"
+#include "naming-scheme.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "parse-util.h"
@@ -186,6 +187,22 @@ static bool enable_name_policy(void) {
         return proc_cmdline_get_bool("net.ifnames", &b) <= 0 || b;
 }
 
+static int link_name_type(sd_device *device, unsigned *type) {
+        const char *s;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, "name_assign_type", &s);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to query name_assign_type: %m");
+
+        r = safe_atou(s, type);
+        if (r < 0)
+                return log_device_warning_errno(device, r, "Failed to parse name_assign_type \"%s\": %m", s);
+
+        log_device_debug(device, "Device has name_assign_type=%d", *type);
+        return 0;
+}
+
 int link_config_load(link_config_ctx *ctx) {
         _cleanup_strv_free_ char **files;
         char **f;
@@ -296,31 +313,6 @@ static bool mac_is_random(sd_device *device) {
         return type == NET_ADDR_RANDOM;
 }
 
-static bool should_rename(sd_device *device, bool respect_predictable) {
-        const char *s;
-        unsigned type;
-        int r;
-
-        /* if we can't get the assign type, assume we should rename */
-        if (sd_device_get_sysattr_value(device, "name_assign_type", &s) < 0)
-                return true;
-
-        r = safe_atou(s, &type);
-        if (r < 0)
-                return true;
-
-        switch (type) {
-        case NET_NAME_PREDICTABLE:
-                /* the kernel claims to have given a predictable name */
-                if (respect_predictable)
-                        return false;
-                _fallthrough_;
-        default:
-                /* the name is known to be bad, or of an unknown type */
-                return true;
-        }
-}
-
 static int get_mac(sd_device *device, bool want_random,
                    struct ether_addr *mac) {
         int r;
@@ -347,12 +339,12 @@ static int get_mac(sd_device *device, bool want_random,
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       sd_device *device, const char **name) {
-        bool respect_predictable = false;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         const char *new_name = NULL;
         const char *old_name;
-        unsigned speed;
+        unsigned speed, name_type = NET_NAME_UNKNOWN;
+        NamePolicy policy;
         int r, ifindex;
 
         assert(ctx);
@@ -405,38 +397,63 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 return log_device_warning_errno(device, r, "Could not find ifindex: %m");
 
-        if (ctx->enable_name_policy && config->name_policy) {
-                NamePolicy *policy;
 
-                for (policy = config->name_policy;
-                     !new_name && *policy != _NAMEPOLICY_INVALID; policy++) {
-                        switch (*policy) {
-                                case NAMEPOLICY_KERNEL:
-                                        respect_predictable = true;
-                                        break;
-                                case NAMEPOLICY_DATABASE:
-                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &new_name);
-                                        break;
-                                case NAMEPOLICY_ONBOARD:
-                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &new_name);
-                                        break;
-                                case NAMEPOLICY_SLOT:
-                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_SLOT", &new_name);
-                                        break;
-                                case NAMEPOLICY_PATH:
-                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_PATH", &new_name);
-                                        break;
-                                case NAMEPOLICY_MAC:
-                                        (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &new_name);
-                                        break;
-                                default:
-                                        break;
-                        }
-                }
+        (void) link_name_type(device, &name_type);
+
+        if (IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED)
+            && !naming_scheme_has(NAMING_ALLOW_RERENAMES)) {
+                log_device_debug(device, "Device already has a name given by userspace, not renaming.");
+                goto no_rename;
         }
 
-        if (!new_name && should_rename(device, respect_predictable))
+        if (ctx->enable_name_policy && config->name_policy)
+                for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
+                        policy = *p;
+
+                        switch (policy) {
+                        case NAMEPOLICY_KERNEL:
+                                if (name_type != NET_NAME_PREDICTABLE)
+                                        continue;
+
+                                /* The kernel claims to have given a predictable name, keep it. */
+                                log_device_debug(device, "Policy *%s*: keeping predictable kernel name",
+                                                 name_policy_to_string(policy));
+                                goto no_rename;
+                        case NAMEPOLICY_KEEP:
+                                if (!IN_SET(name_type, NET_NAME_USER, NET_NAME_RENAMED))
+                                        continue;
+
+                                log_device_debug(device, "Policy *%s*: keeping existing userspace name",
+                                                 name_policy_to_string(policy));
+                                goto no_rename;
+                        case NAMEPOLICY_DATABASE:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &new_name);
+                                break;
+                        case NAMEPOLICY_ONBOARD:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &new_name);
+                                break;
+                        case NAMEPOLICY_SLOT:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_SLOT", &new_name);
+                                break;
+                        case NAMEPOLICY_PATH:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_PATH", &new_name);
+                                break;
+                        case NAMEPOLICY_MAC:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &new_name);
+                                break;
+                        default:
+                                assert_not_reached("invalid policy");
+                        }
+                }
+
+        if (new_name)
+                log_device_debug(device, "Policy *%s* yields \"%s\".", name_policy_to_string(policy), new_name);
+        else if (config->name) {
                 new_name = config->name;
+                log_device_debug(device, "Policies didn't yield a name, using specified Name=%s.", new_name);
+        } else
+                log_device_debug(device, "Policies didn't yield a name and Name= is not given, not renaming.");
+ no_rename:
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
@@ -495,7 +512,7 @@ int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
 static const char* const mac_policy_table[_MACPOLICY_MAX] = {
         [MACPOLICY_PERSISTENT] = "persistent",
         [MACPOLICY_RANDOM] = "random",
-        [MACPOLICY_NONE] = "none"
+        [MACPOLICY_NONE] = "none",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
@@ -504,11 +521,12 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy,
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_KERNEL] = "kernel",
+        [NAMEPOLICY_KEEP] = "keep",
         [NAMEPOLICY_DATABASE] = "database",
         [NAMEPOLICY_ONBOARD] = "onboard",
         [NAMEPOLICY_SLOT] = "slot",
         [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac"
+        [NAMEPOLICY_MAC] = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
