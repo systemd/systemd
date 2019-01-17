@@ -2125,7 +2125,7 @@ _public_ int sd_bus_call(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
         usec_t timeout;
         uint64_t cookie;
-        unsigned i;
+        size_t i;
         int r;
 
         bus_assert_return(m, -EINVAL, error);
