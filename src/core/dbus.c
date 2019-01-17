@@ -611,7 +611,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 }
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
         Manager *m = userdata;
         sd_id128_t id;

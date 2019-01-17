@@ -1556,17 +1556,24 @@ _public_ void sd_bus_close(sd_bus *bus) {
         bus_close_inotify_fd(bus);
 }
 
+_public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
+        if (!bus)
+                return NULL;
+
+        sd_bus_close(bus);
+
+        return sd_bus_unref(bus);
+}
+
 _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
         /* Have to do this before flush() to prevent hang */
         bus_kill_exec(bus);
-
         sd_bus_flush(bus);
-        sd_bus_close(bus);
 
-        return sd_bus_unref(bus);
+        return sd_bus_close_unref(bus);
 }
 
 void bus_enter_closing(sd_bus *bus) {
