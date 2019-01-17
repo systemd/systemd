@@ -559,7 +559,7 @@ int bus_check_peercred(sd_bus *c) {
 }
 
 int bus_connect_system_systemd(sd_bus **_bus) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(_bus);
@@ -592,7 +592,7 @@ int bus_connect_system_systemd(sd_bus **_bus) {
 }
 
 int bus_connect_user_systemd(sd_bus **_bus) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *ee = NULL;
         const char *e;
         int r;
@@ -1279,7 +1279,7 @@ int bus_map_all_properties(
 }
 
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(transport >= 0);
@@ -1666,7 +1666,7 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
 }
 
 int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         const char *e;
         int r;
 

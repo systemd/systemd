@@ -876,7 +876,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_api(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->api_bus)
@@ -940,7 +940,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_system(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->system_bus)
