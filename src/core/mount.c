@@ -251,6 +251,32 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
+static int update_parameters_proc_self_mount_info(
+                Mount *m,
+                const char *what,
+                const char *options,
+                const char *fstype) {
+
+        MountParameters *p;
+        int r, q, w;
+
+        p = &m->parameters_proc_self_mountinfo;
+
+        r = free_and_strdup(&p->what, what);
+        if (r < 0)
+                return r;
+
+        q = free_and_strdup(&p->options, options);
+        if (q < 0)
+                return q;
+
+        w = free_and_strdup(&p->fstype, fstype);
+        if (w < 0)
+                return w;
+
+        return r > 0 || q > 0 || w > 0;
+}
+
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
         Unit *other;
@@ -1426,32 +1452,6 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         }
 
         return 0;
-}
-
-static int update_parameters_proc_self_mount_info(
-                Mount *m,
-                const char *what,
-                const char *options,
-                const char *fstype) {
-
-        MountParameters *p;
-        int r, q, w;
-
-        p = &m->parameters_proc_self_mountinfo;
-
-        r = free_and_strdup(&p->what, what);
-        if (r < 0)
-                return r;
-
-        q = free_and_strdup(&p->options, options);
-        if (q < 0)
-                return q;
-
-        w = free_and_strdup(&p->fstype, fstype);
-        if (w < 0)
-                return w;
-
-        return r > 0 || q > 0 || w > 0;
 }
 
 static int mount_setup_new_unit(
