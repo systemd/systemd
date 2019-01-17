@@ -113,6 +113,10 @@ for phase in "${PHASES[@]}"; do
             )
             docker exec -it -e CFLAGS='-g -O0 -ftrapv' $CONT_NAME meson build "${CONFIGURE_OPTS[@]}"
             $DOCKER_EXEC ninja -v -C build
+            # Let's install the new systemd and "reboot" the container to avoid
+            # unexpected fails due to incompatibilities with older systemd
+            $DOCKER_EXEC ninja -C build install
+            docker restart $CONT_NAME
             # "Mask" the udev-test.pl, as it requires newer version of systemd-detect-virt
             # and it's pointless to run it on a VM in a Docker container...
             echo -ne "#!/usr/bin/perl\nexit(0);\n" > "test/udev-test.pl"

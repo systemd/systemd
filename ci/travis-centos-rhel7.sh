@@ -52,6 +52,10 @@ for phase in "${PHASES[@]}"; do
                                      --enable-gtk-doc --enable-compat-libs --disable-sysusers \
                                      --disable-ldconfig --enable-lz4 --with-sysvinit-path=/etc/rc.d/init.d
             $DOCKER_EXEC make
+            # Let's install the new systemd and "reboot" the container to avoid
+            # unexpected fails due to incompatibilities with older systemd
+            $DOCKER_EXEC make install
+            docker restart $CONT_NAME
             if ! $DOCKER_EXEC make check; then
                 $DOCKER_EXEC cat test-suite.log
                 exit 1
