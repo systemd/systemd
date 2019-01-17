@@ -248,11 +248,11 @@ _public_ int sd_bus_new(sd_bus **ret) {
         b->original_pid = getpid_cached();
         b->n_groups = (size_t) -1;
 
-        assert_se(pthread_mutex_init(&b->memfd_cache_mutex, NULL) == 0);
-
         /* We guarantee that wqueue always has space for at least one entry */
         if (!GREEDY_REALLOC(b->wqueue, b->wqueue_allocated, 1))
                 return -ENOMEM;
+
+        assert_se(pthread_mutex_init(&b->memfd_cache_mutex, NULL) == 0);
 
         *ret = TAKE_PTR(b);
         return 0;
