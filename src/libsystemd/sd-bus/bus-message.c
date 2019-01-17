@@ -120,7 +120,8 @@ static sd_bus_message* message_free(sd_bus_message *m) {
 
         message_reset_parts(m);
 
-        sd_bus_unref(m->bus);
+        /* Note that we don't unref m->bus here. That's already done by sd_bus_message_unref() as each user
+         * reference to the bus message also is considered a reference to the bus connection itself. */
 
         if (m->free_fds) {
                 close_many(m->fds, m->n_fds);
@@ -893,26 +894,75 @@ int bus_message_new_synthetic_error(
 }
 
 _public_ sd_bus_message* sd_bus_message_ref(sd_bus_message *m) {
-
         if (!m)
                 return NULL;
 
-        assert(m->n_ref > 0);
+        /* We are fine if this message so far was either explicitly reffed or not reffed but queued into at
+         * least one bus connection object. */
+        assert(m->n_ref > 0 || m->n_queued > 0);
+
         m->n_ref++;
 
+        /* Each user reference to a bus message shall also be considered a ref on the bus */
+        sd_bus_ref(m->bus);
         return m;
 }
 
 _public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
-
         if (!m)
                 return NULL;
 
         assert(m->n_ref > 0);
+
+        sd_bus_unref(m->bus); /* Each regular ref is also a ref on the bus connection. Let's hence drop it
+                               * here. Note we have to do this before decrementing our own n_ref here, since
+                               * otherwise, if this message is currently queued sd_bus_unref() might call
+                               * bus_message_unref_queued() for this which might then destroy the message
+                               * while we are still processing it. */
         m->n_ref--;
 
-        if (m->n_ref > 0)
+        if (m->n_ref > 0 || m->n_queued > 0)
                 return NULL;
+
+        /* Unset the bus field if neither the user has a reference nor this message is queued. We are careful
+         * to reset the field only after the last reference to the bus is dropped, after all we might keep
+         * multiple references to the bus, once for each reference kept on outselves. */
+        m->bus = NULL;
+
+        return message_free(m);
+}
+
+sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus) {
+        if (!m)
+                return NULL;
+
+        /* If this is a different bus than the message is associated with, then implicitly turn this into a
+         * regular reference. This means that you can create a memory leak by enqueuing a message generated
+         * on one bus onto another at the same time as enqueueing a message from the second one on the first,
+         * as we'll not detect the cyclic references there. */
+        if (bus != m->bus)
+                return sd_bus_message_ref(m);
+
+        assert(m->n_ref > 0 || m->n_queued > 0);
+        m->n_queued++;
+
+        return m;
+}
+
+sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus) {
+        if (!m)
+                return NULL;
+
+        if (bus != m->bus)
+                return sd_bus_message_unref(m);
+
+        assert(m->n_queued > 0);
+        m->n_queued--;
+
+        if (m->n_ref > 0 || m->n_queued > 0)
+                return NULL;
+
+        m->bus = NULL;
 
         return message_free(m);
 }
