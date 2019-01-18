@@ -89,16 +89,25 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
         assert(mm);
 
         r = sd_netlink_message_get_type(mm, &type);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
+                return 0;
+        }
 
         r = sd_rtnl_message_link_get_ifindex(mm, &ifindex);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Could not get ifindex from link, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring", ifindex);
+                return 0;
+        }
 
         r = sd_netlink_message_read_string(mm, IFLA_IFNAME, &ifname);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
+                return 0;
+        }
 
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
 
@@ -110,16 +119,16 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 
                         r = link_new(m, &l, ifindex, ifname);
                         if (r < 0)
-                                goto fail;
+                                return log_error_errno(r, "Failed to create link object: %m");
 
                         r = link_update_monitor(l);
                         if (r < 0)
-                                goto fail;
+                                return log_error_errno(r, "Failed to initialize link object: %m");
                 }
 
                 r = link_update_rtnl(l, mm);
                 if (r < 0)
-                        goto fail;
+                        return log_warning_errno(r, "Failed to process RTNL link message: %m");;
 
                 break;
 
@@ -132,10 +141,6 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 break;
         }
 
-        return 0;
-
-fail:
-        log_warning_errno(r, "Failed to process RTNL link message: %m");
         return 0;
 }
 
