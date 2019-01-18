@@ -583,7 +583,7 @@ static int dir_cleanup(
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
                             s.st_uid == 0) {
-                                log_debug("Ignoring \"%s\".", sub_path);
+                                log_debug("Ignoring directory \"%s\".", sub_path);
                                 continue;
                         }
 
@@ -596,7 +596,7 @@ static int dir_cleanup(
                                 sub_dir = xopendirat_nomod(dirfd(d), dent->d_name);
                                 if (!sub_dir) {
                                         if (errno != ENOENT)
-                                                r = log_error_errno(errno, "opendir(%s) failed: %m", sub_path);
+                                                r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", sub_path);
 
                                         continue;
                                 }
@@ -612,7 +612,7 @@ static int dir_cleanup(
                          * that. */
 
                         if (keep_this_level) {
-                                log_debug("Keeping \"%s\".", sub_path);
+                                log_debug("Keeping directory \"%s\".", sub_path);
                                 continue;
                         }
 
@@ -639,7 +639,7 @@ static int dir_cleanup(
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
                                 if (!IN_SET(errno, ENOENT, ENOTEMPTY))
-                                        r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
+                                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
                         /* Skip files for which the sticky bit is set. These are semantics we define, and are
@@ -704,11 +704,10 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        log_debug("unlink \"%s\"", sub_path);
-
+                        log_debug("Removing \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0)
                                 if (errno != ENOENT)
-                                        r = log_error_errno(errno, "unlink(%s): %m", sub_path);
+                                        r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
 
                         deleted = true;
                 }
