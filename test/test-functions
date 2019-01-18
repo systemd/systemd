@@ -551,7 +551,9 @@ install_execs() {
     sed -r -n 's|^Exec[a-zA-Z]*=[@+!-]*([^ ]+).*|\1|gp' $initdir/{$systemdsystemunitdir,$systemduserunitdir}/*.service \
          | sort -u | while read i; do
          # some {rc,halt}.local scripts and programs are okay to not exist, the rest should
-         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ]
+         # also, plymouth is pulled in by rescue.service, but even there the exit code
+         # is ignored; as it's not present on some distros, don't fail if it doesn't exist
+         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ] || [ "/bin/plymouth" == "$i" ]
      done
     )
 }
