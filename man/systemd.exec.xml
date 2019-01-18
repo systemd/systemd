@@ -1279,13 +1279,19 @@ RestrictNamespaces=~cgroup net</programlisting>
         <constant>SHM_EXEC</constant> set. Note that this option is incompatible with programs and libraries that
         generate program code dynamically at runtime, including JIT execution engines, executable stacks, and code
         "trampoline" feature of various C compilers. This option improves service security, as it makes harder for
-        software exploits to change running code dynamically. Note that this feature is fully available on x86-64, and
-        partially on x86. Specifically, the <function>shmat()</function> protection is not available on x86. Note that
-        on systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs for
-        services, so that they cannot be used to circumvent the restrictions of this option. Specifically, it is
-        recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar. If
-        running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
-        (e.g. setting <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        software exploits to change running code dynamically. However, the protection can be circumvented, if
+        the service can write to a filesystem, which is not mounted with <constant>noexec</constant> (such as
+        <filename>/dev/shm</filename>), or it can use <function>memfd_create()</function>.  This can be
+        prevented by making such file systems inaccessible to the service
+        (e.g. <varname>InaccessiblePaths=/dev/shm</varname>) and installing further system call filters
+        (<varname>SystemCallFilter=~memfd_create</varname>). Note that this feature is fully available on
+        x86-64, and partially on x86. Specifically, the <function>shmat()</function> protection is not
+        available on x86. Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
+        recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
+        restrictions of this option. Specifically, it is recommended to combine this option with
+        <varname>SystemCallArchitectures=native</varname> or similar. If running in user mode, or in system
+        mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
