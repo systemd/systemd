@@ -147,6 +147,17 @@ evdev:name:Elan Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnUX305UA:*
  EVDEV_ABS_36=0:2119:33
 
 #########################################
+# Bangho
+#########################################
+
+# Bangho Cloud Pro
+evdev:name:SYNA3602:00 0911:5288 Touchpad:dmi:*svnBANGHO:pnCLOUDPRO:*
+ EVDEV_ABS_00=52:1747:17
+ EVDEV_ABS_01=45:954:14
+ EVDEV_ABS_35=52:1747:17
+ EVDEV_ABS_36=45:954:14
+
+#########################################
 # Dell
 #########################################
 
