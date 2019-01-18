@@ -54,10 +54,9 @@
                         _item->name##_next->name##_prev = _item->name##_prev; \
                 if (_item->name##_prev)                                 \
                         _item->name##_prev->name##_next = _item->name##_next; \
-                else {                                                  \
-                        assert(*_head == _item);                        \
+                else if (*_head == _item)                               \
                         *_head = _item->name##_next;                    \
-                }                                                       \
+                                                                        \
                 _item->name##_next = _item->name##_prev = NULL;         \
         } while (false)
 
