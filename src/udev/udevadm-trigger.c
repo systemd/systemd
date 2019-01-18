@@ -301,12 +301,6 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (!arg_dry_run || ping) {
-                r = must_be_root();
-                if (r < 0)
-                        return r;
-        }
-
         if (ping) {
                 _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
 
