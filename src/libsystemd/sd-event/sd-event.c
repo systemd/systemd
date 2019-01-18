@@ -470,6 +470,17 @@ static struct clock_data* event_get_clock_data(sd_event *e, EventSourceType t) {
         }
 }
 
+static void event_free_signal_data(sd_event *e, struct signal_data *d) {
+        assert(e);
+
+        if (!d)
+                return;
+
+        hashmap_remove(e->signal_data, &d->priority);
+        safe_close(d->fd);
+        free(d);
+}
+
 static int event_make_signal_data(
                 sd_event *e,
                 int sig,
@@ -559,11 +570,8 @@ static int event_make_signal_data(
         return 0;
 
 fail:
-        if (added) {
-                d->fd = safe_close(d->fd);
-                hashmap_remove(e->signal_data, &d->priority);
-                free(d);
-        }
+        if (added)
+                event_free_signal_data(e, d);
 
         return r;
 }
@@ -582,11 +590,8 @@ static void event_unmask_signal_data(sd_event *e, struct signal_data *d, int sig
         assert_se(sigdelset(&d->sigset, sig) >= 0);
 
         if (sigisemptyset(&d->sigset)) {
-
                 /* If all the mask is all-zero we can get rid of the structure */
-                hashmap_remove(e->signal_data, &d->priority);
-                safe_close(d->fd);
-                free(d);
+                event_free_signal_data(e, d);
                 return;
         }
 
