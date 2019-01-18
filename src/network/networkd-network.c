@@ -98,12 +98,13 @@ void network_apply_anonymize_if_set(Network *network) {
 }
 
 int network_load_one(Manager *manager, const char *filename) {
+        _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
-        char *d;
         const char *dropin_dirname;
-        Route *route;
         Address *address;
+        Route *route;
+        char *d;
         int r;
 
         assert(manager);
@@ -122,12 +123,30 @@ int network_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
+        fname = strdup(filename);
+        if (!fname)
+                return log_oom();
+
+        name = strdup(basename(filename));
+        if (!name)
+                return log_oom();
+
+        d = strrchr(name, '.');
+        if (!d)
+                return -EINVAL;
+
+        *d = '\0';
+
+        dropin_dirname = strjoina(name, ".network.d");
+
         network = new(Network, 1);
         if (!network)
                 return log_oom();
 
         *network = (Network) {
                 .manager = manager,
+                .filename = TAKE_PTR(fname),
+                .name = TAKE_PTR(name),
 
                 .required_for_online = true,
                 .dhcp = ADDRESS_FAMILY_NO,
@@ -190,22 +209,6 @@ int network_load_one(Manager *manager, const char *filename) {
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
         };
 
-        network->filename = strdup(filename);
-        if (!network->filename)
-                return log_oom();
-
-        network->name = strdup(basename(filename));
-        if (!network->name)
-                return log_oom();
-
-        d = strrchr(network->name, '.');
-        if (!d)
-                return -EINVAL;
-
-        *d = '\0';
-
-        dropin_dirname = strjoina(network->name, ".network.d");
-
         r = config_parse_many(filename, network_dirs, dropin_dirname,
                               "Match\0"
                               "Link\0"
@@ -228,8 +231,11 @@ int network_load_one(Manager *manager, const char *filename) {
                               "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
-        if (r < 0)
+        if (r < 0) {
+                /* Unset manager here. Otherwise, LIST_REMOVE() in network_free() fails. */
+                network->manager = NULL;
                 return r;
+        }
 
         network_apply_anonymize_if_set(network);
 
@@ -253,21 +259,19 @@ int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(routes, route, network->static_routes) {
+        LIST_FOREACH(routes, route, network->static_routes)
                 if (!route->family) {
                         log_warning("Route section without Gateway field configured in %s. "
                                     "Ignoring", filename);
                         return 0;
                 }
-        }
 
-        LIST_FOREACH(addresses, address, network->static_addresses) {
+        LIST_FOREACH(addresses, address, network->static_addresses)
                 if (!address->family) {
                         log_warning("Address section without Address field configured in %s. "
                                     "Ignoring", filename);
                         return 0;
                 }
-        }
 
         network = NULL;
 
