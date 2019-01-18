@@ -33,11 +33,11 @@ static inline void _test_table(const char *name,
 
                 if (i >= 0 && i < size) {
                         if (sparse)
-                                assert_se(rev == i || rev == -1);
+                                assert_se(rev == i || rev < 0);
                         else
                                 assert_se(val != NULL && rev == i);
                 } else
-                        assert_se(val == NULL && rev == -1);
+                        assert_se(val == NULL && rev < 0);
         }
 }
 
