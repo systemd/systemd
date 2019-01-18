@@ -525,7 +525,6 @@ static int dir_cleanup(
                 bool keep_this_level) {
 
         struct dirent *dent;
-        struct timespec times[2];
         bool deleted = false;
         int r = 0;
 
@@ -722,21 +721,22 @@ static int dir_cleanup(
 
 finish:
         if (deleted) {
-                usec_t age1, age2;
                 char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-
-                /* Restore original directory timestamps */
-                times[0] = ds->st_atim;
-                times[1] = ds->st_mtim;
+                usec_t age1, age2;
 
                 age1 = timespec_load(&ds->st_atim);
                 age2 = timespec_load(&ds->st_mtim);
+
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
                           p,
                           format_timestamp_us(a, sizeof(a), age1),
                           format_timestamp_us(b, sizeof(b), age2));
-                if (futimens(dirfd(d), times) < 0)
-                        log_error_errno(errno, "utimensat(%s): %m", p);
+
+                /* Restore original directory timestamps */
+                if (futimens(dirfd(d), (struct timespec[]) {
+                                ds->st_atim,
+                                ds->st_mtim }) < 0)
+                        log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
         }
 
         return r;
