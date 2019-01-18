@@ -1027,7 +1027,8 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         i = udev_ctrl_get_set_log_level(ctrl_msg);
         if (i >= 0) {
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_priority=%i", i);
-                log_set_max_level(i);
+                log_set_max_level_realm(LOG_REALM_UDEV, i);
+                log_set_max_level_realm(LOG_REALM_SYSTEMD, i);
                 manager_kill_workers(manager);
         }
 
@@ -1112,7 +1113,7 @@ static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userd
         }
 
         if (udev_ctrl_get_ping(ctrl_msg) > 0)
-                log_debug("Received udev control message (SYNC)");
+                log_debug("Received udev control message (PING)");
 
         if (udev_ctrl_get_exit(ctrl_msg) > 0) {
                 log_debug("Received udev control message (EXIT)");

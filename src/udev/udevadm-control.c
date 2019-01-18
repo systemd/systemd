@@ -40,6 +40,7 @@ static int help(void) {
                "  -R --reload              Reload rules and databases\n"
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
+               "     --ping                Wait for udev to respond to a ping message\n"
                "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
                , program_invocation_short_name);
 
@@ -48,22 +49,27 @@ static int help(void) {
 
 int control_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
-        int timeout = 60;
+        usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
+        enum {
+                ARG_PING = 0x100,
+        };
+
         static const struct option options[] = {
-                { "exit",             no_argument,       NULL, 'e' },
-                { "log-priority",     required_argument, NULL, 'l' },
-                { "stop-exec-queue",  no_argument,       NULL, 's' },
-                { "start-exec-queue", no_argument,       NULL, 'S' },
-                { "reload",           no_argument,       NULL, 'R' },
-                { "reload-rules",     no_argument,       NULL, 'R' }, /* alias for -R */
-                { "property",         required_argument, NULL, 'p' },
-                { "env",              required_argument, NULL, 'p' }, /* alias for -p */
-                { "children-max",     required_argument, NULL, 'm' },
-                { "timeout",          required_argument, NULL, 't' },
-                { "version",          no_argument,       NULL, 'V' },
-                { "help",             no_argument,       NULL, 'h' },
+                { "exit",             no_argument,       NULL, 'e'      },
+                { "log-priority",     required_argument, NULL, 'l'      },
+                { "stop-exec-queue",  no_argument,       NULL, 's'      },
+                { "start-exec-queue", no_argument,       NULL, 'S'      },
+                { "reload",           no_argument,       NULL, 'R'      },
+                { "reload-rules",     no_argument,       NULL, 'R'      }, /* alias for -R */
+                { "property",         required_argument, NULL, 'p'      },
+                { "env",              required_argument, NULL, 'p'      }, /* alias for -p */
+                { "children-max",     required_argument, NULL, 'm'      },
+                { "ping",             no_argument,       NULL, ARG_PING },
+                { "timeout",          required_argument, NULL, 't'      },
+                { "version",          no_argument,       NULL, 'V'      },
+                { "help",             no_argument,       NULL, 'h'      },
                 {}
         };
 
@@ -77,11 +83,12 @@ int control_main(int argc, char *argv[], void *userdata) {
         }
 
         if (argc <= 1)
-                log_error("Option missing");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This command expects one or more options.");
 
         uctrl = udev_ctrl_new();
         if (!uctrl)
-                return -ENOMEM;
+                return log_oom();
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
@@ -115,10 +122,9 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return r;
                         break;
                 case 'p':
-                        if (!strchr(optarg, '=')) {
-                                log_error("expect <KEY>=<value> instead of '%s'", optarg);
-                                return -EINVAL;
-                        }
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
+
                         r = udev_ctrl_send_set_env(uctrl, optarg, timeout);
                         if (r < 0)
                                 return r;
@@ -135,19 +141,16 @@ int control_main(int argc, char *argv[], void *userdata) {
                                 return r;
                         break;
                 }
-                case 't': {
-                        usec_t s;
-
-                        r = parse_sec(optarg, &s);
+                case ARG_PING:
+                        r = udev_ctrl_send_ping(uctrl, timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
-
-                        if (DIV_ROUND_UP(s, USEC_PER_SEC) > INT_MAX)
-                                log_error("Timeout value is out of range, ignoring.");
-                        else
-                                timeout = s != USEC_INFINITY ? (int) DIV_ROUND_UP(s, USEC_PER_SEC) : INT_MAX;
+                                return log_error_errno(r, "Failed to connect to udev daemon: %m");
                         break;
-                }
+                case 't':
+                        r = parse_sec(optarg, &timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                        break;
                 case 'V':
                         return print_version();
                 case 'h':
@@ -158,13 +161,9 @@ int control_main(int argc, char *argv[], void *userdata) {
                         assert_not_reached("Unknown option.");
                 }
 
-        if (optind < argc) {
-                log_error("Extraneous argument: %s", argv[optind]);
-                return -EINVAL;
-        } else if (optind == 1) {
-                log_error("Option missing");
-                return -EINVAL;
-        }
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous argument: %s", argv[optind]);
 
         return 0;
 }

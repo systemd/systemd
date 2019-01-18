@@ -319,6 +319,14 @@
             the same command to finish.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
+          <listitem>
+            <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
+            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoke
+            invoking <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
@@ -417,6 +425,13 @@
           <listitem>
             <para>Set the maximum number of events, systemd-udevd will handle at the
             same time.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--ping</option></term>
+          <listitem>
+            <para>Send a ping message to systemd-udevd and wait for the reply. This may be useful to check that
+            systemd-udevd daemon is running.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
