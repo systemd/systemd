@@ -256,7 +256,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
 
-                        r = sd_device_enumerator_add_match_parent(e, dev);
+                        r = device_enumerator_add_match_parent_incremental(e, dev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
@@ -272,7 +272,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
 
-                        r = sd_device_enumerator_add_match_parent(e, dev);
+                        r = device_enumerator_add_match_parent_incremental(e, dev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
                         break;
@@ -324,7 +324,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open the device '%s': %m", argv[optind]);
 
-                r = sd_device_enumerator_add_match_parent(e, dev);
+                r = device_enumerator_add_match_parent_incremental(e, dev);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add parent match '%s': %m", argv[optind]);
         }
