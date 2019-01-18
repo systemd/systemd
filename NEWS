@@ -947,6 +947,8 @@ CHANGES WITH 239:
           allows ordering services before the service that executes the actual
           update process in a generic way.
 
+        * Systemd now emits warnings whenever .include syntax is used.
+
         Contributions from: Adam Duskett, Alan Jenkins, Alessandro Casale,
         Alexander Kurtz, Alex Gartrell, Anssi Hannula, Arnaud Rebillout, Brian
         J. Murrell, Bruno Vernay, Chris Lamb, Chris Lesiak, Christian Brauner,
@@ -6315,6 +6317,9 @@ CHANGES WITH 210:
           for other architectures like x86 and does not support
           IFUNC. Please make sure to use --enable-compat-libs only
           during a transitional period!
+
+        * The .include syntax has been deprecated and is not documented
+          anymore. Drop-in files in .d directories should be used instead.
 
         Contributions from: Andreas Fuchs, Armin K., Colin Walters,
         Daniel Mack, Dave Reisner, David Herrmann, Djalal Harouni,
