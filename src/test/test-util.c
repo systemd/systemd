@@ -164,6 +164,30 @@ static void test_protect_errno(void) {
         assert_se(errno == 12);
 }
 
+static void test_unprotect_errno_inner_function(void) {
+        PROTECT_ERRNO;
+
+        errno = 2222;
+}
+
+static void test_unprotect_errno(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 4711;
+
+        PROTECT_ERRNO;
+
+        errno = 815;
+
+        UNPROTECT_ERRNO;
+
+        assert_se(errno == 4711);
+
+        test_unprotect_errno_inner_function();
+
+        assert_se(errno == 4711);
+}
+
 static void test_in_set(void) {
         assert_se(IN_SET(1, 1));
         assert_se(IN_SET(1, 1, 2, 3, 4));
@@ -307,6 +331,7 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
+        test_unprotect_errno();
         test_in_set();
         test_log2i();
         test_raw_clone();
