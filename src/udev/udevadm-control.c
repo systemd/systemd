@@ -95,7 +95,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 case 'e':
                         r = udev_ctrl_send_exit(uctrl, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send exit request: %m");
                         break;
                 case 'l':
                         r = log_level_from_string(optarg);
@@ -104,22 +104,22 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = udev_ctrl_send_set_log_level(uctrl, r, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
                 case 's':
                         r = udev_ctrl_send_stop_exec_queue(uctrl, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send request to stop exec queue: %m");
                         break;
                 case 'S':
                         r = udev_ctrl_send_start_exec_queue(uctrl, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
                         r = udev_ctrl_send_reload(uctrl, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send reload request: %m");
                         break;
                 case 'p':
                         if (!strchr(optarg, '='))
@@ -127,7 +127,7 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = udev_ctrl_send_set_env(uctrl, optarg, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send request to update environment: %m");
                         break;
                 case 'm': {
                         unsigned i;
@@ -138,7 +138,7 @@ int control_main(int argc, char *argv[], void *userdata) {
 
                         r = udev_ctrl_send_set_children_max(uctrl, i, timeout);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to send request to set number of children: %m");
                         break;
                 }
                 case ARG_PING:
