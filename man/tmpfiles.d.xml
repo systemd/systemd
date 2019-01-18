@@ -545,6 +545,14 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       (ctime). Any of these three (or two) values will prevent cleanup
       if it is more recent than the current time minus the age
       field.</para>
+
+      <para>Note that while the aging algorithm is run a 'shared' BSD file lock (see <citerefentry
+      project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) is
+      taken on each directory the algorithm descends into (and each directory below that, and so on). If the
+      aging algorithm finds a lock is already taken on some directory, it (and everything below it) is
+      skipped. Applications may use this to temporarily exclude certain directory subtrees from the aging
+      algorithm: the applications can take a BSD file lock themselves, and as long as they keep it aging of
+      the directory and everything below it is disabled.</para>
     </refsect2>
 
     <refsect2>
