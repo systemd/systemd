@@ -49,6 +49,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
@@ -3174,6 +3175,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         log_setup_service();
+
+        /* Descending down file system trees might take a lot of fds */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         if (arg_user) {
                 r = user_config_paths(&config_dirs);
