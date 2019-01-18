@@ -26,7 +26,8 @@ static void test_parse_env_file(void) {
                 p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
         _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL,
-                        *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL;
+                        *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL,
+                        *eleven = NULL, *twelve = NULL, *thirteen = NULL;
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
         unsigned k;
@@ -43,7 +44,7 @@ static void test_parse_env_file(void) {
               "three = \"333\n"
               "xxxx\"\n"
               "four = \'44\\\"44\'\n"
-              "five = \'55\\\'55\' \"FIVE\" cinco   \n"
+              "five = \"55\\\"55\" \"FIVE\" cinco   \n"
               "six = seis sechs\\\n"
               " sis\n"
               "seven=\"sevenval\" #nocomment\n"
@@ -51,7 +52,10 @@ static void test_parse_env_file(void) {
               "export nine=nineval\n"
               "ten=ignored\n"
               "ten=ignored\n"
-              "ten=", f);
+              "ten=\n"
+              "eleven=\\value\n"
+              "twelve=\"\\value\"\n"
+              "thirteen='\\value'", f);
 
         fflush(f);
         fclose(f);
@@ -65,14 +69,17 @@ static void test_parse_env_file(void) {
         assert_se(streq_ptr(a[0], "one=BAR"));
         assert_se(streq_ptr(a[1], "two=bar"));
         assert_se(streq_ptr(a[2], "three=333\nxxxx"));
-        assert_se(streq_ptr(a[3], "four=44\"44"));
-        assert_se(streq_ptr(a[4], "five=55\'55FIVEcinco"));
+        assert_se(streq_ptr(a[3], "four=44\\\"44"));
+        assert_se(streq_ptr(a[4], "five=55\"55FIVEcinco"));
         assert_se(streq_ptr(a[5], "six=seis sechs sis"));
         assert_se(streq_ptr(a[6], "seven=sevenval#nocomment"));
         assert_se(streq_ptr(a[7], "eight=eightval #nocomment"));
         assert_se(streq_ptr(a[8], "export nine=nineval"));
         assert_se(streq_ptr(a[9], "ten="));
-        assert_se(a[10] == NULL);
+        assert_se(streq_ptr(a[10], "eleven=value"));
+        assert_se(streq_ptr(a[11], "twelve=\\value"));
+        assert_se(streq_ptr(a[12], "thirteen=\\value"));
+        assert_se(a[13] == NULL);
 
         strv_env_clean(a);
 
@@ -93,7 +100,10 @@ static void test_parse_env_file(void) {
                        "seven", &seven,
                        "eight", &eight,
                        "export nine", &nine,
-                       "ten", &ten);
+                       "ten", &ten,
+                       "eleven", &eleven,
+                       "twelve", &twelve,
+                       "thirteen", &thirteen);
 
         assert_se(r >= 0);
 
@@ -107,17 +117,23 @@ static void test_parse_env_file(void) {
         log_info("eight=[%s]", strna(eight));
         log_info("export nine=[%s]", strna(nine));
         log_info("ten=[%s]", strna(nine));
+        log_info("eleven=[%s]", strna(eleven));
+        log_info("twelve=[%s]", strna(twelve));
+        log_info("thirteen=[%s]", strna(thirteen));
 
         assert_se(streq(one, "BAR"));
         assert_se(streq(two, "bar"));
         assert_se(streq(three, "333\nxxxx"));
-        assert_se(streq(four, "44\"44"));
-        assert_se(streq(five, "55\'55FIVEcinco"));
+        assert_se(streq(four, "44\\\"44"));
+        assert_se(streq(five, "55\"55FIVEcinco"));
         assert_se(streq(six, "seis sechs sis"));
         assert_se(streq(seven, "sevenval#nocomment"));
         assert_se(streq(eight, "eightval #nocomment"));
         assert_se(streq(nine, "nineval"));
         assert_se(ten == NULL);
+        assert_se(streq(eleven, "value"));
+        assert_se(streq(twelve, "\\value"));
+        assert_se(streq(thirteen, "\\value"));
 
         {
                 /* prepare a temporary file to write the environment to */

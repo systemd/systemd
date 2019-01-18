@@ -1000,7 +1000,7 @@ skip:
                 value++;
 
         /* unquote */
-        if (value[0] == '\"' && line[linelen-1] == '\"') {
+        if (value[0] == '"' && line[linelen-1] == '"') {
                 value++;
                 line[linelen-1] = '\0';
         }
