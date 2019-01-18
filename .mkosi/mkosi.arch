@@ -54,3 +54,4 @@ BuildPackages=
 
 Packages=
         libidn2
+        qrencode
