@@ -134,6 +134,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         l = strlen(name);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -208,6 +209,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_DATA;
         return NSS_STATUS_UNAVAIL;
@@ -289,6 +291,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -372,6 +375,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_DATA;
         return NSS_STATUS_UNAVAIL;
@@ -455,6 +459,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         l = strlen(name);
         if (buflen < l+1) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -472,6 +477,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -530,6 +536,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 return NSS_STATUS_NOTFOUND;
 
         if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -545,6 +552,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -623,6 +631,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -638,6 +647,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -696,12 +706,14 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 return NSS_STATUS_NOTFOUND;
 
         if (buflen < sizeof(char*) + 1) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
 
         memzero(buffer, sizeof(char*));
         if (snprintf(buffer + sizeof(char*), buflen - sizeof(char*), "vg-%s-" GID_FMT, machine, (gid_t) mapped) >= (int) buflen) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -714,6 +726,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
