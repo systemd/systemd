@@ -598,8 +598,8 @@ static void test_ioprio_class_from_to_string(void) {
         test_ioprio_class_from_to_string_one("1", 1);
         test_ioprio_class_from_to_string_one("7", 7);
         test_ioprio_class_from_to_string_one("8", 8);
-        test_ioprio_class_from_to_string_one("9", -1);
-        test_ioprio_class_from_to_string_one("-1", -1);
+        test_ioprio_class_from_to_string_one("9", -EINVAL);
+        test_ioprio_class_from_to_string_one("-1", -EINVAL);
 }
 
 static void test_setpriority_closest(void) {
