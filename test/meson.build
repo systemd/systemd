@@ -246,7 +246,8 @@ custom_target(
 if perl.found()
         udev_test_pl = find_program('udev-test.pl')
         test('udev-test',
-             udev_test_pl)
+             udev_test_pl,
+             timeout : 180)
 else
         message('Skipping udev-test because perl is not available')
 endif
