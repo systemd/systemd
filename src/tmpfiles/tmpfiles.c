@@ -606,12 +606,10 @@ static int dir_cleanup(
                                         r = q;
                         }
 
-                        /* Note: if you are wondering why we don't
-                         * support the sticky bit for excluding
-                         * directories from cleaning like we do it for
-                         * other file system objects: well, the sticky
-                         * bit already has a meaning for directories,
-                         * so we don't want to overload that. */
+                        /* Note: if you are wondering why we don't support the sticky bit for excluding
+                         * directories from cleaning like we do it for other file system objects: well, the
+                         * sticky bit already has a meaning for directories, so we don't want to overload
+                         * that. */
 
                         if (keep_this_level) {
                                 log_debug("Keeping \"%s\".", sub_path);
@@ -644,10 +642,8 @@ static int dir_cleanup(
                                         r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
 
                 } else {
-                        /* Skip files for which the sticky bit is
-                         * set. These are semantics we define, and are
-                         * unknown elsewhere. See XDG_RUNTIME_DIR
-                         * specification for details. */
+                        /* Skip files for which the sticky bit is set. These are semantics we define, and are
+                         * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                         if (s.st_mode & S_ISVTX) {
                                 log_debug("Skipping \"%s\": sticky bit set.", sub_path);
                                 continue;
@@ -674,8 +670,7 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        /* Keep files on this level around if this is
-                         * requested */
+                        /* Keep files on this level around if this is requested */
                         if (keep_this_level) {
                                 log_debug("Keeping \"%s\".", sub_path);
                                 continue;
