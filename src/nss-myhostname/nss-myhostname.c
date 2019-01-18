@@ -74,6 +74,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
@@ -96,6 +97,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * (n_addresses > 0 ? n_addresses : 2);
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -186,6 +188,8 @@ static enum nss_status fill_in_hostent(
         assert(errnop);
         assert(h_errnop);
 
+        PROTECT_ERRNO;
+
         alen = FAMILY_ADDRESS_SIZE(af);
 
         for (a = addresses, n = 0, c = 0; n < n_addresses; a++, n++)
@@ -202,6 +206,7 @@ static enum nss_status fill_in_hostent(
                 (c > 0 ? c+1 : 2) * sizeof(char*);
 
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -321,6 +326,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 af = AF_INET;
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
+                UNPROTECT_ERRNO;
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
@@ -343,6 +349,7 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
         } else {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
@@ -361,6 +368,8 @@ enum nss_status _nss_myhostname_gethostbyname3_r(
                 additional = n_addresses <= 0 && af == AF_INET6 ? "localhost" : NULL;
                 local_address_ipv4 = LOCALADDRESS_IPV4;
         }
+
+        UNPROTECT_ERRNO;
 
         return fill_in_hostent(
                         canonical, additional,
@@ -401,12 +410,14 @@ enum nss_status _nss_myhostname_gethostbyaddr2_r(
         assert(h_errnop);
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
+                UNPROTECT_ERRNO;
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
 
         if (len != FAMILY_ADDRESS_SIZE(af)) {
+                UNPROTECT_ERRNO;
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;
@@ -461,6 +472,7 @@ found:
         if (!canonical || additional_from_hostname) {
                 hn = gethostname_malloc();
                 if (!hn) {
+                        UNPROTECT_ERRNO;
                         *errnop = ENOMEM;
                         *h_errnop = NO_RECOVERY;
                         return NSS_STATUS_TRYAGAIN;
@@ -472,6 +484,7 @@ found:
                         additional = hn;
         }
 
+        UNPROTECT_ERRNO;
         return fill_in_hostent(
                         canonical, additional,
                         af,
