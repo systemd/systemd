@@ -160,7 +160,7 @@ static int context_ntp_service_is_active(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += streq_ptr(info->active_state, "active");
+                count += !STRPTR_IN_SET(info->active_state, "inactive", "failed");
 
         return count;
 }
@@ -174,7 +174,7 @@ static int context_ntp_service_is_enabled(Context *c) {
         /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
 
         LIST_FOREACH(units, info, c->units)
-                count += STRPTR_IN_SET(info->unit_file_state, "enabled", "enabled-runtime");
+                count += !STRPTR_IN_SET(info->unit_file_state, "masked", "masked-runtime", "disabled", "bad");
 
         return count;
 }
@@ -523,6 +523,10 @@ static int property_get_can_ntp(
         assert(reply);
         assert(error);
 
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is enabled. */
+                return sd_bus_message_append(reply, "b", true);
+
         r = context_update_ntp_status(c, bus, reply);
         if (r < 0)
                 return r;
@@ -547,6 +551,10 @@ static int property_get_ntp(
         assert(property);
         assert(reply);
         assert(error);
+
+        if (c->slot_job_removed)
+                /* When the previous request is not finished, then assume NTP is active. */
+                return sd_bus_message_append(reply, "b", true);
 
         r = context_update_ntp_status(c, bus, reply);
         if (r < 0)
@@ -734,6 +742,9 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         assert(m);
         assert(c);
+
+        if (c->slot_job_removed)
+                return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Previous request is not finished, refusing.");
 
         r = context_update_ntp_status(c, bus, m);
         if (r < 0)
