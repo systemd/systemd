@@ -527,6 +527,7 @@ DnsScopeMatch dns_scope_good_domain(
         switch (s->protocol) {
 
         case DNS_PROTOCOL_DNS: {
+                bool has_search_domains = false;
                 int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
@@ -536,7 +537,11 @@ DnsScopeMatch dns_scope_good_domain(
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
-                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
+                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s)) {
+
+                        if (!d->route_only && !dns_name_is_root(d->name))
+                                has_search_domains = true;
+
                         if (dns_name_endswith(domain, d->name) > 0) {
                                 int c;
 
@@ -547,6 +552,13 @@ DnsScopeMatch dns_scope_good_domain(
                                 if (c > n_best)
                                         n_best = c;
                         }
+                }
+
+                /* If there's a true search domain defined for this scope, and the query is single-label,
+                 * then let's resolve things here, prefereably. Note that LLMNR considers itself
+                 * authoritative for single-label names too, at the same preference, see below. */
+                if (has_search_domains && dns_name_is_single_label(domain))
+                        return DNS_SCOPE_YES_BASE + 1;
 
                 /* Let's return the number of labels in the best matching result */
                 if (n_best >= 0) {
@@ -606,12 +618,16 @@ DnsScopeMatch dns_scope_good_domain(
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
-                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative for
-                                                        * single-label names, i.e. one label. This is particular
-                                                        * relevant as it means a "." route on some other scope won't
-                                                        * pull all traffic away from us. (If people actually want to
-                                                        * pull traffic away from us they should turn off LLMNR on the
-                                                        * link) */
+                        return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
+                                                        * for single-label names, i.e. one label. This is
+                                                        * particular relevant as it means a "." route on some
+                                                        * other scope won't pull all traffic away from
+                                                        * us. (If people actually want to pull traffic away
+                                                        * from us they should turn off LLMNR on the
+                                                        * link). Note that unicast DNS scopes with search
+                                                        * domains also consider themselves authoritative for
+                                                        * single-label domains, at the same preference (see
+                                                        * above). */
 
                 return DNS_SCOPE_NO;
         }
