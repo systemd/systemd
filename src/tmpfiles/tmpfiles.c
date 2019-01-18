@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <sysexits.h>
@@ -579,6 +580,7 @@ static int dir_cleanup(
                 }
 
                 if (S_ISDIR(s.st_mode)) {
+                        _cleanup_closedir_ DIR *sub_dir = NULL;
 
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
@@ -590,7 +592,6 @@ static int dir_cleanup(
                         if (maxdepth <= 0)
                                 log_warning("Reached max depth on \"%s\".", sub_path);
                         else {
-                                _cleanup_closedir_ DIR *sub_dir;
                                 int q;
 
                                 sub_dir = xopendirat_nomod(dirfd(d), dent->d_name);
@@ -598,6 +599,11 @@ static int dir_cleanup(
                                         if (errno != ENOENT)
                                                 r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", sub_path);
 
+                                        continue;
+                                }
+
+                                if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
+                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", p);
                                         continue;
                                 }
 
