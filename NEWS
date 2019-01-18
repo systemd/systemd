@@ -63,6 +63,10 @@ CHANGES WITH 241 in spe:
           Note that the similar hardlink and symlink protection has been
           enabled since v199, and may be disabled likewise.
 
+        * The files read from the EnvironmentFile= setting in unit files now
+          parse backslashes inside quotes literally, matching the behaviour of
+          POSIX shells.
+
 CHANGES WITH 240:
 
         * NoNewPrivileges=yes has been set for all long-running services
