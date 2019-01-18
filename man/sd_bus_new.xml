@@ -23,6 +23,8 @@
     <refname>sd_bus_ref</refname>
     <refname>sd_bus_unref</refname>
     <refname>sd_bus_unrefp</refname>
+    <refname>sd_bus_close_unref</refname>
+    <refname>sd_bus_close_unrefp</refname>
     <refname>sd_bus_flush_close_unref</refname>
     <refname>sd_bus_flush_close_unrefp</refname>
 
@@ -49,13 +51,23 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>void <function>sd_bus_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+        <funcdef>sd_bus *<function>sd_bus_close_unref</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>sd_bus *<function>sd_bus_flush_close_unref</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_unrefp</function></funcdef>
+        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_close_unrefp</function></funcdef>
+        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -124,17 +136,25 @@
     execute no operation if <emphasis>that</emphasis> is <constant>NULL</constant>.
     </para>
 
-    <para><function>sd_bus_flush_close_unref()</function> is similar to <function>sd_bus_unref()</function>, but first
-    executes <citerefentry><refentrytitle>sd_bus_flush</refentrytitle><manvolnum>3</manvolnum></citerefentry> as well
-    as <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>, ensuring that
-    any pending messages are properly flushed out before the reference to the connection is dropped and possibly the
-    object freed. This call is particularly useful immediately before exiting from a program as it ensures that any
-    pending outgoing messages are written out, and unprocessed but queued incoming messages released before the
-    connection is terminated and released.</para>
+    <para><function>sd_bus_close_unref()</function> is similar to <function>sd_bus_unref()</function>, but
+    first executes
+    <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    ensuring that the connection is terminated before the reference to the connection is dropped and possibly
+    the object freed.</para>
 
-    <para><function>sd_bus_flush_close_unrefp()</function> is similar to
-    <function>sd_bus_flush_close_unref()</function>, but may be used in GCC's and LLVM's Clean-up Variable Attribute,
-    see above.</para>
+    <para><function>sd_bus_flush_close_unref()</function> is similar to <function>sd_bus_unref()</function>,
+    but first executes
+    <citerefentry><refentrytitle>sd_bus_flush</refentrytitle><manvolnum>3</manvolnum></citerefentry> as well
+    as <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    ensuring that any pending messages are synchronously flushed out before the reference to the connection
+    is dropped and possibly the object freed. This call is particularly useful immediately before exiting
+    from a program as it ensures that any pending outgoing messages are written out, and unprocessed but
+    queued incoming messages released before the connection is terminated and released.</para>
+
+    <para><function>sd_bus_close_unrefp()</function> is similar to
+    <function>sd_bus_close_unref()</function>, but may be used in GCC's and LLVM's Clean-up Variable
+    Attribute, see above. Similarly, <function>sd_bus_flush_close_unrefp()</function> is similar to
+    <function>sd_bus_flush_close_unref()</function>.</para>
   </refsect1>
 
   <refsect1>

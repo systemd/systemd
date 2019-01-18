@@ -611,7 +611,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 }
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int nfd = -1;
         Manager *m = userdata;
         sd_id128_t id;
@@ -876,7 +876,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_api(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->api_bus)
@@ -940,7 +940,7 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 }
 
 int bus_init_system(Manager *m) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         if (m->system_bus)
@@ -1080,8 +1080,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 sd_bus_flush(*bus);
 
         /* And destroy the object */
-        sd_bus_close(*bus);
-        *bus = sd_bus_unref(*bus);
+        *bus = sd_bus_close_unref(*bus);
 }
 
 void bus_done_api(Manager *m) {

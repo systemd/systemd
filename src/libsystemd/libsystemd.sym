@@ -671,3 +671,8 @@ global:
         sd_event_source_get_floating;
         sd_event_source_set_floating;
 } LIBSYSTEMD_239;
+
+LIBSYSTEMD_241 {
+global:
+        sd_bus_close_unref;
+} LIBSYSTEMD_240;

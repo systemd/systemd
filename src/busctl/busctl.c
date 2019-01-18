@@ -67,7 +67,7 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
 static void json_dump_with_flags(JsonVariant *v, FILE *f);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = sd_bus_new(&bus);

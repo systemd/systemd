@@ -233,12 +233,8 @@ static void server_done(Server *s) {
         while (s->fifos)
                 fifo_free(s->fifos);
 
-        safe_close(s->epoll_fd);
-
-        if (s->bus) {
-                sd_bus_flush(s->bus);
-                sd_bus_unref(s->bus);
-        }
+        s->epoll_fd = safe_close(s->epoll_fd);
+        s->bus = sd_bus_flush_close_unref(s->bus);
 }
 
 static int server_init(Server *s, unsigned n_sockets) {

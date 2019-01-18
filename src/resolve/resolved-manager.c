@@ -689,7 +689,7 @@ Manager *manager_free(Manager *m) {
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
 
-        sd_bus_unref(m->bus);
+        sd_bus_flush_close_unref(m->bus);
 
         sd_event_source_unref(m->sigusr1_event_source);
         sd_event_source_unref(m->sigusr2_event_source);

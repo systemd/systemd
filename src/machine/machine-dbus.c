@@ -454,7 +454,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+                _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
                 char *address;
 
                 r = sd_bus_new(&bus);
