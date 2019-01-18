@@ -53,16 +53,16 @@ int main(int argc, char *argv[]) {
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
         assert_se(rlimit_from_string("NOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string("LimitNOFILE") == -1);
-        assert_se(rlimit_from_string("RLIMIT_NOFILE") == -1);
-        assert_se(rlimit_from_string("xxxNOFILE") == -1);
-        assert_se(rlimit_from_string("DefaultLimitNOFILE") == -1);
+        assert_se(rlimit_from_string("LimitNOFILE") == -EINVAL);
+        assert_se(rlimit_from_string("RLIMIT_NOFILE") == -EINVAL);
+        assert_se(rlimit_from_string("xxxNOFILE") == -EINVAL);
+        assert_se(rlimit_from_string("DefaultLimitNOFILE") == -EINVAL);
 
         assert_se(rlimit_from_string_harder("NOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string_harder("LimitNOFILE") == RLIMIT_NOFILE);
         assert_se(rlimit_from_string_harder("RLIMIT_NOFILE") == RLIMIT_NOFILE);
-        assert_se(rlimit_from_string_harder("xxxNOFILE") == -1);
-        assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -1);
+        assert_se(rlimit_from_string_harder("xxxNOFILE") == -EINVAL);
+        assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -EINVAL);
 
         for (i = 0; i < _RLIMIT_MAX; i++) {
                 _cleanup_free_ char *prefixed = NULL;
