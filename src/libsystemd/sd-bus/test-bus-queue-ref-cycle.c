@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
+#include "sd-bus.h"
 
 #include "main-func.h"
-#include "sd-bus.h"
 #include "tests.h"
 
-static int run(int argc, char *argv[]) {
+static int test_ref_unref(void) {
         sd_bus_message *m = NULL;
         sd_bus *bus = NULL;
         int r;
@@ -37,6 +37,18 @@ static int run(int argc, char *argv[]) {
         /* Let's now unref things in the opposite order */
         bus = sd_bus_unref(bus);
         m = sd_bus_message_unref(m);
+
+        return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        test_setup_logging(LOG_INFO);
+
+        r = test_ref_unref();
+        if (r < 0)
+                return r;
 
         return 0;
 }

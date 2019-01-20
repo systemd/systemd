@@ -4,6 +4,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static void test_one_address(sd_bus *b,
                              const char *host,
@@ -59,9 +60,7 @@ static void test_bus_set_address_system_remote(char **args) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_bus_set_address_system_remote(argv + 1);
 
