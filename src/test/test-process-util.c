@@ -70,11 +70,9 @@ static void test_get_process_comm(pid_t pid) {
 
         assert_se(get_process_uid(pid, &u) == 0);
         log_info("PID"PID_FMT" UID: "UID_FMT, pid, u);
-        assert_se(u == 0 || pid != 1);
 
         assert_se(get_process_gid(pid, &g) == 0);
         log_info("PID"PID_FMT" GID: "GID_FMT, pid, g);
-        assert_se(g == 0 || pid != 1);
 
         r = get_process_environ(pid, &env);
         assert_se(r >= 0 || r == -EACCES);
