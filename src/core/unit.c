@@ -1895,7 +1895,7 @@ int unit_reload(Unit *u) {
 
         state = unit_active_state(u);
         if (state == UNIT_RELOADING)
-                return -EALREADY;
+                return -EAGAIN;
 
         if (state != UNIT_ACTIVE) {
                 log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
