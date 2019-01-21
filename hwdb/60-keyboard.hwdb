@@ -1117,6 +1117,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v3*:pvr*
  KEYBOARD_KEY_56=backslash
 
+# Purism Librem 13 V4
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:pvr*
+ KEYBOARD_KEY_56=backslash
+
 ###########################################################
 # Quanta
 ###########################################################
