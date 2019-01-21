@@ -408,8 +408,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                         return log_oom();
 
                 strncpy(c, *p, arg_key_size);
-                free(*p);
-                *p = c;
+                free_and_replace(*p, c);
         }
 
         *ret = TAKE_PTR(passwords);
