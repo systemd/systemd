@@ -302,6 +302,8 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
         }
 
         stream->on_packet = on_llmnr_stream_packet;
+        /* We don't configure a "complete" handler here, we rely on the default handler than simply drops the
+         * reference to the stream, thus freeing it */
         return 0;
 }
 
