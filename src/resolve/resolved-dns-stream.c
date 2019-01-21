@@ -41,7 +41,7 @@ static int dns_stream_update_io(DnsStream *s) {
 
 #if ENABLE_DNS_OVER_TLS
         /* For handshake and clean closing purposes, TLS can override requested events */
-        if (s->dnstls_events)
+        if (s->dnstls_events != 0)
                 f = s->dnstls_events;
 #endif
 
