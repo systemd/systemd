@@ -425,7 +425,11 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 }
         }
 
-        if ((s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
+        /* Call "complete" callback if finished reading and writing one packet, and there's nothing else left
+         * to write. */
+        if (s->type == DNS_STREAM_LLMNR_SEND &&
+            (s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
+            ordered_set_isempty(s->write_queue) &&
             (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
                 return dns_stream_complete(s, 0);
 
