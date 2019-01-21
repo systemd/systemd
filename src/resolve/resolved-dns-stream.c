@@ -52,6 +52,10 @@ static int dns_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
 
         assert(s);
+        assert(error >= 0);
+
+        /* Error is > 0 when the connection failed for some reason in the network stack. It's == 0 if we sent
+         * and receieved exactly one packet each (in the LLMNR client case). */
 
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
