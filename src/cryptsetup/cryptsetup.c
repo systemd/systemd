@@ -527,23 +527,16 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                         cipher_mode = "cbc-essiv:sha256";
                 }
 
-                /* for CRYPT_PLAIN limit reads
-                 * from keyfile to key length, and
-                 * ignore keyfile-size */
+                /* for CRYPT_PLAIN limit reads from keyfile to key length, and ignore keyfile-size */
                 arg_keyfile_size = arg_key_size;
 
-                /* In contrast to what the name
-                 * crypt_setup() might suggest this
-                 * doesn't actually format anything,
-                 * it just configures encryption
-                 * parameters when used for plain
-                 * mode. */
+                /* In contrast to what the name crypt_setup() might suggest this doesn't actually format
+                 * anything, it just configures encryption parameters when used for plain mode. */
                 r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
 
                 /* hash == NULL implies the user passed "plain" */
                 pass_volume_key = (params.hash == NULL);
         }
-
         if (r < 0)
                 return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
