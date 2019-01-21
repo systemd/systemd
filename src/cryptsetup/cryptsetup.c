@@ -485,10 +485,8 @@ static int attach_luks_or_plain(struct crypt_device *cd,
 
         if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1)) {
                 r = crypt_load(cd, CRYPT_LUKS, NULL);
-                if (r < 0) {
-                        log_error("crypt_load() failed on device %s.\n", crypt_get_device_name(cd));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "crypt_load() failed on device %s: %m", crypt_get_device_name(cd));
 
                 if (data_device)
                         r = crypt_set_data_device(cd, data_device);
@@ -623,10 +621,8 @@ static int run(int argc, char *argv[]) {
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
-                if (argc < 4) {
-                        log_error("attach requires at least two arguments.");
-                        return -EINVAL;
-                }
+                if (argc < 4)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
 
                 if (argc >= 5 &&
                     argv[4][0] &&
@@ -718,10 +714,8 @@ static int run(int argc, char *argv[]) {
                         log_warning("Invalid passphrase.");
                 }
 
-                if (arg_tries != 0 && tries >= arg_tries) {
-                        log_error("Too many attempts; giving up.");
-                        return -EPERM;
-                }
+                if (arg_tries != 0 && tries >= arg_tries)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
 
         } else if (streq(argv[1], "detach")) {
 
@@ -739,10 +733,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to deactivate: %m");
 
-        } else {
-                log_error("Unknown verb %s.", argv[1]);
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
 
         return 0;
 }
