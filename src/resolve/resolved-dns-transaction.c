@@ -540,12 +540,8 @@ static int on_stream_packet(DnsStream *s) {
         if (t)
                 return dns_transaction_on_stream_packet(t, p);
 
-        /* Ignore incorrect transaction id as transaction can have been canceled */
-        if (dns_packet_validate_reply(p) <= 0) {
-                log_debug("Invalid TCP reply packet.");
-                on_stream_complete(s, 0);
-        }
-
+        /* Ignore incorrect transaction id as an old transaction can have been canceled. */
+        log_debug("Received unexpected TCP reply packet with id %" PRIu16 ", ignoring.", t->id);
         return 0;
 }
 
@@ -639,8 +635,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                 if (t->server) {
                         dns_server_unref_stream(t->server);
-                        t->server->stream = dns_stream_ref(s);
                         s->server = dns_server_ref(t->server);
+                        t->server->stream = dns_stream_ref(s);
                 }
 
                 s->complete = on_stream_complete;
