@@ -697,7 +697,7 @@ static int run(int argc, char *argv[]) {
                                                          flags);
                         if (r >= 0)
                                 break;
-                        if (r == -EAGAIN) {
+                        if (r == -EAGAIN) { /* Passphrase not correct? Let's try again! */
                                 key_file = NULL;
                                 continue;
                         }
