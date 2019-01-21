@@ -469,10 +469,15 @@ static int attach_tcrypt(
                         log_error("Failed to activate using password file '%s'.", key_file);
                         return -EAGAIN;
                 }
-                return r;
+
+                return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
         }
 
-        return crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
+        r = crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate tcrypt device %s: %m", crypt_get_device_name(cd));
+
+        return 0;
 }
 
 static int attach_luks_or_plain(struct crypt_device *cd,
@@ -549,22 +554,30 @@ static int attach_luks_or_plain(struct crypt_device *cd,
 
         if (key_file) {
                 r = crypt_activate_by_keyfile_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
-                        return -EAGAIN;
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
+                        return -EAGAIN; /* Log actual error, but return EAGAIN */
                 }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
         } else {
                 char **p;
 
+                r = -EINVAL;
                 STRV_FOREACH(p, passwords) {
                         if (pass_volume_key)
                                 r = crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
                         else
                                 r = crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
-
                         if (r >= 0)
                                 break;
                 }
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
+                        return -EAGAIN; /* log actual error, but return EAGAIN */
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to activate with specified passphrase: %m");
         }
 
         return r;
@@ -726,16 +739,11 @@ int main(int argc, char *argv[]) {
                                                          flags);
                         if (r >= 0)
                                 break;
-                        if (r == -EAGAIN) {
-                                key_file = NULL;
-                                continue;
-                        }
-                        if (r != -EPERM) {
-                                log_error_errno(r, "Failed to activate: %m");
+                        if (r != -EAGAIN)
                                 goto finish;
-                        }
 
-                        log_warning("Invalid passphrase.");
+                        /* Passphrase not correct? Let's try again! */
+                        key_file = NULL;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries) {
