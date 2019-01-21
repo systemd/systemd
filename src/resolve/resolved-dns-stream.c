@@ -281,6 +281,7 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+        bool progressed = false;
         int r;
 
         assert(s);
@@ -324,8 +325,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 if (ss < 0) {
                         if (!IN_SET(-ss, EINTR, EAGAIN))
                                 return dns_stream_complete(s, -ss);
-                } else
+                } else {
+                        progressed = true;
                         s->n_written += ss;
+                }
 
                 /* Are we done? If so, disable the event source for EPOLLOUT */
                 if (s->n_written >= sizeof(s->write_size) + s->write_packet->size) {
@@ -348,8 +351,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         return dns_stream_complete(s, -ss);
                         } else if (ss == 0)
                                 return dns_stream_complete(s, ECONNRESET);
-                        else
+                        else {
+                                progressed = true;
                                 s->n_read += ss;
+                        }
                 }
 
                 if (s->n_read >= sizeof(s->read_size)) {
@@ -423,6 +428,13 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         if ((s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
             (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
                 return dns_stream_complete(s, 0);
+
+        /* If we did something, let's restart the timeout event source */
+        if (progressed && s->timeout_event_source) {
+                r = sd_event_source_set_time(s->timeout_event_source, now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC);
+                if (r < 0)
+                        log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
+        }
 
         return 0;
 }
