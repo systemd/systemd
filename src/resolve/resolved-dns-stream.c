@@ -437,7 +437,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
-                s->manager->n_dns_streams--;
+                s->manager->n_dns_streams[s->type]--;
         }
 
 #if ENABLE_DNS_OVER_TLS
@@ -462,6 +462,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 int dns_stream_new(
                 Manager *m,
                 DnsStream **ret,
+                DnsStreamType type,
                 DnsProtocol protocol,
                 int fd,
                 const union sockaddr_union *tfo_address) {
@@ -471,9 +472,13 @@ int dns_stream_new(
 
         assert(m);
         assert(ret);
+        assert(type >= 0);
+        assert(type < _DNS_STREAM_TYPE_MAX);
+        assert(protocol >= 0);
+        assert(protocol < _DNS_PROTOCOL_MAX);
         assert(fd >= 0);
 
-        if (m->n_dns_streams > DNS_STREAMS_MAX)
+        if (m->n_dns_streams[type] > DNS_STREAMS_MAX)
                 return -EBUSY;
 
         s = new(DnsStream, 1);
@@ -508,7 +513,7 @@ int dns_stream_new(
         (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
-        m->n_dns_streams++;
+        m->n_dns_streams[type]++;
         s->manager = m;
 
         s->fd = fd;

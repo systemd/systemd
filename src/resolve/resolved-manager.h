@@ -54,7 +54,7 @@ struct Manager {
         unsigned n_dns_queries;
 
         LIST_HEAD(DnsStream, dns_streams);
-        unsigned n_dns_streams;
+        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
 
         /* Unicast dns */
         LIST_HEAD(DnsServer, dns_servers);

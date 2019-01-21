@@ -471,7 +471,7 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_PROTOCOL_DNS, cfd, NULL);
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
