@@ -1,10 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
-version_h = vcs_tag(
-        command: vcs_tagger,
-        input : 'version.h.in',
-        output : 'version.h')
-
 basic_sources = files('''
         MurmurHash2.c
         MurmurHash2.h
@@ -216,8 +211,6 @@ basic_sources = files('''
         xattr-util.h
 '''.split())
 
-basic_sources += version_h
-
 missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
 missing_network_h = files('missing_network.h')
@@ -299,7 +292,8 @@ libbasic = static_library(
         'basic',
         basic_sources,
         include_directories : includes,
-        dependencies : [threads,
+        dependencies : [versiondep,
+                        threads,
                         libcap,
                         libselinux,
                         libm],

@@ -580,6 +580,13 @@ vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
               get_option('version-tag'),
               meson.project_version()]
 
+version_h = vcs_tag(
+        input : 'src/version/version.h.in',
+        output : 'version.h',
+        command: vcs_tagger)
+
+versiondep = declare_dependency(sources: version_h)
+
 sed = find_program('sed')
 awk = find_program('awk')
 m4 = find_program('m4')
