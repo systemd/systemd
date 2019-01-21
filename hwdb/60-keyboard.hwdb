@@ -997,10 +997,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*PR200*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
  KEYBOARD_KEY_e4=reserved
 
-# MSI GS65 Stealth Thin has a physical backslash key next to the space bar
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pnGS65StealthThin*:pvr*
- KEYBOARD_KEY_56=backslash
-
 ###########################################################
 # MSI
 ###########################################################
