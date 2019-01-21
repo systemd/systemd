@@ -94,6 +94,56 @@ static bool is_us(const char *identifier, const char *pid) {
                streq(identifier, program_invocation_short_name);
 }
 
+static sd_device * get_child_block_device(sd_device *parent) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        const char *g;
+        const char *parent_syspath;
+        const char *parent_subsystem;
+        const char *parent_devtype;
+
+        if (sd_device_get_syspath(parent, &parent_syspath) < 0 ||
+            sd_device_get_subsystem(parent, &parent_subsystem) < 0 ||
+            sd_device_get_devtype(parent, &parent_devtype) < 0)
+                return NULL;
+
+        if (sd_device_enumerator_new(&e) < 0)
+                return NULL;
+
+        if (sd_device_enumerator_add_match_parent(e, parent) < 0)
+                return NULL;
+
+        if (sd_device_enumerator_add_match_subsystem(e, "block", 1) < 0)
+                return NULL;
+
+        FOREACH_DEVICE(e, d) {
+                sd_device *dp;
+                const char *dp_syspath;
+                const char *dp_subsystem;
+                const char *dp_devtype;
+
+                /* the enumerator would return a tree of child devices, need to match the direct one */
+                if (sd_device_get_parent(d, &dp) < 0)
+                        continue;
+                if (sd_device_get_syspath(dp, &dp_syspath) < 0 ||
+                    sd_device_get_subsystem(dp, &dp_subsystem) < 0 ||
+                    sd_device_get_devtype(dp, &dp_devtype) < 0)
+                        continue;
+
+                if (!streq(parent_syspath, dp_syspath) ||
+                    !streq(parent_subsystem, dp_subsystem) ||
+                    !streq(parent_devtype, dp_devtype))
+                        continue;
+
+                if (sd_device_get_syspath(d, &g) < 0)
+                        continue;
+
+                return sd_device_ref(d);
+        }
+
+        return NULL;
+}
+
 void dev_kmsg_record(Server *s, char *p, size_t l) {
 
         _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_pid = NULL, *syslog_facility = NULL, *syslog_identifier = NULL, *source_time = NULL, *identifier = NULL, *pid = NULL;
@@ -213,6 +263,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                 _cleanup_(sd_device_unrefp) sd_device *d = NULL;
 
                 if (sd_device_new_from_device_id(&d, kernel_device) >= 0) {
+                        sd_device *child = NULL;
                         const char *g;
                         char *b;
 
@@ -232,8 +283,12 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                                 }
                         }
 
+                        /* no device symlinks on this udev device, find its child block device instead */
+                        if (!sd_device_get_devlink_first(d))
+                                child = get_child_block_device(d);
+
                         j = 0;
-                        FOREACH_DEVICE_DEVLINK(d, g) {
+                        FOREACH_DEVICE_DEVLINK(child ? child : d, g) {
 
                                 if (j >= N_IOVEC_UDEV_FIELDS)
                                         break;
@@ -246,6 +301,9 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                                 j++;
                         }
+
+                        if (child)
+                                sd_device_unref(child);
                 }
         }
 
