@@ -450,7 +450,7 @@ static int attach_tcrypt(
                 r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
                         log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                        return -EAGAIN;
+                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
                 }
 
                 params.passphrase = passphrase;
