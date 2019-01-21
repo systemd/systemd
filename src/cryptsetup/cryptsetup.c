@@ -621,7 +621,7 @@ int main(int argc, char *argv[]) {
                     !streq(argv[4], "none")) {
 
                         if (!path_is_absolute(argv[4]))
-                                log_error("Password file path '%s' is not absolute. Ignoring.", argv[4]);
+                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
                         else
                                 key_file = argv[4];
                 }
