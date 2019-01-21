@@ -387,10 +387,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         if (q->request_dns_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */
-                q->request_dns_stream->complete = NULL;
-                q->request_dns_stream->on_packet = NULL;
-                q->request_dns_stream->query = NULL;
-                dns_stream_unref(q->request_dns_stream);
+                (void) set_remove(q->request_dns_stream->queries, q);
+                q->request_dns_stream = dns_stream_unref(q->request_dns_stream);
         }
 
         free(q->request_address_string);
