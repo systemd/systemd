@@ -18,6 +18,14 @@ static void test_alloca(void) {
         t = alloca0_align(997, 1024);
         assert_se(!((uintptr_t)t & 0x1ff));
         assert_se(!memcmp(t, zero, 997));
+
+        t = alloca_half_align(0x20, 0x10);
+        assert_se((uintptr_t)t % 8 == 0);
+        assert_se((uintptr_t)t % 0x10 != 0);
+
+        t = alloca_half_align(0x100, 0x100);
+        assert_se((uintptr_t)t % 0x80 == 0);
+        assert_se((uintptr_t)t % 0x100 != 0);
 }
 
 static void test_GREEDY_REALLOC(void) {
@@ -106,11 +114,44 @@ static void test_bool_assign(void) {
         assert(!h);
 }
 
+static void test_malloca(void) {
+        /* it should go on the stack */
+        _mallocable_(char) *s1 = newmalloca(char, 17);
+        assert_se(((uintptr_t)s1 & 1));
+        /* it should go on the heap */
+        _mallocable_(char) *h1 = newmalloca(char, 300);
+        assert_se(!((uintptr_t)h1 & 1));
+
+        /* it should go on the stack */
+        _mallocable_(uint8_t) *su1 = newmalloca(uint8_t, 3);
+        assert_se(((uintptr_t)su1 & 1));
+        /* it should go on the heap */
+        _mallocable_(uint8_t) *hu1 = newmalloca(uint8_t, 280);
+        assert_se(!((uintptr_t)hu1 & 1));
+
+        /* it should go on the stack */
+        size_t ld_align = __alignof__(long double) * 2;
+        _mallocable_full_(long double, long_double) *s2 = newmalloca(long double, 3);
+        assert_se(((uintptr_t)s2 % ld_align != 0));
+        /* it should go on the heap */
+        _mallocable_full_(long double, long_double) *h2 = newmalloca(long double, 30);
+        assert_se((uintptr_t)h2 % ld_align == 0);
+
+        /* it should go on the stack */
+        size_t ull_align = __alignof__(unsigned long long) * 2;
+        _mallocable_full_(unsigned long long, unsigned_long_long) *s3 = newmalloca(unsigned long long, 17);
+        assert_se((uintptr_t)s3 % ull_align != 0);
+        /* it should go on the heap */
+        _mallocable_full_(unsigned long long, unsigned_long_long) *h3 = newmalloca(unsigned long long, 400);
+        assert_se((uintptr_t)h3 % ull_align == 0);
+}
+
 int main(int argc, char *argv[]) {
         test_alloca();
         test_GREEDY_REALLOC();
         test_memdup_multiply_and_greedy_realloc();
         test_bool_assign();
+        test_malloca();
 
         return 0;
 }

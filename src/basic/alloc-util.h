@@ -18,6 +18,8 @@ typedef void (*free_func_t)(void *p);
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
 #define ALLOCA_MAX (4U*1024U*1024U)
 
+#define ROUND_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
+
 #define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
@@ -30,12 +32,28 @@ typedef void (*free_func_t)(void *p);
                 (t*) alloca(sizeof(t)*_n_);                             \
         })
 
+#define newmalloca(t, n)                                                \
+        ({                                                              \
+                size_t _n_ = n;                                         \
+                assert(!size_multiply_overflow(sizeof(t), _n_));        \
+                assert(sizeof(t) * _n_ <= ALLOCA_MAX);                  \
+                (t *) malloca(sizeof(t) * _n_, __alignof__(t));         \
+        })
+
 #define newa0(t, n)                                                     \
         ({                                                              \
                 size_t _n_ = n;                                         \
                 assert(!size_multiply_overflow(sizeof(t), _n_));        \
                 assert(sizeof(t)*_n_ <= ALLOCA_MAX);                    \
                 (t*) alloca0(sizeof(t)*_n_);                            \
+        })
+
+#define newmalloca0(t, n)                                               \
+        ({                                                              \
+                size_t _n_ = n;                                         \
+                assert(!size_multiply_overflow(sizeof(t), _n_));        \
+                assert(sizeof(t) * _n_ <= ALLOCA_MAX);                  \
+                (t *) malloca0(sizeof(t) * _n_, __alignof__(t));        \
         })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
@@ -82,6 +100,53 @@ void* memdup_suffix0(const void *p, size_t l) _alloc_(2);
 static inline void freep(void *p) {
         free(*(void**) p);
 }
+
+#define MALLOCA_THRESHOLD 256
+
+#define DECLARE_MALLOCABLE_TYPE_FULL(t, n)                              \
+        static inline void malloca_release_##n(void *p) {               \
+                void *pc = *(void **)p;                                 \
+                size_t a = __alignof__(t) * 2;                          \
+                if (((uintptr_t)pc & (a - 1)) == 0)                     \
+                        free(pc);                                       \
+        }
+
+#define DECLARE_MALLOCABLE_TYPE(t) DECLARE_MALLOCABLE_TYPE_FULL(t, t)
+
+#define _mallocable_full_(t, n) _cleanup_(malloca_release_##n) t
+#define _mallocable_(t) _mallocable_full_(t, t)
+
+DECLARE_MALLOCABLE_TYPE(char)
+DECLARE_MALLOCABLE_TYPE(uint8_t)
+DECLARE_MALLOCABLE_TYPE(int)
+DECLARE_MALLOCABLE_TYPE_FULL(long double, long_double)
+DECLARE_MALLOCABLE_TYPE_FULL(unsigned long long, unsigned_long_long)
+
+/* malloca/malloca_release are based on address alignment.
+ * Allocations that go on the stack are aligned to "align" but not to 2*"align".
+ * Allocations that go on the heap are aligned to 2*"align".
+ */
+#define malloca(sz, align)                                              \
+        ({                                                              \
+                void *_mr_;                                             \
+                size_t _mda_ = (align) * 2;                             \
+                size_t _mlen_ = (sz);                                   \
+                if (_mlen_ < MALLOCA_THRESHOLD)                         \
+                        _mr_ = alloca_half_align(_mlen_, _mda_);        \
+                else                                                    \
+                        _mr_ = aligned_alloc(_mda_, ROUND_UP(_mlen_, _mda_)); \
+                _mr_;                                                   \
+        })
+
+#define malloca0(sz, align)                                     \
+        ({                                                      \
+                char *_cnew_;                                   \
+                size_t _clen_ = (sz);                           \
+                _cnew_ = malloca(_clen_, (align));              \
+                if (_cnew_)                                     \
+                        (void *) memset(_cnew_, 0, _clen_);     \
+                _cnew_;                                         \
+        })
 
 #define _cleanup_free_ _cleanup_(freep)
 
@@ -145,7 +210,22 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 size_t _size_ = size;                                   \
                 assert(_size_ <= ALLOCA_MAX);                           \
                 _ptr_ = alloca(_size_ + _mask_);                        \
-                (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
+                (void*)ROUND_UP((uintptr_t)_ptr_, align);               \
+        })
+
+/* Allocate size bytes on the stack, aligned to "align/2" but not to "align" */
+#define alloca_half_align(size, align)                                  \
+        ({                                                              \
+                uintptr_t _ptr_;                                        \
+                size_t _align_ = (align);                               \
+                size_t _size_ = (size);                                 \
+                size_t _mask_ = _align_ - 1;                            \
+                size_t _half_ = _align_ / 2;                            \
+                assert(_size_ <= ALLOCA_MAX);                           \
+                /* find the nearest value that is aligned to _half_ but \
+                 * not to "align" */                                    \
+                _ptr_ = (uintptr_t)alloca(_size_ + _mask_) - _half_;    \
+                (void *)(ROUND_UP(_ptr_, _align_) + _half_);            \
         })
 
 #define alloca0_align(size, align)                                      \

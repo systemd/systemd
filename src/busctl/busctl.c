@@ -1504,7 +1504,12 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
 
                         {
                                 unsigned i;
-                                char s[k + 1];
+                                _mallocable_(char) *s;
+
+                                s = newmalloca(char, k + 1);
+                                if (!s)
+                                        return -ENOMEM;
+
                                 memcpy(s, signature, k);
                                 s[k] = 0;
 
@@ -1549,7 +1554,12 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                                 return log_error_errno(r, "Invalid struct/dict entry signature: %m");
 
                         {
-                                char s[k-1];
+                                _mallocable_(char) *s;
+
+                                s = newmalloca(char, k - 1);
+                                if (!s)
+                                        return -ENOMEM;
+
                                 memcpy(s, signature + 1, k - 2);
                                 s[k - 2] = 0;
 

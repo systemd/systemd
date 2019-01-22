@@ -6823,7 +6823,11 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 len = strv_length(names);
                 {
-                        char *new_args[len + 2];
+                        _cleanup_free_ char **new_args = new(char *, len + 2);
+                        if (!new_args) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
 
                         new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
                         for (i = 0; i < len; i++)

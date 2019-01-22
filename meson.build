@@ -358,6 +358,8 @@ possible_cc_flags = [
         '-fstack-protector',
         '-fstack-protector-strong',
         '--param=ssp-buffer-size=4',
+        '-Wvla-larger-than=128',
+        '-Walloca-larger-than=128',
 ]
 
 # --as-needed and --no-undefined are provided by meson by default,

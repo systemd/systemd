@@ -314,11 +314,11 @@ title: Coding Style
 
 - Avoid fixed-size string buffers, unless you really know the maximum size and
   that maximum size is small. They are a source of errors, since they possibly
-  result in truncated strings. It is often nicer to use dynamic memory,
-  `alloca()` or VLAs. If you do allocate fixed-size strings on the stack, then
-  it is probably only OK if you either use a maximum size such as `LINE_MAX`,
-  or count in detail the maximum size a string can have. (`DECIMAL_STR_MAX` and
-  `DECIMAL_STR_WIDTH` macros are your friends for this!)
+  result in truncated strings. It is often nicer to use dynamic memory, e.g.
+  `malloc()`/`newmalloca()`. If you do allocate fixed-size strings on the
+  stack, then it is probably only OK if you count in detail the maximum size a
+  string can have. (`DECIMAL_STR_MAX` and `DECIMAL_STR_WIDTH` macros are your
+  friends for this!)
 
   Or in other words, if you use `char buf[256]` then you are likely doing
   something wrong!
@@ -338,6 +338,19 @@ title: Coding Style
   or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
   matters particularly in inner loops (but note that `strjoina()` cannot be
   used there).
+
+- In general, prefer `malloc()` over stack-based allocations (e.g. `alloca()`,
+  `malloca()`, `newmalloca()`, VLA) as it is not possible to check whether an
+  allocation on the stack is successful or not. Consider using `newmalloca()`
+  only in hot paths, where performance *really* matters.
+
+  Prefer `newmalloca()` over `alloca()`, but never forget that it is not OK to
+  invoke `newmalloca()`/`alloca()` within a loop or within function call
+  parameters. `newmalloca()`/`alloca()` memory may be released at the end of a
+  function, and not at the end of a `{}` block. Thus, if you invoke it in a
+  loop, you keep increasing the stack pointer without ever releasing memory
+  again. Regarding not using `newmalloca()`/`alloca()` within function
+  parameters, see the BUGS section of the `alloca(3)` man page.
 
 ## Runtime Behaviour
 
