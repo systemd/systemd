@@ -411,6 +411,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                         arg_export = true;
                         break;
                 case 'P':
+                        arg_export = true;
                         arg_export_prefix = optarg;
                         break;
                 case 'V':
