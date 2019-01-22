@@ -1453,7 +1453,7 @@ _public_ const char *sd_device_get_devlink_next(sd_device *device) {
         return v;
 }
 
-static int device_properties_prepare(sd_device *device) {
+int device_properties_prepare(sd_device *device) {
         int r;
 
         assert(device);

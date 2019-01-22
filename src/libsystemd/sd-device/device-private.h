@@ -37,6 +37,7 @@ uint64_t device_get_properties_generation(sd_device *device);
 uint64_t device_get_tags_generation(sd_device *device);
 uint64_t device_get_devlinks_generation(sd_device *device);
 
+int device_properties_prepare(sd_device *device);
 int device_get_properties_nulstr(sd_device *device, const uint8_t **nulstr, size_t *len);
 int device_get_properties_strv(sd_device *device, char ***strv);
 

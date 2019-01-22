@@ -702,13 +702,24 @@ int device_new_from_stat_rdev(sd_device **ret, const struct stat *st) {
 
 int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
         const char *property, *value;
+        Iterator i;
         int r;
 
         assert(device_dst);
         assert(device_src);
 
-        FOREACH_DEVICE_PROPERTY(device_src, property, value) {
-                r = device_add_property(device_dst, property, value);
+        r = device_properties_prepare(device_src);
+        if (r < 0)
+                return r;
+
+        ORDERED_HASHMAP_FOREACH_KEY(property, value, device_src->properties_db, i) {
+                r = device_add_property_aux(device_dst, property, value, true);
+                if (r < 0)
+                        return r;
+        }
+
+        ORDERED_HASHMAP_FOREACH_KEY(property, value, device_src->properties, i) {
+                r = device_add_property_aux(device_dst, property, value, false);
                 if (r < 0)
                         return r;
         }
