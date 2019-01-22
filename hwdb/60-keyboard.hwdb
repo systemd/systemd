@@ -630,6 +630,8 @@ evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*
 evdev:atkbd:dmi:bvn*:bvr*:svnHUAWEI*:pnMACH-WX9:pvr*
  KEYBOARD_KEY_f7=unknown
  KEYBOARD_KEY_f8=fn
+
+evdev:name:Huawei WMI hotkeys:dmi:bvn*:bvr*:bd*:svnHUAWEI*:pnMACH-WX9:pvr*
  KEYBOARD_KEY_281=unknown                               # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_282=unknown                               # Brightness Up, also emitted by acpi-video, ignore
 
