@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "unaligned.h"
@@ -60,7 +61,37 @@
 /* Keep at most 16K entries in the cache. (Note though that this limit may be violated if enough streams pin entries in
  * the cache, in which case we *do* permit this limit to be breached. That's safe however, as the number of stream
  * clients itself is limited.) */
-#define CACHE_MAX (16*1024)
+#define CACHE_MAX_FALLBACK 128U
+#define CACHE_MAX_MAX (16*1024U)
+#define CACHE_MAX_MIN 64U
+
+static size_t cache_max(void) {
+        static size_t cached = -1;
+
+        if (cached == (size_t) -1) {
+                uint64_t mem_total;
+                int r;
+
+                r = procfs_memory_get(&mem_total, NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Cannot query /proc/meminfo for MemTotal: %m");
+                        cached = CACHE_MAX_FALLBACK;
+                } else {
+                        /* Cache entries are usually a few kB, but the process cmdline is controlled by the
+                         * user and can be up to _SC_ARG_MAX, usually 2MB. Let's say that approximately up to
+                         * 1/8th of memory may be used by the cache.
+                         *
+                         * In the common case, this formula gives 64 cache entries for each GB of RAM.
+                         */
+                        long l = sysconf(_SC_ARG_MAX);
+                        assert(l > 0);
+
+                        cached = CLAMP(mem_total / 8 / (uint64_t) l, CACHE_MAX_MIN, CACHE_MAX_MAX);
+                }
+        }
+
+        return cached;
+}
 
 static int client_context_compare(const void *a, const void *b) {
         const ClientContext *x = a, *y = b;
@@ -627,7 +658,7 @@ static int client_context_get_internal(
                 return 0;
         }
 
-        client_context_try_shrink_to(s, CACHE_MAX-1);
+        client_context_try_shrink_to(s, cache_max()-1);
 
         r = client_context_new(s, pid, &c);
         if (r < 0)
