@@ -1269,6 +1269,7 @@ static void bump_file_max_and_nr_open(void) {
 }
 
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
+        struct rlimit new_rlimit;
         int r, nr;
 
         assert(saved_rlimit);
@@ -1303,12 +1304,30 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 if (arg_system)
                         rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
 
+                /* If for some reason we were invoked with a soft limit above 1024 (which should never
+                 * happen!, but who knows what we get passed in from pam_limit when invoked as --user
+                 * instance), then lower what we pass on to not confuse our children */
+                rl->rlim_cur = MIN(rl->rlim_cur, (rlim_t) FD_SETSIZE);
+
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
+        }
+
+        /* Calculate the new limits to use for us. Never lower from what we inherited. */
+        new_rlimit = (struct rlimit) {
+                .rlim_cur = MAX((rlim_t) nr, saved_rlimit->rlim_cur),
+                .rlim_max = MAX((rlim_t) nr, saved_rlimit->rlim_max),
+        };
+
+        /* Shortcut if nothing changes. */
+        if (saved_rlimit->rlim_max >= new_rlimit.rlim_max &&
+            saved_rlimit->rlim_cur >= new_rlimit.rlim_cur) {
+                log_debug("RLIMIT_NOFILE is already as high or higher than we need it, not bumping.");
+                return 0;
         }
 
         /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows, for
          * both hard and soft. */
-        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(nr));
+        r = setrlimit_closest(RLIMIT_NOFILE, &new_rlimit);
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
 
@@ -1316,6 +1335,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 }
 
 static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
+        struct rlimit new_rlimit;
         int r;
 
         assert(saved_rlimit);
@@ -1327,7 +1347,33 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         if (getrlimit(RLIMIT_MEMLOCK, saved_rlimit) < 0)
                 return log_warning_errno(errno, "Reading RLIMIT_MEMLOCK failed, ignoring: %m");
 
-        r = setrlimit_closest(RLIMIT_MEMLOCK, &RLIMIT_MAKE_CONST(HIGH_RLIMIT_MEMLOCK));
+        /* Pass the original value down to invoked processes */
+        if (!arg_default_rlimit[RLIMIT_MEMLOCK]) {
+                struct rlimit *rl;
+
+                rl = newdup(struct rlimit, saved_rlimit, 1);
+                if (!rl)
+                        return log_oom();
+
+                arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
+        }
+
+        /* Using MAX() on resource limits only is safe if RLIM_INFINITY is > 0. POSIX declares that rlim_t
+         * must be unsigned, hence this is a given, but let's make this clear here. */
+        assert_cc(RLIM_INFINITY > 0);
+
+        new_rlimit = (struct rlimit) {
+                .rlim_cur = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur),
+                .rlim_max = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_max),
+        };
+
+        if (saved_rlimit->rlim_max >= new_rlimit.rlim_cur &&
+            saved_rlimit->rlim_cur >= new_rlimit.rlim_max) {
+                log_debug("RLIMIT_MEMLOCK is already as high or higher than we need it, not bumping.");
+                return 0;
+        }
+
+        r = setrlimit_closest(RLIMIT_MEMLOCK, &new_rlimit);
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_MEMLOCK failed, ignoring: %m");
 
@@ -1664,12 +1710,11 @@ static void do_reexecute(
          * we do that */
         watchdog_close(true);
 
-        /* Reset the RLIMIT_NOFILE to the kernel default, so that the new systemd can pass the kernel default to its
-         * child processes */
-
-        if (saved_rlimit_nofile->rlim_cur > 0)
+        /* Reset RLIMIT_NOFILE + RLIMIT_MEMLOCK back to the kernel defaults, so that the new systemd can pass
+         * the kernel default to its child processes */
+        if (saved_rlimit_nofile->rlim_cur != 0)
                 (void) setrlimit(RLIMIT_NOFILE, saved_rlimit_nofile);
-        if (saved_rlimit_memlock->rlim_cur != (rlim_t) -1)
+        if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         if (switch_root_dir) {
@@ -2302,7 +2347,11 @@ int main(int argc, char *argv[]) {
 
         dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
                 security_start_timestamp = DUAL_TIMESTAMP_NULL, security_finish_timestamp = DUAL_TIMESTAMP_NULL;
-        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0),
+                saved_rlimit_memlock = RLIMIT_MAKE_CONST(RLIM_INFINITY); /* The original rlimits we passed
+                                                                          * in. Note we use different values
+                                                                          * for the two that indicate whether
+                                                                          * these fields are initialized! */
         bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false, reexecute = false;
         char *switch_root_dir = NULL, *switch_root_init = NULL;
         usec_t before_startup, after_startup;

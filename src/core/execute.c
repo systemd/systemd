@@ -3226,7 +3226,24 @@ static int exec_child(
 #endif
         }
 
+        if (needs_sandboxing) {
+                int which_failed;
+
+                /* Let's set the resource limits before we call into PAM, so that pam_limits wins over what
+                 * is set here. (See below.) */
+
+                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
+                if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
+                }
+        }
+
         if (needs_setuid) {
+
+                /* Let's call into PAM after we set up our own idea of resource limits to that pam_limits
+                 * wins here. (See above.) */
+
                 if (context->pam_name && username) {
                         r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                         if (r < 0) {
@@ -3343,15 +3360,10 @@ static int exec_child(
 
         if (needs_sandboxing) {
                 uint64_t bset;
-                int which_failed;
 
-                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
-                if (r < 0) {
-                        *exit_status = EXIT_LIMITS;
-                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
-                }
-
-                /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested. */
+                /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly
+                 * requested. (Note this is placed after the general resource limit initialization, see
+                 * above, in order to take precedence.) */
                 if (context->restrict_realtime && !context->rlimit[RLIMIT_RTPRIO]) {
                         if (setrlimit(RLIMIT_RTPRIO, &RLIMIT_MAKE_CONST(0)) < 0) {
                                 *exit_status = EXIT_LIMITS;
