@@ -158,6 +158,9 @@ usb:v03E7*
 usb:v03E7p2150*
  ID_MODEL_FROM_DATABASE=Myriad VPU [Movidius Neural Compute Stick]
 
+usb:v03E7p2485*
+ ID_MODEL_FROM_DATABASE=Movidius MyriadX
+
 usb:v03E8*
  ID_VENDOR_FROM_DATABASE=EndPoints, Inc.
 
@@ -1292,6 +1295,9 @@ usb:v03F0p3011*
 usb:v03F0p3017*
  ID_MODEL_FROM_DATABASE=Printing Support
 
+usb:v03F0p304A*
+ ID_MODEL_FROM_DATABASE=Slim Keyboard
+
 usb:v03F0p3102*
  ID_MODEL_FROM_DATABASE=PhotoSmart P1100 Printer w/ Card Reader
 
@@ -2267,6 +2273,9 @@ usb:v0403p6014*
 usb:v0403p6015*
  ID_MODEL_FROM_DATABASE=Bridge(I2C/SPI/UART/FIFO)
 
+usb:v0403p6F70*
+ ID_MODEL_FROM_DATABASE=HB-RF-USB
+
 usb:v0403p8028*
  ID_MODEL_FROM_DATABASE=Dev board JTAG (FT232H based)
 
@@ -2600,6 +2609,9 @@ usb:v0403pF0C9*
 usb:v0403pF0E9*
  ID_MODEL_FROM_DATABASE=Tagsys L-P101
 
+usb:v0403pF0EE*
+ ID_MODEL_FROM_DATABASE=Tagsys Medio P200x
+
 usb:v0403pF1A0*
  ID_MODEL_FROM_DATABASE=Asix PRESTO Programmer
 
@@ -2608,6 +2620,9 @@ usb:v0403pF208*
 
 usb:v0403pF3C0*
  ID_MODEL_FROM_DATABASE=4N-GALAXY Serial Converter
+
+usb:v0403pF458*
+ ID_MODEL_FROM_DATABASE=ABACUS ELECTRICS Optical Probe
 
 usb:v0403pF608*
  ID_MODEL_FROM_DATABASE=CTI USB-485-Mini
@@ -2769,6 +2784,9 @@ usb:v0408p030C*
  ID_MODEL_FROM_DATABASE=HP Webcam
 
 usb:v0408p03B2*
+ ID_MODEL_FROM_DATABASE=HP Webcam
+
+usb:v0408p03F4*
  ID_MODEL_FROM_DATABASE=HP Webcam
 
 usb:v0408p1030*
@@ -3839,6 +3857,9 @@ usb:v041D*
 usb:v041E*
  ID_VENDOR_FROM_DATABASE=Creative Technology, Ltd
 
+usb:v041Ep0414*
+ ID_MODEL_FROM_DATABASE=HS-720 Headset
+
 usb:v041Ep1002*
  ID_MODEL_FROM_DATABASE=Nomad II
 
@@ -4781,6 +4802,9 @@ usb:v0424p2640*
 usb:v0424p2660*
  ID_MODEL_FROM_DATABASE=Hub
 
+usb:v0424p2744*
+ ID_MODEL_FROM_DATABASE=Hub
+
 usb:v0424p274D*
  ID_MODEL_FROM_DATABASE=HTC Hub Controller
 
@@ -4800,6 +4824,9 @@ usb:v0424p5434*
  ID_MODEL_FROM_DATABASE=Hub
 
 usb:v0424p5534*
+ ID_MODEL_FROM_DATABASE=Hub
+
+usb:v0424p5744*
  ID_MODEL_FROM_DATABASE=Hub
 
 usb:v0424p7500*
@@ -5669,6 +5696,12 @@ usb:v044FpB324*
 usb:v044FpB326*
  ID_MODEL_FROM_DATABASE=Gamepad GP XID
 
+usb:v044FpB351*
+ ID_MODEL_FROM_DATABASE=F16 MFD 1
+
+usb:v044FpB352*
+ ID_MODEL_FROM_DATABASE=F16 MFD 2
+
 usb:v044FpB603*
  ID_MODEL_FROM_DATABASE=force feedback Wheel
 
@@ -5686,6 +5719,9 @@ usb:v044FpB654*
 
 usb:v044FpB678*
  ID_MODEL_FROM_DATABASE=T.Flight Rudder Pedals
+
+usb:v044FpB679*
+ ID_MODEL_FROM_DATABASE=T-Rudder
 
 usb:v044FpB687*
  ID_MODEL_FROM_DATABASE=TWCS Throttle
@@ -6259,6 +6295,9 @@ usb:v045B*
 
 usb:v045Bp0053*
  ID_MODEL_FROM_DATABASE=RX610 RX-Stick
+
+usb:v045Bp0229*
+ ID_MODEL_FROM_DATABASE=mSATA Adapter [renkforce Pi-102]
 
 usb:v045D*
  ID_VENDOR_FROM_DATABASE=Nortel Networks, Ltd
@@ -7370,6 +7409,9 @@ usb:v0461p4D91*
 usb:v0461p4D92*
  ID_MODEL_FROM_DATABASE=Optical mouse M-D17DR
 
+usb:v0461p4DB1*
+ ID_MODEL_FROM_DATABASE=Dell Laptop Integrated Webcam 2Mpix
+
 usb:v0461p4DE3*
  ID_MODEL_FROM_DATABASE=HP 5-Button Optical Comfort Mouse
 
@@ -8161,6 +8203,9 @@ usb:v046DpC07D*
 
 usb:v046DpC07E*
  ID_MODEL_FROM_DATABASE=G402 Gaming Mouse
+
+usb:v046DpC080*
+ ID_MODEL_FROM_DATABASE=G303 Gaming Mouse
 
 usb:v046DpC083*
  ID_MODEL_FROM_DATABASE=G403 Prodigy Gaming Mouse
@@ -9493,6 +9538,9 @@ usb:v0480p0100*
 
 usb:v0480p0200*
  ID_MODEL_FROM_DATABASE=External Disk
+
+usb:v0480p0820*
+ ID_MODEL_FROM_DATABASE=Canvio Advance Disk
 
 usb:v0480pA006*
  ID_MODEL_FROM_DATABASE=External Disk 1.5TB
@@ -12506,6 +12554,9 @@ usb:v04A9p32B1*
 usb:v04A9p32B2*
  ID_MODEL_FROM_DATABASE=PowerShot G9 X
 
+usb:v04A9p32B3*
+ ID_MODEL_FROM_DATABASE=PowerShot G5 X
+
 usb:v04A9p32B4*
  ID_MODEL_FROM_DATABASE=EOS Rebel T6
 
@@ -13586,6 +13637,12 @@ usb:v04B8p0892*
 usb:v04B8p0893*
  ID_MODEL_FROM_DATABASE=EP-774A
 
+usb:v04B8p1114*
+ ID_MODEL_FROM_DATABASE=XP-440 [Expression Home Small-in-One Printer]
+
+usb:v04B8p1129*
+ ID_MODEL_FROM_DATABASE=ET-4750 [WorkForce ET-4750 EcoTank All-in-One]
+
 usb:v04B9*
  ID_VENDOR_FROM_DATABASE=Rainbow Technologies, Inc.
 
@@ -13919,11 +13976,20 @@ usb:v04C5p10FE*
 usb:v04C5p1104*
  ID_MODEL_FROM_DATABASE=KD02906 Line Thermal Printer
 
+usb:v04C5p114F*
+ ID_MODEL_FROM_DATABASE=fi-6130
+
 usb:v04C5p1150*
  ID_MODEL_FROM_DATABASE=fi-6230
 
+usb:v04C5p11F3*
+ ID_MODEL_FROM_DATABASE=fi-6130Z
+
 usb:v04C5p125A*
  ID_MODEL_FROM_DATABASE=PalmSecure Sensor Device - MP
+
+usb:v04C5p132E*
+ ID_MODEL_FROM_DATABASE=fi-7160
 
 usb:v04C5p200F*
  ID_MODEL_FROM_DATABASE=Sigma DP2 (Mass Storage)
@@ -15829,6 +15895,9 @@ usb:v04E8p7081*
 
 usb:v04E8p8001*
  ID_MODEL_FROM_DATABASE=Handheld
+
+usb:v04E8pD003*
+ ID_MODEL_FROM_DATABASE=GT-I9003
 
 usb:v04E8pE020*
  ID_MODEL_FROM_DATABASE=SERI E02 SCOM 6200 UMTS Phone
@@ -19550,6 +19619,18 @@ usb:v054Cp0BA0*
 usb:v054Cp0BB5*
  ID_MODEL_FROM_DATABASE=Headset MDR-1000X
 
+usb:v054Cp0C02*
+ ID_MODEL_FROM_DATABASE=ILCE-7M3 [A7III] in Mass Storage mode
+
+usb:v054Cp0C03*
+ ID_MODEL_FROM_DATABASE=ILCE-7M3 [A7III] in MTP mode
+
+usb:v054Cp0C34*
+ ID_MODEL_FROM_DATABASE=ILCE-7M3 [A7III] in PC Remote mode
+
+usb:v054Cp0CDA*
+ ID_MODEL_FROM_DATABASE=PlayStation Classic controller
+
 usb:v054Cp1000*
  ID_MODEL_FROM_DATABASE=Wireless Buzz! Receiver
 
@@ -20519,6 +20600,9 @@ usb:v056Ap038E*
 usb:v056Ap038F*
  ID_MODEL_FROM_DATABASE=DTH-3220 [Cintiq Pro 32] internal hub
 
+usb:v056Ap0390*
+ ID_MODEL_FROM_DATABASE=DTK-1660 [Cintiq 16]
+
 usb:v056Ap0400*
  ID_MODEL_FROM_DATABASE=PenPartner 4x5
 
@@ -20613,7 +20697,10 @@ usb:v056Ep0074*
  ID_MODEL_FROM_DATABASE=Optical mouse M-FW1UL
 
 usb:v056Ep0075*
- ID_MODEL_FROM_DATABASE=M-FW2DL Mouse
+ ID_MODEL_FROM_DATABASE=Laser mouse M-FW2DL
+
+usb:v056Ep0077*
+ ID_MODEL_FROM_DATABASE=Laser mouse M-LY2UL
 
 usb:v056Ep2003*
  ID_MODEL_FROM_DATABASE=JC-U3613M
@@ -46071,58 +46158,256 @@ usb:v1203p0140*
  ID_MODEL_FROM_DATABASE=TTP-245C
 
 usb:v1209*
- ID_VENDOR_FROM_DATABASE=InterBiometrics
+ ID_VENDOR_FROM_DATABASE=Generic
+
+usb:v1209p0001*
+ ID_MODEL_FROM_DATABASE=pid.codes Test PID
+
+usb:v1209p01C0*
+ ID_MODEL_FROM_DATABASE=Input Club Kiibohd Device
+
+usb:v1209p01CB*
+ ID_MODEL_FROM_DATABASE=Input Club Kiibohd Device Bootloader
+
+usb:v1209p0256*
+ ID_MODEL_FROM_DATABASE=Schwalm & Tate LLC pISO Raspberry Pi Hat
+
+usb:v1209p053A*
+ ID_MODEL_FROM_DATABASE=Hackerspace San Salvador HSSV SAMR21-Mote
+
+usb:v1209p0CBD*
+ ID_MODEL_FROM_DATABASE=Andrzej Szombierski kuku.eu.org keyboard
+
+usb:v1209p0D32*
+ ID_MODEL_FROM_DATABASE=ODrive Robotics ODrive v3
 
 usb:v1209p1001*
- ID_MODEL_FROM_DATABASE=USB Hub
+ ID_MODEL_FROM_DATABASE=InterBiometrics Hub
 
 usb:v1209p1002*
- ID_MODEL_FROM_DATABASE=USB Relais
+ ID_MODEL_FROM_DATABASE=InterBiometrics Relais
 
 usb:v1209p1003*
- ID_MODEL_FROM_DATABASE=IBSecureCam-P
+ ID_MODEL_FROM_DATABASE=InterBiometrics IBSecureCam-P
 
 usb:v1209p1004*
- ID_MODEL_FROM_DATABASE=IBSecureCam-O
+ ID_MODEL_FROM_DATABASE=InterBiometrics IBSecureCam-O
 
 usb:v1209p1005*
- ID_MODEL_FROM_DATABASE=IBSecureCam-N
+ ID_MODEL_FROM_DATABASE=InterBiometrics IBSecureCam-N
 
 usb:v1209p1006*
- ID_MODEL_FROM_DATABASE=Mini IO-Board
+ ID_MODEL_FROM_DATABASE=InterBiometrics Mini IO-Board
+
+usb:v1209p1007*
+ ID_MODEL_FROM_DATABASE=e-radionica.com Croduino SAMD
+
+usb:v1209p1986*
+ ID_MODEL_FROM_DATABASE=dgrubb Jaguar Tap
 
 usb:v1209p1AB5*
  ID_MODEL_FROM_DATABASE=Arachnid Labs Tsunami
 
+usb:v1209p1AB6*
+ ID_MODEL_FROM_DATABASE=Arachnid Labs Tsunami Bootloader
+
 usb:v1209p2000*
  ID_MODEL_FROM_DATABASE=Zygmunt Krynicki Lantern Brightness Sensor
 
+usb:v1209p2001*
+ ID_MODEL_FROM_DATABASE=OSHEC Pi-pilot opensource and openhardware autopilot system
+
+usb:v1209p2002*
+ ID_MODEL_FROM_DATABASE=Peter Lawrence PIC16F1-USB-DFU-Bootloader
+
+usb:v1209p2003*
+ ID_MODEL_FROM_DATABASE=Peter Lawrence SAMDx1-USB-DFU-Bootloader
+
+usb:v1209p2004*
+ ID_MODEL_FROM_DATABASE=GCBASIC Serial CDC Stack
+
+usb:v1209p2005*
+ ID_MODEL_FROM_DATABASE=GCBASIC OakTree Stack
+
+usb:v1209p2006*
+ ID_MODEL_FROM_DATABASE=GCBASIC Simulation Stack
+
+usb:v1209p2016*
+ ID_MODEL_FROM_DATABASE=Cupkee
+
+usb:v1209p2017*
+ ID_MODEL_FROM_DATABASE=Benjamin Shockley Mini SAM
+
+usb:v1209p2020*
+ ID_MODEL_FROM_DATABASE=Captain Credible Gate Crystal
+
 usb:v1209p2048*
  ID_MODEL_FROM_DATABASE=Housedillon.com MRF49XA Transciever
+
+usb:v1209p2100*
+ ID_MODEL_FROM_DATABASE=TinyFPGA B1 and B2 Boards
+
+usb:v1209p2101*
+ ID_MODEL_FROM_DATABASE=TinyFPGA A-Series Programmer
+
+usb:v1209p2200*
+ ID_MODEL_FROM_DATABASE=Dygma Shortcut Bootloader
+
+usb:v1209p2201*
+ ID_MODEL_FROM_DATABASE=Dygma Shortcut Keyboard
 
 usb:v1209p2222*
  ID_MODEL_FROM_DATABASE=LabConnect Signalgenerator
 
 usb:v1209p2300*
- ID_MODEL_FROM_DATABASE=Keyboardio Keyboardio Model 01 Bootloader
+ ID_MODEL_FROM_DATABASE=Keyboardio Model 01 Bootloader
 
 usb:v1209p2301*
- ID_MODEL_FROM_DATABASE=Keyboardio Keyboardio Model 01
+ ID_MODEL_FROM_DATABASE=Keyboardio Model 01
+
+usb:v1209p2323*
+ ID_MODEL_FROM_DATABASE=bytewerk.org candleLight
 
 usb:v1209p2327*
- ID_MODEL_FROM_DATABASE=K.T.E.C.Bootloader Device
+ ID_MODEL_FROM_DATABASE=K.T.E.C. Bootloader Device
 
 usb:v1209p2328*
  ID_MODEL_FROM_DATABASE=K.T.E.C. Keyboard Device
 
+usb:v1209p2333*
+ ID_MODEL_FROM_DATABASE=Kai Ryu Kimera
+
+usb:v1209p2334*
+ ID_MODEL_FROM_DATABASE=Kai Ryu Staryu
+
+usb:v1209p2335*
+ ID_MODEL_FROM_DATABASE=Portwell Sense8
+
+usb:v1209p2336*
+ ID_MODEL_FROM_DATABASE=Portwell Sense8
+
 usb:v1209p2337*
- ID_MODEL_FROM_DATABASE=/Dev or SlashDev /Net
+ ID_MODEL_FROM_DATABASE=/Dev /Net
+
+usb:v1209p2342*
+ ID_MODEL_FROM_DATABASE=Andreas Bogk Big Red Button
+
+usb:v1209p2345*
+ ID_MODEL_FROM_DATABASE=VV-Soft Simple Generic HID IO
+
+usb:v1209p2357*
+ ID_MODEL_FROM_DATABASE=KarolKucza TinyPassword
+
+usb:v1209p2400*
+ ID_MODEL_FROM_DATABASE=phooky Snap-Pad
+
+usb:v1209p2488*
+ ID_MODEL_FROM_DATABASE=Peter Lawrence CMSIS-DAP Dapper Miser
+
+usb:v1209p2552*
+ ID_MODEL_FROM_DATABASE=ProjectIota Electrolink
+
+usb:v1209p2600*
+ ID_MODEL_FROM_DATABASE=Majenko Technologies chipKIT Lenny
+
+usb:v1209p2635*
+ ID_MODEL_FROM_DATABASE=Sevinz GameBot
+
+usb:v1209p2800*
+ ID_MODEL_FROM_DATABASE=Entropic Engineering Triangulation
+
+usb:v1209p2801*
+ ID_MODEL_FROM_DATABASE=Entropic Engineering Object Manipulation
+
+usb:v1209p2A00*
+ ID_MODEL_FROM_DATABASE=mooware Wii adapter
+
+usb:v1209p2A01*
+ ID_MODEL_FROM_DATABASE=mooware SNES adapter
 
 usb:v1209p3000*
  ID_MODEL_FROM_DATABASE=lloyd3000
 
+usb:v1209p3100*
+ ID_MODEL_FROM_DATABASE=OpenSimHardware Pedals & Buttons Controller
+
+usb:v1209p317E*
+ ID_MODEL_FROM_DATABASE=Codecrete Wirekite
+
+usb:v1209p3210*
+ ID_MODEL_FROM_DATABASE=OSH Lab, LLC Magic Keys
+
 usb:v1209p3333*
  ID_MODEL_FROM_DATABASE=LabConnect Digitalnetzteil
+
+usb:v1209p3690*
+ ID_MODEL_FROM_DATABASE=Kigakudoh TouchMIDI32
+
+usb:v1209p4096*
+ ID_MODEL_FROM_DATABASE=CynaraKrewe Cynara
+
+usb:v1209p414C*
+ ID_MODEL_FROM_DATABASE=Adi Linden
+
+usb:v1209p414D*
+ ID_MODEL_FROM_DATABASE=Adi Linden
+
+usb:v1209p4242*
+ ID_MODEL_FROM_DATABASE=Komakallio Astrophotography Community KomaHub Remote Power Switch
+
+usb:v1209p4256*
+ ID_MODEL_FROM_DATABASE=CuVoodoo BusVoodoo multi-protocol debugging adapter
+
+usb:v1209p4321*
+ ID_MODEL_FROM_DATABASE=mooltipass Offline Password Keeper Bootloader
+
+usb:v1209p4322*
+ ID_MODEL_FROM_DATABASE=mooltipass Arduino Sketch
+
+usb:v1209p4356*
+ ID_MODEL_FROM_DATABASE=CuVoodoo firmware
+
+usb:v1209p4443*
+ ID_MODEL_FROM_DATABASE=j1rie IRMP_STM32 Bootloader
+
+usb:v1209p4444*
+ ID_MODEL_FROM_DATABASE=j1rie IRMP_STM32
+
+usb:v1209p4545*
+ ID_MODEL_FROM_DATABASE=SlothCo Enterprises Teletype Adapter
+
+usb:v1209p4646*
+ ID_MODEL_FROM_DATABASE=SmartPID SPC1000
+
+usb:v1209p4748*
+ ID_MODEL_FROM_DATABASE=Kate Gray GHETT-iO Bootloader
+
+usb:v1209p4750*
+ ID_MODEL_FROM_DATABASE=Chris Pavlina (c4757p) C4-x computer (development interface)
+
+usb:v1209p4757*
+ ID_MODEL_FROM_DATABASE=Chris Pavlina (c4757p) WCP52 Gain/Phase Analyzer
+
+usb:v1209p4801*
+ ID_MODEL_FROM_DATABASE=Wojciech Krutnik NVMemProg
+
+usb:v1209p4C60*
+ ID_MODEL_FROM_DATABASE=MightyPork GEX module
+
+usb:v1209p4C61*
+ ID_MODEL_FROM_DATABASE=MightyPork GEX wireless dongle
+
+usb:v1209p4D53*
+ ID_MODEL_FROM_DATABASE=mindsensors.com NXTCam5
+
+usb:v1209p5038*
+ ID_MODEL_FROM_DATABASE=frotz.net mdebug rswd protocol
+
+usb:v1209p5039*
+ ID_MODEL_FROM_DATABASE=frotz.net lpcboot protocol
+
+usb:v1209p5050*
+ ID_MODEL_FROM_DATABASE=trebb ISO50
 
 usb:v1209p5222*
  ID_MODEL_FROM_DATABASE=telavivmakers attami
@@ -46133,53 +46418,479 @@ usb:v1209p53C0*
 usb:v1209p53C1*
  ID_MODEL_FROM_DATABASE=SatoshiLabs TREZOR
 
+usb:v1209p5432*
+ ID_MODEL_FROM_DATABASE=Open Programmer
+
+usb:v1209p5457*
+ ID_MODEL_FROM_DATABASE=Openlab.Taipei Taiwanduino
+
+usb:v1209p571C*
+ ID_MODEL_FROM_DATABASE=StreetoArcade PancadariaStick
+
 usb:v1209p5A22*
  ID_MODEL_FROM_DATABASE=ikari_01 sd2snes
 
+usb:v1209p6000*
+ ID_MODEL_FROM_DATABASE=Pulsar Heavy Industries Cenx4
+
+usb:v1209p600D*
+ ID_MODEL_FROM_DATABASE=Makdaam N93 Interface
+
+usb:v1209p6464*
+ ID_MODEL_FROM_DATABASE=Electric Exploits Shinewave
+
+usb:v1209p6502*
+ ID_MODEL_FROM_DATABASE=jj1bdx avrhwrng v2rev1
+
+usb:v1209p6570*
+ ID_MODEL_FROM_DATABASE=Iowa Scaled Engineering, LLC CKT-AVRPROGRAMMER
+
+usb:v1209p6666*
+ ID_MODEL_FROM_DATABASE=Talpa Chen VSFLogic
+
+usb:v1209p6667*
+ ID_MODEL_FROM_DATABASE=SensePost Universal Serial aBUSe - Generic HID
+
+usb:v1209p6742*
+ ID_MODEL_FROM_DATABASE=NPK Cubitel Atomic Force Microscope
+
+usb:v1209p6809*
+ ID_MODEL_FROM_DATABASE=Tach Radio Doppelganger
+
+usb:v1209p6948*
+ ID_MODEL_FROM_DATABASE=MySensors Sensebender Gateway BootLoader
+
+usb:v1209p6949*
+ ID_MODEL_FROM_DATABASE=MySensors Sensebender Gateway
+
+usb:v1209p6BCF*
+ ID_MODEL_FROM_DATABASE=blaste Gameboy Cart Flasher
+
+usb:v1209p7000*
+ ID_MODEL_FROM_DATABASE=Secalot Dongle
+
+usb:v1209p7001*
+ ID_MODEL_FROM_DATABASE=Secalot Bootloader
+
+usb:v1209p70B1*
+ ID_MODEL_FROM_DATABASE=Sutajio Ko-Usagi (Kosagi) Tomu
+
+usb:v1209p7331*
+ ID_MODEL_FROM_DATABASE=Dangerous Prototypes Bus Pirate Next Gen CDC
+
+usb:v1209p7332*
+ ID_MODEL_FROM_DATABASE=Dangerous Prototypes Bus Pirate Next Gen Logic Analyzer
+
+usb:v1209p7401*
+ ID_MODEL_FROM_DATABASE=Beststream-jp Tool_CDC
+
 usb:v1209p7530*
- ID_MODEL_FROM_DATABASE=Refflion - IoT Board - Bootloader
+ ID_MODEL_FROM_DATABASE=PotentialLabs Refflion - IoT Development Board - Bootloader
 
 usb:v1209p7531*
- ID_MODEL_FROM_DATABASE=Refflion - IoT Board - Sketch
+ ID_MODEL_FROM_DATABASE=PotentialLabs Refflion - IoT Development Board - Sketch
+
+usb:v1209p7551*
+ ID_MODEL_FROM_DATABASE=The Tessel Project Tessel 2
+
+usb:v1209p7777*
+ ID_MODEL_FROM_DATABASE=circuitvalley IO Board V3
+
+usb:v1209p7778*
+ ID_MODEL_FROM_DATABASE=circuitvalley IO Board V3 Bootloader
 
 usb:v1209p7BD0*
  ID_MODEL_FROM_DATABASE=pokey9000 Tiny Bit Dingus
 
-usb:v1209pABD0*
- ID_MODEL_FROM_DATABASE=tibounise ADB converter
+usb:v1209p8000*
+ ID_MODEL_FROM_DATABASE=Autonomii NODii 2
+
+usb:v1209p8086*
+ ID_MODEL_FROM_DATABASE=MisfitTech Nano Zero Bootloader
+
+usb:v1209p8087*
+ ID_MODEL_FROM_DATABASE=MisfitTech Nano Zero
+
+usb:v1209p8123*
+ ID_MODEL_FROM_DATABASE=Danyboard M0 bootloader
+
+usb:v1209p812A*
+ ID_MODEL_FROM_DATABASE=Danyboard M0
+
+usb:v1209p813A*
+ ID_MODEL_FROM_DATABASE=MickMad HACK Bootloader
+
+usb:v1209p813B*
+ ID_MODEL_FROM_DATABASE=MickMad HACK Sketch
+
+usb:v1209p8242*
+ ID_MODEL_FROM_DATABASE=Tom Wimmenhove Electronics NBS-DAC 192/24 UAC1
+
+usb:v1209p8243*
+ ID_MODEL_FROM_DATABASE=Tom Wimmenhove Electronics NBS-DAC 192/24 UAC2
+
+usb:v1209p8472*
+ ID_MODEL_FROM_DATABASE=Shantea Controls OpenDeck
+
+usb:v1209p8661*
+ ID_MODEL_FROM_DATABASE=ProgHQ TL866 programmer
+
+usb:v1209p8844*
+ ID_MODEL_FROM_DATABASE=munia.io MUNIA
+
+usb:v1209p8888*
+ ID_MODEL_FROM_DATABASE=Blinkinlabs POV Pendant
+
+usb:v1209p8889*
+ ID_MODEL_FROM_DATABASE=Blinkinlabs POV Pendant (bootloader)
+
+usb:v1209p8B00*
+ ID_MODEL_FROM_DATABASE=ReSwitched Libtransistor Serial Console
+
+usb:v1209p9021*
+ ID_MODEL_FROM_DATABASE=Connected Community Hackerspace ESPlant
+
+usb:v1209p9317*
+ ID_MODEL_FROM_DATABASE=Sutajio Ko-Usagi (Kosagi) Palawan-Tx
+
+usb:v1209p9999*
+ ID_MODEL_FROM_DATABASE=Sandeepan Sengupta CodeBridge Infineo
+
+usb:v1209p9DB5*
+ ID_MODEL_FROM_DATABASE=PD Buddy Sink
+
+usb:v1209pA033*
+ ID_MODEL_FROM_DATABASE=area0x33 Memtype
+
+usb:v1209pA100*
+ ID_MODEL_FROM_DATABASE=KB LES Narsil analog breakout
+
+usb:v1209pA10C*
+ ID_MODEL_FROM_DATABASE=KB LES Aminoacid Synthesizer
+
+usb:v1209pA1E5*
+ ID_MODEL_FROM_DATABASE=Atreus Keyboards Atreus Keyboard
+
+usb:v1209pA3A4*
+ ID_MODEL_FROM_DATABASE=MK::Box MK::Kbd
+
+usb:v1209pA3A5*
+ ID_MODEL_FROM_DATABASE=MK::Box MK::Kbd Bootloader
+
+usb:v1209pA55A*
+ ID_MODEL_FROM_DATABASE=Forever Young Software ATTINY2313
+
+usb:v1209pA602*
+ ID_MODEL_FROM_DATABASE=Robotips RTBoard
+
+usb:v1209pA7EA*
+ ID_MODEL_FROM_DATABASE=area3001 Knixx SW04
+
+usb:v1209pA800*
+ ID_MODEL_FROM_DATABASE=sowbug.com WebLight
+
+usb:v1209pA8B0*
+ ID_MODEL_FROM_DATABASE=Intelectron BootWare
+
+usb:v1209pA8B1*
+ ID_MODEL_FROM_DATABASE=Intelectron FrameWare
+
+usb:v1209pAA00*
+ ID_MODEL_FROM_DATABASE=Serg Oskin LinuxCNC HID Extender
+
+usb:v1209pAA0B*
+ ID_MODEL_FROM_DATABASE=Open Bionics
+
+usb:v1209pAB3D*
+ ID_MODEL_FROM_DATABASE=3DArtists Alligator board
+
+usb:v1209pABBA*
+ ID_MODEL_FROM_DATABASE=CoinWISE SafeWISE
+
+usb:v1209pABC0*
+ ID_MODEL_FROM_DATABASE=Omzlo controller
+
+usb:v1209pABCD*
+ ID_MODEL_FROM_DATABASE=Sandeepan Sengupta CodeBridge
+
+usb:v1209pABD1*
+ ID_MODEL_FROM_DATABASE=OpenMV Cam
+
+usb:v1209pACDC*
+ ID_MODEL_FROM_DATABASE=Gediminas Zukaitis midi-grid
+
+usb:v1209pACE5*
+ ID_MODEL_FROM_DATABASE=SimAces Panel Ace
 
 usb:v1209pACED*
- ID_MODEL_FROM_DATABASE=Open Lighting Project - Ja Rule Device
+ ID_MODEL_FROM_DATABASE=Open Lighting Project Ja Rule Device
 
 usb:v1209pACEE*
- ID_MODEL_FROM_DATABASE=Open Lighting Project - Ja Rule Bootloader
+ ID_MODEL_FROM_DATABASE=Open Lighting Project Ja Rule Bootloader
+
+usb:v1209pADB0*
+ ID_MODEL_FROM_DATABASE=tibounise ADB converter
+
+usb:v1209pADDA*
+ ID_MODEL_FROM_DATABASE=MicroPython Boards
+
+usb:v1209pB007*
+ ID_MODEL_FROM_DATABASE=Konsgn Global_Boot
+
+usb:v1209pB00B*
+ ID_MODEL_FROM_DATABASE=CrapLab Random Device
+
+usb:v1209pB010*
+ ID_MODEL_FROM_DATABASE=IObitZ CodeBridge
+
+usb:v1209pB01D*
+ ID_MODEL_FROM_DATABASE=WyoLum VeloKey
+
+usb:v1209pB058*
+ ID_MODEL_FROM_DATABASE=Model B, LLC Holoseat
+
+usb:v1209pB0B0*
+ ID_MODEL_FROM_DATABASE=Monero Hardware Monero Bootloader
+
+usb:v1209pB100*
+ ID_MODEL_FROM_DATABASE=ptrandem iBizi
+
+usb:v1209pB101*
+ ID_MODEL_FROM_DATABASE=IObitZ Infineo
+
+usb:v1209pB195*
+ ID_MODEL_FROM_DATABASE=flehrad Big Switch PCB
+
+usb:v1209pBAB1*
+ ID_MODEL_FROM_DATABASE=ElectronicCats Meow Meow
+
+usb:v1209pBABE*
+ ID_MODEL_FROM_DATABASE=brunofreitas.com STM32 HID Bootloader
+
+usb:v1209pBAD1*
+ ID_MODEL_FROM_DATABASE=Gregory POTEAU CommLinkUSB
+
+usb:v1209pBAD2*
+ ID_MODEL_FROM_DATABASE=Gregory POTEAU XLinkUSB
+
+usb:v1209pBADE*
+ ID_MODEL_FROM_DATABASE=Semarme SemarmeHID
+
+usb:v1209pBB00*
+ ID_MODEL_FROM_DATABASE=keyplus split keyboard firmware
+
+usb:v1209pBB01*
+ ID_MODEL_FROM_DATABASE=keyplus xusb bootloader
+
+usb:v1209pBB02*
+ ID_MODEL_FROM_DATABASE=keyplus nRF24 wireless keyboard dongle
+
+usb:v1209pBB03*
+ ID_MODEL_FROM_DATABASE=keyplus nrf24lu1p-512 bootloader
+
+usb:v1209pBB05*
+ ID_MODEL_FROM_DATABASE=keyplus kp_boot_32u4 bootloader
+
+usb:v1209pBEBA*
+ ID_MODEL_FROM_DATABASE=serasidis.gr STM32 HID Bootloader
 
 usb:v1209pBEEF*
  ID_MODEL_FROM_DATABASE=Modal MC-USB
 
+usb:v1209pC001*
+ ID_MODEL_FROM_DATABASE=Cynteract Alpha
+
+usb:v1209pC0C0*
+ ID_MODEL_FROM_DATABASE=Geppetto_Electronics Orthrus
+
+usb:v1209pC0C1*
+ ID_MODEL_FROM_DATABASE=Michael Bemmerl cookie-mouse
+
+usb:v1209pC0CA*
+ ID_MODEL_FROM_DATABASE=Jean THOMAS DirtyJTAG
+
+usb:v1209pC0D3*
+ ID_MODEL_FROM_DATABASE=Samy Kamkar USBdriveby
+
+usb:v1209pC0DA*
+ ID_MODEL_FROM_DATABASE=Monero Hardware Monero Firmware
+
+usb:v1209pC0DE*
+ ID_MODEL_FROM_DATABASE=KMRH Labs SBL Brain
+
 usb:v1209pC0F5*
  ID_MODEL_FROM_DATABASE=unethi PERswitch
 
+usb:v1209pC1AA*
+ ID_MODEL_FROM_DATABASE=Proyecto CIAA Computadora Industrial Abierta Argentina
+
+usb:v1209pC1B1*
+ ID_MODEL_FROM_DATABASE=Chibitronics Love-to-Code
+
+usb:v1209pC311*
+ ID_MODEL_FROM_DATABASE=bg nerilex GB-USB-Link
+
 usb:v1209pCA1C*
- ID_MODEL_FROM_DATABASE=KnightOS Hub
+ ID_MODEL_FROM_DATABASE=KnightOS Generic Hub
 
 usb:v1209pCA1D*
  ID_MODEL_FROM_DATABASE=KnightOS MTP Device
 
+usb:v1209pCAEA*
+ ID_MODEL_FROM_DATABASE=Open Music Kontrollers Chimaera
+
 usb:v1209pCAFE*
  ID_MODEL_FROM_DATABASE=ii iigadget
+
+usb:v1209pCC14*
+ ID_MODEL_FROM_DATABASE=trebb NaN-15
+
+usb:v1209pCC86*
+ ID_MODEL_FROM_DATABASE=Manfred's Technologies Anastasia Bootloader
+
+usb:v1209pCEB0*
+ ID_MODEL_FROM_DATABASE=KG4LNE GE-FlashUSB
+
+usb:v1209pCF20*
+ ID_MODEL_FROM_DATABASE=Smart Citizen SCK 2.0
+
+usb:v1209pD00D*
+ ID_MODEL_FROM_DATABASE=Monero Hardware Monero Developer
+
+usb:v1209pD017*
+ ID_MODEL_FROM_DATABASE=empiriKit empiriKit Controller
+
+usb:v1209pD11D*
+ ID_MODEL_FROM_DATABASE=Koi Science DI-Lambda AVR
+
+usb:v1209pD3D8*
+ ID_MODEL_FROM_DATABASE=Duet3d Duet 0.8.5
+
+usb:v1209pD706*
+ ID_MODEL_FROM_DATABASE=SkyBean SkyDrop
+
+usb:v1209pDA42*
+ ID_MODEL_FROM_DATABASE=Devan Lai dap42 debug access probe
+
+usb:v1209pDAA0*
+ ID_MODEL_FROM_DATABASE=darknao btClubSportWheel
 
 usb:v1209pDADA*
  ID_MODEL_FROM_DATABASE=Rebel Technology OWL
 
+usb:v1209pDB42*
+ ID_MODEL_FROM_DATABASE=Devan Lai dapboot DFU bootloader
+
+usb:v1209pDC21*
+ ID_MODEL_FROM_DATABASE=FPGA-Computer Dual Charger
+
+usb:v1209pDDDD*
+ ID_MODEL_FROM_DATABASE=Stephan Electronics OpenCVMeter
+
 usb:v1209pDEAD*
  ID_MODEL_FROM_DATABASE=chaosfield.at AVR-Ruler
+
+usb:v1209pDEAF*
+ ID_MODEL_FROM_DATABASE=CrapLab 4chord MIDI
+
+usb:v1209pDED1*
+ ID_MODEL_FROM_DATABASE=ManCave Made Quark One
+
+usb:v1209pDF00*
+ ID_MODEL_FROM_DATABASE=D.F.Mac. @TripArts Music mi:muz:tuch
+
+usb:v1209pDF01*
+ ID_MODEL_FROM_DATABASE=D.F.Mac. @TripArts Music mi:muz:can
+
+usb:v1209pDF02*
+ ID_MODEL_FROM_DATABASE=D.F.Mac. @TripArts Music mi:muz:can-lite
+
+usb:v1209pE116*
+ ID_MODEL_FROM_DATABASE=Elijah Motornyy open-oscilloscope-stm32f3
+
+usb:v1209pE1EC*
+ ID_MODEL_FROM_DATABASE=FreeSRP
+
+usb:v1209pE4EE*
+ ID_MODEL_FROM_DATABASE=trebb keytee
+
+usb:v1209pE500*
+ ID_MODEL_FROM_DATABASE=GitleMikkelsen Helios Laser DAC
+
+usb:v1209pEAEA*
+ ID_MODEL_FROM_DATABASE=Pinscape Controller
+
+usb:v1209pEB01*
+ ID_MODEL_FROM_DATABASE=RobotMaker.club EB1
+
+usb:v1209pEBA7*
+ ID_MODEL_FROM_DATABASE=VictorGrigoryev USBscope
+
+usb:v1209pEE00*
+ ID_MODEL_FROM_DATABASE=Explore Embedded SODA(SWD OpenSource Debug Adapter)
+
+usb:v1209pEE02*
+ ID_MODEL_FROM_DATABASE=Explore Embedded Explore M3 VCOM
+
+usb:v1209pEE03*
+ ID_MODEL_FROM_DATABASE=Explore Embedded Explore M3 DFU
+
+usb:v1209pEE2C*
+ ID_MODEL_FROM_DATABASE=jaka USB2RS485
+
+usb:v1209pEFFA*
+ ID_MODEL_FROM_DATABASE=EffigyLabs atmega32u4-USB-LUFA-Bootloader
+
+usb:v1209pEFFE*
+ ID_MODEL_FROM_DATABASE=EffigyLabs Control Pedal
+
+usb:v1209pF000*
+ ID_MODEL_FROM_DATABASE=Uniti ARC
+
+usb:v1209pF00D*
+ ID_MODEL_FROM_DATABASE=RomanStepanov Shifter/Pedals Adapter
+
+usb:v1209pF12E*
+ ID_MODEL_FROM_DATABASE=Michael Bemmerl Feuermelder
+
+usb:v1209pF16A*
+ ID_MODEL_FROM_DATABASE=uri_ba Cougar TQS adapter
+
+usb:v1209pF16C*
+ ID_MODEL_FROM_DATABASE=uri_ba adapter for Vipercore's FCC3 Force Sensing Module
+
+usb:v1209pF380*
+ ID_MODEL_FROM_DATABASE=Windsor Schmidt MD-380 Open Radio Firmware
+
+usb:v1209pF3FC*
+ ID_MODEL_FROM_DATABASE=dRonin Flight controller-Lumenier Lux
+
+usb:v1209pF49A*
+ ID_MODEL_FROM_DATABASE=TimVideos.us & HDMI2USB.tv Projects FPGA Programmer & UART Bridge (PIC based Firmware)
 
 usb:v1209pFA11*
  ID_MODEL_FROM_DATABASE=moonglow OpenXHC
 
+usb:v1209pFA57*
+ ID_MODEL_FROM_DATABASE=3DRacers Pilot Board
+
+usb:v1209pFA58*
+ ID_MODEL_FROM_DATABASE=3DRacers Pilot Board (Bootloader)
+
+usb:v1209pFAB1*
+ ID_MODEL_FROM_DATABASE=PAP Mechatronic Technology LamDiNao
+
+usb:v1209pFACE*
+ ID_MODEL_FROM_DATABASE=Protean Synth Craft
+
+usb:v1209pFADE*
+ ID_MODEL_FROM_DATABASE=Open Collector dude
+
 usb:v1209pFEED*
  ID_MODEL_FROM_DATABASE=ProgramGyar AVR-IR Sender
+
+usb:v1209pFFFF*
+ ID_MODEL_FROM_DATABASE=Life2Device Smart House
 
 usb:v120E*
  ID_VENDOR_FROM_DATABASE=Hudson Soft Co., Ltd
@@ -57256,6 +57967,12 @@ usb:v3016*
 
 usb:v3016p0001*
  ID_MODEL_FROM_DATABASE=Nitrogen Bootloader
+
+usb:v30EE*
+ ID_VENDOR_FROM_DATABASE=Fujitsu Connected Technologies Limited
+
+usb:v30EEp1001*
+ ID_MODEL_FROM_DATABASE=F-01L
 
 usb:v3125*
  ID_VENDOR_FROM_DATABASE=Eagletron

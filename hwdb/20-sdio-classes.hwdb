@@ -3,7 +3,7 @@
 # Data imported from: hwdb/sdio.ids
 
 sdio:c00v*d*
- ID_SDIO_CLASS_FROM_DATABASE=Not a SDIO standard interface
+ ID_SDIO_CLASS_FROM_DATABASE=Non-standard SDIO interface
 
 sdio:c01v*d*
  ID_SDIO_CLASS_FROM_DATABASE=UART standard interface
