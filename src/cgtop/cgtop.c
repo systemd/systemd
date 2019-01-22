@@ -291,7 +291,7 @@ static int process(
         } else if (streq(controller, "memory")) {
 
                 if (is_root_cgroup(path)) {
-                        r = procfs_memory_get_current(&g->memory);
+                        r = procfs_memory_get_used(&g->memory);
                         if (r < 0)
                                 return r;
                 } else {
