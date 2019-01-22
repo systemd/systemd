@@ -102,7 +102,8 @@ int get_process_comm(pid_t pid, char **ret) {
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
         bool space = false;
-        char *k, *ans = NULL;
+        char *k;
+        _cleanup_free_ char *ans = NULL;
         const char *p;
         int c;
 
@@ -143,7 +144,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                 if (!ans)
                         return -ENOMEM;
 
-                *line = ans;
+                *line = TAKE_PTR(ans);
                 return 0;
 
         } else {
@@ -208,7 +209,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                 _cleanup_free_ char *t = NULL;
                 int h;
 
-                free(ans);
+                ans = mfree(ans);
 
                 if (!comm_fallback)
                         return -ENOENT;
@@ -241,9 +242,18 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         if (!ans)
                                 return -ENOMEM;
                 }
+
+                *line = TAKE_PTR(ans);
+                return 0;
         }
 
-        *line = ans;
+        k = realloc(ans, strlen(ans) + 1);
+        if (!k)
+                return -ENOMEM;
+
+        ans = NULL;
+        *line = k;
+
         return 0;
 }
 
