@@ -185,11 +185,11 @@
 
     <refsect2><title>udevadm trigger
       <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
       </title>
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
 
-      <para>Takes one or more device specifications as arguments. See the description of <command>info</command>
+      <para>Takes a device specification as a positional argument. See the description of <command>info</command>
       above.</para>
 
       <variablelist>
@@ -229,8 +229,9 @@
           <term><option>--subsystem-match=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices which belong to a
-            matching subsystem. This option can be specified multiple
-            times and supports shell style pattern matching.</para>
+            matching subsystem. This option supports shell style pattern matching.
+            When this option is specified more than once, then each matching result is ORed, that is,
+            all the devices in each subsystem are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -238,77 +239,74 @@
           <term><option>--subsystem-nomatch=<replaceable>SUBSYSTEM</replaceable></option></term>
           <listitem>
             <para>Do not trigger events for devices which belong to a matching subsystem. This option
-            can be specified multiple times and supports shell style pattern matching.</para>
+            supports shell style pattern matching. When this option is specified more than once,
+            then each matching result is ANDed, that is, devices which do not match all specified
+            subsystems are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-a</option></term>
           <term><option>--attr-match=<replaceable>ATTRIBUTE</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching sysfs
-            attribute. If a value is specified along with the
-            attribute name, the content of the attribute is matched
-            against the given value using shell style pattern
-            matching. If no value is specified, the existence of the
-            sysfs attribute is checked. This option can be specified
-            multiple times.</para>
+            <para>Trigger events for devices with a matching sysfs attribute. If a value is specified along
+            with the attribute name, the content of the attribute is matched against the given value using
+            shell style pattern matching. If no value is specified, the existence of the sysfs attribute is
+            checked. When this option is specified multiple times, then each matching result is ANDed,
+            that is, only devices which have all specified attributes are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-A</option></term>
           <term><option>--attr-nomatch=<replaceable>ATTRIBUTE</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Do not trigger events for devices with a matching
-            sysfs attribute. If a value is specified along with the
-            attribute name, the content of the attribute is matched
-            against the given value using shell style pattern
-            matching. If no value is specified, the existence of the
-            sysfs attribute is checked. This option can be specified
-            multiple times.</para>
+            <para>Do not trigger events for devices with a matching sysfs attribute. If a value is specified
+            along with the attribute name, the content of the attribute is matched against the given value
+            using shell style pattern matching. If no value is specified, the existence of the sysfs attribute
+            is checked. When this option is specified multiple times, then each matching result is ANDed,
+            that is, only devices which have none of the specified attributes are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-p</option></term>
           <term><option>--property-match=<replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching property
-            value. This option can be specified multiple times and
-            supports shell style pattern matching.</para>
+            <para>Trigger events for devices with a matching property value. This option supports shell style
+            pattern matching. When this option is specified more than once, then each matching result is ORed,
+            that is, devices which have one of the specified properties are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-g</option></term>
           <term><option>--tag-match=<replaceable>PROPERTY</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching tag. This
-            option can be specified multiple times.</para>
+            <para>Trigger events for devices with a matching tag. When this option is specified multiple times,
+            then each matching result is ANDed, that is, devices which have all specified tags are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-y</option></term>
-          <term><option>--sysname-match=<replaceable>PATH</replaceable></option></term>
+          <term><option>--sysname-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices for which the last component
-            (i.e. the filename) of the <filename>/sys</filename> path matches
-            the specified <replaceable>PATH</replaceable>. This option can be
-            specified multiple times and also supports shell style pattern
-            matching.</para>
+            <para>Trigger events for devices for which the last component (i.e. the filename) of the
+            <filename>/sys</filename> path matches the specified <replaceable>PATH</replaceable>. This option
+            supports shell style pattern matching. When this option is specified more than once, then each
+            matching result is ORed, that is, all devices which have any of the specified
+            <replaceable>NAME</replaceable> are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>--name-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Trigger events for devices with a matching
-            device path. This option can be specified multiple
-            times.</para>
+            <para>Trigger events for devices with a matching device path. When this option is specified more than once,
+            the last <replaceable>NAME</replaceable> is used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-b</option></term>
           <term><option>--parent-match=<replaceable>SYSPATH</replaceable></option></term>
           <listitem>
-            <para>Trigger events for all children of a given
-            device.</para>
+            <para>Trigger events for all children of a given device. When this option is specified more than once,
+            the last <replaceable>NAME</replaceable> is used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -334,8 +332,8 @@
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
-      <para>In addition, optional positional arguments can be used
-      to specify device names or sys paths. They must start with
+      <para>In addition, an optional positional argument can be used
+      to specify device name or sys path. It must start with
       <filename>/dev</filename> or <filename>/sys</filename>
       respectively.</para>
     </refsect2>
@@ -486,14 +484,18 @@
           <term><option>-s</option></term>
           <term><option>--subsystem-match=<replaceable>string[/string]</replaceable></option></term>
           <listitem>
-            <para>Filter kernel uevents and udev events by subsystem[/devtype]. Only events with a matching subsystem value will pass.</para>
+            <para>Filter kernel uevents and udev events by subsystem[/devtype]. Only events with a matching subsystem value will pass.
+            When this option is specified more than once, then each matching result is ORed, that is, all devices in the specified
+            subsystems are monitored.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-t</option></term>
           <term><option>--tag-match=<replaceable>string</replaceable></option></term>
           <listitem>
-            <para>Filter udev events by tag. Only udev events with a given tag attached will pass.</para>
+            <para>Filter udev events by tag. Only udev events with a given tag attached will pass.
+            When this option is specified more than once, then each matching result is ORed, that is, devices which have one of the
+            specified tags are monitored.</para>
           </listitem>
         </varlistentry>
 
