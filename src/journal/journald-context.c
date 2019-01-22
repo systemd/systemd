@@ -581,15 +581,39 @@ refresh:
 }
 
 static void client_context_try_shrink_to(Server *s, size_t limit) {
+        ClientContext *c;
+        usec_t t;
+
         assert(s);
+
+        /* Flush any cache entries for PIDs that have already moved on. Don't do this
+         * too often, since it's a slow process. */
+        t = now(CLOCK_MONOTONIC);
+        if (s->last_cache_pid_flush + MAX_USEC < t) {
+                unsigned n = prioq_size(s->client_contexts_lru), idx = 0;
+
+                /* We do a number of iterations based on the initial size of the prioq.  When we remove an
+                 * item, a new item is moved into its places, and items to the right might be reshuffled.
+                 */
+                for (unsigned i = 0; i < n; i++) {
+                        c = prioq_peek_by_index(s->client_contexts_lru, idx);
+
+                        assert(c->n_ref == 0);
+
+                        if (!pid_is_unwaited(c->pid))
+                                client_context_free(s, c);
+                        else
+                                idx ++;
+                }
+
+                s->last_cache_pid_flush = t;
+        }
 
         /* Bring the number of cache entries below the indicated limit, so that we can create a new entry without
          * breaching the limit. Note that we only flush out entries that aren't pinned here. This means the number of
          * cache entries may very well grow beyond the limit, if all entries stored remain pinned. */
 
         while (hashmap_size(s->client_contexts) > limit) {
-                ClientContext *c;
-
                 c = prioq_pop(s->client_contexts_lru);
                 if (!c)
                         break; /* All remaining entries are pinned, give up */

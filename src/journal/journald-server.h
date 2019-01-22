@@ -161,6 +161,8 @@ struct Server {
         Hashmap *client_contexts;
         Prioq *client_contexts_lru;
 
+        usec_t last_cache_pid_flush;
+
         ClientContext *my_context; /* the context of journald itself */
         ClientContext *pid1_context; /* the context of PID 1 */
 };
