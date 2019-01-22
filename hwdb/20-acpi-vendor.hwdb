@@ -120,6 +120,9 @@ acpi:HTLM*:
 acpi:HWPE*:
  ID_VENDOR_FROM_DATABASE=Hewlett Packard Enterprise
 
+acpi:HXTS*:
+ ID_VENDOR_FROM_DATABASE=Guizhou Huaxintong Semiconductor Technology Co., Ltd
+
 acpi:IBMX*:
  ID_VENDOR_FROM_DATABASE=IBM
 
@@ -5546,6 +5549,9 @@ acpi:QLC*:
 
 acpi:QQQ*:
  ID_VENDOR_FROM_DATABASE=Chuomusen Co., Ltd.
+
+acpi:QSC*:
+ ID_VENDOR_FROM_DATABASE=QSC, LLC
 
 acpi:QSI*:
  ID_VENDOR_FROM_DATABASE=Quantum Solutions, Inc.

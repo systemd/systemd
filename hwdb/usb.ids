@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2018.12.04
-# Date:    2018-12-04 20:34:05
+# Version: 2019.01.17
+# Date:    2019-01-17 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -72,6 +72,7 @@
 	0002  HD44780 LCD interface
 03e7  Intel
 	2150  Myriad VPU [Movidius Neural Compute Stick]
+	2485  Movidius MyriadX
 03e8  EndPoints, Inc.
 	0004  SE401 Webcam
 	0008  101 Ethernet [klsi]
@@ -450,6 +451,7 @@
 	3005  ScanJet 4670v
 	3011  PSC 1100 series
 	3017  Printing Support
+	304a  Slim Keyboard
 	3102  PhotoSmart P1100 Printer w/ Card Reader
 	3104  DeskJet 960c
 	3111  OfficeJet 4100 series
@@ -775,6 +777,7 @@
 	6011  FT4232H Quad HS USB-UART/FIFO IC
 	6014  FT232H Single HS USB-UART/FIFO IC
 	6015  Bridge(I2C/SPI/UART/FIFO)
+	6f70  HB-RF-USB
 	8028  Dev board JTAG (FT232H based)
 	8040  4 Port Hub
 	8070  7 Port Hub
@@ -886,9 +889,11 @@
 	f0c8  SPROG Decoder Programmer
 	f0c9  SPROG-DCC CAN-USB
 	f0e9  Tagsys L-P101
+	f0ee  Tagsys Medio P200x
 	f1a0  Asix PRESTO Programmer
 	f208  Papenmeier Braille-Display
 	f3c0  4N-GALAXY Serial Converter
+	f458  ABACUS ELECTRICS Optical Probe
 	f608  CTI USB-485-Mini
 	f60b  CTI USB-Nano-485
 	f680  Suunto Sports Instrument
@@ -943,6 +948,7 @@
 	0103  FV TouchCam N1 (Audio)
 	030c  HP Webcam
 	03b2  HP Webcam
+	03f4  HP Webcam
 	1030  FV TouchCam N1 (Video)
 	3000  Optical dual-touch panel
 	3001  Optical Touch Screen
@@ -1299,6 +1305,7 @@
 041b  d'TV
 041d  S3, Inc.
 041e  Creative Technology, Ltd
+	0414  HS-720 Headset
 	1002  Nomad II
 	1003  Blaster GamePad Cobra
 	1050  GamePad Cobra
@@ -1613,6 +1620,7 @@
 	2602  USB 2.0 Hub
 	2640  USB 2.0 Hub
 	2660  Hub
+	2744  Hub
 	274d  HTC Hub Controller
 	3fcc  RME MADIface
 	4041  Hub and media card controller
@@ -1620,6 +1628,7 @@
 	4064  Ultra Fast Media Reader
 	5434  Hub
 	5534  Hub
+	5744  Hub
 	7500  LAN7500 Ethernet 10/100/1000 Adapter
 	9500  LAN9500/LAN9500i
 	9512  SMC9512/9514 USB Hub
@@ -1909,12 +1918,15 @@
 	b323  Dual Trigger 3-in-1 (PC Mode)
 	b324  Dual Trigger 3-in-1 (PS3 Mode)
 	b326  Gamepad GP XID
+	b351  F16 MFD 1
+	b352  F16 MFD 2
 	b603  force feedback Wheel
 	b605  force feedback Racing Wheel
 	b651  Ferrari GT Rumble Force Wheel
 	b653  RGT Force Feedback Clutch Racing Wheel
 	b654  Ferrari GT Force Feedback Wheel
 	b678  T.Flight Rudder Pedals
+	b679  T-Rudder
 	b687  TWCS Throttle
 	b700  Tacticalboard
 0450  DFI, Inc.
@@ -2106,6 +2118,7 @@
 	5221  Rio Eigen
 045b  Hitachi, Ltd
 	0053  RX610 RX-Stick
+	0229  mSATA Adapter [renkforce Pi-102]
 045d  Nortel Networks, Ltd
 045e  Microsoft Corp.
 	0007  SideWinder Game Pad
@@ -2476,6 +2489,7 @@
 	4d81  Dell N889 Optical Mouse
 	4d91  Laser mouse M-D16DL
 	4d92  Optical mouse M-D17DR
+	4db1  Dell Laptop Integrated Webcam 2Mpix
 	4de3  HP 5-Button Optical Comfort Mouse
 	4de7  webcam
 	4e04  Lenovo Keyboard KB1021
@@ -2740,6 +2754,7 @@
 	c07c  M-R0017 [G700s Rechargeable Gaming Mouse]
 	c07d  G502 Mouse
 	c07e  G402 Gaming Mouse
+	c080  G303 Gaming Mouse
 	c083  G403 Prodigy Gaming Mouse
 	c084  G203 Gaming Mouse
 	c101  UltraX Media Remote
@@ -3184,6 +3199,7 @@
 	0014  InTouch Module
 	0100  Stor.E Slim USB 3.0
 	0200  External Disk
+	0820  Canvio Advance Disk
 	a006  External Disk 1.5TB
 	a007  External Disk USB 3.0
 	a009  Stor.E Basics
@@ -4188,6 +4204,7 @@
 	32ad  PowerShot SX410 IS
 	32b1  SELPHY CP1200
 	32b2  PowerShot G9 X
+	32b3  PowerShot G5 X
 	32b4  EOS Rebel T6
 	32bb  EOS M5
 	32bf  PowerShot SX420 IS
@@ -4548,6 +4565,8 @@
 	0891  Stylus Office BX535WD
 	0892  Stylus Office BX935FWD
 	0893  EP-774A
+	1114  XP-440 [Expression Home Small-in-One Printer]
+	1129  ET-4750 [WorkForce ET-4750 EcoTank All-in-One]
 04b9  Rainbow Technologies, Inc.
 	0300  SafeNet USB SuperPro/UltraPro
 	1000  iKey 1000 Token
@@ -4659,8 +4678,11 @@
 	10e7  fi-5900C
 	10fe  S500
 	1104  KD02906 Line Thermal Printer
+	114f  fi-6130
 	1150  fi-6230
+	11f3  fi-6130Z
 	125a  PalmSecure Sensor Device - MP
+	132e  fi-7160
 	200f  Sigma DP2 (Mass Storage)
 	2010  Sigma DP2 (PictBridge)
 	201d  SATA 3.0 6Gbit/s Adaptor [GROOVY]
@@ -5296,6 +5318,7 @@
 	7080  Anycall SCH-W580
 	7081  Human Interface Device
 	8001  Handheld
+	d003  GT-I9003
 	e020  SERI E02 SCOM 6200 UMTS Phone
 	e021  SERI E02 SCOM 6200 Virtual UARTs
 	e022  SERI E02 SCOM 6200 Flash Load Disk
@@ -6536,6 +6559,10 @@
 	09cc  DualShock 4 [CUH-ZCT2x]
 	0ba0  Dualshock4 Wireless Adaptor
 	0bb5  Headset MDR-1000X
+	0c02  ILCE-7M3 [A7III] in Mass Storage mode
+	0c03  ILCE-7M3 [A7III] in MTP mode
+	0c34  ILCE-7M3 [A7III] in PC Remote mode
+	0cda  PlayStation Classic controller
 	1000  Wireless Buzz! Receiver
 054d  Try Corp.
 054e  Proside Corp.
@@ -6859,6 +6886,7 @@
 	038d  DTH-3220 [Cintiq Pro 32] internal hub
 	038e  DTH-3220 [Cintiq Pro 32] external hub
 	038f  DTH-3220 [Cintiq Pro 32] internal hub
+	0390  DTK-1660 [Cintiq 16]
 	0400  PenPartner 4x5
 	4001  TPC4001
 	4004  TPC4004
@@ -6890,7 +6918,8 @@
 	0072  Laser mouse M-LS6UL
 	0073  Laser mouse M-LS7UL
 	0074  Optical mouse M-FW1UL
-	0075  M-FW2DL Mouse
+	0075  Laser mouse M-FW2DL
+	0077  Laser mouse M-LY2UL
 	2003  JC-U3613M
 	2004  JC-U3613M
 	200c  LD-USB/TX
@@ -15377,43 +15406,251 @@
 	02df  Serial cable (v2) for TD-10 Mobile Phone
 1203  TSC Auto ID Technology Co., Ltd
 	0140  TTP-245C
-1209  InterBiometrics
-	1001  USB Hub
-	1002  USB Relais
-	1003  IBSecureCam-P
-	1004  IBSecureCam-O
-	1005  IBSecureCam-N
-	1006  Mini IO-Board
+1209  Generic
+	0001  pid.codes Test PID
+	01c0  Input Club Kiibohd Device
+	01cb  Input Club Kiibohd Device Bootloader
+	0256  Schwalm & Tate LLC pISO Raspberry Pi Hat
+	053a  Hackerspace San Salvador HSSV SAMR21-Mote
+	0cbd  Andrzej Szombierski kuku.eu.org keyboard
+	0d32  ODrive Robotics ODrive v3
+	1001  InterBiometrics Hub
+	1002  InterBiometrics Relais
+	1003  InterBiometrics IBSecureCam-P
+	1004  InterBiometrics IBSecureCam-O
+	1005  InterBiometrics IBSecureCam-N
+	1006  InterBiometrics Mini IO-Board
+	1007  e-radionica.com Croduino SAMD
+	1986  dgrubb Jaguar Tap
 	1ab5  Arachnid Labs Tsunami
+	1ab6  Arachnid Labs Tsunami Bootloader
 	2000  Zygmunt Krynicki Lantern Brightness Sensor
+	2001  OSHEC Pi-pilot opensource and openhardware autopilot system
+	2002  Peter Lawrence PIC16F1-USB-DFU-Bootloader
+	2003  Peter Lawrence SAMDx1-USB-DFU-Bootloader
+	2004  GCBASIC Serial CDC Stack
+	2005  GCBASIC OakTree Stack
+	2006  GCBASIC Simulation Stack
+	2016  Cupkee
+	2017  Benjamin Shockley Mini SAM
+	2020  Captain Credible Gate Crystal
 	2048  Housedillon.com MRF49XA Transciever
+	2100  TinyFPGA B1 and B2 Boards
+	2101  TinyFPGA A-Series Programmer
+	2200  Dygma Shortcut Bootloader
+	2201  Dygma Shortcut Keyboard
 	2222  LabConnect Signalgenerator
-	2300  Keyboardio Keyboardio Model 01 Bootloader
-	2301  Keyboardio Keyboardio Model 01
-	2327  K.T.E.C.Bootloader Device
+	2300  Keyboardio Model 01 Bootloader
+	2301  Keyboardio Model 01
+	2323  bytewerk.org candleLight
+	2327  K.T.E.C. Bootloader Device
 	2328  K.T.E.C. Keyboard Device
-	2337  /Dev or SlashDev /Net
+	2333  Kai Ryu Kimera
+	2334  Kai Ryu Staryu
+	2335  Portwell Sense8
+	2336  Portwell Sense8
+	2337  /Dev /Net
+	2342  Andreas Bogk Big Red Button
+	2345  VV-Soft Simple Generic HID IO
+	2357  KarolKucza TinyPassword
+	2400  phooky Snap-Pad
+	2488  Peter Lawrence CMSIS-DAP Dapper Miser
+	2552  ProjectIota Electrolink
+	2600  Majenko Technologies chipKIT Lenny
+	2635  Sevinz GameBot
+	2800  Entropic Engineering Triangulation
+	2801  Entropic Engineering Object Manipulation
+	2a00  mooware Wii adapter
+	2a01  mooware SNES adapter
 	3000  lloyd3000
+	3100  OpenSimHardware Pedals & Buttons Controller
+	317e  Codecrete Wirekite
+	3210  OSH Lab, LLC Magic Keys
 	3333  LabConnect Digitalnetzteil
+	3690  Kigakudoh TouchMIDI32
+	4096  CynaraKrewe Cynara
+	414c  Adi Linden
+	414d  Adi Linden
+	4242  Komakallio Astrophotography Community KomaHub Remote Power Switch
+	4256  CuVoodoo BusVoodoo multi-protocol debugging adapter
+	4321  mooltipass Offline Password Keeper Bootloader
+	4322  mooltipass Arduino Sketch
+	4356  CuVoodoo firmware
+	4443  j1rie IRMP_STM32 Bootloader
+	4444  j1rie IRMP_STM32
+	4545  SlothCo Enterprises Teletype Adapter
+	4646  SmartPID SPC1000
+	4748  Kate Gray GHETT-iO Bootloader
+	4750  Chris Pavlina (c4757p) C4-x computer (development interface)
+	4757  Chris Pavlina (c4757p) WCP52 Gain/Phase Analyzer
+	4801  Wojciech Krutnik NVMemProg
+	4c60  MightyPork GEX module
+	4c61  MightyPork GEX wireless dongle
+	4d53  mindsensors.com NXTCam5
+	5038  frotz.net mdebug rswd protocol
+	5039  frotz.net lpcboot protocol
+	5050  trebb ISO50
 	5222  telavivmakers attami
 	53c0  SatoshiLabs TREZOR Bootloader
 	53c1  SatoshiLabs TREZOR
+	5432  Open Programmer
+	5457  Openlab.Taipei Taiwanduino
+	571c  StreetoArcade PancadariaStick
 	5a22  ikari_01 sd2snes
-	7530  Refflion - IoT Board - Bootloader
-	7531  Refflion - IoT Board - Sketch
+	6000  Pulsar Heavy Industries Cenx4
+	600d  Makdaam N93 Interface
+	6464  Electric Exploits Shinewave
+	6502  jj1bdx avrhwrng v2rev1
+	6570  Iowa Scaled Engineering, LLC CKT-AVRPROGRAMMER
+	6666  Talpa Chen VSFLogic
+	6667  SensePost Universal Serial aBUSe - Generic HID
+	6742  NPK Cubitel Atomic Force Microscope
+	6809  Tach Radio Doppelganger
+	6948  MySensors Sensebender Gateway BootLoader
+	6949  MySensors Sensebender Gateway
+	6bcf  blaste Gameboy Cart Flasher
+	7000  Secalot Dongle
+	7001  Secalot Bootloader
+	70b1  Sutajio Ko-Usagi (Kosagi) Tomu
+	7331  Dangerous Prototypes Bus Pirate Next Gen CDC
+	7332  Dangerous Prototypes Bus Pirate Next Gen Logic Analyzer
+	7401  Beststream-jp Tool_CDC
+	7530  PotentialLabs Refflion - IoT Development Board - Bootloader
+	7531  PotentialLabs Refflion - IoT Development Board - Sketch
+	7551  The Tessel Project Tessel 2
+	7777  circuitvalley IO Board V3
+	7778  circuitvalley IO Board V3 Bootloader
 	7bd0  pokey9000 Tiny Bit Dingus
-	abd0  tibounise ADB converter
-	aced  Open Lighting Project - Ja Rule Device
-	acee  Open Lighting Project - Ja Rule Bootloader
+	8000  Autonomii NODii 2
+	8086  MisfitTech Nano Zero Bootloader
+	8087  MisfitTech Nano Zero
+	8123  Danyboard M0 bootloader
+	812a  Danyboard M0
+	813a  MickMad HACK Bootloader
+	813b  MickMad HACK Sketch
+	8242  Tom Wimmenhove Electronics NBS-DAC 192/24 UAC1
+	8243  Tom Wimmenhove Electronics NBS-DAC 192/24 UAC2
+	8472  Shantea Controls OpenDeck
+	8661  ProgHQ TL866 programmer
+	8844  munia.io MUNIA
+	8888  Blinkinlabs POV Pendant
+	8889  Blinkinlabs POV Pendant (bootloader)
+	8b00  ReSwitched Libtransistor Serial Console
+	9021  Connected Community Hackerspace ESPlant
+	9317  Sutajio Ko-Usagi (Kosagi) Palawan-Tx
+	9999  Sandeepan Sengupta CodeBridge Infineo
+	9db5  PD Buddy Sink
+	a033  area0x33 Memtype
+	a100  KB LES Narsil analog breakout
+	a10c  KB LES Aminoacid Synthesizer
+	a1e5  Atreus Keyboards Atreus Keyboard
+	a3a4  MK::Box MK::Kbd
+	a3a5  MK::Box MK::Kbd Bootloader
+	a55a  Forever Young Software ATTINY2313
+	a602  Robotips RTBoard
+	a7ea  area3001 Knixx SW04
+	a800  sowbug.com WebLight
+	a8b0  Intelectron BootWare
+	a8b1  Intelectron FrameWare
+	aa00  Serg Oskin LinuxCNC HID Extender
+	aa0b  Open Bionics
+	ab3d  3DArtists Alligator board
+	abba  CoinWISE SafeWISE
+	abc0  Omzlo controller
+	abcd  Sandeepan Sengupta CodeBridge
+	abd1  OpenMV Cam
+	acdc  Gediminas Zukaitis midi-grid
+	ace5  SimAces Panel Ace
+	aced  Open Lighting Project Ja Rule Device
+	acee  Open Lighting Project Ja Rule Bootloader
+	adb0  tibounise ADB converter
+	adda  MicroPython Boards
+	b007  Konsgn Global_Boot
+	b00b  CrapLab Random Device
+	b010  IObitZ CodeBridge
+	b01d  WyoLum VeloKey
+	b058  Model B, LLC Holoseat
+	b0b0  Monero Hardware Monero Bootloader
+	b100  ptrandem iBizi
+	b101  IObitZ Infineo
+	b195  flehrad Big Switch PCB
+	bab1  ElectronicCats Meow Meow
+	babe  brunofreitas.com STM32 HID Bootloader
+	bad1  Gregory POTEAU CommLinkUSB
+	bad2  Gregory POTEAU XLinkUSB
+	bade  Semarme SemarmeHID
+	bb00  keyplus split keyboard firmware
+	bb01  keyplus xusb bootloader
+	bb02  keyplus nRF24 wireless keyboard dongle
+	bb03  keyplus nrf24lu1p-512 bootloader
+	bb05  keyplus kp_boot_32u4 bootloader
+	beba  serasidis.gr STM32 HID Bootloader
 	beef  Modal MC-USB
+	c001  Cynteract Alpha
+	c0c0  Geppetto_Electronics Orthrus
+	c0c1  Michael Bemmerl cookie-mouse
+	c0ca  Jean THOMAS DirtyJTAG
+	c0d3  Samy Kamkar USBdriveby
+	c0da  Monero Hardware Monero Firmware
+	c0de  KMRH Labs SBL Brain
 	c0f5  unethi PERswitch
-	ca1c  KnightOS Hub
+	c1aa  Proyecto CIAA Computadora Industrial Abierta Argentina
+	c1b1  Chibitronics Love-to-Code
+	c311  bg nerilex GB-USB-Link
+	ca1c  KnightOS Generic Hub
 	ca1d  KnightOS MTP Device
+	caea  Open Music Kontrollers Chimaera
 	cafe  ii iigadget
+	cc14  trebb NaN-15
+	cc86  Manfred's Technologies Anastasia Bootloader
+	ceb0  KG4LNE GE-FlashUSB
+	cf20  Smart Citizen SCK 2.0
+	d00d  Monero Hardware Monero Developer
+	d017  empiriKit empiriKit Controller
+	d11d  Koi Science DI-Lambda AVR
+	d3d8  Duet3d Duet 0.8.5
+	d706  SkyBean SkyDrop
+	da42  Devan Lai dap42 debug access probe
+	daa0  darknao btClubSportWheel
 	dada  Rebel Technology OWL
+	db42  Devan Lai dapboot DFU bootloader
+	dc21  FPGA-Computer Dual Charger
+	dddd  Stephan Electronics OpenCVMeter
 	dead  chaosfield.at AVR-Ruler
+	deaf  CrapLab 4chord MIDI
+	ded1  ManCave Made Quark One
+	df00  D.F.Mac. @TripArts Music mi:muz:tuch
+	df01  D.F.Mac. @TripArts Music mi:muz:can
+	df02  D.F.Mac. @TripArts Music mi:muz:can-lite
+	e116  Elijah Motornyy open-oscilloscope-stm32f3
+	e1ec  FreeSRP
+	e4ee  trebb keytee
+	e500  GitleMikkelsen Helios Laser DAC
+	eaea  Pinscape Controller
+	eb01  RobotMaker.club EB1
+	eba7  VictorGrigoryev USBscope
+	ee00  Explore Embedded SODA(SWD OpenSource Debug Adapter)
+	ee02  Explore Embedded Explore M3 VCOM
+	ee03  Explore Embedded Explore M3 DFU
+	ee2c  jaka USB2RS485
+	effa  EffigyLabs atmega32u4-USB-LUFA-Bootloader
+	effe  EffigyLabs Control Pedal
+	f000  Uniti ARC
+	f00d  RomanStepanov Shifter/Pedals Adapter
+	f12e  Michael Bemmerl Feuermelder
+	f16a  uri_ba Cougar TQS adapter
+	f16c  uri_ba adapter for Vipercore's FCC3 Force Sensing Module
+	f380  Windsor Schmidt MD-380 Open Radio Firmware
+	f3fc  dRonin Flight controller-Lumenier Lux
+	f49a  TimVideos.us & HDMI2USB.tv Projects FPGA Programmer & UART Bridge (PIC based Firmware)
 	fa11  moonglow OpenXHC
+	fa57  3DRacers Pilot Board
+	fa58  3DRacers Pilot Board (Bootloader)
+	fab1  PAP Mechatronic Technology LamDiNao
+	face  Protean Synth Craft
+	fade  Open Collector dude
 	feed  ProgramGyar AVR-IR Sender
+	ffff  Life2Device Smart House
 120e  Hudson Soft Co., Ltd
 120f  Magellan
 	524e  RoadMate 1475T
@@ -19106,6 +19343,8 @@
 2fb2  Fujitsu, Ltd
 3016  Boundary Devices, LLC
 	0001  Nitrogen Bootloader
+30ee  Fujitsu Connected Technologies Limited
+	1001  F-01L
 3125  Eagletron
 	0001  TrackerPod Camera Stand
 3136  Navini Networks
