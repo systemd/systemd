@@ -448,6 +448,7 @@ _public_ int sd_hwdb_seek(sd_hwdb *hwdb, const char *modalias) {
 
 _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **value) {
         const struct trie_value_entry_f *entry;
+        void *e;
         const void *k;
 
         assert_return(hwdb, -EINVAL);
@@ -457,9 +458,11 @@ _public_ int sd_hwdb_enumerate(sd_hwdb *hwdb, const char **key, const char **val
         if (hwdb->properties_modified)
                 return -EAGAIN;
 
-        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, (void **)&entry, &k);
+        ordered_hashmap_iterate(hwdb->properties, &hwdb->properties_iterator, &e, &k);
         if (!k)
                 return 0;
+
+        entry = e;
 
         *key = k;
         *value = trie_string(hwdb, entry->value_off);

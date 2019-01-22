@@ -16,7 +16,7 @@ static int property_get_ether_addrs(
                 sd_bus_error *error) {
 
         char buf[ETHER_ADDR_TO_STRING_MAX];
-        const struct ether_addr *p;
+        void *v;
         Iterator i;
         Set *s;
         int r;
@@ -31,7 +31,9 @@ static int property_get_ether_addrs(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(p, s, i) {
+        SET_FOREACH(v, s, i) {
+                const struct ether_addr *p = v;
+
                 r = sd_bus_message_append(reply, "s", ether_addr_to_string(p, buf));
                 if (r < 0)
                         return r;
