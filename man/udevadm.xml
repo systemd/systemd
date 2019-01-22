@@ -143,22 +143,25 @@
           <term><option>-x</option></term>
           <term><option>--export</option></term>
           <listitem>
-            <para>Print output as key/value pairs. Values are enclosed in single quotes.</para>
+            <para>Print output as key/value pairs. Values are enclosed in single quotes.
+            This takes effects only when <option>--query=property</option> or
+            <option>--device-id-of-file=<replaceable>FILE</replaceable></option> is specified.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-P</option></term>
           <term><option>--export-prefix=<replaceable>NAME</replaceable></option></term>
           <listitem>
-            <para>Add a prefix to the key name of exported values.</para>
+            <para>Add a prefix to the key name of exported values.
+            This implies <option>--export</option>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><option>-d</option></term>
           <term><option>--device-id-of-file=<replaceable>FILE</replaceable></option></term>
           <listitem>
-            <para>Print major/minor numbers of the underlying device, where the file
-            lives on.</para>
+            <para>Print major/minor numbers of the underlying device, where the file lives on.
+            If this is specified, all positional arguments are ignored.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
