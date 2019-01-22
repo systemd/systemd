@@ -2160,8 +2160,14 @@ static int setup_exec_directory(
                         r = mkdir_label(p, context->directories[type].mode);
                         if (r < 0 && r != -EEXIST)
                                 goto fail;
-                        if (r == -EEXIST && !context->dynamic_user)
-                                continue;
+                        if (r == -EEXIST) {
+                                if (chmod(p, context->directories[type].mode) < 0) {
+                                        r = -errno;
+                                        goto fail;
+                                }
+                                if (!context->dynamic_user)
+                                        continue;
+                        }
                 }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
