@@ -23,3 +23,7 @@ What=tmpfs
 Where=/tmp
 Type=tmpfs
 Options=mode=1777,strictatime,nosuid,nodev,size=50%,nr_inodes=400k
+
+# Make 'systemctl enable tmp.mount' work:
+[Install]
+WantedBy=local-fs.target
