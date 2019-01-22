@@ -631,7 +631,7 @@ static int device_process_new(Manager *m, sd_device *dev) {
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_device_warning_errno(dev, r, "Failed to add parse SYSTEMD_ALIAS property: %m");
+                        return log_device_warning_errno(dev, r, "Failed to parse SYSTEMD_ALIAS property: %m");
 
                 if (!path_is_absolute(word))
                         log_device_warning(dev, "SYSTEMD_ALIAS is not an absolute path, ignoring: %s", word);
