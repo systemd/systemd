@@ -748,7 +748,7 @@ _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {
         m->subsystem_filter = hashmap_free_free_free(m->subsystem_filter);
         m->tag_filter = set_free_free(m->tag_filter);
 
-        if (setsockopt(m->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter)) < 0)
+        if (setsockopt(m->sock, SOL_SOCKET, SO_DETACH_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
 
         m->filter_uptodate = true;
