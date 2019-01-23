@@ -29,6 +29,7 @@ enum  {
         PARTITION_HOME,
         PARTITION_SRV,
         PARTITION_ESP,
+        PARTITION_XBOOTLDR,
         PARTITION_SWAP,
         PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */

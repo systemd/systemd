@@ -495,6 +495,14 @@ int dissect_image(
 
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
+
+                        } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                designator = PARTITION_XBOOTLDR;
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
@@ -610,21 +618,53 @@ int dissect_image(
 
                 } else if (is_mbr) {
 
-                        if (pflags != 0x80) /* Bootable flag */
-                                continue;
+                        switch (blkid_partition_get_type(pp)) {
 
-                        if (blkid_partition_get_type(pp) != 0x83) /* Linux partition */
-                                continue;
+                        case 0x83: /* Linux partition */
 
-                        if (generic_node)
-                                multiple_generic = true;
-                        else {
-                                generic_nr = nr;
-                                generic_rw = true;
-                                generic_node = strdup(node);
-                                if (!generic_node)
+                                if (pflags != 0x80) /* Bootable flag */
+                                        continue;
+
+                                if (generic_node)
+                                        multiple_generic = true;
+                                else {
+                                        generic_nr = nr;
+                                        generic_rw = true;
+                                        generic_node = strdup(node);
+                                        if (!generic_node)
+                                                return -ENOMEM;
+                                }
+
+                                break;
+
+                        case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
+                                _cleanup_free_ char *n = NULL;
+                                sd_id128_t id = SD_ID128_NULL;
+                                const char *sid;
+
+                                /* First one wins */
+                                if (m->partitions[PARTITION_XBOOTLDR].found)
+                                        continue;
+
+                                sid = blkid_partition_get_uuid(pp);
+                                if (sid)
+                                        (void) sd_id128_from_string(sid, &id);
+
+                                n = strdup(node);
+                                if (!n)
                                         return -ENOMEM;
-                        }
+
+                                m->partitions[PARTITION_XBOOTLDR] = (DissectedPartition) {
+                                        .found = true,
+                                        .partno = nr,
+                                        .rw = true,
+                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .node = TAKE_PTR(n),
+                                        .uuid = id,
+                                };
+
+                                break;
+                        }}
                 }
         }
 
@@ -1497,6 +1537,7 @@ static const char *const partition_designator_table[] = {
         [PARTITION_HOME] = "home",
         [PARTITION_SRV] = "srv",
         [PARTITION_ESP] = "esp",
+        [PARTITION_XBOOTLDR] = "xbootldr",
         [PARTITION_SWAP] = "swap",
         [PARTITION_ROOT_VERITY] = "root-verity",
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
