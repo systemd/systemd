@@ -343,10 +343,8 @@ int dissect_image(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) {
-                log_debug("Failed to identify any partition table.");
-                return -ENOPKG;
-        }
+        if (IN_SET(r, -2, 1))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
         if (r != 0)
                 return -errno ?: -EIO;
 
