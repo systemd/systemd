@@ -719,7 +719,7 @@ int dns_query_go(DnsQuery *q) {
 
                 match = dns_scope_good_domain(s, q->ifindex, q->flags, name);
                 if (match < 0) {
-                        log_debug("Couldn't check if '%s' matches agains scope, ignoring.", name);
+                        log_debug("Couldn't check if '%s' matches against scope, ignoring.", name);
                         continue;
                 }
 
