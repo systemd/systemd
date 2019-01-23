@@ -16,9 +16,9 @@
 #include "verbs.h"
 #include "virt.h"
 
-static char *arg_path = NULL;
+static char **arg_path = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
 static int help(int argc, char *argv[], void *userdata) {
 
@@ -27,7 +27,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "Mark the boot process as good or bad.\n\n"
                "  -h --help          Show this help\n"
                "     --version       Print version\n"
-               "     --path=PATH     Path to the EFI System Partition (ESP)\n"
+               "     --path=PATH     Path to the $BOOT partition (may be used multiple times)\n"
                "\n"
                "Commands:\n"
                "     good            Mark this boot as good\n"
@@ -67,7 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_PATH:
-                        r = free_and_strdup(&arg_path, optarg);
+                        r = strv_extend(&arg_path, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -82,20 +82,42 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int acquire_esp(void) {
-        _cleanup_free_ char *np = NULL;
+static int acquire_path(void) {
+        _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
+        char **a;
         int r;
 
-        r = find_esp_and_warn(arg_path, false, &np, NULL, NULL, NULL, NULL);
-        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn in this one error case, but in all others */
-                return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
-                                       "Alternatively, use --path= to specify path to mount point.");
-        if (r < 0)
+        if (!strv_isempty(arg_path))
+                return 0;
+
+        r = find_esp_and_warn(NULL, false, &esp_path, NULL, NULL, NULL, NULL);
+        if (r < 0 && r != -ENOKEY) /* ENOKEY means not found, and is the only error the function won't log about on its own */
                 return r;
 
-        free_and_replace(arg_path, np);
-        log_debug("Using EFI System Partition at %s.", arg_path);
+        r = find_xbootldr_and_warn(NULL, false, &xbootldr_path, NULL);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+
+        if (!esp_path && !xbootldr_path)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Couldn't find $BOOT partition. It is recommended to mount it to /boot.\n"
+                                       "Alternatively, use --path= to specify path to mount point.");
+
+        if (esp_path)
+                a = strv_new(esp_path, xbootldr_path);
+        else
+                a = strv_new(xbootldr_path);
+        if (!a)
+                return log_oom();
+
+        strv_free_and_replace(arg_path, a);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *j;
+
+                j = strv_join(arg_path, ":");
+                log_debug("Using %s as boot loader drop-in search path.", j);
+        }
 
         return 0;
 }
@@ -282,10 +304,9 @@ static const char *skip_slash(const char *path) {
 }
 
 static int verb_status(int argc, char *argv[], void *userdata) {
-
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
-        _cleanup_close_ int fd = -1;
         uint64_t left, done;
+        char **p;
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
@@ -296,7 +317,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = acquire_esp();
+        r = acquire_path();
         if (r < 0)
                 return r;
 
@@ -308,50 +329,61 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        log_debug("Booted file: %s%s\n"
-                  "The same modified for 'good': %s%s\n"
-                  "The same modified for 'bad':  %s%s\n",
-                  arg_path, path,
-                  arg_path, good,
-                  arg_path, bad);
+        log_debug("Booted file: %s\n"
+                  "The same modified for 'good': %s\n"
+                  "The same modified for 'bad':  %s\n",
+                  path,
+                  good,
+                  bad);
 
         log_debug("Tries left: %" PRIu64"\n"
                   "Tries done: %" PRIu64"\n",
                   left, done);
 
-        fd = open(arg_path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open ESP '%s': %m", arg_path);
+        STRV_FOREACH(p, arg_path) {
+                _cleanup_close_ int fd = -1;
 
-        if (faccessat(fd, skip_slash(path), F_OK, 0) >= 0) {
-                puts("indeterminate");
-                return 0;
+                fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                if (fd < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
+                }
+
+                if (faccessat(fd, skip_slash(path), F_OK, 0) >= 0) {
+                        puts("indeterminate");
+                        return 0;
+                }
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", path);
+
+                if (faccessat(fd, skip_slash(good), F_OK, 0) >= 0) {
+                        puts("good");
+                        return 0;
+                }
+
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", good);
+
+                if (faccessat(fd, skip_slash(bad), F_OK, 0) >= 0) {
+                        puts("bad");
+                        return 0;
+                }
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '%s' exists: %m", bad);
+
+                /* We didn't find any of the three? If so, let's try the next directory, before we give up. */
         }
-        if (errno != ENOENT)
-                return log_error_errno(errno, "Failed to check if '%s' exists: %m", path);
 
-        if (faccessat(fd, skip_slash(good), F_OK, 0) >= 0) {
-                puts("good");
-                return 0;
-        }
-        if (errno != ENOENT)
-                return log_error_errno(errno, "Failed to check if '%s' exists: %m", good);
-
-        if (faccessat(fd, skip_slash(bad), F_OK, 0) >= 0) {
-                puts("bad");
-                return 0;
-        }
-        if (errno != ENOENT)
-                return log_error_errno(errno, "Failed to check if '%s' exists: %m", bad);
-
-        return log_error_errno(errno, "Couldn't determine boot state: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Couldn't determine boot state: %m");
 }
 
 static int verb_set(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL, *parent = NULL;
         const char *target, *source1, *source2;
-        _cleanup_close_ int fd = -1;
         uint64_t done;
+        char **p;
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, NULL, &done, &suffix);
@@ -360,7 +392,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = acquire_esp();
+        r = acquire_path();
         if (r < 0)
                 return r;
 
@@ -371,10 +403,6 @@ static int verb_set(int argc, char *argv[], void *userdata) {
         r = make_bad(prefix, done, suffix, &bad);
         if (r < 0)
                 return log_oom();
-
-        fd = open(arg_path, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open ESP '%s': %m", arg_path);
 
         /* Figure out what rename to what */
         if (streq(argv[0], "good")) {
@@ -392,45 +420,58 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 source2 = bad;
         }
 
-        r = rename_noreplace(fd, skip_slash(source1), fd, skip_slash(target));
-        if (r == -EEXIST)
-                goto exists;
-        else if (r == -ENOENT) {
+        STRV_FOREACH(p, arg_path) {
+                _cleanup_close_ int fd = -1;
 
-                r = rename_noreplace(fd, skip_slash(source2), fd, skip_slash(target));
+                fd = open(*p, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
+
+                r = rename_noreplace(fd, skip_slash(source1), fd, skip_slash(target));
                 if (r == -EEXIST)
                         goto exists;
                 else if (r == -ENOENT) {
 
-                        if (access(target, F_OK) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
+                        r = rename_noreplace(fd, skip_slash(source2), fd, skip_slash(target));
+                        if (r == -EEXIST)
                                 goto exists;
+                        else if (r == -ENOENT) {
 
-                        return log_error_errno(r, "Can't find boot counter source file for '%s': %m", target);
+                                if (faccessat(fd, skip_slash(target), F_OK, 0) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
+                                        goto exists;
+
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno, "Failed to determine if %s already exists: %m", target);
+
+                                /* We found none of the snippets here, try the next directory */
+                                continue;
+                        } else if (r < 0)
+                                return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source2, target);
+                        else
+                                log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+
                 } else if (r < 0)
-                        return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source2, target);
+                        return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source1, target);
                 else
-                        log_debug("Successfully renamed '%s' to '%s'.", source2, target);
+                        log_debug("Successfully renamed '%s' to '%s'.", source1, target);
 
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to rename '%s' to '%s': %m", source1, target);
-        else
-                log_debug("Successfully renamed '%s' to '%s'.", source1, target);
+                /* First, fsync() the directory these files are located in */
+                parent = dirname_malloc(target);
+                if (!parent)
+                        return log_oom();
 
-        /* First, fsync() the directory these files are located in */
-        parent = dirname_malloc(path);
-        if (!parent)
-                return log_oom();
+                r = fsync_path_at(fd, skip_slash(parent));
+                if (r < 0)
+                        log_debug_errno(errno, "Failed to synchronize image directory, ignoring: %m");
 
-        r = fsync_path_at(fd, skip_slash(parent));
-        if (r < 0)
-                log_debug_errno(errno, "Failed to synchronize image directory, ignoring: %m");
+                /* Secondly, syncfs() the whole file system these files are located in */
+                if (syncfs(fd) < 0)
+                        log_debug_errno(errno, "Failed to synchronize $BOOT partition, ignoring: %m");
 
-        /* Secondly, syncfs() the whole file system these files are located in */
-        if (syncfs(fd) < 0)
-                log_debug_errno(errno, "Failed to synchronize ESP, ignoring: %m");
+                log_info("Marked boot as '%s'. (Boot attempt counter is at %" PRIu64".)", argv[0], done);
+        }
 
-        log_info("Marked boot as '%s'. (Boot attempt counter is at %" PRIu64".)", argv[0], done);
-
+        log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Can't find boot counter source file for '%s': %m", target);
         return 1;
 
 exists:
