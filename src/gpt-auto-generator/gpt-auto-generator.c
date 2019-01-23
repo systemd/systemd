@@ -322,7 +322,6 @@ static int add_swap(const char *path) {
         return generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, "wants", name);
 }
 
-#if ENABLE_EFI
 static int add_automount(
                 const char *id,
                 const char *what,
@@ -384,8 +383,43 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
-static int add_esp(DissectedPartition *p) {
-        const char *esp;
+static int add_xbootldr(DissectedPartition *p) {
+        int r;
+
+        assert(p);
+
+        if (in_initrd()) {
+                log_debug("In initrd, ignoring the XBOOTLDR partition.");
+                return 0;
+        }
+
+        r = fstab_is_mount_point("/boot");
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fstab: %m");
+        if (r > 0) {
+                log_debug("/boot specified in fstab, ignoring XBOOTLDR partition.");
+                return 0;
+        }
+
+        r = path_is_busy("/boot");
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        return add_automount("boot",
+                             p->node,
+                             "/boot",
+                             p->fstype,
+                             true,
+                             "umask=0077",
+                             "Boot Loader Partition",
+                             120 * USEC_PER_SEC);
+}
+
+#if ENABLE_EFI
+static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+        const char *esp_path = NULL, *id = NULL;
         int r;
 
         assert(p);
@@ -395,21 +429,37 @@ static int add_esp(DissectedPartition *p) {
                 return 0;
         }
 
-        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice */
-        esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
+        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice, but
+         * only if there's no explicit XBOOTLDR partition around. */
+        if (access("/efi", F_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to determine whether /efi exists: %m");
+
+                /* Use /boot as fallback, but only if there's no XBOOTLDR partition */
+                if (!has_xbootldr) {
+                        esp_path = "/boot";
+                        id = "boot";
+                }
+        }
+        if (!esp_path)
+                esp_path = "/efi";
+        if (!id)
+                id = "efi";
 
         /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        r = fstab_is_mount_point(esp);
+        r = fstab_is_mount_point(esp_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse fstab: %m");
         if (r > 0) {
-                log_debug("%s specified in fstab, ignoring.", esp);
+                log_debug("%s specified in fstab, ignoring.", esp_path);
                 return 0;
         }
 
-        r = path_is_busy(esp);
-        if (r != 0)
-                return r < 0 ? r : 0;
+        r = path_is_busy(esp_path);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
 
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
@@ -425,15 +475,15 @@ static int add_esp(DissectedPartition *p) {
                         return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
                 if (!sd_id128_equal(p->uuid, loader_uuid)) {
-                        log_debug("Partition for %s does not appear to be the partition we are booted from.", esp);
+                        log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
                         return 0;
                 }
         } else
                 log_debug("Not an EFI boot, skipping ESP check.");
 
-        return add_automount("boot",
+        return add_automount(id,
                              p->node,
-                             esp,
+                             esp_path,
                              p->fstype,
                              true,
                              "umask=0077",
@@ -441,7 +491,7 @@ static int add_esp(DissectedPartition *p) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(DissectedPartition *p) {
+static int add_esp(DissectedPartition *p, bool has_xbootldr) {
         return 0;
 }
 #endif
@@ -569,8 +619,14 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
+        if (m->partitions[PARTITION_XBOOTLDR].found) {
+                k = add_xbootldr(m->partitions + PARTITION_XBOOTLDR);
+                if (k < 0)
+                        r = k;
+        }
+
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_esp(m->partitions + PARTITION_ESP);
+                k = add_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
                 if (k < 0)
                         r = k;
         }
