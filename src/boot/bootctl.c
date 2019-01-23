@@ -351,9 +351,32 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         return 0;
 }
 
-static int status_entries(const char *esp_path, const char *xbootldr_path) {
+static int status_entries(
+                const char *esp_path,
+                sd_id128_t esp_partition_uuid,
+                const char *xbootldr_path,
+                sd_id128_t xbootldr_partition_uuid) {
+
         _cleanup_(boot_config_free) BootConfig config = {};
+        sd_id128_t dollar_boot_partition_uuid;
+        const char *dollar_boot_path;
         int r;
+
+        assert(esp_path || xbootldr_path);
+
+        if (xbootldr_path) {
+                dollar_boot_path = xbootldr_path;
+                dollar_boot_partition_uuid = xbootldr_partition_uuid;
+        } else {
+                dollar_boot_path = esp_path;
+                dollar_boot_partition_uuid = esp_partition_uuid;
+        }
+
+        printf("Boot Loader Entries:\n"
+               "        $BOOT: %s", dollar_boot_path);
+        if (!sd_id128_is_null(dollar_boot_partition_uuid))
+                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+        printf("\n\n");
 
         r = boot_entries_load_config(esp_path, xbootldr_path, &config);
         if (r < 0)
@@ -1138,7 +1161,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_esp_path || arg_xbootldr_path) {
-                k = status_entries(arg_esp_path, arg_xbootldr_path);
+                k = status_entries(arg_esp_path, esp_uuid, arg_xbootldr_path, xbootldr_uuid);
                 if (k < 0)
                         r = k;
         }
