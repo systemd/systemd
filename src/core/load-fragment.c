@@ -3749,7 +3749,7 @@ int config_parse_exec_directories(
 
                 if (path_startswith(k, "private")) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path can't be 'private', ingoring assignment: %s", lvalue, word);
+                                   "%s= path can't be 'private', ignoring assignment: %s", lvalue, word);
                         continue;
                 }
 
