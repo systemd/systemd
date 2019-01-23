@@ -629,6 +629,174 @@ found:
         return 0;
 }
 
+static int verify_xbootldr(
+                const char *p,
+                bool searching,
+                bool unprivileged_mode,
+                sd_id128_t *ret_uuid) {
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free_ char *node = NULL;
+        const char *v;
+#endif
+        struct stat st, st2;
+        const char *t2;
+        sd_id128_t uuid = SD_ID128_NULL;
+        bool relax_checks;
+        int r;
+
+        assert(p);
+
+        relax_checks = getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0;
+
+        if (stat(p, &st) < 0)
+                return log_full_errno((searching && errno == ENOENT) ||
+                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine block device node of \"%s\": %m", p);
+
+        if (major(st.st_dev) == 0)
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Block device node of \"%s\" is invalid.", p);
+
+        t2 = strjoina(p, "/..");
+        r = stat(t2, &st2);
+        if (r < 0)
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine block device node of parent of \"%s\": %m", p);
+
+        if (st.st_dev == st2.st_dev)
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Directory \"%s\" is not the root of the XBOOTLDR file system.", p);
+
+        /* In a container we don't have access to block devices, skip this part of the verification, we trust
+         * the container manager set everything up correctly on its own. Also skip the following verification
+         * for non-root user. */
+        if (detect_container() > 0 || unprivileged_mode || relax_checks)
+                goto finish;
+
+#if HAVE_BLKID
+        r = device_path_make_major_minor(S_IFBLK, st.st_dev, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format major/minor device path: %m");
+        errno = 0;
+        b = blkid_new_probe_from_filename(node);
+        if (!b)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", p);
+
+        blkid_probe_enable_partitions(b, 1);
+        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", p);
+        else if (r == 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", p);
+        else if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", p);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme \"%s\": %m", p);
+        if (streq(v, "gpt")) {
+
+                errno = 0;
+                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                if (r != 0)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID \"%s\": %m", p);
+                if (!streq(v, "bc13c2ff-59e6-4262-a352-b275fd6f7172"))
+                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                              "File system \"%s\" has wrong type for extended boot loader partition.", p);
+
+                errno = 0;
+                r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
+                if (r != 0)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID \"%s\": %m", p);
+                r = sd_id128_from_string(v, &uuid);
+                if (r < 0)
+                        return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", p, v);
+
+        } else if (streq(v, "dos")) {
+
+                errno = 0;
+                r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+                if (r != 0)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition type UUID \"%s\": %m", p);
+                if (!streq(v, "0xea"))
+                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                              searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                              "File system \"%s\" has wrong type for extended boot loader partition.", p);
+
+        } else
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
+                                      "File system \"%s\" is not on a GPT or DOS partition table.", p);
+
+#endif
+
+finish:
+        if (ret_uuid)
+                *ret_uuid = uuid;
+
+        return 0;
+}
+
+int find_xbootldr_and_warn(
+                const char *path,
+                bool unprivileged_mode,
+                char **ret_path,
+                sd_id128_t *ret_uuid) {
+
+        int r;
+
+        /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
+
+        if (path) {
+                r = verify_xbootldr(path, false, unprivileged_mode, ret_uuid);
+                if (r < 0)
+                        return r;
+
+                goto found;
+        }
+
+        path = getenv("SYSTEMD_XBOOTLDR_PATH");
+        if (path) {
+                if (!path_is_valid(path) || !path_is_absolute(path))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to absolute path, refusing to use it: %s",
+                                               path);
+
+                goto found;
+        }
+
+        r = verify_xbootldr("/boot", true, unprivileged_mode, ret_uuid);
+        if (r >= 0) {
+                path = "/boot";
+                goto found;
+        }
+        if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
+                return r;
+
+        return -ENOKEY;
+
+found:
+        if (ret_path) {
+                char *c;
+
+                c = strdup(path);
+                if (!c)
+                        return log_oom();
+
+                *ret_path = c;
+        }
+
+        return 0;
+}
+
 int find_default_boot_entry(
                 const char *esp_path,
                 char **esp_where,
