@@ -173,7 +173,7 @@ int pager_open(PagerFlags flags) {
 
                         execvp(pager_args[0], pager_args);
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using fallback pagers: %m", pager_args[0]);
+                                       "Failed to execute '%s', using fallback pagers: %m", pager_args[0]);
                 }
 
                 /* Debian's alternatives command for pagers is
@@ -190,7 +190,7 @@ int pager_open(PagerFlags flags) {
                         }
                         execlp(exe, exe, NULL);
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using next fallback pager: %m", exe);
+                                       "Failed to execute '%s', using next fallback pager: %m", exe);
                 }
 
                 r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false);
