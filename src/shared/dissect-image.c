@@ -857,11 +857,15 @@ static int mount_partition(
                         return -ENOMEM;
         }
 
-        return mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
-        int r;
+        int r, boot_mounted;
 
         assert(m);
         assert(where);
@@ -894,21 +898,26 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         if (r < 0)
                 return r;
 
+        boot_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, flags);
+        if (boot_mounted < 0)
+                return boot_mounted;
+
         if (m->partitions[PARTITION_ESP].found) {
-                const char *mp;
+                /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
+                 * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
 
-                /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
+                r = chase_symlinks("/efi", where, CHASE_PREFIX_ROOT, NULL);
+                if (r >= 0) {
+                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, flags);
+                        if (r < 0)
+                                return r;
 
-                FOREACH_STRING(mp, "/efi", "/boot") {
+                } else if (boot_mounted <= 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = chase_symlinks(mp, where, CHASE_PREFIX_ROOT, &p);
-                        if (r < 0)
-                                continue;
-
-                        r = dir_is_empty(p);
-                        if (r > 0) {
-                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, uid_shift, flags);
+                        r = chase_symlinks("/boot", where, CHASE_PREFIX_ROOT, &p);
+                        if (r >= 0 && dir_is_empty(p) > 0) {
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, flags);
                                 if (r < 0)
                                         return r;
                         }
