@@ -685,9 +685,10 @@ static usec_t cgroup_cpu_adjust_period_and_log(Unit *u, usec_t period, usec_t qu
 
         if (new_period != period) {
                 char v[FORMAT_TIMESPAN_MAX];
-                log_unit_full(u, LOG_WARNING, 0,
+                log_unit_full(u, u->warned_clamping_cpu_quota_period ? LOG_DEBUG : LOG_WARNING, 0,
                               "Clamping CPU interval for cpu.max: period is now %s",
                               format_timespan(v, sizeof(v), new_period, 1));
+                u->warned_clamping_cpu_quota_period = true;
         }
 
         return new_period;
