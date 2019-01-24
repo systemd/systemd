@@ -2,6 +2,7 @@
 
 #include <linux/libbpf.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 #include "bpf-firewall.h"
@@ -13,6 +14,30 @@
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
+
+/* We use the same limit here that PID 1 bumps RLIMIT_MEMLOCK to if it can */
+#define CAN_MEMLOCK_SIZE (64U*1024U*1024U)
+
+static bool can_memlock(void) {
+        void *p;
+        bool b;
+
+        /* Let's see if we can mlock() a larger blob of memory. BPF programs are charged against
+         * RLIMIT_MEMLOCK, hence let's first make sure we can lock memory at all, and skip the test if we
+         * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
+         * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
+
+        p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+        if (p == MAP_FAILED)
+                return false;
+
+        b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
+        if (b)
+                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+
+        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        return b;
+}
 
 int main(int argc, char *argv[]) {
         struct bpf_insn exit_insn[] = {
@@ -26,12 +51,20 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
+        struct rlimit rl;
         int r;
 
         test_setup_logging(LOG_DEBUG);
 
         if (is_run_on_travis_ci())
                 return log_tests_skipped("test-bpf fails on Travis CI: https://github.com/systemd/systemd/issues/9666");
+
+        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        rl.rlim_cur = rl.rlim_max = MAX3(rl.rlim_cur, rl.rlim_max, CAN_MEMLOCK_SIZE);
+        (void) setrlimit(RLIMIT_MEMLOCK, &rl);
+
+        if (!can_memlock())
+                return log_tests_skipped("Can't use mlock(), skipping.");
 
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)
