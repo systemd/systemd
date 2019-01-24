@@ -356,6 +356,9 @@ typedef struct Unit {
         bool exported_log_rate_limit_interval:1;
         bool exported_log_rate_limit_burst:1;
 
+        /* Whether we warned about clamping the CPU quota period */
+        bool warned_clamping_cpu_quota_period:1;
+
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
         int last_section_private:2;
