@@ -214,6 +214,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*svn*DEXP*:*pn*DEXPOEM*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# DIGMA
+#########################################
+
+# Digma CITI E203
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnDigma:pnCITIE203ES2010EW:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
 # Endless
 #########################################
 sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
