@@ -86,9 +86,9 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This command expects one or more options.");
 
-        uctrl = udev_ctrl_new();
-        if (!uctrl)
-                return log_oom();
+        r = udev_ctrl_new(&uctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {

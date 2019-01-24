@@ -73,26 +73,28 @@ struct udev_ctrl_connection {
         int sock;
 };
 
-struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
+int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
+        _cleanup_close_ int sock = -1;
         struct udev_ctrl *uctrl;
         int r;
 
-        uctrl = new0(struct udev_ctrl, 1);
-        if (!uctrl)
-                return NULL;
-        uctrl->n_ref = 1;
+        assert(ret);
 
         if (fd < 0) {
-                uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
-                if (uctrl->sock < 0) {
-                        log_error_errno(errno, "Failed to create socket: %m");
-                        udev_ctrl_unref(uctrl);
-                        return NULL;
-                }
-        } else {
-                uctrl->bound = true;
-                uctrl->sock = fd;
+                sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+                if (sock < 0)
+                        return log_error_errno(errno, "Failed to create socket: %m");
         }
+
+        uctrl = new(struct udev_ctrl, 1);
+        if (!uctrl)
+                return -ENOMEM;
+
+        *uctrl = (struct udev_ctrl) {
+                .n_ref = 1,
+                .sock = fd >= 0 ? fd : TAKE_FD(sock),
+                .bound = fd >= 0,
+        };
 
         /*
          * FIXME: remove it as soon as we can depend on this:
@@ -108,11 +110,9 @@ struct udev_ctrl *udev_ctrl_new_from_fd(int fd) {
         };
 
         uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
-        return uctrl;
-}
 
-struct udev_ctrl *udev_ctrl_new(void) {
-        return udev_ctrl_new_from_fd(-1);
+        *ret = TAKE_PTR(uctrl);
+        return 0;
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {

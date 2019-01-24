@@ -1596,9 +1596,9 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
                 .cgroup = cgroup,
         };
 
-        manager->ctrl = udev_ctrl_new_from_fd(fd_ctrl);
-        if (!manager->ctrl)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize udev control socket");
+        r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize udev control socket: %m");
 
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)

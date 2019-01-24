@@ -100,8 +100,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
         if (getuid() == 0) {
                 _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
 
-                uctrl = udev_ctrl_new();
-                if (uctrl) {
+                if (udev_ctrl_new(&uctrl) >= 0) {
                         r = udev_ctrl_send_ping(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout));
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to connect to udev daemon: %m");

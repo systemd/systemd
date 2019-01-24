@@ -5,8 +5,12 @@
 #include "time-util.h"
 
 struct udev_ctrl;
-struct udev_ctrl *udev_ctrl_new(void);
-struct udev_ctrl *udev_ctrl_new_from_fd(int fd);
+
+int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd);
+static inline int udev_ctrl_new(struct udev_ctrl **ret) {
+        return udev_ctrl_new_from_fd(ret, -1);
+}
+
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
