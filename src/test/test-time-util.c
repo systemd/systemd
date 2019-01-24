@@ -61,6 +61,26 @@ static void test_parse_sec_fix_0(void) {
         assert_se(u == USEC_INFINITY);
 }
 
+static void test_parse_sec_def_infinity(void) {
+        usec_t u;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(parse_sec_def_infinity("5s", &u) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+        assert_se(parse_sec_def_infinity("", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec_def_infinity("     ", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec_def_infinity("0s", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity("0", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity(" 0", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity("-5s", &u) < 0);
+}
+
 static void test_parse_time(void) {
         usec_t u;
 
@@ -420,6 +440,7 @@ int main(int argc, char *argv[]) {
 
         test_parse_sec();
         test_parse_sec_fix_0();
+        test_parse_sec_def_infinity();
         test_parse_time();
         test_parse_nsec();
         test_format_timespan(1);

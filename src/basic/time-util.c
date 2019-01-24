@@ -1072,6 +1072,15 @@ int parse_sec_fix_0(const char *t, usec_t *usec) {
         return parse_sec(t, usec);
 }
 
+int parse_sec_def_infinity(const char *t, usec_t *ret) {
+        t += strspn(t, WHITESPACE);
+        if (isempty(t)) {
+                *ret = USEC_INFINITY;
+                return 0;
+        }
+        return parse_sec(t, ret);
+}
+
 int parse_nsec(const char *t, nsec_t *nsec) {
         static const struct {
                 const char *suffix;

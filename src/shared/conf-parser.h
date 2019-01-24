@@ -127,6 +127,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_string);
 CONFIG_PARSER_PROTOTYPE(config_parse_path);
 CONFIG_PARSER_PROTOTYPE(config_parse_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_sec_def_infinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_nsec);
 CONFIG_PARSER_PROTOTYPE(config_parse_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_warn_compat);
