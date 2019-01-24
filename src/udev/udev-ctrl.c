@@ -116,25 +116,28 @@ int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
 }
 
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl) {
-        int err;
+        int r;
 
-        if (!uctrl->bound) {
-                err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
-                if (err < 0 && errno == EADDRINUSE) {
-                        (void) sockaddr_un_unlink(&uctrl->saddr.un);
-                        err = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
-                }
+        assert(uctrl);
 
-                if (err < 0)
-                        return log_error_errno(errno, "Failed to bind socket: %m");
+        if (uctrl->bound)
+                return 0;
 
-                err = listen(uctrl->sock, 0);
-                if (err < 0)
-                        return log_error_errno(errno, "Failed to listen: %m");
-
-                uctrl->bound = true;
-                uctrl->cleanup_socket = true;
+        r = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
+        if (r < 0 && errno == EADDRINUSE) {
+                (void) sockaddr_un_unlink(&uctrl->saddr.un);
+                r = bind(uctrl->sock, &uctrl->saddr.sa, uctrl->addrlen);
         }
+
+        if (r < 0)
+                return log_error_errno(errno, "Failed to bind udev control socket: %m");
+
+        if (listen(uctrl->sock, 0) < 0)
+                return log_error_errno(errno, "Failed to listen udev control socket: %m");
+
+        uctrl->bound = true;
+        uctrl->cleanup_socket = true;
+
         return 0;
 }
 
