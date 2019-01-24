@@ -47,7 +47,7 @@ static int netdev_bridge_post_create(NetDev *netdev, Link *link, sd_netlink_mess
 
         r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_PROTINFO attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_LINKINFO attribute: %m");
 
         r = sd_netlink_message_open_container_union(req, IFLA_INFO_DATA, netdev_kind_to_string(netdev->kind));
         if (r < 0)
