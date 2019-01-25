@@ -94,7 +94,6 @@ typedef struct Manager {
         int worker_watch[2];
 
         sd_event_source *ctrl_event;
-        sd_event_source *uevent_event;
         sd_event_source *inotify_event;
         sd_event_source *kill_workers_event;
 
@@ -279,7 +278,6 @@ static void manager_clear_for_worker(Manager *manager) {
         assert(manager);
 
         manager->ctrl_event = sd_event_source_unref(manager->ctrl_event);
-        manager->uevent_event = sd_event_source_unref(manager->uevent_event);
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
 
@@ -805,7 +803,6 @@ static void manager_exit(Manager *manager) {
         manager->inotify_event = sd_event_source_unref(manager->inotify_event);
         manager->fd_inotify = safe_close(manager->fd_inotify);
 
-        manager->uevent_event = sd_event_source_unref(manager->uevent_event);
         manager->monitor = sd_device_monitor_unref(manager->monitor);
 
         /* discard queued events and kill workers */
