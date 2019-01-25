@@ -21,6 +21,7 @@
 #include "bus-util.h"
 #include "calendarspec.h"
 #include "conf-files.h"
+#include "conf-parser.h"
 #include "copy.h"
 #include "def.h"
 #include "fd-util.h"
@@ -69,7 +70,9 @@
 static enum dot {
         DEP_ALL,
         DEP_ORDER,
-        DEP_REQUIRE
+        DEP_REQUIRE,
+        DEP_FAILURE,
+        DEP_TRIGGERS
 } arg_dot = DEP_ALL;
 static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
@@ -85,6 +88,40 @@ static unsigned arg_iterations = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+
+#define DOT_COLOR_AFTER     "green"
+#define DOT_COLOR_REQUIRES  "black"
+#define DOT_COLOR_REQUISITE "blue"
+#define DOT_COLOR_WANTS     "grey66"
+#define DOT_COLOR_CONFLICTS "red"
+#define DOT_COLOR_BINDSTO   "magenta"
+#define DOT_COLOR_ONFAILURE "orange"
+#define DOT_COLOR_TRIGGERS  "grey66"
+#define DOT_STYLE_AFTER     "solid"
+#define DOT_STYLE_REQUIRES  "solid"
+#define DOT_STYLE_REQUISITE "solid"
+#define DOT_STYLE_WANTS     "solid"
+#define DOT_STYLE_CONFLICTS "solid"
+#define DOT_STYLE_BINDSTO   "solid"
+#define DOT_STYLE_ONFAILURE "solid"
+#define DOT_STYLE_TRIGGERS  "dotted"
+
+static char *color_after     = NULL;
+static char *color_requires  = NULL;
+static char *color_requisite = NULL;
+static char *color_wants     = NULL;
+static char *color_conflicts = NULL;
+static char *color_bindsto   = NULL;
+static char *color_onfailure = NULL;
+static char *color_triggers  = NULL;
+static char *style_after     = NULL;
+static char *style_requires  = NULL;
+static char *style_requisite = NULL;
+static char *style_wants     = NULL;
+static char *style_conflicts = NULL;
+static char *style_bindsto   = NULL;
+static char *style_onfailure = NULL;
+static char *style_triggers  = NULL;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1096,7 +1133,7 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[], char* from_patterns[], char* to_patterns[]) {
+static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, const char *style, char* patterns[], char* from_patterns[], char* to_patterns[]) {
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -1105,6 +1142,7 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         assert(u);
         assert(prop);
         assert(color);
+        assert(style);
 
         match_patterns = strv_fnmatch(patterns, u->id, 0);
 
@@ -1130,11 +1168,12 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
                         continue;
 
-                printf("\t\"%s\"->\"%s\" [color=\"%s\"];\n", u->id, *unit, color);
+                printf("\t\"%s\"->\"%s\" [color=\"%s\", style=\"%s\"];\n", u->id, *unit, color, style);
         }
 
         return 0;
 }
+
 
 static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
         int r;
@@ -1143,22 +1182,37 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(u);
 
         if (IN_SET(arg_dot, DEP_ORDER, DEP_ALL)) {
-                r = graph_one_property(bus, u, "After", "green", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "After", color_after, style_after, patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_REQUIRE, DEP_ALL)) {
-                r = graph_one_property(bus, u, "Requires", "black", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requires", color_requires, style_requires, patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Requisite", "darkblue", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requisite", color_requisite, style_requisite, patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Wants", color_wants, style_wants, patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Conflicts", "red", patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Conflicts", color_conflicts, style_conflicts, patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "BindsTo", color_bindsto, style_bindsto, patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (IN_SET(arg_dot, DEP_FAILURE, DEP_ALL)) {
+                r = graph_one_property(bus, u, "OnFailure", color_onfailure, style_onfailure, patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (IN_SET(arg_dot, DEP_TRIGGERS, DEP_ALL)) {
+                r = graph_one_property(bus, u, "Triggers", color_triggers, style_triggers, patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1218,6 +1272,26 @@ static int dot(int argc, char *argv[], void *userdata) {
         int r;
         UnitInfo u;
 
+        static const ConfigTableItem items[] = {
+                        { "Color", "After",             config_parse_string,  0, &color_after     },
+                        { "Color", "Requires",          config_parse_string,  0, &color_requires  },
+                        { "Color", "Requisite",         config_parse_string,  0, &color_requisite },
+                        { "Color", "Wants",             config_parse_string,  0, &color_wants     },
+                        { "Color", "Conflicts",         config_parse_string,  0, &color_conflicts },
+                        { "Color", "BindsTo",           config_parse_string,  0, &color_bindsto   },
+                        { "Color", "OnFailure",         config_parse_string,  0, &color_onfailure },
+                        { "Color", "Triggers",          config_parse_string,  0, &color_triggers  },
+                        { "Style", "After",             config_parse_string,  0, &style_after     },
+                        { "Style", "Requires",          config_parse_string,  0, &style_requires  },
+                        { "Style", "Requisite",         config_parse_string,  0, &style_requisite },
+                        { "Style", "Wants",             config_parse_string,  0, &style_wants     },
+                        { "Style", "Conflicts",         config_parse_string,  0, &style_conflicts },
+                        { "Style", "BindsTo",           config_parse_string,  0, &style_bindsto   },
+                        { "Style", "OnFailure",         config_parse_string,  0, &style_onfailure },
+                        { "Style", "Triggers",          config_parse_string,  0, &style_triggers  },
+                        {}
+        };
+
         r = acquire_bus(&bus, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
@@ -1252,6 +1326,47 @@ static int dot(int argc, char *argv[], void *userdata) {
 
         printf("digraph systemd {\n");
 
+        color_after     = (char *)malloc(strlen(DOT_COLOR_AFTER) + 1);
+        color_requires  = (char *)malloc(strlen(DOT_COLOR_REQUIRES) + 1);
+        color_requisite = (char *)malloc(strlen(DOT_COLOR_REQUISITE) + 1);
+        color_wants     = (char *)malloc(strlen(DOT_COLOR_WANTS) + 1);
+        color_conflicts = (char *)malloc(strlen(DOT_COLOR_CONFLICTS) + 1);
+        color_bindsto   = (char *)malloc(strlen(DOT_COLOR_BINDSTO) + 1);
+        color_onfailure = (char *)malloc(strlen(DOT_COLOR_ONFAILURE) + 1);
+        color_triggers  = (char *)malloc(strlen(DOT_COLOR_TRIGGERS) + 1);
+        style_after     = (char *)malloc(strlen(DOT_STYLE_AFTER) + 1);
+        style_requires  = (char *)malloc(strlen(DOT_STYLE_REQUIRES) + 1);
+        style_requisite = (char *)malloc(strlen(DOT_STYLE_REQUISITE) + 1);
+        style_wants     = (char *)malloc(strlen(DOT_STYLE_WANTS) + 1);
+        style_conflicts = (char *)malloc(strlen(DOT_STYLE_CONFLICTS) + 1);
+        style_bindsto   = (char *)malloc(strlen(DOT_STYLE_BINDSTO) + 1);
+        style_onfailure = (char *)malloc(strlen(DOT_STYLE_ONFAILURE) + 1);
+        style_triggers  = (char *)malloc(strlen(DOT_STYLE_TRIGGERS) + 1);
+
+        strcpy(color_after,      DOT_COLOR_AFTER);
+        strcpy(color_requires,   DOT_COLOR_REQUIRES);
+        strcpy(color_requisite,  DOT_COLOR_REQUISITE);
+        strcpy(color_wants,      DOT_COLOR_WANTS);
+        strcpy(color_conflicts,  DOT_COLOR_CONFLICTS);
+        strcpy(color_bindsto,    DOT_COLOR_BINDSTO);
+        strcpy(color_onfailure,  DOT_COLOR_ONFAILURE);
+        strcpy(color_triggers,   DOT_COLOR_TRIGGERS);
+        strcpy(style_after,      DOT_STYLE_AFTER);
+        strcpy(style_requires,   DOT_STYLE_REQUIRES);
+        strcpy(style_requisite,  DOT_STYLE_REQUISITE);
+        strcpy(style_wants,      DOT_STYLE_WANTS);
+        strcpy(style_conflicts,  DOT_STYLE_CONFLICTS);
+        strcpy(style_bindsto,    DOT_STYLE_BINDSTO);
+        strcpy(style_onfailure,  DOT_STYLE_ONFAILURE);
+        strcpy(style_triggers,   DOT_STYLE_TRIGGERS);
+
+        config_parse_many_nulstr(PKGSYSCONFDIR "/analyze.conf",
+                                CONF_PATHS_NULSTR("systemd/analyze.conf.d"),
+                                "Color\0"
+                                "Style\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN, NULL);
+
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
 
                 r = graph_one(bus, &u, expanded_patterns, expanded_from_patterns, expanded_to_patterns);
@@ -1263,15 +1378,45 @@ static int dot(int argc, char *argv[], void *userdata) {
 
         printf("}\n");
 
-        log_info("   Color legend: black     = Requires\n"
-                 "                 dark blue = Requisite\n"
-                 "                 dark grey = Wants\n"
-                 "                 red       = Conflicts\n"
-                 "                 green     = After\n");
+
+        log_info("   Color legend: %-10s %-8s = Requires\n"
+                 "                 %-10s %-8s = Requisite\n"
+                 "                 %-10s %-8s = BindsTo\n"
+                 "                 %-10s %-8s = Wants\n"
+                 "                 %-10s %-8s = Conflicts\n"
+                 "                 %-10s %-8s = OnFailure\n"
+                 "                 %-10s %-8s = After\n"
+                 "                 %-10s %-8s = Triggers\n",
+                color_requires,  style_requires,
+                color_requisite, style_requisite,
+                color_bindsto,   style_bindsto,
+                color_wants,     style_wants,
+                color_conflicts, style_conflicts,
+                color_onfailure, style_onfailure,
+                color_after,     style_after,
+                color_triggers,  style_triggers
+        );
 
         if (on_tty())
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
+
+        free(color_requires);
+        free(color_requisite);
+        free(color_bindsto);
+        free(color_wants);
+        free(color_conflicts);
+        free(color_onfailure);
+        free(color_after);
+        free(color_triggers);
+        free(style_requires);
+        free(style_requisite);
+        free(style_bindsto);
+        free(style_wants);
+        free(style_conflicts);
+        free(style_onfailure);
+        free(style_after);
+        free(style_triggers);
 
         return 0;
 }
@@ -1854,6 +1999,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --order               Show only order in the graph\n"
                "     --require             Show only requirement in the graph\n"
+               "     --failure             Show only onFailure in the graph\n"
+               "     --triggers            Show only triggers in the graph\n"
                "     --from-pattern=GLOB   Show only origins in the graph\n"
                "     --to-pattern=GLOB     Show only destinations in the graph\n"
                "     --fuzz=SECONDS        Also print also services which finished SECONDS\n"
@@ -1894,6 +2041,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
                 ARG_REQUIRE,
+                ARG_FAILURE,
+                ARG_TRIGGERS,
                 ARG_ROOT,
                 ARG_SYSTEM,
                 ARG_USER,
@@ -1912,6 +2061,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
+                { "failure",      no_argument,       NULL, ARG_FAILURE          },
+                { "triggers",     no_argument,       NULL, ARG_TRIGGERS         },
                 { "root",         required_argument, NULL, ARG_ROOT             },
                 { "system",       no_argument,       NULL, ARG_SYSTEM           },
                 { "user",         no_argument,       NULL, ARG_USER             },
@@ -1964,6 +2115,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REQUIRE:
                         arg_dot = DEP_REQUIRE;
+                        break;
+
+                case ARG_FAILURE:
+                        arg_dot = DEP_FAILURE;
+                        break;
+
+                case ARG_TRIGGERS:
+                        arg_dot = DEP_TRIGGERS;
                         break;
 
                 case ARG_DOT_FROM_PATTERN:

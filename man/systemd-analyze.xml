@@ -291,11 +291,17 @@ $ eog bootup.svg&amp;
       with the GraphViz
       <citerefentry project='die-net'><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       tool. Use a command line like <command>systemd-analyze dot | dot -Tsvg >systemd.svg</command> to
-      generate a graphical dependency tree. Unless <option>--order</option> or <option>--require</option> is
-      passed, the generated graph will show both ordering and requirement dependencies. Optional pattern
-      globbing style specifications (e.g. <filename>*.target</filename>) may be given at the end. A unit
-      dependency is included in the graph if any of these patterns match either the origin or destination
-      node.</para>
+      generate a graphical dependency tree. Unless <option>--order</option>,
+    <option>--require</option>, <option>--failure</option> or
+    <option>--triggers</option> is passed, the generated graph will
+    show ordering, requirement, failure and triggers dependencies.
+    Optional pattern
+    globbing style specifications (e.g. <filename>*.target</filename>)
+    may be given at the end. A unit dependency is included in the
+    graph if any of these patterns match either the origin or
+    destination node. See
+    <citerefentry><refentrytitle>analyze.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    page for details of configuring edge colors and styles.</para>
 
       <example>
         <title>Plot all dependencies of any unit whose name starts with <literal>avahi-daemon</literal>
@@ -582,6 +588,8 @@ Service b@0.service not loaded, b.socket cannot be started.
       <varlistentry>
         <term><option>--order</option></term>
         <term><option>--require</option></term>
+        <term><option>--failure</option></term>
+        <term><option>--triggers</option></term>
 
         <listitem><para>When used in conjunction with the
         <command>dot</command> command (see above), selects which
@@ -591,8 +599,15 @@ Service b@0.service not loaded, b.socket cannot be started.
         shown. If <option>--require</option> is passed, only
         dependencies of type <varname>Requires=</varname>,
         <varname>Requisite=</varname>,
-        <varname>Wants=</varname> and <varname>Conflicts=</varname>
-        are shown. If neither is passed, this shows dependencies of
+        <varname>Wants=</varname>, <varname>Conflicts=</varname>,
+        or <varname>BindsTo=</varname>
+        are shown.
+        If <option>--failure</option> is passed, only dependencies
+        of type <varname>OnFailure=</varname> are passed.
+        If <option>--triggers</option> is passed, only dependencies
+        of type <varname>Triggers</varname> are passed. These can be
+        socket, path, timer or automount units.
+        If neither is passed, this shows dependencies of
         all these types.</para></listitem>
       </varlistentry>
 
@@ -687,6 +702,7 @@ Service b@0.service not loaded, b.socket cannot be started.
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>analyze.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 
