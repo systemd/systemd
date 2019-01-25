@@ -9,7 +9,7 @@
 struct udev_ctrl;
 
 enum udev_ctrl_msg_type {
-        UDEV_CTRL_UNKNOWN,
+        _UDEV_CTRL_END_MESSAGES,
         UDEV_CTRL_SET_LOG_LEVEL,
         UDEV_CTRL_STOP_EXEC_QUEUE,
         UDEV_CTRL_START_EXEC_QUEUE,
@@ -41,13 +41,39 @@ int udev_ctrl_attach_event(struct udev_ctrl *uctrl, sd_event *event);
 int udev_ctrl_start(struct udev_ctrl *uctrl, udev_ctrl_handler_t callback, void *userdata);
 sd_event_source *udev_ctrl_get_event_source(struct udev_ctrl *uctrl);
 
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, usec_t timeout);
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, usec_t timeout);
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, usec_t timeout);
-int udev_ctrl_send_reload(struct udev_ctrl *uctrl, usec_t timeout);
-int udev_ctrl_send_ping(struct udev_ctrl *uctrl, usec_t timeout);
-int udev_ctrl_send_exit(struct udev_ctrl *uctrl, usec_t timeout);
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, usec_t timeout);
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, usec_t timeout);
+int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout);
+
+int udev_ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf);
+static inline int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL);
+}
+
+static inline int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL);
+}
+
+static inline int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL);
+}
+
+static inline int udev_ctrl_send_reload(struct udev_ctrl *uctrl) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_RELOAD, 0, NULL);
+}
+
+static inline int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
+}
+
+static inline int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL);
+}
+
+static inline int udev_ctrl_send_ping(struct udev_ctrl *uctrl) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_PING, 0, NULL);
+}
+
+static inline int udev_ctrl_send_exit(struct udev_ctrl *uctrl) {
+        return udev_ctrl_send(uctrl, UDEV_CTRL_EXIT, 0, NULL);
+}
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_ctrl*, udev_ctrl_unref);

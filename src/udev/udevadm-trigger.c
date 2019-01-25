@@ -312,9 +312,13 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize udev control: %m");
 
-                r = udev_ctrl_send_ping(uctrl, ping_timeout_usec);
+                r = udev_ctrl_send_ping(uctrl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to udev daemon: %m");
+
+                r = udev_ctrl_wait(uctrl, ping_timeout_usec);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         }
 
         for (; optind < argc; optind++) {

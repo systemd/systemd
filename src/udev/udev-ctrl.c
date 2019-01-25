@@ -47,6 +47,7 @@ struct udev_ctrl {
         bool bound:1;
         bool cleanup_socket:1;
         bool connected:1;
+        bool maybe_disconnected:1;
         sd_event *event;
         sd_event_source *event_source;
         sd_event_source *event_source_connect;
@@ -239,9 +240,14 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
                 return 0;
         }
 
+        if (msg_wire.type == _UDEV_CTRL_END_MESSAGES)
+                return 0;
+
         if (uctrl->callback)
                 (void) uctrl->callback(uctrl, msg_wire.type, &msg_wire.value, uctrl->userdata);
 
+        /* Do not disconnect and wait for next message. */
+        uctrl = udev_ctrl_unref(uctrl);
         return 0;
 }
 
@@ -319,12 +325,15 @@ int udev_ctrl_start(struct udev_ctrl *uctrl, udev_ctrl_handler_t callback, void 
         return 0;
 }
 
-static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf, usec_t timeout) {
+int udev_ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf) {
         struct udev_ctrl_msg_wire ctrl_msg_wire = {
                 .version = "udev-" STRINGIFY(PROJECT_VERSION),
                 .magic = UDEV_CTRL_MAGIC,
                 .type = type,
         };
+
+        if (uctrl->maybe_disconnected)
+                return -ENOANO; /* to distinguish this from other errors. */
 
         if (buf)
                 strscpy(ctrl_msg_wire.value.buf, sizeof(ctrl_msg_wire.value.buf), buf);
@@ -336,59 +345,62 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
                         return -errno;
                 uctrl->connected = true;
         }
+
         if (send(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0) < 0)
                 return -errno;
 
-        /* wait for peer message handling or disconnect */
-        for (;;) {
-                struct pollfd pfd = {
-                        .fd = uctrl->sock,
-                        .events = POLLIN,
-                };
-                int r;
+        if (type == UDEV_CTRL_EXIT)
+                uctrl->maybe_disconnected = true;
 
-                r = poll(&pfd, 1, DIV_ROUND_UP(timeout, USEC_PER_MSEC));
-                if (r < 0) {
-                        if (errno == EINTR)
-                                continue;
-                        return -errno;
-                }
-                if (r == 0)
-                        return -ETIMEDOUT;
-                if (pfd.revents & POLLERR)
-                        return -EIO;
+        return 0;
+}
+
+static int udev_ctrl_wait_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return sd_event_exit(sd_event_source_get_event(s), 0);
+}
+
+int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *source_io = NULL, *source_timeout = NULL;
+        int r;
+
+        assert(uctrl);
+
+        if (uctrl->sock < 0)
                 return 0;
+        if (!uctrl->connected)
+                return 0;
+
+        if (!uctrl->maybe_disconnected) {
+                r = udev_ctrl_send(uctrl, _UDEV_CTRL_END_MESSAGES, 0, NULL);
+                if (r < 0)
+                        return r;
         }
-}
 
-int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL, timeout);
-}
+        if (timeout == 0)
+                return 0;
 
-int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL, timeout);
-}
+        if (!uctrl->event) {
+                r = udev_ctrl_attach_event(uctrl, NULL);
+                if (r < 0)
+                        return r;
+        }
 
-int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL, timeout);
-}
+        r = sd_event_add_io(uctrl->event, &source_io, uctrl->sock, EPOLLIN, udev_ctrl_wait_io_handler, NULL);
+        if (r < 0)
+                return r;
 
-int udev_ctrl_send_reload(struct udev_ctrl *uctrl, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_RELOAD, 0, NULL, timeout);
-}
+        (void) sd_event_source_set_description(uctrl->event_source, "udev-ctrl-wait-io");
 
-int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key, timeout);
-}
+        if (timeout != USEC_INFINITY) {
+                usec_t usec;
 
-int udev_ctrl_send_set_children_max(struct udev_ctrl *uctrl, int count, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_SET_CHILDREN_MAX, count, NULL, timeout);
-}
+                usec = now(clock_boottime_or_monotonic()) + timeout;
+                r = sd_event_add_time(uctrl->event, &source_timeout, clock_boottime_or_monotonic(), usec, 0, NULL, INT_TO_PTR(-ETIMEDOUT));
+                if (r < 0)
+                        return r;
 
-int udev_ctrl_send_ping(struct udev_ctrl *uctrl, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_PING, 0, NULL, timeout);
-}
+                (void) sd_event_source_set_description(source_timeout, "udev-ctrl-wait-io");
+        }
 
-int udev_ctrl_send_exit(struct udev_ctrl *uctrl, usec_t timeout) {
-        return ctrl_send(uctrl, UDEV_CTRL_EXIT, 0, NULL, timeout);
+        return sd_event_loop(uctrl->event);
 }
