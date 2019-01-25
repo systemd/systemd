@@ -7,3 +7,6 @@ systemd_analyze_sources = files('''
         analyze-security.c
         analyze-security.h
 '''.split())
+
+install_data('analyze.conf',
+             install_dir : pkgsysconfdir)
