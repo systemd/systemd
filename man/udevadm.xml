@@ -372,8 +372,10 @@
           <term><option>-e</option></term>
           <term><option>--exit</option></term>
           <listitem>
-            <para>Signal and wait for systemd-udevd to exit. Note that <filename>systemd-udevd.service</filename>
-            contains <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
+            <para>Signal and wait for systemd-udevd to exit. No option except for
+            <option>--timeout</option> can be specified after this option.
+            Note that <filename>systemd-udevd.service</filename> contains
+            <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
             If you want to stop <filename>systemd-udevd.service</filename>, please use the following:
             <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd.service</programlisting>
             </para>
