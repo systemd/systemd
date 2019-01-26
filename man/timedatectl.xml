@@ -82,7 +82,7 @@
 
       <varlistentry>
         <term><option>-a</option></term>
-        <term><option>-all</option></term>
+        <term><option>--all</option></term>
 
         <listitem><para>When showing properties of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
