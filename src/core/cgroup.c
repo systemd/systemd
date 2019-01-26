@@ -2780,7 +2780,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
 
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
         if (unit_has_host_root_cgroup(u))
-                return procfs_memory_get_current(ret);
+                return procfs_memory_get_used(ret);
 
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
