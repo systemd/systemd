@@ -251,6 +251,32 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
         return get_mount_parameters_fragment(m);
 }
 
+static int update_parameters_proc_self_mount_info(
+                Mount *m,
+                const char *what,
+                const char *options,
+                const char *fstype) {
+
+        MountParameters *p;
+        int r, q, w;
+
+        p = &m->parameters_proc_self_mountinfo;
+
+        r = free_and_strdup(&p->what, what);
+        if (r < 0)
+                return r;
+
+        q = free_and_strdup(&p->options, options);
+        if (q < 0)
+                return q;
+
+        w = free_and_strdup(&p->fstype, fstype);
+        if (w < 0)
+                return w;
+
+        return r > 0 || q > 0 || w > 0;
+}
+
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
         Unit *other;
@@ -352,7 +378,8 @@ static int mount_add_device_dependencies(Mount *m) {
          * automatically stopped when the device disappears suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
-        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT;
+        /* We always use 'what' from /proc/self/mountinfo if mounted */
+        mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
         r = unit_add_node_dependency(UNIT(m), p->what, device_wants_mount, dep, mask);
         if (r < 0)
@@ -823,6 +850,9 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         unit_unref_uid_gid(UNIT(m), true);
 
         dynamic_creds_destroy(&m->dynamic_creds);
+
+        /* Any dependencies based on /proc/self/mountinfo are now stale */
+        unit_remove_dependencies(UNIT(m), UNIT_DEPENDENCY_MOUNTINFO_IMPLICIT);
 }
 
 static void mount_enter_mounted(Mount *m, MountResult f) {
@@ -1428,32 +1458,6 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
-static int update_parameters_proc_self_mount_info(
-                Mount *m,
-                const char *what,
-                const char *options,
-                const char *fstype) {
-
-        MountParameters *p;
-        int r, q, w;
-
-        p = &m->parameters_proc_self_mountinfo;
-
-        r = free_and_strdup(&p->what, what);
-        if (r < 0)
-                return r;
-
-        q = free_and_strdup(&p->options, options);
-        if (q < 0)
-                return q;
-
-        w = free_and_strdup(&p->fstype, fstype);
-        if (w < 0)
-                return w;
-
-        return r > 0 || q > 0 || w > 0;
-}
-
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
@@ -1844,6 +1848,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         }
 
                         mount->from_proc_self_mountinfo = false;
+                        assert_se(update_parameters_proc_self_mount_info(mount, NULL, NULL, NULL) >= 0);
 
                         switch (mount->state) {
 
