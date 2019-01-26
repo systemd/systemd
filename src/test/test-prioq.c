@@ -87,6 +87,7 @@ static void test_struct(void) {
         Set *s;
         unsigned previous = 0, i;
         int r;
+        struct test *t;
 
         srand(0);
 
@@ -96,9 +97,12 @@ static void test_struct(void) {
         s = set_new(&test_hash_ops);
         assert_se(s);
 
-        for (i = 0; i < SET_SIZE; i++) {
-                struct test *t;
+        assert_se(prioq_peek(q) == NULL);
+        assert_se(prioq_peek_by_index(q, 0) == NULL);
+        assert_se(prioq_peek_by_index(q, 1) == NULL);
+        assert_se(prioq_peek_by_index(q, (unsigned) -1) == NULL);
 
+        for (i = 0; i < SET_SIZE; i++) {
                 t = new0(struct test, 1);
                 assert_se(t);
                 t->value = (unsigned) rand();
@@ -112,9 +116,18 @@ static void test_struct(void) {
                 }
         }
 
-        for (;;) {
-                struct test *t;
+        for (i = 0; i < SET_SIZE; i++)
+                assert_se(prioq_peek_by_index(q, i));
+        assert_se(prioq_peek_by_index(q, SET_SIZE) == NULL);
 
+        unsigned count = 0;
+        PRIOQ_FOREACH_ITEM(q, t) {
+                assert_se(t);
+                count++;
+        }
+        assert_se(count == SET_SIZE);
+
+        for (;;) {
                 t = set_steal_first(s);
                 if (!t)
                         break;
@@ -126,8 +139,6 @@ static void test_struct(void) {
         }
 
         for (i = 0; i < SET_SIZE * 3 / 4; i++) {
-                struct test *t;
-
                 assert_se(prioq_size(q) == (SET_SIZE * 3 / 4) - i);
 
                 t = prioq_pop(q);
