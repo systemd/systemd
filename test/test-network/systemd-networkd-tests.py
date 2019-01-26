@@ -1039,8 +1039,10 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client.network'
         'dhcp-server-veth-peer.network',
-        'dhcp-v4-server-veth-peer.network']
+        'dhcp-v4-server-veth-peer.network',
+        'static.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -1218,6 +1220,43 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '192.168.5.*')
+
+    def test_dhcp_client_reuse_address_as_static(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('veth99'))
+
+        self.start_dnsmasq()
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '192.168.5')
+        self.assertRegex(output, '2600::')
+
+        ipv4_address = re.search('192\.168\.5\.[0-9]*/24', output)
+        ipv6_address = re.search('2600::[0-9a-f:]*/128', output)
+        static_network = '\n'.join(['[Match]', 'Name=veth99', '[Network]', 'IPv6AcceptRA=no', 'Address=' + ipv4_address.group(), 'Address=' + ipv6_address.group()])
+        print(static_network)
+
+        self.remove_unit_from_networkd_path(['dhcp-client.network'])
+
+        with open(os.path.join(network_unit_file_path, 'static.network'), mode='w') as f:
+            f.write(static_network)
+
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('veth99'))
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '192.168.5')
+        self.assertRegex(output, 'valid_lft forever preferred_lft forever')
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'veth99', 'scope', 'global']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '2600::')
+        self.assertRegex(output, 'valid_lft forever preferred_lft forever')
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
