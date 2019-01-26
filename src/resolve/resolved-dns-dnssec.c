@@ -402,7 +402,7 @@ static int dnssec_ecdsa_verify(
         if (rrsig->rrsig.signature_size != key_size * 2)
                 return -EINVAL;
 
-        q = alloca(key_size*2 + 1);
+        q = newa(uint8_t, key_size*2 + 1);
         q[0] = 0x04; /* Prepend 0x04 to indicate an uncompressed key */
         memcpy(q+1, dnskey->dnskey.key, key_size*2);
 

@@ -30,7 +30,7 @@
                 const char *_func = (func);       \
                 char **_f = &(f);                 \
                 _fl = strlen(_func) + 1;          \
-                *_f = alloca(_fl + 10);           \
+                *_f = newa(char, _fl + 10);       \
                 memcpy(*_f, "CODE_FUNC=", 10);    \
                 memcpy(*_f + 10, _func, _fl);     \
         } while (false)
@@ -403,7 +403,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         identifier = strempty(identifier);
 
         l = strlen(identifier);
-        header = alloca(l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
+        header = newa(char, l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
 
         memcpy(header, identifier, l);
         header[l++] = '\n';

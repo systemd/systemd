@@ -131,7 +131,7 @@ char *prefix_root(const char *root, const char *path);
                         _ret = _path;                                   \
                 else {                                                  \
                         _l = strlen(_root) + 1 + strlen(_path) + 1;     \
-                        _n = alloca(_l);                                \
+                        _n = newa(char, _l);                            \
                         _p = stpcpy(_n, _root);                         \
                         while (_p > _n && _p[-1] == '/')                \
                                 _p--;                                   \

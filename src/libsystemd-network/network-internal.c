@@ -52,7 +52,7 @@ int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
 
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
         /* fetch some persistent data unique to this machine */
         r = sd_id128_get_machine((sd_id128_t*) v);

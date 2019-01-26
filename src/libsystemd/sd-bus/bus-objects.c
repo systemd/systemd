@@ -1149,7 +1149,7 @@ static int object_manager_serialize_path_and_fallbacks(
                 return 0;
 
         /* Second, add fallback vtables registered for any of the prefixes */
-        prefix = alloca(strlen(path) + 1);
+        prefix = newa(char, strlen(path) + 1);
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_manager_serialize_path(bus, reply, prefix, path, true, error);
                 if (r < 0)
@@ -1500,7 +1500,7 @@ static int bus_find_parent_object_manager(sd_bus *bus, struct node **out, const 
         if (!n) {
                 char *prefix;
 
-                prefix = alloca(strlen(path) + 1);
+                prefix = newa(char, strlen(path) + 1);
                 OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                         n = hashmap_get(bus->nodes, prefix);
                         if (n)
@@ -2114,7 +2114,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
                 if (bus->nodes_modified)
                         continue;
 
-                prefix = alloca(strlen(path) + 1);
+                prefix = newa(char, strlen(path) + 1);
                 OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                         r = emit_properties_changed_on_interface(bus, prefix, path, interface, true, &found_interface, names);
                         if (r != 0)
@@ -2291,7 +2291,7 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        prefix = newa(char, strlen(path) + 1);
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_added_append_all_prefix(bus, m, s, prefix, path, true);
                 if (r < 0)
@@ -2462,7 +2462,7 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        prefix = newa(char, strlen(path) + 1);
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = object_removed_append_all_prefix(bus, m, s, prefix, path, true);
                 if (r < 0)
@@ -2626,7 +2626,7 @@ static int interfaces_added_append_one(
         if (bus->nodes_modified)
                 return 0;
 
-        prefix = alloca(strlen(path) + 1);
+        prefix = newa(char, strlen(path) + 1);
         OBJECT_PATH_FOREACH_PREFIX(prefix, path) {
                 r = interfaces_added_append_one_prefix(bus, m, prefix, path, interface, true);
                 if (r != 0)

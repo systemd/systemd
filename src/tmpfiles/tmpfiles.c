@@ -3130,7 +3130,7 @@ static int link_parent(ItemArray *a) {
                 return 0;
 
         path = a->items[0].path;
-        prefix = alloca(strlen(path) + 1);
+        prefix = newa(char, strlen(path) + 1);
         PATH_FOREACH_PREFIX(prefix, path) {
                 ItemArray *j;
 

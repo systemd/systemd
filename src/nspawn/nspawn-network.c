@@ -67,7 +67,7 @@ static int generate_mac(
         if (idx > 0)
                 sz += sizeof(idx);
 
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
         /* fetch some persistent data unique to the host */
         r = sd_id128_get_machine((sd_id128_t*) v);
