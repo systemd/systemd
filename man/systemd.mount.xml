@@ -131,11 +131,15 @@
         <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
 
         <listitem><para>Mount units referring to local file systems automatically gain
-        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
+        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless
+        <option>nofail</option> mount option is set.</para></listitem>
 
         <listitem><para>Network mount units
         automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-        <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
+        <filename>network.target</filename> and <filename>network-online.target</filename>, and gain a
+        <varname>Before=</varname> dependency on <filename>remote-fs.target</filename> unless
+        <option>nofail</option> mount option is set. Towards the latter a
         <varname>Wants=</varname> unit is added as well.</para></listitem>
       </itemizedlist>
 

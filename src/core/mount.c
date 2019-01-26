@@ -453,6 +453,7 @@ static int mount_add_default_dependencies(Mount *m) {
         const char *after, *before;
         UnitDependencyMask mask;
         MountParameters *p;
+        bool nofail;
         int r;
 
         assert(m);
@@ -471,6 +472,7 @@ static int mount_add_default_dependencies(Mount *m) {
                 return 0;
 
         mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_DEFAULT;
+        nofail = m->from_fragment ? fstab_test_yes_no_option(m->parameters_fragment.options, "nofail\0" "fail\0") : false;
 
         if (mount_is_network(p)) {
                 /* We order ourselves after network.target. This is
@@ -501,9 +503,11 @@ static int mount_add_default_dependencies(Mount *m) {
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
-        if (r < 0)
-                return r;
+        if (!nofail) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
+                if (r < 0)
+                        return r;
+        }
 
         r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true, mask);
         if (r < 0)
