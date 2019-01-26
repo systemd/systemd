@@ -4230,6 +4230,11 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        /* Ignore SIGPIPE here, because we use splice() on the ptyfwd stuff and that will generate SIGPIPE if
+         * the result is closed. Note that the container payload child will reset signal mask+handler anyway,
+         * so just turning this off here means we only turn it off in nspawn itself, not any children. */
+        (void) ignore_signals(SIGPIPE, -1);
+
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
                 r = fdset_new_listen_fds(&fds, false);
