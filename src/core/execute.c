@@ -2160,8 +2160,21 @@ static int setup_exec_directory(
                         r = mkdir_label(p, context->directories[type].mode);
                         if (r < 0 && r != -EEXIST)
                                 goto fail;
-                        if (r == -EEXIST && !context->dynamic_user)
-                                continue;
+                        if (r == -EEXIST) {
+                                struct stat st;
+
+                                if (stat(p, &st) < 0) {
+                                        r = -errno;
+                                        goto fail;
+                                }
+                                if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
+                                        log_warning("%s \'%s\' already exists but the mode is different. "
+                                                    "(filesystem: %o %sMode: %o)",
+                                                    exec_directory_type_to_string(type), *rt,
+                                                    st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
+                                if (!context->dynamic_user)
+                                        continue;
+                        }
                 }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
