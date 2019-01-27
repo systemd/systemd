@@ -65,19 +65,19 @@ done
 
 if [[ "${0##*/}" == 'installkernel' ]]; then
     COMMAND='add'
-    INITRD_OPTIONS=( initrd )
+    # make install doesn't pass any parameter wrt initrd handling
+    INITRD_OPTIONS=()
 else
     COMMAND="$1"
     shift
-    if [[ $# -gt 2 ]]; then
-        INITRD_OPTIONS=( "${@:3}" )
-    else
-        INITRD_OPTIONS=( initrd )
-    fi
+    INITRD_OPTIONS=( "${@:3}" )
 fi
 
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
+# If no initrd option is supplied, fallback to "initrd" which is
+# the name used by dracut when generating it in its kernel-install hook
+[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
 
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
