@@ -85,10 +85,6 @@ cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
 
 INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
 
-# If no initrd option is supplied, fallback to "initrd" which is
-# the name used by dracut when generating it in its kernel-install hook
-[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
-
 for initrd in "${INITRD_OPTIONS[@]}"; do
     if [[ -f "${initrd}" ]]; then
         initrd_basename="$(basename ${initrd})"
@@ -100,6 +96,10 @@ for initrd in "${INITRD_OPTIONS[@]}"; do
         }
     fi
 done
+
+# If no initrd option is supplied, fallback to "initrd" which is
+# the name used by dracut when generating it in its kernel-install hook
+[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
 
 mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
