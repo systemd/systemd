@@ -46,7 +46,8 @@ typedef struct CatalogHeader {
 
 typedef struct CatalogItem {
         sd_id128_t id;
-        char language[32];
+        char language[32]; /* One byte is used for termination, so the maximum allowed
+                            * length of the string is actually 31 bytes. */
         le64_t offset;
 } CatalogItem;
 
@@ -556,25 +557,44 @@ static const char *find_id(void *p, sd_id128_t id) {
         const char *loc;
 
         loc = setlocale(LC_MESSAGES, NULL);
-        if (loc && loc[0] && !streq(loc, "C") && !streq(loc, "POSIX")) {
-                strncpy(key.language, loc, sizeof(key.language));
-                key.language[strcspn(key.language, ".@")] = 0;
+        if (!isempty(loc) && !STR_IN_SET(loc, "C", "POSIX")) {
+                size_t len;
 
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
-                if (!f) {
-                        char *e;
+                len = strcspn(loc, ".@");
+                if (len > sizeof(key.language) - 1)
+                        log_debug("LC_MESSAGES value too long, ignoring: \"%.*s\"", (int) len, loc);
+                else {
+                        strncpy(key.language, loc, len);
+                        key.language[len] = '\0';
 
-                        e = strchr(key.language, '_');
-                        if (e) {
-                                *e = 0;
-                                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
+                        f = bsearch(&key,
+                                    (const uint8_t*) p + le64toh(h->header_size),
+                                    le64toh(h->n_items),
+                                    le64toh(h->catalog_item_size),
+                                    (comparison_fn_t) catalog_compare_func);
+                        if (!f) {
+                                char *e;
+
+                                e = strchr(key.language, '_');
+                                if (e) {
+                                        *e = 0;
+                                        f = bsearch(&key,
+                                                    (const uint8_t*) p + le64toh(h->header_size),
+                                                    le64toh(h->n_items),
+                                                    le64toh(h->catalog_item_size),
+                                                    (comparison_fn_t) catalog_compare_func);
+                                }
                         }
                 }
         }
 
         if (!f) {
                 zero(key.language);
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
+                f = bsearch(&key,
+                            (const uint8_t*) p + le64toh(h->header_size),
+                            le64toh(h->n_items),
+                            le64toh(h->catalog_item_size),
+                            (comparison_fn_t) catalog_compare_func);
         }
 
         if (!f)
