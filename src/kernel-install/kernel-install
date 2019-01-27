@@ -69,7 +69,11 @@ if [[ "${0##*/}" == 'installkernel' ]]; then
 else
     COMMAND="$1"
     shift
-    INITRD_OPTIONS=( "${@:3}" )
+    if [[ $# -gt 2 ]]; then
+        INITRD_OPTIONS=( "${@:3}" )
+    else
+        INITRD_OPTIONS=( initrd )
+    fi
 fi
 
 KERNEL_VERSION="$1"
