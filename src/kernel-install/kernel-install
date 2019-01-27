@@ -75,9 +75,6 @@ fi
 
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
-# If no initrd option is supplied, fallback to "initrd" which is
-# the name used by dracut when generating it in its kernel-install hook
-[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
 
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id

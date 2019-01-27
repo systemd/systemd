@@ -83,7 +83,13 @@ cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
     exit 1
 }
 
-for initrd in "${@:${INITRD_OPTIONS_START}}"; do
+INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
+
+# If no initrd option is supplied, fallback to "initrd" which is
+# the name used by dracut when generating it in its kernel-install hook
+[[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
+
+for initrd in "${INITRD_OPTIONS[@]}"; do
     if [[ -f "${initrd}" ]]; then
         initrd_basename="$(basename ${initrd})"
         cp "${initrd}" "$BOOT_DIR_ABS/${initrd_basename}" &&
@@ -106,7 +112,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "machine-id $MACHINE_ID"
     echo "options    ${BOOT_OPTIONS[*]}"
     echo "linux      $BOOT_DIR/linux"
-    for initrd in "${@:${INITRD_OPTIONS_START}}"; do
+    for initrd in "${INITRD_OPTIONS[@]}"; do
         [[ -f $BOOT_DIR_ABS/$(basename ${initrd}) ]] && \
             echo "initrd     $BOOT_DIR/$(basename ${initrd})"
     done
