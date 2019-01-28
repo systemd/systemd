@@ -3519,7 +3519,7 @@ static int prepare_firmware_setup(void) {
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char *where = NULL, *kernel = NULL, *initrd = NULL, *options = NULL;
+        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
         int r;
@@ -3532,7 +3532,7 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(arg_esp_path, &where, &config, &e);
+        r = find_default_boot_entry(arg_esp_path, &config, &e);
         if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0)
@@ -3544,9 +3544,9 @@ static int load_kexec_kernel(void) {
                 return -EINVAL;
         }
 
-        kernel = path_join(where, e->kernel);
+        kernel = path_join(e->root, e->kernel);
         if (!strv_isempty(e->initrd))
-                initrd = path_join(where, *e->initrd);
+                initrd = path_join(e->root, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();

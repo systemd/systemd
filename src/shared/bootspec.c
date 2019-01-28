@@ -27,6 +27,7 @@ static void boot_entry_free(BootEntry *entry) {
 
         free(entry->id);
         free(entry->path);
+        free(entry->root);
         free(entry->title);
         free(entry->show_title);
         free(entry->version);
@@ -39,13 +40,18 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->device_tree);
 }
 
-static int boot_entry_load(const char *path, BootEntry *entry) {
+static int boot_entry_load(
+                const char *root,
+                const char *path,
+                BootEntry *entry) {
+
         _cleanup_(boot_entry_free) BootEntry tmp = {};
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         char *b, *c;
         int r;
 
+        assert(root);
         assert(path);
         assert(entry);
 
@@ -60,6 +66,10 @@ static int boot_entry_load(const char *path, BootEntry *entry) {
 
         tmp.path = strdup(path);
         if (!tmp.path)
+                return log_oom();
+
+        tmp.root = strdup(root);
+        if (!tmp.root)
                 return log_oom();
 
         f = fopen(path, "re");
@@ -215,13 +225,19 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return str_verscmp(a->id, b->id);
 }
 
-static int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
+static int boot_entries_find(
+                const char *root,
+                const char *dir,
+                BootEntry **ret_entries,
+                size_t *ret_n_entries) {
+
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
         BootEntry *array = NULL;
         size_t n_allocated = 0, n = 0;
 
+        assert(root);
         assert(dir);
         assert(ret_entries);
         assert(ret_n_entries);
@@ -234,7 +250,7 @@ static int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *r
                 if (!GREEDY_REALLOC0(array, n_allocated, n + 1))
                         return log_oom();
 
-                r = boot_entry_load(*f, array + n);
+                r = boot_entry_load(root, *f, array + n);
                 if (r < 0)
                         continue;
 
@@ -369,7 +385,7 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
                 return r;
 
         p = strjoina(esp_path, "/loader/entries");
-        r = boot_entries_find(p, &config->entries, &config->n_entries);
+        r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
         if (r < 0)
                 return r;
 
@@ -799,7 +815,6 @@ found:
 
 int find_default_boot_entry(
                 const char *esp_path,
-                char **esp_where,
                 BootConfig *config,
                 const BootEntry **e) {
 
@@ -823,9 +838,6 @@ int find_default_boot_entry(
 
         *e = &config->entries[config->default_entry];
         log_debug("Found default boot entry in file \"%s\"", (*e)->path);
-
-        if (esp_where)
-                *esp_where = TAKE_PTR(where);
 
         return 0;
 }
