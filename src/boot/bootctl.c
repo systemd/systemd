@@ -323,7 +323,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
         _cleanup_(boot_config_free) BootConfig config = {};
         int r;
 
-        r = boot_entries_load_config(esp_path, &config);
+        r = boot_entries_load_config(esp_path, NULL, &config);
         if (r < 0)
                 return r;
 
@@ -1075,7 +1075,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = boot_entries_load_config(arg_path, &config);
+        r = boot_entries_load_config(arg_path, NULL, &config);
         if (r < 0)
                 return r;
 

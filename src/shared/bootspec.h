@@ -41,7 +41,7 @@ typedef struct BootConfig {
 } BootConfig;
 
 void boot_config_free(BootConfig *config);
-int boot_entries_load_config(const char *esp_path, BootConfig *config);
+int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;
@@ -50,4 +50,4 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid);
 int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid);
 
-int find_default_boot_entry(const char *esp_path, BootConfig *config, const BootEntry **e);
+int find_default_boot_entry(const char *esp_path, const char *xbootldr_path, BootConfig *config, const BootEntry **e);

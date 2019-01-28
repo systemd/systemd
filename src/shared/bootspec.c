@@ -228,39 +228,38 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
 static int boot_entries_find(
                 const char *root,
                 const char *dir,
-                BootEntry **ret_entries,
-                size_t *ret_n_entries) {
+                BootEntry **entries,
+                size_t *n_entries) {
 
         _cleanup_strv_free_ char **files = NULL;
+        size_t n_allocated = *n_entries;
+        bool added = false;
         char **f;
         int r;
-        BootEntry *array = NULL;
-        size_t n_allocated = 0, n = 0;
 
         assert(root);
         assert(dir);
-        assert(ret_entries);
-        assert(ret_n_entries);
+        assert(entries);
+        assert(n_entries);
 
         r = conf_files_list(&files, ".conf", NULL, 0, dir, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list files in \"%s\": %m", dir);
 
         STRV_FOREACH(f, files) {
-                if (!GREEDY_REALLOC0(array, n_allocated, n + 1))
+                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
                         return log_oom();
 
-                r = boot_entry_load(root, *f, array + n);
+                r = boot_entry_load(root, *f, *entries + *n_entries);
                 if (r < 0)
                         continue;
 
-                n++;
+                (*n_entries) ++;
+                added = true;
         }
 
-        typesafe_qsort(array, n, boot_entry_compare);
-
-        *ret_entries = array;
-        *ret_n_entries = n;
+        if (added)
+                typesafe_qsort(*entries, *n_entries, boot_entry_compare);
 
         return 0;
 }
@@ -372,22 +371,34 @@ static int boot_entries_select_default(const BootConfig *config) {
         return config->n_entries - 1; /* -1 means "no default" */
 }
 
-int boot_entries_load_config(const char *esp_path, BootConfig *config) {
+int boot_entries_load_config(
+                const char *esp_path,
+                const char *xbootldr_path,
+                BootConfig *config) {
+
         const char *p;
         int r;
 
-        assert(esp_path);
         assert(config);
 
-        p = strjoina(esp_path, "/loader/loader.conf");
-        r = boot_loader_read_conf(p, config);
-        if (r < 0)
-                return r;
+        if (esp_path) {
+                p = strjoina(esp_path, "/loader/loader.conf");
+                r = boot_loader_read_conf(p, config);
+                if (r < 0)
+                        return r;
 
-        p = strjoina(esp_path, "/loader/entries");
-        r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
-        if (r < 0)
-                return r;
+                p = strjoina(esp_path, "/loader/entries");
+                r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
+                if (r < 0)
+                        return r;
+        }
+
+        if (xbootldr_path) {
+                p = strjoina(xbootldr_path, "/loader/entries");
+                r = boot_entries_find(xbootldr_path, p, &config->entries, &config->n_entries);
+                if (r < 0)
+                        return r;
+        }
 
         r = boot_entries_uniquify(config->entries, config->n_entries);
         if (r < 0)
@@ -815,29 +826,34 @@ found:
 
 int find_default_boot_entry(
                 const char *esp_path,
+                const char *xbootldr_path,
                 BootConfig *config,
                 const BootEntry **e) {
 
-        _cleanup_free_ char *where = NULL;
+        _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
         int r;
 
         assert(config);
         assert(e);
 
-        r = find_esp_and_warn(esp_path, false, &where, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
-        r = boot_entries_load_config(where, config);
+        r = find_xbootldr_and_warn(xbootldr_path, false, &xbootldr_where, NULL);
+        if (r < 0 && r != -ENOKEY)
+                return r;
+
+        r = boot_entries_load_config(esp_where, xbootldr_where, config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
+                return log_error_errno(r, "Failed to load boot loader entries: %m");
 
         if (config->default_entry < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No entry suitable as default, refusing to guess.");
+                                       "No boot loader entry suitable as default, refusing to guess.");
 
         *e = &config->entries[config->default_entry];
-        log_debug("Found default boot entry in file \"%s\"", (*e)->path);
+        log_debug("Found default boot loader entry in file \"%s\"", (*e)->path);
 
         return 0;
 }
