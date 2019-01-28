@@ -3543,8 +3543,15 @@ static int load_kexec_kernel(void) {
                                        "Boot entry specifies multiple initrds, which is not supported currently.");
 
         kernel = path_join(e->root, e->kernel);
-        if (!strv_isempty(e->initrd))
+        if (!kernel)
+                return log_oom();
+
+        if (!strv_isempty(e->initrd)) {
                 initrd = path_join(e->root, *e->initrd);
+                if (!initrd)
+                        return log_oom();
+        }
+
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
