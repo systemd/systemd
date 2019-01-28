@@ -748,7 +748,7 @@ int config_parse_address(const char *unit,
                 return r;
 
         /* Address=address/prefixlen */
-        r = in_addr_default_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
+        r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_LEGACY, &f, &buffer, &prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
                 return 0;
