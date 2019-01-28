@@ -16,6 +16,7 @@ enum {
         NETLINK_TYPE_CACHE_INFO,
         NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
         NETLINK_TYPE_UNION,
+        NETLINK_TYPE_SOCKADDR,
 };
 
 typedef enum NLMatchType {

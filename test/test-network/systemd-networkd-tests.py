@@ -390,6 +390,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         if shutil.which('wg'):
             subprocess.call('wg')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'listen-port']).rstrip().decode('utf-8')
+            self.assertTrue(output, '51820')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'fwmark']).rstrip().decode('utf-8')
+            self.assertTrue(output, '0x4d2')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'allowed-ips']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.26.0/24 fd31:bf08:57cb::/48')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'persistent-keepalive']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t20')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'endpoints']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820')
 
         self.assertTrue(self.link_exits('wg99'))
 

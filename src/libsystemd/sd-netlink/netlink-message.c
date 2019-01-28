@@ -370,6 +370,42 @@ int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short typ
         return 0;
 }
 
+int sd_netlink_message_append_sockaddr_in(sd_netlink_message *m, unsigned short type, const struct sockaddr_in *data) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_SOCKADDR);
+        if (r < 0)
+                return r;
+
+        r = add_rtattr(m, type, data, sizeof(struct sockaddr_in));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int sd_netlink_message_append_sockaddr_in6(sd_netlink_message *m, unsigned short type, const struct sockaddr_in6 *data) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_SOCKADDR);
+        if (r < 0)
+                return r;
+
+        r = add_rtattr(m, type, data, sizeof(struct sockaddr_in6));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short type, const struct ether_addr *data) {
         int r;
 
