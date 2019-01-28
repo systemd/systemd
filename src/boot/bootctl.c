@@ -112,8 +112,7 @@ static int get_file_version(int fd, char **v) {
 
         e = memmem(s, st.st_size - (s - buf), " ####", 5);
         if (!e || e - s < 3) {
-                log_error("Malformed version string.");
-                r = -EINVAL;
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed version string.");
                 goto finish;
         }
 
@@ -386,10 +385,8 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
                                         "Skipping \"%s\", since it's owned by another boot loader.",
                                         to);
 
-        if (compare_version(a, b) < 0) {
-                log_warning("Skipping \"%s\", since a newer boot loader version exists already.", to);
-                return -ESTALE;
-        }
+        if (compare_version(a, b) < 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE), "Skipping \"%s\", since a newer boot loader version exists already.", to);
 
         return 0;
 }
