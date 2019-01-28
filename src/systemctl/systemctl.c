@@ -3538,10 +3538,9 @@ static int load_kexec_kernel(void) {
                 /* But it logs about all these cases, hence don't log here again */
                 return r;
 
-        if (strv_length(e->initrd) > 1) {
-                log_error("Boot entry specifies multiple initrds, which is not supported currently.");
-                return -EINVAL;
-        }
+        if (strv_length(e->initrd) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Boot entry specifies multiple initrds, which is not supported currently.");
 
         kernel = path_join(e->root, e->kernel);
         if (!strv_isempty(e->initrd))
