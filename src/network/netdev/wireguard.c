@@ -109,7 +109,7 @@ static int wireguard_set_peer_one(NetDev *netdev, sd_netlink_message *message, c
         if (r < 0)
                 goto cancel;
 
-        if (!start) {
+        if (!*mask_start) {
                 r = sd_netlink_message_append_data(message, WGPEER_A_PRESHARED_KEY, &peer->preshared_key, WG_KEY_LEN);
                 if (r < 0)
                         goto cancel;
