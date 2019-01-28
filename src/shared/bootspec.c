@@ -115,7 +115,7 @@ static int boot_entry_load(const char *path, BootEntry *entry) {
                 else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
+                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
                 }
                 if (r < 0)
@@ -203,7 +203,7 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                 else if (streq(field, "console-mode"))
                         r = free_and_strdup(&config->console_mode, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
+                        log_notice("%s:%u: Unknown line \"%s\", ignoring.", path, line, field);
                         continue;
                 }
                 if (r < 0)
