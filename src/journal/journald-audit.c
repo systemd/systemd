@@ -162,7 +162,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         if (e <= *p || e >= *p + 16)
                 return 0;
 
-        c = alloca(strlen(prefix) + (e - *p) + 2);
+        c = newa(char, strlen(prefix) + (e - *p) + 2);
 
         t = stpcpy(c, prefix);
         for (f = *p; f < e; f++) {

@@ -481,7 +481,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
 
         l = strlen(ifname);
         sz = sizeof(sd_id128_t) + l;
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
         /* fetch some persistent data unique to the machine */
         r = sd_id128_get_machine((sd_id128_t*) v);

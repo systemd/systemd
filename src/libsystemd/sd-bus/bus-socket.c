@@ -981,7 +981,7 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 return r;
 
         n = m->n_iovec * sizeof(struct iovec);
-        iov = alloca(n);
+        iov = newa(struct iovec, n);
         memcpy_safe(iov, m->iovec, n);
 
         j = 0;
