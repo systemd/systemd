@@ -748,7 +748,15 @@ int config_parse_address(const char *unit,
                 return r;
 
         /* Address=address/prefixlen */
-        r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_LEGACY, &f, &buffer, &prefixlen);
+        r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_REFUSE, &f, &buffer, &prefixlen);
+        if (r == -ENOANO) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "An address '%s' is specified without prefix length. "
+                           "The behavior of parsing addresses without prefix length will be changed in the future release. "
+                           "Please specify prefix length explicitly.", rvalue);
+
+                r = in_addr_prefix_from_string_auto_internal(rvalue, PREFIXLEN_LEGACY, &f, &buffer, &prefixlen);
+        }
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid address '%s', ignoring assignment: %m", rvalue);
                 return 0;
