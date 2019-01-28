@@ -134,7 +134,6 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
-static char *arg_esp_path = NULL;
 static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
@@ -3532,7 +3531,7 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(arg_esp_path, &config, &e);
+        r = find_default_boot_entry(NULL, &config, &e);
         if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0)
@@ -8814,7 +8813,6 @@ finish:
 
         strv_free(arg_wall);
         free(arg_root);
-        free(arg_esp_path);
 
         /* Note that we return r here, not 0, so that we can implement the LSB-like return codes */
         return r;
