@@ -50,10 +50,8 @@ static int boot_entry_load(const char *path, BootEntry *entry) {
         assert(entry);
 
         c = endswith_no_case(path, ".conf");
-        if (!c) {
-                log_error("Invalid loader entry filename: %s", path);
-                return -EINVAL;
-        }
+        if (!c)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
 
         b = basename(path);
         tmp.id = strndup(b, c - b);
