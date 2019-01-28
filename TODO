@@ -51,8 +51,6 @@ Features:
 * When logind.conf contains HandleLidSwitch=suspend-then-hibernate and we can't
   hibernate because the swap partition isn't large enough, still suspend
 
-* bootctl: implement Type #2 boot loader entry discovery
-
 * bootctl,sd-boot: actually honour the "architecture" key
 
 * when a socket unit is spawned with an AF_UNIX path in /var/run, complain and
@@ -90,22 +88,16 @@ Features:
   show state of these flags, and optionally trigger such a factory reset on
   next boot by setting the flag.
 
-* sd-boot: search drop-ins in $BOOT, too
-
 * sd-boot: add "oneshot boot timeout" variable support
 
 * sd-boot: automatically load EFI modules from some drop-in dir, so that people
   can add in file system drivers and such
-
-* esp generator: also mount $BOOT if found
 
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
 
 * logind: add "boot into bootmenu" API, and possibly even "boot into windows"
   and "boot into macos".
-
-* bootspec.c: also enumerate EFI unified kernel images.
 
 * maybe set a special xattr on cgroups that have delegate=yes set, to make it
   easy to mark cut points
