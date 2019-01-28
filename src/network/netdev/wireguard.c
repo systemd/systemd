@@ -123,9 +123,9 @@ static int wireguard_set_peer_one(NetDev *netdev, sd_netlink_message *message, c
                         goto cancel;
 
                 if (peer->endpoint.sa.sa_family == AF_INET)
-                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in, sizeof(peer->endpoint.in));
+                        r = sd_netlink_message_append_sockaddr_in(message, WGPEER_A_ENDPOINT, &peer->endpoint.in);
                 else if (peer->endpoint.sa.sa_family == AF_INET6)
-                        r = sd_netlink_message_append_data(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6, sizeof(peer->endpoint.in6));
+                        r = sd_netlink_message_append_sockaddr_in6(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6);
                 if (r < 0)
                         goto cancel;
         }
