@@ -2,5 +2,5 @@
 Name=veth-peer
 
 [Network]
-Address=2600::1
+Address=2600::1/0
 Address=192.168.5.1/24
