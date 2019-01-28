@@ -96,6 +96,10 @@ static int get_file_version(int fd, char **v) {
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat EFI binary: %m");
 
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return log_error_errno(errno, "EFI binary is not a regular file: %m");
+
         if (st.st_size < 27) {
                 *v = NULL;
                 return 0;
