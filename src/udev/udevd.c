@@ -727,7 +727,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
                             devnum == d && is_block == streq(s, "block"))
-                                return true;
+                                goto set_delaying_seqnum;
                 }
 
                 /* check network device ifindex */
@@ -736,7 +736,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
                             ifindex == i)
-                                return true;
+                                goto set_delaying_seqnum;
                 }
 
                 if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
