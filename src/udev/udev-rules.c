@@ -458,7 +458,7 @@ static int add_token(UdevRules *rules, struct token *token) {
 
                 tokens = reallocarray(rules->tokens, rules->token_max + add, sizeof(struct token));
                 if (!tokens)
-                        return -1;
+                        return -ENOMEM;
                 rules->tokens = tokens;
                 rules->token_max += add;
         }
@@ -976,6 +976,7 @@ static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
         unsigned i;
         unsigned start = 0;
         unsigned end = rule_tmp->token_cur;
+        int r;
 
         for (i = 0; i < rule_tmp->token_cur; i++) {
                 enum token_type next_val = TK_UNSET;
@@ -993,8 +994,9 @@ static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
                 }
 
                 /* add token and mark done */
-                if (add_token(rules, &rule_tmp->token[next_idx]) != 0)
-                        return -1;
+                r = add_token(rules, &rule_tmp->token[next_idx]);
+                if (r < 0)
+                        return r;
                 rule_tmp->token[next_idx].type = TK_UNSET;
 
                 /* shrink range */
@@ -1427,7 +1429,7 @@ static void add_rule(UdevRules *rules, char *line,
 
         /* add rule token and sort tokens */
         rule_tmp.rule.rule.token_count = 1 + rule_tmp.token_cur;
-        if (add_token(rules, &rule_tmp.rule) != 0 || sort_token(rules, &rule_tmp) != 0)
+        if (add_token(rules, &rule_tmp.rule) < 0 || sort_token(rules, &rule_tmp) < 0)
                 LOG_RULE_ERROR("Failed to add rule token");
 }
 
