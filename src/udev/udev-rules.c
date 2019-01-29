@@ -483,10 +483,8 @@ static uid_t add_uid(UdevRules *rules, const char *owner) {
         /* lookup, if we know it already */
         for (i = 0; i < rules->uids_cur; i++) {
                 off = rules->uids[i].name_off;
-                if (streq(rules_str(rules, off), owner)) {
-                        uid = rules->uids[i].uid;
-                        return uid;
-                }
+                if (streq(rules_str(rules, off), owner))
+                        return rules->uids[i].uid;
         }
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
@@ -526,10 +524,8 @@ static gid_t add_gid(UdevRules *rules, const char *group) {
         /* lookup, if we know it already */
         for (i = 0; i < rules->gids_cur; i++) {
                 off = rules->gids[i].name_off;
-                if (streq(rules_str(rules, off), group)) {
-                        gid = rules->gids[i].gid;
-                        return gid;
-                }
+                if (streq(rules_str(rules, off), group))
+                        return rules->gids[i].gid;
         }
         r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
