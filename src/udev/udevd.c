@@ -756,12 +756,8 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         continue;
 
                 /* identical device event found */
-                if (devpath_len == loop_devpath_len) {
-                        /* devices names might have changed/swapped in the meantime */
-                        if (major(devnum) != 0 || ifindex > 0)
-                                continue;
+                if (devpath_len == loop_devpath_len)
                         goto set_delaying_seqnum;
-                }
 
                 /* parent device event found */
                 if (devpath[common] == '/')
