@@ -83,6 +83,7 @@
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
+    <filename>usb-gadget.target</filename>,
     <!-- slices --><filename>-.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
@@ -797,6 +798,16 @@
 
             <para>This may be used to pull in audio management daemons
             dynamically when audio hardware is found.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>usb-gadget.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            USB Device Controller becomes available at boot.</para>
+
+            <para>This may be used to pull in usb gadget
+            dynamically when UDC hardware is found.</para>
           </listitem>
         </varlistentry>
       </variablelist>
