@@ -743,10 +743,8 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         continue;
 
                 /* check our old name */
-                if (devpath_old && streq(devpath_old, loop_devpath)) {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (devpath_old && streq(devpath_old, loop_devpath))
+                        goto set_delaying_seqnum;
 
                 loop_devpath_len = strlen(loop_devpath);
 
@@ -762,24 +760,23 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         /* devices names might have changed/swapped in the meantime */
                         if (major(devnum) != 0 || ifindex > 0)
                                 continue;
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
+                        goto set_delaying_seqnum;
                 }
 
                 /* parent device event found */
-                if (devpath[common] == '/') {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (devpath[common] == '/')
+                        goto set_delaying_seqnum;
 
                 /* child device event found */
-                if (loop_devpath[common] == '/') {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (loop_devpath[common] == '/')
+                        goto set_delaying_seqnum;
         }
 
         return false;
+
+set_delaying_seqnum:
+        event->delaying_seqnum = loop_event->seqnum;
+        return true;
 }
 
 static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
