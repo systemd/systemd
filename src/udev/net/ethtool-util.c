@@ -358,7 +358,7 @@ static int find_feature_index(struct ethtool_gstrings *strings, const char *feat
                         return i;
         }
 
-        return -1;
+        return -ENODATA;
 }
 
 int ethtool_set_features(int *fd, const char *ifname, int *features) {
