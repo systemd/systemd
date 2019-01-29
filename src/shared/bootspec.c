@@ -444,6 +444,13 @@ static int verify_esp(
 
         assert(p);
 
+        /* This logs about all errors, except:
+         *
+         *  -ENOENT        → if 'searching' is set, and the dir doesn't exist
+         *  -EADDRNOTAVAIL → if 'searching' is set, and the dir doesn't look like an ESP
+         *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble acessing the thing
+         */
+
         relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
 
         /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
