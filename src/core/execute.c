@@ -2161,10 +2161,17 @@ static int setup_exec_directory(
                         if (r < 0 && r != -EEXIST)
                                 goto fail;
                         if (r == -EEXIST) {
-                                if (chmod(p, context->directories[type].mode) < 0) {
+                                struct stat st;
+
+                                if (stat(p, &st) < 0) {
                                         r = -errno;
                                         goto fail;
                                 }
+                                if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
+                                        log_warning("%s \'%s\' already exists but the mode is different. "
+                                                    "(filesystem: %o %sMode: %o)",
+                                                    exec_directory_type_to_string(type), *rt,
+                                                    st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
                                 if (!context->dynamic_user)
                                         continue;
                         }
