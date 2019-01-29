@@ -716,7 +716,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
 
         linepos = *line;
         if (!linepos || linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* skip whitespace */
         while (isspace(linepos[0]) || linepos[0] == ',')
@@ -724,13 +724,13 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
 
         /* get the key */
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
         *key = linepos;
 
         for (;;) {
                 linepos++;
                 if (linepos[0] == '\0')
-                        return -1;
+                        return -EINVAL;
                 if (isspace(linepos[0]))
                         break;
                 if (linepos[0] == '=')
@@ -747,7 +747,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
         while (isspace(linepos[0]))
                 linepos++;
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* get operation type */
         if (linepos[0] == '=' && linepos[1] == '=') {
@@ -769,7 +769,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
                 *op = OP_ASSIGN_FINAL;
                 linepos += 2;
         } else
-                return -1;
+                return -EINVAL;
 
         /* terminate key */
         temp[0] = '\0';
@@ -778,13 +778,13 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
         while (isspace(linepos[0]))
                 linepos++;
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* get the value */
         if (linepos[0] == '"')
                 linepos++;
         else
-                return -1;
+                return -EINVAL;
         *value = linepos;
 
         /* terminate */
@@ -794,7 +794,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
                         break;
 
                 if (linepos[i] == '\0')
-                        return -1;
+                        return -EINVAL;
 
                 /* double quotes can be escaped */
                 if (linepos[i] == '\\')
@@ -1030,7 +1030,7 @@ static void add_rule(UdevRules *rules, char *line,
                 char *value;
                 enum operation_type op;
 
-                if (get_key(&linepos, &key, &op, &value) != 0) {
+                if (get_key(&linepos, &key, &op, &value) < 0) {
                         /* Avoid erroring on trailing whitespace. This is probably rare
                          * so save the work for the error case instead of always trying
                          * to strip the trailing whitespace with strstrip(). */
