@@ -2,27 +2,6 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
         "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
-  This file is part of systemd.
-
-  Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
--->
-
 <refentry id="analyze.conf"
           xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
@@ -55,6 +34,7 @@
     <para><filename>/etc/systemd/analyze.conf.d/*.conf</filename></para>
     <para><filename>/run/systemd/analyze.conf.d/*.conf</filename></para>
     <para><filename>/usr/lib/systemd/analyze.conf.d/*.conf</filename></para>
+    <para><filename>~/.config/systemd/analyze.conf.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -81,6 +61,7 @@
         <term><varname>BindsTo=</varname></term>
         <term><varname>Conflicts=</varname></term>
         <term><varname>OnFailure=</varname></term>
+        <term><varname>PartOf=</varname></term>
         <term><varname>Requires=</varname></term>
         <term><varname>Requisite=</varname></term>
         <term><varname>Triggers=</varname></term>
@@ -104,6 +85,7 @@ http://www.graphviz.org/content/color-names for further details.
         <term><varname>BindsTo=</varname></term>
         <term><varname>Conflicts=</varname></term>
         <term><varname>OnFailure=</varname></term>
+        <term><varname>PartOf=</varname></term>
         <term><varname>Requires=</varname></term>
         <term><varname>Requisite=</varname></term>
         <term><varname>Triggers=</varname></term>
@@ -118,7 +100,9 @@ http://www.graphviz.org/content/color-names for further details.
 
     <para>The defaults for all values are listed as comments in the
     template <filename>/etc/systemd/analyze.conf</filename> file that
-    is installed by default.</para>
+    is installed by default. Values defined in user configuration files
+    (<filename>~/.config/systemd/analyze.conf.d/*.conf</filename>) override those
+    from system locations.</para>
   </refsect1>
 
   <refsect1>
