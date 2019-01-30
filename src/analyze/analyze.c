@@ -36,6 +36,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "sd-path.h"
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
@@ -89,39 +90,8 @@ static unsigned arg_iterations = 1;
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 
-#define DOT_COLOR_AFTER     "green"
-#define DOT_COLOR_REQUIRES  "black"
-#define DOT_COLOR_REQUISITE "blue"
-#define DOT_COLOR_WANTS     "grey66"
-#define DOT_COLOR_CONFLICTS "red"
-#define DOT_COLOR_BINDSTO   "magenta"
-#define DOT_COLOR_ONFAILURE "orange"
-#define DOT_COLOR_TRIGGERS  "grey66"
-#define DOT_STYLE_AFTER     "solid"
-#define DOT_STYLE_REQUIRES  "solid"
-#define DOT_STYLE_REQUISITE "solid"
-#define DOT_STYLE_WANTS     "solid"
-#define DOT_STYLE_CONFLICTS "solid"
-#define DOT_STYLE_BINDSTO   "solid"
-#define DOT_STYLE_ONFAILURE "solid"
-#define DOT_STYLE_TRIGGERS  "dotted"
-
-static char *color_after     = NULL;
-static char *color_requires  = NULL;
-static char *color_requisite = NULL;
-static char *color_wants     = NULL;
-static char *color_conflicts = NULL;
-static char *color_bindsto   = NULL;
-static char *color_onfailure = NULL;
-static char *color_triggers  = NULL;
-static char *style_after     = NULL;
-static char *style_requires  = NULL;
-static char *style_requisite = NULL;
-static char *style_wants     = NULL;
-static char *style_conflicts = NULL;
-static char *style_bindsto   = NULL;
-static char *style_onfailure = NULL;
-static char *style_triggers  = NULL;
+static char *dependency_color[_UNIT_DEPENDENCY_MAX] = { NULL };
+static char *dependency_style[_UNIT_DEPENDENCY_MAX] = { NULL };
 
 struct boot_times {
         usec_t firmware_time;
@@ -1174,7 +1144,6 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
         return 0;
 }
 
-
 static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *from_patterns[], char *to_patterns[]) {
         int r;
 
@@ -1182,37 +1151,49 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(u);
 
         if (IN_SET(arg_dot, DEP_ORDER, DEP_ALL)) {
-                r = graph_one_property(bus, u, "After", color_after, style_after, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "After", dependency_color[UNIT_AFTER],
+                                                        dependency_style[UNIT_AFTER], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_REQUIRE, DEP_ALL)) {
-                r = graph_one_property(bus, u, "Requires", color_requires, style_requires, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requires", dependency_color[UNIT_REQUIRES],
+                                                           dependency_style[UNIT_REQUIRES], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Requisite", color_requisite, style_requisite, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Requisite", dependency_color[UNIT_REQUISITE],
+                                                            dependency_style[UNIT_REQUISITE], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Wants", color_wants, style_wants, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Wants", dependency_color[UNIT_WANTS],
+                                                        dependency_style[UNIT_WANTS], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "Conflicts", color_conflicts, style_conflicts, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Conflicts", dependency_color[UNIT_CONFLICTS],
+                                                            dependency_style[UNIT_CONFLICTS], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
-                r = graph_one_property(bus, u, "BindsTo", color_bindsto, style_bindsto, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "BindsTo", dependency_color[UNIT_BINDS_TO],
+                                                          dependency_style[UNIT_BINDS_TO], patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+                r = graph_one_property(bus, u, "PartOf", dependency_color[UNIT_PART_OF],
+                                                         dependency_style[UNIT_PART_OF], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_FAILURE, DEP_ALL)) {
-                r = graph_one_property(bus, u, "OnFailure", color_onfailure, style_onfailure, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "OnFailure", dependency_color[UNIT_ON_FAILURE],
+                                                            dependency_style[UNIT_ON_FAILURE], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_TRIGGERS, DEP_ALL)) {
-                r = graph_one_property(bus, u, "Triggers", color_triggers, style_triggers, patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u, "Triggers", dependency_color[UNIT_TRIGGERS],
+                                                           dependency_style[UNIT_TRIGGERS], patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1270,27 +1251,63 @@ static int dot(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **expanded_from_patterns = NULL;
         _cleanup_strv_free_ char **expanded_to_patterns = NULL;
         int r;
+        int d;
         UnitInfo u;
+        _cleanup_free_ char *user_config_dir = NULL;
 
         static const ConfigTableItem items[] = {
-                        { "Color", "After",             config_parse_string,  0, &color_after     },
-                        { "Color", "Requires",          config_parse_string,  0, &color_requires  },
-                        { "Color", "Requisite",         config_parse_string,  0, &color_requisite },
-                        { "Color", "Wants",             config_parse_string,  0, &color_wants     },
-                        { "Color", "Conflicts",         config_parse_string,  0, &color_conflicts },
-                        { "Color", "BindsTo",           config_parse_string,  0, &color_bindsto   },
-                        { "Color", "OnFailure",         config_parse_string,  0, &color_onfailure },
-                        { "Color", "Triggers",          config_parse_string,  0, &color_triggers  },
-                        { "Style", "After",             config_parse_string,  0, &style_after     },
-                        { "Style", "Requires",          config_parse_string,  0, &style_requires  },
-                        { "Style", "Requisite",         config_parse_string,  0, &style_requisite },
-                        { "Style", "Wants",             config_parse_string,  0, &style_wants     },
-                        { "Style", "Conflicts",         config_parse_string,  0, &style_conflicts },
-                        { "Style", "BindsTo",           config_parse_string,  0, &style_bindsto   },
-                        { "Style", "OnFailure",         config_parse_string,  0, &style_onfailure },
-                        { "Style", "Triggers",          config_parse_string,  0, &style_triggers  },
+                        { "Color", "After",             config_parse_string,  0, &dependency_color[UNIT_AFTER]     },
+                        { "Color", "Requires",          config_parse_string,  0, &dependency_color[UNIT_REQUIRES]  },
+                        { "Color", "Requisite",         config_parse_string,  0, &dependency_color[UNIT_REQUISITE] },
+                        { "Color", "Wants",             config_parse_string,  0, &dependency_color[UNIT_WANTS]     },
+                        { "Color", "Conflicts",         config_parse_string,  0, &dependency_color[UNIT_CONFLICTS] },
+                        { "Color", "BindsTo",           config_parse_string,  0, &dependency_color[UNIT_BINDS_TO]  },
+                        { "Color", "PartOf",            config_parse_string,  0, &dependency_color[UNIT_PART_OF]   },
+                        { "Color", "OnFailure",         config_parse_string,  0, &dependency_color[UNIT_ON_FAILURE]},
+                        { "Color", "Triggers",          config_parse_string,  0, &dependency_color[UNIT_TRIGGERS]  },
+                        { "Style", "After",             config_parse_string,  0, &dependency_style[UNIT_AFTER]     },
+                        { "Style", "Requires",          config_parse_string,  0, &dependency_style[UNIT_REQUIRES]  },
+                        { "Style", "Requisite",         config_parse_string,  0, &dependency_style[UNIT_REQUISITE] },
+                        { "Style", "Wants",             config_parse_string,  0, &dependency_style[UNIT_WANTS]     },
+                        { "Style", "Conflicts",         config_parse_string,  0, &dependency_style[UNIT_CONFLICTS] },
+                        { "Style", "BindsTo",           config_parse_string,  0, &dependency_style[UNIT_BINDS_TO]  },
+                        { "Style", "PartOf",            config_parse_string,  0, &dependency_style[UNIT_PART_OF]   },
+                        { "Style", "OnFailure",         config_parse_string,  0, &dependency_style[UNIT_ON_FAILURE]},
+                        { "Style", "Triggers",          config_parse_string,  0, &dependency_style[UNIT_TRIGGERS]  },
                         {}
         };
+
+        dependency_color[UNIT_AFTER]      = strdup("green");
+        dependency_color[UNIT_REQUIRES]   = strdup("black");
+        dependency_color[UNIT_REQUISITE]  = strdup("blue");
+        dependency_color[UNIT_WANTS]      = strdup("grey66");
+        dependency_color[UNIT_CONFLICTS]  = strdup("red");
+        dependency_color[UNIT_BINDS_TO]   = strdup("magenta");
+        dependency_color[UNIT_PART_OF]    = strdup("black");
+        dependency_color[UNIT_ON_FAILURE] = strdup("orange");
+        dependency_color[UNIT_TRIGGERS]   = strdup("grey66");
+
+        dependency_style[UNIT_AFTER]      = strdup("solid");
+        dependency_style[UNIT_REQUIRES]   = strdup("solid");
+        dependency_style[UNIT_REQUISITE]  = strdup("solid");
+        dependency_style[UNIT_WANTS]      = strdup("solid");
+        dependency_style[UNIT_CONFLICTS]  = strdup("solid");
+        dependency_style[UNIT_BINDS_TO]   = strdup("solid");
+        dependency_style[UNIT_PART_OF]    = strdup("dashed");
+        dependency_style[UNIT_ON_FAILURE] = strdup("solid");
+        dependency_style[UNIT_TRIGGERS]   = strdup("dotted");
+
+        if (!dependency_color[UNIT_AFTER]      || !dependency_style[UNIT_AFTER]      ||
+            !dependency_color[UNIT_REQUIRES]   || !dependency_style[UNIT_REQUIRES]   ||
+            !dependency_color[UNIT_REQUISITE]  || !dependency_style[UNIT_REQUISITE]  ||
+            !dependency_color[UNIT_WANTS]      || !dependency_style[UNIT_WANTS]      ||
+            !dependency_color[UNIT_CONFLICTS]  || !dependency_style[UNIT_CONFLICTS]  ||
+            !dependency_color[UNIT_BINDS_TO]   || !dependency_style[UNIT_BINDS_TO]   ||
+            !dependency_color[UNIT_PART_OF]    || !dependency_style[UNIT_PART_OF]    ||
+            !dependency_color[UNIT_ON_FAILURE] || !dependency_style[UNIT_ON_FAILURE] ||
+            !dependency_color[UNIT_TRIGGERS]   || !dependency_style[UNIT_TRIGGERS]
+        )
+            return log_oom();
 
         r = acquire_bus(&bus, NULL);
         if (r < 0)
@@ -1326,46 +1343,29 @@ static int dot(int argc, char *argv[], void *userdata) {
 
         printf("digraph systemd {\n");
 
-        color_after     = (char *)malloc(strlen(DOT_COLOR_AFTER) + 1);
-        color_requires  = (char *)malloc(strlen(DOT_COLOR_REQUIRES) + 1);
-        color_requisite = (char *)malloc(strlen(DOT_COLOR_REQUISITE) + 1);
-        color_wants     = (char *)malloc(strlen(DOT_COLOR_WANTS) + 1);
-        color_conflicts = (char *)malloc(strlen(DOT_COLOR_CONFLICTS) + 1);
-        color_bindsto   = (char *)malloc(strlen(DOT_COLOR_BINDSTO) + 1);
-        color_onfailure = (char *)malloc(strlen(DOT_COLOR_ONFAILURE) + 1);
-        color_triggers  = (char *)malloc(strlen(DOT_COLOR_TRIGGERS) + 1);
-        style_after     = (char *)malloc(strlen(DOT_STYLE_AFTER) + 1);
-        style_requires  = (char *)malloc(strlen(DOT_STYLE_REQUIRES) + 1);
-        style_requisite = (char *)malloc(strlen(DOT_STYLE_REQUISITE) + 1);
-        style_wants     = (char *)malloc(strlen(DOT_STYLE_WANTS) + 1);
-        style_conflicts = (char *)malloc(strlen(DOT_STYLE_CONFLICTS) + 1);
-        style_bindsto   = (char *)malloc(strlen(DOT_STYLE_BINDSTO) + 1);
-        style_onfailure = (char *)malloc(strlen(DOT_STYLE_ONFAILURE) + 1);
-        style_triggers  = (char *)malloc(strlen(DOT_STYLE_TRIGGERS) + 1);
+        /* user configuration below ~/.config */
+        r = sd_path_home(SD_PATH_USER_CONFIGURATION, "systemd/analyze.conf.d", &user_config_dir);
+        if (r < 0)
+                return r;
 
-        strcpy(color_after,      DOT_COLOR_AFTER);
-        strcpy(color_requires,   DOT_COLOR_REQUIRES);
-        strcpy(color_requisite,  DOT_COLOR_REQUISITE);
-        strcpy(color_wants,      DOT_COLOR_WANTS);
-        strcpy(color_conflicts,  DOT_COLOR_CONFLICTS);
-        strcpy(color_bindsto,    DOT_COLOR_BINDSTO);
-        strcpy(color_onfailure,  DOT_COLOR_ONFAILURE);
-        strcpy(color_triggers,   DOT_COLOR_TRIGGERS);
-        strcpy(style_after,      DOT_STYLE_AFTER);
-        strcpy(style_requires,   DOT_STYLE_REQUIRES);
-        strcpy(style_requisite,  DOT_STYLE_REQUISITE);
-        strcpy(style_wants,      DOT_STYLE_WANTS);
-        strcpy(style_conflicts,  DOT_STYLE_CONFLICTS);
-        strcpy(style_bindsto,    DOT_STYLE_BINDSTO);
-        strcpy(style_onfailure,  DOT_STYLE_ONFAILURE);
-        strcpy(style_triggers,   DOT_STYLE_TRIGGERS);
-
-        config_parse_many_nulstr(PKGSYSCONFDIR "/analyze.conf",
+        r = config_parse_many_nulstr(PKGSYSCONFDIR "/analyze.conf",
                                 CONF_PATHS_NULSTR("systemd/analyze.conf.d"),
                                 "Color\0"
                                 "Style\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN, NULL);
+        if (r < 0)
+                return r;
+
+        /* allow to override by user */
+        r = config_parse_many_nulstr(NULL,
+                                user_config_dir,
+                                "Color\0"
+                                "Style\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN, NULL);
+        if (r < 0)
+                return r;
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
 
@@ -1382,41 +1382,31 @@ static int dot(int argc, char *argv[], void *userdata) {
         log_info("   Color legend: %-10s %-8s = Requires\n"
                  "                 %-10s %-8s = Requisite\n"
                  "                 %-10s %-8s = BindsTo\n"
+                 "                 %-10s %-8s = PartOf\n"
                  "                 %-10s %-8s = Wants\n"
                  "                 %-10s %-8s = Conflicts\n"
                  "                 %-10s %-8s = OnFailure\n"
                  "                 %-10s %-8s = After\n"
                  "                 %-10s %-8s = Triggers\n",
-                color_requires,  style_requires,
-                color_requisite, style_requisite,
-                color_bindsto,   style_bindsto,
-                color_wants,     style_wants,
-                color_conflicts, style_conflicts,
-                color_onfailure, style_onfailure,
-                color_after,     style_after,
-                color_triggers,  style_triggers
+                dependency_color[UNIT_REQUIRES],   dependency_style[UNIT_REQUIRES],
+                dependency_color[UNIT_REQUISITE],  dependency_style[UNIT_REQUISITE],
+                dependency_color[UNIT_BINDS_TO],   dependency_style[UNIT_BINDS_TO],
+                dependency_color[UNIT_PART_OF],    dependency_style[UNIT_PART_OF],
+                dependency_color[UNIT_WANTS],      dependency_style[UNIT_WANTS],
+                dependency_color[UNIT_CONFLICTS],  dependency_style[UNIT_CONFLICTS],
+                dependency_color[UNIT_ON_FAILURE], dependency_style[UNIT_ON_FAILURE],
+                dependency_color[UNIT_AFTER],      dependency_style[UNIT_AFTER],
+                dependency_color[UNIT_TRIGGERS],   dependency_style[UNIT_TRIGGERS]
         );
 
         if (on_tty())
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
 
-        free(color_requires);
-        free(color_requisite);
-        free(color_bindsto);
-        free(color_wants);
-        free(color_conflicts);
-        free(color_onfailure);
-        free(color_after);
-        free(color_triggers);
-        free(style_requires);
-        free(style_requisite);
-        free(style_bindsto);
-        free(style_wants);
-        free(style_conflicts);
-        free(style_onfailure);
-        free(style_after);
-        free(style_triggers);
+        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+            free(dependency_color[d]);
+            free(dependency_style[d]);
+        }
 
         return 0;
 }

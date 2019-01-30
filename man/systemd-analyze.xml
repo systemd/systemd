@@ -598,7 +598,7 @@ Service b@0.service not loaded, b.socket cannot be started.
         <varname>After=</varname> or <varname>Before=</varname> are
         shown. If <option>--require</option> is passed, only
         dependencies of type <varname>Requires=</varname>,
-        <varname>Requisite=</varname>,
+        <varname>Requisite=</varname>, <varname>PartOf=</varname>,
         <varname>Wants=</varname>, <varname>Conflicts=</varname>,
         or <varname>BindsTo=</varname>
         are shown.
