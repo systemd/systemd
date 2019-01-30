@@ -1605,7 +1605,7 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
 
         switch (token->key.glob) {
         case GL_PLAIN:
-                match = (streq(key_value, val));
+                match = streq(key_value, val);
                 break;
         case GL_GLOB:
                 match = (fnmatch(key_value, val, 0) == 0);
@@ -1628,7 +1628,7 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
                                         if (match)
                                                 break;
                                 } else {
-                                        match = (streq(s, val));
+                                        match = streq(s, val);
                                         break;
                                 }
                                 s = &next[1];
