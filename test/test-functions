@@ -485,19 +485,27 @@ check_asan_reports() {
             ret=$(($ret+1))
         fi
 
-	journald_report=$(find "$root" -name "systemd-journald.asan.log*" -exec cat {} \;)
-	if [[ ! -z "$journald_report" ]]; then
+        journald_report=$(find "$root" -name "systemd-journald.asan.log*" -exec cat {} \;)
+        if [[ ! -z "$journald_report" ]]; then
             printf "%s" "$journald_report"
             ret=$(($ret+1))
-	fi
+        fi
 
-	pids=$("$BUILD_DIR/journalctl" -D "$root/var/log/journal" | perl -alne 'print $1 if /\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/')
-	if [[ ! -z "$pids" ]]; then
+        pids=$(
+            "$BUILD_DIR/journalctl" -D "$root/var/log/journal" | perl -alne '
+                 BEGIN {
+                     %services_to_ignore = (
+                         "dbus-daemon" => undef,
+                     );
+                 }
+	         print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
+        )
+        if [[ ! -z "$pids" ]]; then
             ret=$(($ret+1))
             for pid in $pids; do
                 "$BUILD_DIR/journalctl" -D "$root/var/log/journal" _PID=$pid --no-pager
             done
-	fi
+        fi
     fi
 
     return $ret
@@ -1582,7 +1590,7 @@ test_run() {
             else
                 dwarn "can't run systemd-nspawn, skipping"
             fi
-	fi
+        fi
     fi
     return 0
 }
