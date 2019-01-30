@@ -420,7 +420,7 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         </varlistentry>
       </variablelist>
 
-      <para>If the exclamation mark is used, this line is only safe of
+      <para>If the exclamation mark is used, this line is only safe to
       execute during boot, and can break a running system. Lines
       without the exclamation mark are presumed to be safe to execute
       at any time, e.g. on package upgrades.
