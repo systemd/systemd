@@ -4,7 +4,15 @@
 SUBSYSTEM=="cpu", ACTION=="add", TEST=="online", ATTR{online}=="0", ATTR{online}="1"
 
 # Memory hotadd request
-SUBSYSTEM=="memory", ACTION=="add", PROGRAM=="/bin/uname -p", RESULT!="s390*", ATTR{state}=="offline", ATTR{state}="online"
+SUBSYSTEM!="memory", GOTO="memory_hotplug_end"
+ACTION!="add", GOTO="memory_hotplug_end"
+PROGRAM="/bin/uname -p", RESULT=="s390*", GOTO="memory_hotplug_end"
+
+ENV{.state}="online"
+PROGRAM="/bin/systemd-detect-virt", RESULT=="none", ENV{.state}="online_movable"
+ATTR{state}=="offline", ATTR{state}="$env{.state}"
+
+LABEL="memory_hotplug_end"
 
 # reload sysctl.conf / sysctl.conf.d settings when the bridge module is loaded
 ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
