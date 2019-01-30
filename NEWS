@@ -39,8 +39,8 @@ CHANGES WITH 241 in spe:
           The "kernel" policy, which keeps kernel names declared to be
           "persistent", now works again as documented.
 
-        * kernel-install script now optionally takes a path to an initrd file,
-          and passes it to all plugins.
+        * kernel-install script now optionally takes the paths to one or more
+          initrd files, and passes them to all plugins.
 
         * The mincore() system call has been dropped from the @system-service
           system call filter group, as it is pretty exotic and may potentially
@@ -66,6 +66,38 @@ CHANGES WITH 241 in spe:
         * The files read from the EnvironmentFile= setting in unit files now
           parse backslashes inside quotes literally, matching the behaviour of
           POSIX shells.
+
+        * udevadm trigger, udevadm control, udevadm settle and udevadm monitor
+          now automatically become NOPs when run in a chroot() environment.
+
+        * The tmpfiles.d/ "C" line type will now copy directory trees not only
+          when the destination is so far missing, but also if it already exists
+          as a directory and is empty. This is useful to cater for systems
+          where directory trees are put together from multiple separate mount
+          points but otherwise empty.
+
+        * A new function sd_bus_close_unref() (and the associated
+          sd_bus_close_unrefp()) has been added to libsystemd, that combines
+          sd_bus_close() and sd_bus_unref() in one.
+
+        * udevadm control learnt a new option for --ping for testing whether a
+          systemd-udevd instance is running and reacting.
+
+        Contributions from: Aaron Plattner, Alex Mayer, Ayman Bagabas,
+        Beniamino Galvani, bl33pbl0p, Burt P, Chris Down, Chris Lamb, Chris
+        Morin, Claudius Ellsel, dana, Daniel Axtens, Daniele Medri, Dave
+        Reisner, dcanuhe, Dimitri John Ledkov, Evgeny Vereshchagin, Fabrice
+        Fontaine, Filipe Brandenburger, Franck Bui, Frantisek Sumsal, howl,
+        ikelos, James Hilliard, Jani Uusitalo, Jan Janssen, Jonathan Roemer,
+        Jonathon Kowalski, Joost Heitbrink, Jörg Thalheim, Lennart Poettering,
+        Louis Taylor, Lucas Werkmeister, Marc-Antoine Perennou, marvelousblack,
+        Michael Biebl, Michael Sloan, Michal Sekletar, Mike Auty, Mike Gilbert,
+        Mikhail Kasimov, Niklas Hambüchen, Patrick Williams, Paul Seyfert,
+        Philip Withnall, rogerjames99, Ronnie P. Thomas, Ryan Gonzalez, Sam
+        Morris, Susant Sahani, Taro Yamada, Thomas Haller, Topi Miettinen,
+        YunQiang Su, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsergeant77
+
+        — Berlin, 2018-XX-XX
 
 CHANGES WITH 240:
 
