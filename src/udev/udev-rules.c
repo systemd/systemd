@@ -1595,7 +1595,7 @@ bool udev_rules_check_timestamp(UdevRules *rules) {
         return paths_check_timestamp(rules_dirs, &rules->dirs_ts_usec, true);
 }
 
-static int match_key(UdevRules *rules, struct token *token, const char *val) {
+static bool match_key(UdevRules *rules, struct token *token, const char *val) {
         char *key_value = rules_str(rules, token->key.value_off);
         char *pos;
         bool match = false;
@@ -1658,17 +1658,13 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
                 match = (val[0] != '\0');
                 break;
         case GL_UNSET:
-                return -1;
+                return false;
         }
 
-        if (match && (token->key.op == OP_MATCH))
-                return 0;
-        if (!match && (token->key.op == OP_NOMATCH))
-                return 0;
-        return -1;
+        return token->key.op == (match ? OP_MATCH : OP_NOMATCH);
 }
 
-static int match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct token *cur) {
+static bool match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct token *cur) {
         char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
         const char *name, *value;
         size_t len;
@@ -1681,15 +1677,15 @@ static int match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct
                 _fallthrough_;
         case SB_NONE:
                 if (sd_device_get_sysattr_value(dev, name, &value) < 0)
-                        return -1;
+                        return false;
                 break;
         case SB_SUBSYS:
                 if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) != 0)
-                        return -1;
+                        return false;
                 value = vbuf;
                 break;
         default:
-                return -1;
+                return false;
         }
 
         /* remove trailing whitespace, if not asked to match for it */
@@ -1757,19 +1753,19 @@ int udev_rules_apply_to_event(
                         esc = ESCAPE_UNSET;
                         break;
                 case TK_M_ACTION:
-                        if (match_key(rules, cur, action) != 0)
+                        if (!match_key(rules, cur, action))
                                 goto nomatch;
                         break;
                 case TK_M_DEVPATH:
                         if (sd_device_get_devpath(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_KERNEL:
                         if (sd_device_get_sysname(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_DEVLINK: {
@@ -1777,7 +1773,7 @@ int udev_rules_apply_to_event(
                         bool match = false;
 
                         FOREACH_DEVICE_DEVLINK(dev, devlink)
-                                if (match_key(rules, cur, devlink + STRLEN("/dev/")) == 0) {
+                                if (match_key(rules, cur, devlink + STRLEN("/dev/"))) {
                                         match = true;
                                         break;
                                 }
@@ -1787,7 +1783,7 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_NAME:
-                        if (match_key(rules, cur, event->name) != 0)
+                        if (!match_key(rules, cur, event->name))
                                 goto nomatch;
                         break;
                 case TK_M_ENV: {
@@ -1801,7 +1797,7 @@ int udev_rules_apply_to_event(
                                         val = NULL;
                         }
 
-                        if (match_key(rules, cur, strempty(val)))
+                        if (!match_key(rules, cur, strempty(val)))
                                 goto nomatch;
                         break;
                 }
@@ -1823,17 +1819,17 @@ int udev_rules_apply_to_event(
                 case TK_M_SUBSYSTEM:
                         if (sd_device_get_subsystem(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_DRIVER:
                         if (sd_device_get_driver(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_ATTR:
-                        if (match_attr(rules, dev, event, cur) != 0)
+                        if (!match_attr(rules, dev, event, cur))
                                 goto nomatch;
                         break;
                 case TK_M_SYSCTL: {
@@ -1849,7 +1845,7 @@ int udev_rules_apply_to_event(
                         len = strlen(value);
                         while (len > 0 && isspace(value[--len]))
                                 value[len] = '\0';
-                        if (match_key(rules, cur, value) != 0)
+                        if (!match_key(rules, cur, value))
                                 goto nomatch;
                         break;
                 }
@@ -1877,23 +1873,23 @@ int udev_rules_apply_to_event(
                                         case TK_M_KERNELS:
                                                 if (sd_device_get_sysname(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_SUBSYSTEMS:
                                                 if (sd_device_get_subsystem(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_DRIVERS:
                                                 if (sd_device_get_driver(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_ATTRS:
-                                                if (match_attr(rules, event->dev_parent, event, key) != 0)
+                                                if (!match_attr(rules, event->dev_parent, event, key))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_TAGS: {
@@ -2081,7 +2077,7 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_RESULT:
-                        if (match_key(rules, cur, event->program_result) != 0)
+                        if (!match_key(rules, cur, event->program_result))
                                 goto nomatch;
                         break;
                 case TK_A_STRING_ESCAPE_NONE:
