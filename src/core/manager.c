@@ -587,6 +587,7 @@ static char** sanitize_environment(char **l) {
                         "MAINPID",
                         "MANAGERPID",
                         "NOTIFY_SOCKET",
+                        "PIDFILE",
                         "REMOTE_ADDR",
                         "REMOTE_PORT",
                         "SERVICE_RESULT",

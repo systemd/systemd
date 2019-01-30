@@ -2468,6 +2468,18 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$PIDFILE</varname></term>
+
+        <listitem><para>The path to the configured PID file, in case the process is forked off on behalf of a
+        service that uses the <varname>PIDFile=</varname> setting, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Service code may use this environment variable to automatically generate a PID file at
+        the location configured in the unit file. This field is set to an absolute path in the file
+        system.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
