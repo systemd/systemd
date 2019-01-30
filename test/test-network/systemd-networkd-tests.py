@@ -36,6 +36,17 @@ def expectedFailureIfModuleIsNotAvailable(module_name):
 
     return f
 
+def expectedFailureIfERSPANModuleIsNotAvailable():
+    def f(func):
+        rc = subprocess.call(['ip', 'link', 'add', 'dev', 'erspan99', 'type', 'erspan', 'seq', 'key', '30', 'local', '192.168.1.4', 'remote', '192.168.1.1', 'erspan_ver', '1', 'erspan', '123'])
+        if rc == 0:
+            subprocess.call(['ip', 'link', 'del', 'erspan99'])
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
 
     os.makedirs(network_unit_file_path, exist_ok=True)
@@ -500,6 +511,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('sittun99'))
 
+    @expectedFailureIfERSPANModuleIsNotAvailable()
     def test_erspan_tunnel(self):
         self.copy_unit_to_networkd_unit_path('25-erspan-tunnel.netdev')
         self.start_networkd()
