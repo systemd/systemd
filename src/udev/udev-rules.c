@@ -1680,7 +1680,7 @@ static bool match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struc
                         return false;
                 break;
         case SB_SUBSYS:
-                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) != 0)
+                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
                         return false;
                 value = vbuf;
                 break;
@@ -1923,7 +1923,7 @@ int udev_rules_apply_to_event(
                         int match;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), filename, sizeof(filename), false);
-                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), false) != 0) {
+                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), false) < 0) {
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
@@ -1977,7 +1977,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_file_into_properties(dev, import) != 0)
+                        if (import_file_into_properties(dev, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -1991,7 +1991,7 @@ int udev_rules_apply_to_event(
                                          rules_str(rules, rule->rule.filename_off),
                                          rule->rule.filename_line);
 
-                        if (import_program_into_properties(event, timeout_usec, import) != 0)
+                        if (import_program_into_properties(event, timeout_usec, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2071,7 +2071,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_parent_into_properties(dev, import) != 0)
+                        if (import_parent_into_properties(dev, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2365,7 +2365,7 @@ int udev_rules_apply_to_event(
                         const char *key_name;
 
                         key_name = rules_str(rules, cur->key.attr_off);
-                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), false) != 0 &&
+                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), false) < 0 &&
                             sd_device_get_syspath(dev, &val) >= 0)
                                 strscpyl(attr, sizeof(attr), val, "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));
@@ -2506,7 +2506,7 @@ int udev_rules_apply_static_dev_perms(UdevRules *rules) {
                                 goto next;
 
                         strscpyl(device_node, sizeof(device_node), "/dev/", rules_str(rules, cur->key.value_off), NULL);
-                        if (stat(device_node, &stats) != 0)
+                        if (stat(device_node, &stats) < 0)
                                 break;
                         if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
                                 break;
