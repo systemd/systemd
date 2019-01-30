@@ -1458,7 +1458,7 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 9);
+        our_env = new0(char*, 10);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1472,6 +1472,10 @@ static int service_spawn(
 
         if (MANAGER_IS_USER(UNIT(s)->manager))
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
+                        return -ENOMEM;
+
+        if (s->pid_file)
+                if (asprintf(our_env + n_env++, "PIDFILE=%s", s->pid_file) < 0)
                         return -ENOMEM;
 
         if (s->socket_fd >= 0) {
