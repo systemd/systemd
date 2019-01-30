@@ -420,6 +420,119 @@ int boot_entries_load_config(
 
 /********************************************************************************/
 
+static int verify_esp_blkid(
+                dev_t devid,
+                bool searching,
+                uint32_t *ret_part,
+                uint64_t *ret_pstart,
+                uint64_t *ret_psize,
+                sd_id128_t *ret_uuid) {
+
+        sd_id128_t uuid = SD_ID128_NULL;
+        uint64_t pstart = 0, psize = 0;
+        uint32_t part = 0;
+
+#if HAVE_BLKID
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free_ char *node = NULL;
+        const char *v;
+        int r;
+
+        r = device_path_make_major_minor(S_IFBLK, devid, &node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format major/minor device path: %m");
+
+        errno = 0;
+        b = blkid_new_probe_from_filename(node);
+        if (!b)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", node);
+
+        blkid_probe_enable_superblocks(b, 1);
+        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+        blkid_probe_enable_partitions(b, 1);
+        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
+        else if (r == 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
+        else if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system type of \"%s\": %m", node);
+        if (!streq(v, "vfat"))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "File system \"%s\" is not FAT.", node);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme of \"%s\": %m", node);
+        if (!streq(v, "gpt"))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "File system \"%s\" is not on a GPT partition table.", node);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID of \"%s\": %m", node);
+        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                       "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID of \"%s\": %m", node);
+        r = sd_id128_from_string(v, &uuid);
+        if (r < 0)
+                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition number of \"%s\": m", node);
+        r = safe_atou32(v, &part);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition offset of \"%s\": %m", node);
+        r = safe_atou64(v, &pstart);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
+
+        errno = 0;
+        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
+        if (r != 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition size of \"%s\": %m", node);
+        r = safe_atou64(v, &psize);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
+#endif
+
+        if (ret_part)
+                *ret_part = part;
+        if (ret_pstart)
+                *ret_pstart = pstart;
+        if (ret_psize)
+                *ret_psize = psize;
+        if (ret_uuid)
+                *ret_uuid = uuid;
+
+        return 0;
+}
+
 static int verify_esp(
                 const char *p,
                 bool searching,
@@ -428,18 +541,11 @@ static int verify_esp(
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
-#if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *node = NULL;
-        const char *v;
-#endif
-        uint64_t pstart = 0, psize = 0;
+
         struct stat st, st2;
-        const char *t2;
         struct statfs sfs;
-        sd_id128_t uuid = SD_ID128_NULL;
-        uint32_t part = 0;
         bool relax_checks;
+        const char *t2;
         int r;
 
         assert(p);
@@ -490,103 +596,23 @@ static int verify_esp(
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
 
-        /* In a container we don't have access to block devices, skip this part of the verification, we trust the
-         * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
+        /* In a container we don't have access to block devices, skip this part of the verification, we trust
+         * the container manager set everything up correctly on its own. Also skip the following verification
+         * for non-root user. */
         if (detect_container() > 0 || unprivileged_mode || relax_checks)
                 goto finish;
 
-#if HAVE_BLKID
-        r = device_path_make_major_minor(S_IFBLK, st.st_dev, &node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format major/minor device path: %m");
-        errno = 0;
-        b = blkid_new_probe_from_filename(node);
-        if (!b)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(ENOMEM), "Failed to open file system \"%s\": %m", p);
-
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == -2)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", p);
-        else if (r == 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", p);
-        else if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system type \"%s\": %m", p);
-        if (!streq(v, "vfat"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not FAT.", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition scheme \"%s\": %m", p);
-        if (!streq(v, "gpt"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "File system \"%s\" is not on a GPT partition table.", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: EIO, "Failed to probe partition type UUID \"%s\": %m", p);
-        if (!streq(v, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"))
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                       "File system \"%s\" has wrong type for an EFI System Partition (ESP).", p);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID \"%s\": %m", p);
-        r = sd_id128_from_string(v, &uuid);
-        if (r < 0)
-                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", p, v);
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition number \"%s\": m", p);
-        r = safe_atou32(v, &part);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition offset \"%s\": %m", p);
-        r = safe_atou64(v, &pstart);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
-
-        errno = 0;
-        r = blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition size \"%s\": %m", p);
-        r = safe_atou64(v, &psize);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
-#endif
+        return verify_esp_blkid(st.st_dev, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
 
 finish:
         if (ret_part)
-                *ret_part = part;
+                *ret_part = 0;
         if (ret_pstart)
-                *ret_pstart = pstart;
+                *ret_pstart = 0;
         if (ret_psize)
-                *ret_psize = psize;
+                *ret_psize = 0;
         if (ret_uuid)
-                *ret_uuid = uuid;
+                *ret_uuid = SD_ID128_NULL;
 
         return 0;
 }
