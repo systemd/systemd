@@ -89,8 +89,9 @@ If you have portable service image, maybe in a raw disk image called
 
 This command does the following:
 
-1. It dissects the image, checks and validates the `/etc/os-release` data of
-   the image, and looks for all included unit files.
+1. It dissects the image, checks and validates the `/etc/os-release`
+   (or `/usr/lib/os-release`, see below)  data of the image, and looks for
+   all included unit files.
 
 2. It copies out all unit files with a suffix of `.service`, `.socket`,
    `.target`, `.timer` and `.path`. whose name begins with the image's name
@@ -170,8 +171,11 @@ requirements are made for an image that can be attached/detached with
    image. (The implementation will check a couple of other paths too, but it's
    recommended to use these two paths.)
 
-4. The image must contain an os-release file, either in /etc/os-release or
-   /usr/lib/os-release. The file should follow the standard format.
+4. The image must contain an os-release file, either in `/etc/os-release` or
+   `/usr/lib/os-release`. The file should follow the standard format.
+
+5. The image must contain the files `/etc/resolv.conf` and `/etc/machine-id`
+   (empty files are ok), they will be bind mounted from the host at runtime.
 
 Note that generally images created by tools such as `debootstrap`, `dnf
 --installroot=` or `mkosi` qualify for all of the above in one way or
