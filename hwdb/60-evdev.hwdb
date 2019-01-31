@@ -453,6 +453,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*02173BG*:*pvrThinkPadEd
  EVDEV_ABS_35=916:6077:55
  EVDEV_ABS_36=653:5395:116
 
+# Lenovo Yoga 500-14IBD, 80N4
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoYoga500-14IBD*
+ EVDEV_ABS_00=117:3952:36
+ EVDEV_ABS_01=105:1960:26
+ EVDEV_ABS_35=117:3952:36
+ EVDEV_ABS_36=105:1960:26
+
 #########################################
 # Razer
 #########################################
