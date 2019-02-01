@@ -202,7 +202,7 @@ static int detect_vm_xen_dom0(void) {
         r = read_one_line_file(PATH_FEATURES, &domcap);
         if (r < 0 && r != -ENOENT)
                 return r;
-        if (r == 0) {
+        if (r >= 0) {
                 unsigned long features;
 
                 /* Here, we need to use sscanf() instead of safe_atoul()
