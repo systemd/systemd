@@ -220,10 +220,10 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
                 char *p;
 
                 p = STARTSWITH_SET(*entry, "default:", "d:");
-                if (!p)
-                        p = *entry;
-
-                r = strv_push(&d, p);
+                if (p)
+                        r = strv_push(&d, p);
+                else
+                        r = strv_push(&a, *entry);
                 if (r < 0)
                         return r;
         }
