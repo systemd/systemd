@@ -147,8 +147,8 @@ static int load_state(Context *c, const struct rfkill_event *event) {
                 return r;
 
         r = read_one_line_file(state_file, &value);
-        if (r == -ENOENT) {
-                /* No state file? Then save the current state */
+        if (IN_SET(r, -ENOENT, 0)) {
+                /* No state file or it's truncated? Then save the current state */
 
                 r = write_string_file(state_file, one_zero(event->soft), WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)

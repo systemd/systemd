@@ -469,11 +469,11 @@ int detect_container(void) {
         /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than accessing
          * /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
         r = read_one_line_file("/run/systemd/container", &m);
-        if (r >= 0) {
+        if (r > 0) {
                 e = m;
                 goto translate_name;
         }
-        if (r != -ENOENT)
+        if (!IN_SET(r, -ENOENT, 0))
                 return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
 
         /* Fallback for cases where PID 1 was not systemd (for example, cases where init=/bin/sh is used. */
