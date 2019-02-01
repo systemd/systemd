@@ -3223,6 +3223,15 @@ static int exec_child(
         else
                 needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
 
+        /* Drop groups as early as possbile */
+        if (needs_setuid) {
+                r = enforce_groups(gid, supplementary_gids, ngids);
+                if (r < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return log_unit_error_errno(unit, r, "Changing group credentials failed: %m");
+                }
+        }
+
         if (needs_sandboxing) {
                 /* MAC enablement checks need to be done before a new mount ns is created, as they rely on /sys being
                  * present. The actual MAC context application will happen later, as late as possible, to avoid
@@ -3277,21 +3286,34 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
+#if HAVE_APPARMOR
+        if (needs_sandboxing) {
+                if (use_apparmor && context->apparmor_profile) {
+                        r = aa_change_onexec(context->apparmor_profile);
+                        if (r < 0 && !context->apparmor_profile_ignore) {
+                                *exit_status = EXIT_APPARMOR_PROFILE;
+                                return log_unit_error_errno(unit, errno, "Failed to prepare AppArmor profile change to %s: %m", context->apparmor_profile);
+                        }
+                }
+        }
+#endif
+
+        if (needs_sandboxing) {
+                if (context->private_users) {
+                        r = setup_private_users(uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_unit_error_errno(unit, r, "Failed to set up user namespacing: %m");
+                        }
+                }
+        }
+
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
         if (needs_mount_namespace) {
                 r = apply_mount_namespace(unit, command, context, params, runtime);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing: %m");
-                }
-        }
-
-        /* Drop groups as early as possbile */
-        if (needs_setuid) {
-                r = enforce_groups(gid, supplementary_gids, ngids);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return log_unit_error_errno(unit, r, "Changing group credentials failed: %m");
                 }
         }
 
@@ -3305,14 +3327,6 @@ static int exec_child(
                         }
                 }
 #endif
-
-                if (context->private_users) {
-                        r = setup_private_users(uid, gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_USER;
-                                return log_unit_error_errno(unit, r, "Failed to set up user namespacing: %m");
-                        }
-                }
         }
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
@@ -3477,16 +3491,6 @@ static int exec_child(
                                         *exit_status = EXIT_SELINUX_CONTEXT;
                                         return log_unit_error_errno(unit, r, "Failed to change SELinux context to %s: %m", exec_context);
                                 }
-                        }
-                }
-#endif
-
-#if HAVE_APPARMOR
-                if (use_apparmor && context->apparmor_profile) {
-                        r = aa_change_onexec(context->apparmor_profile);
-                        if (r < 0 && !context->apparmor_profile_ignore) {
-                                *exit_status = EXIT_APPARMOR_PROFILE;
-                                return log_unit_error_errno(unit, errno, "Failed to prepare AppArmor profile change to %s: %m", context->apparmor_profile);
                         }
                 }
 #endif
