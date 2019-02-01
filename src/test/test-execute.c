@@ -770,6 +770,7 @@ int main(int argc, char *argv[]) {
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
         (void) unsetenv("SHELL");
+        (void) unsetenv("HOME");
 
         can_unshare = have_namespaces();
 
