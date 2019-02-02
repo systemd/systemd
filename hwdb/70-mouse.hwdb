@@ -447,6 +447,7 @@ mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
 
 # Logitech MX Master
 # Horiz wheel has 14 stops, angle is rounded up
+mouse:usb:v046dp4060:name:Logitech MX Master:
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
  MOUSE_WHEEL_CLICK_ANGLE=15
