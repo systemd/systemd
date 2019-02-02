@@ -57,6 +57,7 @@ static bool arg_allow_interactive_authorization = true;
 static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
+static const char *arg_destination = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -2036,6 +2037,49 @@ static int call(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int emit_signal(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_signal(bus, &m, argv[1], argv[2], argv[3]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (arg_destination) {
+                r = sd_bus_message_set_destination(m, arg_destination);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_set_auto_start(m, arg_auto_start);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!isempty(argv[4])) {
+                char **p;
+
+                p = argv+5;
+
+                r = message_append_cmdline(m, argv[4], &p);
+                if (r < 0)
+                        return r;
+
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send signal: %m");
+
+        return 0;
+}
+
 static int get_property(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2182,6 +2226,7 @@ static int help(void) {
                "     --augment-creds=BOOL  Extend credential data with data read from /proc/$PID\n"
                "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
                "                           system\n"
+               "     --destination=SERVICE Destination service of a signal\n"
                "\nCommands:\n"
                "  list                     List bus names\n"
                "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
@@ -2191,6 +2236,8 @@ static int help(void) {
                "  introspect SERVICE OBJECT [INTERFACE]\n"
                "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
                "                           Call a method\n"
+               "  emit OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]\n"
+               "                           Emit a signal\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
                "                           Get property value\n"
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
@@ -2232,6 +2279,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUGMENT_CREDS,
                 ARG_WATCH_BIND,
                 ARG_JSON,
+                ARG_DESTINATION,
         };
 
         static const struct option options[] = {
@@ -2260,6 +2308,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "augment-creds",                   required_argument, NULL, ARG_AUGMENT_CREDS                   },
                 { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
                 { "json",                            required_argument, NULL, ARG_JSON                            },
+                { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
                 {},
         };
 
@@ -2426,6 +2475,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_DESTINATION:
+                        arg_destination = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2446,6 +2499,7 @@ static int busctl_main(int argc, char *argv[]) {
                 { "tree",         VERB_ANY, VERB_ANY, 0,            tree           },
                 { "introspect",   3,        4,        0,            introspect     },
                 { "call",         5,        VERB_ANY, 0,            call           },
+                { "emit",         4,        VERB_ANY, 0,            emit_signal    },
                 { "get-property", 5,        VERB_ANY, 0,            get_property   },
                 { "set-property", 6,        VERB_ANY, 0,            set_property   },
                 { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },
