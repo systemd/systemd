@@ -578,8 +578,8 @@ int config_parse_tunnel_address(const char *unit,
                  * unspecified, also clear the address family.
                  */
                 if (t->family != AF_UNSPEC &&
-                    in_addr_is_null(t->family, &t->local) &&
-                    in_addr_is_null(t->family, &t->remote))
+                    in_addr_is_null(t->family, &t->local) != 0 &&
+                    in_addr_is_null(t->family, &t->remote) != 0)
                         t->family = AF_UNSPEC;
                 return 0;
         }

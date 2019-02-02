@@ -625,7 +625,7 @@ int address_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
-        if (!in_addr_is_null(address->family, &address->in_addr_peer)) {
+        if (in_addr_is_null(address->family, &address->in_addr_peer) == 0) {
                 if (address->family == AF_INET)
                         r = sd_netlink_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
                 else if (address->family == AF_INET6)

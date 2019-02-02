@@ -408,7 +408,7 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not create RTM_DELROUTE message: %m");
 
-        if (!in_addr_is_null(route->family, &route->gw)) {
+        if (in_addr_is_null(route->family, &route->gw) == 0) {
                 if (route->family == AF_INET)
                         r = sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &route->gw.in);
                 else if (route->family == AF_INET6)
@@ -443,7 +443,7 @@ int route_remove(Route *route, Link *link,
                         return log_error_errno(r, "Could not set source prefix length: %m");
         }
 
-        if (!in_addr_is_null(route->family, &route->prefsrc)) {
+        if (in_addr_is_null(route->family, &route->prefsrc) == 0) {
                 if (route->family == AF_INET)
                         r = sd_netlink_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc.in);
                 else if (route->family == AF_INET6)
@@ -519,7 +519,7 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
 
-        if (!in_addr_is_null(route->family, &route->gw)) {
+        if (in_addr_is_null(route->family, &route->gw) == 0) {
                 if (route->family == AF_INET)
                         r = sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &route->gw.in);
                 else if (route->family == AF_INET6)
@@ -558,7 +558,7 @@ int route_configure(
                         return log_error_errno(r, "Could not set source prefix length: %m");
         }
 
-        if (!in_addr_is_null(route->family, &route->prefsrc)) {
+        if (in_addr_is_null(route->family, &route->prefsrc) == 0) {
                 if (route->family == AF_INET)
                         r = sd_netlink_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc.in);
                 else if (route->family == AF_INET6)
