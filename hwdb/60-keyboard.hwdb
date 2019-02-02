@@ -618,6 +618,14 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHP*ProBook*645*G4*
  KEYBOARD_KEY_73=slash                                  # Slash key
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
 
+# HP Stream 7
+# The ACPI tables contains a gpio-keys entry for a non connected GPIO
+# causing spurious events, map this to unknown to disable it
+# older kernels use "ev:23" newer kernels "ev:3"
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+evdev:name:gpio-keys:phys:gpio-keys/input0:ev:23:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
+ KEYBOARD_KEY_0=unknown
+
 ##########################################################
 # Huawei
 ##########################################################
