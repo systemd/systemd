@@ -857,9 +857,8 @@ int config_parse_ipv6token(
                 return 0;
         }
 
-        r = in_addr_is_null(AF_INET6, &buffer);
-        if (r != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
+        if (in_addr_is_null(AF_INET6, &buffer)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
