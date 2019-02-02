@@ -120,7 +120,7 @@ run_qemu() {
 
     default_fedora_initrd=/boot/initramfs-${KERNEL_VER}.img
     default_debian_initrd=/boot/initrd.img-${KERNEL_VER}
-    default_arch_initrd=/boot/initramfs-linux.img
+    default_arch_initrd=/boot/initramfs-linux-fallback.img
     default_suse_initrd=/boot/initrd-${KERNEL_VER}
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
