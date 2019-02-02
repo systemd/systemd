@@ -86,7 +86,8 @@ _busctl() {
                              -q --quiet --verbose --expect-reply=no --auto-start=no
                              --allow-interactive-authorization=no --augment-creds=no
                              --watch-bind=yes -j'
-                      [ARG]='--address -H --host -M --machine --match --timeout --size --json'
+                      [ARG]='--address -H --host -M --machine --match --timeout --size --json
+                             --destination'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -106,6 +107,9 @@ _busctl() {
                         --json)
                                 comps=$( busctl --json=help 2>/dev/null )
                         ;;
+                        --destination)
+                                comps=$( __get_busnames $mode )
+                        ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
@@ -121,6 +125,7 @@ _busctl() {
                 [BUSNAME]='status monitor capture tree'
                 [OBJECT]='introspect'
                 [METHOD]='call'
+                [EMIT]='emit'
                 [PROPERTY_GET]='get-property'
                 [PROPERTY_SET]='set-property'
         )
@@ -165,6 +170,8 @@ _busctl() {
                 else
                         comps=''
                 fi
+        elif __contains_word "$verb" ${VERBS[EMIT]}; then
+                comps=''
         elif __contains_word "$verb" ${VERBS[PROPERTY_GET]}; then
                 if [[ $n -eq 1 ]] ; then
                         comps=$( __get_busnames $mode)
