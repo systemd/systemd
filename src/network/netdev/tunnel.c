@@ -505,42 +505,31 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC)) {
-                log_netdev_error(netdev,
-                                 "Tunnel with invalid address family configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Tunnel with invalid address family configured in %s. Ignoring", filename);
 
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
-            (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
-                log_netdev_error(netdev,
-                                 "vti/ipip/sit/gre/gretap/erspan tunnel without a local IPv4 address configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+            (t->family != AF_INET || in_addr_is_null(t->family, &t->local)))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "vti/ipip/sit/gre/gretap/erspan tunnel without a local IPv4 address configured in %s. Ignoring", filename);
 
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI6, NETDEV_KIND_IP6TNL, NETDEV_KIND_IP6GRE, NETDEV_KIND_IP6GRETAP) &&
-            (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local))) {
-                log_netdev_error(netdev,
-                                 "vti6/ip6tnl/ip6gre/ip6gretap tunnel without a local IPv6 address configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+            (t->family != AF_INET6 || in_addr_is_null(t->family, &t->local)))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "vti6/ip6tnl/ip6gre/ip6gretap tunnel without a local IPv6 address configured in %s. Ignoring", filename);
 
         if (netdev->kind == NETDEV_KIND_IP6TNL &&
-            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID) {
-                log_netdev_error(netdev,
-                                 "ip6tnl without mode configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "ip6tnl without mode configured in %s. Ignoring", filename);
 
-        if (t->fou_tunnel && t->fou_destination_port <= 0) {
-                log_netdev_error(netdev, "FooOverUDP missing port configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (t->fou_tunnel && t->fou_destination_port <= 0)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "FooOverUDP missing port configured in %s. Ignoring", filename);
 
-        if (netdev->kind == NETDEV_KIND_ERSPAN && (t->erspan_index >= (1 << 20) || t->erspan_index == 0)) {
-                log_netdev_error(netdev, "Invalid erspan index %d. Ignoring", t->erspan_index);
-                return -EINVAL;
-        }
+        if (netdev->kind == NETDEV_KIND_ERSPAN && (t->erspan_index >= (1 << 20) || t->erspan_index == 0))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Invalid erspan index %d. Ignoring", t->erspan_index);
 
         return 0;
 }
