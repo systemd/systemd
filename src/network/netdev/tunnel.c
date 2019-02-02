@@ -66,7 +66,6 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
         if (t->fou_tunnel) {
-
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
@@ -430,7 +429,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         if (t->copy_dscp)
                 t->flags |= IP6_TNL_F_RCV_DSCP_COPY;
 
-        if (t->allow_localremote != -1)
+        if (t->allow_localremote >= 0)
                 SET_FLAG(t->flags, IP6_TNL_F_ALLOW_LOCAL_REMOTE, t->allow_localremote);
 
         if (t->encap_limit != IPV6_DEFAULT_TNL_ENCAP_LIMIT) {

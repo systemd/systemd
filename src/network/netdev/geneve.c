@@ -92,7 +92,7 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
         }
 
-        if (v->ttl) {
+        if (v->ttl > 0) {
                 r = sd_netlink_message_append_u8(m, IFLA_GENEVE_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_TTL attribute: %m");
