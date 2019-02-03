@@ -1021,7 +1021,7 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1')
 
     def test_domain(self):
-        self.copy_unit_to_networkd_unit_path( '12-dummy.netdev', '24-search-domain.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
@@ -1078,7 +1078,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.remove_log_file()
 
     def test_dhcp_client_ipv6_only(self):
-        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network','dhcp-client-ipv6-only.network')
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-only.network')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('veth99'))
@@ -1091,7 +1091,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '192.168.5')
 
     def test_dhcp_client_ipv4_only(self):
-        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network','dhcp-client-ipv4-only-ipv6-disabled.network')
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv4-only-ipv6-disabled.network')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('veth99'))
