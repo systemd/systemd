@@ -3,6 +3,8 @@
 
 #include "sd-netlink.h"
 
+#include "in-addr-util.h"
+#include "socket-util.h"
 #include "util.h"
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
@@ -58,3 +60,6 @@ int rtnl_log_create_error(int r);
                                      (sd_netlink_destroy_t) _destroy_,  \
                                      userdata, __func__);               \
         })
+
+int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
+int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
