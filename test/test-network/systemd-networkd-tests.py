@@ -1061,7 +1061,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
-        'dhcp-client.network'
+        'dhcp-client.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
         'static.network']
