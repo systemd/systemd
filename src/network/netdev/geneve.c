@@ -89,7 +89,7 @@ static int netdev_geneve_create(NetDev *netdev) {
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_GENEVE_REMOTE6, &v->remote.in6);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_GROUP attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GENEVE_REMOTE/IFLA_GENEVE_REMOTE6 attribute: %m");
         }
 
         if (v->ttl > 0) {
