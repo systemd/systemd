@@ -48,7 +48,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
 
         assert(m);
         assert(t);
-        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
+        assert(t->family == AF_INET);
 
         if (link) {
                 r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
@@ -126,7 +126,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
                 t = GRETAP(netdev);
 
         assert(t);
-        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
+        assert(t->family == AF_INET);
         assert(m);
 
         if (link) {
@@ -171,7 +171,7 @@ static int netdev_erspan_fill_message_create(NetDev *netdev, Link *link, sd_netl
         t = ERSPAN(netdev);
 
         assert(t);
-        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
+        assert(t->family == AF_INET);
         assert(m);
 
         r = sd_netlink_message_append_u32(m, IFLA_GRE_ERSPAN_INDEX, t->erspan_index);
@@ -436,10 +436,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
         }
 
         assert(t);
-
-        if (!IN_SET(t->family, AF_INET, AF_INET6, AF_UNSPEC))
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Tunnel with invalid address family configured in %s. Ignoring", filename);
 
         if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_SIT, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP, NETDEV_KIND_ERSPAN) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->local)))
