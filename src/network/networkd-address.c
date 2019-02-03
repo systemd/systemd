@@ -469,10 +469,7 @@ int address_remove(
         if (r < 0)
                 return log_error_errno(r, "Could not set prefixlen: %m");
 
-        if (address->family == AF_INET)
-                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
-        else if (address->family == AF_INET6)
-                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+        r = netlink_message_append_in_addr_union(req, IFA_LOCAL, address->family, &address->in_addr);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
@@ -618,18 +615,12 @@ int address_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set scope: %m");
 
-        if (address->family == AF_INET)
-                r = sd_netlink_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
-        else if (address->family == AF_INET6)
-                r = sd_netlink_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+        r = netlink_message_append_in_addr_union(req, IFA_LOCAL, address->family, &address->in_addr);
         if (r < 0)
                 return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
 
         if (in_addr_is_null(address->family, &address->in_addr_peer) == 0) {
-                if (address->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
-                else if (address->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
+                r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
         } else if (address->family == AF_INET && address->prefixlen <= 30) {

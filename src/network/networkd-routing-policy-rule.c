@@ -370,10 +370,7 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
                 return log_error_errno(r, "Could not allocate RTM_DELRULE message: %m");
 
         if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->from) == 0) {
-                if (routing_policy_rule->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(m, FRA_SRC, &routing_policy_rule->from.in);
-                else
-                        r = sd_netlink_message_append_in6_addr(m, FRA_SRC, &routing_policy_rule->from.in6);
+                r = netlink_message_append_in_addr_union(m, FRA_SRC, routing_policy_rule->family, &routing_policy_rule->from);
                 if (r < 0)
                         return log_error_errno(r, "Could not append FRA_SRC attribute: %m");
 
@@ -383,10 +380,7 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
         }
 
         if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->to) == 0) {
-                if (routing_policy_rule->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(m, FRA_DST, &routing_policy_rule->to.in);
-                else
-                        r = sd_netlink_message_append_in6_addr(m, FRA_DST, &routing_policy_rule->to.in6);
+                r = netlink_message_append_in_addr_union(m, FRA_DST, routing_policy_rule->family, &routing_policy_rule->to);
                 if (r < 0)
                         return log_error_errno(r, "Could not append FRA_DST attribute: %m");
 
@@ -495,10 +489,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 return log_error_errno(r, "Could not allocate RTM_NEWRULE message: %m");
 
         if (in_addr_is_null(rule->family, &rule->from) == 0) {
-                if (rule->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(m, FRA_SRC, &rule->from.in);
-                else
-                        r = sd_netlink_message_append_in6_addr(m, FRA_SRC, &rule->from.in6);
+                r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
                 if (r < 0)
                         return log_error_errno(r, "Could not append FRA_SRC attribute: %m");
 
@@ -508,10 +499,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         }
 
         if (in_addr_is_null(rule->family, &rule->to) == 0) {
-                if (rule->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(m, FRA_DST, &rule->to.in);
-                else
-                        r = sd_netlink_message_append_in6_addr(m, FRA_DST, &rule->to.in6);
+                r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
                 if (r < 0)
                         return log_error_errno(r, "Could not append FRA_DST attribute: %m");
 
