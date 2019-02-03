@@ -389,7 +389,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_MODE attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PROTO attribute: %m");
 
         return r;
 }
