@@ -14,6 +14,7 @@
 
 #include "conf-parser.h"
 #include "missing.h"
+#include "netlink-util.h"
 #include "networkd-link.h"
 #include "netdev/tunnel.h"
 #include "parse-util.h"
@@ -300,11 +301,12 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         return r;
 }
 
-static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_message *m) {
+static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         uint32_t ikey, okey;
         Tunnel *t;
         int r;
 
+        assert(netdev);
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_VTI)
@@ -313,6 +315,14 @@ static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_me
                 t = VTI6(netdev);
 
         assert(t);
+        assert((netdev->kind == NETDEV_KIND_VTI && t->family == AF_INET) ||
+               (netdev->kind == NETDEV_KIND_VTI6 && t->family == AF_INET6));
+
+        if (link) {
+                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LINK attribute: %m");
+        }
 
         if (t->key != 0)
                 ikey = okey = htobe32(t->key);
@@ -329,65 +339,13 @@ static int netdev_vti_fill_message_key(NetDev *netdev, Link *link, sd_netlink_me
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_OKEY attribute: %m");
 
-        return 0;
-}
-
-static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = VTI(netdev);
-        int r;
-
-        assert(netdev);
-        assert(m);
-        assert(t);
-        assert(t->family == AF_INET);
-
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
-        }
-
-        r = netdev_vti_fill_message_key(netdev, link, m);
+        r = netlink_message_append_in_addr_union(m, IFLA_VTI_LOCAL, t->family, &t->local);
         if (r < 0)
-                return r;
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_LOCAL attribute: %m");
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_VTI_LOCAL, &t->local.in);
+        r = netlink_message_append_in_addr_union(m, IFLA_VTI_REMOTE, t->family, &t->remote);
         if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFLA_VTI_REMOTE, &t->remote.in);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
-
-        return r;
-}
-
-static int netdev_vti6_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = VTI6(netdev);
-        int r;
-
-        assert(netdev);
-        assert(m);
-        assert(t);
-        assert(t->family == AF_INET6);
-
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link->ifindex);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
-        }
-
-        r = netdev_vti_fill_message_key(netdev, link, m);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_in6_addr(m, IFLA_VTI_LOCAL, &t->local.in6);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
-
-        r = sd_netlink_message_append_in6_addr(m, IFLA_VTI_REMOTE, &t->remote.in6);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VTI_REMOTE attribute: %m");
 
         return r;
 }
@@ -864,7 +822,7 @@ const NetDevVTable vti6_vtable = {
         .object_size = sizeof(Tunnel),
         .init = vti_init,
         .sections = "Match\0NetDev\0Tunnel\0",
-        .fill_message_create = netdev_vti6_fill_message_create,
+        .fill_message_create = netdev_vti_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
