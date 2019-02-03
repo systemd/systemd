@@ -35,59 +35,17 @@ static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode, "Failed to parse ip6 tunnel Mode");
 
-static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = IPIP(netdev);
+static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
+        Tunnel *t;
         int r;
 
         assert(netdev);
-        assert(m);
-        assert(t);
-        assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
 
-        if (link) {
-                r = sd_netlink_message_append_u32(m, IFLA_IPTUN_LINK, link->ifindex);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LINK attribute: %m");
-        }
+        if (netdev->kind == NETDEV_KIND_IPIP)
+                t = IPIP(netdev);
+        else
+                t = SIT(netdev);
 
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_LOCAL, &t->local.in);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_LOCAL attribute: %m");
-
-        r = sd_netlink_message_append_in_addr(m, IFLA_IPTUN_REMOTE, &t->remote.in);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_REMOTE attribute: %m");
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_TTL, t->ttl);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_TTL  attribute: %m");
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
-        if (r < 0)
-                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
-
-        if (t->fou_tunnel) {
-                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
-
-                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_SPORT, htobe16(t->encap_src_port));
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_SPORT attribute: %m");
-
-                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_DPORT, htobe16(t->fou_destination_port));
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_DPORT attribute: %m");
-        }
-
-        return r;
-}
-
-static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Tunnel *t = SIT(netdev);
-        int r;
-
-        assert(netdev);
         assert(m);
         assert(t);
         assert(IN_SET(t->family, AF_INET, AF_UNSPEC));
@@ -114,27 +72,43 @@ static int netdev_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
-        if (t->sixrd_prefixlen > 0) {
-                r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &t->sixrd_prefix);
+        if (netdev->kind == NETDEV_KIND_IPIP && t->fou_tunnel) {
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
 
-                /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
-                 * expecting to receive the prefixlen as a u16.
-                 */
-                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_SPORT, htobe16(t->encap_src_port));
                 if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_SPORT attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_DPORT, htobe16(t->fou_destination_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_DPORT attribute: %m");
         }
 
-        if (t->isatap >= 0) {
-                uint16_t flags = 0;
+        if (netdev->kind == NETDEV_KIND_SIT) {
+                if (t->sixrd_prefixlen > 0) {
+                        r = sd_netlink_message_append_in6_addr(m, IFLA_IPTUN_6RD_PREFIX, &t->sixrd_prefix);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIX attribute: %m");
 
-                SET_FLAG(flags, SIT_ISATAP, t->isatap);
+                        /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
+                         * expecting to receive the prefixlen as a u16.
+                         */
+                        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_6RD_PREFIXLEN attribute: %m");
+                }
 
-                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_FLAGS, flags);
-                if (r < 0)
-                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
+                if (t->isatap >= 0) {
+                        uint16_t flags = 0;
+
+                        SET_FLAG(flags, SIT_ISATAP, t->isatap);
+
+                        r = sd_netlink_message_append_u16(m, IFLA_IPTUN_FLAGS, flags);
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_FLAGS attribute: %m");
+                }
         }
 
         return r;
@@ -795,7 +769,7 @@ const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
         .init = ipip_init,
         .sections = "Match\0NetDev\0Tunnel\0",
-        .fill_message_create = netdev_ipip_fill_message_create,
+        .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
@@ -804,7 +778,7 @@ const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
         .init = sit_init,
         .sections = "Match\0NetDev\0Tunnel\0",
-        .fill_message_create = netdev_sit_fill_message_create,
+        .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };
