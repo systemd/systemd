@@ -11,6 +11,7 @@
 
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "missing_network.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
