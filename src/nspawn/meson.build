@@ -20,8 +20,6 @@ libnspawn_core_sources = files('''
         nspawn-settings.h
         nspawn-setuid.c
         nspawn-setuid.h
-        nspawn-stub-pid1.c
-        nspawn-stub-pid1.h
 '''.split())
 
 nspawn_gperf_c = custom_target(

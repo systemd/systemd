@@ -5,6 +5,7 @@
 #include <glob.h>
 #include <grp.h>
 #include <poll.h>
+#include <sched.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/capability.h>
@@ -59,6 +60,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "label.h"
@@ -71,6 +73,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "raw-clone.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -86,6 +89,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "stub-pid1.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "umask-util.h"
@@ -2422,6 +2426,7 @@ static int apply_mount_namespace(
                         .protect_kernel_modules = context->protect_kernel_modules,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
+                        .private_pids = context->private_pids,
                 };
         else if (!context->dynamic_user && root_dir)
                 /*
@@ -3559,7 +3564,18 @@ static int exec_child(
                         *exit_status = EXIT_SECCOMP;
                         return log_unit_error_errno(unit, r, "Failed to lock personalities: %m");
                 }
+#endif
 
+                /* PID 1 stub init for PID namespaces */
+                if (context->private_pids) {
+                        r = stub_pid1(SD_ID128_NULL);
+                        if (r < 0) {
+                                *exit_status = EXIT_PIDS;
+                                return log_unit_error_errno(unit, r, "Failed to install stub PID 1 for PID namespacing: %m");
+                        }
+                }
+
+#if HAVE_SECCOMP
                 /* This really should remain the last step before the execve(), to make sure our own code is unaffected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(unit, context, needs_ambient_hack);
@@ -3653,12 +3669,13 @@ int exec_spawn(Unit *unit,
                DynamicCreds *dcreds,
                pid_t *ret) {
 
-        int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
+        int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL, clone_flags;
         _cleanup_free_ char *subcgroup_path = NULL;
         _cleanup_strv_free_ char **files_env = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
         pid_t pid;
+        bool needs_sandboxing;
 
         assert(unit);
         assert(command);
@@ -3718,7 +3735,12 @@ int exec_spawn(Unit *unit,
                 }
         }
 
-        pid = fork();
+        clone_flags = SIGCHLD;
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+        if (needs_sandboxing && context->private_pids)
+                clone_flags |= CLONE_NEWPID;
+
+        pid = raw_clone(clone_flags);
         if (pid < 0)
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");
 
@@ -4156,6 +4178,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectKernelModules: %s\n"
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
+                "%sPrivatePIDs: %s\n"
                 "%sPrivateUsers: %s\n"
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
@@ -4174,6 +4197,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
+                prefix, yes_no(c->private_pids),
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),

@@ -232,6 +232,7 @@ struct ExecContext {
         bool non_blocking;
         bool private_tmp;
         bool private_network;
+        bool private_pids;
         bool private_devices;
         bool private_users;
         bool private_mounts;

@@ -138,6 +138,8 @@ shared_sources = files('''
         spawn-polkit-agent.h
         specifier.c
         specifier.h
+        stub-pid1.c
+        stub-pid1.h
         switch-root.c
         switch-root.h
         sysctl-util.c

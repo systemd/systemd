@@ -10,9 +10,9 @@
 #include "fd-util.h"
 #include "log.h"
 #include "missing.h"
-#include "nspawn-stub-pid1.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "stub-pid1.h"
 #include "time-util.h"
 
 static int reset_environ(const char *new_environment, size_t length) {
@@ -48,7 +48,7 @@ int stub_pid1(sd_id128_t uuid) {
                 "container_uuid=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
         /* Implements a stub PID 1, that reaps all processes and processes a couple of standard signals. This is useful
-         * for allowing arbitrary processes run in a container, and still have all zombies reaped. */
+         * for allowing arbitrary processes run in a container or service, and still have all zombies reaped. */
 
         assert_se(sigfillset(&fullmask) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &fullmask, &oldmask) >= 0);
@@ -70,11 +70,13 @@ int stub_pid1(sd_id128_t uuid) {
         close_all_fds(NULL, 0);
         log_open();
 
-        /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
-         * set $container= and $container_uuid= so that clients in the container that query it from /proc/1/environ
-         * find them set. */
-        sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
-        reset_environ(new_environment, sizeof(new_environment));
+        if (!sd_id128_is_null(uuid)) {
+                /* Only for nspawn: flush out /proc/self/environ, so that we don't leak the environment from
+                 * the host into the container. Also, set $container= and $container_uuid= so that clients in
+                 * the container that query it from /proc/1/environ find them set. */
+                sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
+                reset_environ(new_environment, sizeof(new_environment));
+        }
 
         (void) rename_process("(sd-stubinit)");
 

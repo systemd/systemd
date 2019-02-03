@@ -58,6 +58,7 @@ typedef struct MountEntry {
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool applied:1;           /* Already applied */
+        bool new_instance:1;      /* Mount a new instance even if mount exists */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
         char *source_malloc;
@@ -813,7 +814,8 @@ static int mount_procfs(const MountEntry *m) {
         r = path_is_mount_point(mount_entry_path(m), NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-        if (r > 0) /* make this a NOP if /proc is already a mount point */
+        if (r > 0 && !m->new_instance) /* if a new instance is not required, make this a NOP if /proc is
+                                          already a mount point */
                 return 0;
 
         /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
@@ -1113,6 +1115,7 @@ static size_t namespace_calculate_mounts(
                 n_bind_mounts +
                 n_temporary_filesystems +
                 ns_info->private_dev +
+                ns_info->private_pids +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
@@ -1299,6 +1302,15 @@ int setup_namespace(
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
+                }
+
+                /* Make a new instance of /proc for PID namespacing */
+                if (ns_info->private_pids) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/proc",
+                                .mode = PROCFS,
+                                .new_instance = true,
+                        };
                 }
 
                 assert(mounts + n_mounts == m);

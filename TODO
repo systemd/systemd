@@ -343,10 +343,8 @@ Features:
   partitions automatically, to be used when the media used is actually larger
   than the image written onto it is.
 
-* Maybe add PrivatePIDs= as new unit setting, and do minimal PID namespacing
-  after all. Be strict however, only support the equivalent of nspawn's
-  --as-pid2 switch, and sanely proxy sd_notify() messages dropping stuff such
-  as MAINPID.
+* PrivatePIDs: Sanely proxy sd_notify() messages dropping stuff such as
+  MAINPID and block PIDFile.
 
 * Add ExecMonitor= setting. May be used multiple times. Forks off a process in
   the service cgroup, which is supposed to monitor the service, and when it

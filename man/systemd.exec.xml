@@ -1128,6 +1128,17 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         available), and the unit should be written in a way that does not solely rely on this setting for
         security.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>PrivatePIDs=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, sets up a new PID namespace for the executed
+        processes. This makes other processes in the system invisible to processes in the new
+        namespace. Systemd installs a stub process to act as PID 1 in the new PID namespace.</para>
+
+        <para>Note that the implementation of this setting might be impossible (for example if PID namespaces
+        are not available), and the unit should be written in a way that does not solely rely on this setting
+        for security.</para></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><varname>ProtectKernelTunables=</varname></term>
@@ -2780,6 +2791,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry>241</entry>
             <entry><constant>EXIT_CONFIGURATION_DIRECTORY</constant></entry>
             <entry>Failed to set up unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>242</entry>
+            <entry><constant>EXIT_PIDS</constant></entry>
+            <entry>Failed to set up PID namespacing. See <varname>PrivatePIDs=</varname> above.</entry>
           </row>
         </tbody>
       </tgroup>
