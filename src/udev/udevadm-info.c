@@ -61,10 +61,13 @@ static bool skip_attribute(const char *name) {
 static void print_all_attributes(sd_device *device, const char *key) {
         const char *name, *value;
 
-        FOREACH_DEVICE_PROPERTY(device, name, value) {
+        FOREACH_DEVICE_SYSATTR(device, name) {
                 size_t len;
 
                 if (skip_attribute(name))
+                        continue;
+
+                if (sd_device_get_sysattr_value(device, name, &value) < 0)
                         continue;
 
                 /* skip any values that look like a path */
