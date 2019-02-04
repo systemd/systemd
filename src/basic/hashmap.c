@@ -1516,8 +1516,11 @@ void *internal_hashmap_first_key_and_value(HashmapBase *h, bool remove, void **r
         unsigned idx;
 
         idx = find_first_entry(h);
-        if (idx == IDX_NIL)
+        if (idx == IDX_NIL) {
+                if (ret_key)
+                        *ret_key = NULL;
                 return NULL;
+        }
 
         e = bucket_at(h, idx);
         key = (void*) e->key;
