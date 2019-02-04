@@ -332,6 +332,10 @@ struct sd_bus {
 
 #define BUS_MESSAGE_SIZE_MAX (128*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
+/* Note that the D-Bus specification states that bus paths shall have no size limit. We enforce here one
+ * anyway, since truly unbounded strings are a security problem. The limit we pick is relatively large however,
+ * to not clash unnecessarily with real-life applications. */
+#define BUS_PATH_SIZE_MAX (64*1024)
 
 #define BUS_CONTAINER_DEPTH 128
 
