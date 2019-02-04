@@ -8,6 +8,7 @@
 
 #include "sd-ndisc.h"
 
+#include "missing_network.h"
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "strv.h"
