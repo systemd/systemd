@@ -201,7 +201,7 @@ CHANGES WITH 240:
           file descriptors currently enforced (fs.file-max, fs.nr_open,
           RLIMIT_NOFILE hard, RLIMIT_NOFILE soft) we turn off the first two,
           and keep only the latter two. A set of build-time options
-          (-Dbump-proc-sys-fs-file-max=no and -Dbump-proc-sys-fs-nr-open=no)
+          (-Dbump-proc-sys-fs-file-max=false and -Dbump-proc-sys-fs-nr-open=false)
           has been added to revert this change in behaviour, which might be
           an option for systems that turn off memcg in the kernel.
 
