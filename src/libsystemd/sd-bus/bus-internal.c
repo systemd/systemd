@@ -45,7 +45,7 @@ bool object_path_is_valid(const char *p) {
         if (slash)
                 return false;
 
-        return true;
+        return (q - p) <= BUS_PATH_SIZE_MAX;
 }
 
 char* object_path_startswith(const char *a, const char *b) {
