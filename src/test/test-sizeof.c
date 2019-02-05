@@ -13,11 +13,12 @@
 
 #pragma GCC diagnostic ignored "-Wtype-limits"
 
-#define info(t)                                                 \
-        printf("%s → %zu bits%s\n", STRINGIFY(t),               \
-               sizeof(t)*CHAR_BIT,                              \
-               strstr(STRINGIFY(t), "signed") ? "" :            \
-               ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
+#define info(t)                                                         \
+        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \
+               sizeof(t)*CHAR_BIT,                                      \
+               strstr(STRINGIFY(t), "signed") ? "" :                    \
+               (t)-1 < (t)0 ? ", signed" : ", unsigned",                \
+               __alignof__(t))
 
 enum Enum {
         enum_value,
