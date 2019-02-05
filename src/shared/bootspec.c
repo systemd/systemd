@@ -622,6 +622,66 @@ static int verify_esp_udev(
         return 0;
 }
 
+static int verify_fsroot_dir(
+                const char *path,
+                bool searching,
+                bool unprivileged_mode,
+                dev_t *ret_dev) {
+
+        struct stat st, st2;
+        const char *t2;
+        int r;
+
+        assert(path);
+        assert(ret_dev);
+
+        if (stat(path, &st) < 0)
+                return log_full_errno((searching && errno == ENOENT) ||
+                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to determine block device node of \"%s\": %m", path);
+
+        if (major(st.st_dev) == 0)
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Block device node of \"%s\" is invalid.", path);
+
+        t2 = strjoina(path, "/..");
+        if (stat(t2, &st2) < 0) {
+                if (errno != EACCES)
+                        r = -errno;
+                else {
+                        _cleanup_free_ char *parent = NULL;
+
+                        /* If going via ".." didn't work due to EACCESS, then let's determine the parent path
+                         * directly instead. It's not as good, due to symlinks and such, but we can't do
+                         * anything better here. */
+
+                        parent = dirname_malloc(path);
+                        if (!parent)
+                                return log_oom();
+
+                        if (stat(parent, &st2) < 0)
+                                r = -errno;
+                        else
+                                r = 0;
+                }
+
+                if (r < 0)
+                        return log_full_errno(unprivileged_mode && r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
+                                              "Failed to determine block device node of parent of \"%s\": %m", path);
+        }
+
+        if (st.st_dev == st2.st_dev)
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Directory \"%s\" is not the root of the file system.", path);
+
+        if (ret_dev)
+                *ret_dev = st.st_dev;
+
+        return 0;
+}
+
 static int verify_esp(
                 const char *p,
                 bool searching,
@@ -631,10 +691,8 @@ static int verify_esp(
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
 
-        struct stat st, st2;
-        struct statfs sfs;
         bool relax_checks;
-        const char *t2;
+        dev_t devid;
         int r;
 
         assert(p);
@@ -652,6 +710,8 @@ static int verify_esp(
          * issues. Let's also, silence the error messages. */
 
         if (!relax_checks) {
+                struct statfs sfs;
+
                 if (statfs(p, &sfs) < 0)
                         /* If we are searching for the mount point, don't generate a log message if we can't find the path */
                         return log_full_errno((searching && errno == ENOENT) ||
@@ -664,26 +724,9 @@ static int verify_esp(
                                               "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
         }
 
-        if (stat(p, &st) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", p);
-
-        if (major(st.st_dev) == 0)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Block device node of \"%s\" is invalid.", p);
-
-        t2 = strjoina(p, "/..");
-        r = stat(t2, &st2);
+        r = verify_fsroot_dir(p, searching, unprivileged_mode, &devid);
         if (r < 0)
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", p);
-
-        if (st.st_dev == st2.st_dev)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Directory \"%s\" is not the root of the EFI System Partition (ESP) file system.", p);
+                return r;
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust
          * the container manager set everything up correctly on its own. */
@@ -696,9 +739,9 @@ static int verify_esp(
          * however blkid can't work if we have no privileges to access block devices directly, which is why
          * we use udev in that case. */
         if (unprivileged_mode)
-                return verify_esp_udev(st.st_dev, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                return verify_esp_udev(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
         else
-                return verify_esp_blkid(st.st_dev, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                return verify_esp_blkid(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
 
 finish:
         if (ret_part)
