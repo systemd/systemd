@@ -61,15 +61,19 @@ struct drive_path {
         uint8_t signature_type;
 } _packed_;
 
-struct device_path {
-        uint8_t type;
-        uint8_t sub_type;
-        uint16_t length;
-        union {
-                uint16_t path[0];
-                struct drive_path drive;
-        };
-} _packed_;
+#define device_path__contents {                 \
+        uint8_t type;                           \
+        uint8_t sub_type;                       \
+        uint16_t length;                        \
+        union {                                 \
+                uint16_t path[0];               \
+                struct drive_path drive;        \
+        };                                      \
+        }
+
+struct device_path device_path__contents;
+struct device_path__packed device_path__contents _packed_;
+assert_cc(sizeof(struct device_path) == sizeof(struct device_path__packed));
 
 bool is_efi_boot(void) {
         if (detect_container() > 0)
@@ -377,23 +381,29 @@ static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
         return -EINVAL; /* The terminator was not found */
 }
 
-static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
-        struct uuid {
-                uint32_t u1;
-                uint16_t u2;
-                uint16_t u3;
-                uint8_t u4[8];
-        } _packed_;
-        const struct uuid *uuid = guid;
+struct guid {
+        uint32_t u1;
+        uint16_t u2;
+        uint16_t u3;
+        uint8_t u4[8];
+} _packed_;
 
-        id128->bytes[0] = (uuid->u1 >> 24) & 0xff;
-        id128->bytes[1] = (uuid->u1 >> 16) & 0xff;
-        id128->bytes[2] = (uuid->u1 >> 8) & 0xff;
-        id128->bytes[3] = (uuid->u1) & 0xff;
-        id128->bytes[4] = (uuid->u2 >> 8) & 0xff;
-        id128->bytes[5] = (uuid->u2) & 0xff;
-        id128->bytes[6] = (uuid->u3 >> 8) & 0xff;
-        id128->bytes[7] = (uuid->u3) & 0xff;
+static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
+        uint32_t u1;
+        uint16_t u2, u3;
+        const struct guid *uuid = guid;
+
+        memcpy(&u1, &uuid->u1, sizeof(uint32_t));
+        id128->bytes[0] = (u1 >> 24) & 0xff;
+        id128->bytes[1] = (u1 >> 16) & 0xff;
+        id128->bytes[2] = (u1 >> 8) & 0xff;
+        id128->bytes[3] = u1 & 0xff;
+        memcpy(&u2, &uuid->u2, sizeof(uint16_t));
+        id128->bytes[4] = (u2 >> 8) & 0xff;
+        id128->bytes[5] = u2 & 0xff;
+        memcpy(&u3, &uuid->u3, sizeof(uint16_t));
+        id128->bytes[6] = (u3 >> 8) & 0xff;
+        id128->bytes[7] = u3 & 0xff;
         memcpy(&id128->bytes[8], uuid->u4, sizeof(uuid->u4));
 }
 
@@ -508,20 +518,14 @@ static void to_utf16(uint16_t *dest, const char *src) {
         dest[i] = '\0';
 }
 
-struct guid {
-        uint32_t u1;
-        uint16_t u2;
-        uint16_t u3;
-        uint8_t u4[8];
-} _packed_;
-
 static void id128_to_efi_guid(sd_id128_t id, void *guid) {
-        struct guid *uuid = guid;
-
-        uuid->u1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3];
-        uuid->u2 = id.bytes[4] << 8 | id.bytes[5];
-        uuid->u3 = id.bytes[6] << 8 | id.bytes[7];
-        memcpy(uuid->u4, id.bytes+8, sizeof(uuid->u4));
+        struct guid uuid = {
+                .u1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
+                .u2 = id.bytes[4] << 8 | id.bytes[5],
+                .u3 = id.bytes[6] << 8 | id.bytes[7],
+        };
+        memcpy(uuid.u4, id.bytes+8, sizeof(uuid.u4));
+        memcpy(guid, &uuid, sizeof(uuid));
 }
 
 static uint16_t *tilt_slashes(uint16_t *s) {
@@ -575,12 +579,12 @@ int efi_add_boot_option(
         devicep->type = MEDIA_DEVICE_PATH;
         devicep->sub_type = MEDIA_HARDDRIVE_DP;
         devicep->length = offsetof(struct device_path, drive) + sizeof(struct drive_path);
-        devicep->drive.part_nr = part;
-        devicep->drive.part_start = pstart;
-        devicep->drive.part_size = psize;
-        devicep->drive.signature_type = SIGNATURE_TYPE_GUID;
-        devicep->drive.mbr_type = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
+        memcpy(&devicep->drive.part_nr, &part, sizeof(uint32_t));
+        memcpy(&devicep->drive.part_start, &pstart, sizeof(uint64_t));
+        memcpy(&devicep->drive.part_size, &psize, sizeof(uint64_t));
         id128_to_efi_guid(part_uuid, devicep->drive.signature);
+        devicep->drive.mbr_type = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
+        devicep->drive.signature_type = SIGNATURE_TYPE_GUID;
         size += devicep->length;
 
         /* path to loader */
