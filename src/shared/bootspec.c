@@ -964,43 +964,25 @@ static int verify_xbootldr(
                 bool unprivileged_mode,
                 sd_id128_t *ret_uuid) {
 
-        struct stat st, st2;
         bool relax_checks;
-        const char *t2;
+        dev_t devid;
         int r;
 
         assert(p);
 
         relax_checks = getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0;
 
-        if (stat(p, &st) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && errno == EACCES) ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of \"%s\": %m", p);
-
-        if (major(st.st_dev) == 0)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Block device node of \"%s\" is invalid.", p);
-
-        t2 = strjoina(p, "/..");
-        r = stat(t2, &st2);
+        r = verify_fsroot_dir(p, searching, unprivileged_mode, &devid);
         if (r < 0)
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", p);
-
-        if (st.st_dev == st2.st_dev)
-                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "Directory \"%s\" is not the root of the XBOOTLDR file system.", p);
+                return r;
 
         if (detect_container() > 0 || relax_checks)
                 goto finish;
 
         if (unprivileged_mode)
-                return verify_xbootldr_udev(st.st_dev, searching, ret_uuid);
+                return verify_xbootldr_udev(devid, searching, ret_uuid);
         else
-                return verify_xbootldr_blkid(st.st_dev, searching, ret_uuid);
+                return verify_xbootldr_blkid(devid, searching, ret_uuid);
 
 finish:
         if (ret_uuid)
