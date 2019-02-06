@@ -238,7 +238,6 @@ static int boot_entries_find(
 
         _cleanup_strv_free_ char **files = NULL;
         size_t n_allocated = *n_entries;
-        bool added = false;
         char **f;
         int r;
 
@@ -260,11 +259,7 @@ static int boot_entries_find(
                         continue;
 
                 (*n_entries) ++;
-                added = true;
         }
-
-        if (added)
-                typesafe_qsort(*entries, *n_entries, boot_entry_compare);
 
         return 0;
 }
@@ -444,7 +439,6 @@ static int boot_entries_find_unified(
 
         _cleanup_(closedirp) DIR *d = NULL;
         size_t n_allocated = *n_entries;
-        bool added = false;
         struct dirent *de;
         int r;
 
@@ -499,11 +493,7 @@ static int boot_entries_find_unified(
                         continue;
 
                 (*n_entries) ++;
-                added = true;
         }
-
-        if (added)
-                typesafe_qsort(*entries, *n_entries, boot_entry_compare);
 
         return 0;
 }
@@ -653,6 +643,8 @@ int boot_entries_load_config(
                 if (r < 0)
                         return r;
         }
+
+        typesafe_qsort(config->entries, config->n_entries, boot_entry_compare);
 
         r = boot_entries_uniquify(config->entries, config->n_entries);
         if (r < 0)
