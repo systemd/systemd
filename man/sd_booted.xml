@@ -44,8 +44,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On failure, this call returns a negative errno-style error
-    code. If the system was booted up with systemd as init system,
+    <para>If the system was booted up with systemd as init system,
     this call returns a positive return value, zero otherwise.</para>
   </refsect1>
 
