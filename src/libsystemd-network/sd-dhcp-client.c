@@ -1676,8 +1676,7 @@ static int client_receive_message_udp(
 
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
-        const struct ether_addr zero_mac = {};
-        const struct ether_addr *expected_chaddr = NULL;
+        const uint8_t *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
         ssize_t len, buflen;
 
@@ -1722,11 +1721,7 @@ static int client_receive_message_udp(
 
         if (client->arp_type == ARPHRD_ETHER) {
                 expected_hlen = ETH_ALEN;
-                expected_chaddr = (const struct ether_addr *) &client->mac_addr;
-        } else {
-               /* Non-Ethernet links expect zero chaddr */
-               expected_hlen = 0;
-               expected_chaddr = &zero_mac;
+                expected_chaddr = &client->mac_addr[0];
         }
 
         if (message->hlen != expected_hlen) {
@@ -1734,7 +1729,7 @@ static int client_receive_message_udp(
                 return 0;
         }
 
-        if (memcmp(&message->chaddr[0], expected_chaddr, ETH_ALEN)) {
+        if (expected_hlen > 0 && memcmp(&message->chaddr[0], expected_chaddr, expected_hlen)) {
                 log_dhcp_client(client, "Received chaddr does not match expected: ignoring");
                 return 0;
         }
