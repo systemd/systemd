@@ -1836,7 +1836,7 @@ static VOID config_entry_add_osx(Config *config) {
 
 static VOID config_entry_add_linux(
                 Config *config,
-                EFI_LOADED_IMAGE *loaded_image,
+                EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
 
         EFI_FILE_HANDLE linux_dir;
@@ -1926,7 +1926,7 @@ static VOID config_entry_add_linux(
                         conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
 
-                        entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
+                        entry = config_entry_add_loader(config, device, LOADER_LINUX, conf, 'l', os_name, path);
 
                         FreePool(content);
                         content = NULL;
@@ -2142,7 +2142,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_load_defaults(&config, root_dir);
 
         /* scan /EFI/Linux/ directory */
-        config_entry_add_linux(&config, loaded_image, root_dir);
+        config_entry_add_linux(&config, loaded_image->DeviceHandle, root_dir);
 
         /* scan /loader/entries/\*.conf files */
         config_load_entries(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
