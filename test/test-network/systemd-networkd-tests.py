@@ -914,6 +914,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         '26-bridge.netdev',
         '26-bridge-slave-interface-1.network',
         '26-bridge-slave-interface-2.network',
+        'bridge99-ignore-carrier-loss.network',
         'bridge99.network']
 
     def setUp(self):
@@ -958,6 +959,42 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         # CONFIG_BRIDGE_IGMP_SNOOPING=y
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
             self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
+
+        self.assertEqual(subprocess.call(['ip', 'address', 'add', '192.168.0.16/24', 'dev', 'bridge99']), 0)
+        time.sleep(1)
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'test1']), 0)
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        time.sleep(3)
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'NO-CARRIER')
+        self.assertNotRegex(output, '192.168.0.15/24')
+        self.assertNotRegex(output, '192.168.0.16/24')
+
+    def test_bridge_ignore_carrier_loss(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
+                                             '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
+                                             'bridge99-ignore-carrier-loss.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+        self.assertTrue(self.link_exits('test1'))
+        self.assertTrue(self.link_exits('bridge99'))
+
+        self.assertEqual(subprocess.call(['ip', 'address', 'add', '192.168.0.16/24', 'dev', 'bridge99']), 0)
+        time.sleep(1)
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'test1']), 0)
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        time.sleep(3)
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'NO-CARRIER')
+        self.assertRegex(output, 'inet 192.168.0.15/24 brd 192.168.0.255 scope global bridge99')
+        self.assertRegex(output, 'inet 192.168.0.16/24 scope global secondary bridge99')
 
 class NetworkdNetWorkLLDPTests(unittest.TestCase, Utilities):
     links = ['veth99']
