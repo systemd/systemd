@@ -1798,10 +1798,10 @@ static int run(int argc, char *argv[]) {
 
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
-        if (getppid() == 1) {
-                /* get our own cgroup, we regularly kill everything udev has left behind
-                   we only do this on systemd systems, and only if we are directly spawned
-                   by PID1. otherwise we are not guaranteed to have a dedicated cgroup */
+        if (getppid() == 1 && sd_booted() > 0) {
+                /* Get our own cgroup, we regularly kill everything udev has left behind.
+                 * We only do this on systemd systems, and only if we are directly spawned
+                 * by PID1. Otherwise we are not guaranteed to have a dedicated cgroup. */
                 r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
                 if (r < 0) {
                         if (IN_SET(r, -ENOENT, -ENOMEDIUM))
