@@ -291,7 +291,7 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
                 return -EIO;
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
