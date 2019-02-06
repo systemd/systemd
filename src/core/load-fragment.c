@@ -4254,6 +4254,12 @@ int config_parse_pid_file(
         assert(rvalue);
         assert(u);
 
+        if (isempty(rvalue)) {
+                /* An empty assignment removes already set value. */
+                *s = mfree(*s);
+                return 0;
+        }
+
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
