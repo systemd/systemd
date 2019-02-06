@@ -796,10 +796,8 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate interface");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate interface");
 
         m = NULL;
         return 0;
@@ -837,10 +835,8 @@ static int on_method(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate method");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate method");
 
         m = NULL;
         return 0;
@@ -874,10 +870,8 @@ static int on_signal(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate signal");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate signal");
 
         m = NULL;
         return 0;
@@ -912,10 +906,8 @@ static int on_property(const char *interface, const char *name, const char *sign
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate property");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate property");
 
         m = NULL;
         return 0;
@@ -1196,10 +1188,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         STRV_FOREACH(i, argv+1) {
                 _cleanup_free_ char *m = NULL;
 
-                if (!service_name_is_valid(*i)) {
-                        log_error("Invalid service name '%s'", *i);
-                        return -EINVAL;
-                }
+                if (!service_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name '%s'", *i);
 
                 m = strjoin("sender='", *i, "'");
                 if (!m)
@@ -1979,10 +1969,8 @@ static int call(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return r;
 
-                if (*p) {
-                        log_error("Too many parameters for signature.");
-                        return -EINVAL;
-                }
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
         }
 
         if (!arg_expect_reply) {
@@ -2176,10 +2164,8 @@ static int set_property(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (*p) {
-                log_error("Too many parameters for signature.");
-                return -EINVAL;
-        }
+        if (*p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
