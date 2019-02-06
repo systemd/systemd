@@ -47,6 +47,28 @@ def expectedFailureIfERSPANModuleIsNotAvailable():
 
     return f
 
+def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
+    def f(func):
+        rc = subprocess.call(['ip', 'rule', 'add', 'from', '192.168.100.19', 'sport', '1123-1150', 'dport', '3224-3290', 'table', '7'])
+        if rc == 0:
+            subprocess.call(['ip', 'rule', 'del', 'from', '192.168.100.19', 'sport', '1123-1150', 'dport', '3224-3290', 'table', '7'])
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
+def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
+    def f(func):
+        rc = subprocess.call(['ip', 'rule', 'add', 'not', 'from', '192.168.100.19', 'ipproto', 'tcp', 'table', '7'])
+        if rc == 0:
+            subprocess.call(['ip', 'rule', 'del', 'not', 'from', '192.168.100.19', 'ipproto', 'tcp', 'table', '7'])
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
 
     os.makedirs(network_unit_file_path, exist_ok=True)
@@ -653,6 +675,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
+    @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
         self.start_networkd()
@@ -670,6 +693,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
+    @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
         self.start_networkd()
