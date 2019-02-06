@@ -12,15 +12,19 @@
 #include "conf-files.h"
 #include "def.h"
 #include "device-nodes.h"
+#include "dirent-util.h"
 #include "efivars.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pe-header.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "virt.h"
 
 static void boot_entry_free(BootEntry *entry) {
@@ -265,6 +269,245 @@ static int boot_entries_find(
         return 0;
 }
 
+static int boot_entry_load_unified(
+                const char *root,
+                const char *path,
+                const char *osrelease,
+                const char *cmdline,
+                BootEntry *ret) {
+
+        _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
+        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *k;
+        int r;
+
+        assert(root);
+        assert(path);
+        assert(osrelease);
+
+        k = path_startswith(path, root);
+        if (!k)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not below root: %s", path);
+
+        f = fmemopen((void*) osrelease, strlen(osrelease), "r");
+        if (!f)
+                return log_error_errno(errno, "Failed to open os-release buffer: %m");
+
+        r = parse_env_file(f, "os-release",
+                           "PRETTY_NAME", &os_pretty_name,
+                           "ID", &os_id,
+                           "VERSION_ID", &version_id,
+                           "BUILD_ID", &build_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
+
+        if (!os_pretty_name || !os_id || !(version_id || build_id))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
+
+        tmp.id = strjoin(os_id, "-", version_id ?: build_id);
+        if (!tmp.id)
+                return log_oom();
+
+        tmp.path = strdup(path);
+        if (!tmp.path)
+                return log_oom();
+
+        tmp.root = strdup(root);
+        if (!tmp.root)
+                return log_oom();
+
+        tmp.kernel = strdup(skip_leading_chars(k, "/"));
+        if (!tmp.kernel)
+                return log_oom();
+
+        tmp.options = strv_new(skip_leading_chars(cmdline, WHITESPACE));
+        if (!tmp.options)
+                return log_oom();
+
+        delete_trailing_chars(tmp.options[0], WHITESPACE);
+
+        tmp.title = TAKE_PTR(os_pretty_name);
+
+        *ret = tmp;
+        tmp = (BootEntry) {};
+        return 0;
+}
+
+/* Maximum PE section we are willing to load (Note that sections we are not interested in may be larger, but
+ * the ones we do care about and we are willing to load into memory have this size limit.) */
+#define PE_SECTION_SIZE_MAX (4U*1024U*1024U)
+
+static int find_sections(
+                int fd,
+                char **ret_osrelease,
+                char **ret_cmdline) {
+
+        _cleanup_free_ struct PeSectionHeader *sections = NULL;
+        _cleanup_free_ char *osrelease = NULL, *cmdline = NULL;
+        size_t i, n_sections;
+        struct DosFileHeader dos;
+        struct PeHeader pe;
+        uint64_t start;
+        ssize_t n;
+
+        n = pread(fd, &dos, sizeof(dos), 0);
+        if (n < 0)
+                return log_error_errno(errno, "Failed read DOS header: %m");
+        if (n != sizeof(dos))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading DOS header, refusing.");
+
+        if (dos.Magic[0] != 'M' || dos.Magic[1] != 'Z')
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "DOS executable magic missing, refusing.");
+
+        start = unaligned_read_le32(&dos.ExeHeader);
+        n = pread(fd, &pe, sizeof(pe), start);
+        if (n < 0)
+                return log_error_errno(errno, "Failed to read PE header: %m");
+        if (n != sizeof(pe))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading PE header, refusing.");
+
+        if (pe.Magic[0] != 'P' || pe.Magic[1] != 'E' || pe.Magic[2] != 0 || pe.Magic[3] != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE executable magic missing, refusing.");
+
+        n_sections = unaligned_read_le16(&pe.FileHeader.NumberOfSections);
+        if (n_sections > 96)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PE header has too many sections, refusing.");
+
+        sections = new(struct PeSectionHeader, n_sections);
+        if (!sections)
+                return log_oom();
+
+        n = pread(fd, sections,
+                  n_sections * sizeof(struct PeSectionHeader),
+                  start + sizeof(pe) + unaligned_read_le16(&pe.FileHeader.SizeOfOptionalHeader));
+        if (n < 0)
+                return log_error_errno(errno, "Failed to read section data: %m");
+        if ((size_t) n != n_sections * sizeof(struct PeSectionHeader))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading sections, refusing.");
+
+        for (i = 0; i < n_sections; i++) {
+                _cleanup_free_ char *k = NULL;
+                uint32_t offset, size;
+                char **b;
+
+                if (strneq((char*) sections[i].Name, ".osrel", sizeof(sections[i].Name)))
+                        b = &osrelease;
+                else if (strneq((char*) sections[i].Name, ".cmdline", sizeof(sections[i].Name)))
+                        b = &cmdline;
+                else
+                        continue;
+
+                if (*b)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate section %s, refusing.", sections[i].Name);
+
+                offset = unaligned_read_le32(&sections[i].PointerToRawData);
+                size = unaligned_read_le32(&sections[i].VirtualSize);
+
+                if (size > PE_SECTION_SIZE_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section %s too large, refusing.", sections[i].Name);
+
+                k = new(char, size+1);
+                if (!k)
+                        return log_oom();
+
+                n = pread(fd, k, size, offset);
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to read section payload: %m");
+                if (n != size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading section payload, refusing:");
+
+                /* Allow one trailing NUL byte, but nothing more. */
+                if (size > 0 && memchr(k, 0, size - 1))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Section contains embedded NUL byte: %m");
+
+                k[size] = 0;
+                *b = TAKE_PTR(k);
+        }
+
+        if (!osrelease)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Image lacks .osrel section, refusing.");
+
+        if (ret_osrelease)
+                *ret_osrelease = TAKE_PTR(osrelease);
+        if (ret_cmdline)
+                *ret_cmdline = TAKE_PTR(cmdline);
+
+        return 0;
+}
+
+static int boot_entries_find_unified(
+                const char *root,
+                const char *dir,
+                BootEntry **entries,
+                size_t *n_entries) {
+
+        _cleanup_(closedirp) DIR *d = NULL;
+        size_t n_allocated = *n_entries;
+        bool added = false;
+        struct dirent *de;
+        int r;
+
+        assert(root);
+        assert(dir);
+        assert(entries);
+        assert(n_entries);
+
+        d = opendir(dir);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open %s: %m", dir);
+        }
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", dir)) {
+                _cleanup_free_ char *j = NULL, *osrelease = NULL, *cmdline = NULL;
+                _cleanup_close_ int fd = -1;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".efi"))
+                        continue;
+
+                if (!GREEDY_REALLOC0(*entries, n_allocated, *n_entries + 1))
+                        return log_oom();
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = fd_verify_regular(fd);
+                if (r < 0) {
+                        log_warning_errno(errno, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
+                        continue;
+                }
+
+                r = find_sections(fd, &osrelease, &cmdline);
+                if (r < 0)
+                        continue;
+
+                j = path_join(dir, de->d_name);
+                if (!j)
+                        return log_oom();
+
+                r = boot_entry_load_unified(root, j, osrelease, cmdline, *entries + *n_entries);
+                if (r < 0)
+                        continue;
+
+                (*n_entries) ++;
+                added = true;
+        }
+
+        if (added)
+                typesafe_qsort(*entries, *n_entries, boot_entry_compare);
+
+        return 0;
+}
+
 static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
         size_t i, j;
         bool non_unique = false;
@@ -392,11 +635,21 @@ int boot_entries_load_config(
                 r = boot_entries_find(esp_path, p, &config->entries, &config->n_entries);
                 if (r < 0)
                         return r;
+
+                p = strjoina(esp_path, "/EFI/Linux/");
+                r = boot_entries_find_unified(esp_path, p, &config->entries, &config->n_entries);
+                if (r < 0)
+                        return r;
         }
 
         if (xbootldr_path) {
                 p = strjoina(xbootldr_path, "/loader/entries");
                 r = boot_entries_find(xbootldr_path, p, &config->entries, &config->n_entries);
+                if (r < 0)
+                        return r;
+
+                p = strjoina(xbootldr_path, "/EFI/Linux/");
+                r = boot_entries_find_unified(xbootldr_path, p, &config->entries, &config->n_entries);
                 if (r < 0)
                         return r;
         }
