@@ -583,7 +583,7 @@ static int install_binaries(const char *esp_path, bool force) {
         if (!d)
                 return log_error_errno(errno, "Failed to open \""BOOTLIBDIR"\": %m");
 
-        FOREACH_DIRENT(de, d, break) {
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read \""BOOTLIBDIR"\": %m")) {
                 int k;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
