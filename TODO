@@ -1114,3 +1114,5 @@ Regularly:
 * use secure_getenv() instead of getenv() where appropriate
 
 * link up selected blog stories from man pages and unit files Documentation= fields
+String is not UTF-8 clean, ignoring assignment
+ timedatex.service: Consumed 26ms CPU time.

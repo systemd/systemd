@@ -139,11 +139,11 @@ static void test_container_of(void) {
                 uint64_t v1;
                 uint8_t pad2[2];
                 uint32_t v2;
-        } _packed_ myval = { };
+        } myval = { };
 
         log_info("/* %s */", __func__);
 
-        assert_cc(sizeof(myval) == 17);
+        assert_cc(sizeof(myval) >= 17);
         assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
         assert_se(container_of(&myval.v2, struct mytype, v2) == &myval);
         assert_se(container_of(&container_of(&myval.v2,

@@ -929,7 +929,8 @@ tests += [
 
         [['src/libsystemd/sd-resolve/test-resolve.c'],
          [],
-         [threads]],
+         [threads],
+         '', 'timeout=120'],
 
         [['src/libsystemd/sd-login/test-login.c'],
          [],

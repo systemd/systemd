@@ -1178,7 +1178,6 @@ int dissected_image_decrypt_interactively(
 
 #if HAVE_LIBCRYPTSETUP
 static int deferred_remove(DecryptedPartition *p) {
-
         struct dm_ioctl dm = {
                 .version = {
                         DM_VERSION_MAJOR,
@@ -1198,6 +1197,9 @@ static int deferred_remove(DecryptedPartition *p) {
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
+
+        if (strlen(p->name) > sizeof(dm.name))
+                return -ENAMETOOLONG;
 
         strncpy(dm.name, p->name, sizeof(dm.name));
 
