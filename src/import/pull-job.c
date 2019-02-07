@@ -537,7 +537,7 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
         assert(ret);
 
         u = strdup(url);
-        if (u)
+        if (!u)
                 return -ENOMEM;
 
         j = new(PullJob, 1);
