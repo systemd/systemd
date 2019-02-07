@@ -578,10 +578,13 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
+        if (pipe2(p, O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
+        r = fd_nonblock(p[0], true);
+        if (r < 0)
+                goto fail;
 
         xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
