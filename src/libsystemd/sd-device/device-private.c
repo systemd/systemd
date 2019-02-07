@@ -712,13 +712,13 @@ int device_copy_properties(sd_device *device_dst, sd_device *device_src) {
         if (r < 0)
                 return r;
 
-        ORDERED_HASHMAP_FOREACH_KEY(property, value, device_src->properties_db, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties_db, i) {
                 r = device_add_property_aux(device_dst, property, value, true);
                 if (r < 0)
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH_KEY(property, value, device_src->properties, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(value, property, device_src->properties, i) {
                 r = device_add_property_aux(device_dst, property, value, false);
                 if (r < 0)
                         return r;
