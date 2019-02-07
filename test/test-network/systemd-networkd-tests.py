@@ -548,6 +548,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     links = [
         'bond199',
         'dummy98',
+        'dummy99',
         'test1']
 
     units = [
@@ -560,6 +561,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-address-link-section.network',
         '25-address-section-miscellaneous.network',
         '25-address-section.network',
+        '25-bind-carrier.network',
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
         '25-fibrule-port-range.network',
@@ -936,6 +938,64 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'proxy_ndp'), '1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
+
+    def test_bind_carrier(self):
+        self.copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
+        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        time.sleep(2)
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy99', 'type', 'dummy']), 0)
+        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy99', 'up']), 0)
+        time.sleep(2)
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+        time.sleep(2)
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy99']), 0)
+        time.sleep(2)
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertNotRegex(output, 'UP,LOWER_UP')
+        self.assertRegex(output, 'DOWN')
+        self.assertNotRegex(output, '192.168.10')
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: off \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
+        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
+        time.sleep(2)
+        output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+        self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
 
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
