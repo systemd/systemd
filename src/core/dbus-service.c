@@ -320,29 +320,35 @@ static int bus_service_set_transient_property(
                 if (r < 0)
                         return r;
 
-                n = path_make_absolute(v, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
-                if (!n)
-                        return -ENOMEM;
+                if (!isempty(v)) {
+                        n = path_make_absolute(v, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+                        if (!n)
+                                return -ENOMEM;
 
-                path_simplify(n, true);
+                        path_simplify(n, true);
 
-                if (!path_is_normalized(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
+                        if (!path_is_normalized(n))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
 
-                e = path_startswith(n, "/var/run/");
-                if (e) {
-                        char *z;
+                        e = path_startswith(n, "/var/run/");
+                        if (e) {
+                                char *z;
 
-                        z = strjoin("/run/", e);
-                        if (!z)
-                                return log_oom();
+                                z = strjoin("/run/", e);
+                                if (!z)
+                                        return log_oom();
 
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                                log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
+                                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                                        log_unit_notice(u, "Transient unit's PIDFile= property references path below legacy directory /var/run, updating %s → %s; please update client accordingly.", n, z);
 
-                        free_and_replace(s->pid_file, z);
-                } else
+                                free_and_replace(n, z);
+                        }
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         free_and_replace(s->pid_file, n);
+                        unit_write_settingf(u, flags, name, "%s=%s", name, strempty(s->pid_file));
+                }
 
                 return 1;
         }
