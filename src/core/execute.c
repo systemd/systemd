@@ -2841,12 +2841,13 @@ static int exec_child(
                 int user_lookup_fd,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
+        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **replaced_argv = NULL;
         int *fds_with_exec_fd, n_fds_with_exec_fd, r, ngids = 0, exec_fd = -1;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL;
         const char *home = NULL, *shell = NULL;
+        char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
@@ -3582,11 +3583,15 @@ static int exec_child(
                 strv_free_and_replace(accum_env, ee);
         }
 
-        final_argv = replace_env_argv(command->argv, accum_env);
-        if (!final_argv) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
+        if (!FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
+                replaced_argv = replace_env_argv(command->argv, accum_env);
+                if (!replaced_argv) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_oom();
+                }
+                final_argv = replaced_argv;
+        } else
+                final_argv = command->argv;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line;

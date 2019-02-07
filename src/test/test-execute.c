@@ -494,6 +494,7 @@ static void test_exec_dynamicuser(Manager *m) {
 }
 
 static void test_exec_environment(Manager *m) {
+        test(m, "exec-environment-no-substitute.service", 0, CLD_EXITED);
         test(m, "exec-environment.service", 0, CLD_EXITED);
         test(m, "exec-environment-multiple.service", 0, CLD_EXITED);
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);

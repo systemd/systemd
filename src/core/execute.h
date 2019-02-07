@@ -91,6 +91,7 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
         EXEC_COMMAND_NO_SETUID        = 1 << 2,
         EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
+        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
 } ExecCommandFlags;
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
