@@ -55,6 +55,7 @@ test_data_files = '''
         test-execute/exec-dynamicuser-statedir-migrate-step2.service
         test-execute/exec-dynamicuser-statedir.service
         test-execute/exec-dynamicuser-supplementarygroups.service
+        test-execute/exec-environment-no-substitute.service
         test-execute/exec-environment-empty.service
         test-execute/exec-environment-multiple.service
         test-execute/exec-environment.service

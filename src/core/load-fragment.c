@@ -561,7 +561,8 @@ int config_parse_exec(
                 for (;;) {
                         /* We accept an absolute path as first argument.  If it's prefixed with - and the path doesn't
                          * exist, we ignore it instead of erroring out; if it's prefixed with @, we allow overriding of
-                         * argv[0]; if it's prefixed with +, it will be run with full privileges and no sandboxing; if
+                         * argv[0]; if it's prefixed with :, we will not do environment variable substitution;
+                         * if it's prefixed with +, it will be run with full privileges and no sandboxing; if
                          * it's prefixed with '!' we apply sandboxing, but do not change user/group credentials; if
                          * it's prefixed with '!!', then we apply user/group credentials if the kernel supports ambient
                          * capabilities -- if it doesn't we don't apply the credentials themselves, but do apply most
@@ -576,6 +577,8 @@ int config_parse_exec(
                                 ignore = true;
                         } else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
+                        else if (*f == ':' && !(flags & EXEC_COMMAND_NO_ENV_EXPAND))
+                                flags |= EXEC_COMMAND_NO_ENV_EXPAND;
                         else if (*f == '+' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
                                 flags |= EXEC_COMMAND_FULLY_PRIVILEGED;
                         else if (*f == '!' && !(flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID|EXEC_COMMAND_AMBIENT_MAGIC)))
