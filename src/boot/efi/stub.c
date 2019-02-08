@@ -92,7 +92,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
         /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
-        if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = DevicePathToStr(loaded_image->FilePath);
@@ -100,7 +100,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
@@ -108,7 +108,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
@@ -116,7 +116,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* add StubInfo */
-        if (efivar_get_raw(&global_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
+        if (efivar_get_raw(&loader_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
                 efivar_set(L"StubInfo", L"systemd-stub " GIT_VERSION, FALSE);
 
         if (szs[3] > 0)
