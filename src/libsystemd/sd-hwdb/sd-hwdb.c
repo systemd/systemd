@@ -240,7 +240,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                 size_t p = 0;
 
                 if (node->prefix_off) {
-                        uint8_t c;
+                        char c;
 
                         for (; (c = trie_string(hwdb, node->prefix_off)[p]); p++) {
                                 if (IN_SET(c, '*', '?', '['))
