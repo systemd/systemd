@@ -145,6 +145,7 @@ static enum action {
         ACTION_EXIT,
         ACTION_SUSPEND,
         ACTION_HIBERNATE,
+        ACTION_HIBERNATE_THEN_REBOOT,
         ACTION_HYBRID_SLEEP,
         ACTION_SUSPEND_THEN_HIBERNATE,
         ACTION_RUNLEVEL2,
@@ -3072,6 +3073,7 @@ static const struct {
         [ACTION_EXIT]                 = { SPECIAL_EXIT_TARGET,                     "exit",                   "replace-irreversibly" },
         [ACTION_SUSPEND]              = { SPECIAL_SUSPEND_TARGET,                  "suspend",                "replace-irreversibly" },
         [ACTION_HIBERNATE]            = { SPECIAL_HIBERNATE_TARGET,                "hibernate",              "replace-irreversibly" },
+        [ACTION_HIBERNATE_THEN_REBOOT]= { SPECIAL_HIBERNATE_THEN_REBOOT_TARGET,    "hibernate-then-reboot",  "replace-irreversibly" },
         [ACTION_HYBRID_SLEEP]         = { SPECIAL_HYBRID_SLEEP_TARGET,             "hybrid-sleep",           "replace-irreversibly" },
         [ACTION_SUSPEND_THEN_HIBERNATE] = { SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET, "suspend-then-hibernate", "replace-irreversibly" },
 };
@@ -3308,6 +3310,11 @@ static int logind_reboot(enum action a) {
         case ACTION_HIBERNATE:
                 method = "Hibernate";
                 description = "hibernate system";
+                break;
+
+        case ACTION_HIBERNATE_THEN_REBOOT:
+                method = "HibernateThenReboot";
+                description = "hibernate and reboot system";
                 break;
 
         case ACTION_HYBRID_SLEEP:
@@ -3679,6 +3686,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                            ACTION_HALT,
                            ACTION_SUSPEND,
                            ACTION_HIBERNATE,
+                           ACTION_HIBERNATE_THEN_REBOOT,
                            ACTION_HYBRID_SLEEP,
                            ACTION_SUSPEND_THEN_HIBERNATE)) {
 
@@ -7314,6 +7322,7 @@ static int systemctl_help(void) {
                "  switch-root ROOT [INIT]             Change to a different root file system\n"
                "  suspend                             Suspend the system\n"
                "  hibernate                           Hibernate the system\n"
+               "  hibernate-then-reboot               Hibernate and reboot the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
                "                                      time and put it into hibernate\n"
@@ -8454,6 +8463,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "hibernate-then-reboot", VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "suspend-then-hibernate",VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_special        },
@@ -8793,6 +8803,7 @@ static int run(int argc, char *argv[]) {
         case ACTION_EXIT:
         case ACTION_SUSPEND:
         case ACTION_HIBERNATE:
+        case ACTION_HIBERNATE_THEN_REBOOT:
         case ACTION_HYBRID_SLEEP:
         case ACTION_SUSPEND_THEN_HIBERNATE:
         case ACTION_EMERGENCY:

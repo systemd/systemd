@@ -292,6 +292,7 @@ static int help(void) {
                "\nCommands:\n"
                "  suspend                Suspend the system\n"
                "  hibernate              Hibernate the system\n"
+               "  hibernate-then-reboot  Hibernate the system and reboots it\n"
                "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
                "                         the system after a fixed period of time\n"
@@ -341,7 +342,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_verb = argv[optind];
 
-        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate"))
+        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate", "hibernate-then-reboot"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Unknown command '%s'.", arg_verb);
 

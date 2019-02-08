@@ -28,12 +28,13 @@
 #include "strv.h"
 
 int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, char ***ret_states, usec_t *ret_delay) {
-        int allow_suspend = -1, allow_hibernate = -1,
+        int allow_suspend = -1, allow_hibernate = -1, allow_hibernate_then_reboot = -1,
             allow_s2h = -1, allow_hybrid_sleep = -1;
         bool allow;
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
+                **hibernate_then_reboot_mode = NULL, **hibernate_then_reboot_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
         _cleanup_strv_free_ char **modes, **states; /* always initialized below */
         usec_t delay = 180 * USEC_PER_MINUTE;
@@ -41,6 +42,7 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
         const ConfigTableItem items[] = {
                 { "Sleep", "AllowSuspend",              config_parse_tristate, 0, &allow_suspend },
                 { "Sleep", "AllowHibernation",          config_parse_tristate, 0, &allow_hibernate },
+                { "Sleep", "AllowHibernateThenReboot",	config_parse_tristate, 0, &allow_hibernate_then_reboot },
                 { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h },
                 { "Sleep", "AllowHybridSleep",          config_parse_tristate, 0, &allow_hybrid_sleep },
 
@@ -48,6 +50,8 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 { "Sleep", "SuspendState",              config_parse_strv, 0, &suspend_state },
                 { "Sleep", "HibernateMode",             config_parse_strv, 0, &hibernate_mode  },
                 { "Sleep", "HibernateState",            config_parse_strv, 0, &hibernate_state },
+                { "Sleep", "HibernateRebootMode",		config_parse_strv, 0, &hibernate_then_reboot_mode },
+                { "Sleep", "HibernateRebootState",		config_parse_strv, 0, &hibernate_then_reboot_state },
                 { "Sleep", "HybridSleepMode",           config_parse_strv, 0, &hybrid_mode  },
                 { "Sleep", "HybridSleepState",          config_parse_strv, 0, &hybrid_state },
 
@@ -84,6 +88,19 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 else
                         states = strv_new("disk");
 
+        } else if (streq(verb, "hibernate-then-reboot")) {
+                allow = allow_hibernate_then_reboot != 0;
+
+                if (hibernate_then_reboot_mode)
+                        modes = TAKE_PTR(hibernate_then_reboot_mode);
+                else
+                        modes = strv_new("reboot");
+
+                if (hibernate_then_reboot_state)
+                        states = TAKE_PTR(hibernate_then_reboot_state);
+                else
+                        states = strv_new("disk");
+
         } else if (streq(verb, "hybrid-sleep")) {
                 allow = allow_hybrid_sleep > 0 ||
                         (allow_suspend != 0 && allow_hibernate != 0);
@@ -106,7 +123,7 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
         } else
                 assert_not_reached("what verb");
 
-        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
+        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep", "hibernate-then-reboot")) ||
             (!states && !streq(verb, "suspend-then-hibernate")))
                 return log_oom();
 

@@ -17,6 +17,7 @@
     "reload-or-restart:Reload one or more units if possible, otherwise start or restart"
     "force-reload:Reload one or more units if possible, otherwise restart if active"
     "hibernate:Hibernate the system"
+    "hibernate-then-reboot:Hibernate and reboot the system"
     "hybrid-sleep:Hibernate and suspend the system"
     "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
     "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"

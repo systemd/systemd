@@ -17,6 +17,7 @@
 #define SPECIAL_EXIT_TARGET "exit.target"
 #define SPECIAL_SUSPEND_TARGET "suspend.target"
 #define SPECIAL_HIBERNATE_TARGET "hibernate.target"
+#define SPECIAL_HIBERNATE_THEN_REBOOT_TARGET "hibernate-then-reboot.target"
 #define SPECIAL_HYBRID_SLEEP_TARGET "hybrid-sleep.target"
 #define SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET "suspend-then-hibernate.target"
 
