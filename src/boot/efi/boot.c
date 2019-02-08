@@ -2310,7 +2310,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir) {
-                Print(L"Unable to open root directory: %r ", err);
+                Print(L"Unable to open root directory.");
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return EFI_LOAD_ERROR;
         }
