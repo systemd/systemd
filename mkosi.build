@@ -95,3 +95,7 @@ EOF
 mkdir -p "$DESTDIR"/boot/efi/EFI/systemd "$DESTDIR"/boot/efi/EFI/BOOT
 cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/boot/efi/EFI/systemd/systemd-bootx64.efi
 cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/boot/efi/EFI/BOOT/bootx64.efi
+
+mkdir -p "$DESTDIR"/efi/EFI/systemd "$DESTDIR"/efi/EFI/BOOT
+cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/efi/EFI/systemd/systemd-bootx64.efi
+cp "$DESTDIR"/usr/lib/systemd/boot/efi/systemd-bootx64.efi "$DESTDIR"/efi/EFI/BOOT/bootx64.efi
