@@ -874,11 +874,17 @@ static int verify_fsroot_dir(
                 dev_t *ret_dev) {
 
         struct stat st, st2;
-        const char *t2;
+        const char *t2, *trigger;
         int r;
 
         assert(path);
         assert(ret_dev);
+
+        /* So, the ESP and XBOOTLDR partition are commonly located on an autofs mount. stat() on the
+         * directory won't trigger it, if it is not mounted yet. Let's hence explicitly trigger it here,
+         * before stat()ing */
+        trigger = strjoina(path, "/trigger"); /* Filename doesn't matter... */
+        (void) access(trigger, F_OK);
 
         if (stat(path, &st) < 0)
                 return log_full_errno((searching && errno == ENOENT) ||
