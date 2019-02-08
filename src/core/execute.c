@@ -1410,7 +1410,8 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->private_devices ||
                 context_has_syscall_filters(c) ||
                 !set_isempty(c->syscall_archs) ||
-                c->lock_personality;
+                c->lock_personality ||
+                c->protect_hostname;
 }
 
 #if HAVE_SECCOMP
@@ -2420,6 +2421,7 @@ static int apply_mount_namespace(
                         .protect_control_groups = context->protect_control_groups,
                         .protect_kernel_tunables = context->protect_kernel_tunables,
                         .protect_kernel_modules = context->protect_kernel_modules,
+                        .protect_hostname = context->protect_hostname,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
                 };
@@ -3284,6 +3286,23 @@ static int exec_child(
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing: %m");
                 }
+        }
+
+        if (context->protect_hostname) {
+                if (ns_type_supported(NAMESPACE_UTS)) {
+                        if (unshare(CLONE_NEWUTS) < 0) {
+                                *exit_status = EXIT_NAMESPACE;
+                                return log_unit_error_errno(unit, errno, "Failed to set up UTS namespacing: %m");
+                        }
+                } else
+                        log_unit_warning(unit, "ProtectHostname=yes is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.");
+#if HAVE_SECCOMP
+                r = seccomp_protect_hostname();
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply hostname restrictions: %m");
+                }
+#endif
         }
 
         /* Drop groups as early as possbile */
@@ -4163,7 +4182,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n"
-                "%sKeyringMode: %s\n",
+                "%sKeyringMode: %s\n"
+                "%sProtectHostname: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -4181,7 +4201,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime),
-                prefix, exec_keyring_mode_to_string(c->keyring_mode));
+                prefix, exec_keyring_mode_to_string(c->keyring_mode),
+                prefix, yes_no(c->protect_hostname));
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
