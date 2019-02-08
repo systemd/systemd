@@ -1316,7 +1316,7 @@ static VOID config_entry_add_from_file(
                         entry->loader = stra_to_path(value);
 
                         /* do not add an entry for ourselves */
-                        if (StriCmp(entry->loader, loaded_image_path) == 0) {
+                        if (loaded_image_path && StriCmp(entry->loader, loaded_image_path) == 0) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
