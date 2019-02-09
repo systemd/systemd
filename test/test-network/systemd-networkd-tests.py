@@ -9,7 +9,6 @@ import signal
 import socket
 import subprocess
 import sys
-import threading
 import time
 import unittest
 from shutil import copytree
@@ -132,8 +131,9 @@ class Utilities():
                 if (os.path.exists(os.path.join(network_unit_file_path, unit + '.d'))):
                     shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
-    def start_dnsmasq(self):
-        subprocess.check_call('dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20 --dhcp-range=192.168.5.10,192.168.5.200 -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0', shell=True)
+    def start_dnsmasq(self, additional_options=''):
+        dnsmasq_command = 'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range=2600::10,2600::20 --dhcp-range=192.168.5.10,192.168.5.200 -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+        subprocess.check_call(dnsmasq_command, shell=True)
 
         time.sleep(10)
 
@@ -175,33 +175,6 @@ class Utilities():
             subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
         print()
-
-global ip
-global port
-
-class DHCPServer(threading.Thread):
-    def __init__(self, name):
-        threading.Thread.__init__(self)
-        self.name = name
-
-    def run(self):
-        self.start_dhcp_server()
-
-    def start_dhcp_server(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        server_address = ('0.0.0.0', 67)
-        sock.bind(server_address)
-
-        print('Starting DHCP Server ...\n')
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-
-        global ip
-        ip = addr[0]
-
-        global port
-        port = addr[1]
-        sock.close()
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
@@ -1204,21 +1177,15 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_listen_port(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-listen-port.network')
-
-        dh_server = DHCPServer("dhcp_server")
-        dh_server.start()
-
         self.start_networkd()
 
         self.assertTrue(self.link_exits('veth99'))
 
-        global port
-        global ip
+        self.start_dnsmasq('--dhcp-alternate-port=67,5555')
 
-        self.assertRegex(str(port), '5555')
-        self.assertRegex(str(ip), '0.0.0.0')
-
-        dh_server.join()
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '192.168.5.* dynamic')
 
     def test_dhcp_route_table_id(self):
         self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-table.network')
