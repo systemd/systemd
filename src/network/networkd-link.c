@@ -117,7 +117,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bridge)
+        if (link->network->bridge || link->network->bond)
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -879,7 +879,7 @@ void link_check_ready(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (!link->network->bridge) {
+        if (!link->network->bridge && !link->network->bond) {
 
                 if (link_ipv6ll_enabled(link))
                         if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0)
