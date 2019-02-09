@@ -1,0 +1,6 @@
+[Match]
+Name=bond99
+
+[Network]
+VLAN=vlan6
+IPv6AcceptRA=false

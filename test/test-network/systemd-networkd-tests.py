@@ -902,6 +902,71 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
 
+class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
+    links = [
+        'bond99',
+        'veth99',
+        'vlan6']
+
+    units = [
+        '25-bond.netdev',
+        '25-veth.netdev',
+        'bond99.network',
+        'dhcp-server.network',
+        'veth-bond.network',
+        'vlan6.netdev',
+        'vlan6.network']
+
+    def setUp(self):
+        self.link_remove(self.links)
+
+    def tearDown(self):
+        self.link_remove(self.links)
+        self.remove_unit_from_networkd_path(self.units)
+
+    def test_bridge_property(self):
+        self.copy_unit_to_networkd_unit_path('25-bond.netdev', '25-veth.netdev', 'bond99.network',
+                                             'dhcp-server.network', 'veth-bond.network',
+                                             'vlan6.netdev', 'vlan6.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('bond99'))
+        self.assertTrue(self.link_exits('veth99'))
+        self.assertTrue(self.link_exits('veth-peer'))
+        self.assertTrue(self.link_exits('vlan6'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth-peer']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'SLAVE,UP,LOWER_UP')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'MASTER,UP,LOWER_UP')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan6']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth-peer']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: carrier \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: degraded \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'vlan6']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
         'bridge99',
