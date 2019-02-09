@@ -1535,7 +1535,26 @@ static int link_set_bridge(Link *link) {
         return r;
 }
 
-static int link_bond_set(Link *link) {
+static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Could not set bonding interface: %m");
+                return 1;
+        }
+
+        return 1;
+}
+
+static int link_set_bond(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -1578,7 +1597,7 @@ static int link_bond_set(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_INFO_DATA attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, set_flags_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bond_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
@@ -2389,7 +2408,7 @@ static int link_joined(Link *link) {
         }
 
         if (link->network->bond) {
-                r = link_bond_set(link);
+                r = link_set_bond(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
         }
