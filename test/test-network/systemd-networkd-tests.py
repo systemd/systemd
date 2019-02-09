@@ -1009,6 +1009,80 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
         self.assertRegex(output, 'State: routable \(configured\)')
 
+class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
+    links = [
+        'bond99',
+        'veth99']
+
+    units = [
+        '25-bond.netdev',
+        '25-veth.netdev',
+        'bond99.network',
+        'dhcp-server.network',
+        'veth-bond.network']
+
+    def setUp(self):
+        self.link_remove(self.links)
+
+    def tearDown(self):
+        self.link_remove(self.links)
+        self.remove_unit_from_networkd_path(self.units)
+
+    def test_bridge_property(self):
+        self.copy_unit_to_networkd_unit_path('25-bond.netdev', '25-veth.netdev', 'bond99.network',
+                                             'dhcp-server.network', 'veth-bond.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('bond99'))
+        self.assertTrue(self.link_exits('veth99'))
+        self.assertTrue(self.link_exits('veth-peer'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth-peer']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'UP,LOWER_UP')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'SLAVE,UP,LOWER_UP')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'MASTER,UP,LOWER_UP')
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth-peer']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: enslaved \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'veth99', 'down']), 0)
+        time.sleep(2)
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: off \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: degraded \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'set', 'veth99', 'up']), 0)
+        time.sleep(2)
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: enslaved \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
+
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
         'bridge99',
