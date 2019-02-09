@@ -51,6 +51,9 @@ static bool link_dhcp6_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (link->network->bond)
+                return false;
+
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
 }
 
@@ -63,6 +66,9 @@ static bool link_dhcp4_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (link->network->bond)
+                return false;
+
         return link->network->dhcp & ADDRESS_FAMILY_IPV4;
 }
 
@@ -73,6 +79,9 @@ static bool link_dhcp4_server_enabled(Link *link) {
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (link->network->bond)
                 return false;
 
         return link->network->dhcp_server;
@@ -88,6 +97,9 @@ static bool link_ipv4ll_enabled(Link *link) {
                 return false;
 
         if (streq_ptr(link->kind, "wireguard"))
+                return false;
+
+        if (link->network->bond)
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
@@ -108,6 +120,9 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (streq_ptr(link->kind, "wireguard"))
                 return false;
 
+        if (link->network->bond)
+                return false;
+
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
@@ -117,7 +132,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bridge)
+        if (link->network->bridge || link->network->bond)
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
