@@ -282,6 +282,7 @@ static void test_build(void) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
+        const char* arr_1234[] = {"one", "two", "three", "four", NULL};
         assert_se(json_build(&a, JSON_BUILD_ARRAY(JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
                                                                     JSON_BUILD_PAIR("y", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("this", JSON_BUILD_NULL)))),
                                                   JSON_BUILD_VARIANT(NULL),
@@ -289,8 +290,9 @@ static void test_build(void) {
                                                   JSON_BUILD_STRING(NULL),
                                                   JSON_BUILD_NULL,
                                                   JSON_BUILD_INTEGER(77),
-                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")), JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
-                                                  JSON_BUILD_STRV(STRV_MAKE("one", "two", "three", "four")))) >= 0);
+                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")),
+                                                                   JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
+                                                  JSON_BUILD_STRV((char**) arr_1234))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
