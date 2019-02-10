@@ -619,11 +619,12 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6AcceptRA=</varname></term>
-          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the interface.
-          If true, RAs are accepted; if false, RAs are ignored, independently of the local forwarding state.
-          If unset, the kernel's default is used, and RAs are accepted only when local forwarding
-          is disabled for that interface.  When RAs are accepted, they may trigger the start of the DHCPv6 client if
-          the relevant flags are set in the RA data, or if no routers are found on the link.</para>
+          <listitem><para>Takes a boolean or the special value <literal>kernel</literal>. Controls IPv6 Router
+          Advertisement (RA) reception support for the interface. If true, RAs are accepted; if false, RAs are ignored,
+          independently of the local forwarding state. If unset, the kernel's default is used, and RAs are accepted only
+          when local forwarding is disabled for that interface. When RAs are accepted, they may trigger the start of the
+          DHCPv6 client if the relevant flags are set in the RA data, or if no routers are found on the link. If set to
+          <literal>kernel</literal> then networkd no more handles router advertisements, tells the kernel to handle itself.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>

@@ -68,7 +68,7 @@ Network.NTP,                            config_parse_ntp,                       
 Network.IPForward,                      config_parse_address_family_boolean_with_kernel,0,                             offsetof(Network, ip_forward)
 Network.IPMasquerade,                   config_parse_bool,                              0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,          config_parse_ipv6_privacy_extensions,           0,                             offsetof(Network, ipv6_privacy_extensions)
-Network.IPv6AcceptRA,                   config_parse_tristate,                          0,                             offsetof(Network, ipv6_accept_ra)
+Network.IPv6AcceptRA,                   config_parse_ipv6_accept_ra,                    0,                             offsetof(Network, ipv6_accept_ra)
 Network.IPv6AcceptRouterAdvertisements, config_parse_tristate,                          0,                             offsetof(Network, ipv6_accept_ra)
 Network.IPv6DuplicateAddressDetection,  config_parse_int,                               0,                             offsetof(Network, ipv6_dad_transmits)
 Network.IPv6HopLimit,                   config_parse_int,                               0,                             offsetof(Network, ipv6_hop_limit)

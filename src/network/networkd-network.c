@@ -196,7 +196,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .link_local = ADDRESS_FAMILY_IPV6,
 
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
-                .ipv6_accept_ra = -1,
+                .ipv6_accept_ra = _IPV6_ACCEPT_RA_INVALID,
                 .ipv6_dad_transmits = -1,
                 .ipv6_hop_limit = -1,
                 .ipv6_proxy_ndp = -1,
@@ -928,6 +928,15 @@ int config_parse_ipv6_privacy_extensions(
 
         return 0;
 }
+
+static const char* const ipv6_accept_ra_table[_IPV6_ACCEPT_RA_MAX] = {
+        [IPV6_ACCEPT_RA_NO] = "no",
+        [IPV6_ACCEPT_RA_YES] = "yes",
+        [IPV6_ACCEPT_RA_KERNEL] = "kernel",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_accept_ra, IPv6AcceptRA, IPV6_ACCEPT_RA_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_accept_ra, ipv6_accept_ra, IPv6AcceptRA, "Failed to parse IPv6 accept RA setting");
 
 int config_parse_hostname(
                 const char *unit,

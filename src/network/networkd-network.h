@@ -49,6 +49,14 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
 } IPv6PrivacyExtensions;
 
+typedef enum IPv6AcceptRA {
+        IPV6_ACCEPT_RA_NO,     /* IPv6RA not handled by kernel or networkd */
+        IPV6_ACCEPT_RA_YES,    /* IPV6RA is handled by networkd */
+        IPV6_ACCEPT_RA_KERNEL, /* IPV6RA is handled by kernel */
+        _IPV6_ACCEPT_RA_MAX,
+        _IPV6_ACCEPT_RA_INVALID = -1,
+} IPv6AcceptRA;
+
 typedef enum DHCPUseDomains {
         DHCP_USE_DOMAINS_NO,
         DHCP_USE_DOMAINS_YES,
@@ -299,6 +307,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6token);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_dns);
@@ -324,6 +333,9 @@ int network_object_find(sd_bus *bus, const char *path, const char *interface, vo
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
+
+const char* ipv6_accept_ra_to_string(IPv6AcceptRA i) _const_;
+IPv6AcceptRA ipv6_accept_ra_from_string(const char *s) _pure_;
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;

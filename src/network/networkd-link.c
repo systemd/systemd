@@ -239,12 +239,9 @@ static bool link_ipv6_accept_ra_enabled(Link *link) {
         if (link->network->ipv6_accept_ra < 0)
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
                 return !link_ipv6_forward_enabled(link);
-        else if (link->network->ipv6_accept_ra > 0)
-                /* accept RA even if ip_forward is enabled */
-                return true;
-        else
-                /* ignore RA */
-                return false;
+
+        /* If explicitly specified, then use it even if ip_forward is enabled. */
+        return link->network->ipv6_accept_ra == IPV6_ACCEPT_RA_YES;
 }
 
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
@@ -2546,11 +2543,11 @@ static int link_set_ipv6_accept_ra(Link *link) {
                 return 0;
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
-
-        /* We handle router advertisements ourselves, tell the kernel to GTFO */
-        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(p,
+                              link->network->ipv6_accept_ra == IPV6_ACCEPT_RA_KERNEL ? "1" : "0",
+                              WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
+                log_link_warning_errno(link, r, "Cannot configure kernel IPv6 accept ra for interface: %m");
 
         return 0;
 }
