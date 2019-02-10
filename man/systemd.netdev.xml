@@ -287,15 +287,15 @@
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The MAC address to use for the device. If none is
-            given, one is generated based on the interface name and
-            the
-            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            For <literal>tun</literal> or <literal>tap</literal> devices, <varname>MACAddress=</varname> setting
-            is not currently supported in <literal>[NetDev]</literal> section. Please specify it in
-            <literal>[Link]</literal> section of corresponding
+            <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
+            devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
+            supported. Please specify it in <literal>[Link]</literal> section of the corresponding
             <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            files.</para>
+            file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
+            physical interface. For other kind of netdevs, if this option is not set, then MAC address is
+            generated based on the interface name and the
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
       </variablelist>
