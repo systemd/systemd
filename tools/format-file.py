@@ -70,7 +70,6 @@ def spaceAlignTableStructures(content):
 	for (indent, occurence) in re.findall(pattern, content):
 		# parse all "cells" in the table
 		rows = occurence.strip().split('},')
-		table = occurence
 		cells = []
 		lineComments = []
 		for (r, row) in enumerate(rows):
