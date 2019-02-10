@@ -134,6 +134,7 @@
       <varlistentry>
         <term><varname>SuspendMode=</varname></term>
         <term><varname>HibernateMode=</varname></term>
+		<term><varname>HibernateRebootMode=</varname></term>
         <term><varname>HybridSleepMode=</varname></term>
 
         <listitem><para>The string to be written to
@@ -141,6 +142,7 @@
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hibernate-then-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
@@ -153,6 +155,7 @@
       <varlistentry>
         <term><varname>SuspendState=</varname></term>
         <term><varname>HibernateState=</varname></term>
+        <term><varname>HibernateRebootState=</varname></term>
         <term><varname>HybridSleepState=</varname></term>
 
         <listitem><para>The string to be written to
@@ -160,6 +163,7 @@
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hibernate-then-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating

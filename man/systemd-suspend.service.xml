@@ -22,6 +22,7 @@
   <refnamediv>
     <refname>systemd-suspend.service</refname>
     <refname>systemd-hibernate.service</refname>
+    <refname>systemd-hibernate-then-reboot.service</refname>
     <refname>systemd-hybrid-sleep.service</refname>
     <refname>systemd-suspend-then-hibernate.service</refname>
     <refname>systemd-sleep</refname>
@@ -31,6 +32,7 @@
   <refsynopsisdiv>
     <para><filename>systemd-suspend.service</filename></para>
     <para><filename>systemd-hibernate.service</filename></para>
+    <para><filename>systemd-hibernate-then-reboot.service</filename></para>
     <para><filename>systemd-hybrid-sleep.service</filename></para>
     <para><filename>systemd-suspend-then-hibernate.service</filename></para>
     <para><filename>/usr/lib/systemd/system-sleep</filename></para>
@@ -44,9 +46,11 @@
     and is responsible for the actual system suspend. Similarly,
     <filename>systemd-hibernate.service</filename> is pulled in by
     <filename>hibernate.target</filename> to execute the actual
-    hibernation. Finally,
-    <filename>systemd-hybrid-sleep.service</filename> is pulled in by
-    <filename>hybrid-sleep.target</filename> to execute hybrid
+    hibernation. Likewise, <filename>systemd-hibernate-then-reboot.service</filename>
+    is pulled in by <filename>hibernate-then-reboot.service</filename>
+    to execute the hibernation, and after the system is turned off,
+    it will boot again. Finally, <filename>systemd-hybrid-sleep.service</filename>
+    is pulled in by <filename>hybrid-sleep.target</filename> to execute hybrid
     hibernation with system suspend and pulled in by
     <filename>suspend-then-hibernate.target</filename> to execute system suspend
     with a timeout that will activate hibernate later.</para>
@@ -58,6 +62,7 @@
     arguments to them. The first argument will be
     <literal>pre</literal>, the second either
     <literal>suspend</literal>, <literal>hibernate</literal>,
+    <literal>hibernate-then-reboot</literal>,
     <literal>hybrid-sleep</literal>, or <literal>suspend-then-hibernate</literal>
     depending on the chosen action.
     Immediately after leaving system suspend and/or hibernation the
@@ -76,7 +81,8 @@
 
     <para>Note that
     <filename>systemd-suspend.service</filename>,
-    <filename>systemd-hibernate.service</filename>, and
+    <filename>systemd-hibernate.service</filename>,
+    <filename>systemd-hibernate-then-reboot.service</filename>, and
     <filename>systemd-hybrid-sleep.service</filename>
     <filename>systemd-suspend-then-hibernate.service</filename>
     should never be executed directly. Instead, trigger system sleep
@@ -106,11 +112,12 @@
       <varlistentry>
         <term><option>suspend</option></term>
         <term><option>hibernate</option></term>
+        <term><option>hibernate-then-reboot</option></term>
         <term><option>hybrid-sleep</option></term>
         <term><option>suspend-then-hibernate</option></term>
 
-        <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
-        system to hybrid sleep.</para>
+        <listitem><para>Suspend, hibernate, hibernate then reboot,
+        suspend then hibernate, or put the system to hybrid sleep.</para>
         </listitem>
       </varlistentry>
     </variablelist>

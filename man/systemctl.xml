@@ -335,9 +335,10 @@
           <para>Just print what would be done. Currently supported by verbs
           <command>halt</command>, <command>poweroff</command>, <command>reboot</command>,
           <command>kexec</command>, <command>suspend</command>, <command>hibernate</command>,
-          <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
-          <command>default</command>, <command>rescue</command>,
-          <command>emergency</command>, and <command>exit</command>.</para>
+          <command>hibernate-then-reboot</command>, <command>hybrid-sleep</command>,
+          <command>suspend-then-hibernate</command>, <command>default</command>,
+          <command>rescue</command>, <command>emergency</command>, and
+          <command>exit</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -1885,6 +1886,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Hibernate the system. This will trigger activation of the special target unit
             <filename>hibernate.target</filename>. This command is asynchronous, and will return after the hibernation
             operation is successfully enqueued. It will not wait for the hibernate/thaw cycle to complete.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>hibernate-then-reboot</command></term>
+
+          <listitem>
+            <para>Hibernate the system and reboot after the system is powered down. This will trigger activation of the
+            special target unit <filename>hibernate-then-reboot.target</filename>. This command is asynchronous, and
+            will return after the hibernation operation is successfully enqueued. It will not wait for the hibernate/thaw
+            cycle to complete.</para>
           </listitem>
         </varlistentry>
 
