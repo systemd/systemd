@@ -48,8 +48,28 @@ def run_post_clang_format(file):
 	content = spaceAlignTableStructures(content)
 	#rewrap the line breaks of the help texts
 	content = rewrapLinebreaksOfHelpText(content)
+	# align table like typedef enum with spaces
+	content = spaceAlignEnumTypedefs(content)
 	# write contents back to the file
 	open(file, "w").write(content)
+
+def spaceAlignEnumTypedefs(content):
+	spaces = ' '*1000
+	pattern = re.compile(r'(typedef enum [A-Za-z]+ {[^}]+} [A-Za-z]+;)')
+	for (occurence) in re.findall(pattern, content):
+		lines = occurence.split('\n')
+		newLines = []
+		leftWidth = 0
+		for line in lines:
+			leftWidth = max(leftWidth, line.find('='))
+		for line in lines:
+			pos = line.find('=')
+			if(pos >= 0):
+				fill = spaces[0:(leftWidth - pos)]
+				line = re.sub('=', r'' + fill + '=', line)
+			newLines.append(line)
+		content = content.replace(occurence, '\n'.join(newLines))
+	return content
 
 def rewrapLinebreaksOfHelpText(content):
 	# see regex eplanation here: https://regex101.com/r/8fQvP9/2
