@@ -3073,7 +3073,7 @@ static const struct {
         [ACTION_EXIT]                 = { SPECIAL_EXIT_TARGET,                     "exit",                   "replace-irreversibly" },
         [ACTION_SUSPEND]              = { SPECIAL_SUSPEND_TARGET,                  "suspend",                "replace-irreversibly" },
         [ACTION_HIBERNATE]            = { SPECIAL_HIBERNATE_TARGET,                "hibernate",              "replace-irreversibly" },
-        [ACTION_HIBERNATE_THEN_REBOOT]= { SPECIAL_HIBERNATE_THEN_REBOOT_TARGET,    "hibernate-then-reboot",  "replace-irreversibly" },
+        [ACTION_HIBERNATE_THEN_REBOOT] = { SPECIAL_HIBERNATE_THEN_REBOOT_TARGET,   "hibernate-then-reboot",  "replace-irreversibly" },
         [ACTION_HYBRID_SLEEP]         = { SPECIAL_HYBRID_SLEEP_TARGET,             "hybrid-sleep",           "replace-irreversibly" },
         [ACTION_SUSPEND_THEN_HIBERNATE] = { SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET, "suspend-then-hibernate", "replace-irreversibly" },
 };

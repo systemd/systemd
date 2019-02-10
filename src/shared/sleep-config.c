@@ -42,7 +42,7 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
         const ConfigTableItem items[] = {
                 { "Sleep", "AllowSuspend",              config_parse_tristate, 0, &allow_suspend },
                 { "Sleep", "AllowHibernation",          config_parse_tristate, 0, &allow_hibernate },
-                { "Sleep", "AllowHibernateThenReboot",	config_parse_tristate, 0, &allow_hibernate_then_reboot },
+                { "Sleep", "AllowHibernateThenReboot",  config_parse_tristate, 0, &allow_hibernate_then_reboot },
                 { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h },
                 { "Sleep", "AllowHybridSleep",          config_parse_tristate, 0, &allow_hybrid_sleep },
 
@@ -50,8 +50,8 @@ int parse_sleep_config(const char *verb, bool *ret_allow, char ***ret_modes, cha
                 { "Sleep", "SuspendState",              config_parse_strv, 0, &suspend_state },
                 { "Sleep", "HibernateMode",             config_parse_strv, 0, &hibernate_mode  },
                 { "Sleep", "HibernateState",            config_parse_strv, 0, &hibernate_state },
-                { "Sleep", "HibernateRebootMode",		config_parse_strv, 0, &hibernate_then_reboot_mode },
-                { "Sleep", "HibernateRebootState",		config_parse_strv, 0, &hibernate_then_reboot_state },
+                { "Sleep", "HibernateRebootMode",       config_parse_strv, 0, &hibernate_then_reboot_mode },
+                { "Sleep", "HibernateRebootState",      config_parse_strv, 0, &hibernate_then_reboot_state },
                 { "Sleep", "HybridSleepMode",           config_parse_strv, 0, &hybrid_mode  },
                 { "Sleep", "HybridSleepState",          config_parse_strv, 0, &hybrid_state },
 
