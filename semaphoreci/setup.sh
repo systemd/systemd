@@ -11,6 +11,7 @@ sudo apt-get install --force-yes -y util-linux libmount-dev libblkid-dev liblzma
 # curl -s https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 # sudo add-apt-repository -y 'deb http://apt.llvm.org/trusty/ llvm-toolchain-trusty main'
 # sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+false
 sudo apt-get update
 sudo apt-get install --force-yes -y gettext python3-evdev python3-pyparsing libmount-dev
 # sudo apt-get install -y clang-6.0
