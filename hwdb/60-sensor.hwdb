@@ -364,8 +364,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*
 #########################################
 # Nuvision (TMax)
 #########################################
+
+# Nuvision/TMAX 8" Windows signature edition. TM800W560L
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM800W560L:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+ 
+# Nuvision Solo 10 Draw. TM101W610L
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM101W610L:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Onda
