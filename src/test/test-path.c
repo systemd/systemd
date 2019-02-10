@@ -249,6 +249,7 @@ int main(int argc, char *argv[]) {
         Manager *m = NULL;
 
         umask(022);
+        exit(1);
 
         test_setup_logging(LOG_INFO);
 
