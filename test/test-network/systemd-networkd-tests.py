@@ -901,6 +901,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'proxy_ndp'), '1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
+        self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'accept_ra'), '1')
 
 class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     links = [
