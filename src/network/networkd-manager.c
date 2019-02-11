@@ -422,6 +422,28 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
         (void) route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
+                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
+
+                if (!in_addr_is_null(family, &dst)) {
+                        (void) in_addr_to_string(family, &dst, &buf_dst);
+                        (void) asprintf(&buf_dst_prefixlen, "/%hhu", dst_prefixlen);
+                }
+                if (!in_addr_is_null(family, &src))
+                        (void) in_addr_to_string(family, &src, &buf_src);
+                if (!in_addr_is_null(family, &gw))
+                        (void) in_addr_to_string(family, &gw, &buf_gw);
+                if (!in_addr_is_null(family, &prefsrc))
+                        (void) in_addr_to_string(family, &prefsrc, &buf_prefsrc);
+
+                log_link_debug(link,
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s",
+                               type == RTM_DELROUTE ? "Removing" : route ? "Updating" : "Adding",
+                               strna(buf_dst), strempty(buf_dst_prefixlen),
+                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc));
+        }
+
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route) {
