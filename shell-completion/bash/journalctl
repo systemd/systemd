@@ -48,7 +48,7 @@ _journalctl() {
                               -M --machine -o --output -u --unit --user-unit -p --priority
                               --root --case-sensitive'
                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
-                              --after-cursor --verify-key -g --grep
+                              --after-cursor --cursor-file --verify-key -g --grep
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
 

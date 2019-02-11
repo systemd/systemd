@@ -619,6 +619,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cursor-file=<replaceable>FILE</replaceable></option></term>
+
+        <listitem><para>If <replaceable>FILE</replaceable> exists and contains a
+        cursor, start showing entries <emphasis>after</emphasis> this location.
+        Otherwise the show entries according the other given options. At the end,
+        write the cursor of the last entry to <replaceable>FILE</replaceable>. Use
+        this option to continually read the journal by sequentially calling
+        <command>journalctl</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--after-cursor=</option></term>
 
         <listitem><para>Start showing entries from the location in the
