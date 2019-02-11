@@ -1182,16 +1182,27 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
+        print('## ip address show dev veth99')
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '1492')
 
-        output = subprocess.check_output(['ip', 'route']).rstrip().decode('utf-8')
+        # issue #8726
+        print('## ip route show table main dev veth99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, 'default.*dev veth99 proto dhcp')
+        self.assertNotRegex(output, 'proto dhcp')
 
+        print('## ip route show table 211 dev veth99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', '211', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
+        self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 proto dhcp')
+        self.assertRegex(output, '192.168.5.1 proto dhcp scope link')
+
+        print('## dnsmasq log')
         self.assertTrue(self.search_words_in_dnsmasq_log('vendor class: SusantVendorTest', True))
         self.assertTrue(self.search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
         self.assertTrue(self.search_words_in_dnsmasq_log('client provides name: test-hostname'))
