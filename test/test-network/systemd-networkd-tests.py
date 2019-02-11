@@ -86,8 +86,6 @@ def tearDownModule():
     subprocess.check_call('systemctl start systemd-networkd.service', shell=True)
 
 class Utilities():
-    dhcp_server_data = []
-
     def read_link_attr(self, link, dev, attribute):
         with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
             return f.readline().strip()
