@@ -558,34 +558,33 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
                 return 0;
-        } else if (r >= 0) {
+        } else if (r >= 0)
                 if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
                                                     cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
-        }
 
         (void) address_get(link, family, &in_addr, prefixlen, &address);
 
         switch (type) {
         case RTM_NEWADDR:
                 if (address)
-                        log_link_debug(link, "Updating address: %s/%u (valid %s%s)", buf, prefixlen,
+                        log_link_debug(link, "Updating address: %s/%hhu (valid %s%s)", buf, prefixlen,
                                        valid_str ? "for " : "forever", strempty(valid_str));
                 else {
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to add address %s/%u, ignoring: %m", buf, prefixlen);
+                                log_link_warning_errno(link, r, "Failed to add address %s/%hhu, ignoring: %m", buf, prefixlen);
                                 return 0;
                         } else
-                                log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
+                                log_link_debug(link, "Adding address: %s/%hhu (valid %s%s)", buf, prefixlen,
                                                valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
                 r = address_update(address, flags, scope, &cinfo);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to update address %s/%u, ignoring: %m", buf, prefixlen);
+                        log_link_warning_errno(link, r, "Failed to update address %s/%hhu, ignoring: %m", buf, prefixlen);
                         return 0;
                 }
 
@@ -594,11 +593,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         case RTM_DELADDR:
 
                 if (address) {
-                        log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
+                        log_link_debug(link, "Removing address: %s/%hhu (valid %s%s)", buf, prefixlen,
                                        valid_str ? "for " : "forever", strempty(valid_str));
                         (void) address_drop(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s), ignoring", buf, prefixlen,
+                        log_link_warning(link, "Removing non-existent address: %s/%hhu (valid %s%s), ignoring", buf, prefixlen,
                                          valid_str ? "for " : "forever", strempty(valid_str));
 
                 break;
