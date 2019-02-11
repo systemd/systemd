@@ -8,6 +8,7 @@ import getopt
 import shutil
 from subprocess import check_output
 from shlex import split
+import filecmp
 
 clangFormatCmd = "clang-format"
 
@@ -18,12 +19,21 @@ Formats .c and .h files in systemd with clang-format
 and some custom style rules.
 
 Options:
-  --clang-format <path> Specify the path to the clang-format version to use.
-                        Systemd uses clang-format version 6.0.0. This may be
-                        available in your package manager, otherwise you can
-                        download the proper binary directly from LLVM:
-                        https://releases.llvm.org/download.html
-  --help                Show this help message
+  -c --clang-format <path> Specify the path to the clang-format version to use.
+                           Systemd uses clang-format version 6.0.0. This may be
+                           available in your package manager, otherwise you can
+                           download the proper binary directly from LLVM:
+                           https://releases.llvm.org/download.html
+  -d --dry                 Do not modify files but only show which files would
+                           be changed by the script.
+  -h --help                Show this help message
+
+Example:
+$ tools/format-file.py -d -c clang-format-6.0 src/*/*.c
+
+If you experience any issues please:
+- contact the mailing list (systemd-devel@lists.freedesktop.org)
+- or file an issue on github (https://github.com/systemd/systemd/issues)
 """)
 	sys.exit()
 
@@ -151,12 +161,15 @@ def spaceAlignTableStructures(content):
 	return content
 
 if __name__ == '__main__':
-	opts, args = getopt.getopt(sys.argv[1:], '', ['clang-format=', 'help'])
+	opts, args = getopt.getopt(sys.argv[1:], 'c:hd', ['clang-format=', 'help', 'dry'])
+	dry = False
 	for opt, arg in opts:
 		if opt in ('--help'):
 			printHelp()
 		if opt in ('--clang-format'):
 			clangFormatCmd = arg
+		if opt in ('--dry'):
+			dry = True
 	files = args
 
 	if(len(files) <= 0):
@@ -173,11 +186,25 @@ if __name__ == '__main__':
 		print('got version: "' + versionString)
 		printHelp()
 
+	print("FORMATTING: ")
 	for file in files:
-		print("formatting: " + file)
-		if(os.path.isfile(file)):
-			run_clang_format(file)
-			run_post_clang_format(file)
+		print(file.ljust(40), end="", flush=True)
+		if(not os.path.isfile(file)):
+			print(' [Skipping non existing file]')
+			continue
+		if(file.find('MurmurHash2') > 0):
+			print(' [Skipping MurmurHash2 file]')
+			continue
+		fileTmp = file + '.tmp'
+		shutil.copyfile(file, fileTmp)
+		run_clang_format(fileTmp)
+		run_post_clang_format(fileTmp)
+		if(filecmp.cmp(file, fileTmp)):
+			print(' [UNCHANGED]')
 		else:
-			print('Skipping non existent file.')
+			print(' [CHANGED]')
+		if(not dry):
+			shutil.copyfile(fileTmp, file)
+		os.remove(fileTmp)
+	print("ALL DONE")
 
