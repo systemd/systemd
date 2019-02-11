@@ -119,6 +119,7 @@ static int arg_boot_offset = 0;
 static bool arg_dmesg = false;
 static bool arg_no_hostname = false;
 static const char *arg_cursor = NULL;
+static const char *arg_cursor_file = NULL;
 static const char *arg_after_cursor = NULL;
 static bool arg_show_cursor = false;
 static const char *arg_directory = NULL;
@@ -315,6 +316,7 @@ static int help(void) {
                "  -c --cursor=CURSOR         Show entries starting at the specified cursor\n"
                "     --after-cursor=CURSOR   Show entries after the specified cursor\n"
                "     --show-cursor           Print the cursor after all the entries\n"
+               "     --cursor-file=FILE      Show entries after cursor in FILE and update FILE\n"
                "  -b --boot[=ID]             Show current boot or the specified boot\n"
                "     --list-boots            Show terse information about recorded boots\n"
                "  -k --dmesg                 Show kernel message log from the current boot\n"
@@ -396,6 +398,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY_KEY,
                 ARG_DISK_USAGE,
                 ARG_AFTER_CURSOR,
+                ARG_CURSOR_FILE,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
                 ARG_LIST_CATALOG,
@@ -450,6 +453,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verify-key",     required_argument, NULL, ARG_VERIFY_KEY     },
                 { "disk-usage",     no_argument,       NULL, ARG_DISK_USAGE     },
                 { "cursor",         required_argument, NULL, 'c'                },
+                { "cursor-file",    required_argument, NULL, ARG_CURSOR_FILE    },
                 { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
                 { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
                 { "since",          required_argument, NULL, 'S'                },
@@ -659,6 +663,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'c':
                         arg_cursor = optarg;
+                        break;
+
+                case ARG_CURSOR_FILE:
+                        arg_cursor_file = optarg;
                         break;
 
                 case ARG_AFTER_CURSOR:
@@ -2077,6 +2085,7 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 
 int main(int argc, char *argv[]) {
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
+        bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         sd_id128_t previous_boot_id;
         int n_shown = 0, r, poll_fd = -1;
@@ -2420,19 +2429,41 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        if (arg_cursor || arg_after_cursor) {
-                r = sd_journal_seek_cursor(j, arg_cursor ?: arg_after_cursor);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to seek to cursor: %m");
-                        goto finish;
+        if (arg_cursor || arg_after_cursor || arg_cursor_file) {
+                _cleanup_free_ char *cursor_from_file = NULL;
+                const char *cursor = arg_cursor ?: arg_after_cursor;
+
+                if (arg_cursor_file) {
+                        r = read_one_line_file(arg_cursor_file, &cursor_from_file);
+                        if (r < 0 && r != -ENOENT) {
+                                log_error_errno(r, "Failed to read cursor file %s: %m", arg_cursor_file);
+                                goto finish;
+                        }
+
+                        if (r > 0) {
+                                cursor = cursor_from_file;
+                                after_cursor = true;
+                        }
+                } else
+                        after_cursor = !!arg_after_cursor;
+
+                if (cursor) {
+                        r = sd_journal_seek_cursor(j, cursor);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to seek to cursor: %m");
+                                goto finish;
+                        }
+                        use_cursor = true;
                 }
+        }
 
+        if (use_cursor) {
                 if (!arg_reverse)
-                        r = sd_journal_next_skip(j, 1 + !!arg_after_cursor);
+                        r = sd_journal_next_skip(j, 1 + after_cursor);
                 else
-                        r = sd_journal_previous_skip(j, 1 + !!arg_after_cursor);
+                        r = sd_journal_previous_skip(j, 1 + after_cursor);
 
-                if (arg_after_cursor && r < 2) {
+                if (after_cursor && r < 2) {
                         /* We couldn't find the next entry after the cursor. */
                         if (arg_follow)
                                 need_seek = true;
@@ -2661,14 +2692,26 @@ int main(int argc, char *argv[]) {
                         if (n_shown == 0 && !arg_quiet)
                                 printf("-- No entries --\n");
 
-                        if (arg_show_cursor) {
+                        if (arg_show_cursor || arg_cursor_file) {
                                 _cleanup_free_ char *cursor = NULL;
 
                                 r = sd_journal_get_cursor(j, &cursor);
                                 if (r < 0 && r != -EADDRNOTAVAIL)
                                         log_error_errno(r, "Failed to get cursor: %m");
-                                else if (r >= 0)
-                                        printf("-- cursor: %s\n", cursor);
+                                else if (r >= 0) {
+                                        if (arg_show_cursor)
+                                                printf("-- cursor: %s\n", cursor);
+
+                                        if (arg_cursor_file) {
+                                                r = write_string_file(arg_cursor_file, cursor,
+                                                                      WRITE_STRING_FILE_CREATE |
+                                                                      WRITE_STRING_FILE_ATOMIC);
+                                                if (r < 0)
+                                                        log_error_errno(r,
+                                                                        "Failed to write new cursor to %s: %m",
+                                                                        arg_cursor_file);
+                                        }
+                                }
                         }
 
                         break;
