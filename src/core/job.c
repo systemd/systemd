@@ -151,6 +151,8 @@ void job_uninstall(Job *j) {
 
         unit_add_to_gc_queue(j->unit);
 
+        unit_add_to_dbus_queue(j->unit); /* The Job property of the unit has changed now */
+
         hashmap_remove_value(j->manager->jobs, UINT32_TO_PTR(j->id), j);
         j->installed = false;
 }
