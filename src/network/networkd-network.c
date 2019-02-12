@@ -207,6 +207,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .allmulticast = -1,
                 .ipv6_accept_ra_use_dns = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
+                .ipv6_accept_ra_route_table_set = false,
         };
 
         r = config_parse_many(filename, network_dirs, dropin_dirname,
@@ -1422,16 +1423,18 @@ int config_parse_dhcp_user_class(
         return 0;
 }
 
-int config_parse_dhcp_route_table(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
+int config_parse_section_route_table(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = data;
         uint32_t rt;
         int r;
@@ -1444,12 +1447,17 @@ int config_parse_dhcp_route_table(const char *unit,
         r = safe_atou32(rvalue, &rt);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Unable to read RouteTable, ignoring assignment: %s", rvalue);
+                           "Failed to parse RouteTable=%s, ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        network->dhcp_route_table = rt;
-        network->dhcp_route_table_set = true;
+        if (streq_ptr(section, "DHCP")) {
+                network->dhcp_route_table = rt;
+                network->dhcp_route_table_set = true;
+        } else { /* section is IPv6AcceptRA */
+                network->ipv6_accept_ra_route_table = rt;
+                network->ipv6_accept_ra_route_table_set = true;
+        }
 
         return 0;
 }
