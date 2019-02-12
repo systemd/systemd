@@ -129,6 +129,7 @@ typedef struct Link {
 
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
+        Hashmap *bond_slaves;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
@@ -151,7 +152,7 @@ int link_initialized(Link *link, sd_device *device);
 
 void link_check_ready(Link *link);
 
-void link_update_operstate(Link *link);
+void link_update_operstate(Link *link, bool also_update_bond_master);
 int link_update(Link *link, sd_netlink_message *message);
 
 void link_dirty(Link *link);

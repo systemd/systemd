@@ -299,7 +299,7 @@ static int link_enable_ipv6(Link *link) {
         return 0;
 }
 
-void link_update_operstate(Link *link) {
+void link_update_operstate(Link *link, bool also_update_bond_master) {
         LinkOperationalState operstate;
 
         assert(link);
@@ -347,10 +347,33 @@ void link_update_operstate(Link *link) {
             link->flags & IFF_SLAVE)
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
+        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE) &&
+            !hashmap_isempty(link->bond_slaves)) {
+                Iterator i;
+                Link *slave;
+
+                HASHMAP_FOREACH(slave, link->bond_slaves, i) {
+                        link_update_operstate(slave, false);
+
+                        if (IN_SET(slave->operstate,
+                                   LINK_OPERSTATE_OFF, LINK_OPERSTATE_NO_CARRIER, LINK_OPERSTATE_DORMANT))
+                                operstate = LINK_OPERSTATE_DEGRADED;
+                }
+        }
+
         if (link->operstate != operstate) {
                 link->operstate = operstate;
                 link_send_changed(link, "OperationalState", NULL);
                 link_dirty(link);
+        }
+
+        if (also_update_bond_master && link->network && link->network->bond) {
+                Link *master;
+
+                if (link_get(link->manager, link->network->bond->ifindex, &master) < 0)
+                        return;
+
+                link_update_operstate(master, true);
         }
 }
 
@@ -426,7 +449,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
         link->flags = flags;
         link->kernel_operstate = operstate;
 
-        link_update_operstate(link);
+        link_update_operstate(link, true);
 
         return 0;
 }
@@ -606,6 +629,8 @@ static Link *link_free(Link *link) {
         HASHMAP_FOREACH (carrier, link->bound_by_links, i)
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_by_links);
+
+        hashmap_free(link->bond_slaves);
 
         return mfree(link);
 }
@@ -1612,6 +1637,29 @@ static int link_set_bond(Link *link) {
         return r;
 }
 
+static int link_append_bond_slave(Link *link) {
+        Link *master;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->network->bond);
+
+        r = link_get(link->manager, link->network->bond->ifindex, &master);
+        if (r < 0)
+                return r;
+
+        r = hashmap_ensure_allocated(&master->bond_slaves, NULL);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(master->bond_slaves, INT_TO_PTR(link->ifindex), link);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int link_lldp_save(Link *link) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2416,6 +2464,10 @@ static int link_joined(Link *link) {
                 r = link_set_bond(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
+
+                r = link_append_bond_slave(link);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
 
         if (link->network->use_br_vlan &&
