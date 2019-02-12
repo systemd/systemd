@@ -134,6 +134,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         route->scope = RT_SCOPE_LINK;
         route->protocol = RTPROT_STATIC;
         route->priority = IPV4LL_ROUTE_METRIC;
+        route->table = link_get_vrf_table(link);
 
         r = route_configure(route, link, ipv4ll_route_handler);
         if (r < 0)

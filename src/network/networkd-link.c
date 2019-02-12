@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_network.h"
+#include "netdev/vrf.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -31,6 +32,24 @@
 #include "tmpfile-util.h"
 #include "util.h"
 #include "virt.h"
+
+uint32_t link_get_vrf_table(Link *link) {
+        return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;
+}
+
+uint32_t link_get_dhcp_route_table(Link *link) {
+        /* When the interface is part of an VRF use the VRFs routing table, unless
+         * another table is explicitly specified. */
+        if (link->network->dhcp_route_table_set)
+                return link->network->dhcp_route_table;
+        return link_get_vrf_table(link);
+}
+
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
+        if (link->network->ipv6_accept_ra_route_table_set)
+                return link->network->ipv6_accept_ra_route_table;
+        return link_get_vrf_table(link);
+}
 
 DUID* link_get_duid(Link *link) {
         if (link->network->duid.type != _DUID_TYPE_INVALID)

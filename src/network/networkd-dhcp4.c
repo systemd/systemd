@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "hostname-util.h"
 #include "parse-util.h"
-#include "netdev/vrf.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -67,11 +66,7 @@ static int link_set_dhcp_routes(Link *link) {
         if (!link->network->dhcp_use_routes)
                 return 0;
 
-        /* When the interface is part of an VRF use the VRFs routing table, unless
-         * there is a another table specified. */
-        table = link->network->dhcp_route_table;
-        if (!link->network->dhcp_route_table_set && link->network->vrf)
-                table = VRF(link->network->vrf)->table;
+        table = link_get_dhcp_route_table(link);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)

@@ -289,6 +289,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
                 if (pd_prefix_len < 64) {
                         Route *route = NULL;
+                        uint32_t table;
 
                         (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
 
@@ -300,8 +301,10 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                 continue;
                         }
 
+                        table = link_get_dhcp_route_table(link);
+
                         route_add(link, AF_INET6, &pd_prefix, pd_prefix_len,
-                                  0, 0, 0, &route);
+                                  0, 0, table, &route);
                         route_update(route, NULL, 0, NULL, NULL, 0, 0,
                                      RTN_UNREACHABLE);
 
