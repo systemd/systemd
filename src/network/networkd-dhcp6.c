@@ -288,7 +288,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                 }
 
                 if (pd_prefix_len < 64) {
-                        Route *route = NULL;
+                        _cleanup_(route_freep) Route *route = NULL;
                         uint32_t table;
 
                         (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
@@ -313,11 +313,8 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                 log_link_warning_errno(link, r, "Cannot configure unreachable route for delegated subnet %s/%u: %m",
                                                        strnull(buf),
                                                        pd_prefix_len);
-                                route_free(route);
                                 continue;
                         }
-
-                        route_free(route);
 
                         log_link_debug(link, "Configuring unreachable route for %s/%u",
                                        strnull(buf), pd_prefix_len);
