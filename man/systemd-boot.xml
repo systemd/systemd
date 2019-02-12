@@ -25,27 +25,28 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-boot</command> (short: <command>sd-boot</command>) is a simple UEFI boot manager. It
-    provides a graphical menu to select the entry to boot and an editor for the kernel command line. systemd-boot
-    supports systems with UEFI firmware only.</para>
+    <para><command>systemd-boot</command> (short: <command>sd-boot</command>) is a simple UEFI boot
+    manager. It provides a graphical menu to select the entry to boot and an editor for the kernel command
+    line. <command>systemd-boot</command> supports systems with UEFI firmware only.</para>
 
     <para>systemd-boot loads boot entry information from the EFI system partition (ESP), usually mounted at
-    <filename>/boot</filename>, <filename>/efi</filename>, or <filename>/boot/efi</filename> during OS
-    runtime. Configuration file fragments, kernels, initrds and other EFI images to boot generally need to reside on
-    the ESP. Linux kernels must be built with <option>CONFIG_EFI_STUB</option> to be able to be directly executed as an
-    EFI image. During boot systemd-boot automatically assembles a list of boot entries from the following
-    sources:</para>
+    <filename>/efi/</filename>, <filename>/boot/</filename>, or <filename>/boot/efi/</filename> during OS
+    runtime, as well as from the Extended Boot Loader partition if it exists (usually mounted to
+    <filename>/boot/</filename>). Configuration file fragments, kernels, initrds and other EFI images to boot
+    generally need to reside on the ESP or the Extended Boot Loader partition. Linux kernels must be built
+    with <option>CONFIG_EFI_STUB</option> to be able to be directly executed as an EFI image. During boot
+    systemd-boot automatically assembles a list of boot entries from the following sources:</para>
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
-      Specification</ulink> description files located in <filename>/loader/entries/</filename> on the ESP. These
-      usually describe Linux kernel images with associated initrd images, but alternatively may also describe
-      arbitrary other EFI executables.</para></listitem>
+      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> description files
+      located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader
+      Partition. These usually describe Linux kernel images with associated initrd images, but alternatively
+      may also describe arbitrary other EFI executables.</para></listitem>
 
       <listitem><para>Unified kernel images following the <ulink
-      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
-      Specification</ulink>, as executable EFI binaries in <filename>/EFI/Linux/</filename> on the ESP.
+      url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, as executable EFI
+      binaries in <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.
       </para></listitem>
 
       <listitem><para>The Microsoft Windows EFI boot manager, if installed</para></listitem>
@@ -57,10 +58,12 @@
       <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware</para></listitem>
     </itemizedlist>
 
-    <para><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
-    used to copy kernel images onto the ESP and to generate description files compliant with the Boot Loader
-    Specification. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> may be
-    used from a running system to locate the ESP, list available entries, and install systemd-boot itself.</para>
+    <para><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    may be used to copy kernel images onto the ESP or the Extended Boot Loader Partition and to generate
+    description files compliant with the Boot Loader
+    Specification. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    may be used from a running system to locate the ESP and the Extended Boot Loader Partition, list
+    available entries, and install <command>systemd-boot</command> itself.</para>
 
     <para>systemd-boot will provide information about the time spent in UEFI firmware using the <ulink
     url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>. This information can be displayed
@@ -224,16 +227,19 @@
   <refsect1>
     <title>Files</title>
 
-    <para>The files systemd-boot reads generally reside on the UEFI ESP which is usually mounted to
-    <filename>/boot/</filename>, <filename>/efi/</filename> or <filename>/boot/efi</filename> during OS
-    runtime. systemd-boot reads runtime configuration such as the boot timeout and default entry from
-    <filename>/loader/loader.conf</filename> on the ESP (in combination with data read from EFI variables). See
-    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Boot entry
-    description files following the <ulink
-    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader
-    Specification</ulink> are read from <filename>/loader/entries/</filename> on the ESP. Unified kernel boot entries
-    following the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
-    Loader Specification</ulink> are read from <filename>/EFI/Linux/</filename> on the ESP.</para>
+    <para>The files <command>systemd-boot</command> processes generally reside on the UEFI ESP which is
+    usually mounted to <filename>/efi/</filename>, <filename>/boot/</filename> or
+    <filename>/boot/efi/</filename> during OS runtime. It also processes files on the Extended Boot Loader
+    partition which is typically mounted to <filename>/boot/</filename>, if it
+    exists. <command>systemd-boot</command> reads runtime configuration such as the boot timeout and default
+    entry from <filename>/loader/loader.conf</filename> on the ESP (in combination with data read from EFI
+    variables). See
+    <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Boot
+    entry description files following the <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+    Loader Specification</ulink> are read from <filename>/loader/entries/</filename> on the ESP and the
+    Extended Boot Loader partition. Unified kernel boot entries following the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> are read from
+    <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
   </refsect1>
 
   <refsect1>
