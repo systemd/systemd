@@ -1,0 +1,20 @@
+# We aren't adding devices skip the elevator check
+ACTION!="add", GOTO="sched_out"
+
+SUBSYSTEM!="block", GOTO="sched_out"
+ENV{DEVTYPE}!="disk", GOTO="sched_out"
+
+# Technically, dm-multipath can be configured to use an I/O scheduler.
+# However, there are races between the 'add' uevent and the linking in
+# of the queue/scheduler sysfs file.  For now, just skip dm- devices.
+KERNEL=="dm-*|md*", GOTO="sched_out"
+
+# Skip bio-based devices, which don't support an I/O scheduler.
+ATTR{queue/scheduler}=="none", GOTO="sched_out"
+
+# If elevator= is specified on the kernel command line, change the
+# scheduler to the one specified.
+IMPORT{cmdline}="elevator"
+ENV{elevator}!="", ATTR{queue/scheduler}="$env{elevator}"
+
+LABEL="sched_out"
