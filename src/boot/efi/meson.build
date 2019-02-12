@@ -8,9 +8,9 @@ efi_headers = files('''
         linux.h
         measure.h
         pe.h
+        shim.h
         splash.h
         util.h
-        shim.h
 '''.split())
 
 common_sources = '''
