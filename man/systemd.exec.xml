@@ -393,7 +393,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
   <refsect1>
     <title>Mandatory Access Control</title>
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>SELinuxContext=</varname></term>
@@ -436,7 +436,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Process Properties</title>
 
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>LimitCPU=</varname></term>
@@ -671,7 +671,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
   <refsect1>
     <title>Scheduling</title>
 
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>Nice=</varname></term>
@@ -764,7 +764,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     (such as <varname>ProtectSystem=</varname>) are not available, as the underlying kernel functionality is only
     accessible to privileged processes.</para>
 
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>ProtectSystem=</varname></term>
@@ -1388,7 +1388,7 @@ RestrictNamespaces=~cgroup net</programlisting>
 
   <refsect1>
     <title>System Call Filtering</title>
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>SystemCallFilter=</varname></term>
@@ -1627,7 +1627,7 @@ SystemCallErrorNumber=EPERM</programlisting>
   <refsect1>
     <title>Environment</title>
 
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>Environment=</varname></term>
@@ -1742,7 +1742,7 @@ SystemCallErrorNumber=EPERM</programlisting>
   <refsect1>
     <title>Logging and Standard Input/Output</title>
 
-    <variablelist>
+    <variablelist class='unit-directives'>
       <varlistentry>
 
         <term><varname>StandardInput=</varname></term>
@@ -2084,7 +2084,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
   <refsect1>
     <title>System V Compatibility</title>
-    <variablelist>
+    <variablelist class='unit-directives'>
 
       <varlistentry>
         <term><varname>UtmpIdentifier=</varname></term>
