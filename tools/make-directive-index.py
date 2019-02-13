@@ -53,6 +53,16 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>EFI variables</title>
+
+                <para>EFI variables understood by
+                <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                and other programs.</para>
+
+                <variablelist id='efi-variables' />
+        </refsect1>
+
+        <refsect1>
                 <title>UDEV directives</title>
 
                 <para>Directives for configuring systemd units through the

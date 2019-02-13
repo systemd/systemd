@@ -243,7 +243,7 @@
     UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</literal>, for communication between the OS and the boot
     loader:</para>
 
-    <variablelist>
+    <variablelist class='efi-variables'>
       <varlistentry>
         <term><varname>LoaderBootCountPath</varname></term>
         <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
