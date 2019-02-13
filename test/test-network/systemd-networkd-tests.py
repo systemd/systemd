@@ -565,6 +565,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-fibrule-port-range.network',
         '25-ipv6-address-label-section.network',
         '25-neighbor-section.network',
+        '25-link-local-addressing-no.network',
+        '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
         '25-route-gateway.network',
         '25-route-gateway-on-link.network',
@@ -860,6 +862,66 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+
+    def test_link_local_addressing(self):
+        self.copy_unit_to_networkd_unit_path('25-link-local-addressing-yes.network', '11-dummy.netdev',
+                                             '25-link-local-addressing-no.network', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+        self.assertTrue(self.link_exits('dummy98'))
+
+        time.sleep(10)
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet .* scope link')
+        self.assertRegex(output, 'inet6 .* scope link')
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertNotRegex(output, 'inet6* .* scope link')
+
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: degraded \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: carrier \(configured\)')
+
+        '''
+        Documentation/networking/ip-sysctl.txt
+
+        addr_gen_mode - INTEGER
+        Defines how link-local and autoconf addresses are generated.
+
+        0: generate address based on EUI64 (default)
+        1: do no generate a link-local address, use EUI64 for addresses generated
+           from autoconf
+        2: generate stable privacy addresses, using the secret from
+           stable_secret (RFC7217)
+        3: generate stable privacy addresses, using a random secret if unset
+        '''
+
+        test1_addr_gen_mode = ''
+        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')):
+            with open(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'stable_secret')) as f:
+                try:
+                    f.readline()
+                except IOError:
+                    # if stable_secret is unset, then EIO is returned
+                    test1_addr_gen_mode = '0'
+                else:
+                    test1_addr_gen_mode = '2'
+        else:
+            test1_addr_gen_mode = '0'
+
+        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'addr_gen_mode')):
+            self.assertEqual(self.read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '0')
+
+        if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
+            self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
 
     def test_sysctl(self):
         self.copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
