@@ -148,7 +148,7 @@
     <para>Assignment of hardware devices to seats is managed inside the udev database, via
     settings on the devices:</para>
 
-    <variablelist>
+    <variablelist class='udev-directives'>
       <varlistentry>
         <term>Tag <literal>seat</literal></term>
 
