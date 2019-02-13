@@ -46,8 +46,8 @@ TEMPLATE = '''\
         <refsect1>
                 <title>Environment variables</title>
 
-                <para>Environment variables understood by the systemd
-                manager and other programs.</para>
+                <para>Environment variables understood by the systemd manager
+                and other programs and environment variable-compatible settings.</para>
 
                 <variablelist id='environment-variables' />
         </refsect1>

@@ -68,7 +68,7 @@
 
     <para>The following options are understood:</para>
 
-    <variablelist>
+    <variablelist class='environment-variables'>
 
       <varlistentry>
         <term><varname>KEYMAP=</varname></term>
