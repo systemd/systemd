@@ -51,7 +51,7 @@
     <para>All options are configured in the
     <literal>[Login]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
 
       <varlistentry>
         <term><varname>NAutoVTs=</varname></term>

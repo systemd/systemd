@@ -98,12 +98,12 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>System manager directives</title>
+                <title>Program configuration options</title>
 
                 <para>Directives for configuring the behaviour of the
-                systemd process.</para>
+                systemd process and other tools through configuration files.</para>
 
-                <variablelist id='systemd-directives' />
+                <variablelist id='config-directives' />
         </refsect1>
 
         <refsect1>
