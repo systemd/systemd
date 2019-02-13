@@ -34,6 +34,7 @@
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
 #include "netdev/netdevsim.h"
+#include "netdev/netns.h"
 #include "netdev/fou-tunnel.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
@@ -170,6 +171,7 @@ static NetDev *netdev_free(NetDev *netdev) {
         free(netdev->filename);
 
         free(netdev->description);
+        free(netdev->netns);
         free(netdev->ifname);
         free(netdev->mac);
 
@@ -306,6 +308,9 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         if (NETDEV_VTABLE(netdev)->post_create)
                 NETDEV_VTABLE(netdev)->post_create(netdev, NULL, NULL);
+
+        if (netdev->netns)
+                (void) netdev_configure_namespace(netdev);
 
         return 0;
 }

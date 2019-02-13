@@ -458,6 +458,14 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_link_set_nlmsg_flags(sd_netlink_message *m, unsigned flags) {
+        assert_return(m, -EINVAL);
+
+        m->hdr->nlmsg_flags = flags;
+
+        return 0;
+}
+
 int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
         struct ifaddrmsg *ifa;
 

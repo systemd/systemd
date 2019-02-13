@@ -88,6 +88,7 @@ typedef struct NetDev {
         NetDevKind kind;
         char *description;
         char *ifname;
+        char *netns;
         struct ether_addr *mac;
         uint32_t mtu;
         int ifindex;

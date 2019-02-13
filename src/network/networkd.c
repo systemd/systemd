@@ -42,6 +42,7 @@ static int run(int argc, char *argv[]) {
          * privileges are already dropped. */
         if (geteuid() == 0) {
                 r = drop_privileges(uid, gid,
+                                    (1ULL << CAP_SYS_ADMIN) |
                                     (1ULL << CAP_NET_ADMIN) |
                                     (1ULL << CAP_NET_BIND_SERVICE) |
                                     (1ULL << CAP_NET_BROADCAST) |
@@ -64,6 +65,10 @@ static int run(int argc, char *argv[]) {
         r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
+
+        r = mkdir_safe_label("/run/systemd/netif/netns", 0755, uid, gid, MKDIR_WARN_MODE);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'netns': %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

@@ -298,6 +298,13 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>NetworkNamespace=</varname></term>
+          <listitem>
+            <para>Specifies the name for network namespace in which networkd will create net device.
+            If specified namespace doesn't exist then networkd will create it before creating the device.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

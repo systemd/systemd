@@ -18,6 +18,7 @@ Host=
 KernelVersion=
 Virtualization=
 KernelCommandLine=
+NetworkNamespace=
 [GENEVE]
 DestinationPort=
 TTL=
