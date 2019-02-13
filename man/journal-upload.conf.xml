@@ -48,7 +48,7 @@
 
     <para>All options are configured in the <literal>[Upload]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>URL=</varname></term>
 

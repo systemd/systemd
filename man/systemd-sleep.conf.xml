@@ -112,7 +112,7 @@
     <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file:</para>
 
-    <variablelist class='systemd-directives'>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>AllowSuspend=</varname></term>
         <term><varname>AllowHibernation=</varname></term>

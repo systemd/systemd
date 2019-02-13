@@ -40,7 +40,7 @@
       ignored. The following variables can be set:
     </para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>udev_log=</varname></term>
 
