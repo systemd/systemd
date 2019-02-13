@@ -112,7 +112,7 @@
     <para>Settings files may include an <literal>[Exec]</literal>
     section, which carries various execution parameters:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>Boot=</varname></term>
@@ -374,7 +374,7 @@
     section, which carries various parameters configuring the file
     system of the container:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>ReadOnly=</varname></term>
@@ -458,7 +458,7 @@
     section, which carries various parameters configuring the network
     connectivity of the container:</para>
 
-    <variablelist>
+    <variablelist class='nspawn-directives'>
 
       <varlistentry>
         <term><varname>Private=</varname></term>

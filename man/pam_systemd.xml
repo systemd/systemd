@@ -82,7 +82,7 @@
     <variablelist class='pam-directives'>
 
       <varlistentry>
-        <term><option>class=</option></term>
+        <term><varname>class=</varname></term>
 
         <listitem><para>Takes a string argument which sets the session class. The <varname>XDG_SESSION_CLASS</varname>
         environment variable (see below) takes precedence. One of <literal>user</literal>, <literal>greeter</literal>,
@@ -92,7 +92,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>type=</option></term>
+        <term><varname>type=</varname></term>
 
         <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
         environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
@@ -102,7 +102,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>desktop=</option></term>
+        <term><varname>desktop=</varname></term>
 
         <listitem><para>Takes a single, short identifier string for the desktop environment. The
         <varname>XDG_SESSION_DESKTOP</varname> environment variable (see below) takes precedence. This may be used to
@@ -117,7 +117,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>debug<optional>=</optional></option></term>
+        <term><varname>debug</varname><optional>=</optional></term>
 
         <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
         debugging information as it operates.</para></listitem>
@@ -186,21 +186,21 @@
       <varlistentry>
         <term><varname>$XDG_SESSION_TYPE</varname></term>
 
-        <listitem><para>The session type. This may be used instead of <option>session=</option> on the module parameter
+        <listitem><para>The session type. This may be used instead of <varname>session=</varname> on the module parameter
         line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_CLASS</varname></term>
 
-        <listitem><para>The session class. This may be used instead of <option>class=</option> on the module parameter
+        <listitem><para>The session class. This may be used instead of <varname>class=</varname> on the module parameter
         line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_DESKTOP</varname></term>
 
-        <listitem><para>The desktop identifier. This may be used instead of <option>desktop=</option> on the module
+        <listitem><para>The desktop identifier. This may be used instead of <varname>desktop=</varname> on the module
         parameter line, and is usually preferred.</para></listitem>
       </varlistentry>
 
@@ -242,7 +242,7 @@
     the context objects.
     </para>
 
-    <variablelist>
+    <variablelist class='pam-directives'>
       <varlistentry>
         <term><varname>systemd.memory_max</varname></term>
 

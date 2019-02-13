@@ -58,7 +58,7 @@
     <para>The following machine metadata parameters may be set using
     <filename>/etc/machine-info</filename>:</para>
 
-    <variablelist>
+    <variablelist class='environment-variables'>
 
       <varlistentry>
         <term><varname>PRETTY_HOSTNAME=</varname></term>

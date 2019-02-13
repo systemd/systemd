@@ -1763,6 +1763,84 @@ bool link_has_carrier(Link *link) {
         return false;
 }
 
+static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not set address genmode for interface: %m");
+
+        return 1;
+}
+
+static int link_configure_addrgen_mode(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        uint8_t ipv6ll_mode;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Setting address genmode for link");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
+
+        r = sd_netlink_message_open_container(req, AF_INET6);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
+
+        if (!link_ipv6ll_enabled(link))
+                ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
+        else {
+                const char *p = NULL;
+                _cleanup_free_ char *stable_secret = NULL;
+
+                p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/stable_secret");
+
+                /* The file may not exist. And event if it exists, when stable_secret is unset,
+                 * then reading the file fails and EIO is returned. */
+                r = read_one_line_file(p, &stable_secret);
+                if (r < 0)
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+                else
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        }
+
+        r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
+
+        r = sd_netlink_message_close_container(req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
+
+        r = sd_netlink_message_close_container(req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_address_genmode_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1781,7 +1859,6 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
 static int link_up(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        uint8_t ipv6ll_mode;
         int r;
 
         assert(link);
@@ -1812,33 +1889,15 @@ static int link_up(Link *link) {
                         return log_link_error_errno(link, r, "Could not set MAC address: %m");
         }
 
-        r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
-
         if (link_ipv6_enabled(link)) {
+                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not open IFLA_AF_SPEC container: %m");
+
                 /* if the kernel lacks ipv6 support setting IFF_UP fails if any ipv6 options are passed */
                 r = sd_netlink_message_open_container(req, AF_INET6);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not open AF_INET6 container: %m");
-
-                if (!link_ipv6ll_enabled(link))
-                        ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
-                else {
-                        const char *p = NULL;
-                        _cleanup_free_ char *stable_secret = NULL;
-
-                        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/stable_secret");
-                        r = read_one_line_file(p, &stable_secret);
-
-                        if (r < 0)
-                                ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
-                        else
-                                ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
-                }
-                r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_INET6_ADDR_GEN_MODE: %m");
 
                 if (!in_addr_is_null(AF_INET6, &link->network->ipv6_token)) {
                         r = sd_netlink_message_append_in6_addr(req, IFLA_INET6_TOKEN, &link->network->ipv6_token.in6);
@@ -1849,11 +1908,11 @@ static int link_up(Link *link) {
                 r = sd_netlink_message_close_container(req);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not close AF_INET6 container: %m");
-        }
 
-        r = sd_netlink_message_close_container(req);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not close IFLA_AF_SPEC container: %m");
+        }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
                                link_netlink_destroy_callback, link);
@@ -2938,6 +2997,12 @@ static int link_configure(Link *link) {
 
         if (link->network->mtu > 0) {
                 r = link_set_mtu(link, link->network->mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        if (socket_ipv6_is_supported()) {
+                r = link_configure_addrgen_mode(link);
                 if (r < 0)
                         return r;
         }

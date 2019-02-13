@@ -90,7 +90,7 @@
     <para>The following OS identifications parameters may be set using
     <filename>os-release</filename>:</para>
 
-    <variablelist>
+    <variablelist class='environment-variables'>
 
       <varlistentry>
         <term><varname>NAME=</varname></term>

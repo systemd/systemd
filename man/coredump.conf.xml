@@ -54,7 +54,7 @@
     <para>All options are configured in the
     <literal>[Coredump]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
 
       <varlistentry>
         <term><varname>Storage=</varname></term>

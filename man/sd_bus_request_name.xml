@@ -74,23 +74,23 @@
 
     <variablelist>
       <varlistentry>
-        <term><varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname></term>
+        <term><constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant></term>
 
         <listitem><para>After acquiring the name successfully, permit other peers to take over the name when they try
-        to acquire it with the <varname>SD_BUS_NAME_REPLACE_EXISTING</varname> flag set. If
-        <varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname> is not set on the original request, such a request by other
+        to acquire it with the <constant>SD_BUS_NAME_REPLACE_EXISTING</constant> flag set. If
+        <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> is not set on the original request, such a request by other
         peers will be denied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_NAME_REPLACE_EXISTING</varname></term>
+        <term><constant>SD_BUS_NAME_REPLACE_EXISTING</constant></term>
 
         <listitem><para>Take over the name if it is already acquired by another peer, and that other peer has permitted
-        takeover by setting <varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname> while acquiring it.</para></listitem>
+        takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_NAME_QUEUE</varname></term>
+        <term><constant>SD_BUS_NAME_QUEUE</constant></term>
 
         <listitem><para>Queue the acquisition of the name when the name is already taken.</para></listitem>
       </varlistentry>
@@ -130,7 +130,7 @@
     <para>On success, these calls return 0 or a positive integer. On failure, these calls return a negative errno-style
     error code.</para>
 
-    <para>If <varname>SD_BUS_NAME_QUEUE</varname> is specified, <function>sd_bus_request_name()</function> will return
+    <para>If <constant>SD_BUS_NAME_QUEUE</constant> is specified, <function>sd_bus_request_name()</function> will return
     0 when the name is already taken by another peer and the client has been added to the queue for the name. In that
     case, the caller can subscribe to <literal>NameOwnerChanged</literal> signals to be notified when the name is
     successfully acquired.  <function>sd_bus_request_name()</function> returns &gt; 0 when the name has immediately

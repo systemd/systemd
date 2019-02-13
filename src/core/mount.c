@@ -764,7 +764,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSloppyOptions: %s\n"
                 "%sLazyUnmount: %s\n"
                 "%sForceUnmount: %s\n"
-                "%sTimoutSec: %s\n",
+                "%sTimeoutSec: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
