@@ -663,7 +663,7 @@ static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_FWMASK]              = { .type = NETLINK_TYPE_U32 },
         [FRA_OIFNAME]             = { .type = NETLINK_TYPE_STRING },
         [FRA_PAD]                 = { .type = NETLINK_TYPE_U32 },
-        [FRA_L3MDEV]              = { .type = NETLINK_TYPE_U64 },
+        [FRA_L3MDEV]              = { .type = NETLINK_TYPE_U8 },
         [FRA_UID_RANGE]           = { .size = sizeof(struct fib_rule_uid_range) },
         [FRA_PROTOCOL]            = { .type = NETLINK_TYPE_U8 },
         [FRA_IP_PROTO]            = { .type = NETLINK_TYPE_U8 },
