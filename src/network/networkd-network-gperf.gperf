@@ -146,6 +146,8 @@ DHCP.IAID,                              config_parse_iaid,                      
 DHCP.ListenPort,                        config_parse_uint16,                            0,                             offsetof(Network, dhcp_client_port)
 DHCP.RapidCommit,                       config_parse_bool,                              0,                             offsetof(Network, rapid_commit)
 DHCP.ForceDHCPv6PDOtherInformation,     config_parse_bool,                              0,                             offsetof(Network, dhcp6_force_pd_other_information)
+IPv6AcceptRA.UseAutonomousPrefix,       config_parse_bool,                              0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
+IPv6AcceptRA.UseOnLinkPrefix,           config_parse_bool,                              0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                    config_parse_bool,                              0,                             offsetof(Network, ipv6_accept_ra_use_dns)
 IPv6AcceptRA.UseDomains,                config_parse_dhcp_use_domains,                  0,                             offsetof(Network, ipv6_accept_ra_use_domains)
 IPv6AcceptRA.RouteTable,                config_parse_uint32,                            0,                             offsetof(Network, ipv6_accept_ra_route_table)

@@ -209,6 +209,8 @@ struct Network {
         uint32_t ipv6_mtu;
 
         bool ipv6_accept_ra_use_dns;
+        bool ipv6_accept_ra_use_autonomous_prefix;
+        bool ipv6_accept_ra_use_onlink_prefix;
         bool active_slave;
         bool primary_slave;
         DHCPUseDomains ipv6_accept_ra_use_domains;

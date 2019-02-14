@@ -527,10 +527,13 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                                 return;
                         }
 
-                        if (flags & ND_OPT_PI_FLAG_ONLINK)
-                                (void) ndisc_router_process_onlink_prefix(link, rt);
-                        if (flags & ND_OPT_PI_FLAG_AUTO)
-                                (void) ndisc_router_process_autonomous_prefix(link, rt);
+                        if (link->network->ipv6_accept_ra_use_onlink_prefix)
+                                if (flags & ND_OPT_PI_FLAG_ONLINK)
+                                        (void) ndisc_router_process_onlink_prefix(link, rt);
+
+                        if (link->network->ipv6_accept_ra_use_autonomous_prefix)
+                                if (flags & ND_OPT_PI_FLAG_AUTO)
+                                        (void) ndisc_router_process_autonomous_prefix(link, rt);
 
                         break;
                 }
