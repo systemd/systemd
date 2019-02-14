@@ -2162,9 +2162,6 @@ C00000-CFFFFF     (base 16)		Shenzhen Samchung Video Technology Co., Ltd.
 D0-76-50   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
 
-1C-CA-E3   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
-
 3C-39-E7   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
 
@@ -2839,6 +2836,63 @@ C8-63-14   (hex)		Tymphany Acoustic Technology (Huizhou) Co., Ltd.
 				Tymphany Industrial Area, Xin Lian Village, XinXu Town, HuiYang District
 				Huizhou  Guangdong  516223
 				CN
+
+E4-1E-0A   (hex)		Avast Software s.r.o.
+300000-3FFFFF     (base 16)		Avast Software s.r.o.
+				Pikrtova 1737/1a
+				Prague 4    14000
+				CZ
+
+C8-2C-2B   (hex)		Fungible, Inc.
+000000-0FFFFF     (base 16)		Fungible, Inc.
+				3201 Scott Blvd., 2nd floor
+				Santa Clara  CA  95054
+				US
+
+E4-1E-0A   (hex)		Shanghai LeXiang Technology Co., Ltd
+E00000-EFFFFF     (base 16)		Shanghai LeXiang Technology Co., Ltd
+				Floor 6,Building 8,Yanjiaqiao Road,Pudong Area ,Shanghai ,China
+				shanghai    200125
+				CN
+
+E4-1E-0A   (hex)		SFC Energy AG
+600000-6FFFFF     (base 16)		SFC Energy AG
+				Eugen-Saenger-Ring 7
+				Brunnthal    85649
+				DE
+
+C8-2C-2B   (hex)		RF Engineering and Energy Resource
+300000-3FFFFF     (base 16)		RF Engineering and Energy Resource
+				4460 Commercial Ave.
+				Portage  MI  49002
+				US
+
+C8-2C-2B   (hex)		Repp Health
+200000-2FFFFF     (base 16)		Repp Health
+				1919 14th Street , Suite 700
+				Boulder  CO  80302
+				US
+
+C8-2C-2B   (hex)		DALCO AG
+500000-5FFFFF     (base 16)		DALCO AG
+				Industriestr. 28
+				Volketswil  ZH  8604
+				CH
+
+B0-FD-0B   (hex)		DMAC Security LLC
+300000-3FFFFF     (base 16)		DMAC Security LLC
+				833 Shotgun Road
+				Sunrise  FL  33326
+				US
+
+B0-FD-0B   (hex)		eSenseLab Ltd.
+800000-8FFFFF     (base 16)		eSenseLab Ltd.
+				1 Chervena stena Str., Office 1
+				Sofia  Sofia-grad  1421
+				BG
+
+1C-CA-E3   (hex)		Private
+F00000-FFFFFF     (base 16)		Private
 
 1C-87-76   (hex)		Strone Technology
 C00000-CFFFFF     (base 16)		Strone Technology
@@ -5593,6 +5647,24 @@ C8-63-14   (hex)		GRINBI PARTNERS
 				222, Dogok-ro, Gangnam-gu
 				Seoul    06272
 				KR
+
+E4-1E-0A   (hex)		Safety Vision, LLC
+B00000-BFFFFF     (base 16)		Safety Vision, LLC
+				6100 West Sam Houston Parkway North
+				Houston  TX  77041-5113
+				US
+
+E4-1E-0A   (hex)		Zavod № 423
+000000-0FFFFF     (base 16)		Zavod № 423
+				2B, Zavodskoy proezd
+				Bogoroditsk  Tula  301830
+				RU
+
+C8-2C-2B   (hex)		Verifone Systems (China),lnc.
+800000-8FFFFF     (base 16)		Verifone Systems (China),lnc.
+				2nd Floor,No.39,Region C, Tongpan Road,Gulou District
+				fuzhou  fujian  350004
+				CN
 
 1C-87-76   (hex)		Zhuhai MYZR Technology Co.,Ltd
 500000-5FFFFF     (base 16)		Zhuhai MYZR Technology Co.,Ltd
@@ -8549,6 +8621,60 @@ C8-63-14   (hex)		Thinci, Inc.
 				Campbell  CA  95008
 				US
 
+E4-1E-0A   (hex)		SAGE Glass
+800000-8FFFFF     (base 16)		SAGE Glass
+				Two Sage Way
+				Faribault  MN  55021
+				US
+
+E4-1E-0A   (hex)		IDvaco Private Limited
+200000-2FFFFF     (base 16)		IDvaco Private Limited
+				Aljunied road, 627A,06-02
+				singapore  singapore  389842
+				SG
+
+E4-1E-0A   (hex)		B METERS S.R.L.
+900000-9FFFFF     (base 16)		B METERS S.R.L.
+				VIA FRIULI 3
+				GONARS  UDINE  33050
+				IT
+
+E4-1E-0A   (hex)		TELETASK BELGIUM
+C00000-CFFFFF     (base 16)		TELETASK BELGIUM
+				Ottergemsesteenweg-zuid 729
+				GENT  Oost-Vlaanderen  9000
+				BE
+
+E4-1E-0A   (hex)		Connected Cars A/S
+100000-1FFFFF     (base 16)		Connected Cars A/S
+				Park Allé 355
+				Brøndby    2605
+				DK
+
+C8-63-14   (hex)		Optictimes Co.,Ltd
+A00000-AFFFFF     (base 16)		Optictimes Co.,Ltd
+				Hangzhou City,  Zhejiang Province
+				Hangzhou  Zhejiang  310023
+				CN
+
+C8-2C-2B   (hex)		Kunshan SVL Electric  Co.,Ltd
+B00000-BFFFFF     (base 16)		Kunshan SVL Electric  Co.,Ltd
+				No. 568, JuJin Road, Zhangpu Town
+				SuZhou    215300
+				CN
+
+B0-FD-0B   (hex)		Habana Labs LTD
+D00000-DFFFFF     (base 16)		Habana Labs LTD
+				5 Tarshish St,
+				Caesarea    3079821
+				IL
+
+B0-FD-0B   (hex)		Vista Manufacturing
+200000-2FFFFF     (base 16)		Vista Manufacturing
+				53345 Columbia Drive
+				Elkhart  IN  46514
+				US
+
 1C-87-76   (hex)		Hekatron Vertriebs GmbH
 B00000-BFFFFF     (base 16)		Hekatron Vertriebs GmbH
 				Brühlmatten 9
@@ -10658,9 +10784,6 @@ B00000-BFFFFF     (base 16)		Shanghai Visteon Automotive Electronics System CO. 
 				Chicago  IL  60607
 				US
 
-F0-23-B9   (hex)		Private
-D00000-DFFFFF     (base 16)		Private
-
 34-D0-B8   (hex)		Kongqiguanjia (Beijing)Technology co.，ltd
 E00000-EFFFFF     (base 16)		Kongqiguanjia (Beijing)Technology co.，ltd
 				Room 1201,Block A，Building of Fesco，Xidawang Road，Chaoyang district
@@ -10816,9 +10939,6 @@ B00000-BFFFFF     (base 16)		Popit Oy
 				411,4/F,Building A,Pengnian Science Park,Honghua IV Road,Xili,Nanshan District
 				Shenzhen  Guangdong  518000
 				CN
-
-8C-14-7D   (hex)		Private
-100000-1FFFFF     (base 16)		Private
 
 64-FB-81   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
@@ -11377,6 +11497,42 @@ C8-63-14   (hex)		Maxcom S.A.
 				Towarowa 23A
 				Tychy    43-100
 				PL
+
+E4-1E-0A   (hex)		FireAngel Safety Technology Ltd
+A00000-AFFFFF     (base 16)		FireAngel Safety Technology Ltd
+				Sir William Lyons Road, Vanguard Centre
+				Coventry  Warwickshire  CV4 7EZ
+				GB
+
+E4-1E-0A   (hex)		XPR Group
+400000-4FFFFF     (base 16)		XPR Group
+				Drève Richelle 161 - WOP G
+				Waterloo    1410
+				BE
+
+C8-2C-2B   (hex)		Galgus
+100000-1FFFFF     (base 16)		Galgus
+				Italica 1, 1st floor
+				Camas  Seville  41900
+				ES
+
+C8-2C-2B   (hex)		Fränkische Rohrwerke Gebr. Kirchner GmbH & Co. KG
+E00000-EFFFFF     (base 16)		Fränkische Rohrwerke Gebr. Kirchner GmbH & Co. KG
+				Hellinger Str. 1
+				Königsberg/Bayern    97486
+				DE
+
+B0-FD-0B   (hex)		Haltian Products Oy
+C00000-CFFFFF     (base 16)		Haltian Products Oy
+				Yrttipellontie 1D
+				Oulu    90230
+				FI
+
+F0-23-B9   (hex)		Private
+D00000-DFFFFF     (base 16)		Private
+
+8C-14-7D   (hex)		Private
+100000-1FFFFF     (base 16)		Private
 
 1C-87-74   (hex)		Philips Personal Health Solutions
 000000-0FFFFF     (base 16)		Philips Personal Health Solutions
@@ -13550,9 +13706,6 @@ E00000-EFFFFF     (base 16)		Electronic Controlled Systems, Inc.
 				Bloomington  MN  55438
 				US
 
-80-7B-85   (hex)		Private
-F00000-FFFFFF     (base 16)		Private
-
 F0-AC-D7   (hex)		Sercomm Corporation.
 400000-4FFFFF     (base 16)		Sercomm Corporation.
 				3F,No.81,Yu-Yih Rd.,Chu-Nan Chen
@@ -14227,3 +14380,72 @@ C8-63-14   (hex)		Western Reserve Controls, Inc.
 				1485 Exeter Dr.
 				Akron  OH  44306
 				US
+
+E4-1E-0A   (hex)		Tritium Pty Ltd
+700000-7FFFFF     (base 16)		Tritium Pty Ltd
+				1/31 Archimedes PL.
+				Murarrie  QLD   4172
+				AU
+
+E4-1E-0A   (hex)		ROMO Wind A/S
+D00000-DFFFFF     (base 16)		ROMO Wind A/S
+				Olof Palmes Allé 47
+				Aarhus N    8200
+				DK
+
+C8-2C-2B   (hex)		UBITRON Co.,LTD
+D00000-DFFFFF     (base 16)		UBITRON Co.,LTD
+				Sinbuk-Ro
+				Chuncheon City  Gangwon  24206
+				KR
+
+C8-2C-2B   (hex)		Merpa Bilgi Islem Ltd.Sti
+700000-7FFFFF     (base 16)		Merpa Bilgi Islem Ltd.Sti
+				Oztekin CD NO:26
+				Istanbul  Bayrampasa  34040
+				TR
+
+C8-2C-2B   (hex)		Shiftall Inc.
+A00000-AFFFFF     (base 16)		Shiftall Inc.
+				4F TokyoDaiwa Bldg., 2-6-10 Nihonbashibakurocho, 
+				Chuo,   Tokyo  1030002
+				JP
+
+C8-2C-2B   (hex)		iWave Systems Tech Pvt Ltd
+400000-4FFFFF     (base 16)		iWave Systems Tech Pvt Ltd
+				7/B 29th Main, BTM Layout 2nd Stage
+				Bengalore  Kamataka  560076
+				IN
+
+C8-2C-2B   (hex)		BIOT Sp. z o.o.
+900000-9FFFFF     (base 16)		BIOT Sp. z o.o.
+				Nowy Kisielin-Nowa 7
+				Zielona Góra  Lubuskie  66-002
+				PL
+
+C8-2C-2B   (hex)		Smart Wires Inc
+C00000-CFFFFF     (base 16)		Smart Wires Inc
+				3292 Whipple Road
+				Union City   CA  94587
+				US
+
+C8-2C-2B   (hex)		Grav I.T.
+600000-6FFFFF     (base 16)		Grav I.T.
+				601 1st Ave NW
+				Gravette  AR  72736
+				US
+
+B0-FD-0B   (hex)		MartinLogan, Ltd.
+B00000-BFFFFF     (base 16)		MartinLogan, Ltd.
+				2101 Delware St
+				Lawrence  KS  66046
+				US
+
+B0-FD-0B   (hex)		TEMCO JAPAN CO., LTD.
+A00000-AFFFFF     (base 16)		TEMCO JAPAN CO., LTD.
+				2-21-4 HONAN
+				SUGINAMI KU  Tokyo-to  168-0062
+				JP
+
+80-7B-85   (hex)		Private
+F00000-FFFFFF     (base 16)		Private

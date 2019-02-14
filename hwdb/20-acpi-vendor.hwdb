@@ -24,6 +24,9 @@ acpi:AMDI*:
 acpi:AMPC*:
  ID_VENDOR_FROM_DATABASE=Ampere Computing
 
+acpi:AMZN*:
+ ID_VENDOR_FROM_DATABASE=Amazon Corporation
+
 acpi:APMC*:
  ID_VENDOR_FROM_DATABASE=Applied Micro Circuits Corporation
 
@@ -1949,6 +1952,9 @@ acpi:DMC*:
 
 acpi:DMM*:
  ID_VENDOR_FROM_DATABASE=Dimond Multimedia Systems Inc
+
+acpi:DMN*:
+ ID_VENDOR_FROM_DATABASE=Dimension Engineering LLC
 
 acpi:DMO*:
  ID_VENDOR_FROM_DATABASE=Data Modul AG
