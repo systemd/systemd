@@ -176,6 +176,8 @@ Prefix=
 UseDomains=
 RouteTable=
 UseDNS=
+UseAutonomousPrefix=
+UseOnLinkPrefix=
 [DHCPServer]
 EmitNTP=
 PoolSize=
