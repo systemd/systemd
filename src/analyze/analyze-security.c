@@ -97,11 +97,12 @@ struct security_assessor {
         const char *url;
         uint64_t weight;
         uint64_t range;
-        int (*assess)(const struct security_assessor *a,
-                      const struct security_info *info,
-                      const void *data,
-                      uint64_t *ret_badness,
-                      char **ret_description);
+        int (*assess)(
+                const struct security_assessor *a,
+                const struct security_info *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description);
         size_t offset;
         uint64_t parameter;
         bool default_dependencies_only;
@@ -147,11 +148,12 @@ static bool security_info_runs_privileged(const struct security_info *i) {
         return isempty(i->user);
 }
 
-static int assess_bool(const struct security_assessor *a,
-                       const struct security_info *info,
-                       const void *data,
-                       uint64_t *ret_badness,
-                       char **ret_description) {
+static int assess_bool(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         const bool *b = data;
 
@@ -165,11 +167,12 @@ static int assess_bool(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_user(const struct security_assessor *a,
-                       const struct security_info *info,
-                       const void *data,
-                       uint64_t *ret_badness,
-                       char **ret_description) {
+static int assess_user(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         _cleanup_free_ char *d = NULL;
         uint64_t b;
@@ -202,11 +205,12 @@ static int assess_user(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_protect_home(const struct security_assessor *a,
-                               const struct security_info *info,
-                               const void *data,
-                               uint64_t *ret_badness,
-                               char **ret_description) {
+static int assess_protect_home(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         const char *description;
         uint64_t badness;
@@ -243,11 +247,12 @@ static int assess_protect_home(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_protect_system(const struct security_assessor *a,
-                                 const struct security_info *info,
-                                 const void *data,
-                                 uint64_t *ret_badness,
-                                 char **ret_description) {
+static int assess_protect_system(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         const char *description;
         uint64_t badness;
@@ -284,11 +289,12 @@ static int assess_protect_system(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_root_directory(const struct security_assessor *a,
-                                 const struct security_info *info,
-                                 const void *data,
-                                 uint64_t *ret_badness,
-                                 char **ret_description) {
+static int assess_root_directory(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -300,11 +306,12 @@ static int assess_root_directory(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_capability_bounding_set(const struct security_assessor *a,
-                                          const struct security_info *info,
-                                          const void *data,
-                                          uint64_t *ret_badness,
-                                          char **ret_description) {
+static int assess_capability_bounding_set(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -315,11 +322,12 @@ static int assess_capability_bounding_set(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_umask(const struct security_assessor *a,
-                        const struct security_info *info,
-                        const void *data,
-                        uint64_t *ret_badness,
-                        char **ret_description) {
+static int assess_umask(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         char *copy = NULL;
         const char *d;
@@ -355,11 +363,12 @@ static int assess_umask(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_keyring_mode(const struct security_assessor *a,
-                               const struct security_info *info,
-                               const void *data,
-                               uint64_t *ret_badness,
-                               char **ret_description) {
+static int assess_keyring_mode(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -370,11 +379,12 @@ static int assess_keyring_mode(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_notify_access(const struct security_assessor *a,
-                                const struct security_info *info,
-                                const void *data,
-                                uint64_t *ret_badness,
-                                char **ret_description) {
+static int assess_notify_access(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -385,11 +395,12 @@ static int assess_notify_access(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_remove_ipc(const struct security_assessor *a,
-                             const struct security_info *info,
-                             const void *data,
-                             uint64_t *ret_badness,
-                             char **ret_description) {
+static int assess_remove_ipc(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -403,11 +414,12 @@ static int assess_remove_ipc(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_supplementary_groups(const struct security_assessor *a,
-                                       const struct security_info *info,
-                                       const void *data,
-                                       uint64_t *ret_badness,
-                                       char **ret_description) {
+static int assess_supplementary_groups(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -421,11 +433,12 @@ static int assess_supplementary_groups(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_restrict_namespaces(const struct security_assessor *a,
-                                      const struct security_info *info,
-                                      const void *data,
-                                      uint64_t *ret_badness,
-                                      char **ret_description) {
+static int assess_restrict_namespaces(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -436,11 +449,12 @@ static int assess_restrict_namespaces(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_system_call_architectures(const struct security_assessor *a,
-                                            const struct security_info *info,
-                                            const void *data,
-                                            uint64_t *ret_badness,
-                                            char **ret_description) {
+static int assess_system_call_architectures(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         char *d;
         uint64_t b;
@@ -500,11 +514,12 @@ static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterS
         return false;
 }
 
-static int assess_system_call_filter(const struct security_assessor *a,
-                                     const struct security_info *info,
-                                     const void *data,
-                                     uint64_t *ret_badness,
-                                     char **ret_description) {
+static int assess_system_call_filter(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         const SyscallFilterSet *f;
         char *d = NULL;
@@ -530,9 +545,10 @@ static int assess_system_call_filter(const struct security_assessor *a,
 
                 if (info->system_call_filter_whitelist) {
                         if (bad) {
-                                (void) asprintf(&d,
-                                                "System call whitelist defined for service, and %s is included",
-                                                f->name);
+                                (void) asprintf(
+                                        &d,
+                                        "System call whitelist defined for service, and %s is included",
+                                        f->name);
                                 b = 9;
                         } else {
                                 (void) asprintf(
@@ -549,9 +565,10 @@ static int assess_system_call_filter(const struct security_assessor *a,
                                         f->name);
                                 b = 10;
                         } else {
-                                (void) asprintf(&d,
-                                                "System call blacklist defined for service, and %s is included",
-                                                f->name);
+                                (void) asprintf(
+                                        &d,
+                                        "System call blacklist defined for service, and %s is included",
+                                        f->name);
                                 b = 5;
                         }
                 }
@@ -568,11 +585,12 @@ static int assess_system_call_filter(const struct security_assessor *a,
 
 #endif
 
-static int assess_ip_address_allow(const struct security_assessor *a,
-                                   const struct security_info *info,
-                                   const void *data,
-                                   uint64_t *ret_badness,
-                                   char **ret_description) {
+static int assess_ip_address_allow(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         char *d = NULL;
         uint64_t b;
@@ -604,11 +622,12 @@ static int assess_ip_address_allow(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_device_allow(const struct security_assessor *a,
-                               const struct security_info *info,
-                               const void *data,
-                               uint64_t *ret_badness,
-                               char **ret_description) {
+static int assess_device_allow(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         char *d = NULL;
         uint64_t b;
@@ -640,11 +659,12 @@ static int assess_device_allow(const struct security_assessor *a,
         return 0;
 }
 
-static int assess_ambient_capabilities(const struct security_assessor *a,
-                                       const struct security_info *info,
-                                       const void *data,
-                                       uint64_t *ret_badness,
-                                       char **ret_description) {
+static int assess_ambient_capabilities(
+        const struct security_assessor *a,
+        const struct security_info *info,
+        const void *data,
+        uint64_t *ret_badness,
+        char **ret_description) {
 
         assert(ret_badness);
         assert(ret_description);
@@ -1806,10 +1826,8 @@ static int property_read_device_allow(
         return sd_bus_message_exit_container(m);
 }
 
-static int acquire_security_info(sd_bus *bus,
-                                 const char *name,
-                                 struct security_info *info,
-                                 AnalyzeSecurityFlags flags) {
+static int acquire_security_info(
+        sd_bus *bus, const char *name, struct security_info *info, AnalyzeSecurityFlags flags) {
 
         static const struct bus_properties_map security_map[] = {
                 { "AmbientCapabilities",     "t",       NULL,                                    offsetof(struct security_info, ambient_capabilities)      },
@@ -1868,14 +1886,15 @@ static int acquire_security_info(sd_bus *bus,
         if (!path)
                 return log_oom();
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   path,
-                                   security_map,
-                                   BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   NULL,
-                                   info);
+        r = bus_map_all_properties(
+                bus,
+                "org.freedesktop.systemd1",
+                path,
+                security_map,
+                BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
+                &error,
+                NULL,
+                info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit properties: %s", bus_error_message(&error, r));
 
@@ -1955,14 +1974,15 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                 size_t allocated = 0, n = 0;
                 char **i;
 
-                r = sd_bus_call_method(bus,
-                                       "org.freedesktop.systemd1",
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "ListUnits",
-                                       &error,
-                                       &reply,
-                                       NULL);
+                r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ListUnits",
+                        &error,
+                        &reply,
+                        NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 

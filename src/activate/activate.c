@@ -123,8 +123,8 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
         int r;
 
         if (arg_inetd && n_fds != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--inetd only supported for single file descriptors.");
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "--inetd only supported for single file descriptors.");
 
         length = strv_length(arg_setenv);
 
@@ -253,9 +253,10 @@ static int fork_and_exec_process(const char *child, char **argv, char **env, int
         if (!joined)
                 return log_oom();
 
-        r = safe_fork("(activate)",
-                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
-                      &child_pid);
+        r = safe_fork(
+                "(activate)",
+                FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                &child_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -391,16 +392,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'd':
                         if (arg_socket_type == SOCK_SEQPACKET)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--datagram may not be combined with --seqpacket.");
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "--datagram may not be combined with --seqpacket.");
 
                         arg_socket_type = SOCK_DGRAM;
                         break;
 
                 case ARG_SEQPACKET:
                         if (arg_socket_type == SOCK_DGRAM)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--seqpacket may not be combined with --datagram.");
+                                return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "--seqpacket may not be combined with --datagram.");
 
                         arg_socket_type = SOCK_SEQPACKET;
                         break;
@@ -451,14 +454,16 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind == argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: command to execute is missing.",
-                                       program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "%s: command to execute is missing.",
+                        program_invocation_short_name);
 
         if (arg_socket_type == SOCK_DGRAM && arg_accept)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Datagram sockets do not accept connections. "
-                                       "The --datagram and --accept options may not be combined.");
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL),
+                        "Datagram sockets do not accept connections. "
+                        "The --datagram and --accept options may not be combined.");
 
         arg_args = argv + optind;
 
