@@ -116,6 +116,7 @@ VLAN=
 DHCPServer=
 BindCarrier=
 VRF=
+IgnoreCarrierLoss=
 [IPv6Prefix]
 Prefix=
 OnLink=

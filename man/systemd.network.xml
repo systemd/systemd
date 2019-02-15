@@ -800,6 +800,15 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>IgnoreCarrierLoss=</varname></term>
+        <listitem>
+          <para>A boolean. Allows networkd to retain both the static and dynamic configuration of the
+          interface even if its carrier is lost. Defaults to false.
+          </para>
+        </listitem>
+      </varlistentry>
+
       </variablelist>
 
   </refsect1>
