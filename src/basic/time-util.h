@@ -112,6 +112,7 @@ int parse_timestamp(const char *t, usec_t *usec);
 
 int parse_sec(const char *t, usec_t *usec);
 int parse_sec_fix_0(const char *t, usec_t *usec);
+int parse_sec_def_infinity(const char *t, usec_t *usec);
 int parse_time(const char *t, usec_t *usec, usec_t default_unit);
 int parse_nsec(const char *t, nsec_t *nsec);
 

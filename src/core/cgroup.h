@@ -83,6 +83,7 @@ struct CGroupContext {
         uint64_t cpu_weight;
         uint64_t startup_cpu_weight;
         usec_t cpu_quota_per_sec_usec;
+        usec_t cpu_quota_period_usec;
 
         uint64_t io_weight;
         uint64_t startup_io_weight;
@@ -134,6 +135,8 @@ typedef enum CGroupIPAccountingMetric {
 
 typedef struct Unit Unit;
 typedef struct Manager Manager;
+
+usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);

@@ -330,6 +330,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("CPUShares", "t", NULL, offsetof(CGroupContext, cpu_shares), 0),
         SD_BUS_PROPERTY("StartupCPUShares", "t", NULL, offsetof(CGroupContext, startup_cpu_shares), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
+        SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
         SD_BUS_PROPERTY("IOAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, io_accounting), 0),
         SD_BUS_PROPERTY("IOWeight", "t", NULL, offsetof(CGroupContext, io_weight), 0),
         SD_BUS_PROPERTY("StartupIOWeight", "t", NULL, offsetof(CGroupContext, startup_io_weight), 0),
@@ -713,6 +714,7 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_per_sec_usec = u64;
+                        u->warned_clamping_cpu_quota_period = false;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
                         if (c->cpu_quota_per_sec_usec == USEC_INFINITY)
@@ -723,6 +725,29 @@ int bus_cgroup_set_property(
                                 unit_write_settingf(u, flags, "CPUQuota",
                                                     "CPUQuota=%0.f%%",
                                                     (double) (c->cpu_quota_per_sec_usec / 10000));
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUQuotaPeriodUSec")) {
+                uint64_t u64;
+
+                r = sd_bus_message_read(message, "t", &u64);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpu_quota_period_usec = u64;
+                        u->warned_clamping_cpu_quota_period = false;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+                        if (c->cpu_quota_period_usec == USEC_INFINITY)
+                                unit_write_setting(u, flags, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
+                        else {
+                                char v[FORMAT_TIMESPAN_MAX];
+                                unit_write_settingf(u, flags, "CPUQuotaPeriodSec",
+                                                    "CPUQuotaPeriodSec=%s",
+                                                    format_timespan(v, sizeof(v), c->cpu_quota_period_usec, 1));
+                        }
                 }
 
                 return 1;
