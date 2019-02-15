@@ -1384,7 +1384,7 @@ static void add_rule(UdevRules *rules, char *line,
                         } else if (rules->resolve_name_timing != RESOLVE_NAME_NEVER)
                                 r = rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
                         else {
-                                LOG_RULE_ERROR("Invalid %s operation", key);
+                                LOG_RULE_DEBUG("Resolving user name is disabled, ignoring %s=%s", key, value);
                                 continue;
                         }
                         if (r < 0)
@@ -1408,7 +1408,7 @@ static void add_rule(UdevRules *rules, char *line,
                         } else if (rules->resolve_name_timing != RESOLVE_NAME_NEVER)
                                 r = rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
                         else {
-                                LOG_RULE_ERROR("Invalid %s operation", key);
+                                LOG_RULE_DEBUG("Resolving group name is disabled, ignoring %s=%s", key, value);
                                 continue;
                         }
                         if (r < 0)
