@@ -76,6 +76,8 @@ typedef struct Link {
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
         unsigned enslaving;
+        /* link_is_enslaved() has additional checks. So, it is named _raw. */
+        bool enslaved_raw;
 
         Set *addresses;
         Set *addresses_foreign;

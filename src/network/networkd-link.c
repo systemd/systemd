@@ -328,6 +328,24 @@ static int link_enable_ipv6(Link *link) {
         return 0;
 }
 
+static bool link_is_enslaved(Link *link) {
+        if (link->flags & IFF_SLAVE)
+                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
+                return true;
+
+        if (!link->enslaved_raw)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->bridge)
+                /* TODO: support the case when link is not managed by networkd. */
+                return true;
+
+        return false;
+}
+
 void link_update_operstate(Link *link, bool also_update_bond_master) {
         LinkOperationalState operstate;
 
@@ -373,7 +391,7 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
                 operstate = LINK_OPERSTATE_OFF;
 
         if (IN_SET(operstate, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_CARRIER) &&
-            link->flags & IFF_SLAVE)
+            link_is_enslaved(link))
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
         if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE) &&
@@ -2514,6 +2532,8 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         assert(link);
         assert(link->network);
+        assert(link->enslaving > 0);
+        assert(!link->enslaved_raw);
 
         link->enslaving--;
 
@@ -2528,8 +2548,10 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         } else
                 log_link_debug(link, "Joined netdev");
 
-        if (link->enslaving <= 0)
+        if (link->enslaving == 0) {
+                link->enslaved_raw = true;
                 link_joined(link);
+        }
 
         return 1;
 }
@@ -2546,12 +2568,8 @@ static int link_enter_join_netdev(Link *link) {
         link_set_state(link, LINK_STATE_CONFIGURING);
 
         link_dirty(link);
-
-        if (!link->network->bridge &&
-            !link->network->bond &&
-            !link->network->vrf &&
-            hashmap_isempty(link->network->stacked_netdevs))
-                return link_joined(link);
+        link->enslaving = 0;
+        link->enslaved_raw = false;
 
         if (link->network->bond) {
                 if (link->network->bond->state == NETDEV_STATE_READY &&
@@ -2563,6 +2581,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_NETDEV_INTERFACE(link->network->bond),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname));
 
+                link->enslaving++;
+
                 r = netdev_join(link->network->bond, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
@@ -2572,8 +2592,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         if (link->network->bridge) {
@@ -2581,6 +2599,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->bridge),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname));
+
+                link->enslaving++;
 
                 r = netdev_join(link->network->bridge, link, netdev_join_handler);
                 if (r < 0) {
@@ -2591,8 +2611,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         if (link->network->vrf) {
@@ -2600,6 +2618,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->vrf),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname));
+
+                link->enslaving++;
 
                 r = netdev_join(link->network->vrf, link, netdev_join_handler);
                 if (r < 0) {
@@ -2610,8 +2630,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
@@ -2626,6 +2644,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_NETDEV_INTERFACE(netdev),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
 
+                link->enslaving++;
+
                 r = netdev_join(netdev, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
@@ -2635,9 +2655,10 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
+
+        if (link->enslaving == 0)
+                return link_joined(link);
 
         return 0;
 }
