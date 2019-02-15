@@ -287,10 +287,6 @@ static int create_disk(
                 return log_error_errno(r, "Failed to write unit file %s: %m", n);
 
         if (!noauto) {
-                r = generator_add_symlink(arg_dest, d, "wants", n);
-                if (r < 0)
-                        return r;
-
                 r = generator_add_symlink(arg_dest,
                                           netdev ? "remote-cryptsetup.target" : "cryptsetup.target",
                                           nofail ? "wants" : "requires", n);
