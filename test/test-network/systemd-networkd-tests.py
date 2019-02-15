@@ -957,12 +957,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('test1'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
-        print(output)
-
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
-        time.sleep(2)
+        time.sleep(4)
         output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
@@ -972,7 +969,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy99', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy99', 'up']), 0)
-        time.sleep(2)
+        time.sleep(4)
         output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
@@ -981,7 +978,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'State: routable \(configured\)')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
-        time.sleep(2)
+        time.sleep(4)
         output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
@@ -990,7 +987,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'State: routable \(configured\)')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy99']), 0)
-        time.sleep(2)
+        time.sleep(4)
         output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertNotRegex(output, 'UP,LOWER_UP')
@@ -1001,7 +998,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertEqual(subprocess.call(['ip', 'link', 'add', 'dummy98', 'type', 'dummy']), 0)
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
-        time.sleep(2)
+        time.sleep(4)
         output = subprocess.check_output(['ip', 'address', 'show', 'test1']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
