@@ -98,8 +98,20 @@
 #endif
 
 /* netdevice.h */
+#ifndef NET_ADDR_PERM
+#define NET_ADDR_PERM 0
+#endif
+
 #ifndef NET_ADDR_RANDOM
 #define NET_ADDR_RANDOM 1
+#endif
+
+#ifndef NET_ADDR_STOLEN
+#define NET_ADDR_STOLEN 2
+#endif
+
+#ifndef NET_ADDR_SET
+#define NET_ADDR_SET 3
 #endif
 
 #ifndef NET_NAME_UNKNOWN

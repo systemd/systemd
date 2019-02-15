@@ -12,8 +12,12 @@
 #include "libudev-list-internal.h"
 #include "libudev-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tests.h"
+
+static bool arg_monitor = false;
 
 static void print_device(struct udev_device *device) {
         const char *str;
@@ -23,7 +27,7 @@ static void print_device(struct udev_device *device) {
 
         log_info("*** device: %p ***", device);
         str = udev_device_get_action(device);
-        if (str != NULL)
+        if (str)
                 log_info("action:    '%s'", str);
 
         str = udev_device_get_syspath(device);
@@ -33,26 +37,26 @@ static void print_device(struct udev_device *device) {
         log_info("sysname:   '%s'", str);
 
         str = udev_device_get_sysnum(device);
-        if (str != NULL)
+        if (str)
                 log_info("sysnum:    '%s'", str);
 
         str = udev_device_get_devpath(device);
         log_info("devpath:   '%s'", str);
 
         str = udev_device_get_subsystem(device);
-        if (str != NULL)
+        if (str)
                 log_info("subsystem: '%s'", str);
 
         str = udev_device_get_devtype(device);
-        if (str != NULL)
+        if (str)
                 log_info("devtype:   '%s'", str);
 
         str = udev_device_get_driver(device);
-        if (str != NULL)
+        if (str)
                 log_info("driver:    '%s'", str);
 
         str = udev_device_get_devnode(device);
-        if (str != NULL)
+        if (str)
                 log_info("devname:   '%s'", str);
 
         devnum = udev_device_get_devnum(device);
@@ -78,30 +82,30 @@ static void print_device(struct udev_device *device) {
                 log_info("found %i properties", count);
 
         str = udev_device_get_property_value(device, "MAJOR");
-        if (str != NULL)
+        if (str)
                 log_info("MAJOR: '%s'", str);
 
         str = udev_device_get_sysattr_value(device, "dev");
-        if (str != NULL)
+        if (str)
                 log_info("attr{dev}: '%s'", str);
 }
 
 static void test_device(struct udev *udev, const char *syspath) {
         _cleanup_(udev_device_unrefp) struct udev_device *device;
 
-        log_info("looking at device: %s", syspath);
+        log_info("/* %s, device %s */", __func__, syspath);
         device = udev_device_new_from_syspath(udev, syspath);
-        if (device == NULL)
-                log_warning_errno(errno, "udev_device_new_from_syspath: %m");
-        else
+        if (device)
                 print_device(device);
+        else
+                log_warning_errno(errno, "udev_device_new_from_syspath: %m");
 }
 
 static void test_device_parents(struct udev *udev, const char *syspath) {
         _cleanup_(udev_device_unrefp) struct udev_device *device;
         struct udev_device *device_parent;
 
-        log_info("looking at device: %s", syspath);
+        log_info("/* %s, device %s */", __func__, syspath);
         device = udev_device_new_from_syspath(udev, syspath);
         if (device == NULL)
                 return;
@@ -125,12 +129,13 @@ static void test_device_devnum(struct udev *udev) {
         dev_t devnum = makedev(1, 3);
         _cleanup_(udev_device_unrefp) struct udev_device *device;
 
-        log_info("looking up device: %u:%u", major(devnum), minor(devnum));
+        log_info("/* %s, device %d:%d */", __func__, major(devnum), minor(devnum));
+
         device = udev_device_new_from_devnum(udev, 'c', devnum);
-        if (device == NULL)
-                log_warning_errno(errno, "udev_device_new_from_devnum: %m");
-        else
+        if (device)
                 print_device(device);
+        else
+                log_warning_errno(errno, "udev_device_new_from_devnum: %m");
 }
 
 static void test_device_subsys_name(struct udev *udev, const char *subsys, const char *dev) {
@@ -144,7 +149,7 @@ static void test_device_subsys_name(struct udev *udev, const char *subsys, const
                 print_device(device);
 }
 
-static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
+static int enumerate_print_list(struct udev_enumerate *enumerate) {
         struct udev_list_entry *list_entry;
         int count = 0;
 
@@ -175,6 +180,8 @@ static void test_monitor(struct udev *udev) {
                 .events = EPOLLIN,
                 .data.fd = STDIN_FILENO,
         };
+
+        log_info("/* %s */", __func__);
 
         fd_ep = epoll_create1(EPOLL_CLOEXEC);
         assert_se(fd_ep >= 0);
@@ -225,8 +232,9 @@ static void test_queue(struct udev *udev) {
         struct udev_queue *udev_queue;
         bool empty;
 
-        udev_queue = udev_queue_new(udev);
-        assert_se(udev_queue);
+        log_info("/* %s */", __func__);
+
+        assert_se(udev_queue = udev_queue_new(udev));
 
         empty = udev_queue_get_queue_is_empty(udev_queue);
         log_info("queue is %s", empty ? "empty" : "not empty");
@@ -237,13 +245,15 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         struct udev_enumerate *udev_enumerate;
         int r;
 
+        log_info("/* %s */", __func__);
+
         log_info("enumerate '%s'", subsystem == NULL ? "<all>" : subsystem);
         udev_enumerate = udev_enumerate_new(udev);
         if (udev_enumerate == NULL)
                 return -1;
         udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'net' + duplicated scan + null + zero");
@@ -263,7 +273,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         udev_enumerate_add_syspath(udev_enumerate, "/sys/class/mem/zero");
         udev_enumerate_add_syspath(udev_enumerate, "/sys/class/mem/zero");
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'block'");
@@ -277,7 +287,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
                 return r;
         }
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'not block'");
@@ -286,7 +296,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
                 return -1;
         udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'pci, mem, vc'");
@@ -297,7 +307,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
         udev_enumerate_add_match_subsystem(udev_enumerate, "vc");
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'subsystem'");
@@ -305,7 +315,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
         if (udev_enumerate == NULL)
                 return -1;
         udev_enumerate_scan_subsystems(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
 
         log_info("enumerate 'property IF_FS_*=filesystem'");
@@ -314,7 +324,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem) {
                 return -1;
         udev_enumerate_add_match_property(udev_enumerate, "ID_FS*", "filesystem");
         udev_enumerate_scan_devices(udev_enumerate);
-        test_enumerate_print_list(udev_enumerate);
+        enumerate_print_list(udev_enumerate);
         udev_enumerate_unref(udev_enumerate);
         return 0;
 }
@@ -323,7 +333,11 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         struct udev_hwdb *hwdb;
         struct udev_list_entry *entry;
 
+        log_info("/* %s */", __func__);
+
         hwdb = udev_hwdb_new(udev);
+        if (!hwdb)
+                log_warning_errno(errno, "Failed to open hwdb: %m");
 
         udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
                 log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
@@ -348,6 +362,8 @@ static void test_util_replace_whitespace_one(const char *str, const char *expect
 }
 
 static void test_util_replace_whitespace(void) {
+        log_info("/* %s */", __func__);
+
         test_util_replace_whitespace_one("hogehoge", "hogehoge");
         test_util_replace_whitespace_one("hoge  hoge", "hoge_hoge");
         test_util_replace_whitespace_one("  hoge  hoge  ", "hoge_hoge");
@@ -385,16 +401,19 @@ static void test_util_replace_whitespace(void) {
 }
 
 static void test_util_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
-        char result[UTIL_PATH_SIZE];
+        char result[UTIL_PATH_SIZE] = "";
         int r;
 
         r = util_resolve_subsys_kernel(str, result, sizeof(result), read_value);
+        log_info("\"%s\" → expect: \"%s\", %d, actual: \"%s\", %d", str, strnull(expected), retval, result, r);
         assert_se(r == retval);
         if (r >= 0)
                 assert_se(streq(result, expected));
 }
 
 static void test_util_resolve_subsys_kernel(void) {
+        log_info("/* %s */", __func__);
+
         test_util_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
         test_util_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
         test_util_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
@@ -471,9 +490,7 @@ static void test_list(void) {
         udev_list_cleanup(&list);
 }
 
-int main(int argc, char *argv[]) {
-        _cleanup_(udev_unrefp) struct udev *udev = NULL;
-        bool arg_monitor = false;
+static int parse_args(int argc, char *argv[], const char **syspath, const char **subsystem) {
         static const struct option options[] = {
                 { "syspath",   required_argument, NULL, 'p' },
                 { "subsystem", required_argument, NULL, 's' },
@@ -483,51 +500,58 @@ int main(int argc, char *argv[]) {
                 { "monitor",   no_argument,       NULL, 'm' },
                 {}
         };
-        const char *syspath = "/devices/virtual/mem/null";
-        const char *subsystem = NULL;
         int c;
-
-        udev = udev_new();
-        log_info("context: %p", udev);
-        if (udev == NULL) {
-                log_info("no context");
-                return 1;
-        }
 
         while ((c = getopt_long(argc, argv, "p:s:dhVm", options, NULL)) >= 0)
                 switch (c) {
-
                 case 'p':
-                        syspath = optarg;
+                        *syspath = optarg;
                         break;
 
                 case 's':
-                        subsystem = optarg;
+                        *subsystem = optarg;
                         break;
 
                 case 'd':
-                        if (log_get_max_level() < LOG_INFO)
-                                log_set_max_level(LOG_INFO);
+                        log_set_max_level(LOG_DEBUG);
                         break;
 
                 case 'h':
                         printf("--debug --syspath= --subsystem= --help\n");
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 case 'V':
                         printf("%s\n", GIT_VERSION);
-                        return EXIT_SUCCESS;
+                        return 0;
 
                 case 'm':
                         arg_monitor = true;
                         break;
 
                 case '?':
-                        return EXIT_FAILURE;
+                        return -EINVAL;
 
                 default:
                         assert_not_reached("Unhandled option code.");
                 }
+
+        return 1;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+
+        const char *syspath = "/devices/virtual/mem/null";
+        const char *subsystem = NULL;
+        int r;
+
+        test_setup_logging(LOG_INFO);
+
+        r = parse_args(argc, argv, &syspath, &subsystem);
+        if (r <= 0)
+                return r;
+
+        assert_se(udev = udev_new());
 
         /* add sys path if needed */
         if (!startswith(syspath, "/sys"))
@@ -555,5 +579,7 @@ int main(int argc, char *argv[]) {
 
         test_list();
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
