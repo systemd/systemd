@@ -707,7 +707,7 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
 
         xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, uid);
         r = read_one_line_file(lock_path, &user);
-        if (r == -ENOENT)
+        if (IN_SET(r, -ENOENT, 0))
                 return -ESRCH;
         if (r < 0)
                 return r;
