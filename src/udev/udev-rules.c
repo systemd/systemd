@@ -458,7 +458,7 @@ static int add_token(UdevRules *rules, struct token *token) {
 
                 tokens = reallocarray(rules->tokens, rules->token_max + add, sizeof(struct token));
                 if (!tokens)
-                        return -1;
+                        return -ENOMEM;
                 rules->tokens = tokens;
                 rules->token_max += add;
         }
@@ -483,10 +483,8 @@ static uid_t add_uid(UdevRules *rules, const char *owner) {
         /* lookup, if we know it already */
         for (i = 0; i < rules->uids_cur; i++) {
                 off = rules->uids[i].name_off;
-                if (streq(rules_str(rules, off), owner)) {
-                        uid = rules->uids[i].uid;
-                        return uid;
-                }
+                if (streq(rules_str(rules, off), owner))
+                        return rules->uids[i].uid;
         }
         r = get_user_creds(&owner, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
@@ -526,10 +524,8 @@ static gid_t add_gid(UdevRules *rules, const char *group) {
         /* lookup, if we know it already */
         for (i = 0; i < rules->gids_cur; i++) {
                 off = rules->gids[i].name_off;
-                if (streq(rules_str(rules, off), group)) {
-                        gid = rules->gids[i].gid;
-                        return gid;
-                }
+                if (streq(rules_str(rules, off), group))
+                        return rules->gids[i].gid;
         }
         r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
@@ -720,7 +716,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
 
         linepos = *line;
         if (!linepos || linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* skip whitespace */
         while (isspace(linepos[0]) || linepos[0] == ',')
@@ -728,13 +724,13 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
 
         /* get the key */
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
         *key = linepos;
 
         for (;;) {
                 linepos++;
                 if (linepos[0] == '\0')
-                        return -1;
+                        return -EINVAL;
                 if (isspace(linepos[0]))
                         break;
                 if (linepos[0] == '=')
@@ -751,7 +747,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
         while (isspace(linepos[0]))
                 linepos++;
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* get operation type */
         if (linepos[0] == '=' && linepos[1] == '=') {
@@ -773,7 +769,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
                 *op = OP_ASSIGN_FINAL;
                 linepos += 2;
         } else
-                return -1;
+                return -EINVAL;
 
         /* terminate key */
         temp[0] = '\0';
@@ -782,13 +778,13 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
         while (isspace(linepos[0]))
                 linepos++;
         if (linepos[0] == '\0')
-                return -1;
+                return -EINVAL;
 
         /* get the value */
         if (linepos[0] == '"')
                 linepos++;
         else
-                return -1;
+                return -EINVAL;
         *value = linepos;
 
         /* terminate */
@@ -798,7 +794,7 @@ static int get_key(char **line, char **key, enum operation_type *op, char **valu
                         break;
 
                 if (linepos[i] == '\0')
-                        return -1;
+                        return -EINVAL;
 
                 /* double quotes can be escaped */
                 if (linepos[i] == '\\')
@@ -980,6 +976,7 @@ static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
         unsigned i;
         unsigned start = 0;
         unsigned end = rule_tmp->token_cur;
+        int r;
 
         for (i = 0; i < rule_tmp->token_cur; i++) {
                 enum token_type next_val = TK_UNSET;
@@ -997,8 +994,9 @@ static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
                 }
 
                 /* add token and mark done */
-                if (add_token(rules, &rule_tmp->token[next_idx]) != 0)
-                        return -1;
+                r = add_token(rules, &rule_tmp->token[next_idx]);
+                if (r < 0)
+                        return r;
                 rule_tmp->token[next_idx].type = TK_UNSET;
 
                 /* shrink range */
@@ -1038,7 +1036,7 @@ static void add_rule(UdevRules *rules, char *line,
                 char *value;
                 enum operation_type op;
 
-                if (get_key(&linepos, &key, &op, &value) != 0) {
+                if (get_key(&linepos, &key, &op, &value) < 0) {
                         /* Avoid erroring on trailing whitespace. This is probably rare
                          * so save the work for the error case instead of always trying
                          * to strip the trailing whitespace with strstrip(). */
@@ -1496,7 +1494,7 @@ static void add_rule(UdevRules *rules, char *line,
 
         /* add rule token and sort tokens */
         rule_tmp.rule.rule.token_count = 1 + rule_tmp.token_cur;
-        if (add_token(rules, &rule_tmp.rule) != 0 || sort_token(rules, &rule_tmp) != 0)
+        if (add_token(rules, &rule_tmp.rule) < 0 || sort_token(rules, &rule_tmp) < 0)
                 LOG_RULE_ERROR("Failed to add rule token");
 }
 
@@ -1666,7 +1664,7 @@ bool udev_rules_check_timestamp(UdevRules *rules) {
         return paths_check_timestamp(rules_dirs, &rules->dirs_ts_usec, true);
 }
 
-static int match_key(UdevRules *rules, struct token *token, const char *val) {
+static bool match_key(UdevRules *rules, struct token *token, const char *val) {
         char *key_value = rules_str(rules, token->key.value_off);
         char *pos;
         bool match = false;
@@ -1676,7 +1674,7 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
 
         switch (token->key.glob) {
         case GL_PLAIN:
-                match = (streq(key_value, val));
+                match = streq(key_value, val);
                 break;
         case GL_GLOB:
                 match = (fnmatch(key_value, val, 0) == 0);
@@ -1699,7 +1697,7 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
                                         if (match)
                                                 break;
                                 } else {
-                                        match = (streq(s, val));
+                                        match = streq(s, val);
                                         break;
                                 }
                                 s = &next[1];
@@ -1729,17 +1727,13 @@ static int match_key(UdevRules *rules, struct token *token, const char *val) {
                 match = (val[0] != '\0');
                 break;
         case GL_UNSET:
-                return -1;
+                return false;
         }
 
-        if (match && (token->key.op == OP_MATCH))
-                return 0;
-        if (!match && (token->key.op == OP_NOMATCH))
-                return 0;
-        return -1;
+        return token->key.op == (match ? OP_MATCH : OP_NOMATCH);
 }
 
-static int match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct token *cur) {
+static bool match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct token *cur) {
         char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
         const char *name, *value;
         size_t len;
@@ -1752,15 +1746,15 @@ static int match_attr(UdevRules *rules, sd_device *dev, UdevEvent *event, struct
                 _fallthrough_;
         case SB_NONE:
                 if (sd_device_get_sysattr_value(dev, name, &value) < 0)
-                        return -1;
+                        return false;
                 break;
         case SB_SUBSYS:
-                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) != 0)
-                        return -1;
+                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
+                        return false;
                 value = vbuf;
                 break;
         default:
-                return -1;
+                return false;
         }
 
         /* remove trailing whitespace, if not asked to match for it */
@@ -1828,19 +1822,19 @@ int udev_rules_apply_to_event(
                         esc = ESCAPE_UNSET;
                         break;
                 case TK_M_ACTION:
-                        if (match_key(rules, cur, action) != 0)
+                        if (!match_key(rules, cur, action))
                                 goto nomatch;
                         break;
                 case TK_M_DEVPATH:
                         if (sd_device_get_devpath(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_KERNEL:
                         if (sd_device_get_sysname(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_DEVLINK: {
@@ -1848,7 +1842,7 @@ int udev_rules_apply_to_event(
                         bool match = false;
 
                         FOREACH_DEVICE_DEVLINK(dev, devlink)
-                                if (match_key(rules, cur, devlink + STRLEN("/dev/")) == 0) {
+                                if (match_key(rules, cur, devlink + STRLEN("/dev/"))) {
                                         match = true;
                                         break;
                                 }
@@ -1858,7 +1852,7 @@ int udev_rules_apply_to_event(
                         break;
                 }
                 case TK_M_NAME:
-                        if (match_key(rules, cur, event->name) != 0)
+                        if (!match_key(rules, cur, event->name))
                                 goto nomatch;
                         break;
                 case TK_M_ENV: {
@@ -1872,7 +1866,7 @@ int udev_rules_apply_to_event(
                                         val = NULL;
                         }
 
-                        if (match_key(rules, cur, strempty(val)))
+                        if (!match_key(rules, cur, strempty(val)))
                                 goto nomatch;
                         break;
                 }
@@ -1894,17 +1888,17 @@ int udev_rules_apply_to_event(
                 case TK_M_SUBSYSTEM:
                         if (sd_device_get_subsystem(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_DRIVER:
                         if (sd_device_get_driver(dev, &val) < 0)
                                 goto nomatch;
-                        if (match_key(rules, cur, val) != 0)
+                        if (!match_key(rules, cur, val))
                                 goto nomatch;
                         break;
                 case TK_M_ATTR:
-                        if (match_attr(rules, dev, event, cur) != 0)
+                        if (!match_attr(rules, dev, event, cur))
                                 goto nomatch;
                         break;
                 case TK_M_SYSCTL: {
@@ -1920,7 +1914,7 @@ int udev_rules_apply_to_event(
                         len = strlen(value);
                         while (len > 0 && isspace(value[--len]))
                                 value[len] = '\0';
-                        if (match_key(rules, cur, value) != 0)
+                        if (!match_key(rules, cur, value))
                                 goto nomatch;
                         break;
                 }
@@ -1948,23 +1942,23 @@ int udev_rules_apply_to_event(
                                         case TK_M_KERNELS:
                                                 if (sd_device_get_sysname(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_SUBSYSTEMS:
                                                 if (sd_device_get_subsystem(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_DRIVERS:
                                                 if (sd_device_get_driver(event->dev_parent, &val) < 0)
                                                         goto try_parent;
-                                                if (match_key(rules, key, val) != 0)
+                                                if (!match_key(rules, key, val))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_ATTRS:
-                                                if (match_attr(rules, event->dev_parent, event, key) != 0)
+                                                if (!match_attr(rules, event->dev_parent, event, key))
                                                         goto try_parent;
                                                 break;
                                         case TK_M_TAGS: {
@@ -1998,7 +1992,7 @@ int udev_rules_apply_to_event(
                         int match;
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), filename, sizeof(filename), false);
-                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), false) != 0) {
+                        if (util_resolve_subsys_kernel(filename, filename, sizeof(filename), false) < 0) {
                                 if (filename[0] != '/') {
                                         char tmp[UTIL_PATH_SIZE];
 
@@ -2052,7 +2046,7 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_file_into_properties(dev, import) != 0)
+                        if (import_file_into_properties(dev, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2066,7 +2060,7 @@ int udev_rules_apply_to_event(
                                          rules_str(rules, rule->rule.filename_off),
                                          rule->rule.filename_line);
 
-                        if (import_program_into_properties(event, timeout_usec, import) != 0)
+                        if (import_program_into_properties(event, timeout_usec, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
@@ -2146,13 +2140,13 @@ int udev_rules_apply_to_event(
                         char import[UTIL_PATH_SIZE];
 
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), import, sizeof(import), false);
-                        if (import_parent_into_properties(dev, import) != 0)
+                        if (import_parent_into_properties(dev, import) < 0)
                                 if (cur->key.op != OP_NOMATCH)
                                         goto nomatch;
                         break;
                 }
                 case TK_M_RESULT:
-                        if (match_key(rules, cur, event->program_result) != 0)
+                        if (!match_key(rules, cur, event->program_result))
                                 goto nomatch;
                         break;
                 case TK_A_STRING_ESCAPE_NONE:
@@ -2440,7 +2434,7 @@ int udev_rules_apply_to_event(
                         const char *key_name;
 
                         key_name = rules_str(rules, cur->key.attr_off);
-                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), false) != 0 &&
+                        if (util_resolve_subsys_kernel(key_name, attr, sizeof(attr), false) < 0 &&
                             sd_device_get_syspath(dev, &val) >= 0)
                                 strscpyl(attr, sizeof(attr), val, "/", key_name, NULL);
                         attr_subst_subdir(attr, sizeof(attr));
@@ -2581,7 +2575,7 @@ int udev_rules_apply_static_dev_perms(UdevRules *rules) {
                                 goto next;
 
                         strscpyl(device_node, sizeof(device_node), "/dev/", rules_str(rules, cur->key.value_off), NULL);
-                        if (stat(device_node, &stats) != 0)
+                        if (stat(device_node, &stats) < 0)
                                 break;
                         if (!S_ISBLK(stats.st_mode) && !S_ISCHR(stats.st_mode))
                                 break;
