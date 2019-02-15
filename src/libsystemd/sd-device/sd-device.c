@@ -1110,6 +1110,7 @@ int device_add_devlink(sd_device *device, const char *devlink) {
 static int device_add_property_internal_from_string(sd_device *device, const char *str) {
         _cleanup_free_ char *key = NULL;
         char *value;
+        int r;
 
         assert(device);
         assert(str);
@@ -1127,7 +1128,13 @@ static int device_add_property_internal_from_string(sd_device *device, const cha
         if (isempty(++value))
                 value = NULL;
 
-        return device_add_property_internal(device, key, value);
+        /* Add the property to both sd_device::properties and sd_device::properties_db,
+         * as this is called by only handle_db_line(). */
+        r = device_add_property_aux(device, key, value, false);
+        if (r < 0)
+                return r;
+
+        return device_add_property_aux(device, key, value, true);
 }
 
 int device_set_usec_initialized(sd_device *device, usec_t when) {
