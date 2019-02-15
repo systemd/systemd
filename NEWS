@@ -83,6 +83,9 @@ CHANGES WITH 241:
         * udevadm control learnt a new option for --ping for testing whether a
           systemd-udevd instance is running and reacting.
 
+        * udevadm trigger learnt a new option for --wait-daemon for waiting
+          systemd-udevd daemon to be initialized.
+
         Contributions from: Aaron Plattner, Alberts Muktupāvels, Alex Mayer,
         Ayman Bagabas, Beniamino Galvani, Burt P, Chris Down, Chris Lamb, Chris
         Morin, Christian Hesse, Claudius Ellsel, dana, Daniel Axtens, Daniele
