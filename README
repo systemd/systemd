@@ -316,8 +316,7 @@ WARNINGS:
         that valgrind generates nice output only on exit(), hence on shutdown
         we don't execve() systemd-shutdown.
 
-STABLE BRANCHES AND BACKPORTS
-
+STABLE BRANCHES AND BACKPORTS:
        Stable branches with backported patches are available in the
        systemd-stable repo at https://github.com/systemd/systemd-stable.
 
