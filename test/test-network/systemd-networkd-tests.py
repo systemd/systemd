@@ -288,6 +288,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '1 lo ')
         self.assertRegex(output, 'dropin-test')
 
+        output = subprocess.check_output(['networkctl', 'status', 'dropin-*']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, '1 lo ')
+        self.assertRegex(output, 'dropin-test')
+        self.assertRegex(output, 'Driver: dummy')
+
     def test_bridge(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev')
         self.start_networkd()
