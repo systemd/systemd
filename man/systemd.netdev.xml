@@ -751,8 +751,9 @@
     <literal>ip6gre</literal>,
     <literal>ip6gretap</literal>,
     <literal>vti</literal>,
-    <literal>vti6</literal>, and
-    <literal>ip6tnl</literal> and accepts
+    <literal>vti6</literal>,
+    <literal>ip6tnl</literal>, and
+    <literal>erspan</literal> and accepts
     the following keys:</para>
 
     <variablelist class='network-directives'>

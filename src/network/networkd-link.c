@@ -881,9 +881,9 @@ void link_check_ready(Link *link) {
 
         if (!link->network->bridge) {
 
-                if (link_ipv6ll_enabled(link))
-                        if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) > 0)
-                                return;
+                if (link_ipv6ll_enabled(link) &&
+                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
+                        return;
 
                 if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
                      !link->dhcp4_configured) ||
@@ -1734,7 +1734,7 @@ static int link_acquire_conf(Link *link) {
         if (r < 0)
                 return r;
 
-        if (in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address) == 0) {
+        if (!in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address)) {
                 r = link_acquire_ipv6_conf(link);
                 if (r < 0)
                         return r;

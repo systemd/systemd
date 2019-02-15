@@ -408,20 +408,14 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_error_errno(r, "Could not create RTM_DELROUTE message: %m");
 
-        if (!in_addr_is_null(route->family, &route->gw)) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &route->gw.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_GATEWAY, &route->gw.in6);
+        if (in_addr_is_null(route->family, &route->gw) == 0) {
+                r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
         }
 
         if (route->dst_prefixlen) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_DST, &route->dst.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_DST, &route->dst.in6);
+                r = netlink_message_append_in_addr_union(req, RTA_DST, route->family, &route->dst);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_DST attribute: %m");
 
@@ -431,10 +425,7 @@ int route_remove(Route *route, Link *link,
         }
 
         if (route->src_prefixlen) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_SRC, &route->src.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_SRC, &route->src.in6);
+                r = netlink_message_append_in_addr_union(req, RTA_SRC, route->family, &route->src);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_SRC attribute: %m");
 
@@ -443,11 +434,8 @@ int route_remove(Route *route, Link *link,
                         return log_error_errno(r, "Could not set source prefix length: %m");
         }
 
-        if (!in_addr_is_null(route->family, &route->prefsrc)) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc.in6);
+        if (in_addr_is_null(route->family, &route->prefsrc) == 0) {
+                r = netlink_message_append_in_addr_union(req, RTA_PREFSRC, route->family, &route->prefsrc);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
         }
@@ -519,11 +507,8 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
 
-        if (!in_addr_is_null(route->family, &route->gw)) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &route->gw.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_GATEWAY, &route->gw.in6);
+        if (in_addr_is_null(route->family, &route->gw) == 0) {
+                r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_GATEWAY attribute: %m");
 
@@ -533,10 +518,7 @@ int route_configure(
         }
 
         if (route->dst_prefixlen) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_DST, &route->dst.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_DST, &route->dst.in6);
+                r = netlink_message_append_in_addr_union(req, RTA_DST, route->family, &route->dst);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_DST attribute: %m");
 
@@ -546,10 +528,7 @@ int route_configure(
         }
 
         if (route->src_prefixlen) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_SRC, &route->src.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_SRC, &route->src.in6);
+                r = netlink_message_append_in_addr_union(req, RTA_SRC, route->family, &route->src);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_SRC attribute: %m");
 
@@ -558,11 +537,8 @@ int route_configure(
                         return log_error_errno(r, "Could not set source prefix length: %m");
         }
 
-        if (!in_addr_is_null(route->family, &route->prefsrc)) {
-                if (route->family == AF_INET)
-                        r = sd_netlink_message_append_in_addr(req, RTA_PREFSRC, &route->prefsrc.in);
-                else if (route->family == AF_INET6)
-                        r = sd_netlink_message_append_in6_addr(req, RTA_PREFSRC, &route->prefsrc.in6);
+        if (in_addr_is_null(route->family, &route->prefsrc) == 0) {
+                r = netlink_message_append_in_addr_union(req, RTA_PREFSRC, route->family, &route->prefsrc);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTA_PREFSRC attribute: %m");
         }
