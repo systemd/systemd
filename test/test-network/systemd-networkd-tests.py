@@ -276,6 +276,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '00:50:56:c0:00:28')
 
+        output = subprocess.check_output(['networkctl', 'list']).rstrip().decode('utf-8')
+        self.assertRegex(output, '1 lo ')
+        self.assertRegex(output, 'dropin-test')
+
+        output = subprocess.check_output(['networkctl', 'list', 'dropin-test']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, '1 lo ')
+        self.assertRegex(output, 'dropin-test')
+
+        output = subprocess.check_output(['networkctl', 'list', 'dropin-*']).rstrip().decode('utf-8')
+        self.assertNotRegex(output, '1 lo ')
+        self.assertRegex(output, 'dropin-test')
+
     def test_bridge(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev')
         self.start_networkd()
