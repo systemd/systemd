@@ -1513,6 +1513,23 @@
             </para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseAutonomousPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
+            precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UseOnLinkPrefix=</varname></term>
+          <listitem>
+            <para>When true (the default), the onlink prefix received in the Router Advertisement will be used and take
+            precedence over any statically configured ones.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 
