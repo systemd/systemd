@@ -301,6 +301,7 @@ static int link_enable_ipv6(Link *link) {
 
 void link_update_operstate(Link *link) {
         LinkOperationalState operstate;
+
         assert(link);
 
         if (link->kernel_operstate == IF_OPER_DORMANT)
@@ -341,6 +342,10 @@ void link_update_operstate(Link *link) {
                 operstate = LINK_OPERSTATE_NO_CARRIER;
         else
                 operstate = LINK_OPERSTATE_OFF;
+
+        if (IN_SET(operstate, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_CARRIER) &&
+            link->flags & IFF_SLAVE)
+                operstate = LINK_OPERSTATE_ENSLAVED;
 
         if (link->operstate != operstate) {
                 link->operstate = operstate;
@@ -4215,6 +4220,7 @@ static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
         [LINK_OPERSTATE_DORMANT] = "dormant",
         [LINK_OPERSTATE_CARRIER] = "carrier",
         [LINK_OPERSTATE_DEGRADED] = "degraded",
+        [LINK_OPERSTATE_ENSLAVED] = "enslaved",
         [LINK_OPERSTATE_ROUTABLE] = "routable",
 };
 
