@@ -409,15 +409,11 @@ conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h
 
 decl_headers = '''
 #include <uchar.h>
-#include <linux/ethtool.h>
-#include <linux/fib_rules.h>
 #include <sys/stat.h>
 '''
 
 foreach decl : ['char16_t',
                 'char32_t',
-                'struct fib_rule_uid_range',
-                'struct fib_rule_port_range',
                 'struct statx',
                ]
 
