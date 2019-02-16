@@ -426,13 +426,6 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    endif
 #  endif
 
-struct statx;
-#endif
-
-/* This typedef is supposed to be always defined. */
-typedef struct statx struct_statx;
-
-#if !HAVE_STATX
 static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
 #  ifdef __NR_statx
         return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
