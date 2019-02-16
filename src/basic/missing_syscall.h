@@ -16,6 +16,10 @@
 #include "missing_keyctl.h"
 #include "missing_stat.h"
 
+#ifndef HAVE_STRUCT_STATX
+#error hogehoge
+#endif
+
 /* linux/kcmp.h */
 #ifndef KCMP_FILE /* 3f4994cfc15f38a3159c6e3a4b3ab2e1481a6b02 (3.19) */
 #define KCMP_FILE 0
