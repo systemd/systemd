@@ -3565,7 +3565,7 @@ static int link_carrier_lost(Link *link) {
 
         assert(link);
 
-        if (link->network->ignore_carrier_loss)
+        if (link->network && link->network->ignore_carrier_loss)
                 return 0;
 
         /* Some devices reset itself while setting the MTU. This causes the DHCP client fall into a loop.
