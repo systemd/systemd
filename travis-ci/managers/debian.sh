@@ -67,6 +67,25 @@ for phase in "${PHASES[@]}"; do
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;
+        RUN_MSAN)
+            # Memory sanitizer can't run together with ASan/UBSan, thus the separate case
+            # Also, MSan is supported only by LLVM (clang)
+            ENV_VARS="-e CC=clang -e CXX=clang++"
+            # -Db_lundef: clang has some linking issues with sanitizers,
+            # see https://github.com/mesonbuild/meson/issues/764
+            # (it apparently affects MSan as well)
+            docker exec $ENV_VARS -it $CONT_NAME \
+                meson -Dc_args='-fsanitize=memory -fsanitize-memory-track-origins=2' \
+                    -Db_sanitize=memory --werror -Dtests=unsafe \
+                    -Db_lundef=false -Dsplit-usr=true $MESON_ARGS build
+            $DOCKER_EXEC ninja -v -C build
+
+            travis_wait docker exec --interactive=false \
+                -e MSAN_OPTIONS=exit_code=42 \
+                -e "TRAVIS=$TRAVIS" \
+                -t $CONT_NAME \
+                meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
+            ;;
         CLEANUP)
             info "Cleanup phase"
             docker stop $CONT_NAME
