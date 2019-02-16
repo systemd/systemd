@@ -235,22 +235,31 @@ int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
 }
 
 int socket_address_parse_netlink(SocketAddress *a, const char *s) {
-        int family;
+        _cleanup_free_ char *word = NULL;
         unsigned group = 0;
-        _cleanup_free_ char *sfamily = NULL;
+        int family, r;
+
         assert(a);
         assert(s);
 
         zero(*a);
         a->type = SOCK_RAW;
 
-        errno = 0;
-        if (sscanf(s, "%ms %u", &sfamily, &group) < 1)
-                return errno > 0 ? -errno : -EINVAL;
+        r = extract_first_word(&s, &word, NULL, 0);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
-        family = netlink_family_from_string(sfamily);
+        family = netlink_family_from_string(word);
         if (family < 0)
                 return -EINVAL;
+
+        if (!isempty(s)) {
+                r = safe_atou(s, &group);
+                if (r < 0)
+                        return r;
+        }
 
         a->sockaddr.nl.nl_family = AF_NETLINK;
         a->sockaddr.nl.nl_groups = group;

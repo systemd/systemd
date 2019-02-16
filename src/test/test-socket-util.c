@@ -165,19 +165,34 @@ static void test_socket_address_parse_netlink(void) {
         assert_se(socket_address_parse_netlink(&a, "") < 0);
 
         assert_se(socket_address_parse_netlink(&a, "route") >= 0);
+        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_groups == 0);
+        assert_se(a.protocol == NETLINK_ROUTE);
+        assert_se(socket_address_parse_netlink(&a, "route") >= 0);
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_groups == 10);
         assert_se(a.protocol == NETLINK_ROUTE);
 
         /* With spaces and tabs */
         assert_se(socket_address_parse_netlink(&a, " kobject-uevent ") >= 0);
-        assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10 \t") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_groups == 0);
+        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+        assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10") >= 0);
+        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_groups == 10);
+        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10") >= 0);
+        assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
+        assert_se(a.sockaddr.nl.nl_groups == 10);
         assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
 
-        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10") >= 0);
-        assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
-        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+        /* trailing space is not supported */
+        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10 ") < 0);
+
+        /* Group must be unsigned */
+        assert_se(socket_address_parse_netlink(&a, "kobject-uevent -1") < 0);
 
         /* oss-fuzz #6884 */
         assert_se(socket_address_parse_netlink(&a, "\xff") < 0);
