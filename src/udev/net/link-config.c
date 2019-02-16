@@ -243,13 +243,10 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         assert(ret);
 
         LIST_FOREACH(links, link, ctx->links) {
-                const char *address = NULL, *id_path = NULL, *parent_driver = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
-                sd_device *parent;
+                const char *address = NULL, *id_path = NULL, *id_net_driver = NULL, *devtype = NULL, *sysname = NULL;
 
                 (void) sd_device_get_sysattr_value(device, "address", &address);
                 (void) sd_device_get_property_value(device, "ID_PATH", &id_path);
-                if (sd_device_get_parent(device, &parent) >= 0)
-                        (void) sd_device_get_driver(parent, &parent_driver);
                 (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &id_net_driver);
                 (void) sd_device_get_devtype(device, &devtype);
                 (void) sd_device_get_sysname(device, &sysname);
@@ -260,7 +257,6 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
                                      link->match_kernel_version, link->match_arch,
                                      address ? ether_aton(address) : NULL,
                                      id_path,
-                                     parent_driver,
                                      id_net_driver,
                                      devtype,
                                      sysname)) {
