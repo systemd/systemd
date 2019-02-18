@@ -51,7 +51,8 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
 static int link_set_dhcp_routes(Link *link) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
         bool classless_route = false, static_route = false;
-        struct in_addr gateway, address;
+        const struct in_addr *router;
+        struct in_addr address;
         int r, n, i;
         uint32_t table;
 
@@ -118,18 +119,18 @@ static int link_set_dhcp_routes(Link *link) {
                 link->dhcp4_messages++;
         }
 
-        r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
-        if (r == -ENODATA)
-                log_link_info_errno(link, r, "DHCP: No gateway received from DHCP server: %m");
-        else if (r < 0)
+        r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+        if (r < 0 && r != -ENODATA)
                 log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
+        else if (r <= 0 || in4_addr_is_null(&router[0]))
+                log_link_info_errno(link, r, "DHCP: No gateway received from DHCP server: %m");
 
         /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
            a Router option, the DHCP client MUST ignore the Router option. */
         if (classless_route && static_route)
                 log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option and router option");
 
-        if (r >= 0 && !classless_route) {
+        if (r > 0 && !classless_route && !in4_addr_is_null(&router[0])) {
                 _cleanup_(route_freep) Route *route = NULL, *route_gw = NULL;
 
                 r = route_new(&route_gw);
@@ -140,7 +141,7 @@ static int link_set_dhcp_routes(Link *link) {
                  * route for the gw host so that we can route no matter the
                  * netmask or existing kernel route tables. */
                 route_gw->family = AF_INET;
-                route_gw->dst.in = gateway;
+                route_gw->dst.in = router[0];
                 route_gw->dst_prefixlen = 32;
                 route_gw->prefsrc.in = address;
                 route_gw->scope = RT_SCOPE_LINK;
@@ -159,7 +160,7 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Could not allocate route: %m");
 
                 route->family = AF_INET;
-                route->gw.in = gateway;
+                route->gw.in = router[0];
                 route->prefsrc.in = address;
                 route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
@@ -180,9 +181,9 @@ static int link_set_dhcp_routes(Link *link) {
 
 static int dhcp_lease_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
+        const struct in_addr *router;
         struct in_addr addr;
         struct in_addr netmask;
-        struct in_addr gateway;
         unsigned prefixlen = 0;
         int r;
 
@@ -215,15 +216,15 @@ static int dhcp_lease_lost(Link *link) {
 
         r = address_new(&address);
         if (r >= 0) {
-                r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
-                if (r >= 0) {
+                r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
+                if (r > 0 && !in4_addr_is_null(&router[0])) {
                         _cleanup_(route_freep) Route *route_gw = NULL;
                         _cleanup_(route_freep) Route *route = NULL;
 
                         r = route_new(&route_gw);
                         if (r >= 0) {
                                 route_gw->family = AF_INET;
-                                route_gw->dst.in = gateway;
+                                route_gw->dst.in = router[0];
                                 route_gw->dst_prefixlen = 32;
                                 route_gw->scope = RT_SCOPE_LINK;
 
@@ -233,7 +234,7 @@ static int dhcp_lease_lost(Link *link) {
                         r = route_new(&route);
                         if (r >= 0) {
                                 route->family = AF_INET;
-                                route->gw.in = gateway;
+                                route->gw.in = router[0];
 
                                 route_remove(route, link, NULL);
                         }
@@ -392,10 +393,10 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
 }
 
 static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
+        const struct in_addr *router;
         sd_dhcp_lease *lease;
         struct in_addr address;
         struct in_addr netmask;
-        struct in_addr gateway;
         unsigned prefixlen;
         uint32_t lifetime = CACHE_INFO_INFINITY_LIFE_TIME;
         int r;
@@ -417,20 +418,20 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
         prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
-        r = sd_dhcp_lease_get_router(lease, &gateway);
+        r = sd_dhcp_lease_get_router(lease, &router);
         if (r < 0 && r != -ENODATA)
                 return log_link_error_errno(link, r, "DHCP error: Could not get gateway: %m");
 
-        if (r >= 0)
+        if (r > 0 && !in4_addr_is_null(&router[0]))
                 log_struct(LOG_INFO,
                            LOG_LINK_INTERFACE(link),
                            LOG_LINK_MESSAGE(link, "DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
                                             ADDRESS_FMT_VAL(address),
                                             prefixlen,
-                                            ADDRESS_FMT_VAL(gateway)),
+                                            ADDRESS_FMT_VAL(router[0])),
                            "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
                            "PREFIXLEN=%u", prefixlen,
-                           "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(gateway));
+                           "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(router[0]));
         else
                 log_struct(LOG_INFO,
                            LOG_LINK_INTERFACE(link),

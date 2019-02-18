@@ -423,6 +423,7 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         sd_event *e = userdata;
         sd_dhcp_lease *lease;
         struct in_addr addr;
+        const struct in_addr *addrs;
 
         assert_se(client);
         assert_se(event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
@@ -438,9 +439,9 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         assert_se(memcmp(&addr.s_addr, &test_addr_acq_ack[285],
                       sizeof(addr.s_addr)) == 0);
 
-        assert_se(sd_dhcp_lease_get_router(lease, &addr) >= 0);
-        assert_se(memcmp(&addr.s_addr, &test_addr_acq_ack[308],
-                      sizeof(addr.s_addr)) == 0);
+        assert_se(sd_dhcp_lease_get_router(lease, &addrs) == 1);
+        assert_se(memcmp(&addrs[0].s_addr, &test_addr_acq_ack[308],
+                         sizeof(addrs[0].s_addr)) == 0);
 
         if (verbose)
                 printf("  DHCP address acquired\n");

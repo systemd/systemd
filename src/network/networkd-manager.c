@@ -1044,14 +1044,19 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
         return r;
 }
 
-static int ordered_set_put_in4_addrv(OrderedSet *s, const struct in_addr *addresses, unsigned n) {
+static int ordered_set_put_in4_addrv(OrderedSet *s,
+                                     const struct in_addr *addresses,
+                                     size_t n,
+                                     bool (*predicate)(const struct in_addr *addr)) {
         int r, c = 0;
-        unsigned i;
+        size_t i;
 
         assert(s);
         assert(n == 0 || addresses);
 
         for (i = 0; i < n; i++) {
+                if (predicate && !predicate(&addresses[i]))
+                        continue;
                 r = ordered_set_put_in4_addr(s, addresses+i);
                 if (r < 0)
                         return r;
@@ -1144,7 +1149,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(dns, addresses, r);
+                                r = ordered_set_put_in4_addrv(dns, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -1156,7 +1161,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(ntp, addresses, r);
+                                r = ordered_set_put_in4_addrv(ntp, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
