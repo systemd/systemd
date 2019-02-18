@@ -676,7 +676,7 @@ static void attr_subst_subdir(char *attr, size_t len) {
 static int get_key(char **line, char **key, enum operation_type *op, char **value) {
         char *linepos;
         char *temp;
-        unsigned i, j;
+        size_t i, j;
 
         linepos = *line;
         if (!linepos || linepos[0] == '\0')
