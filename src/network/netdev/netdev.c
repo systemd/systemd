@@ -673,7 +673,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                              netdev_raw->match_host, netdev_raw->match_virt,
                              netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
                              netdev_raw->match_arch,
-                             NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
+                             NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {

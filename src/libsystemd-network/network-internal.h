@@ -25,7 +25,6 @@ bool net_match_config(Set *match_mac,
                       Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
-                      const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name);

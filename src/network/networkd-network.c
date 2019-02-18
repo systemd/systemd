@@ -427,8 +427,7 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
 int network_get(Manager *manager, sd_device *device,
                 const char *ifname, const struct ether_addr *address,
                 Network **ret) {
-        const char *path = NULL, *parent_driver = NULL, *driver = NULL, *devtype = NULL;
-        sd_device *parent;
+        const char *path = NULL, *driver = NULL, *devtype = NULL;
         Network *network;
 
         assert(manager);
@@ -436,9 +435,6 @@ int network_get(Manager *manager, sd_device *device,
 
         if (device) {
                 (void) sd_device_get_property_value(device, "ID_PATH", &path);
-
-                if (sd_device_get_parent(device, &parent) >= 0)
-                        (void) sd_device_get_driver(parent, &parent_driver);
 
                 (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
 
@@ -451,8 +447,7 @@ int network_get(Manager *manager, sd_device *device,
                                      network->match_name, network->match_host,
                                      network->match_virt, network->match_kernel_cmdline,
                                      network->match_kernel_version, network->match_arch,
-                                     address, path, parent_driver, driver,
-                                     devtype, ifname)) {
+                                     address, path, driver, devtype, ifname)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
