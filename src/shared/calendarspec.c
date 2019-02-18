@@ -880,6 +880,7 @@ fail:
 int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free_ char *p_tmp = NULL;
         int r;
 
         assert(p);
@@ -894,7 +895,9 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         utc = endswith_no_case(p, " UTC");
         if (utc) {
                 c->utc = true;
-                p = strndupa(p, utc - p);
+                p = p_tmp = strndup(p, utc - p);
+                if (!p)
+                        return -ENOMEM;
         } else {
                 const char *e = NULL;
                 int j;
@@ -919,7 +922,10 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
 
                 /* Found one of the two timezones specified? */
                 if (IN_SET(j, 0, 1)) {
-                        p = strndupa(p, e - p - 1);
+                        p = p_tmp = strndup(p, e - p - 1);
+                        if (!p)
+                                return -ENOMEM;
+
                         c->dst = j;
                 } else {
                         const char *last_space;
@@ -930,7 +936,9 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                                 if (!c->timezone)
                                         return -ENOMEM;
 
-                                p = strndupa(p, last_space - p);
+                                p = p_tmp = strndup(p, last_space - p);
+                                if (!p)
+                                        return -ENOMEM;
                         }
                 }
         }
