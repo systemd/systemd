@@ -185,6 +185,10 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
+uint32_t link_get_vrf_table(Link *link);
+uint32_t link_get_dhcp_route_table(Link *link);
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
+
 /* Macros which append INTERFACE= to the message */
 
 #define log_link_full(link, level, error, ...)                          \

@@ -13,3 +13,4 @@ UseHostname=true
 Hostname=test-hostname
 ClientIdentifier=mac
 VendorClassIdentifier=SusantVendorTest
+RouteTable=211

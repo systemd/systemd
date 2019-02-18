@@ -215,6 +215,7 @@ struct Network {
         bool primary_slave;
         DHCPUseDomains ipv6_accept_ra_use_domains;
         uint32_t ipv6_accept_ra_route_table;
+        bool ipv6_accept_ra_route_table_set;
 
         union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
@@ -311,7 +312,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mode);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);

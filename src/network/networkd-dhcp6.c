@@ -142,10 +142,15 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
                                 continue;
                         }
 
-                        route_add(link, AF_INET6, &pd_prefix, pd_prefix_len,
-                                  0, 0, 0, &route);
-                        route_update(route, NULL, 0, NULL, NULL, 0, 0,
-                                     RTN_UNREACHABLE);
+                        r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, 0, &route);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add unreachable route to delete for DHCPv6 delegated subnet %s/%u: %m",
+                                                       strnull(buf),
+                                                       pd_prefix_len);
+                                continue;
+                        }
+
+                        route_update(route, NULL, 0, NULL, NULL, 0, 0, RTN_UNREACHABLE);
 
                         r = route_remove(route, link, dhcp6_route_remove_handler);
                         if (r < 0) {
@@ -288,7 +293,8 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                 }
 
                 if (pd_prefix_len < 64) {
-                        Route *route = NULL;
+                        _cleanup_(route_freep) Route *route = NULL;
+                        uint32_t table;
 
                         (void) in_addr_to_string(AF_INET6, &pd_prefix, &buf);
 
@@ -300,21 +306,25 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                                 continue;
                         }
 
-                        route_add(link, AF_INET6, &pd_prefix, pd_prefix_len,
-                                  0, 0, 0, &route);
-                        route_update(route, NULL, 0, NULL, NULL, 0, 0,
-                                     RTN_UNREACHABLE);
+                        table = link_get_dhcp_route_table(link);
+
+                        r = route_add(link, AF_INET6, &pd_prefix, pd_prefix_len, 0, 0, table, &route);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add unreachable route for DHCPv6 delegated subnet %s/%u: %m",
+                                                       strnull(buf),
+                                                       pd_prefix_len);
+                                continue;
+                        }
+
+                        route_update(route, NULL, 0, NULL, NULL, 0, 0, RTN_UNREACHABLE);
 
                         r = route_configure(route, link, dhcp6_route_handler);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Cannot configure unreachable route for delegated subnet %s/%u: %m",
                                                        strnull(buf),
                                                        pd_prefix_len);
-                                route_free(route);
                                 continue;
                         }
-
-                        route_free(route);
 
                         log_link_debug(link, "Configuring unreachable route for %s/%u",
                                        strnull(buf), pd_prefix_len);

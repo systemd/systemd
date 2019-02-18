@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "hostname-util.h"
 #include "parse-util.h"
-#include "netdev/vrf.h"
 #include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -67,11 +66,7 @@ static int link_set_dhcp_routes(Link *link) {
         if (!link->network->dhcp_use_routes)
                 return 0;
 
-        /* When the interface is part of an VRF use the VRFs routing table, unless
-         * there is a another table specified. */
-        table = link->network->dhcp_route_table;
-        if (!link->network->dhcp_route_table_set && link->network->vrf != NULL)
-                table = VRF(link->network->vrf)->table;
+        table = link_get_dhcp_route_table(link);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -135,14 +130,7 @@ static int link_set_dhcp_routes(Link *link) {
                 log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option and router option");
 
         if (r >= 0 && !classless_route) {
-                _cleanup_(route_freep) Route *route = NULL;
-                _cleanup_(route_freep) Route *route_gw = NULL;
-
-                r = route_new(&route);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-                route->protocol = RTPROT_DHCP;
+                _cleanup_(route_freep) Route *route = NULL, *route_gw = NULL;
 
                 r = route_new(&route_gw);
                 if (r < 0)
@@ -166,9 +154,14 @@ static int link_set_dhcp_routes(Link *link) {
 
                 link->dhcp4_messages++;
 
+                r = route_new(&route);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not allocate route: %m");
+
                 route->family = AF_INET;
                 route->gw.in = gateway;
                 route->prefsrc.in = address;
+                route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
 

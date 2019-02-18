@@ -86,8 +86,6 @@ def tearDownModule():
     subprocess.check_call('systemctl start systemd-networkd.service', shell=True)
 
 class Utilities():
-    dhcp_server_data = []
-
     def read_link_attr(self, link, dev, attribute):
         with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
             return f.readline().strip()
@@ -1212,10 +1210,13 @@ class NetworkdNetworkDHCPServerTests(unittest.TestCase, Utilities):
 class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
     links = [
         'dummy98',
-        'veth99']
+        'veth99',
+        'vrf99']
 
     units = [
         '25-veth.netdev',
+        '25-vrf.netdev',
+        '25-vrf.network',
         'dhcp-client-anonymize.network',
         'dhcp-client-critical-connection.network',
         'dhcp-client-ipv4-dhcp-settings.network',
@@ -1226,6 +1227,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-listen-port.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client-vrf.network',
         'dhcp-client.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
@@ -1290,16 +1292,27 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
 
         self.start_dnsmasq()
 
+        print('## ip address show dev veth99')
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, '12:34:56:78:9a:bc')
         self.assertRegex(output, '192.168.5')
         self.assertRegex(output, '1492')
 
-        output = subprocess.check_output(['ip', 'route']).rstrip().decode('utf-8')
+        # issue #8726
+        print('## ip route show table main dev veth99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, 'default.*dev veth99 proto dhcp')
+        self.assertNotRegex(output, 'proto dhcp')
 
+        print('## ip route show table 211 dev veth99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', '211', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'default via 192.168.5.1 proto dhcp')
+        self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 proto dhcp')
+        self.assertRegex(output, '192.168.5.1 proto dhcp scope link')
+
+        print('## dnsmasq log')
         self.assertTrue(self.search_words_in_dnsmasq_log('vendor class: SusantVendorTest', True))
         self.assertTrue(self.search_words_in_dnsmasq_log('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc'))
         self.assertTrue(self.search_words_in_dnsmasq_log('client provides name: test-hostname'))
@@ -1438,6 +1451,58 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2600::')
         self.assertRegex(output, 'valid_lft forever preferred_lft forever')
+
+    @expectedFailureIfModuleIsNotAvailable('vrf')
+    def test_dhcp_client_vrf(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-vrf.network',
+                                             '25-vrf.netdev', '25-vrf.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('veth99'))
+        self.assertTrue(self.link_exits('vrf99'))
+
+        self.start_dnsmasq()
+
+        print('## ip -d link show dev vrf99')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'dev', 'vrf99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vrf table 42')
+
+        print('## ip address show vrf vrf99')
+        output_ip_vrf = subprocess.check_output(['ip', 'address', 'show', 'vrf', 'vrf99']).rstrip().decode('utf-8')
+        print(output_ip_vrf)
+
+        print('## ip address show dev veth99')
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertEqual(output, output_ip_vrf)
+        self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
+        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic noprefixroute')
+        self.assertRegex(output, 'inet6 .* scope link')
+
+        print('## ip route show vrf vrf99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'vrf', 'vrf99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'default via 192.168.5.1 dev veth99 proto dhcp src 192.168.5.')
+        self.assertRegex(output, 'default dev veth99 proto static scope link')
+        self.assertRegex(output, '169.254.0.0/16 dev veth99 proto kernel scope link src 169.254')
+        self.assertRegex(output, '192.168.5.0/24 dev veth99 proto kernel scope link src 192.168.5')
+        self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 dev veth99 proto dhcp')
+        self.assertRegex(output, '192.168.5.1 dev veth99 proto dhcp scope link src 192.168.5')
+
+        print('## ip route show table main dev veth99')
+        output = subprocess.check_output(['ip', 'route', 'show', 'table', 'main', 'dev', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertEqual(output, '')
+
+        output = subprocess.check_output(['networkctl', 'status', 'vrf99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: carrier \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: routable \(configured\)')
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
