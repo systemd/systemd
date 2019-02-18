@@ -571,9 +571,9 @@ static int parse_fstab(bool initrd) {
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
 
-                log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
+                log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s noauto=%s nofail=%s",
                           what, where, me->mnt_type,
-                          yes_no(makefs),
+                          yes_no(makefs), yes_no(growfs),
                           yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
