@@ -640,7 +640,7 @@ int base64_append(
                 return base64_append_width(prefix, plen, "\n", indent, p, l, width - indent - 1);
         else
                 /* leave plen on the left, keep last column free */
-                return base64_append_width(prefix, plen, NULL, plen, p, l, width - plen - 1);
+                return base64_append_width(prefix, plen, " ", plen, p, l, width - plen - 1);
 }
 
 static int unbase64_next(const char **p, size_t *l) {
