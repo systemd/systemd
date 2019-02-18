@@ -39,6 +39,11 @@ for (my $i = 1; $i <= 10000; ++$i) {
         $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
 }
 
+my $rules_10k_tags_continuation = "";
+for (my $i = 1; $i <= 10000; ++$i) {
+        $rules_10k_tags_continuation .= 'KERNEL=="sda", TAG+="test' . $i . "\"\\\n";
+}
+
 my @tests = (
         {
                 desc            => "no rules",
@@ -1444,6 +1449,16 @@ EOF
                 exp_name        => "found",
                 rules           => $rules_10k_tags . <<EOF
 TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="found"
+EOF
+        },
+        {
+                desc            => "don't crash with lots of tags with continuation",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad" ,
+                rules           => $rules_10k_tags_continuation . <<EOF
+TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="bad"
+KERNEL=="sda", SYMLINK+="found"
 EOF
         },
 );
