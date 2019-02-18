@@ -598,6 +598,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-route-section.network',
         '25-route-tcp-window-settings.network',
         '25-route-type.network',
+        '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         'configure-without-carrier.network',
         'routing-policy-rule.network',
@@ -959,6 +960,45 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'proxy_ndp'), '1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(self.read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
+
+    def test_sysctl_disable_ipv6(self):
+        self.copy_unit_to_networkd_unit_path('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
+
+        print('## Disable ipv6')
+        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=1']), 0)
+        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=1']), 0)
+
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertEqual(output, '')
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
+        self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
+
+        print('## Enable ipv6')
+        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=0']), 0)
+        self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=0']), 0)
+
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope global dummy98')
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet6 .* scope link')
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
 
     def test_bind_carrier(self):
         self.copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
