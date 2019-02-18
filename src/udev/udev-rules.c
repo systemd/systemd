@@ -63,19 +63,19 @@ struct UdevRules {
 
         /* every key in the rules file becomes a token */
         struct token *tokens;
-        unsigned token_cur;
-        unsigned token_max;
+        size_t token_cur;
+        size_t token_max;
 
         /* all key strings are copied and de-duplicated in a single continuous string buffer */
         struct strbuf *strbuf;
 
         /* during rule parsing, uid/gid lookup results are cached */
         struct uid_gid *uids;
-        unsigned uids_cur;
-        unsigned uids_max;
+        size_t uids_cur;
+        size_t uids_max;
         struct uid_gid *gids;
-        unsigned gids_cur;
-        unsigned gids_max;
+        size_t gids_cur;
+        size_t gids_max;
 };
 
 static char *rules_str(UdevRules *rules, unsigned off) {
@@ -219,7 +219,7 @@ struct rule_tmp {
         UdevRules *rules;
         struct token rule;
         struct token token[MAX_TK];
-        unsigned token_cur;
+        size_t token_cur;
 };
 
 #if ENABLE_DEBUG_UDEV
@@ -430,9 +430,9 @@ static void dump_token(UdevRules *rules, struct token *token) {
 }
 
 static void dump_rules(UdevRules *rules) {
-        unsigned i;
+        size_t i;
 
-        log_debug("Dumping %u (%zu bytes) tokens, %zu (%zu bytes) strings",
+        log_debug("Dumping %zu (%zu bytes) tokens, %zu (%zu bytes) strings",
                   rules->token_cur,
                   rules->token_cur * sizeof(struct token),
                   rules->strbuf->nodes_count,
@@ -447,21 +447,9 @@ static void dump_rules(UdevRules *rules) {}
 
 static int add_token(UdevRules *rules, struct token *token) {
         /* grow buffer if needed */
-        if (rules->token_cur+1 >= rules->token_max) {
-                struct token *tokens;
-                unsigned add;
+        if (!GREEDY_REALLOC(rules->tokens, rules->token_max, rules->token_cur + 1))
+                return -ENOMEM;
 
-                /* double the buffer size */
-                add = rules->token_max;
-                if (add < 8)
-                        add = 8;
-
-                tokens = reallocarray(rules->tokens, rules->token_max + add, sizeof(struct token));
-                if (!tokens)
-                        return -ENOMEM;
-                rules->tokens = tokens;
-                rules->token_max += add;
-        }
         memcpy(&rules->tokens[rules->token_cur], token, sizeof(struct token));
         rules->token_cur++;
         return 0;
@@ -475,9 +463,9 @@ static void log_unknown_owner(sd_device *dev, int error, const char *entity, con
 }
 
 static uid_t add_uid(UdevRules *rules, const char *owner) {
-        unsigned i;
         uid_t uid = 0;
         unsigned off;
+        size_t i;
         int r;
 
         /* lookup, if we know it already */
@@ -491,21 +479,9 @@ static uid_t add_uid(UdevRules *rules, const char *owner) {
                 log_unknown_owner(NULL, r, "user", owner);
 
         /* grow buffer if needed */
-        if (rules->uids_cur+1 >= rules->uids_max) {
-                struct uid_gid *uids;
-                unsigned add;
+        if (!GREEDY_REALLOC(rules->uids, rules->uids_max, rules->uids_cur + 1))
+                return -ENOMEM;
 
-                /* double the buffer size */
-                add = rules->uids_max;
-                if (add < 1)
-                        add = 8;
-
-                uids = reallocarray(rules->uids, rules->uids_max + add, sizeof(struct uid_gid));
-                if (!uids)
-                        return uid;
-                rules->uids = uids;
-                rules->uids_max += add;
-        }
         rules->uids[rules->uids_cur].uid = uid;
         off = rules_add_string(rules, owner);
         if (off <= 0)
@@ -516,9 +492,9 @@ static uid_t add_uid(UdevRules *rules, const char *owner) {
 }
 
 static gid_t add_gid(UdevRules *rules, const char *group) {
-        unsigned i;
         gid_t gid = 0;
         unsigned off;
+        size_t i;
         int r;
 
         /* lookup, if we know it already */
@@ -532,21 +508,9 @@ static gid_t add_gid(UdevRules *rules, const char *group) {
                 log_unknown_owner(NULL, r, "group", group);
 
         /* grow buffer if needed */
-        if (rules->gids_cur+1 >= rules->gids_max) {
-                struct uid_gid *gids;
-                unsigned add;
+        if (!GREEDY_REALLOC(rules->gids, rules->gids_max, rules->gids_cur + 1))
+                return -ENOMEM;
 
-                /* double the buffer size */
-                add = rules->gids_max;
-                if (add < 1)
-                        add = 8;
-
-                gids = reallocarray(rules->gids, rules->gids_max + add, sizeof(struct uid_gid));
-                if (!gids)
-                        return gid;
-                rules->gids = gids;
-                rules->gids_max += add;
-        }
         rules->gids[rules->gids_cur].gid = gid;
         off = rules_add_string(rules, group);
         if (off <= 0)
@@ -973,15 +937,15 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 }
 
 static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
-        unsigned i;
-        unsigned start = 0;
-        unsigned end = rule_tmp->token_cur;
+        size_t i;
+        size_t start = 0;
+        size_t end = rule_tmp->token_cur;
         int r;
 
         for (i = 0; i < rule_tmp->token_cur; i++) {
                 enum token_type next_val = TK_UNSET;
-                unsigned next_idx = 0;
-                unsigned j;
+                size_t next_idx = 0;
+                size_t j;
 
                 /* find smallest value */
                 for (j = start; j < end; j++) {
@@ -1013,7 +977,7 @@ static int sort_token(UdevRules *rules, struct rule_tmp *rule_tmp) {
 #define LOG_RULE_WARNING(fmt, ...) LOG_RULE_FULL(LOG_WARNING, fmt, ##__VA_ARGS__)
 #define LOG_RULE_DEBUG(fmt, ...) LOG_RULE_FULL(LOG_DEBUG, fmt, ##__VA_ARGS__)
 #define LOG_AND_RETURN(fmt, ...) { LOG_RULE_ERROR(fmt, __VA_ARGS__); return; }
-#define LOG_AND_RETURN_ADD_KEY LOG_AND_RETURN("Temporary rule array too small, aborting event processing with %u items", rule_tmp.token_cur);
+#define LOG_AND_RETURN_ADD_KEY LOG_AND_RETURN("Temporary rule array too small, aborting event processing with %zu items", rule_tmp.token_cur);
 
 static void add_rule(UdevRules *rules, char *line,
                      const char *filename, unsigned filename_off, unsigned lineno) {
@@ -1500,11 +1464,10 @@ static void add_rule(UdevRules *rules, char *line,
 
 static int parse_file(UdevRules *rules, const char *filename) {
         _cleanup_fclose_ FILE *f = NULL;
-        unsigned first_token;
+        size_t first_token, i;
         unsigned filename_off;
         char line[UTIL_LINE_SIZE];
         int line_nr = 0;
-        unsigned i;
 
         f = fopen(filename, "re");
         if (!f) {
@@ -1562,7 +1525,7 @@ static int parse_file(UdevRules *rules, const char *filename) {
         for (i = first_token+1; i < rules->token_cur; i++) {
                 if (rules->tokens[i].type == TK_A_GOTO) {
                         char *label = rules_str(rules, rules->tokens[i].key.value_off);
-                        unsigned j;
+                        size_t j;
 
                         for (j = i+1; j < rules->token_cur; j++) {
                                 if (rules->tokens[j].type != TK_RULE)
@@ -1625,7 +1588,7 @@ int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing)
 
         struct token end_token = { .type = TK_END };
         add_token(rules, &end_token);
-        log_debug("Rules contain %zu bytes tokens (%u * %zu bytes), %zu bytes strings",
+        log_debug("Rules contain %zu bytes tokens (%zu * %zu bytes), %zu bytes strings",
                   rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->strbuf->len);
 
         /* cleanup temporary strbuf data */
