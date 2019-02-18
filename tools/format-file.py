@@ -103,7 +103,8 @@ def spaceAlignTableStructures(content):
 		cells = []
 		lineComments = []
 		for (r, row) in enumerate(rows):
-			cellsRaw = row.strip().replace('{', '').replace('}', '').replace(';', '').split(',')
+			cellsRawLine = row.strip().replace('{', '').replace('}', '').replace(';', '')
+			cellsRaw = re.split(r',\s*(?![^()]*\))', cellsRawLine)
 			# find line comments
 			match = re.search('/\*.*\*\/', row)
 			lineComment = ""
