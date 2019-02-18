@@ -26,6 +26,7 @@ KillMode=mixed
 WatchdogSec=3min
 TasksMax=infinity
 PrivateMounts=yes
+ProtectHostname=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6

@@ -23,6 +23,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectControlGroups=yes
 ProtectHome=yes
+ProtectHostname=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectSystem=strict

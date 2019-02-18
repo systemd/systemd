@@ -27,6 +27,7 @@ MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 ProtectControlGroups=yes
 ProtectHome=yes
+ProtectHostname=yes
 ProtectKernelModules=yes
 ProtectSystem=strict
 Restart=on-failure
