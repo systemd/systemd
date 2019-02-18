@@ -1334,13 +1334,11 @@ static void add_rule(UdevRules *rules, char *line,
 
                 } else if (streq(key, "OWNER")) {
                         uid_t uid;
-                        char *endptr;
 
                         if (op == OP_REMOVE)
                                 LOG_AND_RETURN("Invalid %s operation", key);
 
-                        uid = strtoul(value, &endptr, 10);
-                        if (endptr[0] == '\0')
+                        if (parse_uid(value, &uid) >= 0)
                                 r = rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
                         else if (rules->resolve_name_timing == RESOLVE_NAME_EARLY && !strchr("$%", value[0])) {
                                 uid = add_uid(rules, value);
@@ -1358,13 +1356,11 @@ static void add_rule(UdevRules *rules, char *line,
 
                 } else if (streq(key, "GROUP")) {
                         gid_t gid;
-                        char *endptr;
 
                         if (op == OP_REMOVE)
                                 LOG_AND_RETURN("Invalid %s operation", key);
 
-                        gid = strtoul(value, &endptr, 10);
-                        if (endptr[0] == '\0')
+                        if (parse_gid(value, &gid) >= 0)
                                 r = rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
                         else if ((rules->resolve_name_timing == RESOLVE_NAME_EARLY) && !strchr("$%", value[0])) {
                                 gid = add_gid(rules, value);
