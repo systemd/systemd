@@ -36,7 +36,7 @@ struct sd_device_enumerator {
         Hashmap *match_property;
         Set *match_sysname;
         Set *match_tag;
-        sd_device *match_parent;
+        Set *match_parent;
         bool match_allow_uninitialized;
 };
 
@@ -75,7 +75,7 @@ static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumer
         hashmap_free_free_free(enumerator->match_property);
         set_free_free(enumerator->match_sysname);
         set_free_free(enumerator->match_tag);
-        sd_device_unref(enumerator->match_parent);
+        set_free_free(enumerator->match_parent);
 
         return mfree(enumerator);
 }
@@ -217,16 +217,40 @@ _public_ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent) {
+static void device_enumerator_clear_match_parent(sd_device_enumerator *enumerator) {
+        if (!enumerator)
+                return;
+
+        set_clear_free(enumerator->match_parent);
+}
+
+int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumerator, sd_device *parent) {
+        const char *path;
+        int r;
+
         assert_return(enumerator, -EINVAL);
         assert_return(parent, -EINVAL);
 
-        sd_device_unref(enumerator->match_parent);
-        enumerator->match_parent = sd_device_ref(parent);
+        r = sd_device_get_syspath(parent, &path);
+        if (r < 0)
+                return r;
+
+        r = set_ensure_allocated(&enumerator->match_parent, NULL);
+        if (r < 0)
+                return r;
+
+        r = set_put_strdup(enumerator->match_parent, path);
+        if (r < 0)
+                return r;
 
         enumerator->scan_uptodate = false;
 
         return 0;
+}
+
+_public_ int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent) {
+        device_enumerator_clear_match_parent(enumerator);
+        return device_enumerator_add_match_parent_incremental(enumerator, parent);
 }
 
 _public_ int sd_device_enumerator_allow_uninitialized(sd_device_enumerator *enumerator) {
@@ -399,22 +423,24 @@ static bool match_tag(sd_device_enumerator *enumerator, sd_device *device) {
 }
 
 static bool match_parent(sd_device_enumerator *enumerator, sd_device *device) {
-        const char *devpath, *devpath_dev;
+        const char *syspath_parent, *syspath;
+        Iterator i;
         int r;
 
         assert(enumerator);
         assert(device);
 
-        if (!enumerator->match_parent)
+        if (set_isempty(enumerator->match_parent))
                 return true;
 
-        r = sd_device_get_devpath(enumerator->match_parent, &devpath);
+        r = sd_device_get_syspath(device, &syspath);
         assert(r >= 0);
 
-        r = sd_device_get_devpath(device, &devpath_dev);
-        assert(r >= 0);
+        SET_FOREACH(syspath_parent, enumerator->match_parent, i)
+                if (path_startswith(syspath, syspath_parent))
+                        return true;
 
-        return startswith(devpath_dev, devpath);
+        return false;
 }
 
 static bool match_sysname(sd_device_enumerator *enumerator, const char *sysname) {
@@ -745,18 +771,17 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
         const char *path;
         int r = 0, k;
+        Iterator i;
 
-        r = sd_device_get_syspath(enumerator->match_parent, &path);
-        if (r < 0)
-                return r;
+        SET_FOREACH(path, enumerator->match_parent, i) {
+                k = parent_add_child(enumerator, path);
+                if (k < 0)
+                        r = k;
 
-        k = parent_add_child(enumerator, path);
-        if (k < 0)
-                r = k;
-
-        k = parent_crawl_children(enumerator, path, DEVICE_ENUMERATE_MAX_DEPTH);
-        if (k < 0)
-                r = k;
+                k = parent_crawl_children(enumerator, path, DEVICE_ENUMERATE_MAX_DEPTH);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
