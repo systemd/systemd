@@ -4,7 +4,7 @@
 # You can find more information on the different config parameters in this file here:
 # https://releases.llvm.org/6.0.0/tools/clang/docs/ClangFormatStyleOptions.html
 ---
-TabWidth: 2
+TabWidth: 8
 UseTab: Never
 AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
@@ -24,7 +24,6 @@ AlwaysBreakBeforeMultilineStrings: true
 AlwaysBreakTemplateDeclarations: true
 BinPackArguments: false
 BinPackParameters: false
-BreakAfterJavaFieldAnnotations: true
 BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Custom
 BreakBeforeInheritanceComma: true
@@ -62,13 +61,9 @@ IndentCaseLabels: false
 IndentPPDirectives: AfterHash
 IndentWidth: 8
 IndentWrappedFunctionNames: true
-JavaScriptQuotes: Leave
 KeepEmptyLinesAtTheStartOfBlocks: true
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: None
-ObjCBlockIndentWidth: 2
-ObjCSpaceAfterProperty: true
-ObjCSpaceBeforeProtocolList: true
 PenaltyBreakAssignment: 65
 PenaltyBreakBeforeFirstCallParameter: 16
 PenaltyBreakComment: 320
