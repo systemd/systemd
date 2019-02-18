@@ -1463,11 +1463,12 @@ static void add_rule(UdevRules *rules, char *line,
 }
 
 static int parse_file(UdevRules *rules, const char *filename) {
+        _cleanup_free_ char *continuation = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        bool ignore_line = false;
         size_t first_token, i;
         unsigned filename_off;
-        char line[UTIL_LINE_SIZE];
-        int line_nr = 0;
+        int line_nr = 0, r;
 
         f = fopen(filename, "re");
         if (!f) {
@@ -1486,39 +1487,61 @@ static int parse_file(UdevRules *rules, const char *filename) {
         first_token = rules->token_cur;
         filename_off = rules_add_string(rules, filename);
 
-        while (fgets(line, sizeof(line), f)) {
-                char *key;
+        for (;;) {
+                _cleanup_free_ char *buf = NULL;
                 size_t len;
+                char *line;
 
-                /* skip whitespace */
+                r = read_line(f, UTIL_LINE_SIZE, &buf);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
                 line_nr++;
-                key = line;
-                while (isspace(key[0]))
-                        key++;
+                line = buf + strspn(buf, WHITESPACE);
 
-                /* comment */
-                if (key[0] == '#')
+                if (line[0] == '#')
                         continue;
 
                 len = strlen(line);
                 if (len < 3)
                         continue;
 
-                /* continue reading if backslash+newline is found */
-                while (line[len-2] == '\\') {
-                        if (!fgets(&line[len-2], (sizeof(line)-len)+2, f))
-                                break;
-                        if (strlen(&line[len-2]) < 2)
-                                break;
-                        line_nr++;
-                        len = strlen(line);
+                if (continuation && !ignore_line) {
+                        if (strlen(continuation) + len >= UTIL_LINE_SIZE)
+                                ignore_line = true;
+
+                        if (!strextend(&continuation, line, NULL))
+                                return log_oom();
+
+                        if (!ignore_line) {
+                                line = continuation;
+                                len = strlen(line);
+                        }
                 }
 
-                if (len+1 >= sizeof(line)) {
-                        log_error("Line too long '%s':%u, ignored", filename, line_nr);
+                if (line[len - 1] == '\\') {
+                        if (ignore_line)
+                                continue;
+
+                        line[len - 1] = '\0';
+                        if (!continuation) {
+                                continuation = strdup(line);
+                                if (!continuation)
+                                        return log_oom();
+                        }
+
                         continue;
                 }
-                add_rule(rules, key, filename, filename_off, line_nr);
+
+                if (ignore_line)
+                        log_error("Line too long '%s':%u, ignored", filename, line_nr);
+                else
+                        add_rule(rules, line, filename, filename_off, line_nr);
+
+                continuation = mfree(continuation);
+                ignore_line = false;
         }
 
         /* link GOTOs to LABEL rules in this file to be able to fast-forward */
