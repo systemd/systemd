@@ -655,7 +655,7 @@ static const NLType rtnl_routing_policy_rule_types[] = {
         [FRA_PRIORITY]            = { .type = NETLINK_TYPE_U32 },
         [FRA_FWMARK]              = { .type = NETLINK_TYPE_U32 },
         [FRA_FLOW]                = { .type = NETLINK_TYPE_U32 },
-        [FRA_TUN_ID]              = { .type = NETLINK_TYPE_U32 },
+        [FRA_TUN_ID]              = { .type = NETLINK_TYPE_U64 },
         [FRA_SUPPRESS_IFGROUP]    = { .type = NETLINK_TYPE_U32 },
         [FRA_SUPPRESS_PREFIXLEN]  = { .type = NETLINK_TYPE_U32 },
         [FRA_TABLE]               = { .type = NETLINK_TYPE_U32 },
