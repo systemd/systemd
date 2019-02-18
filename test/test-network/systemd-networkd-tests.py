@@ -117,6 +117,7 @@ class Utilities():
             return f.readline().strip()
 
     def copy_unit_to_networkd_unit_path(self, *units):
+        print()
         for unit in units:
             shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
             if (os.path.exists(os.path.join(networkd_ci_path, unit + '.d'))):
@@ -172,7 +173,6 @@ class Utilities():
         else:
             subprocess.check_call('systemctl restart systemd-networkd', shell=True)
         time.sleep(5)
-        print()
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
