@@ -56,6 +56,8 @@ struct Manager {
         Set *rules;
         Set *rules_foreign;
         Set *rules_saved;
+
+        int sysctl_ipv6_enabled;
 };
 
 extern const sd_bus_vtable manager_vtable[];
@@ -92,5 +94,7 @@ int manager_request_product_uuid(Manager *m, Link *link);
 Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
 int manager_dhcp6_prefix_remove_all(Manager *m, Link *link);
+
+int manager_sysctl_ipv6_enabled(Manager *manager);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

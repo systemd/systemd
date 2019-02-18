@@ -74,6 +74,9 @@ static bool link_dhcp6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
 }
 
@@ -143,6 +146,9 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
@@ -153,6 +159,9 @@ static bool link_ipv6_enabled(Link *link) {
                 return false;
 
         if (link->network->bridge || link->network->bond)
+                return false;
+
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -232,6 +241,9 @@ static bool link_ipv6_forward_enabled(Link *link) {
                 return false;
 
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
+                return false;
+
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
