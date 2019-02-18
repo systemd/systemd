@@ -395,12 +395,15 @@
         <varlistentry>
           <term><varname>DNSOverTLS=</varname></term>
           <listitem>
-            <para>Takes false or
-            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <para>Takes a boolean or <literal>opportunistic</literal>.
+            When true, enables
             <ulink
             url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
-            support on the link. This option defines a
-            per-interface setting for
+            support on the link.
+            When set to <literal>opportunistic</literal>, compatibility with
+            non-DNS-over-TLS servers is increased, by automatically
+            turning off DNS-over-TLS servers in this case.
+            This option defines a per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
             global <varname>DNSOverTLS=</varname> option. Defaults to
             false. This setting is read by

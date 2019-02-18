@@ -54,6 +54,9 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
                 server->dnstls_data.session_data.size = 0;
         }
 
+        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES)
+                gnutls_session_set_verify_cert(gs, NULL, 0);
+
         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
 
         gnutls_transport_set_ptr2(gs, (gnutls_transport_ptr_t) (long) stream->fd, stream);
@@ -201,6 +204,10 @@ int dnstls_manager_init(Manager *manager) {
         r = gnutls_certificate_allocate_credentials(&manager->dnstls_data.cert_cred);
         if (r < 0)
                 return -ENOMEM;
+
+        r = gnutls_certificate_set_x509_system_trust(manager->dnstls_data.cert_cred);
+        if (r < 0)
+                log_warning("Failed to load system trust store: %s", gnutls_strerror(r));
 
         return 0;
 }

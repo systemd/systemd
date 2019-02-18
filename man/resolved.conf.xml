@@ -193,8 +193,11 @@
       <varlistentry>
         <term><varname>DNSOverTLS=</varname></term>
         <listitem>
-        <para>Takes false or
-        <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>.
+        If true all connections to the server will be encrypted. Note that
+        this mode requires a DNS server that supports DNS-over-TLS and has
+        a valid certificate for it's IP. If the DNS server does not support
+        DNS-over-TLS all DNS requests will fail. When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
         If the DNS server does not support TLS, DNS-over-TLS is disabled.
         Note that this mode makes DNS-over-TLS vulnerable to "downgrade"

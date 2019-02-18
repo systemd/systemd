@@ -76,6 +76,17 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         SSL_set_session(s, server->dnstls_data.session);
         SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
 
+        if (server->manager->dns_over_tls_mode == DNS_OVER_TLS_YES) {
+                X509_VERIFY_PARAM *v;
+                const unsigned char *ip;
+
+                SSL_set_verify(s, SSL_VERIFY_PEER, NULL);
+                v = SSL_get0_param(s);
+                ip = server->family == AF_INET ? (const unsigned char*) &server->address.in.s_addr : server->address.in6.s6_addr;
+                if (!X509_VERIFY_PARAM_set1_ip(v, ip, FAMILY_ADDRESS_SIZE(server->family)))
+                        return -ECONNREFUSED;
+        }
+
         ERR_clear_error();
         stream->dnstls_data.handshake = SSL_do_handshake(s);
         if (stream->dnstls_data.handshake <= 0) {
@@ -357,6 +368,9 @@ int dnstls_manager_init(Manager *manager) {
 
         SSL_CTX_set_min_proto_version(manager->dnstls_data.ctx, TLS1_2_VERSION);
         SSL_CTX_set_options(manager->dnstls_data.ctx, SSL_OP_NO_COMPRESSION);
+        r = SSL_CTX_set_default_verify_paths(manager->dnstls_data.ctx);
+        if (r < 0)
+                log_warning("Failed to load system trust store: %s", ERR_error_string(ERR_get_error(), NULL));
 
         return 0;
 }

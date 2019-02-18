@@ -206,7 +206,7 @@ option('default-dnssec', type : 'combo',
        value : 'allow-downgrade')
 option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
-       choices : ['opportunistic', 'no'],
+       choices : ['yes', 'opportunistic', 'no'],
        value : 'no')
 option('dns-over-tls', type : 'combo', choices : ['auto', 'gnutls', 'openssl', 'true', 'false'],
        description : 'DNS-over-TLS support')

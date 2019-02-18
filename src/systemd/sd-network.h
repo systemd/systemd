@@ -127,7 +127,7 @@ int sd_network_link_get_mdns(int ifindex, char **mdns);
 
 /* Indicates whether or not DNS-over-TLS should be enabled for the
  * link.
- * Possible levels of support: strict, no, opportunistic
+ * Possible levels of support: yes, no, opportunistic
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */

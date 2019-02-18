@@ -419,7 +419,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
