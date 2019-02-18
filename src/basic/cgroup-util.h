@@ -167,7 +167,7 @@ typedef enum CGroupFlags {
         CGROUP_REMOVE      = 1 << 2,
 } CGroupFlags;
 
-typedef void (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
+typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 
 int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);

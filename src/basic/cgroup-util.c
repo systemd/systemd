@@ -223,7 +223,7 @@ int cg_kill(
 
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
-        int r, ret = 0;
+        int r, ret = 0, ret_log_kill = 0;
         pid_t my_pid;
 
         assert(sig >= 0);
@@ -267,7 +267,7 @@ int cg_kill(
                                 continue;
 
                         if (log_kill)
-                                log_kill(pid, sig, userdata);
+                                ret_log_kill = log_kill(pid, sig, userdata);
 
                         /* If we haven't killed this process yet, kill
                          * it */
@@ -278,8 +278,12 @@ int cg_kill(
                                 if (flags & CGROUP_SIGCONT)
                                         (void) kill(pid, SIGCONT);
 
-                                if (ret == 0)
-                                        ret = 1;
+                                if (ret == 0) {
+                                        if (log_kill)
+                                                ret = ret_log_kill;
+                                        else
+                                                ret = 1;
+                                }
                         }
 
                         done = false;
