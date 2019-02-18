@@ -1584,7 +1584,7 @@ int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing)
         };
 
         /* init token array and string buffer */
-        rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
+        rules->tokens = new(struct token, PREALLOC_TOKEN);
         if (!rules->tokens)
                 return -ENOMEM;
         rules->token_max = PREALLOC_TOKEN;
