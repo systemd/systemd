@@ -18,6 +18,7 @@
 #include "fileio.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
+#include "network-internal.h"
 #include "networkd-manager.h"
 #include "ordered-set.h"
 #include "path-util.h"
@@ -28,15 +29,6 @@
 
 /* use 8 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (8*1024*1024)
-
-const char* const network_dirs[] = {
-        "/etc/systemd/network",
-        "/run/systemd/network",
-        "/usr/lib/systemd/network",
-#if HAVE_SPLIT_USR
-        "/lib/systemd/network",
-#endif
-        NULL};
 
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
@@ -1512,7 +1504,7 @@ int manager_load_config(Manager *m) {
         int r;
 
         /* update timestamp */
-        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
+        paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, true);
 
         r = netdev_load(m);
         if (r < 0)
@@ -1526,7 +1518,7 @@ int manager_load_config(Manager *m) {
 }
 
 bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
+        return paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, false);
 }
 
 int manager_rtnl_enumerate_links(Manager *m) {

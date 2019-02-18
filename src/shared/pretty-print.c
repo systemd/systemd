@@ -213,33 +213,88 @@ void print_separator(void) {
                 fputs("\n\n", stdout);
 }
 
+static int guess_type(const char **name, bool *is_usr, bool *is_collection, const char **extension) {
+        /* Try to figure out if name is like tmpfiles.d/ or systemd/system-presets/,
+         * i.e. a collection of directories without a main config file. */
+
+        _cleanup_free_ char *n = NULL;
+        bool usr = false, coll = false;
+        const char *ext = ".conf";
+
+        if (path_equal(*name, "environment.d"))
+                /* Special case: we need to include /etc/environment in the search path, even
+                 * though the whole concept is called environment.d. */
+                *name = "environment";
+
+        n = strdup(*name);
+        if (!n)
+                return log_oom();
+
+        delete_trailing_chars(n, "/");
+
+        if (endswith(n, ".d"))
+                coll = true;
+
+        if (path_equal(n, "environment"))
+                usr = true;
+
+        if (path_equal(n, "udev/hwdb.d"))
+                ext = ".hwdb";
+
+        if (path_equal(n, "udev/rules.d"))
+                ext = ".rules";
+
+        if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+                coll = true;
+                ext = ".preset";
+        }
+
+        if (path_equal(n, "systemd/user-preset"))
+                usr = true;
+
+        *is_usr = usr;
+        *is_collection = coll;
+        *extension = ext;
+        return 0;
+}
+
 int conf_files_cat(const char *root, const char *name) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
-        const char *dir;
+        char **dir;
+        bool is_usr, is_collection;
+        const char *extension;
         char **t;
         int r;
 
-        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
-                assert(endswith(dir, "/"));
-                r = strv_extendf(&dirs, "%s%s.d", dir, name);
+        r = guess_type(&name, &is_usr, &is_collection, &extension);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(dir, is_usr ? CONF_PATHS_USR_STRV("") : CONF_PATHS_STRV("")) {
+                assert(endswith(*dir, "/"));
+                r = strv_extendf(&dirs, "%s%s%s", *dir, name,
+                                 is_collection ? "" : ".d");
                 if (r < 0)
                         return log_error_errno(r, "Failed to build directory list: %m");
         }
 
-        r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);
+        r = conf_files_list_strv(&files, extension, root, 0, (const char* const*) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to query file list: %m");
 
-        path = path_join(root, "/etc", name);
-        if (!path)
-                return log_oom();
+        if (!is_collection) {
+                path = path_join(root, "/etc", name);
+                if (!path)
+                        return log_oom();
+        }
 
         if (DEBUG_LOGGING) {
                 log_debug("Looking for configuration in:");
-                log_debug("   %s", path);
+                if (path)
+                        log_debug("   %s", path);
                 STRV_FOREACH(t, dirs)
-                        log_debug("   %s/*.conf", *t);
+                        log_debug("   %s/*%s", *t, extension);
         }
 
         /* show */

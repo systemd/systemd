@@ -1,21 +1,15 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-rr.h"
 #include "resolved-manager.h"
 #include "specifier.h"
 #include "strv.h"
 
-const char* const dnssd_service_dirs[] = {
-        "/etc/systemd/dnssd",
-        "/run/systemd/dnssd",
-        "/usr/lib/systemd/dnssd",
-#if HAVE_SPLIT_USR
-        "/lib/systemd/dnssd",
-#endif
-    NULL
-};
+#define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 
 DnssdTxtData *dnssd_txtdata_free(DnssdTxtData *txt_data) {
         if (!txt_data)
@@ -92,7 +86,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
-        r = config_parse_many(filename, dnssd_service_dirs, dropin_dirname,
+        r = config_parse_many(filename, DNSSD_SERVICE_DIRS, dropin_dirname,
                               "Service\0",
                               config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                               false, service);
@@ -195,7 +189,7 @@ int dnssd_load(Manager *manager) {
         if (manager->mdns_support != RESOLVE_SUPPORT_YES)
                 return 0;
 
-        r = conf_files_list_strv(&files, ".dnssd", NULL, 0, dnssd_service_dirs);
+        r = conf_files_list_strv(&files, ".dnssd", NULL, 0, DNSSD_SERVICE_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .dnssd files: %m");
 
