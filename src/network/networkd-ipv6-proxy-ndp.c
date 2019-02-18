@@ -10,8 +10,9 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "string-util.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "sysctl-util.h"
 
 static bool ipv6_proxy_ndp_is_needed(Link *link) {
         assert(link);
@@ -32,8 +33,8 @@ static bool ipv6_proxy_ndp_is_needed(Link *link) {
 }
 
 static int ipv6_proxy_ndp_set(Link *link) {
-        const char *p = NULL;
-        int r, v;
+        bool v;
+        int r;
 
         assert(link);
 
@@ -41,9 +42,8 @@ static int ipv6_proxy_ndp_set(Link *link) {
                 return 0;
 
         v = ipv6_proxy_ndp_is_needed(link);
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/proxy_ndp");
 
-        r = write_string_file(p, one_zero(v), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
 
