@@ -65,7 +65,7 @@ static void operational_state_to_color(const char *state, const char **on, const
         assert(on);
         assert(off);
 
-        if (streq_ptr(state, "routable")) {
+        if (STRPTR_IN_SET(state, "routable", "enslaved")) {
                 *on = ansi_highlight_green();
                 *off = ansi_normal();
         } else if (streq_ptr(state, "degraded")) {

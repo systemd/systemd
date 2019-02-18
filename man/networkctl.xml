@@ -118,13 +118,21 @@
               <varlistentry>
                 <term>carrier</term>
                 <listitem>
-                  <para>the link has a carrier</para>
+                  <para>the link has a carrier, or for bond master, all bonding slave network interfaces are
+                  enslaved to the master.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>degraded</term>
                 <listitem>
-                  <para>the link has carrier and addresses valid on the local link configured</para>
+                  <para>the link has carrier and addresses valid on the local link configured, or for bond
+                  master, one of the bonding slave network interfaces is in off, no-carrier, or dormant</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>enslaved</term>
+                <listitem>
+                  <para>the link has carrier and is enslaved to other network interfaces</para>
                 </listitem>
               </varlistentry>
               <varlistentry>

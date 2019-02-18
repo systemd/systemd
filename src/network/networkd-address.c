@@ -351,7 +351,7 @@ int address_update(
         address->scope = scope;
         address->cinfo = *cinfo;
 
-        link_update_operstate(address->link);
+        link_update_operstate(address->link, true);
         link_check_ready(address->link);
 
         if (!ready &&
@@ -380,7 +380,7 @@ int address_drop(Address *address) {
         address_release(address);
         address_free(address);
 
-        link_update_operstate(link);
+        link_update_operstate(link, true);
 
         if (link && !ready)
                 link_check_ready(link);

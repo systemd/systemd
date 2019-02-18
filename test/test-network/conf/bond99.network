@@ -1,0 +1,6 @@
+[Match]
+Name=bond99
+
+[Network]
+IPv6AcceptRA=no
+DHCP=yes
