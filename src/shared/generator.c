@@ -55,13 +55,14 @@ int generator_open_unit_file(
         return 0;
 }
 
-int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src) {
-        /* Adds a symlink from <dst>.<dep_type>.d/ to ../<src> */
+int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src) {
+        /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute)
+         * or ../<src> (otherwise). */
 
         const char *from, *to;
 
-        from = strjoina("../", src);
-        to = strjoina(root, "/", dst, ".", dep_type, "/", src);
+        from = path_is_absolute(src) ? src : strjoina("../", src);
+        to = strjoina(dir, "/", dst, ".", dep_type, "/", basename(src));
 
         mkdir_parents_label(to, 0755);
         if (symlink(from, to) < 0)
@@ -85,7 +86,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
         if (!escaped2)
                 return log_oom();
 
-        unit = strjoina(dir, "/systemd-fsck-root.service");
+        unit = strjoina(dir, "/"SPECIAL_FSCK_ROOT_SERVICE);
         log_debug("Creating %s", unit);
 
         r = unit_name_from_path(what, ".device", &device);
@@ -157,10 +158,10 @@ int generator_write_fsck_deps(
         if (path_equal(where, "/")) {
                 const char *lnk;
 
-                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
+                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/"SPECIAL_FSCK_ROOT_SERVICE);
 
                 mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_PATH "/systemd-fsck-root.service", lnk) < 0)
+                if (symlink(SYSTEM_DATA_UNIT_PATH "/"SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
                         return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
 
         } else {
@@ -172,7 +173,7 @@ int generator_write_fsck_deps(
                         if (r < 0)
                                 return r;
 
-                        fsck = "systemd-fsck-root.service";
+                        fsck = SPECIAL_FSCK_ROOT_SERVICE;
                 } else {
                         r = unit_name_from_path_instance("systemd-fsck", what, ".service", &_fsck);
                         if (r < 0)
@@ -496,6 +497,12 @@ int generator_hook_up_growfs(
                 escaped);
 
         return generator_add_symlink(dir, where_unit, "wants", unit);
+}
+
+int generator_enable_remount_fs_service(const char *dir) {
+        /* Pull in systemd-remount-fs.service */
+        return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
+                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
 void log_setup_generator(void) {
