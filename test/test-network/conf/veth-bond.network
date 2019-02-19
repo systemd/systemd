@@ -3,4 +3,10 @@ Name=veth99
 
 [Network]
 Bond=bond99
-IPv6AcceptRA=false
+
+# Settings below should be ignored
+IPv6AcceptRA=yes
+LinkLocalAddressing=yes
+DHCP=yes
+Address=192.168.25.3/24
+Gateway=192.168.25.1

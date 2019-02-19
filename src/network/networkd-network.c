@@ -97,13 +97,78 @@ void network_apply_anonymize_if_set(Network *network) {
         network->dhcp_use_timezone = false;
 }
 
+static int network_verify(Network *network) {
+        Address *address;
+        Route *route;
+
+        assert(network);
+        assert(network->filename);
+
+        if (network->bond) {
+                /* Bonding slave does not support addressing. */
+                if (network->ipv6_accept_ra > 0) {
+                        log_warning("%s: Cannot enable IPv6AcceptRA= when Bond= is specified, disabling IPv6AcceptRA=.", network->filename);
+                        network->ipv6_accept_ra = 0;
+                }
+                if (network->link_local >= 0 && network->link_local != ADDRESS_FAMILY_NO) {
+                        log_warning("%s: Cannot enable LinkLocalAddressing= when Bond= is specified, disabling LinkLocalAddressing=.", network->filename);
+                        network->link_local = ADDRESS_FAMILY_NO;
+                }
+                if (network->dhcp != ADDRESS_FAMILY_NO) {
+                        log_warning("%s: Cannot enable DHCP= when Bond= is specified, disabling DHCP=.", network->filename);
+                        network->dhcp = ADDRESS_FAMILY_NO;
+                }
+                if (network->dhcp_server) {
+                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.", network->filename);
+                        network->dhcp_server = false;
+                }
+                if (network->n_static_addresses > 0) {
+                        log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.", network->filename);
+                        while ((address = network->static_addresses))
+                                address_free(address);
+                }
+                if (network->n_static_routes > 0) {
+                        log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.", network->filename);
+                        while ((route = network->static_routes))
+                                route_free(route);
+                }
+        }
+
+        if (network->link_local < 0)
+                network->link_local = ADDRESS_FAMILY_IPV6;
+
+        /* IPMasquerade=yes implies IPForward=yes */
+        if (network->ip_masquerade)
+                network->ip_forward |= ADDRESS_FAMILY_IPV4;
+
+        if (network->mtu > 0 && network->dhcp_use_mtu) {
+                log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
+                            "Disabling UseMTU=.", network->filename);
+                network->dhcp_use_mtu = false;
+        }
+
+        LIST_FOREACH(routes, route, network->static_routes)
+                if (!route->family)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Route section without Gateway field configured. "
+                                                 "Ignoring %s.",
+                                                 network->filename, network->filename);
+
+        LIST_FOREACH(addresses, address, network->static_addresses)
+                if (!address->family)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Address section without Address field configured. "
+                                                 "Ignoring %s.",
+                                                 network->filename, network->filename);
+
+        return 0;
+}
+
 int network_load_one(Manager *manager, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
-        Address *address;
-        Route *route;
         char *d;
         int r;
 
@@ -193,7 +258,8 @@ int network_load_one(Manager *manager, const char *filename) {
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
 
-                .link_local = ADDRESS_FAMILY_IPV6,
+                /* If LinkLocalAddressing= is not set, then set to ADDRESS_FAMILY_IPV6 later. */
+                .link_local = _ADDRESS_FAMILY_BOOLEAN_INVALID,
 
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .ipv6_accept_ra = -1,
@@ -242,16 +308,6 @@ int network_load_one(Manager *manager, const char *filename) {
 
         network_apply_anonymize_if_set(network);
 
-        /* IPMasquerade=yes implies IPForward=yes */
-        if (network->ip_masquerade)
-                network->ip_forward |= ADDRESS_FAMILY_IPV4;
-
-        if (network->mtu > 0 && network->dhcp_use_mtu) {
-                log_warning("MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set in %s. "
-                            "Disabling UseMTU=.", filename);
-                network->dhcp_use_mtu = false;
-        }
-
         LIST_PREPEND(networks, manager->networks, network);
 
         r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);
@@ -262,22 +318,10 @@ int network_load_one(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(routes, route, network->static_routes)
-                if (!route->family) {
-                        log_warning("Route section without Gateway field configured in %s. "
-                                    "Ignoring", filename);
-                        return 0;
-                }
-
-        LIST_FOREACH(addresses, address, network->static_addresses)
-                if (!address->family) {
-                        log_warning("Address section without Address field configured in %s. "
-                                    "Ignoring", filename);
-                        return 0;
-                }
+        if (network_verify(network) < 0)
+                return 0;
 
         network = NULL;
-
         return 0;
 }
 
@@ -813,6 +857,10 @@ int config_parse_dhcp(
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DHCP option, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "DHCP=%s is deprecated, please use DHCP=%s instead.",
+                           rvalue, address_family_boolean_to_string(s));
         }
 
         *dhcp = s;
