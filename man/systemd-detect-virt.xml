@@ -184,7 +184,7 @@
         <term><option>-v</option></term>
         <term><option>--vm</option></term>
 
-        <listitem><para>Only detects hardware virtualization).</para></listitem>
+        <listitem><para>Only detects hardware virtualization.</para></listitem>
       </varlistentry>
 
       <varlistentry>
