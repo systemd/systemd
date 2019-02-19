@@ -39,10 +39,11 @@ for (my $i = 1; $i <= 10000; ++$i) {
         $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
 }
 
-my $rules_10k_tags_continuation = "";
-for (my $i = 1; $i <= 10000; ++$i) {
-        $rules_10k_tags_continuation .= 'KERNEL=="sda", TAG+="test' . $i . "\"\\\n";
+my $rules_10k_tags_continuation = "KERNEL==\"sda\", \\\n";
+for (my $i = 1; $i < 10000; ++$i) {
+        $rules_10k_tags_continuation .= 'TAG+="test' . $i . "\",\\\n";
 }
+$rules_10k_tags_continuation .= "TAG+=\"test10000\"\\n";
 
 my @tests = (
         {
