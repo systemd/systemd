@@ -186,7 +186,11 @@
           <option>--follow</option> is used, this option is
           implied. The argument is a positive integer or
           <literal>all</literal> to disable line limiting. The default
-          value is 10 if no argument is given.</para></listitem>
+          value is 10 if no argument is given.</para>
+
+          <para>In conjunction with options like <option>--since</option>,
+          <option>--until</option> and <option>--boot</option> this option
+          limits the number of events shown.</para></listitem>
         </varlistentry>
 
         <varlistentry>

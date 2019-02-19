@@ -2456,7 +2456,7 @@ int main(int argc, char *argv[]) {
                 }
                 r = sd_journal_previous(j);
 
-        } else if (arg_lines >= 0) {
+        } else if (arg_lines >= 0 && !arg_boot) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0) {
                         log_error_errno(r, "Failed to seek to tail: %m");
