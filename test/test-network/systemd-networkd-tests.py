@@ -289,7 +289,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['networkctl', 'status', 'dropin-*']).rstrip().decode('utf-8')
         self.assertNotRegex(output, '1: lo ')
         self.assertRegex(output, 'dropin-test')
-        #self.assertRegex(output, 'Driver: dummy')
+
+        ret = subprocess.run(['ethtool', '--driver', 'dropin-test'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print(ret.stdout.rstrip().decode('utf-8'))
+        if ret.returncode == 0 and re.search('driver: dummy', ret.stdout.rstrip().decode('utf-8')) != None:
+            self.assertRegex(output, 'Driver: dummy')
+        else:
+            print('ethtool does not support driver field at least for dummy interfaces, skipping test for Driver field of networkctl.')
 
     def test_bridge(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev')
