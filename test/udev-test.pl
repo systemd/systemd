@@ -1453,13 +1453,21 @@ TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test1
 EOF
         },
         {
-                desc            => "don't crash with lots of tags with continuation",
+                desc            => "continuations",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "found",
                 not_exp_name    => "bad" ,
                 rules           => $rules_10k_tags_continuation . <<EOF
 TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="bad"
-KERNEL=="sda", SYMLINK+="found"
+KERNEL=="sda",\\
+# comment in continuation
+TAG+="hoge1",\\
+  # space before comment
+TAG+="hoge2",\\
+# spaces before and after token are dropped
+  TAG+="hoge3",   \\
+TAG+="hoge4"
+TAGS=="hoge1", TAGS=="hoge2", TAGS=="hoge3", TAGS=="hoge4", SYMLINK+="found"
 EOF
         },
 );
