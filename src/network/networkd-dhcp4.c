@@ -120,10 +120,12 @@ static int link_set_dhcp_routes(Link *link) {
         }
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
-        if (r < 0 && r != -ENODATA)
+        if (IN_SET(r, 0, -ENODATA))
+                log_link_info(link, "DHCP: No gateway received from DHCP server.");
+        else if (r < 0)
                 log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
-        else if (r <= 0 || in4_addr_is_null(&router[0]))
-                log_link_info_errno(link, r, "DHCP: No gateway received from DHCP server: %m");
+        else if (in4_addr_is_null(&router[0]))
+                log_link_info(link, "DHCP: Received gateway is null.");
 
         /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
            a Router option, the DHCP client MUST ignore the Router option. */
