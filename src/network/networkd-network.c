@@ -813,6 +813,10 @@ int config_parse_dhcp(
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DHCP option, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "DHCP=%s is deprecated, please use DHCP=%s instead.",
+                           rvalue, address_family_boolean_to_string(s));
         }
 
         *dhcp = s;
