@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 #include <sysexits.h>
@@ -48,6 +49,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
@@ -525,7 +527,6 @@ static int dir_cleanup(
                 bool keep_this_level) {
 
         struct dirent *dent;
-        struct timespec times[2];
         bool deleted = false;
         int r = 0;
 
@@ -580,25 +581,30 @@ static int dir_cleanup(
                 }
 
                 if (S_ISDIR(s.st_mode)) {
+                        _cleanup_closedir_ DIR *sub_dir = NULL;
 
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
                             s.st_uid == 0) {
-                                log_debug("Ignoring \"%s\".", sub_path);
+                                log_debug("Ignoring directory \"%s\".", sub_path);
                                 continue;
                         }
 
                         if (maxdepth <= 0)
                                 log_warning("Reached max depth on \"%s\".", sub_path);
                         else {
-                                _cleanup_closedir_ DIR *sub_dir;
                                 int q;
 
                                 sub_dir = xopendirat_nomod(dirfd(d), dent->d_name);
                                 if (!sub_dir) {
                                         if (errno != ENOENT)
-                                                r = log_error_errno(errno, "opendir(%s) failed: %m", sub_path);
+                                                r = log_warning_errno(errno, "Opening directory \"%s\" failed, ignoring: %m", sub_path);
 
+                                        continue;
+                                }
+
+                                if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
+                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", p);
                                         continue;
                                 }
 
@@ -607,15 +613,13 @@ static int dir_cleanup(
                                         r = q;
                         }
 
-                        /* Note: if you are wondering why we don't
-                         * support the sticky bit for excluding
-                         * directories from cleaning like we do it for
-                         * other file system objects: well, the sticky
-                         * bit already has a meaning for directories,
-                         * so we don't want to overload that. */
+                        /* Note: if you are wondering why we don't support the sticky bit for excluding
+                         * directories from cleaning like we do it for other file system objects: well, the
+                         * sticky bit already has a meaning for directories, so we don't want to overload
+                         * that. */
 
                         if (keep_this_level) {
-                                log_debug("Keeping \"%s\".", sub_path);
+                                log_debug("Keeping directory \"%s\".", sub_path);
                                 continue;
                         }
 
@@ -642,13 +646,11 @@ static int dir_cleanup(
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
                                 if (!IN_SET(errno, ENOENT, ENOTEMPTY))
-                                        r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
+                                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
-                        /* Skip files for which the sticky bit is
-                         * set. These are semantics we define, and are
-                         * unknown elsewhere. See XDG_RUNTIME_DIR
-                         * specification for details. */
+                        /* Skip files for which the sticky bit is set. These are semantics we define, and are
+                         * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                         if (s.st_mode & S_ISVTX) {
                                 log_debug("Skipping \"%s\": sticky bit set.", sub_path);
                                 continue;
@@ -675,8 +677,7 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        /* Keep files on this level around if this is
-                         * requested */
+                        /* Keep files on this level around if this is requested */
                         if (keep_this_level) {
                                 log_debug("Keeping \"%s\".", sub_path);
                                 continue;
@@ -710,11 +711,10 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        log_debug("unlink \"%s\"", sub_path);
-
+                        log_debug("Removing \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0)
                                 if (errno != ENOENT)
-                                        r = log_error_errno(errno, "unlink(%s): %m", sub_path);
+                                        r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
 
                         deleted = true;
                 }
@@ -722,21 +722,22 @@ static int dir_cleanup(
 
 finish:
         if (deleted) {
-                usec_t age1, age2;
                 char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-
-                /* Restore original directory timestamps */
-                times[0] = ds->st_atim;
-                times[1] = ds->st_mtim;
+                usec_t age1, age2;
 
                 age1 = timespec_load(&ds->st_atim);
                 age2 = timespec_load(&ds->st_mtim);
+
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
                           p,
                           format_timestamp_us(a, sizeof(a), age1),
                           format_timestamp_us(b, sizeof(b), age2));
-                if (futimens(dirfd(d), times) < 0)
-                        log_error_errno(errno, "utimensat(%s): %m", p);
+
+                /* Restore original directory timestamps */
+                if (futimens(dirfd(d), (struct timespec[]) {
+                                ds->st_atim,
+                                ds->st_mtim }) < 0)
+                        log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
         }
 
         return r;
@@ -3174,6 +3175,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         log_setup_service();
+
+        /* Descending down file system trees might take a lot of fds */
+        (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         if (arg_user) {
                 r = user_config_paths(&config_dirs);
