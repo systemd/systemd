@@ -158,7 +158,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bridge || link->network->bond)
+        if (link->network->bond)
                 return false;
 
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
@@ -959,23 +959,20 @@ void link_check_ready(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (!link->network->bridge) {
+        if (link_ipv6ll_enabled(link) &&
+            in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
+                return;
 
-                if (link_ipv6ll_enabled(link) &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
-                        return;
+        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured) ||
+            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
+             !link->dhcp6_configured) ||
+            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured && !link->dhcp6_configured))
+                return;
 
-                if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
-                     !link->dhcp4_configured) ||
-                    (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
-                     !link->dhcp6_configured) ||
-                    (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
-                     !link->dhcp4_configured && !link->dhcp6_configured))
-                        return;
-
-                if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
-                        return;
-        }
+        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+                return;
 
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
@@ -1420,7 +1417,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-         * for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
+         * for this interface, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
