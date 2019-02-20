@@ -1198,8 +1198,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, '192.168.0.15')
-        self.assertRegex(output, '192.168.0.1')
+        self.assertRegex(output, '192.168.0.15/24')
 
         output = subprocess.check_output(['bridge', '-d', 'link', 'show', 'dummy98']).rstrip().decode('utf-8')
         print(output)
@@ -1212,12 +1211,36 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):
             self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_to_unicast'), '1')
 
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: enslaved \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: enslaved \(configured\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
         self.assertEqual(subprocess.call(['ip', 'address', 'add', '192.168.0.16/24', 'dev', 'bridge99']), 0)
         time.sleep(1)
 
+        output = subprocess.check_output(['ip', 'addr', 'show', 'bridge99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '192.168.0.16/24')
+
+        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: routable \(configured\)')
+
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'test1']), 0)
+        time.sleep(3)
+
+        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: degraded \(configured\)')
+
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
         time.sleep(3)
+
+        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'State: no-carrier \(configured\)')
 
         output = subprocess.check_output(['ip', 'address', 'show', 'bridge99']).rstrip().decode('utf-8')
         print(output)
