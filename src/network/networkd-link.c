@@ -346,8 +346,21 @@ static bool link_is_enslaved(Link *link) {
         return false;
 }
 
-void link_update_operstate(Link *link, bool also_update_bond_master) {
+static void link_update_master_operstate(Link *link, NetDev *netdev) {
+        Link *master;
+
+        if (!netdev)
+                return;
+
+        if (link_get(link->manager, netdev->ifindex, &master) < 0)
+                return;
+
+        link_update_operstate(master, true);
+}
+
+void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
+        Iterator i;
 
         assert(link);
 
@@ -356,7 +369,6 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
         else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
-                Iterator i;
 
                 /* if we have carrier, check what addresses we have */
                 SET_FOREACH(address, link->addresses, i) {
@@ -394,12 +406,10 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
             link_is_enslaved(link))
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE) &&
-            !hashmap_isempty(link->bond_slaves)) {
-                Iterator i;
+        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE)) {
                 Link *slave;
 
-                HASHMAP_FOREACH(slave, link->bond_slaves, i) {
+                HASHMAP_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
                         if (IN_SET(slave->operstate,
@@ -414,13 +424,9 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
                 link_dirty(link);
         }
 
-        if (also_update_bond_master && link->network && link->network->bond) {
-                Link *master;
-
-                if (link_get(link->manager, link->network->bond->ifindex, &master) < 0)
-                        return;
-
-                link_update_operstate(master, true);
+        if (also_update_master && link->network) {
+                link_update_master_operstate(link, link->network->bond);
+                link_update_master_operstate(link, link->network->bridge);
         }
 }
 
@@ -677,12 +683,16 @@ static Link *link_free(Link *link) {
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_by_links);
 
-        hashmap_free(link->bond_slaves);
+        hashmap_free(link->slaves);
 
         if (link->network) {
                 if (link->network->bond &&
                     link_get(link->manager, link->network->bond->ifindex, &master) >= 0)
-                        (void) hashmap_remove(master->bond_slaves, INT_TO_PTR(link->ifindex));
+                        (void) hashmap_remove(master->slaves, INT_TO_PTR(link->ifindex));
+
+                if (link->network->bridge &&
+                    link_get(link->manager, link->network->bridge->ifindex, &master) >= 0)
+                        (void) hashmap_remove(master->slaves, INT_TO_PTR(link->ifindex));
         }
 
         return mfree(link);
@@ -1686,23 +1696,22 @@ static int link_set_bond(Link *link) {
         return r;
 }
 
-static int link_append_bond_slave(Link *link) {
+static int link_append_to_master(Link *link, NetDev *netdev) {
         Link *master;
         int r;
 
         assert(link);
-        assert(link->network);
-        assert(link->network->bond);
+        assert(netdev);
 
-        r = link_get(link->manager, link->network->bond->ifindex, &master);
+        r = link_get(link->manager, netdev->ifindex, &master);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&master->bond_slaves, NULL);
+        r = hashmap_ensure_allocated(&master->slaves, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(master->bond_slaves, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_put(master->slaves, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return r;
 
@@ -2499,6 +2508,10 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
+
+                r = link_append_to_master(link, link->network->bridge);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Failed to add to bridge master's slave list: %m");
         }
 
         if (link->network->bond) {
@@ -2506,7 +2519,7 @@ static int link_joined(Link *link) {
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
 
-                r = link_append_bond_slave(link);
+                r = link_append_to_master(link, link->network->bond);
                 if (r < 0)
                         log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
