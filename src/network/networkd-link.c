@@ -592,8 +592,8 @@ static void link_detach_from_manager(Link *link) {
 }
 
 static Link *link_free(Link *link) {
+        Link *carrier, *master;
         Address *address;
-        Link *carrier;
         Route *route;
         Iterator i;
 
@@ -660,6 +660,12 @@ static Link *link_free(Link *link) {
         hashmap_free(link->bound_by_links);
 
         hashmap_free(link->bond_slaves);
+
+        if (link->network) {
+                if (link->network->bond &&
+                    link_get(link->manager, link->network->bond->ifindex, &master) >= 0)
+                        (void) hashmap_remove(master->bond_slaves, INT_TO_PTR(link->ifindex));
+        }
 
         return mfree(link);
 }

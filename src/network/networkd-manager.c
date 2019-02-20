@@ -1427,9 +1427,6 @@ void manager_free(Manager *m) {
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);
 
-        while ((network = m->networks))
-                network_free(network);
-
         while ((link = hashmap_first(m->dhcp6_prefixes)))
                 manager_dhcp6_prefix_remove_all(m, link);
         hashmap_free(m->dhcp6_prefixes);
@@ -1444,6 +1441,9 @@ void manager_free(Manager *m) {
         m->links = hashmap_free(m->links);
         m->links_requesting_uuid = set_free(m->links_requesting_uuid);
         set_free(m->duids_requesting_uuid);
+
+        while ((network = m->networks))
+                network_free(network);
 
         hashmap_free(m->networks_by_name);
 
