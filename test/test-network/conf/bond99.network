@@ -3,4 +3,4 @@ Name=bond99
 
 [Network]
 IPv6AcceptRA=no
-DHCP=yes
+Address=192.168.123.45/24
