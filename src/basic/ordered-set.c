@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "fileio.h"
 #include "ordered-set.h"
 #include "strv.h"
 
@@ -62,4 +63,20 @@ int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
         }
 
         return n;
+}
+
+void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
+        bool space = false;
+        Iterator i;
+        char *p;
+
+        if (ordered_set_isempty(s))
+                return;
+
+        fputs(field, f);
+
+        ORDERED_SET_FOREACH(p, s, i)
+                fputs_with_space(f, p, NULL, &space);
+
+        fputc('\n', f);
 }
