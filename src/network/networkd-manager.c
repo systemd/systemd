@@ -39,7 +39,7 @@ static int setup_default_address_pool(Manager *m) {
 
         /* Add in the well-known private address ranges. */
 
-        r = address_pool_new_from_string(m, &p, AF_INET6, "fc00::", 7);
+        r = address_pool_new_from_string(m, &p, AF_INET6, "fd00::", 8);
         if (r < 0)
                 return r;
 
