@@ -11,6 +11,8 @@
 #define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)
 #define DNS_STREAMS_MAX 128
 
+#define DNS_QUERIES_PER_STREAM 32
+
 static void dns_stream_stop(DnsStream *s) {
         assert(s);
 
@@ -36,12 +38,16 @@ static int dns_stream_update_io(DnsStream *s) {
                 s->n_written = 0;
                 f |= EPOLLOUT;
         }
-        if (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)
+
+        /* Let's read a packet if we haven't queued any yet. Except if we already hit a limit of parallel
+         * queries for this connection. */
+        if ((!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size) &&
+                set_size(s->queries) < DNS_QUERIES_PER_STREAM)
                 f |= EPOLLIN;
 
 #if ENABLE_DNS_OVER_TLS
         /* For handshake and clean closing purposes, TLS can override requested events */
-        if (s->dnstls_events)
+        if (s->dnstls_events != 0)
                 f = s->dnstls_events;
 #endif
 
@@ -52,6 +58,10 @@ static int dns_stream_complete(DnsStream *s, int error) {
         _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
 
         assert(s);
+        assert(error >= 0);
+
+        /* Error is > 0 when the connection failed for some reason in the network stack. It's == 0 if we sent
+         * and receieved exactly one packet each (in the LLMNR client case). */
 
 #if ENABLE_DNS_OVER_TLS
         if (s->encrypted) {
@@ -281,6 +291,7 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+        bool progressed = false;
         int r;
 
         assert(s);
@@ -324,8 +335,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 if (ss < 0) {
                         if (!IN_SET(-ss, EINTR, EAGAIN))
                                 return dns_stream_complete(s, -ss);
-                } else
+                } else {
+                        progressed = true;
                         s->n_written += ss;
+                }
 
                 /* Are we done? If so, disable the event source for EPOLLOUT */
                 if (s->n_written >= sizeof(s->write_size) + s->write_packet->size) {
@@ -348,8 +361,10 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         return dns_stream_complete(s, -ss);
                         } else if (ss == 0)
                                 return dns_stream_complete(s, ECONNRESET);
-                        else
+                        else {
+                                progressed = true;
                                 s->n_read += ss;
+                        }
                 }
 
                 if (s->n_read >= sizeof(s->read_size)) {
@@ -420,9 +435,20 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 }
         }
 
-        if ((s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
+        /* Call "complete" callback if finished reading and writing one packet, and there's nothing else left
+         * to write. */
+        if (s->type == DNS_STREAM_LLMNR_SEND &&
+            (s->write_packet && s->n_written >= sizeof(s->write_size) + s->write_packet->size) &&
+            ordered_set_isempty(s->write_queue) &&
             (s->read_packet && s->n_read >= sizeof(s->read_size) + s->read_packet->size))
                 return dns_stream_complete(s, 0);
+
+        /* If we did something, let's restart the timeout event source */
+        if (progressed && s->timeout_event_source) {
+                r = sd_event_source_set_time(s->timeout_event_source, now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC);
+                if (r < 0)
+                        log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
+        }
 
         return 0;
 }
@@ -437,7 +463,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
 
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
-                s->manager->n_dns_streams--;
+                s->manager->n_dns_streams[s->type]--;
         }
 
 #if ENABLE_DNS_OVER_TLS
@@ -462,6 +488,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream, dns_stream_free);
 int dns_stream_new(
                 Manager *m,
                 DnsStream **ret,
+                DnsStreamType type,
                 DnsProtocol protocol,
                 int fd,
                 const union sockaddr_union *tfo_address) {
@@ -471,9 +498,13 @@ int dns_stream_new(
 
         assert(m);
         assert(ret);
+        assert(type >= 0);
+        assert(type < _DNS_STREAM_TYPE_MAX);
+        assert(protocol >= 0);
+        assert(protocol < _DNS_PROTOCOL_MAX);
         assert(fd >= 0);
 
-        if (m->n_dns_streams > DNS_STREAMS_MAX)
+        if (m->n_dns_streams[type] > DNS_STREAMS_MAX)
                 return -EBUSY;
 
         s = new(DnsStream, 1);
@@ -508,7 +539,7 @@ int dns_stream_new(
         (void) sd_event_source_set_description(s->timeout_event_source, "dns-stream-timeout");
 
         LIST_PREPEND(streams, m->dns_streams, s);
-        m->n_dns_streams++;
+        m->n_dns_streams[type]++;
         s->manager = m;
 
         s->fd = fd;

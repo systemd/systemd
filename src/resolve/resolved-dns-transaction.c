@@ -540,12 +540,8 @@ static int on_stream_packet(DnsStream *s) {
         if (t)
                 return dns_transaction_on_stream_packet(t, p);
 
-        /* Ignore incorrect transaction id as transaction can have been canceled */
-        if (dns_packet_validate_reply(p) <= 0) {
-                log_debug("Invalid TCP reply packet.");
-                on_stream_complete(s, 0);
-        }
-
+        /* Ignore incorrect transaction id as an old transaction can have been canceled. */
+        log_debug("Received unexpected TCP reply packet with id %" PRIu16 ", ignoring.", t->id);
         return 0;
 }
 
@@ -554,9 +550,10 @@ static uint16_t dns_port_for_feature_level(DnsServerFeatureLevel level) {
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
-        _cleanup_close_ int fd = -1;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
+        DnsStreamType type;
         int r;
 
         assert(t);
@@ -582,6 +579,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
 
+                type = DNS_STREAM_LOOKUP;
                 break;
 
         case DNS_PROTOCOL_LLMNR:
@@ -607,6 +605,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, &sa);
                 }
 
+                type = DNS_STREAM_LLMNR_SEND;
                 break;
 
         default:
@@ -617,7 +616,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd, &sa);
+                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa);
                 if (r < 0)
                         return r;
 
@@ -636,8 +635,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                 if (t->server) {
                         dns_server_unref_stream(t->server);
-                        t->server->stream = dns_stream_ref(s);
                         s->server = dns_server_ref(t->server);
+                        t->server->stream = dns_stream_ref(s);
                 }
 
                 s->complete = on_stream_complete;
