@@ -440,6 +440,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-ordered-set.c'],
+         [],
+         []],
+
         [['src/test/test-set-disable-mempool.c'],
          [],
          [threads]],
