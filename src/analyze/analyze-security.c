@@ -849,7 +849,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_SETUID) | (UINT64_C(1) << CAP_SETGID) |
+                .parameter = (UINT64_C(1) << CAP_SETUID) |
+                        (UINT64_C(1) << CAP_SETGID) |
                         (UINT64_C(1) << CAP_SETPCAP),
         },
         {
@@ -910,7 +911,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_AUDIT_CONTROL) | (UINT64_C(1) << CAP_AUDIT_READ) |
+                .parameter = (UINT64_C(1) << CAP_AUDIT_CONTROL) |
+                        (UINT64_C(1) << CAP_AUDIT_READ) |
                         (UINT64_C(1) << CAP_AUDIT_WRITE),
         },
         {
@@ -931,7 +933,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_SYS_NICE) | (UINT64_C(1) << CAP_SYS_RESOURCE),
+                .parameter = (UINT64_C(1) << CAP_SYS_NICE) |
+                        (UINT64_C(1) << CAP_SYS_RESOURCE),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_MKNOD",
@@ -951,7 +954,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_CHOWN) | (UINT64_C(1) << CAP_FSETID) |
+                .parameter = (UINT64_C(1) << CAP_CHOWN) |
+                        (UINT64_C(1) << CAP_FSETID) |
                         (UINT64_C(1) << CAP_SETFCAP),
         },
         {
@@ -962,8 +966,10 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_DAC_OVERRIDE) | (UINT64_C(1) << CAP_DAC_READ_SEARCH) |
-                        (UINT64_C(1) << CAP_FOWNER) | (UINT64_C(1) << CAP_IPC_OWNER),
+                .parameter = (UINT64_C(1) << CAP_DAC_OVERRIDE) |
+                        (UINT64_C(1) << CAP_DAC_READ_SEARCH) |
+                        (UINT64_C(1) << CAP_FOWNER) |
+                        (UINT64_C(1) << CAP_IPC_OWNER),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_KILL",
@@ -983,7 +989,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 500,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_NET_BIND_SERVICE) | (UINT64_C(1) << CAP_NET_BROADCAST) |
+                .parameter = (UINT64_C(1) << CAP_NET_BIND_SERVICE) |
+                        (UINT64_C(1) << CAP_NET_BROADCAST) |
                         (UINT64_C(1) << CAP_NET_RAW),
         },
         {
@@ -1004,7 +1011,8 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 100,
                 .range = 1,
                 .assess = assess_capability_bounding_set,
-                .parameter = (UINT64_C(1) << CAP_MAC_ADMIN) | (UINT64_C(1) << CAP_MAC_OVERRIDE),
+                .parameter = (UINT64_C(1) << CAP_MAC_ADMIN) |
+                        (UINT64_C(1) << CAP_MAC_OVERRIDE),
         },
         {
                 .id = "CapabilityBoundingSet=~CAP_LINUX_IMMUTABLE",

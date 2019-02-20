@@ -60,8 +60,23 @@ def run_post_clang_format(file):
 	content = rewrapLinebreaksOfHelpText(content)
 	# align table like typedef enum with spaces
 	content = spaceAlignEnumTypedefs(content)
+	# align binary operators, which are a concatenation of binary flags
+	content = indentAlignBinaryFlag(content)
 	# write contents back to the file
 	open(file, "w").write(content)
+
+def indentAlignBinaryFlag(content):
+	# see regex eplanation here: https://regex101.com/r/Ngubb2/2
+	pattern = re.compile(r'\n( *?)([a-zA-Z.]+\s*=(?:\s*[a-zA-Z0-9_() ]+\s*<<\s*[a-zA-Z0-9_() ]+\|?)+[,;])')
+	for (indent, occurence) in re.findall(pattern, content):
+		occurenceX = occurence
+		binaryOperands = occurenceX.split('|')
+		binaryOperandsTrimmed = []
+		for (r, binaryOperand) in enumerate(binaryOperands):
+			binaryOperandsTrimmed.append(binaryOperand.strip())
+		occurenceX = (" |\n" + indent + "        ").join(binaryOperandsTrimmed)
+		content = content.replace(occurence, occurenceX)
+	return content
 
 def spaceAlignEnumTypedefs(content):
 	spaces = ' '*1000
@@ -106,7 +121,7 @@ def spaceAlignTableStructures(content):
 			cellsRawLine = row.strip().replace('{', '').replace('}', '').replace(';', '')
 			cellsRaw = re.split(r',\s*(?![^()]*\))', cellsRawLine)
 			# find line comments
-			match = re.search('/\*.*\*\/', row)
+			match = re.search('\s*/\*.*\*\/', row)
 			lineComment = ""
 			if(match != None): lineComment = match.group(0)
 			lineComments.append(lineComment)
@@ -148,10 +163,10 @@ def spaceAlignTableStructures(content):
 			if(len(lineComments) > r):
 				# print('lc: ' + str(r) + ' --> ' + lineComments[r])
 				lineComment = lineComments[r]
+				# reindent multiline comments
+				lineComment = re.sub('\n\s*', r'\n' + indent + '        ', lineComment)
 			if(len(cells) > (r + 1)):
-				tableInner += ',' + '\n'
-				if(lineComment != ''): tableInner += indent + '        ' + lineComment + '\n'
-				tableInner += indent + '        '
+				tableInner += ',' + lineComment + '\n' + indent + '        '
 
 		# write table
 		tableStart = '{\n' + indent + '        '

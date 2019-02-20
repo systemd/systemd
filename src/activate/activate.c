@@ -363,8 +363,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "listen",      required_argument, NULL, 'l'           },
                 { "accept",      no_argument,       NULL, 'a'           },
                 { "setenv",      required_argument, NULL, 'E'           },
-                /* legacy alias */
-                { "environment", required_argument, NULL, 'E'           },
+                { "environment", required_argument, NULL, 'E'           }, /* legacy alias */
                 { "fdname",      required_argument, NULL, ARG_FDNAME    },
                 { "inetd",       no_argument,       NULL, ARG_INETD     },
                 {}
