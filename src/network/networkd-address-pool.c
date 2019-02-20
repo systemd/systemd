@@ -6,7 +6,7 @@
 #include "set.h"
 #include "string-util.h"
 
-int address_pool_new(
+static int address_pool_new(
                 Manager *m,
                 AddressPool **ret,
                 int family,
