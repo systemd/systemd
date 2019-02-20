@@ -1060,22 +1060,6 @@ static int ordered_set_put_in4_addrv(OrderedSet *s,
         return c;
 }
 
-static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
-        bool space = false;
-        Iterator i;
-        char *p;
-
-        if (ordered_set_isempty(s))
-                return;
-
-        fputs(field, f);
-
-        ORDERED_SET_FOREACH(p, s, i)
-                fputs_with_space(f, p, NULL, &space);
-
-        fputc('\n', f);
-}
-
 static int manager_save(Manager *m) {
         _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *search_domains = NULL, *route_domains = NULL;
         Link *link;
@@ -1198,10 +1182,10 @@ static int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n", operstate_str);
 
-        print_string_set(f, "DNS=", dns);
-        print_string_set(f, "NTP=", ntp);
-        print_string_set(f, "DOMAINS=", search_domains);
-        print_string_set(f, "ROUTE_DOMAINS=", route_domains);
+        ordered_set_print(f, "DNS=", dns);
+        ordered_set_print(f, "NTP=", ntp);
+        ordered_set_print(f, "DOMAINS=", search_domains);
+        ordered_set_print(f, "ROUTE_DOMAINS=", route_domains);
 
         r = routing_policy_serialize_rules(m->rules, f);
         if (r < 0)

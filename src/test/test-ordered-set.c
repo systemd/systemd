@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
+
 #include "ordered-set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -16,12 +18,16 @@ static void test_set_steal_first(void) {
         assert_se(ordered_set_put(m, (void*) "22") == 1);
         assert_se(ordered_set_put(m, (void*) "333") == 1);
 
+        ordered_set_print(stdout, "SET=", m);
+
         while ((val = ordered_set_steal_first(m)))
                 seen[strlen(val) - 1]++;
 
         assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
         assert_se(ordered_set_isempty(m));
+
+        ordered_set_print(stdout, "SET=", m);
 }
 
 typedef struct Item {
@@ -70,6 +76,8 @@ static void test_set_put(void) {
         assert_se(streq(t[1], "22"));
         assert_se(streq(t[2], "333"));
         assert_se(!t[3]);
+
+        ordered_set_print(stdout, "FOO=", m);
 }
 
 static void test_set_put_string_set(void) {
@@ -99,6 +107,8 @@ static void test_set_put_string_set(void) {
 
         assert_se(final = ordered_set_get_strv(m));
         assert_se(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
+
+        ordered_set_print(stdout, "BAR=", m);
 }
 
 int main(int argc, const char *argv[]) {
