@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "ordered-set.h"
+#include "string-util.h"
+#include "strv.h"
 
 static void test_set_steal_first(void) {
         _cleanup_ordered_set_free_ OrderedSet *m = NULL;
@@ -49,6 +51,7 @@ static void test_set_free_with_hash_ops(void) {
 
 static void test_set_put(void) {
         _cleanup_ordered_set_free_ OrderedSet *m = NULL;
+        _cleanup_free_ char **t = NULL;
 
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
@@ -61,12 +64,48 @@ static void test_set_put(void) {
         assert_se(ordered_set_put(m, (void*) "333") == 1);
         assert_se(ordered_set_put(m, (void*) "333") == 0);
         assert_se(ordered_set_put(m, (void*) "22") == 0);
+
+        assert_se(t = ordered_set_get_strv(m));
+        assert_se(streq(t[0], "1"));
+        assert_se(streq(t[1], "22"));
+        assert_se(streq(t[2], "333"));
+        assert_se(!t[3]);
+}
+
+static void test_set_put_string_set(void) {
+        _cleanup_ordered_set_free_free_ OrderedSet *m = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *q = NULL;
+        _cleanup_free_ char **final = NULL; /* "just free" because the strings are in the set */
+        void *t;
+
+        m = ordered_set_new(&string_hash_ops);
+        assert_se(m);
+
+        q = ordered_set_new(&string_hash_ops);
+        assert_se(q);
+
+        assert_se(t = strdup("1"));
+        assert_se(ordered_set_put(m, t) == 1);
+        assert_se(t = strdup("22"));
+        assert_se(ordered_set_put(m, t) == 1);
+        assert_se(t = strdup("333"));
+        assert_se(ordered_set_put(m, t) == 1);
+
+        assert_se(ordered_set_put(q, (void*) "11") == 1);
+        assert_se(ordered_set_put(q, (void*) "22") == 1);
+        assert_se(ordered_set_put(q, (void*) "33") == 1);
+
+        assert_se(ordered_set_put_string_set(m, q) == 2);
+
+        assert_se(final = ordered_set_get_strv(m));
+        assert_se(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
 }
 
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_hash_ops();
         test_set_put();
+        test_set_put_string_set();
 
         return 0;
 }
