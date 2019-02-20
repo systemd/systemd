@@ -818,15 +818,15 @@
         <varlistentry>
           <term><varname>Address=</varname></term>
           <listitem>
-            <para>As in the <literal>[Network]</literal> section. This
-            key is mandatory.</para>
+            <para>As in the <literal>[Network]</literal> section. This key is mandatory. Each
+            <literal>[Address]</literal> section can contain one <varname>Address=</varname> setting.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Peer=</varname></term>
           <listitem>
             <para>The peer address in a point-to-point connection.
-            Accepts the same format as the <literal>Address</literal>
+            Accepts the same format as the <varname>Address=</varname>
             key.</para>
           </listitem>
         </varlistentry>
@@ -837,7 +837,7 @@
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
             This key only applies to IPv4 addresses. If it is not
-            given, it is derived from the <literal>Address</literal>
+            given, it is derived from the <varname>Address=</varname>
             key.</para>
           </listitem>
         </varlistentry>
