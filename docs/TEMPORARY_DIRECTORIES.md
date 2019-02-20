@@ -30,7 +30,7 @@ directory directly translate into a 🚨 Denial-of-Service (DoS) 🚨 vulnerabil
 or worse: if some software creates a file or directory `/tmp/foo` then any
 other software that wants to create the same file or directory `/tmp/foo`
 either will fail (as the file already exists) or might be tricked into using
-untrusted files. Hence: do note use guessable names in `/tmp/` or `/var/tmp/` —
+untrusted files. Hence: do not use guessable names in `/tmp/` or `/var/tmp/` —
 if you do you open yourself up to a local DoS exploit or worse. (You can get
 away with using guessable names, if you pre-create subdirectories below `/tmp/`
 for them, like X11 does with `/tmp/.X11-unix/` through `tmpfiles.d/`
