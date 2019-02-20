@@ -45,3 +45,21 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l) {
 
         return n;
 }
+
+int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
+        int n = 0, r;
+        Iterator i;
+        char *p;
+
+        /* Like ordered_set_put_strv, but for an OrderedSet of strings */
+
+        ORDERED_SET_FOREACH(p, l, i) {
+                r = ordered_set_put_strdup(s, p);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        return n;
+}
