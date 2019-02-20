@@ -385,11 +385,11 @@ void network_free(Network *network) {
 
         strv_free(network->ntp);
         free(network->dns);
-        strv_free(network->search_domains);
-        strv_free(network->route_domains);
+        ordered_set_free_free(network->search_domains);
+        ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);
 
-        strv_free(network->router_search_domains);
+        ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
 
         netdev_unref(network->bridge);
@@ -553,8 +553,8 @@ int network_apply(Network *network, Link *link) {
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
-            !strv_isempty(network->search_domains) ||
-            !strv_isempty(network->route_domains))
+            !ordered_set_isempty(network->search_domains) ||
+            !ordered_set_isempty(network->route_domains))
                 link_dirty(link);
 
         return 0;
@@ -686,8 +686,8 @@ int config_parse_domains(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                n->search_domains = strv_free(n->search_domains);
-                n->route_domains = strv_free(n->route_domains);
+                n->search_domains = ordered_set_free_free(n->search_domains);
+                n->route_domains = ordered_set_free_free(n->route_domains);
                 return 0;
         }
 
@@ -733,16 +733,15 @@ int config_parse_domains(
                         }
                 }
 
-                if (is_route)
-                        r = strv_extend(&n->route_domains, domain);
-                else
-                        r = strv_extend(&n->search_domains, domain);
+                OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
+                r = ordered_set_ensure_allocated(set, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_put_strdup(*set, domain);
                 if (r < 0)
                         return log_oom();
         }
-
-        strv_uniq(n->route_domains);
-        strv_uniq(n->search_domains);
 
         return 0;
 }
@@ -1218,16 +1217,17 @@ int config_parse_radv_search_domains(
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to apply IDNA to domain name '%s', ignoring: %m", w);
                         continue;
-                }
-                if (r > 0) {
-                        r = strv_push(&n->router_search_domains, idna);
-                        if (r >= 0)
-                                idna = NULL;
-                } else {
-                        r = strv_push(&n->router_search_domains, w);
-                        if (r >= 0)
-                                w = NULL;
-                }
+                } else if (r == 0)
+                        /* transfer ownership to simplify subsequent operations */
+                        idna = TAKE_PTR(w);
+
+                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_consume(n->router_search_domains, TAKE_PTR(idna));
+                if (r < 0)
+                        return r;
         }
 
         return 0;
