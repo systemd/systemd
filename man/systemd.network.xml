@@ -479,18 +479,14 @@
             specified more than once.
             </para>
 
-            <para>If the specified address is 0.0.0.0 (for IPv4) or
-            [::] (for IPv6), a new address range of the requested size
-            is automatically allocated from a system-wide pool of
-            unused ranges. The allocated range is checked against all
-            current network interfaces and all known network
-            configuration files to avoid address range conflicts. The
-            default system-wide pool consists of 192.168.0.0/16,
-            172.16.0.0/12 and 10.0.0.0/8 for IPv4, and fc00::/7 for
-            IPv6. This functionality is useful to manage a large
-            number of dynamically created network interfaces with the
-            same network configuration and automatic address range
-            assignment.</para>
+            <para>If the specified address is <literal>0.0.0.0</literal> (for IPv4) or <literal>::</literal>
+            (for IPv6), a new address range of the requested size is automatically allocated from a
+            system-wide pool of unused ranges. Note that the prefix length must be equal or larger than 8 for
+            IPv4, and 64 for IPv6. The allocated range is checked against all current network interfaces and
+            all known network configuration files to avoid address range conflicts. The default system-wide
+            pool consists of 192.168.0.0/16, 172.16.0.0/12 and 10.0.0.0/8 for IPv4, and fd00::/8 for IPv6.
+            This functionality is useful to manage a large number of dynamically created network interfaces
+            with the same network configuration and automatic address range assignment.</para>
 
           </listitem>
         </varlistentry>
