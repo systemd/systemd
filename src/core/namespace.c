@@ -1117,6 +1117,7 @@ static size_t namespace_calculate_mounts(
                 (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
                 protect_home_cnt + protect_system_cnt +
+                (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
@@ -1299,6 +1300,17 @@ int setup_namespace(
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
+                }
+
+                if (ns_info->protect_hostname) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/proc/sys/kernel/hostname",
+                                .mode = READONLY,
+                        };
+                        *(m++) = (MountEntry) {
+                                .path_const = "/proc/sys/kernel/domainname",
+                                .mode = READONLY,
+                        };
                 }
 
                 assert(mounts + n_mounts == m);

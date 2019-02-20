@@ -272,6 +272,7 @@ struct ExecContext {
 
         bool memory_deny_write_execute;
         bool restrict_realtime;
+        bool protect_hostname;
 
         bool oom_score_adjust_set:1;
         bool nice_set:1;

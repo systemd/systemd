@@ -1130,6 +1130,17 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectHostname=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When set, sets up a new UTS namespace for the executed
+        processes. In addition, changing hostname or domainname is prevented. Defaults to off.</para>
+
+        <para>Note that the implementation of this setting might be impossible (for example if UTS namespaces are not
+        available), and the unit should be written in a way that does not solely rely on this setting for
+        security.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectKernelTunables=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
