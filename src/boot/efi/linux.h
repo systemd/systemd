@@ -4,4 +4,4 @@
 EFI_STATUS linux_exec(EFI_HANDLE *image,
                       CHAR8 *cmdline, UINTN cmdline_size,
                       UINTN linux_addr,
-                      UINTN initrd_addr, UINTN initrd_size, BOOLEAN secure);
+                      UINTN initrd_addr, UINTN initrd_size);
