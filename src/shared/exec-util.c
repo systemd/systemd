@@ -22,6 +22,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -365,8 +366,81 @@ static int gather_environment_consume(int fd, void *arg) {
         return r;
 }
 
+int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
+        ExecCommandFlags ex_flag, ret_flags = 0;
+        char **opt;
+
+        assert(flags);
+
+        STRV_FOREACH(opt, ex_opts) {
+                ex_flag = exec_command_flags_from_string(*opt);
+                if (ex_flag >= 0)
+                        ret_flags |= ex_flag;
+                else
+                        return -EINVAL;
+        }
+
+        *flags = ret_flags;
+
+        return 0;
+}
+
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
+        _cleanup_strv_free_ char **ret_opts = NULL;
+        ExecCommandFlags it = flags;
+        const char *str;
+        int i, r;
+
+        assert(ex_opts);
+
+        for (i = 0; it != 0; it &= ~(1 << i), i++) {
+                if (FLAGS_SET(flags, (1 << i))) {
+                        str = exec_command_flags_to_string(1 << i);
+                        if (!str)
+                                return -EINVAL;
+
+                        r = strv_extend(&ret_opts, str);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ex_opts = TAKE_PTR(ret_opts);
+
+        return 0;
+}
+
 const gather_stdout_callback_t gather_environment[] = {
         gather_environment_generate,
         gather_environment_collect,
         gather_environment_consume,
 };
+
+static const char* const exec_command_strings[] = {
+        "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
+        "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
+        "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
+        "ambient",        /* EXEC_COMMAND_AMBIENT_MAGIC */
+        "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
+};
+
+const char* exec_command_flags_to_string(ExecCommandFlags i) {
+        size_t idx;
+
+        for (idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
+                if (i == (1 << idx))
+                        return exec_command_strings[idx];
+
+        return NULL;
+}
+
+ExecCommandFlags exec_command_flags_from_string(const char *s) {
+        ssize_t idx;
+
+        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+
+        if (idx < 0)
+                return _EXEC_COMMAND_FLAGS_INVALID;
+        else
+                return 1 << idx;
+}

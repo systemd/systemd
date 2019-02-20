@@ -15,6 +15,7 @@ typedef struct Manager Manager;
 
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "exec-util.h"
 #include "fdset.h"
 #include "list.h"
 #include "missing_resource.h"
@@ -87,14 +88,6 @@ struct ExecStatus {
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
-
-typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
-        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
-        EXEC_COMMAND_NO_SETUID        = 1 << 2,
-        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
-        EXEC_COMMAND_NO_ENV_EXPAND    = 1 << 4,
-} ExecCommandFlags;
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
 struct ExecCommand {
