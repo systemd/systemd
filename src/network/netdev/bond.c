@@ -177,22 +177,21 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         assert(b);
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE,
-                                              bond_mode_to_kernel(b->mode));
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, bond_mode_to_kernel(b->mode));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_MODE attribute: %m");
         }
 
         if (b->xmit_hash_policy != _NETDEV_BOND_XMIT_HASH_POLICY_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_XMIT_HASH_POLICY,
-                                              bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
+                                                 bond_xmit_hash_policy_to_kernel(b->xmit_hash_policy));
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_XMIT_HASH_POLICY attribute: %m");
         }
 
         if (b->lacp_rate != _NETDEV_BOND_LACP_RATE_INVALID &&
             b->mode == NETDEV_BOND_MODE_802_3AD) {
-                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate );
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_AD_LACP_RATE, b->lacp_rate);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_AD_LACP_RATE attribute: %m");
         }
@@ -220,8 +219,8 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_INTERVAL attribute: %m");
 
-                if ((b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC) &&
-                    (b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC)) {
+                if (b->lp_interval >= LEARNING_PACKETS_INTERVAL_MIN_SEC &&
+                    b->lp_interval <= LEARNING_PACKETS_INTERVAL_MAX_SEC) {
                         r = sd_netlink_message_append_u32(m, IFLA_BOND_LP_INTERVAL, b->lp_interval / USEC_PER_SEC);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_LP_INTERVAL attribute: %m");
@@ -313,23 +312,20 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_TLB_DYNAMIC_LB attribute: %m");
         }
 
-        if (b->arp_interval > 0)  {
-                if (b->n_arp_ip_targets > 0) {
+        if (b->arp_interval > 0 && b->n_arp_ip_targets > 0) {
+                r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
 
-                        r = sd_netlink_message_open_container(m, IFLA_BOND_ARP_IP_TARGET);
+                LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
+                        r = sd_netlink_message_append_u32(m, i++, target->ip.in.s_addr);
                         if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
-
-                        LIST_FOREACH(arp_ip_target, target, b->arp_ip_targets) {
-                                r = sd_netlink_message_append_u32(m, i++, target->ip.in.s_addr);
-                                if (r < 0)
-                                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
-                        }
-
-                        r = sd_netlink_message_close_container(m);
-                        if (r < 0)
-                                return log_netdev_error_errno(netdev, r, "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %m");
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");
                 }
+
+                r = sd_netlink_message_close_container(m);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not close contaniner IFLA_BOND_ARP_IP_TARGET : %m");
         }
 
         return 0;

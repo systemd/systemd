@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "condition.h"
 #include "conf-parser.h"
+#include "device-util.h"
 #include "dhcp-lease-internal.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
@@ -40,31 +41,35 @@ const char *net_get_name(sd_device *device) {
 
 int net_get_unique_predictable_data(sd_device *device, uint64_t *result) {
         size_t l, sz = 0;
-        const char *name = NULL;
+        const char *name;
         int r;
         uint8_t *v;
 
         assert(device);
 
+        /* net_get_name() will return one of the device names based on stable information about the
+         * device. If this is not available, we fall back to using the device name. */
         name = net_get_name(device);
         if (!name)
-                return -ENOENT;
+                (void) sd_device_get_sysname(device, &name);
+        if (!name)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(ENODATA),
+                                              "No stable identifying information found");
 
+        log_device_debug(device, "Using \"%s\" as stable identifying information", name);
         l = strlen(name);
         sz = sizeof(sd_id128_t) + l;
         v = newa(uint8_t, sz);
 
-        /* fetch some persistent data unique to this machine */
+        /* Fetch some persistent data unique to this machine */
         r = sd_id128_get_machine((sd_id128_t*) v);
         if (r < 0)
                  return r;
         memcpy(v + sizeof(sd_id128_t), name, l);
 
-        /* Let's hash the machine ID plus the device name. We
-        * use a fixed, but originally randomly created hash
-        * key here. */
+        /* Let's hash the machine ID plus the device name. We use
+         * a fixed, but originally randomly created hash key here. */
         *result = htole64(siphash24(v, sz, HASH_KEY.bytes));
-
         return 0;
 }
 
@@ -102,7 +107,6 @@ bool net_match_config(Set *match_mac,
                       Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
-                      const char *dev_parent_driver,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
@@ -409,16 +413,33 @@ int config_parse_bridge_port_priority(
         return 0;
 }
 
-void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
-        unsigned i;
+size_t serialize_in_addrs(FILE *f,
+                          const struct in_addr *addresses,
+                          size_t size,
+                          bool with_leading_space,
+                          bool (*predicate)(const struct in_addr *addr)) {
+        size_t count;
+        size_t i;
 
         assert(f);
         assert(addresses);
-        assert(size);
 
-        for (i = 0; i < size; i++)
-                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
-                        (i < (size - 1)) ? " ": "");
+        count = 0;
+
+        for (i = 0; i < size; i++) {
+                char sbuf[INET_ADDRSTRLEN];
+
+                if (predicate && !predicate(&addresses[i]))
+                        continue;
+                if (with_leading_space)
+                        fputc(' ', f);
+                else
+                        with_leading_space = true;
+                fputs(inet_ntop(AF_INET, &addresses[i], sbuf, sizeof(sbuf)), f);
+                count++;
+        }
+
+        return count;
 }
 
 int deserialize_in_addrs(struct in_addr **ret, const char *string) {
@@ -452,7 +473,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 size++;
         }
 
-        *ret = TAKE_PTR(addresses);
+        *ret = size > 0 ? TAKE_PTR(addresses) : NULL;
 
         return size;
 }
@@ -521,6 +542,7 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
         fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++) {
+                char sbuf[INET_ADDRSTRLEN];
                 struct in_addr dest, gw;
                 uint8_t length;
 
@@ -528,8 +550,8 @@ void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, siz
                 assert_se(sd_dhcp_route_get_gateway(routes[i], &gw) >= 0);
                 assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
 
-                fprintf(f, "%s/%" PRIu8, inet_ntoa(dest), length);
-                fprintf(f, ",%s%s", inet_ntoa(gw), (i < (size - 1)) ? " ": "");
+                fprintf(f, "%s/%" PRIu8, inet_ntop(AF_INET, &dest, sbuf, sizeof(sbuf)), length);
+                fprintf(f, ",%s%s", inet_ntop(AF_INET, &gw, sbuf, sizeof(sbuf)), (i < (size - 1)) ? " ": "");
         }
 
         fputs("\n", f);

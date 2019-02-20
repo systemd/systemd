@@ -790,7 +790,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 goto fail;
 
         session_set_user(session, user);
-        session_set_leader(session, leader);
+        r = session_set_leader(session, leader);
+        if (r < 0)
+                goto fail;
 
         session->type = t;
         session->class = c;

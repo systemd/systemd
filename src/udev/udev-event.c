@@ -151,13 +151,15 @@ static ssize_t subst_format_var(UdevEvent *event,
                 break;
         case SUBST_KERNEL_NUMBER:
                 r = sd_device_get_sysnum(dev, &val);
+                if (r == -ENOENT)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                        return r;
                 l = strpcpy(&s, l, val);
                 break;
         case SUBST_ID:
                 if (!event->dev_parent)
-                        return 0;
+                        goto null_terminate;
                 r = sd_device_get_sysname(event->dev_parent, &val);
                 if (r < 0)
                         return r;
@@ -165,10 +167,12 @@ static ssize_t subst_format_var(UdevEvent *event,
                 break;
         case SUBST_DRIVER:
                 if (!event->dev_parent)
-                        return 0;
+                        goto null_terminate;
                 r = sd_device_get_driver(event->dev_parent, &val);
+                if (r == -ENOENT)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                        return r;
                 l = strpcpy(&s, l, val);
                 break;
         case SUBST_MAJOR:
@@ -187,7 +191,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                 int i;
 
                 if (!event->program_result)
-                        return 0;
+                        goto null_terminate;
 
                 /* get part of the result string */
                 i = 0;
@@ -243,7 +247,7 @@ static ssize_t subst_format_var(UdevEvent *event,
                         (void) sd_device_get_sysattr_value(event->dev_parent, attr, &val);
 
                 if (!val)
-                        return 0;
+                        goto null_terminate;
 
                 /* strip trailing whitespace, and replace unwanted characters */
                 if (val != vbuf)
@@ -259,17 +263,23 @@ static ssize_t subst_format_var(UdevEvent *event,
         }
         case SUBST_PARENT:
                 r = sd_device_get_parent(dev, &parent);
+                if (r == -ENODEV)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENODEV ? 0 : r;
+                        return r;
                 r = sd_device_get_devname(parent, &val);
+                if (r == -ENOENT)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                        return r;
                 l = strpcpy(&s, l, val + STRLEN("/dev/"));
                 break;
         case SUBST_DEVNODE:
                 r = sd_device_get_devname(dev, &val);
+                if (r == -ENOENT)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                        return r;
                 l = strpcpy(&s, l, val);
                 break;
         case SUBST_NAME:
@@ -290,6 +300,8 @@ static ssize_t subst_format_var(UdevEvent *event,
                                 l = strpcpy(&s, l, val + STRLEN("/dev/"));
                         else
                                 l = strpcpyl(&s, l, " ", val + STRLEN("/dev/"), NULL);
+                if (s == dest)
+                        goto null_terminate;
                 break;
         case SUBST_ROOT:
                 l = strpcpy(&s, l, "/dev");
@@ -299,10 +311,12 @@ static ssize_t subst_format_var(UdevEvent *event,
                 break;
         case SUBST_ENV:
                 if (!attr)
-                        return 0;
+                        goto null_terminate;
                 r = sd_device_get_property_value(dev, attr, &val);
+                if (r == -ENOENT)
+                        goto null_terminate;
                 if (r < 0)
-                        return r == -ENOENT ? 0 : r;
+                        return r;
                 l = strpcpy(&s, l, val);
                 break;
         default:
@@ -310,6 +324,10 @@ static ssize_t subst_format_var(UdevEvent *event,
         }
 
         return s - dest;
+
+null_terminate:
+        *s = '\0';
+        return 0;
 }
 
 ssize_t udev_event_apply_format(UdevEvent *event,

@@ -122,9 +122,8 @@ int config_parse_ipv6_proxy_ndp_address(
                 return 0;
         }
 
-        r = in_addr_is_null(AF_INET6, &buffer);
-        if (r != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+        if (in_addr_is_null(AF_INET6, &buffer)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
                            "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }

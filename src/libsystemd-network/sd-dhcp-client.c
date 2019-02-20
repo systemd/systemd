@@ -1676,8 +1676,7 @@ static int client_receive_message_udp(
 
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPMessage *message = NULL;
-        const struct ether_addr zero_mac = {};
-        const struct ether_addr *expected_chaddr = NULL;
+        const uint8_t *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
         ssize_t len, buflen;
 
@@ -1685,6 +1684,12 @@ static int client_receive_message_udp(
         assert(client);
 
         buflen = next_datagram_size_fd(fd);
+        if (buflen == -ENETDOWN) {
+                /* the link is down. Don't return an error or the I/O event
+                   source will be disconnected and we won't be able to receive
+                   packets again when the link comes back. */
+                return 0;
+        }
         if (buflen < 0)
                 return buflen;
 
@@ -1694,7 +1699,8 @@ static int client_receive_message_udp(
 
         len = recv(fd, message, buflen, 0);
         if (len < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                /* see comment above for why we shouldn't error out on ENETDOWN. */
+                if (IN_SET(errno, EAGAIN, EINTR, ENETDOWN))
                         return 0;
 
                 return log_dhcp_client_errno(client, errno,
@@ -1722,11 +1728,7 @@ static int client_receive_message_udp(
 
         if (client->arp_type == ARPHRD_ETHER) {
                 expected_hlen = ETH_ALEN;
-                expected_chaddr = (const struct ether_addr *) &client->mac_addr;
-        } else {
-               /* Non-Ethernet links expect zero chaddr */
-               expected_hlen = 0;
-               expected_chaddr = &zero_mac;
+                expected_chaddr = &client->mac_addr[0];
         }
 
         if (message->hlen != expected_hlen) {
@@ -1734,7 +1736,7 @@ static int client_receive_message_udp(
                 return 0;
         }
 
-        if (memcmp(&message->chaddr[0], expected_chaddr, ETH_ALEN)) {
+        if (expected_hlen > 0 && memcmp(&message->chaddr[0], expected_chaddr, expected_hlen)) {
                 log_dhcp_client(client, "Received chaddr does not match expected: ignoring");
                 return 0;
         }
@@ -1776,6 +1778,8 @@ static int client_receive_message_raw(
         assert(client);
 
         buflen = next_datagram_size_fd(fd);
+        if (buflen == -ENETDOWN)
+                return 0;
         if (buflen < 0)
                 return buflen;
 
@@ -1787,7 +1791,7 @@ static int client_receive_message_raw(
 
         len = recvmsg(fd, &msg, 0);
         if (len < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (IN_SET(errno, EAGAIN, EINTR, ENETDOWN))
                         return 0;
 
                 return log_dhcp_client_errno(client, errno,

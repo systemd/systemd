@@ -379,7 +379,7 @@ static int run(int argc, char *argv[]) {
                 clamp = shall_clamp(device);
 
                 r = read_one_line_file(saved, &value);
-                if (r == -ENOENT) {
+                if (IN_SET(r, -ENOENT, 0)) {
                         const char *curval;
 
                         /* Fallback to clamping current brightness or exit early if

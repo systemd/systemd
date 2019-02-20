@@ -57,6 +57,7 @@ static bool arg_allow_interactive_authorization = true;
 static bool arg_augment_creds = true;
 static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
+static const char *arg_destination = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
@@ -795,10 +796,8 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate interface");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate interface");
 
         m = NULL;
         return 0;
@@ -836,10 +835,8 @@ static int on_method(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate method");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate method");
 
         m = NULL;
         return 0;
@@ -873,10 +870,8 @@ static int on_signal(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate signal");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate signal");
 
         m = NULL;
         return 0;
@@ -911,10 +906,8 @@ static int on_property(const char *interface, const char *name, const char *sign
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0) {
-                log_error("Duplicate property");
-                return -EINVAL;
-        }
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate property");
 
         m = NULL;
         return 0;
@@ -1195,10 +1188,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         STRV_FOREACH(i, argv+1) {
                 _cleanup_free_ char *m = NULL;
 
-                if (!service_name_is_valid(*i)) {
-                        log_error("Invalid service name '%s'", *i);
-                        return -EINVAL;
-                }
+                if (!service_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name '%s'", *i);
 
                 m = strjoin("sender='", *i, "'");
                 if (!m)
@@ -1978,10 +1969,8 @@ static int call(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return r;
 
-                if (*p) {
-                        log_error("Too many parameters for signature.");
-                        return -EINVAL;
-                }
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
         }
 
         if (!arg_expect_reply) {
@@ -2032,6 +2021,49 @@ static int call(int argc, char **argv, void *userdata) {
                         fputc('\n', stdout);
                 }
         }
+
+        return 0;
+}
+
+static int emit_signal(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_signal(bus, &m, argv[1], argv[2], argv[3]);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (arg_destination) {
+                r = sd_bus_message_set_destination(m, arg_destination);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_set_auto_start(m, arg_auto_start);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!isempty(argv[4])) {
+                char **p;
+
+                p = argv+5;
+
+                r = message_append_cmdline(m, argv[4], &p);
+                if (r < 0)
+                        return r;
+
+                if (*p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
+        }
+
+        r = sd_bus_send(bus, m, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send signal: %m");
 
         return 0;
 }
@@ -2132,10 +2164,8 @@ static int set_property(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (*p) {
-                log_error("Too many parameters for signature.");
-                return -EINVAL;
-        }
+        if (*p)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many parameters for signature.");
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
@@ -2154,48 +2184,51 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Introspect the bus.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --system             Connect to system bus\n"
-               "     --user               Connect to user bus\n"
-               "  -H --host=[USER@]HOST   Operate on remote host\n"
-               "  -M --machine=CONTAINER  Operate on local container\n"
-               "     --address=ADDRESS    Connect to bus specified by address\n"
-               "     --show-machine       Show machine ID column in list\n"
-               "     --unique             Only show unique names\n"
-               "     --acquired           Only show acquired names\n"
-               "     --activatable        Only show activatable names\n"
-               "     --match=MATCH        Only show matching messages\n"
-               "     --size=SIZE          Maximum length of captured packet\n"
-               "     --list               Don't show tree, but simple object path list\n"
-               "  -q --quiet              Don't show method call reply\n"
-               "     --verbose            Show result values in long format\n"
-               "     --json=MODE          Output as JSON\n"
-               "  -j                      Same as --json=pretty on tty, --json=short otherwise\n"
-               "     --expect-reply=BOOL  Expect a method call reply\n"
-               "     --auto-start=BOOL    Auto-start destination service\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-legend           Do not show the headers and footers\n"
+               "     --system              Connect to system bus\n"
+               "     --user                Connect to user bus\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --address=ADDRESS     Connect to bus specified by address\n"
+               "     --show-machine        Show machine ID column in list\n"
+               "     --unique              Only show unique names\n"
+               "     --acquired            Only show acquired names\n"
+               "     --activatable         Only show activatable names\n"
+               "     --match=MATCH         Only show matching messages\n"
+               "     --size=SIZE           Maximum length of captured packet\n"
+               "     --list                Don't show tree, but simple object path list\n"
+               "  -q --quiet               Don't show method call reply\n"
+               "     --verbose             Show result values in long format\n"
+               "     --json=MODE           Output as JSON\n"
+               "  -j                       Same as --json=pretty on tty, --json=short otherwise\n"
+               "     --expect-reply=BOOL   Expect a method call reply\n"
+               "     --auto-start=BOOL     Auto-start destination service\n"
                "     --allow-interactive-authorization=BOOL\n"
-               "                          Allow interactive authorization for operation\n"
-               "     --timeout=SECS       Maximum time to wait for method call completion\n"
-               "     --augment-creds=BOOL Extend credential data with data read from /proc/$PID\n"
-               "     --watch-bind=BOOL    Wait for bus AF_UNIX socket to be bound in the file\n"
-               "                          system\n\n"
-               "Commands:\n"
-               "  list                    List bus names\n"
-               "  status [SERVICE]        Show bus service, process or bus owner credentials\n"
-               "  monitor [SERVICE...]    Show bus traffic\n"
-               "  capture [SERVICE...]    Capture bus traffic as pcap\n"
-               "  tree [SERVICE...]       Show object tree of service\n"
+               "                           Allow interactive authorization for operation\n"
+               "     --timeout=SECS        Maximum time to wait for method call completion\n"
+               "     --augment-creds=BOOL  Extend credential data with data read from /proc/$PID\n"
+               "     --watch-bind=BOOL     Wait for bus AF_UNIX socket to be bound in the file\n"
+               "                           system\n"
+               "     --destination=SERVICE Destination service of a signal\n"
+               "\nCommands:\n"
+               "  list                     List bus names\n"
+               "  status [SERVICE]         Show bus service, process or bus owner credentials\n"
+               "  monitor [SERVICE...]     Show bus traffic\n"
+               "  capture [SERVICE...]     Capture bus traffic as pcap\n"
+               "  tree [SERVICE...]        Show object tree of service\n"
                "  introspect SERVICE OBJECT [INTERFACE]\n"
                "  call SERVICE OBJECT INTERFACE METHOD [SIGNATURE [ARGUMENT...]]\n"
-               "                          Call a method\n"
+               "                           Call a method\n"
+               "  emit OBJECT INTERFACE SIGNAL [SIGNATURE [ARGUMENT...]]\n"
+               "                           Emit a signal\n"
                "  get-property SERVICE OBJECT INTERFACE PROPERTY...\n"
-               "                          Get property value\n"
+               "                           Get property value\n"
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
-               "                          Set property value\n"
-               "  help                    Show this help\n"
+               "                           Set property value\n"
+               "  help                     Show this help\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -2232,6 +2265,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUGMENT_CREDS,
                 ARG_WATCH_BIND,
                 ARG_JSON,
+                ARG_DESTINATION,
         };
 
         static const struct option options[] = {
@@ -2260,6 +2294,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "augment-creds",                   required_argument, NULL, ARG_AUGMENT_CREDS                   },
                 { "watch-bind",                      required_argument, NULL, ARG_WATCH_BIND                      },
                 { "json",                            required_argument, NULL, ARG_JSON                            },
+                { "destination",                     required_argument, NULL, ARG_DESTINATION                     },
                 {},
         };
 
@@ -2426,6 +2461,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_DESTINATION:
+                        arg_destination = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2446,6 +2485,7 @@ static int busctl_main(int argc, char *argv[]) {
                 { "tree",         VERB_ANY, VERB_ANY, 0,            tree           },
                 { "introspect",   3,        4,        0,            introspect     },
                 { "call",         5,        VERB_ANY, 0,            call           },
+                { "emit",         4,        VERB_ANY, 0,            emit_signal    },
                 { "get-property", 5,        VERB_ANY, 0,            get_property   },
                 { "set-property", 6,        VERB_ANY, 0,            set_property   },
                 { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },

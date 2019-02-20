@@ -137,20 +137,9 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         if (r < 0)
                 return log_error_errno(r, "Could not append NDA_LLADDR attribute: %m");
 
-        switch (neighbor->family) {
-        case AF_INET6:
-                r = sd_netlink_message_append_in6_addr(req, NDA_DST, &neighbor->in_addr.in6);
-                if (r < 0)
-                        return log_error_errno(r, "Could not append NDA_DST attribute: %m");
-                break;
-        case AF_INET:
-                r = sd_netlink_message_append_in_addr(req, NDA_DST, &neighbor->in_addr.in);
-                if (r < 0)
-                        return log_error_errno(r, "Could not append NDA_DST attribute: %m");
-                break;
-        default:
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Neighbor with invalid address family");
-        }
+        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
+        if (r < 0)
+                return log_error_errno(r, "Could not append NDA_DST attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_handler,
                                link_netlink_destroy_callback, link);

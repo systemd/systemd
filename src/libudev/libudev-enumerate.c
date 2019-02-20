@@ -277,9 +277,6 @@ _public_ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate,
  * Return the devices on the subtree of one given device. The parent
  * itself is included in the list.
  *
- * A reference for the device is held until the udev_enumerate context
- * is cleaned up.
- *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *parent) {

@@ -727,7 +727,7 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_devnum(loop_event->dev, &d) >= 0 &&
                             devnum == d && is_block == streq(s, "block"))
-                                return true;
+                                goto set_delaying_seqnum;
                 }
 
                 /* check network device ifindex */
@@ -736,17 +736,15 @@ static int is_device_busy(Manager *manager, struct event *event) {
 
                         if (sd_device_get_ifindex(loop_event->dev, &i) >= 0 &&
                             ifindex == i)
-                                return true;
+                                goto set_delaying_seqnum;
                 }
 
                 if (sd_device_get_devpath(loop_event->dev, &loop_devpath) < 0)
                         continue;
 
                 /* check our old name */
-                if (devpath_old && streq(devpath_old, loop_devpath)) {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (devpath_old && streq(devpath_old, loop_devpath))
+                        goto set_delaying_seqnum;
 
                 loop_devpath_len = strlen(loop_devpath);
 
@@ -758,28 +756,23 @@ static int is_device_busy(Manager *manager, struct event *event) {
                         continue;
 
                 /* identical device event found */
-                if (devpath_len == loop_devpath_len) {
-                        /* devices names might have changed/swapped in the meantime */
-                        if (major(devnum) != 0 || ifindex > 0)
-                                continue;
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (devpath_len == loop_devpath_len)
+                        goto set_delaying_seqnum;
 
                 /* parent device event found */
-                if (devpath[common] == '/') {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (devpath[common] == '/')
+                        goto set_delaying_seqnum;
 
                 /* child device event found */
-                if (loop_devpath[common] == '/') {
-                        event->delaying_seqnum = loop_event->seqnum;
-                        return true;
-                }
+                if (loop_devpath[common] == '/')
+                        goto set_delaying_seqnum;
         }
 
         return false;
+
+set_delaying_seqnum:
+        event->delaying_seqnum = loop_event->seqnum;
+        return true;
 }
 
 static int on_exit_timeout(sd_event_source *s, uint64_t usec, void *userdata) {

@@ -212,7 +212,6 @@ int write_string_filef(
 
 int read_one_line_file(const char *fn, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
 
         assert(fn);
         assert(line);
@@ -223,8 +222,7 @@ int read_one_line_file(const char *fn, char **line) {
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
-        r = read_line(f, LONG_LINE_MAX, line);
-        return r < 0 ? r : 0;
+        return read_line(f, LONG_LINE_MAX, line);
 }
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {

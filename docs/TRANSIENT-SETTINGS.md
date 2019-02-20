@@ -224,6 +224,7 @@ All cgroup/resource control settings are available for transient units
 ✓ CPUShares=
 ✓ StartupCPUShares=
 ✓ CPUQuota=
+✓ CPUQuotaPeriodSec=
 ✓ MemoryAccounting=
 ✓ MemoryMin=
 ✓ MemoryLow=

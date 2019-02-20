@@ -135,7 +135,6 @@ systemsleepdir = join_paths(rootlibexecdir, 'system-sleep')
 systemunitdir = join_paths(rootprefixdir, 'lib/systemd/system')
 systempresetdir = join_paths(rootprefixdir, 'lib/systemd/system-preset')
 udevlibexecdir = join_paths(rootprefixdir, 'lib/udev')
-udevhomedir = udevlibexecdir
 udevrulesdir = join_paths(udevlibexecdir, 'rules.d')
 udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
 catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
@@ -409,15 +408,11 @@ conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h
 
 decl_headers = '''
 #include <uchar.h>
-#include <linux/ethtool.h>
-#include <linux/fib_rules.h>
 #include <sys/stat.h>
 '''
 
 foreach decl : ['char16_t',
                 'char32_t',
-                'struct fib_rule_uid_range',
-                'struct fib_rule_port_range',
                 'struct statx',
                ]
 

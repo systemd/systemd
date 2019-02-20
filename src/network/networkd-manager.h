@@ -18,8 +18,6 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 
-extern const char* const network_dirs[];
-
 struct Manager {
         sd_netlink *rtnl;
         /* lazy initialized */

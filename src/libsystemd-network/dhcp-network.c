@@ -50,12 +50,16 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.htype)),  /* A <- DHCP header type */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, arp_type, 1, 0),                   /* header type == arp_type ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.hlen)),   /* A <- MAC address length */
-                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, dhcp_hlen, 1, 0),                  /* address length == dhcp_hlen ? */
-                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+                BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, dhcp.hlen)),   /* A <- MAC address length */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, dhcp_hlen, 1, 0),                  /* address length == dhcp_hlen ? */
+                BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+
+                /* We only support MAC address length to be either 0 or 6 (ETH_ALEN). Optionally
+                 * compare chaddr for ETH_ALEN bytes. */
+                BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETH_ALEN, 0, 12),                                  /* A (the MAC address length) == ETH_ALEN ? */
                 BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),        /* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
@@ -68,6 +72,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
+
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.magic)),  /* A <- DHCP magic cookie */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_MAGIC_COOKIE, 1, 0),          /* cookie == DHCP magic cookie ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */

@@ -66,12 +66,20 @@
         "/usr/lib/" n "\0"                      \
         _CONF_PATHS_SPLIT_USR_NULSTR(n)
 
+#define CONF_PATHS_USR(n)                       \
+        "/etc/" n,                              \
+        "/run/" n,                              \
+        "/usr/local/lib/" n,                    \
+        "/usr/lib/" n
+
+#define CONF_PATHS(n)                           \
+        CONF_PATHS_USR(n)                       \
+        _CONF_PATHS_SPLIT_USR(n)
+
+#define CONF_PATHS_USR_STRV(n)                  \
+        STRV_MAKE(CONF_PATHS_USR(n))
+
 #define CONF_PATHS_STRV(n)                      \
-        STRV_MAKE(                              \
-                "/etc/" n,                      \
-                "/run/" n,                      \
-                "/usr/local/lib/" n,            \
-                "/usr/lib/" n                   \
-                _CONF_PATHS_SPLIT_USR(n))
+        STRV_MAKE(CONF_PATHS(n))
 
 #define HIGH_RLIMIT_MEMLOCK (1024ULL*1024ULL*64ULL)

@@ -116,6 +116,7 @@ VLAN=
 DHCPServer=
 BindCarrier=
 VRF=
+IgnoreCarrierLoss=
 [IPv6Prefix]
 Prefix=
 OnLink=
@@ -176,6 +177,8 @@ Prefix=
 UseDomains=
 RouteTable=
 UseDNS=
+UseAutonomousPrefix=
+UseOnLinkPrefix=
 [DHCPServer]
 EmitNTP=
 PoolSize=

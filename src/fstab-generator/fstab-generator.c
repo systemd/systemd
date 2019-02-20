@@ -518,6 +518,8 @@ static int parse_fstab(bool initrd) {
         int r = 0;
 
         fstab_path = initrd ? "/sysroot/etc/fstab" : "/etc/fstab";
+        log_debug("Parsing %s...", fstab_path);
+
         f = setmntent(fstab_path, "re");
         if (!f) {
                 if (errno == ENOENT)
@@ -571,9 +573,9 @@ static int parse_fstab(bool initrd) {
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
 
-                log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
+                log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s noauto=%s nofail=%s",
                           what, where, me->mnt_type,
-                          yes_no(makefs),
+                          yes_no(makefs), yes_no(growfs),
                           yes_no(noauto), yes_no(nofail));
 
                 if (streq(me->mnt_type, "swap"))
@@ -720,23 +722,14 @@ static int add_sysroot_usr_mount(void) {
 }
 
 static int add_volatile_root(void) {
-        const char *from, *to;
+        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
+         * requested, leaving only /usr from the root mount inside. */
 
         if (arg_volatile_mode != VOLATILE_YES)
                 return 0;
 
-        /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
-         * requested, leaving only /usr from the root mount inside. */
-
-        from = strjoina(SYSTEM_DATA_UNIT_PATH "/systemd-volatile-root.service");
-        to = strjoina(arg_dest, "/" SPECIAL_INITRD_ROOT_FS_TARGET, ".requires/systemd-volatile-root.service");
-
-        (void) mkdir_parents(to, 0755);
-
-        if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to hook in volatile remount service: %m");
-
-        return 0;
+        return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
+                                     SYSTEM_DATA_UNIT_PATH "/" SPECIAL_VOLATILE_ROOT_SERVICE);
 }
 
 static int add_volatile_var(void) {
@@ -868,7 +861,7 @@ static int determine_root(void) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r;
+        int r, r2 = 0, r3 = 0;
 
         assert_se(arg_dest = dest);
         assert_se(arg_dest_late = dest_late);
@@ -881,42 +874,27 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
-                int k;
-
                 r = add_sysroot_mount();
 
-                k = add_sysroot_usr_mount();
-                if (k < 0)
-                        r = k;
+                r2 = add_sysroot_usr_mount();
 
-                k = add_volatile_root();
-                if (k < 0)
-                        r = k;
+                r3 = add_volatile_root();
         } else
                 r = add_volatile_var();
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
-                int k;
-
-                log_debug("Parsing /etc/fstab");
-
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                k = parse_fstab(false);
-                if (k < 0)
-                        r = k;
+                r2 = parse_fstab(false);
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
-                if (in_initrd()) {
-                        log_debug("Parsing /sysroot/etc/fstab");
-
-                        k = parse_fstab(true);
-                        if (k < 0)
-                                r = k;
-                }
+                if (in_initrd())
+                        r3 = parse_fstab(true);
+                else
+                        r3 = generator_enable_remount_fs_service(arg_dest);
         }
 
-        return r;
+        return r < 0 ? r : r2 < 0 ? r2 : r3;
 }
 
 DEFINE_MAIN_GENERATOR_FUNCTION(run);

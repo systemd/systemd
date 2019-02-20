@@ -6,10 +6,10 @@
 
 typedef enum AddressFamilyBoolean {
         /* This is a bitmask, though it usually doesn't feel that way! */
-        ADDRESS_FAMILY_NO = 0,
-        ADDRESS_FAMILY_IPV4 = 1,
-        ADDRESS_FAMILY_IPV6 = 2,
-        ADDRESS_FAMILY_YES = 3,
+        ADDRESS_FAMILY_NO   = 0,
+        ADDRESS_FAMILY_IPV4 = 1 << 0,
+        ADDRESS_FAMILY_IPV6 = 1 << 1,
+        ADDRESS_FAMILY_YES  = ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6,
         _ADDRESS_FAMILY_BOOLEAN_MAX,
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;

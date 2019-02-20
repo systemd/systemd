@@ -78,24 +78,28 @@ static int do_execute(
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 int output_fd,
                 char *argv[],
-                char *envp[]) {
+                char *envp[],
+                ExecDirFlags flags) {
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         char **path, **e;
         int r;
+        bool parallel_execution;
 
         /* We fork this all off from a child process so that we can somewhat cleanly make
          * use of SIGALRM to set a time limit.
          *
-         * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
+         * We attempt to perform parallel execution if configured by the user, however
+         * if `callbacks` is nonnull, execution must be serial.
          */
+        parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
 
         r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 
-        if (!callbacks) {
+        if (parallel_execution) {
                 pids = hashmap_new(NULL);
                 if (!pids)
                         return log_oom();
@@ -130,23 +134,28 @@ static int do_execute(
                 if (r <= 0)
                         continue;
 
-                if (pids) {
+                if (parallel_execution) {
                         r = hashmap_put(pids, PID_TO_PTR(pid), t);
                         if (r < 0)
                                 return log_oom();
                         t = NULL;
                 } else {
                         r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
-                        if (r < 0)
-                                continue;
+                        if (FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS)) {
+                                if (r < 0)
+                                        continue;
+                        } else if (r > 0)
+                                return r;
 
-                        if (lseek(fd, 0, SEEK_SET) < 0)
-                                return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+                        if (callbacks) {
+                                if (lseek(fd, 0, SEEK_SET) < 0)
+                                        return log_error_errno(errno, "Failed to seek on serialization fd: %m");
 
-                        r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
-                        fd = -1;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to process output from %s: %m", *path);
+                                r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
+                                fd = -1;
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to process output from %s: %m", *path);
+                        }
                 }
         }
 
@@ -166,7 +175,9 @@ static int do_execute(
                 t = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(t);
 
-                (void) wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                        return r;
         }
 
         return 0;
@@ -178,12 +189,14 @@ int execute_directories(
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
-                char *envp[]) {
+                char *envp[],
+                ExecDirFlags flags) {
 
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
         char *name;
         int r;
+        pid_t executor_pid;
 
         assert(!strv_isempty(dirs));
 
@@ -205,13 +218,19 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp);
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp, flags);
+                _exit(r < 0 ? EXIT_FAILURE : r);
         }
+
+        r = wait_for_terminate_and_check("(sd-executor)", executor_pid, 0);
+        if (r < 0)
+                return r;
+        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                return r;
 
         if (!callbacks)
                 return 0;

@@ -1895,7 +1895,7 @@ int unit_reload(Unit *u) {
 
         state = unit_active_state(u);
         if (state == UNIT_RELOADING)
-                return -EALREADY;
+                return -EAGAIN;
 
         if (state != UNIT_ACTIVE) {
                 log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
@@ -4428,7 +4428,7 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
-static void log_kill(pid_t pid, int sig, void *userdata) {
+static int log_kill(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         (void) get_process_comm(pid, &comm);
@@ -4436,13 +4436,15 @@ static void log_kill(pid_t pid, int sig, void *userdata) {
         /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
            only, like for example systemd's own PAM stub process. */
         if (comm && comm[0] == '(')
-                return;
+                return 0;
 
         log_unit_notice(userdata,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
                         pid,
                         strna(comm),
                         signal_to_string(sig));
+
+        return 1;
 }
 
 static int operation_to_signal(KillContext *c, KillOperation k) {
@@ -5394,29 +5396,31 @@ int unit_prepare_exec(Unit *u) {
         return 0;
 }
 
-static void log_leftover(pid_t pid, int sig, void *userdata) {
+static int log_leftover(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         (void) get_process_comm(pid, &comm);
 
         if (comm && comm[0] == '(') /* Most likely our own helper process (PAM?), ignore */
-                return;
+                return 0;
 
         log_unit_warning(userdata,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
                          "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
                          pid, strna(comm));
+
+        return 1;
 }
 
-void unit_warn_leftover_processes(Unit *u) {
+int unit_warn_leftover_processes(Unit *u) {
         assert(u);
 
         (void) unit_pick_cgroup_path(u);
 
         if (!u->cgroup_path)
-                return;
+                return 0;
 
-        (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+        return cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
 }
 
 bool unit_needs_console(Unit *u) {

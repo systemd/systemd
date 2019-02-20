@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-util.h"
@@ -62,10 +63,7 @@ static int wireguard_set_ipmask_one(NetDev *netdev, sd_netlink_message *message,
         if (r < 0)
                 goto cancel;
 
-        if (mask->family == AF_INET)
-                r = sd_netlink_message_append_in_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in);
-        else if (mask->family == AF_INET6)
-                r = sd_netlink_message_append_in6_addr(message, WGALLOWEDIP_A_IPADDR, &mask->ip.in6);
+        r = netlink_message_append_in_addr_union(message, WGALLOWEDIP_A_IPADDR, mask->family, &mask->ip);
         if (r < 0)
                 goto cancel;
 
@@ -122,12 +120,11 @@ static int wireguard_set_peer_one(NetDev *netdev, sd_netlink_message *message, c
                 if (r < 0)
                         goto cancel;
 
-                if (peer->endpoint.sa.sa_family == AF_INET)
-                        r = sd_netlink_message_append_sockaddr_in(message, WGPEER_A_ENDPOINT, &peer->endpoint.in);
-                else if (peer->endpoint.sa.sa_family == AF_INET6)
-                        r = sd_netlink_message_append_sockaddr_in6(message, WGPEER_A_ENDPOINT, &peer->endpoint.in6);
-                if (r < 0)
-                        goto cancel;
+                if (IN_SET(peer->endpoint.sa.sa_family, AF_INET, AF_INET6)) {
+                        r = netlink_message_append_sockaddr_union(message, WGPEER_A_ENDPOINT, &peer->endpoint);
+                        if (r < 0)
+                                goto cancel;
+                }
         }
 
         r = sd_netlink_message_open_container(message, WGPEER_A_ALLOWEDIPS);

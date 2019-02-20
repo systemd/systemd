@@ -78,11 +78,13 @@
       <varlistentry>
         <term>
           <command>list</command>
-          <optional><replaceable>LINK…</replaceable></optional>
+          <optional><replaceable>PATTERN…</replaceable></optional>
         </term>
 
         <listitem>
-          <para>Show a list of existing links and their status. If no further arguments are specified shows all links,
+          <para>Show a list of existing links and their status. If one ore more
+          <replaceable>PATTERN</replaceable>s are specified, only links matching one of them are shown.
+          If no further arguments are specified shows all links,
           otherwise just the specified links. Produces output similar to:
 
           <programlisting>IDX LINK         TYPE     OPERATIONAL SETUP
@@ -116,13 +118,21 @@
               <varlistentry>
                 <term>carrier</term>
                 <listitem>
-                  <para>the link has a carrier</para>
+                  <para>the link has a carrier, or for bond master, all bonding slave network interfaces are
+                  enslaved to the master.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>degraded</term>
                 <listitem>
-                  <para>the link has carrier and addresses valid on the local link configured</para>
+                  <para>the link has carrier and addresses valid on the local link configured, or for bond
+                  master, one of the bonding slave network interfaces is in off, no-carrier, or dormant</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>enslaved</term>
+                <listitem>
+                  <para>the link has carrier and is enslaved to other network interfaces</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -180,13 +190,13 @@
       <varlistentry>
         <term>
           <command>status</command>
-          <optional><replaceable>LINK…</replaceable></optional>
+          <optional><replaceable>PATTERN…</replaceable></optional>
         </term>
 
         <listitem>
-          <para>Show information about the specified links: type,
-          state, kernel module driver, hardware and IP address,
-          configured DNS servers, etc.</para>
+          <para>Show information about the specified links: type, state, kernel module driver, hardware and
+          IP address, configured DNS servers, etc. If one ore more <replaceable>PATTERN</replaceable>s are
+          specified, only links matching one of them are shown.</para>
 
           <para>When no links are specified, an overall network status is shown. Also see the option
           <option>--all</option>.</para>
@@ -208,13 +218,14 @@
       <varlistentry>
         <term>
           <command>lldp</command>
-          <optional><replaceable>LINK…</replaceable></optional>
+          <optional><replaceable>PATTERN…</replaceable></optional>
         </term>
 
         <listitem>
-          <para>Show discovered LLDP (Link Layer Discovery Protocol) neighbors. If one or more link names are specified
-          only neighbors on those interfaces are shown. Otherwise shows discovered neighbors on all interfaces. Note
-          that for this feature to work, <varname>LLDP=</varname> must be turned on for the specific interface, see
+          <para>Show discovered LLDP (Link Layer Discovery Protocol) neighbors. If one or more
+          <replaceable>PATTERN</replaceable>s are specified only neighbors on those interfaces are shown.
+          Otherwise shows discovered neighbors on all interfaces. Note that for this feature to work,
+          <varname>LLDP=</varname> must be turned on for the specific interface, see
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details.</para>
 

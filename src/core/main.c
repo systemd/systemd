@@ -1382,7 +1382,7 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
 
 static void test_usr(void) {
 
-        /* Check that /usr is not a separate fs */
+        /* Check that /usr is either on the same file system as / or mounted already. */
 
         if (dir_is_empty("/usr") <= 0)
                 return;

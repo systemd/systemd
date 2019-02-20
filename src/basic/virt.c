@@ -202,7 +202,7 @@ static int detect_vm_xen_dom0(void) {
         r = read_one_line_file(PATH_FEATURES, &domcap);
         if (r < 0 && r != -ENOENT)
                 return r;
-        if (r == 0) {
+        if (r >= 0) {
                 unsigned long features;
 
                 /* Here, we need to use sscanf() instead of safe_atoul()
@@ -469,11 +469,11 @@ int detect_container(void) {
         /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than accessing
          * /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
         r = read_one_line_file("/run/systemd/container", &m);
-        if (r >= 0) {
+        if (r > 0) {
                 e = m;
                 goto translate_name;
         }
-        if (r != -ENOENT)
+        if (!IN_SET(r, -ENOENT, 0))
                 return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
 
         /* Fallback for cases where PID 1 was not systemd (for example, cases where init=/bin/sh is used. */

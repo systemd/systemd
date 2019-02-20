@@ -45,20 +45,18 @@
   </refsect1>
 
   <refsect1><title>Rules Files</title>
-      <para>The udev rules are read from the files located in the
-      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
-      the volatile runtime directory <filename>/run/udev/rules.d</filename>
-      and the local administration directory <filename>/etc/udev/rules.d</filename>.
-      All rules files are collectively sorted and processed in lexical order,
-      regardless of the directories in which they live. However, files with
-      identical filenames replace each other. Files in <filename>/etc</filename>
-      have the highest priority, files in <filename>/run</filename> take precedence
-      over files with the same name in <filename>/usr/lib</filename>. This can be
-      used to override a system-supplied rules file with a local file if needed;
-      a symlink in <filename>/etc</filename> with the same name as a rules file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
-      disables the rules file entirely. Rule files must have the extension
-      <filename>.rules</filename>; other extensions are ignored.</para>
+      <para>The udev rules are read from the files located in the system rules directories
+      <filename>/usr/lib/udev/rules.d</filename> and <filename>/usr/local/lib/udev/rules.d</filename>, the
+      volatile runtime directory <filename>/run/udev/rules.d</filename> and the local administration
+      directory <filename>/etc/udev/rules.d</filename>.  All rules files are collectively sorted and
+      processed in lexical order, regardless of the directories in which they live. However, files with
+      identical filenames replace each other. Files in <filename>/etc</filename> have the highest priority,
+      files in <filename>/run</filename> take precedence over files with the same name under
+      <filename>/usr</filename>. This can be used to override a system-supplied rules file with a local
+      file if needed; a symlink in <filename>/etc</filename> with the same name as a rules file in
+      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
+      entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
+      ignored.</para>
 
       <para>Every line in the rules file contains at least one key-value pair.
       Except for empty lines or lines beginning with <literal>#</literal>, which are ignored.

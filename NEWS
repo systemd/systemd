@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 241 in spe:
+CHANGES WITH 241:
 
         * The default locale can now be configured at compile time. Otherwise,
           a suitable default will be selected automatically (one of C.UTF-8,
@@ -83,21 +83,28 @@ CHANGES WITH 241 in spe:
         * udevadm control learnt a new option for --ping for testing whether a
           systemd-udevd instance is running and reacting.
 
-        Contributions from: Aaron Plattner, Alex Mayer, Ayman Bagabas,
-        Beniamino Galvani, bl33pbl0p, Burt P, Chris Down, Chris Lamb, Chris
-        Morin, Claudius Ellsel, dana, Daniel Axtens, Daniele Medri, Dave
-        Reisner, dcanuhe, Dimitri John Ledkov, Evgeny Vereshchagin, Fabrice
-        Fontaine, Filipe Brandenburger, Franck Bui, Frantisek Sumsal, howl,
-        ikelos, James Hilliard, Jani Uusitalo, Jan Janssen, Jonathan Roemer,
-        Jonathon Kowalski, Joost Heitbrink, Jörg Thalheim, Lennart Poettering,
-        Louis Taylor, Lucas Werkmeister, Marc-Antoine Perennou, marvelousblack,
-        Michael Biebl, Michael Sloan, Michal Sekletar, Mike Auty, Mike Gilbert,
-        Mikhail Kasimov, Niklas Hambüchen, Patrick Williams, Paul Seyfert,
-        Philip Withnall, rogerjames99, Ronnie P. Thomas, Ryan Gonzalez, Sam
-        Morris, Susant Sahani, Taro Yamada, Thomas Haller, Topi Miettinen,
-        YunQiang Su, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zsergeant77
+        * udevadm trigger learnt a new option for --wait-daemon for waiting
+          systemd-udevd daemon to be initialized.
 
-        — Berlin, 2018-XX-XX
+        Contributions from: Aaron Plattner, Alberts Muktupāvels, Alex Mayer,
+        Ayman Bagabas, Beniamino Galvani, Burt P, Chris Down, Chris Lamb, Chris
+        Morin, Christian Hesse, Claudius Ellsel, dana, Daniel Axtens, Daniele
+        Medri, Dave Reisner, David Santamaría Rogado, Diego Canuhe, Dimitri
+        John Ledkov, Evgeny Vereshchagin, Fabrice Fontaine, Filipe
+        Brandenburger, Franck Bui, Frantisek Sumsal, govwin, Hans de Goede,
+        James Hilliard, Jan Engelhardt, Jani Uusitalo, Jan Janssen, Jan
+        Synacek, Jonathan McDowell, Jonathan Roemer, Jonathon Kowalski, Joost
+        Heitbrink, Jörg Thalheim, Lance, Lennart Poettering, Louis Taylor,
+        Lucas Werkmeister, Mantas Mikulėnas, Marc-Antoine Perennou,
+        marvelousblack, Michael Biebl, Michael Sloan, Michal Sekletar, Mike
+        Auty, Mike Gilbert, Mikhail Kasimov, Neil Brown, Niklas Hambüchen,
+        Patrick Williams, Paul Seyfert, Peter Hutterer, Philip Withnall, Roger
+        James, Ronnie P. Thomas, Ryan Gonzalez, Sam Morris, Stephan Edel,
+        Stephan Gerhold, Susant Sahani, Taro Yamada, Thomas Haller, Topi
+        Miettinen, YiFei Zhu, YmrDtnJu, YunQiang Su, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, zsergeant77, Дамјан Георгиевски
+
+        — Berlin, 2019-02-14
 
 CHANGES WITH 240:
 

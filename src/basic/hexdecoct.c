@@ -601,10 +601,11 @@ static int base64_append_width(
         lines = DIV_ROUND_UP(len, width);
 
         slen = strlen_ptr(sep);
-        if (lines > (SSIZE_MAX - plen - 1 - slen) / (indent + width + 1))
+        if (plen >= SSIZE_MAX - 1 - slen ||
+            lines > (SSIZE_MAX - plen - 1 - slen) / (indent + width + 1))
                 return -ENOMEM;
 
-        t = realloc(*prefix, plen + 1 + slen + (indent + width + 1) * lines);
+        t = realloc(*prefix, (ssize_t) plen + 1 + slen + (indent + width + 1) * lines);
         if (!t)
                 return -ENOMEM;
 
@@ -639,7 +640,7 @@ int base64_append(
                 return base64_append_width(prefix, plen, "\n", indent, p, l, width - indent - 1);
         else
                 /* leave plen on the left, keep last column free */
-                return base64_append_width(prefix, plen, NULL, plen, p, l, width - plen - 1);
+                return base64_append_width(prefix, plen, " ", plen, p, l, width - plen - 1);
 }
 
 static int unbase64_next(const char **p, size_t *l) {

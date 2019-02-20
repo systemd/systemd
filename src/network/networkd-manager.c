@@ -18,6 +18,7 @@
 #include "fileio.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
+#include "network-internal.h"
 #include "networkd-manager.h"
 #include "ordered-set.h"
 #include "path-util.h"
@@ -28,15 +29,6 @@
 
 /* use 8 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (8*1024*1024)
-
-const char* const network_dirs[] = {
-        "/etc/systemd/network",
-        "/run/systemd/network",
-        "/usr/lib/systemd/network",
-#if HAVE_SPLIT_USR
-        "/lib/systemd/network",
-#endif
-        NULL};
 
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
@@ -421,6 +413,28 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         }
 
         (void) route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
+                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
+
+                if (!in_addr_is_null(family, &dst)) {
+                        (void) in_addr_to_string(family, &dst, &buf_dst);
+                        (void) asprintf(&buf_dst_prefixlen, "/%u", dst_prefixlen);
+                }
+                if (!in_addr_is_null(family, &src))
+                        (void) in_addr_to_string(family, &src, &buf_src);
+                if (!in_addr_is_null(family, &gw))
+                        (void) in_addr_to_string(family, &gw, &buf_gw);
+                if (!in_addr_is_null(family, &prefsrc))
+                        (void) in_addr_to_string(family, &prefsrc, &buf_prefsrc);
+
+                log_link_debug(link,
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s",
+                               type == RTM_DELROUTE ? "Removing" : route ? "Updating" : "Adding",
+                               strna(buf_dst), strempty(buf_dst_prefixlen),
+                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc));
+        }
 
         switch (type) {
         case RTM_NEWROUTE:
@@ -1022,14 +1036,19 @@ static int ordered_set_put_in4_addr(OrderedSet *s, const struct in_addr *address
         return r;
 }
 
-static int ordered_set_put_in4_addrv(OrderedSet *s, const struct in_addr *addresses, unsigned n) {
+static int ordered_set_put_in4_addrv(OrderedSet *s,
+                                     const struct in_addr *addresses,
+                                     size_t n,
+                                     bool (*predicate)(const struct in_addr *addr)) {
         int r, c = 0;
-        unsigned i;
+        size_t i;
 
         assert(s);
         assert(n == 0 || addresses);
 
         for (i = 0; i < n; i++) {
+                if (predicate && !predicate(&addresses[i]))
+                        continue;
                 r = ordered_set_put_in4_addr(s, addresses+i);
                 if (r < 0)
                         return r;
@@ -1122,7 +1141,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(dns, addresses, r);
+                                r = ordered_set_put_in4_addrv(dns, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -1134,7 +1153,7 @@ static int manager_save(Manager *m) {
 
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
-                                r = ordered_set_put_in4_addrv(ntp, addresses, r);
+                                r = ordered_set_put_in4_addrv(ntp, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
                                         return r;
                         } else if (r < 0 && r != -ENODATA)
@@ -1485,7 +1504,7 @@ int manager_load_config(Manager *m) {
         int r;
 
         /* update timestamp */
-        paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, true);
+        paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, true);
 
         r = netdev_load(m);
         if (r < 0)
@@ -1499,7 +1518,7 @@ int manager_load_config(Manager *m) {
 }
 
 bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(network_dirs, &m->network_dirs_ts_usec, false);
+        return paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, false);
 }
 
 int manager_rtnl_enumerate_links(Manager *m) {

@@ -68,6 +68,14 @@ bool in4_addr_is_localhost(const struct in_addr *a) {
         return (be32toh(a->s_addr) & UINT32_C(0xFF000000)) == UINT32_C(127) << 24;
 }
 
+bool in4_addr_is_non_local(const struct in_addr *a) {
+        /* Whether the address is not null and not localhost.
+         *
+         * As such, it is suitable to configure as DNS/NTP server from DHCP. */
+        return !in4_addr_is_null(a) &&
+               !in4_addr_is_localhost(a);
+}
+
 int in_addr_is_localhost(int family, const union in_addr_union *u) {
         assert(u);
 

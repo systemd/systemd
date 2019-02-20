@@ -41,7 +41,6 @@ struct sd_dhcp_lease {
         /* each 0 if unset */
         be32_t address;
         be32_t server_address;
-        be32_t router;
         be32_t next_server;
 
         bool have_subnet_mask;
@@ -49,6 +48,9 @@ struct sd_dhcp_lease {
 
         bool have_broadcast;
         be32_t broadcast;
+
+        struct in_addr *router;
+        size_t router_size;
 
         struct in_addr *dns;
         size_t dns_size;
