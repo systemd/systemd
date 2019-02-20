@@ -1109,11 +1109,11 @@ static int manager_save(Manager *m) {
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_strdupv(search_domains, link->network->search_domains);
+                r = ordered_set_put_string_set(search_domains, link->network->search_domains);
                 if (r < 0)
                         return r;
 
-                r = ordered_set_put_strdupv(route_domains, link->network->route_domains);
+                r = ordered_set_put_string_set(route_domains, link->network->route_domains);
                 if (r < 0)
                         return r;
 

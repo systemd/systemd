@@ -20,6 +20,7 @@
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
+#include "ordered-set.h"
 #include "resolve-util.h"
 
 #define DHCP_ROUTE_METRIC 1024
@@ -173,7 +174,7 @@ struct Network {
         usec_t router_dns_lifetime_usec;
         struct in6_addr *router_dns;
         unsigned n_router_dns;
-        char **router_search_domains;
+        OrderedSet *router_search_domains;
         bool dhcp6_force_pd_other_information; /* Start DHCPv6 PD also when 'O'
                                                   RA flag is set, see RFC 7084,
                                                   WPD-4 */
@@ -267,7 +268,8 @@ struct Network {
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;
         unsigned n_dns;
-        char **search_domains, **route_domains;
+        OrderedSet *search_domains, *route_domains;
+
         int dns_default_route;
         ResolveSupport llmnr;
         ResolveSupport mdns;
