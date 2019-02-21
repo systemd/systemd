@@ -1466,8 +1466,42 @@ TAG+="hoge1",\\
 TAG+="hoge2",\\
 # spaces before and after token are dropped
   TAG+="hoge3",   \\
+\\
+ \\
 TAG+="hoge4"
 TAGS=="hoge1", TAGS=="hoge2", TAGS=="hoge3", TAGS=="hoge4", SYMLINK+="found"
+EOF
+        },
+        {
+                desc            => "continuations with empty line",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad",
+                rules           => <<EOF
+# empty line finishes continuation
+KERNEL=="sda", TAG+="foo" \\
+
+KERNEL=="sdb", TAG+="hoge"
+KERNEL=="sda", TAG+="aaa" \\
+KERNEL=="sdb", TAG+="bbb"
+TAGS=="foo", SYMLINK+="found"
+TAGS=="aaa", SYMLINK+="bad"
+EOF
+        },
+        {
+                desc            => "continuations with white only line",
+                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                exp_name        => "found",
+                not_exp_name    => "bad",
+                rules           => <<EOF
+# space only line finishes continuation
+KERNEL=="sda", TAG+="foo" \\
+   \t
+KERNEL=="sdb", TAG+="hoge"
+KERNEL=="sda", TAG+="aaa" \\
+KERNEL=="sdb", TAG+="bbb"
+TAGS=="foo", SYMLINK+="found"
+TAGS=="aaa", SYMLINK+="bad"
 EOF
         },
 );
