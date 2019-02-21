@@ -107,28 +107,34 @@ static int network_verify(Network *network) {
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
                 if (network->ipv6_accept_ra > 0) {
-                        log_warning("%s: Cannot enable IPv6AcceptRA= when Bond= is specified, disabling IPv6AcceptRA=.", network->filename);
+                        log_warning("%s: Cannot enable IPv6AcceptRA= when Bond= is specified, disabling IPv6AcceptRA=.",
+                                    network->filename);
                         network->ipv6_accept_ra = 0;
                 }
                 if (network->link_local >= 0 && network->link_local != ADDRESS_FAMILY_NO) {
-                        log_warning("%s: Cannot enable LinkLocalAddressing= when Bond= is specified, disabling LinkLocalAddressing=.", network->filename);
+                        log_warning("%s: Cannot enable LinkLocalAddressing= when Bond= is specified, disabling LinkLocalAddressing=.",
+                                    network->filename);
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
                 if (network->dhcp != ADDRESS_FAMILY_NO) {
-                        log_warning("%s: Cannot enable DHCP= when Bond= is specified, disabling DHCP=.", network->filename);
+                        log_warning("%s: Cannot enable DHCP= when Bond= is specified, disabling DHCP=.",
+                                    network->filename);
                         network->dhcp = ADDRESS_FAMILY_NO;
                 }
                 if (network->dhcp_server) {
-                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.", network->filename);
+                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.",
+                                    network->filename);
                         network->dhcp_server = false;
                 }
                 if (network->n_static_addresses > 0) {
-                        log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.", network->filename);
+                        log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
+                                    network->filename);
                         while ((address = network->static_addresses))
                                 address_free(address);
                 }
                 if (network->n_static_routes > 0) {
-                        log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.", network->filename);
+                        log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
+                                    network->filename);
                         while ((route = network->static_routes))
                                 route_free(route);
                 }
@@ -379,11 +385,11 @@ void network_free(Network *network) {
 
         strv_free(network->ntp);
         free(network->dns);
-        strv_free(network->search_domains);
-        strv_free(network->route_domains);
+        ordered_set_free_free(network->search_domains);
+        ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);
 
-        strv_free(network->router_search_domains);
+        ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
 
         netdev_unref(network->bridge);
@@ -547,8 +553,8 @@ int network_apply(Network *network, Link *link) {
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
-            !strv_isempty(network->search_domains) ||
-            !strv_isempty(network->route_domains))
+            !ordered_set_isempty(network->search_domains) ||
+            !ordered_set_isempty(network->route_domains))
                 link_dirty(link);
 
         return 0;
@@ -599,18 +605,21 @@ int config_parse_netdev(const char *unit,
 
         kind = netdev_kind_from_string(kind_string);
         if (kind == _NETDEV_KIND_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid NetDev kind: %s", lvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid NetDev kind: %s", lvalue);
                 return 0;
         }
 
         r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "%s could not be found, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "%s could not be found, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (netdev->kind != kind) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "NetDev is not a %s, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "NetDev is not a %s, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -677,8 +686,8 @@ int config_parse_domains(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                n->search_domains = strv_free(n->search_domains);
-                n->route_domains = strv_free(n->route_domains);
+                n->search_domains = ordered_set_free_free(n->search_domains);
+                n->route_domains = ordered_set_free_free(n->route_domains);
                 return 0;
         }
 
@@ -690,7 +699,8 @@ int config_parse_domains(
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract search or route domain, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract search or route domain, ignoring: %s", rvalue);
                         break;
                 }
                 if (r == 0)
@@ -700,35 +710,38 @@ int config_parse_domains(
                 domain = is_route ? w + 1 : w;
 
                 if (dns_name_is_root(domain) || streq(domain, "*")) {
-                        /* If the root domain appears as is, or the special token "*" is found, we'll consider this as
-                         * routing domain, unconditionally. */
+                        /* If the root domain appears as is, or the special token "*" is found, we'll
+                         * consider this as routing domain, unconditionally. */
                         is_route = true;
-                        domain = "."; /* make sure we don't allow empty strings, thus write the root domain as "." */
+                        domain = "."; /* make sure we don't allow empty strings, thus write the root
+                                       * domain as "." */
                 } else {
                         r = dns_name_normalize(domain, 0, &normalized);
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "'%s' is not a valid domain name, ignoring.", domain);
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "'%s' is not a valid domain name, ignoring.", domain);
                                 continue;
                         }
 
                         domain = normalized;
 
                         if (is_localhost(domain)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "'localhost' domain names may not be configure as search or route domains, ignoring assignment: %s", domain);
+                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                           "'localhost' domain may not be configured as search or route domain, ignoring assignment: %s",
+                                           domain);
                                 continue;
                         }
                 }
 
-                if (is_route)
-                        r = strv_extend(&n->route_domains, domain);
-                else
-                        r = strv_extend(&n->search_domains, domain);
+                OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
+                r = ordered_set_ensure_allocated(set, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_put_strdup(*set, domain);
                 if (r < 0)
                         return log_oom();
         }
-
-        strv_uniq(n->route_domains);
-        strv_uniq(n->search_domains);
 
         return 0;
 }
@@ -754,7 +767,8 @@ int config_parse_tunnel(const char *unit,
 
         r = netdev_get(network->manager, rvalue, &netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Tunnel is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Tunnel is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -779,7 +793,8 @@ int config_parse_tunnel(const char *unit,
 
         r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add VLAN '%s' to network, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Cannot add VLAN '%s' to network, ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -854,7 +869,8 @@ int config_parse_dhcp(
                 else if (streq(rvalue, "both"))
                         s = ADDRESS_FAMILY_YES;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DHCP option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse DHCP option, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -874,7 +890,8 @@ static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DHCPClientIdentifier, "Failed to parse client identifier type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_client_identifier, dhcp_client_identifier, DHCPClientIdentifier,
+                         "Failed to parse client identifier type");
 
 int config_parse_ipv6token(
                 const char* unit,
@@ -899,17 +916,20 @@ int config_parse_ipv6token(
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 token, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse IPv6 token, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
         if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -963,7 +983,8 @@ int config_parse_ipv6_privacy_extensions(
                         if (streq(rvalue, "kernel"))
                                 s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
                         else {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
+                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                           "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
                                 return 0;
                         }
                 }
@@ -999,17 +1020,20 @@ int config_parse_hostname(
                 return r;
 
         if (!hostname_is_valid(hn, false)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not valid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Hostname is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         r = dns_name_is_valid(hn);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
         if (r == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -1041,7 +1065,8 @@ int config_parse_timezone(
                 return r;
 
         if (!timezone_is_valid(tz, LOG_ERR)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Timezone is not valid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Timezone is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -1076,14 +1101,16 @@ int config_parse_dhcp_server_dns(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
                         break;
 
                 if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse DNS server address, ignoring: %s", w);
                         continue;
                 }
 
@@ -1126,7 +1153,8 @@ int config_parse_radv_dns(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -1143,8 +1171,8 @@ int config_parse_radv_dns(
                         n->router_dns = m;
 
                 } else
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse DNS server address, ignoring: %s", w);
-
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse DNS server address, ignoring: %s", w);
         }
 
         return 0;
@@ -1177,7 +1205,8 @@ int config_parse_radv_search_domains(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -1185,18 +1214,20 @@ int config_parse_radv_search_domains(
 
                 r = dns_name_apply_idna(w, &idna);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to apply IDNA to domain name '%s', ignoring: %m", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to apply IDNA to domain name '%s', ignoring: %m", w);
                         continue;
-                }
-                if (r > 0) {
-                        r = strv_push(&n->router_search_domains, idna);
-                        if (r >= 0)
-                                idna = NULL;
-                } else {
-                        r = strv_push(&n->router_search_domains, w);
-                        if (r >= 0)
-                                w = NULL;
-                }
+                } else if (r == 0)
+                        /* transfer ownership to simplify subsequent operations */
+                        idna = TAKE_PTR(w);
+
+                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_consume(n->router_search_domains, TAKE_PTR(idna));
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1230,14 +1261,16 @@ int config_parse_dhcp_server_ntp(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract word, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
                         return 0;
 
                 if (inet_pton(AF_INET, w, &a) <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse NTP server address, ignoring: %s", w);
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse NTP server address, ignoring: %s", w);
                         continue;
                 }
 
@@ -1279,7 +1312,8 @@ int config_parse_dns(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
                         break;
                 }
                 if (r == 0)
@@ -1287,7 +1321,8 @@ int config_parse_dns(
 
                 r = in_addr_from_string_auto(w, &family, &a);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse dns server address, ignoring: %s", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse dns server address, ignoring: %s", w);
                         continue;
                 }
 
@@ -1336,7 +1371,8 @@ int config_parse_dnssec_negative_trust_anchors(
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract negative trust anchor domain, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract negative trust anchor domain, ignoring: %s", rvalue);
                         break;
                 }
                 if (r == 0)
@@ -1344,7 +1380,8 @@ int config_parse_dnssec_negative_trust_anchors(
 
                 r = dns_name_is_valid(w);
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name, ignoring.", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "%s is not a valid domain name, ignoring.", w);
                         continue;
                 }
 
@@ -1393,7 +1430,8 @@ int config_parse_ntp(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract NTP server name, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract NTP server name, ignoring: %s", rvalue);
                         break;
                 }
                 if (r == 0)
@@ -1401,7 +1439,8 @@ int config_parse_ntp(
 
                 r = dns_name_is_valid_or_address(w);
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name or IP address, ignoring.", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "%s is not a valid domain name or IP address, ignoring.", w);
                         continue;
                 }
 
@@ -1446,14 +1485,16 @@ int config_parse_dhcp_user_class(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split user classes option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to split user classes option, ignoring: %s", rvalue);
                         break;
                 }
                 if (r == 0)
                         break;
 
                 if (strlen(w) > 255) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "%s length is not in the range 1-255, ignoring.", w);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "%s length is not in the range 1-255, ignoring.", w);
                         continue;
                 }
 
@@ -1506,7 +1547,8 @@ int config_parse_section_route_table(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse DHCP use domains setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains,
+                         "Failed to parse DHCP use domains setting");
 
 static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
         [DHCP_USE_DOMAINS_NO] = "no",

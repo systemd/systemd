@@ -391,8 +391,9 @@ static int radv_set_dns(Link *link, Link *uplink) {
 }
 
 static int radv_set_domains(Link *link, Link *uplink) {
-        char **search_domains;
+        OrderedSet *search_domains;
         usec_t lifetime_usec;
+        _cleanup_free_ char **s = NULL; /* just free() because the strings are owned by the set */
 
         if (!link->network->router_emit_domains)
                 return 0;
@@ -423,9 +424,13 @@ static int radv_set_domains(Link *link, Link *uplink) {
         return 0;
 
  set_domains:
+        s = ordered_set_get_strv(search_domains);
+        if (!s)
+                return log_oom();
+
         return sd_radv_set_dnssl(link->radv,
                                  DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC),
-                                 search_domains);
+                                 s);
 
 }
 
