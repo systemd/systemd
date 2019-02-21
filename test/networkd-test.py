@@ -950,12 +950,12 @@ DNS=192.168.42.1''')
 [Network]
 DNS=127.0.0.1''')
 
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'start', 'systemd-resolved', 'systemd-networkd'])
 
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
                 contents = f.read()
-            if ' 127.0.0.1' in contents:
+            if ' 127.0.0.1' in contents and '192.168.42.1' in contents:
                 break
             time.sleep(0.1)
         self.assertIn('nameserver 192.168.42.1\n', contents)
