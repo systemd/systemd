@@ -765,11 +765,28 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         self.assertTrue(self.link_exits('dummy98'))
 
-        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        # This also tests address pool
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '32']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4 peer 10.2.3.5/16 scope global 32')
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '33']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, 'inet 10.6.7.8/16 brd 10.6.255.255 scope global 33')
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '34']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '35']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
         self.assertRegex(output, 'inet6 2001:db8::20 peer 2001:db8::10/128 scope global')
+        self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
 
         output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
         print(output)
