@@ -575,6 +575,13 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
     def test_resolved_domain_restricted_dns(self):
         '''resolved: domain-restricted DNS servers'''
 
+        # FIXME: resolvectl query fails with enabled DNSSEC against our dnsmasq
+        conf = '/run/systemd/resolved.conf.d/test-disable-dnssec.conf'
+        os.makedirs(os.path.dirname(conf), exist_ok=True)
+        with open(conf, 'w') as f:
+            f.write('[Resolve]\nDNSSEC=no\n')
+        self.addCleanup(os.remove, conf)
+
         # create interface for generic connections; this will map all DNS names
         # to 192.168.42.1
         self.create_iface(dnsmasq_opts=['--address=/#/192.168.42.1'])
