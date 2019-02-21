@@ -266,7 +266,7 @@
         to directories outside of these explicitly configured and managed ones. Specifically, do not use
         <varname>BindPaths=</varname> and be careful with <constant>AF_UNIX</constant> file descriptor
         passing for directory file descriptors, as this would permit processes to create files or directories
-        owned by the dynamic user/group that are not subject to the life-cycle and access guarantees of the
+        owned by the dynamic user/group that are not subject to the lifecycle and access guarantees of the
         service. Defaults to off.</para></listitem>
       </varlistentry>
 
