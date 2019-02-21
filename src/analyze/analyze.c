@@ -78,6 +78,7 @@ static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
 static const char *arg_root = NULL;
+static unsigned arg_iterations = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -1680,7 +1681,7 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(p, strv_skip(argv, 1)) {
                 _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
                 _cleanup_free_ char *t = NULL;
-                usec_t next;
+                unsigned i;
 
                 r = calendar_spec_from_string(*p, &spec);
                 if (r < 0) {
@@ -1705,21 +1706,42 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
 
                 printf("Normalized form: %s\n", t);
 
-                r = calendar_spec_next_usec(spec, n, &next);
-                if (r == -ENOENT)
-                        printf("    Next elapse: never\n");
-                else if (r < 0) {
-                        ret = log_error_errno(r, "Failed to determine next elapse for '%s': %m", *p);
-                        continue;
-                } else {
+                for (i = 0; i < arg_iterations; i++) {
                         char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
+                        usec_t next;
 
-                        printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
+                        r = calendar_spec_next_usec(spec, n, &next);
+                        if (r == -ENOENT) {
+                                if (i > 0)
+                                        break;
+
+                                printf("    Next elapse: never\n");
+                                return ret;
+                        }
+                        if (r < 0) {
+                                ret = log_error_errno(r, "Failed to determine next elapse for '%s': %m", *p);
+                                break;
+                        }
+
+                        if (i == 0)
+                                printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
+                        else {
+                                int k = DECIMAL_STR_WIDTH(i+1);
+
+                                if (k < 8)
+                                        k = 8 - k;
+                                else
+                                        k = 0;
+
+                                printf("%*sIter. #%u: %s\n", k, "", i+1, format_timestamp(buffer, sizeof(buffer), next));
+                        }
 
                         if (!in_utc_timezone())
                                 printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
 
                         printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
+
+                        n = next;
                 }
 
                 if (*(p+1))
@@ -1827,6 +1849,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                           earlier than the latest in the branch\n"
                "     --man[=BOOL]          Do [not] check for existence of man pages\n"
                "     --generators[=BOOL]   Do [not] run unit generators (requires privileges)\n"
+               "     --iterations=N        Show the specified number of iterations\n"
                "\nCommands:\n"
                "  time                     Print time spent in the kernel\n"
                "  blame                    Print list of running units ordered by time to init\n"
@@ -1870,6 +1893,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_MAN,
                 ARG_GENERATORS,
+                ARG_ITERATIONS,
         };
 
         static const struct option options[] = {
@@ -1889,6 +1913,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "generators",   optional_argument, NULL, ARG_GENERATORS       },
                 { "host",         required_argument, NULL, 'H'                  },
                 { "machine",      required_argument, NULL, 'M'                  },
+                { "iterations",   required_argument, NULL, ARG_ITERATIONS       },
                 {}
         };
 
@@ -1985,6 +2010,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_generators = r;
                         } else
                                 arg_generators = true;
+
+                        break;
+
+                case ARG_ITERATIONS:
+                        r = safe_atou(optarg, &arg_iterations);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse iterations: %s", optarg);
 
                         break;
 
