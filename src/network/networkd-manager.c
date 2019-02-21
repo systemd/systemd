@@ -43,7 +43,7 @@ static int setup_default_address_pool(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
+        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
         if (r < 0)
                 return r;
 
@@ -51,7 +51,7 @@ static int setup_default_address_pool(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
+        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
         if (r < 0)
                 return r;
 
