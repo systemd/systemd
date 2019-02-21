@@ -38,15 +38,15 @@ Link.AllMulticast,                      config_parse_tristate,                  
 Link.Unmanaged,                         config_parse_bool,                              0,                             offsetof(Network, unmanaged)
 Link.RequiredForOnline,                 config_parse_bool,                              0,                             offsetof(Network, required_for_online)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
-Network.Bridge,                         config_parse_netdev,                            0,                             0
-Network.Bond,                           config_parse_netdev,                            0,                             0
-Network.VLAN,                           config_parse_netdev,                            0,                             0
-Network.MACVLAN,                        config_parse_netdev,                            0,                             0
-Network.MACVTAP,                        config_parse_netdev,                            0,                             0
-Network.IPVLAN,                         config_parse_netdev,                            0,                             0
-Network.VXLAN,                          config_parse_netdev,                            0,                             0
-Network.Tunnel,                         config_parse_tunnel,                            0,                             0
-Network.VRF,                            config_parse_netdev,                            0,                             0
+Network.Bridge,                         config_parse_ifname,                            0,                             offsetof(Network, bridge_name)
+Network.Bond,                           config_parse_ifname,                            0,                             offsetof(Network, bond_name)
+Network.VLAN,                           config_parse_stacked_netdev,                    0,                             offsetof(Network, stacked_netdev_names)
+Network.MACVLAN,                        config_parse_stacked_netdev,                    0,                             offsetof(Network, stacked_netdev_names)
+Network.MACVTAP,                        config_parse_stacked_netdev,                    0,                             offsetof(Network, stacked_netdev_names)
+Network.IPVLAN,                         config_parse_stacked_netdev,                    0,                             offsetof(Network, stacked_netdev_names)
+Network.VXLAN,                          config_parse_stacked_netdev,                    0,                             offsetof(Network, stacked_netdev_names)
+Network.Tunnel,                         config_parse_stacked_netdev,                    _NETDEV_KIND_TUNNEL,           offsetof(Network, stacked_netdev_names)
+Network.VRF,                            config_parse_ifname,                            0,                             offsetof(Network, vrf_name)
 Network.DHCP,                           config_parse_dhcp,                              0,                             offsetof(Network, dhcp)
 Network.DHCPServer,                     config_parse_bool,                              0,                             offsetof(Network, dhcp_server)
 Network.LinkLocalAddressing,            config_parse_address_family_boolean,            0,                             offsetof(Network, link_local)

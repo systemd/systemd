@@ -120,6 +120,10 @@ struct Network {
         NetDev *bond;
         NetDev *vrf;
         Hashmap *stacked_netdevs;
+        char *bridge_name;
+        char *bond_name;
+        char *vrf_name;
+        Hashmap *stacked_netdev_names;
 
         /* DHCP Client Support */
         AddressFamilyBoolean dhcp;
@@ -297,7 +301,7 @@ void network_apply_anonymize_if_set(Network *network);
 
 bool network_has_static_ipv6_addresses(Network *network);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_netdev);
+CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);

@@ -16,6 +16,7 @@
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -97,12 +98,107 @@ void network_apply_anonymize_if_set(Network *network) {
         network->dhcp_use_timezone = false;
 }
 
+static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret_netdev) {
+        const char *kind_string;
+        NetDev *netdev;
+        int r;
+
+        assert(network);
+        assert(network->manager);
+        assert(network->filename);
+        assert(ret_netdev);
+
+        if (!name)
+                return 0;
+
+        if (kind == _NETDEV_KIND_TUNNEL)
+                kind_string = "tunnel";
+        else {
+                kind_string = netdev_kind_to_string(kind);
+                if (!kind_string)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s: Invalid NetDev kind of %s, ignoring assignment.",
+                                               network->filename, name);
+        }
+
+        r = netdev_get(network->manager, name, &netdev);
+        if (r < 0)
+                return log_error_errno(r, "%s: %s NetDev could not be found, ignoring assignment.",
+                                       network->filename, name);
+
+        if (netdev->kind != kind && !(kind == _NETDEV_KIND_TUNNEL &&
+                                      IN_SET(netdev->kind,
+                                             NETDEV_KIND_IPIP,
+                                             NETDEV_KIND_SIT,
+                                             NETDEV_KIND_GRE,
+                                             NETDEV_KIND_GRETAP,
+                                             NETDEV_KIND_IP6GRE,
+                                             NETDEV_KIND_IP6GRETAP,
+                                             NETDEV_KIND_VTI,
+                                             NETDEV_KIND_VTI6,
+                                             NETDEV_KIND_IP6TNL)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: NetDev %s is not a %s, ignoring assignment",
+                                       network->filename, name, kind_string);
+
+        *ret_netdev = netdev_ref(netdev);
+        return 1;
+}
+
+static int network_resolve_stacked_netdevs(Network *network) {
+        void *name, *kind;
+        Iterator i;
+        int r;
+
+        assert(network);
+
+        HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names, i) {
+                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+
+                r = network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev);
+                if (r <= 0)
+                        continue;
+
+                r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
+                if (r < 0)
+                        return log_error_errno(r, "%s: Failed to add NetDev '%s' to network: %m",
+                                               network->filename, (const char *) name);
+
+                netdev = NULL;
+        }
+
+        return 0;
+}
+
 static int network_verify(Network *network) {
         Address *address;
         Route *route;
 
         assert(network);
         assert(network->filename);
+
+        /* skip out early if configuration does not match the environment */
+        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
+                              network->match_host, network->match_virt, network->match_kernel_cmdline,
+                              network->match_kernel_version, network->match_arch,
+                              NULL, NULL, NULL, NULL, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s: Conditions in the file do not match the system environment, skipping.", network->filename);
+
+        (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
+        (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
+        (void) network_resolve_netdev_one(network, network->vrf_name, NETDEV_KIND_VRF, &network->vrf);
+        (void) network_resolve_stacked_netdevs(network);
+
+        /* Free unnecessary entries. */
+        network->bond_name = mfree(network->bond_name);
+        network->bridge_name = mfree(network->bridge_name);
+        network->vrf_name = mfree(network->vrf_name);
+        network->stacked_netdev_names = hashmap_free_free_key(network->stacked_netdev_names);
 
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
@@ -395,10 +491,13 @@ void network_free(Network *network) {
         ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
 
+        free(network->bridge_name);
+        free(network->bond_name);
+        free(network->vrf_name);
+        hashmap_free_free_key(network->stacked_netdev_names);
         netdev_unref(network->bridge);
         netdev_unref(network->bond);
         netdev_unref(network->vrf);
-
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
         while ((route = network->static_routes))
@@ -576,7 +675,7 @@ bool network_has_static_ipv6_addresses(Network *network) {
         return false;
 }
 
-int config_parse_netdev(const char *unit,
+int config_parse_stacked_netdev(const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -586,11 +685,10 @@ int config_parse_netdev(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Network *network = userdata;
-        _cleanup_free_ char *kind_string = NULL;
-        char *p;
-        NetDev *netdev;
+        _cleanup_free_ char *kind_string = NULL, *name = NULL;
+        Hashmap **h = data;
         NetDevKind kind;
+        char *p;
         int r;
 
         assert(filename);
@@ -598,72 +696,45 @@ int config_parse_netdev(const char *unit,
         assert(rvalue);
         assert(data);
 
-        kind_string = strdup(lvalue);
-        if (!kind_string)
-                return log_oom();
-
-        /* the keys are CamelCase versions of the kind */
-        for (p = kind_string; *p; p++)
-                *p = tolower(*p);
-
-        kind = netdev_kind_from_string(kind_string);
-        if (kind == _NETDEV_KIND_INVALID) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid NetDev kind: %s", lvalue);
-                return 0;
-        }
-
-        r = netdev_get(network->manager, rvalue, &netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "%s could not be found, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        if (netdev->kind != kind) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "NetDev is not a %s, ignoring assignment: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        switch (kind) {
-        case NETDEV_KIND_BRIDGE:
-                network->bridge = netdev_unref(network->bridge);
-                network->bridge = netdev;
-
-                break;
-        case NETDEV_KIND_BOND:
-                network->bond = netdev_unref(network->bond);
-                network->bond = netdev;
-
-                break;
-        case NETDEV_KIND_VRF:
-                network->vrf = netdev_unref(network->vrf);
-                network->vrf = netdev;
-
-                break;
-        case NETDEV_KIND_VLAN:
-        case NETDEV_KIND_MACVLAN:
-        case NETDEV_KIND_MACVTAP:
-        case NETDEV_KIND_IPVLAN:
-        case NETDEV_KIND_VXLAN:
-        case NETDEV_KIND_VCAN:
-                r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
-                if (r < 0)
+        if (ltype == _NETDEV_KIND_TUNNEL)
+                kind = _NETDEV_KIND_TUNNEL;
+        else {
+                kind_string = strdup(lvalue);
+                if (!kind_string)
                         return log_oom();
 
-                r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network: %m", rvalue);
+                /* the keys are CamelCase versions of the kind */
+                for (p = kind_string; *p; p++)
+                        *p = tolower(*p);
+
+                kind = netdev_kind_from_string(kind_string);
+                if (kind < 0 || IN_SET(kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid NetDev kind: %s", lvalue);
                         return 0;
                 }
-
-                break;
-        default:
-                assert_not_reached("Cannot parse NetDev");
         }
 
-        netdev_ref(netdev);
+        if (!ifname_valid(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        name = strdup(rvalue);
+        if (!name)
+                return log_oom();
+
+        r = hashmap_ensure_allocated(h, &string_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = hashmap_put(*h, name, INT_TO_PTR(kind));
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network, ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        name = NULL;
 
         return 0;
 }
@@ -745,63 +816,6 @@ int config_parse_domains(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
-}
-
-int config_parse_tunnel(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
-        Network *network = userdata;
-        NetDev *netdev;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = netdev_get(network->manager, rvalue, &netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Tunnel is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (!IN_SET(netdev->kind,
-                    NETDEV_KIND_IPIP,
-                    NETDEV_KIND_SIT,
-                    NETDEV_KIND_GRE,
-                    NETDEV_KIND_GRETAP,
-                    NETDEV_KIND_IP6GRE,
-                    NETDEV_KIND_IP6GRETAP,
-                    NETDEV_KIND_VTI,
-                    NETDEV_KIND_VTI6,
-                    NETDEV_KIND_IP6TNL)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "NetDev is not a tunnel, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        r = hashmap_ensure_allocated(&network->stacked_netdevs, &string_hash_ops);
-        if (r < 0)
-                return log_oom();
-
-        r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Cannot add VLAN '%s' to network, ignoring: %m", rvalue);
-                return 0;
-        }
-
-        netdev_ref(netdev);
 
         return 0;
 }
