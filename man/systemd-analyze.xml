@@ -251,11 +251,14 @@ NAutoVTs=8
     All units files present in the directories containing the command line arguments will
     be used in preference to the other paths.</para>
 
-    <para><command>systemd-analyze calendar</command> will parse and normalize repetitive calendar time events, and
-    will calculate when they will elapse next. This takes the same input as the <varname>OnCalendar=</varname> setting
-    in <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>, following the
-    syntax described in
-    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+    <para><command>systemd-analyze calendar</command> will parse and normalize repetitive calendar time
+    events, and will calculate when they will elapse next. This takes the same input as the
+    <varname>OnCalendar=</varname> setting in
+    <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    following the syntax described in
+    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. By
+    default, only the next time the calendar expression will elapse is shown; use
+    <option>--iterations=</option> to show the specified number of next times the expression elapses.</para>
 
     <para><command>systemd-analyze service-watchdogs</command>
     prints the current state of service runtime watchdogs of the <command>systemd</command> daemon.
@@ -399,6 +402,13 @@ NAutoVTs=8
 
         <listitem><para>With <command>cat-files</command>, show config files underneath
         the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>When used with the <command>calendar</command> command, show the specified number of
+        iterations the specified calendar expression will elapse next. Defaults to 1.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
