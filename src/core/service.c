@@ -3214,11 +3214,19 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         bool notify_dbus = true;
         Service *s = SERVICE(u);
         ServiceResult f;
+        ExitClean clean_mode;
 
         assert(s);
         assert(pid >= 0);
 
-        if (is_clean_exit(code, status, s->type == SERVICE_ONESHOT ? EXIT_CLEAN_COMMAND : EXIT_CLEAN_DAEMON, &s->success_status))
+        /* Oneshot services and non-SERVICE_EXEC_START commands should not be
+         * considered daemons as they are typically not long running. */
+        if (s->type == SERVICE_ONESHOT || (s->control_pid == pid && s->control_command_id != SERVICE_EXEC_START))
+                clean_mode = EXIT_CLEAN_COMMAND;
+        else
+                clean_mode = EXIT_CLEAN_DAEMON;
+
+        if (is_clean_exit(code, status, clean_mode, &s->success_status))
                 f = SERVICE_SUCCESS;
         else if (code == CLD_EXITED)
                 f = SERVICE_FAILURE_EXIT_CODE;
