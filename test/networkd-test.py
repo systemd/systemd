@@ -655,52 +655,52 @@ Domains= ~company ~lab''')
         '''resolved queries to /etc/hosts'''
 
         # FIXME: -t MX query fails with enabled DNSSEC (even when using
-        # the known negative trust anchor .internal instead of .example)
+        # the known negative trust anchor .internal instead of .example.com)
         conf = '/run/systemd/resolved.conf.d/test-disable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
             f.write('[Resolve]\nDNSSEC=no\nLLMNR=no\nMulticastDNS=no\n')
         self.addCleanup(os.remove, conf)
 
-        # create /etc/hosts bind mount which resolves my.example for IPv4
+        # create /etc/hosts bind mount which resolves my.example.com for IPv4
         hosts = os.path.join(self.workdir, 'hosts')
         with open(hosts, 'w') as f:
-            f.write('172.16.99.99  my.example\n')
+            f.write('172.16.99.99  my.example.com\n')
         subprocess.check_call(['mount', '--bind', hosts, '/etc/hosts'])
         self.addCleanup(subprocess.call, ['umount', '/etc/hosts'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-resolved.service'])
 
         # note: different IPv4 address here, so that it's easy to tell apart
         # what resolved the query
-        self.create_iface(dnsmasq_opts=['--host-record=my.example,172.16.99.1,2600::99:99',
-                                        '--host-record=other.example,172.16.0.42,2600::42',
-                                        '--mx-host=example,mail.example'],
+        self.create_iface(dnsmasq_opts=['--host-record=my.example.com,172.16.99.1,2600::99:99',
+                                        '--host-record=other.example.com,172.16.0.42,2600::42',
+                                        '--mx-host=example.com,mail.example.com'],
                           ipv6=True)
         self.do_test(coldplug=None, ipv6=True)
 
         try:
             # family specific queries
-            out = subprocess.check_output(['resolvectl', 'query', '-4', 'my.example'])
-            self.assertIn(b'my.example: 172.16.99.99', out)
+            out = subprocess.check_output(['resolvectl', 'query', '-4', 'my.example.com'])
+            self.assertIn(b'my.example.com: 172.16.99.99', out)
             # we don't expect an IPv6 answer; if /etc/hosts has any IP address,
             # it's considered a sufficient source
-            self.assertNotEqual(subprocess.call(['resolvectl', 'query', '-6', 'my.example']), 0)
+            self.assertNotEqual(subprocess.call(['resolvectl', 'query', '-6', 'my.example.com']), 0)
             # "any family" query; IPv4 should come from /etc/hosts
-            out = subprocess.check_output(['resolvectl', 'query', 'my.example'])
-            self.assertIn(b'my.example: 172.16.99.99', out)
+            out = subprocess.check_output(['resolvectl', 'query', 'my.example.com'])
+            self.assertIn(b'my.example.com: 172.16.99.99', out)
             # IP → name lookup; again, takes the /etc/hosts one
             out = subprocess.check_output(['resolvectl', 'query', '172.16.99.99'])
-            self.assertIn(b'172.16.99.99: my.example', out)
+            self.assertIn(b'172.16.99.99: my.example.com', out)
 
             # non-address RRs should fall back to DNS
-            out = subprocess.check_output(['resolvectl', 'query', '--type=MX', 'example'])
-            self.assertIn(b'example IN MX 1 mail.example', out)
+            out = subprocess.check_output(['resolvectl', 'query', '--type=MX', 'example.com'])
+            self.assertIn(b'example.com IN MX 1 mail.example.com', out)
 
             # other domains query DNS
-            out = subprocess.check_output(['resolvectl', 'query', 'other.example'])
+            out = subprocess.check_output(['resolvectl', 'query', 'other.example.com'])
             self.assertIn(b'172.16.0.42', out)
             out = subprocess.check_output(['resolvectl', 'query', '172.16.0.42'])
-            self.assertIn(b'172.16.0.42: other.example', out)
+            self.assertIn(b'172.16.0.42: other.example.com', out)
         except (AssertionError, subprocess.CalledProcessError):
             self.show_journal('systemd-resolved.service')
             self.print_server_log()
