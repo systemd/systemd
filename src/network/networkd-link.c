@@ -29,6 +29,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
 #include "virt.h"
@@ -71,6 +72,9 @@ static bool link_dhcp6_enabled(Link *link) {
                 return false;
 
         if (link->network->bond)
+                return false;
+
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
         return link->network->dhcp & ADDRESS_FAMILY_IPV6;
@@ -142,6 +146,9 @@ static bool link_ipv6ll_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
@@ -152,6 +159,9 @@ static bool link_ipv6_enabled(Link *link) {
                 return false;
 
         if (link->network->bridge || link->network->bond)
+                return false;
+
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
                 return false;
 
         /* DHCPv6 client will not be started if no IPv6 link-local address is configured. */
@@ -233,6 +243,9 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (link->network->ip_forward == _ADDRESS_FAMILY_BOOLEAN_INVALID)
                 return false;
 
+        if (manager_sysctl_ipv6_enabled(link->manager) == 0)
+                return false;
+
         return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
 }
 
@@ -297,7 +310,6 @@ static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
 }
 
 static int link_enable_ipv6(Link *link) {
-        const char *p = NULL;
         bool disabled;
         int r;
 
@@ -306,9 +318,7 @@ static int link_enable_ipv6(Link *link) {
 
         disabled = !link_ipv6_enabled(link);
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/disable_ipv6");
-
-        r = write_string_file(p, one_zero(disabled), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", disabled);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot %s IPv6 for interface %s: %m",
                                        enable_disable(!disabled), link->ifname);
@@ -1330,15 +1340,12 @@ static int link_set_bridge_vlan(Link *link) {
 }
 
 static int link_set_proxy_arp(Link *link) {
-        const char *p = NULL;
         int r;
 
         if (!link_proxy_arp_enabled(link))
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv4/conf/", link->ifname, "/proxy_arp");
-
-        r = write_string_file(p, one_zero(link->network->proxy_arp), WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
 
@@ -1912,20 +1919,12 @@ static int link_configure_addrgen_mode(Link *link) {
 
         if (!link_ipv6ll_enabled(link))
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
-        else {
-                const char *p = NULL;
-                _cleanup_free_ char *stable_secret = NULL;
-
-                p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/stable_secret");
-
+        else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
                 /* The file may not exist. And event if it exists, when stable_secret is unset,
-                 * then reading the file fails and EIO is returned. */
-                r = read_one_line_file(p, &stable_secret);
-                if (r < 0)
-                        ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
-                else
-                        ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
-        }
+                 * reading the file fails with EIO. */
+                ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+        else
+                ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
 
         r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
         if (r < 0)
@@ -2653,7 +2652,7 @@ static int link_set_ipv4_forward(Link *link) {
          * primarily to keep IPv4 and IPv6 packet forwarding behaviour
          * somewhat in sync (see below). */
 
-        r = write_string_file("/proc/sys/net/ipv4/ip_forward", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property(AF_INET, NULL, "ip_forward", "1");
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
 
@@ -2675,7 +2674,7 @@ static int link_set_ipv6_forward(Link *link) {
          * same behaviour there and also propagate the setting from
          * one to all, to keep things simple (see above). */
 
-        r = write_string_file("/proc/sys/net/ipv6/conf/all/forwarding", "1", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property(AF_INET6, "all", "forwarding", "1");
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
 
@@ -2683,19 +2682,14 @@ static int link_set_ipv6_forward(Link *link) {
 }
 
 static int link_set_ipv6_privacy_extensions(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
         IPv6PrivacyExtensions s;
-        const char *p = NULL;
         int r;
 
         s = link_ipv6_privacy_extensions(link);
         if (s < 0)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/use_tempaddr");
-        xsprintf(buf, "%u", (unsigned) link->network->ipv6_privacy_extensions);
-
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
 
@@ -2703,7 +2697,6 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
 }
 
 static int link_set_ipv6_accept_ra(Link *link) {
-        const char *p = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -2716,10 +2709,7 @@ static int link_set_ipv6_accept_ra(Link *link) {
         if (!link->network)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/accept_ra");
-
-        /* We handle router advertisements ourselves, tell the kernel to GTFO */
-        r = write_string_file(p, "0", WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property(AF_INET6, link->ifname, "accept_ra", "0");
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
 
@@ -2727,8 +2717,6 @@ static int link_set_ipv6_accept_ra(Link *link) {
 }
 
 static int link_set_ipv6_dad_transmits(Link *link) {
-        char buf[DECIMAL_STR_MAX(int) + 1];
-        const char *p = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -2744,10 +2732,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         if (link->network->ipv6_dad_transmits < 0)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/dad_transmits");
-        xsprintf(buf, "%i", link->network->ipv6_dad_transmits);
-
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "dad_transmits", link->network->ipv6_dad_transmits);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 dad transmits for interface: %m");
 
@@ -2755,8 +2740,6 @@ static int link_set_ipv6_dad_transmits(Link *link) {
 }
 
 static int link_set_ipv6_hop_limit(Link *link) {
-        char buf[DECIMAL_STR_MAX(int) + 1];
-        const char *p = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -2772,10 +2755,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         if (link->network->ipv6_hop_limit < 0)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/hop_limit");
-        xsprintf(buf, "%i", link->network->ipv6_hop_limit);
-
-        r = write_string_file(p, buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
 
@@ -2783,8 +2763,6 @@ static int link_set_ipv6_hop_limit(Link *link) {
 }
 
 static int link_set_ipv6_mtu(Link *link) {
-        char buf[DECIMAL_STR_MAX(unsigned) + 1];
-        const char *p = NULL;
         int r;
 
         /* Make this a NOP if IPv6 is not available */
@@ -2797,11 +2775,7 @@ static int link_set_ipv6_mtu(Link *link) {
         if (link->network->ipv6_mtu == 0)
                 return 0;
 
-        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/mtu");
-
-        xsprintf(buf, "%" PRIu32, link->network->ipv6_mtu);
-
-        r = write_string_file(p, buf, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
 
