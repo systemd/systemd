@@ -35,6 +35,7 @@ bool in4_addr_is_non_local(const struct in_addr *a);
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
+int in_addr_random_prefix(int family, union in_addr_union *u, unsigned prefixlen_fixed_part, unsigned prefixlen);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret);
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
