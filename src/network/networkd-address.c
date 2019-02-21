@@ -495,8 +495,9 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        if (in_addr_is_null(original->family, &original->in_addr) <= 0)
-                return 0;
+        r = in_addr_is_null(original->family, &original->in_addr);
+        if (r <= 0)
+                return r;
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
