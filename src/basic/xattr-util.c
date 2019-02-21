@@ -140,7 +140,12 @@ static int parse_crtime(le64_t le, usec_t *usec) {
 }
 
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
-        struct_statx sx;
+        struct_statx sx
+#if HAS_FEATURE_MEMORY_SANITIZER
+                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                ;
         usec_t a, b;
         le64_t le;
         size_t n;
