@@ -19,3 +19,8 @@ if [[ $(generate_directives src/network/netdev/netdev-gperf.gperf | wc -l) -ne $
 	echo "Looks like test/fuzz/fuzz-netdev-parser/directives.netdev hasn't been updated"
 	exit 1
 fi
+
+if [[ $(generate_directives src/udev/net/link-config-gperf.gperf | wc -l) -ne $(wc -l <test/fuzz/fuzz-link-parser/directives.link) ]]; then
+	echo "Looks like test/fuzz/fuzz-link-parser/directives.link hasn't been updated"
+	exit 1
+fi
