@@ -314,7 +314,6 @@ int network_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         *network = (Network) {
-                .manager = manager,
                 .filename = TAKE_PTR(fname),
                 .name = TAKE_PTR(name),
 
@@ -405,15 +404,13 @@ int network_load_one(Manager *manager, const char *filename) {
                               "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
-        if (r < 0) {
-                /* Unset manager here. Otherwise, LIST_REMOVE() in network_free() fails. */
-                network->manager = NULL;
+        if (r < 0)
                 return r;
-        }
 
         network_apply_anonymize_if_set(network);
 
         LIST_PREPEND(networks, manager->networks, network);
+        network->manager = manager;
 
         r = hashmap_ensure_allocated(&manager->networks_by_name, &string_hash_ops);
         if (r < 0)
