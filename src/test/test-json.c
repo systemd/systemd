@@ -391,6 +391,13 @@ static void test_depth(void) {
                         log_info("max depth at %u", i);
                         break;
                 }
+#if HAS_FEATURE_MEMORY_SANITIZER
+                /* msan doesn't like the stack nesting to be too deep. Let's quit early. */
+                if (i >= 128) {
+                        log_info("quitting early at depth %u", i);
+                        break;
+                }
+#endif
 
                 assert_se(r >= 0);
 
