@@ -1700,14 +1700,16 @@ static int test_calendar_one(usec_t n, const char *p) {
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
                         if (i == 0)
-                                printf("    Next elapse: never\n");
+                                printf("    Next elapse: %snever%s\n",
+                                       ansi_highlight_yellow(), ansi_normal());
                         return 0;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
 
                 if (i == 0)
-                        printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
+                        printf("    Next elapse: %s%s%s\n",
+                               ansi_highlight_blue(), format_timestamp(buffer, sizeof(buffer), next), ansi_normal());
                 else {
                         int k = DECIMAL_STR_WIDTH(i+1);
 
@@ -1716,7 +1718,9 @@ static int test_calendar_one(usec_t n, const char *p) {
                         else
                                 k = 0;
 
-                        printf("%*sIter. #%u: %s\n", k, "", i+1, format_timestamp(buffer, sizeof(buffer), next));
+                        printf("%*sIter. #%u: %s%s%s\n",
+                               k, "", i+1,
+                               ansi_highlight_blue(), format_timestamp(buffer, sizeof(buffer), next), ansi_normal());
                 }
 
                 if (!in_utc_timezone())
