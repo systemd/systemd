@@ -50,12 +50,13 @@ static void link_config_free(link_config *link) {
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
-        free(link->match_name);
-        free(link->match_host);
-        free(link->match_virt);
-        free(link->match_kernel_cmdline);
-        free(link->match_kernel_version);
-        free(link->match_arch);
+        strv_free(link->match_name);
+
+        condition_free_list(link->match_host);
+        condition_free_list(link->match_virt);
+        condition_free_list(link->match_kernel_cmdline);
+        condition_free_list(link->match_kernel_version);
+        condition_free_list(link->match_arch);
 
         free(link->description);
         free(link->mac);
