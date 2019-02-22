@@ -165,8 +165,9 @@ class Utilities():
         if os.path.exists(dnsmasq_log_file):
             os.remove(dnsmasq_log_file)
 
-    def start_networkd(self):
-        if (os.path.exists(os.path.join(networkd_runtime_directory, 'state'))):
+    def start_networkd(self, remove_state_files=True):
+        if (remove_state_files and
+            os.path.exists(os.path.join(networkd_runtime_directory, 'state'))):
             subprocess.check_call('systemctl stop systemd-networkd', shell=True)
             os.remove(os.path.join(networkd_runtime_directory, 'state'))
             subprocess.check_call('systemctl start systemd-networkd', shell=True)
@@ -601,7 +602,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         'configure-without-carrier.network',
-        'routing-policy-rule.network',
+        'routing-policy-rule-dummy98.network',
+        'routing-policy-rule-test1.network',
         'test-static.network']
 
     def setUp(self):
@@ -658,7 +660,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'primary test1')
 
     def test_routing_policy_rule(self):
-        self.copy_unit_to_networkd_unit_path('routing-policy-rule.network', '11-dummy.netdev')
+        self.copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
@@ -676,6 +678,31 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'lookup 7')
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
+    def test_routing_policy_rule_issue_11280(self):
+        self.copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
+                                             'routing-policy-rule-dummy98.network', '12-dummy.netdev')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+        subprocess.call(['ip', 'rule', 'del', 'table', '8'])
+
+        for trial in range(3):
+            # Remove state files only first time
+            self.start_networkd(trial == 0)
+
+            self.assertTrue(self.link_exits('test1'))
+            self.assertTrue(self.link_exits('dummy98'))
+
+            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '7']).rstrip().decode('utf-8')
+            print(output)
+            self.assertRegex(output, '111:	from 192.168.100.18 tos (?:0x08|throughput) iif test1 oif test1 lookup 7')
+
+            output = subprocess.check_output(['ip', 'rule', 'list', 'table', '8']).rstrip().decode('utf-8')
+            print(output)
+            self.assertRegex(output, '112:	from 192.168.101.18 tos (?:0x08|throughput) iif dummy98 oif dummy98 lookup 8')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+        subprocess.call(['ip', 'rule', 'del', 'table', '8'])
 
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
