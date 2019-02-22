@@ -1671,78 +1671,76 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int test_calendar_one(usec_t n, const char *p) {
+        _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        r = calendar_spec_from_string(p, &spec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse calendar specification '%s': %m", p);
+
+        r = calendar_spec_normalize(spec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to normalize calendar specification '%s': %m", p);
+
+        r = calendar_spec_to_string(spec, &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format calendar specification '%s': %m", p);
+
+        if (!streq(t, p))
+                printf("  Original form: %s\n", p);
+
+        printf("Normalized form: %s\n", t);
+
+        for (unsigned i = 0; i < arg_iterations; i++) {
+                char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
+                usec_t next;
+
+                r = calendar_spec_next_usec(spec, n, &next);
+                if (r == -ENOENT) {
+                        if (i == 0)
+                                printf("    Next elapse: never\n");
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
+
+                if (i == 0)
+                        printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
+                else {
+                        int k = DECIMAL_STR_WIDTH(i+1);
+
+                        if (k < 8)
+                                k = 8 - k;
+                        else
+                                k = 0;
+
+                        printf("%*sIter. #%u: %s\n", k, "", i+1, format_timestamp(buffer, sizeof(buffer), next));
+                }
+
+                if (!in_utc_timezone())
+                        printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
+
+                printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
+
+                n = next;
+        }
+
+        return 0;
+}
+
 static int test_calendar(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
         char **p;
         usec_t n;
 
-        n = now(CLOCK_REALTIME);
+        n = now(CLOCK_REALTIME); /* We want to use the same "base" for all expressions */
 
         STRV_FOREACH(p, strv_skip(argv, 1)) {
-                _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
-                _cleanup_free_ char *t = NULL;
-                unsigned i;
-
-                r = calendar_spec_from_string(*p, &spec);
-                if (r < 0) {
-                        ret = log_error_errno(r, "Failed to parse calendar specification '%s': %m", *p);
-                        continue;
-                }
-
-                r = calendar_spec_normalize(spec);
-                if (r < 0) {
-                        ret = log_error_errno(r, "Failed to normalize calendar specification '%s': %m", *p);
-                        continue;
-                }
-
-                r = calendar_spec_to_string(spec, &t);
-                if (r < 0) {
-                        ret = log_error_errno(r, "Failed to format calendar specification '%s': %m", *p);
-                        continue;
-                }
-
-                if (!streq(t, *p))
-                        printf("  Original form: %s\n", *p);
-
-                printf("Normalized form: %s\n", t);
-
-                for (i = 0; i < arg_iterations; i++) {
-                        char buffer[CONST_MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESTAMP_RELATIVE_MAX)];
-                        usec_t next;
-
-                        r = calendar_spec_next_usec(spec, n, &next);
-                        if (r == -ENOENT) {
-                                if (i > 0)
-                                        break;
-
-                                printf("    Next elapse: never\n");
-                                return ret;
-                        }
-                        if (r < 0) {
-                                ret = log_error_errno(r, "Failed to determine next elapse for '%s': %m", *p);
-                                break;
-                        }
-
-                        if (i == 0)
-                                printf("    Next elapse: %s\n", format_timestamp(buffer, sizeof(buffer), next));
-                        else {
-                                int k = DECIMAL_STR_WIDTH(i+1);
-
-                                if (k < 8)
-                                        k = 8 - k;
-                                else
-                                        k = 0;
-
-                                printf("%*sIter. #%u: %s\n", k, "", i+1, format_timestamp(buffer, sizeof(buffer), next));
-                        }
-
-                        if (!in_utc_timezone())
-                                printf("       (in UTC): %s\n", format_timestamp_utc(buffer, sizeof(buffer), next));
-
-                        printf("       From now: %s\n", format_timestamp_relative(buffer, sizeof(buffer), next));
-
-                        n = next;
-                }
+                r = test_calendar_one(n, *p);
+                if (ret == 0 && r < 0)
+                        ret = r;
 
                 if (*(p+1))
                         putchar('\n');
