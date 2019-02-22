@@ -1234,6 +1234,26 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
         return 0;
 }
 
+static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
+        RoutingPolicyRule *link_rule;
+        Iterator i;
+        Link *link;
+
+        assert(m);
+        assert(rule);
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                if (!link->network)
+                        continue;
+
+                LIST_FOREACH(rules, link_rule, link->network->rules)
+                        if (routing_policy_rule_compare_func(link_rule, rule) == 0)
+                                return true;
+        }
+
+        return false;
+}
+
 void routing_policy_rule_purge(Manager *m, Link *link) {
         RoutingPolicyRule *rule, *existing;
         Iterator i;
@@ -1246,6 +1266,12 @@ void routing_policy_rule_purge(Manager *m, Link *link) {
                 existing = set_get(m->rules_foreign, rule);
                 if (!existing)
                         continue; /* Saved rule does not exist anymore. */
+
+                if (manager_links_have_routing_policy_rule(m, existing))
+                        continue; /* Existing links have the saved rule. */
+
+                /* Existing links do not have the saved rule. Let's drop the rule now, and re-configure it
+                 * later when it is requested. */
 
                 r = routing_policy_rule_remove(existing, link, NULL);
                 if (r < 0) {
