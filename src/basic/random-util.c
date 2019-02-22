@@ -23,15 +23,12 @@
 #  include <linux/random.h>
 #endif
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "missing.h"
 #include "random-util.h"
 #include "time-util.h"
-
-#if HAS_FEATURE_MEMORY_SANITIZER
-#include <sanitizer/msan_interface.h>
-#endif
 
 int rdrand(unsigned long *ret) {
 
@@ -58,11 +55,7 @@ int rdrand(unsigned long *ret) {
                      "setc %1"
                      : "=r" (*ret),
                        "=qm" (err));
-
-#if HAS_FEATURE_MEMORY_SANITIZER
-        __msan_unpoison(&err, sizeof(err));
-#endif
-
+        msan_unpoison(&err, sizeof(err));
         if (!err)
                 return -EAGAIN;
 
