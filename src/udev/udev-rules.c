@@ -1496,8 +1496,6 @@ static int parse_file(UdevRules *rules, const char *filename) {
                         continue;
 
                 len = strlen(line);
-                if (len < 3)
-                        continue;
 
                 if (continuation && !ignore_line) {
                         if (strlen(continuation) + len >= UTIL_LINE_SIZE)
@@ -1512,7 +1510,7 @@ static int parse_file(UdevRules *rules, const char *filename) {
                         }
                 }
 
-                if (line[len - 1] == '\\') {
+                if (len > 0 && line[len - 1] == '\\') {
                         if (ignore_line)
                                 continue;
 
@@ -1528,7 +1526,7 @@ static int parse_file(UdevRules *rules, const char *filename) {
 
                 if (ignore_line)
                         log_error("Line too long '%s':%u, ignored", filename, line_nr);
-                else
+                else if (len > 0)
                         add_rule(rules, line, filename, filename_off, line_nr);
 
                 continuation = mfree(continuation);
