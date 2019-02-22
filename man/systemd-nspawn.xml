@@ -802,7 +802,7 @@
         <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
         <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
         <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
-        option is not specified the container's processes are terminated abrubtly via <constant>SIGKILL</constant>. For
+        option is not specified the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
         a list of valid signals, see <citerefentry
         project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
