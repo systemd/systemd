@@ -94,8 +94,6 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         return;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
-
 int link_config_ctx_new(link_config_ctx **ret) {
         _cleanup_(link_config_ctx_freep) link_config_ctx *ctx = NULL;
 
@@ -117,7 +115,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
         return 0;
 }
 
-static int load_link(link_config_ctx *ctx, const char *filename) {
+int link_load_one(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         _cleanup_free_ char *name = NULL;
@@ -224,7 +222,7 @@ int link_config_load(link_config_ctx *ctx) {
                 return log_error_errno(r, "failed to enumerate link files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
-                r = load_link(ctx, *f);
+                r = link_load_one(ctx, *f);
                 if (r < 0)
                         log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
         }
