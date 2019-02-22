@@ -1670,6 +1670,10 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
                         return r;
         }
 
+	if (b->cookie == 0xFFFFFFFFULL) {
+		b->cookie = 0;
+	}
+
         return sd_bus_message_seal(m, ++b->cookie, timeout);
 }
 
