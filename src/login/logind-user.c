@@ -326,7 +326,8 @@ static int user_start_service(User *u) {
                         &job);
         if (r < 0)
                 /* we don't fail due to this, let's try to continue */
-                log_error_errno(r, "Failed to start user service, ignoring: %s", bus_error_message(&error, r));
+                log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
         else
                 u->service_job = job;
 
