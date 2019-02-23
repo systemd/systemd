@@ -100,7 +100,12 @@ struct security_assessor {
         const char *url;
         uint64_t weight;
         uint64_t range;
-        int (*assess)(const struct security_assessor *a, const struct security_info *info, const void *data, uint64_t *ret_badness, char **ret_description);
+        int (*assess)(
+                const struct security_assessor *a,
+                const struct security_info *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description);
         size_t offset;
         uint64_t parameter;
         bool default_dependencies_only;
@@ -1438,7 +1443,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 uint64_t badness;
                 void *data;
 
-                data = (uint8_t*) info + a->offset;
+                data = (uint8_t *) info + a->offset;
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
@@ -1916,14 +1921,15 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         if (!path)
                 return log_oom();
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   path,
-                                   security_map,
-                                   BUS_MAP_STRDUP|BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   NULL,
-                                   info);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        security_map,
+                        BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
+                        &error,
+                        NULL,
+                        info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit properties: %s", bus_error_message(&error, r));
 
@@ -1965,7 +1971,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         return 0;
 }
 
-static int analyze_security_one(sd_bus *bus, const char *name, Table* overview_table, AnalyzeSecurityFlags flags) {
+static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table, AnalyzeSecurityFlags flags) {
         _cleanup_(security_info_free) struct security_info info = {
                 .default_dependencies = true,
                 .capability_bounding_set = UINT64_MAX,
@@ -2015,7 +2021,8 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "ListUnits",
-                                &error, &reply,
+                                &error,
+                                &reply,
                                 NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
@@ -2037,7 +2044,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (!endswith(info.id, ".service"))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, allocated, n+2))
+                        if (!GREEDY_REALLOC(list, allocated, n + 2))
                                 return log_oom();
 
                         copy = strdup(info.id);
