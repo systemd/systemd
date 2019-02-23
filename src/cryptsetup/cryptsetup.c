@@ -558,6 +558,10 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                         log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
                         return -EAGAIN; /* Log actual error, but return EAGAIN */
                 }
+                if (r == -EINVAL) {
+                        log_error_errno(r, "Failed to activate with key file '%s'. (Key file missing?)", key_file);
+                        return -EAGAIN; /* Log actual error, but return EAGAIN */
+                }
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
         } else {
