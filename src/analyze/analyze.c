@@ -48,7 +48,7 @@
 #include "util.h"
 #include "verbs.h"
 
-#define SCALE_X (0.1 / 1000.0)   /* pixels per us */
+#define SCALE_X (0.1 / 1000.0) /* pixels per us */
 #define SCALE_Y (20.0)
 
 #define svg(...) printf(__VA_ARGS__)
@@ -71,8 +71,8 @@ static enum dot {
         DEP_ORDER,
         DEP_REQUIRE
 } arg_dot = DEP_ALL;
-static char** arg_dot_from_patterns = NULL;
-static char** arg_dot_to_patterns = NULL;
+static char **arg_dot_from_patterns = NULL;
+static char **arg_dot_to_patterns = NULL;
 static usec_t arg_fuzz = 0;
 static PagerFlags arg_pager_flags = 0;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -295,8 +295,8 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                  */
                 times.reverse_offset = times.userspace_time;
 
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time =
-                        times.security_start_time = times.security_finish_time = 0;
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time =
+                        times.userspace_time = times.security_start_time = times.security_finish_time = 0;
 
                 subtract_timestamp(&times.finish_time, times.reverse_offset);
 
@@ -328,7 +328,7 @@ static void free_host_info(struct host_info *hi) {
         free(hi);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info *, free_host_info);
 
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         static const struct bus_properties_map property_map[] = {
@@ -368,10 +368,10 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (!GREEDY_REALLOC(unit_times, allocated, c+2))
+                if (!GREEDY_REALLOC(unit_times, allocated, c + 2))
                         return log_oom();
 
-                unit_times[c+1].has_data = false;
+                unit_times[c + 1].has_data = false;
                 t = &unit_times[c];
                 t->name = NULL;
 
@@ -430,8 +430,8 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         };
 
         static const struct bus_properties_map manager_map[] = {
-                { "Virtualization",            "s", NULL, offsetof(struct host_info, virtualization) },
-                { "Architecture",              "s", NULL, offsetof(struct host_info, architecture)   },
+                { "Virtualization", "s", NULL, offsetof(struct host_info, virtualization) },
+                { "Architecture",   "s", NULL, offsetof(struct host_info, architecture)   },
                 {}
         };
 
@@ -452,14 +452,15 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                 }
         }
 
-        r = bus_map_all_properties(system_bus ?: bus,
-                                   "org.freedesktop.hostname1",
-                                   "/org/freedesktop/hostname1",
-                                   hostname_map,
-                                   BUS_MAP_STRDUP,
-                                   &error,
-                                   NULL,
-                                   host);
+        r = bus_map_all_properties(
+                        system_bus ?: bus,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        hostname_map,
+                        BUS_MAP_STRDUP,
+                        &error,
+                        NULL,
+                        host);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get host information from systemd-hostnamed, ignoring: %s",
                                 bus_error_message(&error, r));
@@ -467,14 +468,15 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         }
 
 manager:
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   "/org/freedesktop/systemd1",
-                                   manager_map,
-                                   BUS_MAP_STRDUP,
-                                   &error,
-                                   NULL,
-                                   host);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        manager_map,
+                        BUS_MAP_STRDUP,
+                        &error,
+                        NULL,
+                        host);
         if (r < 0)
                 return log_error_errno(r, "Failed to get host information from systemd: %s",
                                        bus_error_message(&error, r));
@@ -491,7 +493,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         char *ptr;
         int r;
         usec_t activated_time = USEC_INFINITY;
-        _cleanup_free_ char* path = NULL, *unit_id = NULL;
+        _cleanup_free_ char *path = NULL, *unit_id = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
         r = acquire_boot_times(bus, &t);
@@ -566,21 +568,34 @@ static void svg_graph_box(double height, double begin, double end) {
 
         /* outside box, fill */
         svg("<rect class=\"box\" x=\"0\" y=\"0\" width=\"%.03f\" height=\"%.03f\" />\n",
-            SCALE_X * (end - begin), SCALE_Y * height);
+            SCALE_X * (end - begin),
+            SCALE_Y * height);
 
-        for (i = ((long long) (begin / 100000)) * 100000; i <= end; i+=100000) {
+        for (i = ((long long) (begin / 100000)) * 100000; i <= end; i += 100000) {
                 /* lines for each second */
                 if (i % 5000000 == 0)
                         svg("  <line class=\"sec5\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n"
                             "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\" >%.01fs</text>\n",
-                            SCALE_X * i, SCALE_X * i, SCALE_Y * height, SCALE_X * i, -5.0, 0.000001 * i);
+                            SCALE_X * i,
+                            SCALE_X * i,
+                            SCALE_Y * height,
+                            SCALE_X * i,
+                            -5.0,
+                            0.000001 * i);
                 else if (i % 1000000 == 0)
                         svg("  <line class=\"sec1\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n"
                             "  <text class=\"sec\" x=\"%.03f\" y=\"%.03f\" >%.01fs</text>\n",
-                            SCALE_X * i, SCALE_X * i, SCALE_Y * height, SCALE_X * i, -5.0, 0.000001 * i);
+                            SCALE_X * i,
+                            SCALE_X * i,
+                            SCALE_Y * height,
+                            SCALE_X * i,
+                            -5.0,
+                            0.000001 * i);
                 else
                         svg("  <line class=\"sec01\" x1=\"%.03f\" y1=\"0\" x2=\"%.03f\" y2=\"%.03f\" />\n",
-                            SCALE_X * i, SCALE_X * i, SCALE_Y * height);
+                            SCALE_X * i,
+                            SCALE_X * i,
+                            SCALE_Y * height);
         }
 }
 
@@ -822,8 +837,14 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_dependencies_print(const char *name, unsigned level, unsigned branches,
-                                   bool last, struct unit_times *times, struct boot_times *boot) {
+static int list_dependencies_print(
+                const char *name,
+                unsigned level,
+                unsigned branches,
+                bool last,
+                struct unit_times *times,
+                struct boot_times *boot) {
+
         unsigned i;
         char ts[FORMAT_TIMESPAN_MAX], ts2[FORMAT_TIMESPAN_MAX];
 
@@ -864,7 +885,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
 static Hashmap *unit_times_hashmap;
 
-static int list_dependencies_compare(char * const *a, char * const *b) {
+static int list_dependencies_compare(char *const *a, char *const *b) {
         usec_t usa = 0, usb = 0;
         struct unit_times *times;
 
@@ -879,12 +900,10 @@ static int list_dependencies_compare(char * const *a, char * const *b) {
 }
 
 static bool times_in_range(const struct unit_times *times, const struct boot_times *boot) {
-        return times &&
-                times->activated > 0 && times->activated <= boot->finish_time;
+        return times && times->activated > 0 && times->activated <= boot->finish_time;
 }
 
-static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, char ***units,
-                                 unsigned branches) {
+static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, char ***units, unsigned branches) {
         _cleanup_strv_free_ char **deps = NULL;
         char **c;
         int r = 0;
@@ -908,8 +927,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times_in_range(times, boot) &&
-                    times->activated >= service_longest)
+                if (times_in_range(times, boot) && times->activated >= service_longest)
                         service_longest = times->activated;
         }
 
@@ -918,8 +936,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times_in_range(times, boot) &&
-                    service_longest - times->activated <= arg_fuzz)
+                if (times_in_range(times, boot) && service_longest - times->activated <= arg_fuzz)
                         to_print++;
         }
 
@@ -928,8 +945,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (!times_in_range(times, boot) ||
-                    service_longest - times->activated > arg_fuzz)
+                if (!times_in_range(times, boot) || service_longest - times->activated > arg_fuzz)
                         continue;
 
                 to_print--;
@@ -946,8 +962,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
                         continue;
                 }
 
-                r = list_dependencies_one(bus, *c, level + 1, units,
-                                          (branches << 1) | (to_print ? 1 : 0));
+                r = list_dependencies_one(bus, *c, level + 1, units, (branches << 1) | (to_print ? 1 : 0));
                 if (r < 0)
                         return r;
 
@@ -1096,7 +1111,15 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, char* patterns[], char* from_patterns[], char* to_patterns[]) {
+static int graph_one_property(
+                sd_bus *bus,
+                const UnitInfo *u,
+                const char *prop,
+                const char *color,
+                char *patterns[],
+                char *from_patterns[],
+                char *to_patterns[]) {
+
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -1108,10 +1131,8 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
         match_patterns = strv_fnmatch(patterns, u->id, 0);
 
-        if (!strv_isempty(from_patterns) &&
-            !match_patterns &&
-            !strv_fnmatch(from_patterns, u->id, 0))
-                        return 0;
+        if (!strv_isempty(from_patterns) && !match_patterns && !strv_fnmatch(from_patterns, u->id, 0))
+                return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
         if (r < 0)
@@ -1122,9 +1143,7 @@ static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, 
 
                 match_patterns2 = strv_fnmatch(patterns, *unit, 0);
 
-                if (!strv_isempty(to_patterns) &&
-                    !match_patterns2 &&
-                    !strv_fnmatch(to_patterns, *unit, 0))
+                if (!strv_isempty(to_patterns) && !match_patterns2 && !strv_fnmatch(to_patterns, *unit, 0))
                         continue;
 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
@@ -1516,8 +1535,8 @@ static int load_kernel_syscalls(Set **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        /* Let's read the available system calls from the list of available tracing events. Slightly dirty, but good
-         * enough for analysis purposes. */
+        /* Let's read the available system calls from the list of available tracing events. Slightly dirty,
+         * but good enough for analysis purposes. */
 
         f = fopen("/sys/kernel/tracing/available_events", "re");
         if (!f) {
@@ -1543,7 +1562,8 @@ static int load_kernel_syscalls(Set **ret) {
                 if (!e)
                         continue;
 
-                /* These are named differently inside the kernel than their external name for historical reasons. Let's hide them here. */
+                /* These are named differently inside the kernel than their external name for historical
+                 * reasons. Let's hide them here. */
                 if (STR_IN_SET(e, "newuname", "newfstat", "newstat", "newlstat", "sysctl"))
                         continue;
 
@@ -1582,10 +1602,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                set->help);
 
         NULSTR_FOREACH(syscall, set->value)
-                printf("    %s%s%s\n",
-                       syscall[0] == '@' ? ansi_underline() : "",
-                       syscall,
-                       ansi_normal());
+                printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
 }
 
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
@@ -1652,8 +1669,7 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 
 #else
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Not compiled with syscall filters, sorry.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with syscall filters, sorry.");
 }
 #endif
 
@@ -1709,8 +1725,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
                         if (i == 0)
-                                printf("    Next elapse: %snever%s\n",
-                                       ansi_highlight_yellow(), ansi_normal());
+                                printf("    Next elapse: %snever%s\n", ansi_highlight_yellow(), ansi_normal());
                         return 0;
                 }
                 if (r < 0)
@@ -1718,9 +1733,11 @@ static int test_calendar_one(usec_t n, const char *p) {
 
                 if (i == 0)
                         printf("    Next elapse: %s%s%s\n",
-                               ansi_highlight_blue(), format_timestamp(buffer, sizeof(buffer), next), ansi_normal());
+                               ansi_highlight_blue(),
+                               format_timestamp(buffer, sizeof(buffer), next),
+                               ansi_normal());
                 else {
-                        int k = DECIMAL_STR_WIDTH(i+1);
+                        int k = DECIMAL_STR_WIDTH(i + 1);
 
                         if (k < 8)
                                 k = 8 - k;
@@ -1755,7 +1772,7 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
                 if (ret == 0 && r < 0)
                         ret = r;
 
-                if (*(p+1))
+                if (*(p + 1))
                         putchar('\n');
         }
 
@@ -1883,8 +1900,8 @@ static int help(int argc, char *argv[], void *userdata) {
                , link
         );
 
-        /* When updating this list, including descriptions, apply changes to shell-completion/bash/systemd-analyze and
-         * shell-completion/zsh/_systemd-analyze too. */
+        /* When updating this list, including descriptions, apply changes to
+         * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
 
         return 0;
 }
