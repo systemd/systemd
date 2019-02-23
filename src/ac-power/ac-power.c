@@ -13,7 +13,8 @@ static void help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
-               , program_invocation_short_name);
+               , program_invocation_short_name
+        );
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -57,9 +58,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no arguments.",
-                                       program_invocation_short_name);
+                return log_error_errno(
+                        SYNTHETIC_ERRNO(EINVAL), "%s takes no arguments.", program_invocation_short_name);
 
         return 1;
 }
