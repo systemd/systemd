@@ -5,10 +5,13 @@
 
 #include "sd-bus.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
+#include "stdio-util.h"
 #include "util.h"
 
 struct context {
@@ -170,6 +173,106 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
         return 0;
 }
 
+static void client_send_early_fd(struct context *c) {
+        char str_uid[DECIMAL_STR_MAX(uid_t) + 1];
+        _cleanup_free_ char *s = NULL, *hex_uid = NULL;
+        struct cmsghdr *cmsg;
+        struct msghdr msg;
+        ssize_t k;
+        int l;
+
+        /* send AUTH */
+
+        xsprintf(str_uid, UID_FMT, geteuid());
+        hex_uid = hexmem(str_uid, strlen(str_uid));
+        assert_se(hex_uid);
+
+        l = asprintf(&s, "%cAUTH EXTERNAL %s\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n", 0, hex_uid);
+        assert_se(l >= 0);
+
+        msg = (struct msghdr){};
+        msg.msg_iov = &(struct iovec){ .iov_base = s, .iov_len = l };
+        msg.msg_iovlen = 1;
+
+        k = sendmsg(c->fds[1], &msg, MSG_DONTWAIT | MSG_NOSIGNAL);
+        assert_se(k == l);
+
+        s = mfree(s);
+
+        /* send 'Exit' method call with random FD */
+
+        l = asprintf(&s, "%c%c%c%c%c%c%c%c%c%c%c%c" "%c%c%c%c"
+                         "%c" "%co%c" "%c%c%c%c" "/%c" "%c%c%c%c%c%c"
+                         "%c" "%cs%c" "%c%c%c%c" "org.freedesktop.systemd.test%c" "%c%c%c"
+                         "%c" "%cs%c" "%c%c%c%c" "Exit%c" "%c%c%c"
+                         "%c" "%cu%c" "%c%c%c%c"
+                         "%s",
+                         /* fixed header */
+                         'l',           /* little endian */
+                         1,             /* method call */
+                         0,             /* no flags */
+                         1,             /* protocol version */
+                         0, 0, 0, 0,    /* body size */
+                         1, 0, 0, 0,    /* serial */
+                         /* dynamic header */
+                         80, 0, 0, 0,   /* total array length */
+                         1,             /* PATH */
+                                1, 0,                   /* signature length+terminator */
+                                1, 0, 0, 0, 0,          /* path length+terminator */
+                                0, 0, 0, 0, 0, 0,       /* padding */
+                         2,             /* INTERFACE */
+                                1, 0,                   /* signature length+terminator */
+                                28, 0, 0, 0, 0,         /* interface length+terminator */
+                                0, 0, 0,                /* padding */
+                         3,             /* MEMBER */
+                                1, 0,                   /* signature length+terminator */
+                                4, 0, 0, 0, 0,          /* member length+terminator */
+                                0, 0, 0,                /* padding */
+                         9,             /* UNIX_FDS */
+                                1, 0,                   /* signature length+terminator */
+                                1, 0, 0, 0,             /* # unix FDs */
+                         ""
+                    );
+        assert_se(l >= 0);
+
+        msg = (struct msghdr){};
+        msg.msg_iov = &(struct iovec){ .iov_base = s, .iov_len = l };
+        msg.msg_iovlen = 1;
+        msg.msg_control = cmsg = alloca(CMSG_SPACE(sizeof(int)));
+        msg.msg_controllen = cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        *(int *)CMSG_DATA(cmsg) = c->fds[1];
+
+        k = sendmsg(c->fds[1], &msg, MSG_DONTWAIT | MSG_NOSIGNAL);
+        assert_se(k == l);
+}
+
+static int test_early_fd(void) {
+        struct context c;
+        void *p;
+
+        /*
+         * This test sends the SASL authentication plus a full dbus-message with file-descriptors before scheduling
+         * the sd-bus server. The server must be able to deal with such messages, and we verify it does not fail.
+         */
+
+        zero(c);
+
+        assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, c.fds) >= 0);
+
+        c.client_negotiate_unix_fds = true;
+        c.server_negotiate_unix_fds = true;
+        c.client_anonymous_auth = false;
+        c.server_anonymous_auth = true;
+
+        client_send_early_fd(&c);
+        p = server(&c);
+        assert(!p);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
@@ -193,6 +296,9 @@ int main(int argc, char *argv[]) {
 
         r = test_one(true, true, true, false);
         assert_se(r == -EPERM);
+
+        r = test_early_fd();
+        assert_se(r >= 0);
 
         return EXIT_SUCCESS;
 }
