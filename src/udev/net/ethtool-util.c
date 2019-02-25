@@ -775,7 +775,9 @@ int config_parse_advertise(const char *unit,
                         break;
 
                 mode = ethtool_link_mode_bit_from_string(w);
-                if (mode < 0) {
+                /* We reuse the kernel provided enum which does not contain negative value. So, the cast
+                 * below is mandatory. Otherwise, the check below always passes and access an invalid address. */
+                if ((int) mode < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
                         continue;
                 }

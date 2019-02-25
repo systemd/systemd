@@ -67,7 +67,9 @@ struct link_config {
 
 int link_config_ctx_new(link_config_ctx **ret);
 void link_config_ctx_free(link_config_ctx *ctx);
+DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
 
+int link_load_one(link_config_ctx *ctx, const char *filename);
 int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 

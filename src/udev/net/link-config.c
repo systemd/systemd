@@ -50,12 +50,13 @@ static void link_config_free(link_config *link) {
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
-        free(link->match_name);
-        free(link->match_host);
-        free(link->match_virt);
-        free(link->match_kernel_cmdline);
-        free(link->match_kernel_version);
-        free(link->match_arch);
+        strv_free(link->match_name);
+
+        condition_free_list(link->match_host);
+        condition_free_list(link->match_virt);
+        condition_free_list(link->match_kernel_cmdline);
+        condition_free_list(link->match_kernel_version);
+        condition_free_list(link->match_arch);
 
         free(link->description);
         free(link->mac);
@@ -93,8 +94,6 @@ void link_config_ctx_free(link_config_ctx *ctx) {
         return;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(link_config_ctx*, link_config_ctx_free);
-
 int link_config_ctx_new(link_config_ctx **ret) {
         _cleanup_(link_config_ctx_freep) link_config_ctx *ctx = NULL;
 
@@ -116,56 +115,64 @@ int link_config_ctx_new(link_config_ctx **ret) {
         return 0;
 }
 
-static int load_link(link_config_ctx *ctx, const char *filename) {
+int link_load_one(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
-        int i;
+        _cleanup_free_ char *name = NULL;
+        size_t i;
         int r;
 
         assert(ctx);
         assert(filename);
 
         file = fopen(filename, "re");
-        if (!file) {
-                if (errno == ENOENT)
-                        return 0;
-                else
-                        return -errno;
-        }
+        if (!file)
+                return errno == ENOENT ? 0 : -errno;
 
         if (null_or_empty_fd(fileno(file))) {
                 log_debug("Skipping empty file: %s", filename);
                 return 0;
         }
 
-        link = new0(link_config, 1);
+        name = strdup(filename);
+        if (!name)
+                return -ENOMEM;
+
+        link = new(link_config, 1);
         if (!link)
-                return log_oom();
+                return -ENOMEM;
 
-        link->mac_policy = _MACPOLICY_INVALID;
-        link->wol = _WOL_INVALID;
-        link->duplex = _DUP_INVALID;
-        link->port = _NET_DEV_PORT_INVALID;
-        link->autonegotiation = -1;
+        *link = (link_config) {
+                .filename = TAKE_PTR(name),
+                .mac_policy = _MACPOLICY_INVALID,
+                .wol = _WOL_INVALID,
+                .duplex = _DUP_INVALID,
+                .port = _NET_DEV_PORT_INVALID,
+                .autonegotiation = -1,
+        };
 
-        for (i = 0; i < (int)ELEMENTSOF(link->features); i++)
+        for (i = 0; i < ELEMENTSOF(link->features); i++)
                 link->features[i] = -1;
 
         r = config_parse(NULL, filename, file,
-                         "Match\0Link\0Ethernet\0",
+                         "Match\0Link\0",
                          config_item_perf_lookup, link_config_gperf_lookup,
                          CONFIG_PARSE_WARN, link);
         if (r < 0)
                 return r;
-        else
-                log_debug("Parsed configuration file %s", filename);
 
         if (link->speed > UINT_MAX)
                 return -ERANGE;
 
-        link->filename = strdup(filename);
-        if (!link->filename)
-                return log_oom();
+        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
+                              link->match_host, link->match_virt, link->match_kernel_cmdline,
+                              link->match_kernel_version, link->match_arch,
+                              NULL, NULL, NULL, NULL, NULL)) {
+                log_debug("%s: Conditions do not match the system environment, skipping.", filename);
+                return 0;
+        }
+
+        log_debug("Parsed configuration file %s", filename);
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
@@ -215,9 +222,9 @@ int link_config_load(link_config_ctx *ctx) {
                 return log_error_errno(r, "failed to enumerate link files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
-                r = load_link(ctx, *f);
+                r = link_load_one(ctx, *f);
                 if (r < 0)
-                        return r;
+                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
         }
 
         return 0;

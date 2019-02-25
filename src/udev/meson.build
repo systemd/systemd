@@ -197,3 +197,14 @@ configure_file(
 
 meson.add_install_script('sh', '-c',
                          mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))
+
+fuzzers += [
+        [['src/udev/net/fuzz-link-parser.c',
+          'src/fuzz/fuzz.h'],
+         [libudev_core,
+          libudev_static,
+          libsystemd_network,
+          libshared],
+         [threads,
+          libacl]]
+        ]
