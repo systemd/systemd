@@ -27,3 +27,5 @@ static inline int udev_parse_config(void) {
 }
 
 int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_device **ret);
+
+int udevd_is_active(void);

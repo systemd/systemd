@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "fs-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-table.h"
@@ -168,4 +169,14 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
         if (ret)
                 *ret = TAKE_PTR(data.device);
         return 0;
+}
+
+int udevd_is_active(void) {
+        if (laccess("/run/udev/control", F_OK) >= 0)
+                return true;
+
+        if (errno == ENOENT)
+                return false;
+
+        return -errno;
 }
