@@ -119,7 +119,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 static int load_link(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
-        int i;
+        size_t i;
         int r;
 
         assert(ctx);
@@ -144,7 +144,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->port = _NET_DEV_PORT_INVALID;
         link->autonegotiation = -1;
 
-        for (i = 0; i < (int)ELEMENTSOF(link->features); i++)
+        for (i = 0; i < ELEMENTSOF(link->features); i++)
                 link->features[i] = -1;
 
         r = config_parse(NULL, filename, file,
