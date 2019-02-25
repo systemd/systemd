@@ -31,8 +31,8 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "util.h"
-#include "virt.h"
 
 uint32_t link_get_vrf_table(Link *link) {
         return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;
@@ -3603,8 +3603,8 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        if (detect_container() <= 0) {
-                /* not in a container, udev will be around */
+        if (udevd_is_active() > 0) {
+                /* udevd will be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 r = sd_device_new_from_device_id(&device, ifindex_str);
                 if (r < 0) {

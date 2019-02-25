@@ -12,7 +12,7 @@
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
-#include "virt.h"
+#include "udev-util.h"
 
 #define SYSTEMD_PEN    43793
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
@@ -168,8 +168,8 @@ int dhcp_identifier_set_iaid(
         uint64_t id;
         uint32_t id32;
 
-        if (detect_container() <= 0) {
-                /* not in a container, udev will be around */
+        if (udevd_is_active() > 0) {
+                /* udevd will be around */
                 char ifindex_str[1 + DECIMAL_STR_MAX(int)];
                 int r;
 
