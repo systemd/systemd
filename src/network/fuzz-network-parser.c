@@ -18,7 +18,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size != 0)
                 assert_se(fwrite(data, size, 1, f) == 1);
 
-        rewind(f);
+        fflush(f);
         assert_se(manager_new(&manager) >= 0);
         (void) network_load_one(manager, network_config);
         return 0;
