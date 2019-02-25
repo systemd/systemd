@@ -119,6 +119,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 static int load_link(link_config_ctx *ctx, const char *filename) {
         _cleanup_(link_config_freep) link_config *link = NULL;
         _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_free_ char *name = NULL;
         size_t i;
         int r;
 
@@ -134,15 +135,22 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 return 0;
         }
 
-        link = new0(link_config, 1);
+        name = strdup(filename);
+        if (!name)
+                return -ENOMEM;
+
+        link = new(link_config, 1);
         if (!link)
                 return -ENOMEM;
 
-        link->mac_policy = _MACPOLICY_INVALID;
-        link->wol = _WOL_INVALID;
-        link->duplex = _DUP_INVALID;
-        link->port = _NET_DEV_PORT_INVALID;
-        link->autonegotiation = -1;
+        *link = (link_config) {
+                .filename = TAKE_PTR(name),
+                .mac_policy = _MACPOLICY_INVALID,
+                .wol = _WOL_INVALID,
+                .duplex = _DUP_INVALID,
+                .port = _NET_DEV_PORT_INVALID,
+                .autonegotiation = -1,
+        };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
                 link->features[i] = -1;
@@ -153,15 +161,11 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                          CONFIG_PARSE_WARN, link);
         if (r < 0)
                 return r;
-        else
-                log_debug("Parsed configuration file %s", filename);
 
         if (link->speed > UINT_MAX)
                 return -ERANGE;
 
-        link->filename = strdup(filename);
-        if (!link->filename)
-                return -ENOMEM;
+        log_debug("Parsed configuration file %s", filename);
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
