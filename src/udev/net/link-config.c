@@ -126,12 +126,8 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         assert(filename);
 
         file = fopen(filename, "re");
-        if (!file) {
-                if (errno == ENOENT)
-                        return 0;
-                else
-                        return -errno;
-        }
+        if (!file)
+                return errno == ENOENT ? 0 : -errno;
 
         if (null_or_empty_fd(fileno(file))) {
                 log_debug("Skipping empty file: %s", filename);
