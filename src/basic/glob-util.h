@@ -7,9 +7,15 @@
 
 typedef DIR* (*opendir_t)(const char *);
 
-int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret);
+int safe_glob_internal(const char *path, int flags, bool test, opendir_t opendir_func, char ***ret);
+static inline int safe_glob_test(const char *path, int flags, char ***ret) {
+        return safe_glob_internal(path, flags, true, NULL, ret);
+}
+static inline int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret) {
+        return safe_glob_internal(path, flags, false, opendir_func, ret);
+}
 static inline int safe_glob(const char *path, int flags, char ***ret) {
-        return safe_glob_full(path, flags, NULL, ret);
+        return safe_glob_internal(path, flags, false, NULL, ret);
 }
 
 /* Note: which match is returned depends on the implementation/system and not guaranteed to be stable */
