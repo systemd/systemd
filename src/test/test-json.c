@@ -8,6 +8,7 @@
 #include "json.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_tokenizer(const char *data, ...) {
@@ -391,6 +392,13 @@ static void test_depth(void) {
                         log_info("max depth at %u", i);
                         break;
                 }
+#if HAS_FEATURE_MEMORY_SANITIZER
+                /* msan doesn't like the stack nesting to be too deep. Let's quit early. */
+                if (i >= 128) {
+                        log_info("quitting early at depth %u", i);
+                        break;
+                }
+#endif
 
                 assert_se(r >= 0);
 
@@ -403,10 +411,7 @@ static void test_depth(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_tokenizer("x", -EINVAL);
         test_tokenizer("", JSON_TOKEN_END);
