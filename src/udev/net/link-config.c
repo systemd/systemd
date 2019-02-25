@@ -165,6 +165,14 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         if (link->speed > UINT_MAX)
                 return -ERANGE;
 
+        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
+                              link->match_host, link->match_virt, link->match_kernel_cmdline,
+                              link->match_kernel_version, link->match_arch,
+                              NULL, NULL, NULL, NULL, NULL)) {
+                log_debug("%s: Conditions do not match the system environment, skipping.", filename);
+                return 0;
+        }
+
         log_debug("Parsed configuration file %s", filename);
 
         LIST_PREPEND(links, ctx->links, link);
