@@ -489,14 +489,14 @@ static void test_condition_test_virtualization(void) {
         assert_se(condition);
         r = condition_test(condition);
         log_info("ConditionVirtualization=container → %i", r);
-        assert_se(r == !!detect_container());
+        assert_se(r == (detect_container() > 0));
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "vm", false, false);
         assert_se(condition);
         r = condition_test(condition);
         log_info("ConditionVirtualization=vm → %i", r);
-        assert_se(r == (detect_vm() && !detect_container()));
+        assert_se(r == (detect_vm() > 0 && detect_container() == 0));
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false);
