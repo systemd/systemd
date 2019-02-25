@@ -7,7 +7,14 @@
 
 typedef DIR* (*opendir_t)(const char *);
 
-int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret);
+int safe_glob_internal(const char *path, int flags, bool use_gnu_extension, opendir_t opendir_func, char ***ret);
+static inline int safe_glob_test(const char *path, int flags, char ***ret) {
+        /* This is for testing the fallback logic for the case GLOB_ALTDIRFUNC is not supported. */
+        return safe_glob_internal(path, flags, false, NULL, ret);
+}
+static inline int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret) {
+        return safe_glob_internal(path, flags, true, opendir_func, ret);
+}
 static inline int safe_glob(const char *path, int flags, char ***ret) {
         return safe_glob_full(path, flags, NULL, ret);
 }
