@@ -1644,6 +1644,47 @@ _public_ int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id) {
         return 0;
 }
 
+#define COOKIE_CYCLED (UINT32_C(1) << 31)
+
+static uint64_t cookie_inc(uint64_t cookie) {
+
+        /* Stay within the 32bit range, since classic D-Bus can't deal with more */
+        if (cookie >= UINT32_MAX)
+                return COOKIE_CYCLED; /* Don't go back to zero, but use the highest bit for checking
+                                       * whether we are looping. */
+
+        return cookie + 1;
+}
+
+static int next_cookie(sd_bus *b) {
+        uint64_t new_cookie;
+
+        assert(b);
+
+        new_cookie = cookie_inc(b->cookie);
+
+        /* Small optimization: don't bother with checking for cookie reuse until we overran cookiespace at
+         * least once, but then do it thorougly. */
+        if (FLAGS_SET(new_cookie, COOKIE_CYCLED)) {
+                uint32_t i;
+
+                /* Check if the cookie is currently in use. If so, pick the next one */
+                for (i = 0; i < COOKIE_CYCLED; i++) {
+                        if (!ordered_hashmap_contains(b->reply_callbacks, &new_cookie))
+                                goto good;
+
+                        new_cookie = cookie_inc(new_cookie);
+                }
+
+                /* Can't fulfill request */
+                return -EBUSY;
+        }
+
+good:
+        b->cookie = new_cookie;
+        return 0;
+}
+
 static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
         int r;
 
@@ -1670,7 +1711,11 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
                         return r;
         }
 
-        return sd_bus_message_seal(m, ++b->cookie, timeout);
+        r = next_cookie(b);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_seal(m, b->cookie, timeout);
 }
 
 static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
