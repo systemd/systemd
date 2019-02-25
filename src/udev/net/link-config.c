@@ -136,7 +136,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 
         link = new0(link_config, 1);
         if (!link)
-                return log_oom();
+                return -ENOMEM;
 
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
@@ -161,7 +161,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
 
         link->filename = strdup(filename);
         if (!link->filename)
-                return log_oom();
+                return -ENOMEM;
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
@@ -213,7 +213,7 @@ int link_config_load(link_config_ctx *ctx) {
         STRV_FOREACH_BACKWARDS(f, files) {
                 r = load_link(ctx, *f);
                 if (r < 0)
-                        return r;
+                        log_error_errno(r, "Failed to load %s, ignoring: %m", *f);
         }
 
         return 0;
