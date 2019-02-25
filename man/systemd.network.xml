@@ -318,10 +318,10 @@
         <varlistentry>
           <term><varname>LinkLocalAddressing=</varname></term>
           <listitem>
-            <para>Enables link-local address autoconfiguration. Accepts
-            <literal>yes</literal>, <literal>no</literal>,
-            <literal>ipv4</literal>, or <literal>ipv6</literal>. Defaults to
-            <literal>ipv6</literal>.</para>
+            <para>Enables link-local address autoconfiguration. Accepts <literal>yes</literal>,
+            <literal>no</literal>, <literal>ipv4</literal>, or <literal>ipv6</literal>. If
+            <varname>Bridge=</varname> is set, defaults to <literal>no</literal>, and if not,
+            defaults to <literal>ipv6</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

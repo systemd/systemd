@@ -158,7 +158,7 @@ static bool link_ipv6_enabled(Link *link) {
         if (!socket_ipv6_is_supported())
                 return false;
 
-        if (link->network->bridge || link->network->bond)
+        if (link->network->bond)
                 return false;
 
         if (manager_sysctl_ipv6_enabled(link->manager) == 0)
@@ -328,8 +328,39 @@ static int link_enable_ipv6(Link *link) {
         return 0;
 }
 
-void link_update_operstate(Link *link, bool also_update_bond_master) {
+static bool link_is_enslaved(Link *link) {
+        if (link->flags & IFF_SLAVE)
+                /* Even if the link is not managed by networkd, honor IFF_SLAVE flag. */
+                return true;
+
+        if (!link->enslaved_raw)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->bridge)
+                /* TODO: support the case when link is not managed by networkd. */
+                return true;
+
+        return false;
+}
+
+static void link_update_master_operstate(Link *link, NetDev *netdev) {
+        Link *master;
+
+        if (!netdev)
+                return;
+
+        if (link_get(link->manager, netdev->ifindex, &master) < 0)
+                return;
+
+        link_update_operstate(master, true);
+}
+
+void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
+        Iterator i;
 
         assert(link);
 
@@ -338,7 +369,6 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
         else if (link_has_carrier(link)) {
                 Address *address;
                 uint8_t scope = RT_SCOPE_NOWHERE;
-                Iterator i;
 
                 /* if we have carrier, check what addresses we have */
                 SET_FOREACH(address, link->addresses, i) {
@@ -373,15 +403,13 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
                 operstate = LINK_OPERSTATE_OFF;
 
         if (IN_SET(operstate, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_CARRIER) &&
-            link->flags & IFF_SLAVE)
+            link_is_enslaved(link))
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE) &&
-            !hashmap_isempty(link->bond_slaves)) {
-                Iterator i;
+        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE)) {
                 Link *slave;
 
-                HASHMAP_FOREACH(slave, link->bond_slaves, i) {
+                HASHMAP_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
                         if (IN_SET(slave->operstate,
@@ -396,13 +424,9 @@ void link_update_operstate(Link *link, bool also_update_bond_master) {
                 link_dirty(link);
         }
 
-        if (also_update_bond_master && link->network && link->network->bond) {
-                Link *master;
-
-                if (link_get(link->manager, link->network->bond->ifindex, &master) < 0)
-                        return;
-
-                link_update_operstate(master, true);
+        if (also_update_master && link->network) {
+                link_update_master_operstate(link, link->network->bond);
+                link_update_master_operstate(link, link->network->bridge);
         }
 }
 
@@ -592,8 +616,8 @@ static void link_detach_from_manager(Link *link) {
 }
 
 static Link *link_free(Link *link) {
+        Link *carrier, *master;
         Address *address;
-        Link *carrier;
         Route *route;
         Iterator i;
 
@@ -659,7 +683,17 @@ static Link *link_free(Link *link) {
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(carrier->ifindex));
         hashmap_free(link->bound_by_links);
 
-        hashmap_free(link->bond_slaves);
+        hashmap_free(link->slaves);
+
+        if (link->network) {
+                if (link->network->bond &&
+                    link_get(link->manager, link->network->bond->ifindex, &master) >= 0)
+                        (void) hashmap_remove(master->slaves, INT_TO_PTR(link->ifindex));
+
+                if (link->network->bridge &&
+                    link_get(link->manager, link->network->bridge->ifindex, &master) >= 0)
+                        (void) hashmap_remove(master->slaves, INT_TO_PTR(link->ifindex));
+        }
 
         return mfree(link);
 }
@@ -953,23 +987,20 @@ void link_check_ready(Link *link) {
                     !link->ipv4ll_route)
                         return;
 
-        if (!link->network->bridge) {
+        if (link_ipv6ll_enabled(link) &&
+            in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
+                return;
 
-                if (link_ipv6ll_enabled(link) &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
-                        return;
+        if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured) ||
+            (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
+             !link->dhcp6_configured) ||
+            (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
+             !link->dhcp4_configured && !link->dhcp6_configured))
+                return;
 
-                if ((link_dhcp4_enabled(link) && !link_dhcp6_enabled(link) &&
-                     !link->dhcp4_configured) ||
-                    (link_dhcp6_enabled(link) && !link_dhcp4_enabled(link) &&
-                     !link->dhcp6_configured) ||
-                    (link_dhcp4_enabled(link) && link_dhcp6_enabled(link) &&
-                     !link->dhcp4_configured && !link->dhcp6_configured))
-                        return;
-
-                if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
-                        return;
-        }
+        if (link_ipv6_accept_ra_enabled(link) && !link->ndisc_configured)
+                return;
 
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
@@ -1414,7 +1445,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
         /* If IPv6 not configured (no static IPv6 address and IPv6LL autoconfiguration is disabled)
-         * for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
+         * for this interface, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
         /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
@@ -1665,23 +1696,22 @@ static int link_set_bond(Link *link) {
         return r;
 }
 
-static int link_append_bond_slave(Link *link) {
+static int link_append_to_master(Link *link, NetDev *netdev) {
         Link *master;
         int r;
 
         assert(link);
-        assert(link->network);
-        assert(link->network->bond);
+        assert(netdev);
 
-        r = link_get(link->manager, link->network->bond->ifindex, &master);
+        r = link_get(link->manager, netdev->ifindex, &master);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&master->bond_slaves, NULL);
+        r = hashmap_ensure_allocated(&master->slaves, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(master->bond_slaves, INT_TO_PTR(link->ifindex), link);
+        r = hashmap_put(master->slaves, INT_TO_PTR(link->ifindex), link);
         if (r < 0)
                 return r;
 
@@ -2478,6 +2508,10 @@ static int link_joined(Link *link) {
                 r = link_set_bridge(link);
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bridge message: %m");
+
+                r = link_append_to_master(link, link->network->bridge);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Failed to add to bridge master's slave list: %m");
         }
 
         if (link->network->bond) {
@@ -2485,7 +2519,7 @@ static int link_joined(Link *link) {
                 if (r < 0)
                         log_link_error_errno(link, r, "Could not set bond message: %m");
 
-                r = link_append_bond_slave(link);
+                r = link_append_to_master(link, link->network->bond);
                 if (r < 0)
                         log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
@@ -2511,6 +2545,8 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         assert(link);
         assert(link->network);
+        assert(link->enslaving > 0);
+        assert(!link->enslaved_raw);
 
         link->enslaving--;
 
@@ -2525,8 +2561,10 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         } else
                 log_link_debug(link, "Joined netdev");
 
-        if (link->enslaving <= 0)
+        if (link->enslaving == 0) {
+                link->enslaved_raw = true;
                 link_joined(link);
+        }
 
         return 1;
 }
@@ -2543,12 +2581,8 @@ static int link_enter_join_netdev(Link *link) {
         link_set_state(link, LINK_STATE_CONFIGURING);
 
         link_dirty(link);
-
-        if (!link->network->bridge &&
-            !link->network->bond &&
-            !link->network->vrf &&
-            hashmap_isempty(link->network->stacked_netdevs))
-                return link_joined(link);
+        link->enslaving = 0;
+        link->enslaved_raw = false;
 
         if (link->network->bond) {
                 if (link->network->bond->state == NETDEV_STATE_READY &&
@@ -2560,6 +2594,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_NETDEV_INTERFACE(link->network->bond),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname));
 
+                link->enslaving++;
+
                 r = netdev_join(link->network->bond, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
@@ -2569,8 +2605,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         if (link->network->bridge) {
@@ -2578,6 +2612,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->bridge),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname));
+
+                link->enslaving++;
 
                 r = netdev_join(link->network->bridge, link, netdev_join_handler);
                 if (r < 0) {
@@ -2588,8 +2624,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         if (link->network->vrf) {
@@ -2597,6 +2631,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->vrf),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname));
+
+                link->enslaving++;
 
                 r = netdev_join(link->network->vrf, link, netdev_join_handler);
                 if (r < 0) {
@@ -2607,8 +2643,6 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
 
         HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
@@ -2623,6 +2657,8 @@ static int link_enter_join_netdev(Link *link) {
                            LOG_NETDEV_INTERFACE(netdev),
                            LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
 
+                link->enslaving++;
+
                 r = netdev_join(netdev, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
@@ -2632,9 +2668,10 @@ static int link_enter_join_netdev(Link *link) {
                         link_enter_failed(link);
                         return r;
                 }
-
-                link->enslaving++;
         }
+
+        if (link->enslaving == 0)
+                return link_joined(link);
 
         return 0;
 }

@@ -141,7 +141,10 @@ static int network_verify(Network *network) {
         }
 
         if (network->link_local < 0)
-                network->link_local = ADDRESS_FAMILY_IPV6;
+                network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
+
+        if (network->ipv6_accept_ra < 0 && network->bridge)
+                network->ipv6_accept_ra = false;
 
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)
