@@ -2,6 +2,7 @@
 
 rules = files('''
         40-redhat.rules
+        40-elevator.rules
         60-block.rules
         60-cdrom_id.rules
         60-drm.rules
