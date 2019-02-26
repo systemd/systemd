@@ -66,7 +66,7 @@
 
     <para>Each file is a plain text file divided into sections, with configuration entries in the
     style <replaceable>key</replaceable>=<replaceable>value</replaceable>.
-    Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
+    Whitespace immediately before or after the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
     ignored, which may be used for commenting.</para>
 
     <para>Lines ending in a backslash are concatenated with the following line while reading and the
