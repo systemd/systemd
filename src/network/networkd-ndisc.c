@@ -521,13 +521,13 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
 
-                        if (link->network->ipv6_accept_ra_use_onlink_prefix)
-                                if (flags & ND_OPT_PI_FLAG_ONLINK)
-                                        (void) ndisc_router_process_onlink_prefix(link, rt);
+                        if (link->network->ipv6_accept_ra_use_onlink_prefix &&
+                            FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK))
+                                (void) ndisc_router_process_onlink_prefix(link, rt);
 
-                        if (link->network->ipv6_accept_ra_use_autonomous_prefix)
-                                if (flags & ND_OPT_PI_FLAG_AUTO)
-                                        (void) ndisc_router_process_autonomous_prefix(link, rt);
+                        if (link->network->ipv6_accept_ra_use_autonomous_prefix &&
+                            FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO))
+                                (void) ndisc_router_process_autonomous_prefix(link, rt);
 
                         break;
                 }
