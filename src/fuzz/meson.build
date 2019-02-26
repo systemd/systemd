@@ -97,6 +97,10 @@ fuzzers += [
           libshared],
          []],
 
+        [['src/fuzz/fuzz-udev-database.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-udev-rules.c'],
          [libudev_core,
           libudev_static,
