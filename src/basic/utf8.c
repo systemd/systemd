@@ -61,12 +61,7 @@ static bool unichar_is_control(char32_t ch) {
 }
 
 /* count of characters used to encode one unicode char */
-static size_t utf8_encoded_expected_len(const char *str) {
-        uint8_t c;
-
-        assert(str);
-
-        c = (uint8_t) str[0];
+static size_t utf8_encoded_expected_len(uint8_t c) {
         if (c < 0x80)
                 return 1;
         if ((c & 0xe0) == 0xc0)
@@ -90,7 +85,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
 
         assert(str);
 
-        len = utf8_encoded_expected_len(str);
+        len = utf8_encoded_expected_len(str[0]);
 
         switch (len) {
         case 1:
@@ -405,7 +400,7 @@ char16_t *utf8_to_utf16(const char *s, size_t length) {
                 char32_t unichar;
                 size_t e;
 
-                e = utf8_encoded_expected_len(s + i);
+                e = utf8_encoded_expected_len(s[i]);
                 if (e <= 1) /* Invalid and single byte characters are copied as they are */
                         goto copy;
 
@@ -464,7 +459,7 @@ int utf8_encoded_valid_unichar(const char *str) {
 
         assert(str);
 
-        len = utf8_encoded_expected_len(str);
+        len = utf8_encoded_expected_len(str[0]);
         if (len == 0)
                 return -EINVAL;
 
