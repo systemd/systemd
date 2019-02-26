@@ -175,7 +175,7 @@ size_t util_replace_chars(char *str, const char *white) {
                 }
 
                 /* accept valid utf8 */
-                len = utf8_encoded_valid_unichar(&str[i]);
+                len = utf8_encoded_valid_unichar(str + i, (size_t) -1);
                 if (len > 1) {
                         i += len;
                         continue;

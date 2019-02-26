@@ -1756,7 +1756,6 @@ static void inc_lines_columns(unsigned *line, unsigned *column, const char *s, s
         assert(s || n == 0);
 
         while (n > 0) {
-
                 if (*s == '\n') {
                         (*line)++;
                         *column = 1;
@@ -1765,7 +1764,7 @@ static void inc_lines_columns(unsigned *line, unsigned *column, const char *s, s
                 else {
                         int w;
 
-                        w = utf8_encoded_valid_unichar(s);
+                        w = utf8_encoded_valid_unichar(s, n);
                         if (w < 0) /* count invalid unichars as normal characters */
                                 w = 1;
                         else if ((size_t) w > n) /* never read more than the specified number of characters */
@@ -1930,7 +1929,7 @@ static int json_parse_string(const char **p, char **ret) {
                         continue;
                 }
 
-                len = utf8_encoded_valid_unichar(c);
+                len = utf8_encoded_valid_unichar(c, (size_t) -1);
                 if (len < 0)
                         return len;
 

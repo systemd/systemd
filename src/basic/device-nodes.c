@@ -28,7 +28,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
         for (i = 0, j = 0; str[i] != '\0'; i++) {
                 int seqlen;
 
-                seqlen = utf8_encoded_valid_unichar(&str[i]);
+                seqlen = utf8_encoded_valid_unichar(str + i, (size_t) -1);
                 if (seqlen > 1) {
 
                         if (len-j < (size_t)seqlen)

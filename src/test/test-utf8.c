@@ -36,11 +36,21 @@ static void test_ascii_is_valid_n(void) {
 }
 
 static void test_utf8_encoded_valid_unichar(void) {
-        assert_se(utf8_encoded_valid_unichar("\342\204\242") == 3);
-        assert_se(utf8_encoded_valid_unichar("\302\256") == 2);
-        assert_se(utf8_encoded_valid_unichar("a") == 1);
-        assert_se(utf8_encoded_valid_unichar("\341\204") < 0);
-        assert_se(utf8_encoded_valid_unichar("\341\204\341\204") < 0);
+        assert_se(utf8_encoded_valid_unichar("\342\204\242", 1) == -EINVAL); /* truncated */
+        assert_se(utf8_encoded_valid_unichar("\342\204\242", 2) == -EINVAL); /* truncated */
+        assert_se(utf8_encoded_valid_unichar("\342\204\242", 3) == 3);
+        assert_se(utf8_encoded_valid_unichar("\342\204\242", 4) == 3);
+        assert_se(utf8_encoded_valid_unichar("\302\256", 1) == -EINVAL); /* truncated */
+        assert_se(utf8_encoded_valid_unichar("\302\256", 2) == 2);
+        assert_se(utf8_encoded_valid_unichar("\302\256", 3) == 2);
+        assert_se(utf8_encoded_valid_unichar("\302\256", (size_t) -1) == 2);
+        assert_se(utf8_encoded_valid_unichar("a", 1) == 1);
+        assert_se(utf8_encoded_valid_unichar("a", 2) == 1);
+        assert_se(utf8_encoded_valid_unichar("\341\204", 1) == -EINVAL); /* truncated, potentially valid */
+        assert_se(utf8_encoded_valid_unichar("\341\204", 2) == -EINVAL); /* truncated, potentially valid */
+        assert_se(utf8_encoded_valid_unichar("\341\204", 3) == -EINVAL);
+        assert_se(utf8_encoded_valid_unichar("\341\204\341\204", 4) == -EINVAL);
+        assert_se(utf8_encoded_valid_unichar("\341\204\341\204", 5) == -EINVAL);
 }
 
 static void test_utf8_escaping(void) {
