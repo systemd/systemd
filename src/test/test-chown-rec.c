@@ -43,6 +43,8 @@ static void test_chown_recursive(void) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         struct stat st;
         const char *p;
+        const uid_t uid = getuid();
+        const gid_t gid = getgid();
 
         umask(022);
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
@@ -52,8 +54,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(!has_xattr(p));
 
         p = strjoina(t, "/dir/symlink");
@@ -61,8 +63,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISLNK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0777);
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(!has_xattr(p));
 
         p = strjoina(t, "/dir/reg");
@@ -70,8 +72,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(!has_xattr(p));
 
         p = strjoina(t, "/dir/sock");
@@ -79,8 +81,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(!has_xattr(p));
 
         p = strjoina(t, "/dir/fifo");
@@ -88,8 +90,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(!has_xattr(p));
 
         /* We now apply an xattr to the dir, and check it again */
@@ -99,8 +101,8 @@ static void test_chown_recursive(void) {
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0775); /* acl change changed the mode too */
-        assert_se(st.st_uid == 0);
-        assert_se(st.st_gid == 0);
+        assert_se(st.st_uid == uid);
+        assert_se(st.st_gid == gid);
         assert_se(has_xattr(p));
 
         assert_se(path_chown_recursive(t, 1, 2) >= 0);
