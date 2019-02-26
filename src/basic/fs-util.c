@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <linux/falloc.h>
 #include <linux/magic.h>
 #include <time.h>
 #include <unistd.h>
