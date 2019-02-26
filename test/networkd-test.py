@@ -475,7 +475,7 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company''')
 
@@ -499,7 +499,7 @@ MACAddress=12:34:56:78:9a:bc''')
         self.write_network('myvpn.network', '''[Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company ~.''')
 
@@ -887,7 +887,7 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= one two three four five six seven eight nine ten''')
 
@@ -919,7 +919,7 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
 
@@ -947,7 +947,7 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1''')
         self.write_network_dropin('test.network', 'dns', '''\
 [Network]
