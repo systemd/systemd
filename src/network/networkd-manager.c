@@ -205,6 +205,15 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
         }
 
+        r = sd_device_get_is_initialized(device);
+        if (r < 0) {
+                log_device_debug_errno(device, r, "Could not determine whether the device is initialized or not, ignoring uevent: %m");
+                return 0;
+        } else if (r == 0) {
+                log_device_debug(device, "Device is not initialized yet, ignoring uevent.");
+                return 0;
+        }
+
         r = link_get(m, ifindex, &link);
         if (r < 0) {
                 if (r != -ENODEV)
