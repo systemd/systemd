@@ -15,7 +15,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         StdoutStream *stream;
         int v;
 
-        if (size == 0)
+        if (size == 0 || size > 65536)
                 return 0;
 
         if (!getenv("SYSTEMD_LOG_LEVEL"))
