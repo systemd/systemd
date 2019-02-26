@@ -669,12 +669,14 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         /* skip out early if configuration does not match the environment */
-        if (net_match_config(NULL, NULL, NULL, NULL, NULL,
-                             netdev_raw->match_host, netdev_raw->match_virt,
-                             netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
-                             netdev_raw->match_arch,
-                             NULL, NULL, NULL, NULL, NULL) <= 0)
+        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
+                              netdev_raw->match_host, netdev_raw->match_virt,
+                              netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
+                              netdev_raw->match_arch,
+                              NULL, NULL, NULL, NULL, NULL)) {
+                log_debug("%s: Conditions in the file do not match the system environment, skipping.", filename);
                 return 0;
+        }
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
                 log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
