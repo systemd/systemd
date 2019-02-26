@@ -1273,13 +1273,11 @@ int device_get_id_filename(sd_device *device, const char **ret) {
         return 0;
 }
 
-int device_read_db_internal(sd_device *device, bool force) {
+int device_read_db_internal_filename(sd_device *device, const char *filename) {
         _cleanup_free_ char *db = NULL;
-        char *path;
-        const char *id, *value;
+        const char *value;
+        size_t db_len, i;
         char key;
-        size_t db_len;
-        unsigned i;
         int r;
 
         enum {
@@ -1291,22 +1289,14 @@ int device_read_db_internal(sd_device *device, bool force) {
         } state = PRE_KEY;
 
         assert(device);
+        assert(filename);
 
-        if (device->db_loaded || (!force && device->sealed))
-                return 0;
-
-        r = device_get_id_filename(device, &id);
-        if (r < 0)
-                return r;
-
-        path = strjoina("/run/udev/data/", id);
-
-        r = read_full_file(path, &db, &db_len);
+        r = read_full_file(filename, &db, &db_len);
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
-                else
-                        return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", path);
+
+                return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", filename);
         }
 
         /* devices with a database entry are initialized */
@@ -1359,11 +1349,29 @@ int device_read_db_internal(sd_device *device, bool force) {
 
                         break;
                 default:
-                        assert_not_reached("Invalid state when parsing db");
+                        return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL), "sd-device: invalid db syntax.");
                 }
         }
 
         return 0;
+}
+
+int device_read_db_internal(sd_device *device, bool force) {
+        const char *id, *path;
+        int r;
+
+        assert(device);
+
+        if (device->db_loaded || (!force && device->sealed))
+                return 0;
+
+        r = device_get_id_filename(device, &id);
+        if (r < 0)
+                return r;
+
+        path = strjoina("/run/udev/data/", id);
+
+        return device_read_db_internal_filename(device, path);
 }
 
 _public_ int sd_device_get_is_initialized(sd_device *device) {
