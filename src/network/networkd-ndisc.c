@@ -493,7 +493,7 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         }
 }
 
-static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         int r;
 
         assert(link);
@@ -503,18 +503,14 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         for (;;) {
                 uint8_t type;
 
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to iterate through options: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to iterate through options: %m");
                 if (r == 0) /* EOF */
                         break;
 
                 r = sd_ndisc_router_option_get_type(rt, &type);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to get RA option type: %m");
-                        return;
-                }
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to get RA option type: %m");
 
                 switch (type) {
 
@@ -522,18 +518,16 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         uint8_t flags;
 
                         r = sd_ndisc_router_prefix_get_flags(rt, &flags);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
-                                return;
-                        }
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
 
-                        if (link->network->ipv6_accept_ra_use_onlink_prefix)
-                                if (flags & ND_OPT_PI_FLAG_ONLINK)
-                                        (void) ndisc_router_process_onlink_prefix(link, rt);
+                        if (link->network->ipv6_accept_ra_use_onlink_prefix &&
+                            FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK))
+                                (void) ndisc_router_process_onlink_prefix(link, rt);
 
-                        if (link->network->ipv6_accept_ra_use_autonomous_prefix)
-                                if (flags & ND_OPT_PI_FLAG_AUTO)
-                                        (void) ndisc_router_process_autonomous_prefix(link, rt);
+                        if (link->network->ipv6_accept_ra_use_autonomous_prefix &&
+                            FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO))
+                                (void) ndisc_router_process_autonomous_prefix(link, rt);
 
                         break;
                 }
@@ -555,6 +549,8 @@ static void ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
                 r = sd_ndisc_router_option_next(rt);
         }
+
+        return 0;
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
@@ -581,8 +577,8 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 }
         }
 
-        ndisc_router_process_default(link, rt);
-        ndisc_router_process_options(link, rt);
+        (void) ndisc_router_process_default(link, rt);
+        (void) ndisc_router_process_options(link, rt);
 
         return r;
 }

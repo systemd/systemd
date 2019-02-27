@@ -1507,7 +1507,7 @@ int config_parse_dhcp_user_class(
                         break;
 
                 if (strlen(w) > 255) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "%s length is not in the range 1-255, ignoring.", w);
                         continue;
                 }
