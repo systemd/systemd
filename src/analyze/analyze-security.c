@@ -49,6 +49,7 @@ struct security_info {
         bool memory_deny_write_execute;
         bool no_new_privileges;
         char *notify_access;
+        bool protect_hostname;
 
         bool private_devices;
         bool private_mounts;
@@ -767,6 +768,16 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 10,
                 .assess = assess_protect_home,
                 .default_dependencies_only = true,
+        },
+        {
+                .id = "ProtectHostname=",
+                .description_good = "Service cannot change system host/domainname",
+                .description_bad = "Service may change system host/domainname",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHostname=",
+                .weight = 50,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, protect_hostname),
         },
         {
                 .id = "ProtectSystem=",
@@ -1861,6 +1872,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "PrivateUsers",            "b",       NULL,                                    offsetof(struct security_info, private_users)             },
                 { "ProtectControlGroups",    "b",       NULL,                                    offsetof(struct security_info, protect_control_groups)    },
                 { "ProtectHome",             "s",       NULL,                                    offsetof(struct security_info, protect_home)              },
+                { "ProtectHostname",         "b",       NULL,                                    offsetof(struct security_info, protect_hostname)          },
                 { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },
                 { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(struct security_info, protect_kernel_tunables)   },
                 { "ProtectSystem",           "s",       NULL,                                    offsetof(struct security_info, protect_system)            },
