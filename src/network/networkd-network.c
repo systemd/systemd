@@ -23,6 +23,9 @@
 #include "strv.h"
 #include "util.h"
 
+/* Let's assume that anything above this number is a user misconfiguration. */
+#define MAX_NTP_SERVERS 128
+
 static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
         siphash24_compress(c->filename, strlen(c->filename), state);
         siphash24_compress(&c->line, sizeof(c->line), state);
@@ -1462,11 +1465,16 @@ int config_parse_ntp(
                         continue;
                 }
 
-                r = strv_push(l, w);
+                if (strv_length(*l) > MAX_NTP_SERVERS) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "More than %u NTP servers specified, ignoring \"%s\" and any subsequent entries.",
+                                   MAX_NTP_SERVERS, w);
+                        break;
+                }
+
+                r = strv_consume(l, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
-
-                w = NULL;
         }
 
         return 0;
