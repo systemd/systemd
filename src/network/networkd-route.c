@@ -946,7 +946,7 @@ int config_parse_gateway_onlink(
         r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse gateway onlink \"%s\", ignoring assignment: %m", rvalue);
+                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
