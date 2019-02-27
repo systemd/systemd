@@ -8,14 +8,6 @@
     <title>analyze.conf</title>
     <productname>systemd</productname>
 
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
@@ -100,9 +92,7 @@ http://www.graphviz.org/content/color-names for further details.
 
     <para>The defaults for all values are listed as comments in the
     template <filename>/etc/systemd/analyze.conf</filename> file that
-    is installed by default. Values defined in user configuration files
-    (<filename>~/.config/systemd/analyze.conf.d/*.conf</filename>) override those
-    from system locations.</para>
+    is installed by default.</para>
   </refsect1>
 
   <refsect1>
