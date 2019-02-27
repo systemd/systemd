@@ -293,7 +293,7 @@ static int network_verify(Network *network) {
                         address_free(address);
                 }
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
+        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes) {
                 if (route->family == AF_UNSPEC) {
                         log_warning("%s: Route section without Gateway=, Destination=, Source=, "
                                     "or PreferredSource= field configured. "
@@ -301,7 +301,18 @@ static int network_verify(Network *network) {
                                     network->filename, route->section->line);
 
                         route_free(route);
+                        continue;
                 }
+
+                if (network->n_static_addresses == 0 &&
+                    in_addr_is_null(route->family, &route->gw) == 0 &&
+                    route->gateway_onlink < 0) {
+                        log_warning("%s: Gateway= without static address configured. "
+                                    "Enabling GatewayOnLink= option.",
+                                    network->filename);
+                        route->gateway_onlink = true;
+                }
+        }
 
         return 0;
 }
