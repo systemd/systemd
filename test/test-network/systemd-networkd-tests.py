@@ -659,6 +659,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
     def test_routing_policy_rule(self):
         self.copy_unit_to_networkd_unit_path('routing-policy-rule.network', '11-dummy.netdev')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
@@ -677,6 +680,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-port-range.network', '11-dummy.netdev')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
@@ -695,6 +701,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
         self.copy_unit_to_networkd_unit_path('25-fibrule-invert.network', '11-dummy.netdev')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '7'])
+
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
@@ -1252,6 +1261,9 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                              '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                                              'bridge99-ignore-carrier-loss.network')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '100'])
+
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
@@ -1276,6 +1288,9 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
     def test_bridge_ignore_carrier_loss_frequent_loss_and_gain(self):
         self.copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-slave-interface-1.network',
                                              'bridge99-ignore-carrier-loss.network')
+
+        subprocess.call(['ip', 'rule', 'del', 'table', '100'])
+
         self.start_networkd()
 
         self.assertTrue(self.link_exits('bridge99'))
