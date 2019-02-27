@@ -77,6 +77,13 @@ for phase in "${PHASES[@]}"; do
             docker exec $ENV_VARS -it $CONT_NAME \
                 meson -Dc_args='-fsanitize=memory -fsanitize-memory-track-origins=2' \
                     -Db_sanitize=memory --werror -Dtests=unsafe \
+                    -Dgcrypt=false \
+                    -Dacl=false \
+                    -Dselinux=false \
+                    -Dapparmor=false \
+                    -Dlibiptc=false \
+                    -Dseccomp=false \
+                    -Dlibidn=false -Dlibidn2=false \
                     -Db_lundef=false -Dsplit-usr=true $MESON_ARGS build
             $DOCKER_EXEC ninja -v -C build
 
