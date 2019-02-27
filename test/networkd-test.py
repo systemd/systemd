@@ -29,6 +29,7 @@ import time
 import unittest
 
 HAVE_DNSMASQ = shutil.which('dnsmasq') is not None
+IS_CONTAINER = subprocess.call(['systemd-detect-virt', '--quiet', '--container']) == 0
 
 NETWORK_UNITDIR = '/run/systemd/network'
 
@@ -479,8 +480,15 @@ Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company''')
 
-        self.do_test(coldplug=True, ipv6=False,
-                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+        try:
+            self.do_test(coldplug=True, ipv6=False,
+                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+        except subprocess.CalledProcessError as e:
+            # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
+            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+                raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
+            else:
+                raise
 
         with open(RESOLV_CONF) as f:
             contents = f.read()
@@ -503,8 +511,15 @@ Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company ~.''')
 
-        self.do_test(coldplug=True, ipv6=False,
-                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+        try:
+            self.do_test(coldplug=True, ipv6=False,
+                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+        except subprocess.CalledProcessError as e:
+            # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
+            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+                raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
+            else:
+                raise
 
         with open(RESOLV_CONF) as f:
             contents = f.read()
