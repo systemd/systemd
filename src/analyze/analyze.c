@@ -90,8 +90,8 @@ static unsigned arg_iterations = 1;
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
 
-static char *dependency_color[_UNIT_DEPENDENCY_MAX] = { NULL };
-static char *dependency_style[_UNIT_DEPENDENCY_MAX] = { NULL };
+static char *dependency_color[_UNIT_DEPENDENCY_MAX] = {};
+static char *dependency_style[_UNIT_DEPENDENCY_MAX] = {};
 
 struct boot_times {
         usec_t firmware_time;
@@ -1103,7 +1103,14 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int graph_one_property(sd_bus *bus, const UnitInfo *u, const char* prop, const char *color, const char *style, char* patterns[], char* from_patterns[], char* to_patterns[]) {
+static int graph_one_property(sd_bus *bus,
+                              const UnitInfo *u,
+                              const char* prop,
+                              const char *color,
+                              const char *style,
+                              char* patterns[],
+                              char* from_patterns[],
+                              char* to_patterns[]) {
         _cleanup_strv_free_ char **units = NULL;
         char **unit;
         int r;
@@ -1151,49 +1158,51 @@ static int graph_one(sd_bus *bus, const UnitInfo *u, char *patterns[], char *fro
         assert(u);
 
         if (IN_SET(arg_dot, DEP_ORDER, DEP_ALL)) {
-                r = graph_one_property(bus, u, "After", dependency_color[UNIT_AFTER],
-                                                        dependency_style[UNIT_AFTER], patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u,
+                                       unit_dependency_to_string(UNIT_AFTER),
+                                       dependency_color[UNIT_AFTER],
+                                       dependency_style[UNIT_AFTER],
+                                       patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_REQUIRE, DEP_ALL)) {
-                r = graph_one_property(bus, u, "Requires", dependency_color[UNIT_REQUIRES],
-                                                           dependency_style[UNIT_REQUIRES], patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "Requisite", dependency_color[UNIT_REQUISITE],
-                                                            dependency_style[UNIT_REQUISITE], patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "Wants", dependency_color[UNIT_WANTS],
-                                                        dependency_style[UNIT_WANTS], patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "Conflicts", dependency_color[UNIT_CONFLICTS],
-                                                            dependency_style[UNIT_CONFLICTS], patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "BindsTo", dependency_color[UNIT_BINDS_TO],
-                                                          dependency_style[UNIT_BINDS_TO], patterns, from_patterns, to_patterns);
-                if (r < 0)
-                        return r;
-                r = graph_one_property(bus, u, "PartOf", dependency_color[UNIT_PART_OF],
-                                                         dependency_style[UNIT_PART_OF], patterns, from_patterns, to_patterns);
+                for (int dependency = UNIT_REQUIRES; dependency <= UNIT_PART_OF; ++dependency) {
+                        r = graph_one_property(bus, u,
+                                               unit_dependency_to_string(dependency),
+                                               dependency_color[dependency],
+                                               dependency_style[dependency],
+                                               patterns, from_patterns, to_patterns);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = graph_one_property(bus, u,
+                                       unit_dependency_to_string(UNIT_CONFLICTS),
+                                       dependency_color[UNIT_CONFLICTS],
+                                       dependency_style[UNIT_CONFLICTS],
+                                       patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_FAILURE, DEP_ALL)) {
-                r = graph_one_property(bus, u, "OnFailure", dependency_color[UNIT_ON_FAILURE],
-                                                            dependency_style[UNIT_ON_FAILURE], patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u,
+                                       unit_dependency_to_string(UNIT_ON_FAILURE),
+                                       dependency_color[UNIT_ON_FAILURE],
+                                       dependency_style[UNIT_ON_FAILURE],
+                                       patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
 
         if (IN_SET(arg_dot, DEP_TRIGGERS, DEP_ALL)) {
-                r = graph_one_property(bus, u, "Triggers", dependency_color[UNIT_TRIGGERS],
-                                                           dependency_style[UNIT_TRIGGERS], patterns, from_patterns, to_patterns);
+                r = graph_one_property(bus, u,
+                                       unit_dependency_to_string(UNIT_TRIGGERS),
+                                       dependency_color[UNIT_TRIGGERS],
+                                       dependency_style[UNIT_TRIGGERS],
+                                       patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
         }
@@ -1254,48 +1263,60 @@ static int dot(int argc, char *argv[], void *userdata) {
         int d;
         UnitInfo u;
         _cleanup_free_ char *user_config_dir = NULL;
+        _cleanup_strv_free_ char **config_dirs = NULL;
 
         static const ConfigTableItem items[] = {
-                        { "Color", "After",             config_parse_string,  0, &dependency_color[UNIT_AFTER]     },
-                        { "Color", "Requires",          config_parse_string,  0, &dependency_color[UNIT_REQUIRES]  },
-                        { "Color", "Requisite",         config_parse_string,  0, &dependency_color[UNIT_REQUISITE] },
-                        { "Color", "Wants",             config_parse_string,  0, &dependency_color[UNIT_WANTS]     },
-                        { "Color", "Conflicts",         config_parse_string,  0, &dependency_color[UNIT_CONFLICTS] },
-                        { "Color", "BindsTo",           config_parse_string,  0, &dependency_color[UNIT_BINDS_TO]  },
-                        { "Color", "PartOf",            config_parse_string,  0, &dependency_color[UNIT_PART_OF]   },
-                        { "Color", "OnFailure",         config_parse_string,  0, &dependency_color[UNIT_ON_FAILURE]},
-                        { "Color", "Triggers",          config_parse_string,  0, &dependency_color[UNIT_TRIGGERS]  },
-                        { "Style", "After",             config_parse_string,  0, &dependency_style[UNIT_AFTER]     },
-                        { "Style", "Requires",          config_parse_string,  0, &dependency_style[UNIT_REQUIRES]  },
-                        { "Style", "Requisite",         config_parse_string,  0, &dependency_style[UNIT_REQUISITE] },
-                        { "Style", "Wants",             config_parse_string,  0, &dependency_style[UNIT_WANTS]     },
-                        { "Style", "Conflicts",         config_parse_string,  0, &dependency_style[UNIT_CONFLICTS] },
-                        { "Style", "BindsTo",           config_parse_string,  0, &dependency_style[UNIT_BINDS_TO]  },
-                        { "Style", "PartOf",            config_parse_string,  0, &dependency_style[UNIT_PART_OF]   },
-                        { "Style", "OnFailure",         config_parse_string,  0, &dependency_style[UNIT_ON_FAILURE]},
-                        { "Style", "Triggers",          config_parse_string,  0, &dependency_style[UNIT_TRIGGERS]  },
-                        {}
+                { "Color", "After",             config_parse_string,  0, &dependency_color[UNIT_AFTER]     },
+                { "Color", "Requires",          config_parse_string,  0, &dependency_color[UNIT_REQUIRES]  },
+                { "Color", "Requisite",         config_parse_string,  0, &dependency_color[UNIT_REQUISITE] },
+                { "Color", "Wants",             config_parse_string,  0, &dependency_color[UNIT_WANTS]     },
+                { "Color", "Conflicts",         config_parse_string,  0, &dependency_color[UNIT_CONFLICTS] },
+                { "Color", "BindsTo",           config_parse_string,  0, &dependency_color[UNIT_BINDS_TO]  },
+                { "Color", "PartOf",            config_parse_string,  0, &dependency_color[UNIT_PART_OF]   },
+                { "Color", "OnFailure",         config_parse_string,  0, &dependency_color[UNIT_ON_FAILURE]},
+                { "Color", "Triggers",          config_parse_string,  0, &dependency_color[UNIT_TRIGGERS]  },
+                { "Style", "After",             config_parse_string,  0, &dependency_style[UNIT_AFTER]     },
+                { "Style", "Requires",          config_parse_string,  0, &dependency_style[UNIT_REQUIRES]  },
+                { "Style", "Requisite",         config_parse_string,  0, &dependency_style[UNIT_REQUISITE] },
+                { "Style", "Wants",             config_parse_string,  0, &dependency_style[UNIT_WANTS]     },
+                { "Style", "Conflicts",         config_parse_string,  0, &dependency_style[UNIT_CONFLICTS] },
+                { "Style", "BindsTo",           config_parse_string,  0, &dependency_style[UNIT_BINDS_TO]  },
+                { "Style", "PartOf",            config_parse_string,  0, &dependency_style[UNIT_PART_OF]   },
+                { "Style", "OnFailure",         config_parse_string,  0, &dependency_style[UNIT_ON_FAILURE]},
+                { "Style", "Triggers",          config_parse_string,  0, &dependency_style[UNIT_TRIGGERS]  },
+                {}
         };
 
-        dependency_color[UNIT_AFTER]      = strdup("green");
-        dependency_color[UNIT_REQUIRES]   = strdup("black");
-        dependency_color[UNIT_REQUISITE]  = strdup("blue");
-        dependency_color[UNIT_WANTS]      = strdup("grey66");
-        dependency_color[UNIT_CONFLICTS]  = strdup("red");
-        dependency_color[UNIT_BINDS_TO]   = strdup("magenta");
-        dependency_color[UNIT_PART_OF]    = strdup("black");
-        dependency_color[UNIT_ON_FAILURE] = strdup("orange");
-        dependency_color[UNIT_TRIGGERS]   = strdup("grey66");
+        static const char* colors[] = {
+                "black",    /* UNIT_REQUIRES */
+                "blue",     /* UNIT_REQUISITE */
+                "grey66",   /* UNIT_WANTS */
+                "magenta",  /* UNIT_BINDS_TO */
+                "black",    /* UNIT_PART_OF */
+                "",
+                "",
+                "",
+                "",
+                "",
+                "red",      /* UNIT_CONFLICTS */
+                "",
+                "",
+                "green",    /* UNIT_AFTER */
+                "orange",   /* UNIT_ON_FAILURE */
+                "grey66"    /* UNIT_TRIGGERS */
+        };
 
-        dependency_style[UNIT_AFTER]      = strdup("solid");
-        dependency_style[UNIT_REQUIRES]   = strdup("solid");
-        dependency_style[UNIT_REQUISITE]  = strdup("solid");
-        dependency_style[UNIT_WANTS]      = strdup("solid");
-        dependency_style[UNIT_CONFLICTS]  = strdup("solid");
-        dependency_style[UNIT_BINDS_TO]   = strdup("solid");
-        dependency_style[UNIT_PART_OF]    = strdup("dashed");
-        dependency_style[UNIT_ON_FAILURE] = strdup("solid");
-        dependency_style[UNIT_TRIGGERS]   = strdup("dotted");
+        for (int dependency = UNIT_REQUIRES; dependency <= UNIT_TRIGGERS; ++dependency) {
+                dependency_color[dependency] = strdup(colors[dependency]);
+                if (strcmp(colors[dependency], "") != 0) {
+                        if (dependency == UNIT_PART_OF)
+                                dependency_style[dependency] = strdup("dashed");
+                        else if (dependency == UNIT_TRIGGERS)
+                                dependency_style[dependency] = strdup("dotted");
+                        else
+                                dependency_style[dependency] = strdup("solid");
+                }
+        }
 
         if (!dependency_color[UNIT_AFTER]      || !dependency_style[UNIT_AFTER]      ||
             !dependency_color[UNIT_REQUIRES]   || !dependency_style[UNIT_REQUIRES]   ||
@@ -1344,22 +1365,39 @@ static int dot(int argc, char *argv[], void *userdata) {
         printf("digraph systemd {\n");
 
         /* user configuration below ~/.config */
-        r = sd_path_home(SD_PATH_USER_CONFIGURATION, "systemd/analyze.conf.d", &user_config_dir);
+        r = sd_path_home(SD_PATH_USER_CONFIGURATION, "", &user_config_dir);
         if (r < 0)
                 return r;
 
-        r = config_parse_many_nulstr(PKGSYSCONFDIR "/analyze.conf",
-                                CONF_PATHS_NULSTR("systemd/analyze.conf.d"),
-                                "Color\0"
-                                "Style\0",
-                                config_item_table_lookup, items,
-                                CONFIG_PARSE_WARN, NULL);
+        r = strv_extend(&config_dirs, "/etc");
         if (r < 0)
-                return r;
+                return log_oom();
 
-        /* allow to override by user */
-        r = config_parse_many_nulstr(NULL,
-                                user_config_dir,
+        r = strv_extend(&config_dirs, "/run");
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend(&config_dirs, "/usr/local/lib");
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend(&config_dirs, "/usr/lib");
+        if (r < 0)
+                return log_oom();
+
+#if HAVE_SPLIT_USR
+        r = strv_extend(&config_dirs, "/lib");
+        if (r < 0)
+                return log_oom();
+#endif
+
+        r = strv_extend(&config_dirs, user_config_dir);
+        if (r < 0)
+                return log_oom();
+
+        r = config_parse_many(PKGSYSCONFDIR "/analyze.conf",
+                                (const char* const*)config_dirs,
+                                "systemd/analyze.conf.d",
                                 "Color\0"
                                 "Style\0",
                                 config_item_table_lookup, items,
@@ -1379,33 +1417,23 @@ static int dot(int argc, char *argv[], void *userdata) {
         printf("}\n");
 
 
-        log_info("   Color legend: %-10s %-8s = Requires\n"
-                 "                 %-10s %-8s = Requisite\n"
-                 "                 %-10s %-8s = BindsTo\n"
-                 "                 %-10s %-8s = PartOf\n"
-                 "                 %-10s %-8s = Wants\n"
-                 "                 %-10s %-8s = Conflicts\n"
-                 "                 %-10s %-8s = OnFailure\n"
-                 "                 %-10s %-8s = After\n"
-                 "                 %-10s %-8s = Triggers\n",
-                dependency_color[UNIT_REQUIRES],   dependency_style[UNIT_REQUIRES],
-                dependency_color[UNIT_REQUISITE],  dependency_style[UNIT_REQUISITE],
-                dependency_color[UNIT_BINDS_TO],   dependency_style[UNIT_BINDS_TO],
-                dependency_color[UNIT_PART_OF],    dependency_style[UNIT_PART_OF],
-                dependency_color[UNIT_WANTS],      dependency_style[UNIT_WANTS],
-                dependency_color[UNIT_CONFLICTS],  dependency_style[UNIT_CONFLICTS],
-                dependency_color[UNIT_ON_FAILURE], dependency_style[UNIT_ON_FAILURE],
-                dependency_color[UNIT_AFTER],      dependency_style[UNIT_AFTER],
-                dependency_color[UNIT_TRIGGERS],   dependency_style[UNIT_TRIGGERS]
-        );
+        log_info("   Color legend:\n");
+        for (int dependency = UNIT_REQUIRES; dependency < _UNIT_DEPENDENCY_MAX; ++dependency) {
+                if (dependency_color[dependency] && dependency_style[dependency]) {
+                        log_info("                 %-10s %-8s = %s\n",
+                                dependency_color[dependency],
+                                dependency_style[dependency],
+                                unit_dependency_to_string(dependency));
+                }
+        }
 
         if (on_tty())
                 log_notice("-- You probably want to process this output with graphviz' dot tool.\n"
                            "-- Try a shell pipeline like 'systemd-analyze dot | dot -Tsvg > systemd.svg'!\n");
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
-            free(dependency_color[d]);
-            free(dependency_style[d]);
+                free(dependency_color[d]);
+                free(dependency_style[d]);
         }
 
         return 0;
