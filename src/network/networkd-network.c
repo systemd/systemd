@@ -187,7 +187,8 @@ static int network_verify(Network *network) {
                               network->match_kernel_version, network->match_arch,
                               NULL, NULL, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: Conditions in the file do not match the system environment, skipping.", network->filename);
+                                       "%s: Conditions in the file do not match the system environment, skipping.",
+                                       network->filename);
 
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
@@ -713,7 +714,8 @@ int config_parse_stacked_netdev(const char *unit,
         }
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -727,7 +729,8 @@ int config_parse_stacked_netdev(const char *unit,
 
         r = hashmap_put(*h, name, INT_TO_PTR(kind));
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network, ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", rvalue);
                 return 0;
         }
 
