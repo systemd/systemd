@@ -200,7 +200,7 @@ if git.found()
                 output : 'update-man-rules',
                 command : ['sh', '-c',
                            'cd @0@ && '.format(meson.build_root()) +
-                           'python3 @0@/tools/make-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(meson.source_root()) +
+                           'python3 @0@/tools/make-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
                            'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
                 depend_files : custom_entities_ent)
 endif

@@ -26,6 +26,10 @@ substs = configuration_data()
 substs.set('PROJECT_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
 substs.set('PROJECT_VERSION',      meson.project_version())
 
+# This is to be used instead of meson.source_root(), as the latter will return
+# the wrong result when systemd is being built as a meson subproject
+project_source_root = meson.current_source_dir()
+
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
 if want_ossfuzz and want_libfuzzer
@@ -36,7 +40,7 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 #####################################################################
 
 # Try to install the git pre-commit hook
-git_hook = run_command(join_paths(meson.source_root(), 'tools/add-git-hook.sh'))
+git_hook = run_command(join_paths(project_source_root, 'tools/add-git-hook.sh'))
 if git_hook.returncode() == 0
         message(git_hook.stdout().strip())
 endif
@@ -575,8 +579,8 @@ endif
 
 #####################################################################
 
-vcs_tagger = [meson.source_root() + '/tools/meson-vcs-tag.sh',
-              meson.source_root(),
+vcs_tagger = [project_source_root + '/tools/meson-vcs-tag.sh',
+              project_source_root,
               get_option('version-tag'),
               meson.project_version()]
 
@@ -595,7 +599,7 @@ git = find_program('git', required : false)
 env = find_program('env')
 perl = find_program('perl', required : false)
 
-meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
+meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
 test_efi_create_disk_sh = find_program('test/test-efi-create-disk.sh')
 splash_bmp = files('test/splash.bmp')
@@ -1476,7 +1480,7 @@ libjournal_core = static_library(
         include_directories : includes,
         install : false)
 
-libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
+libsystemd_sym_path = '@0@/@1@'.format(project_source_root, libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
         disable_mempool_c,
@@ -1579,7 +1583,7 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 module = tuple[0]
 
                 sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
-                version_script_arg = join_paths(meson.source_root(), sym)
+                version_script_arg = join_paths(project_source_root, sym)
 
                 nss = shared_library(
                         'nss_' + module,
@@ -1845,7 +1849,7 @@ if conf.get('ENABLE_LOGIND') == 1
         public_programs += exe
 
         if conf.get('HAVE_PAM') == 1
-                version_script_arg = join_paths(meson.source_root(), pam_systemd_sym)
+                version_script_arg = join_paths(project_source_root, pam_systemd_sym)
                 pam_systemd = shared_library(
                         'pam_systemd',
                         pam_systemd_c,
@@ -2778,7 +2782,7 @@ custom_target(
         'systemd-runtest.env',
         output : 'systemd-runtest.env',
         command : ['sh', '-c', '{ ' +
-                   'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(meson.current_source_dir(), 'test')) +
+                   'echo SYSTEMD_TEST_DATA=@0@; '.format(join_paths(project_source_root, 'test')) +
                    'echo SYSTEMD_CATALOG_DIR=@0@; '.format(join_paths(meson.current_build_dir(), 'catalog')) +
                    '} >@OUTPUT@'],
         build_by_default : true)
@@ -3008,7 +3012,7 @@ foreach tuple : sanitizers
                                 test('@0@:@1@:@2@'.format(b, c, sanitizer),
                                      env,
                                      args : [exe.full_path(),
-                                             join_paths(meson.source_root(), p)])
+                                             join_paths(project_source_root, p)])
                         endif
                 endforeach
         endif
@@ -3020,7 +3024,7 @@ endforeach
 if git.found()
         all_files = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(project_source_root),
                  'ls-files',
                  ':/*.[ch]'])
         all_files = files(all_files.stdout().split())
@@ -3028,10 +3032,10 @@ if git.found()
         custom_target(
                 'tags',
                 output : 'tags',
-                command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.source_root())] + all_files)
+                command : [env, 'etags', '-o', '@0@/TAGS'.format(project_source_root)] + all_files)
         run_target(
                 'ctags',
-                command : [env, 'ctags', '-o', '@0@/tags'.format(meson.source_root())] + all_files)
+                command : [env, 'ctags', '-o', '@0@/tags'.format(project_source_root)] + all_files)
 endif
 
 if git.found()
@@ -3044,17 +3048,17 @@ endif
 if git.found()
         git_head = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(project_source_root),
                  'rev-parse', 'HEAD']).stdout().strip()
         git_head_short = run_command(
                 git,
-                ['--git-dir=@0@/.git'.format(meson.source_root()),
+                ['--git-dir=@0@/.git'.format(project_source_root),
                  'rev-parse', '--short=7', 'HEAD']).stdout().strip()
 
         run_target(
                 'git-snapshot',
                 command : ['git', 'archive',
-                           '-o', '@0@/systemd-@1@.tar.gz'.format(meson.source_root(),
+                           '-o', '@0@/systemd-@1@.tar.gz'.format(project_source_root,
                                                                  git_head_short),
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
