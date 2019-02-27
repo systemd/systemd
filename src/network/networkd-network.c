@@ -23,6 +23,9 @@
 #include "strv.h"
 #include "util.h"
 
+/* Let's assume that anything above this number is a user misconfiguration. */
+#define MAX_NTP_SERVERS 128
+
 static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
         siphash24_compress(c->filename, strlen(c->filename), state);
         siphash24_compress(&c->line, sizeof(c->line), state);
@@ -206,7 +209,8 @@ static int network_verify(Network *network) {
                               network->match_kernel_version, network->match_arch,
                               NULL, NULL, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: Conditions in the file do not match the system environment, skipping.", network->filename);
+                                       "%s: Conditions in the file do not match the system environment, skipping.",
+                                       network->filename);
 
         (void) network_resolve_netdev_one(network, network->bond_name, NETDEV_KIND_BOND, &network->bond);
         (void) network_resolve_netdev_one(network, network->bridge_name, NETDEV_KIND_BRIDGE, &network->bridge);
@@ -741,7 +745,8 @@ int config_parse_stacked_netdev(const char *unit,
         }
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -754,12 +759,14 @@ int config_parse_stacked_netdev(const char *unit,
                 return log_oom();
 
         r = hashmap_put(*h, name, INT_TO_PTR(kind));
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        name = NULL;
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
+        else if (r == 0)
+                log_syntax(unit, LOG_DEBUG, filename, line, r,
+                           "NetDev '%s' specified twice, ignoring.", name);
+        else
+                name = NULL;
 
         return 0;
 }
@@ -1486,11 +1493,16 @@ int config_parse_ntp(
                         continue;
                 }
 
-                r = strv_push(l, w);
+                if (strv_length(*l) > MAX_NTP_SERVERS) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "More than %u NTP servers specified, ignoring \"%s\" and any subsequent entries.",
+                                   MAX_NTP_SERVERS, w);
+                        break;
+                }
+
+                r = strv_consume(l, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
-
-                w = NULL;
         }
 
         return 0;
