@@ -1392,7 +1392,7 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 #####################################################################
 
 if get_option('efi')
-        efi_arch = host_machine.cpu_family()
+        efi_arch = target_machine.cpu_family()
 
         if efi_arch == 'x86'
                 EFI_MACHINE_TYPE_NAME = 'ia32'
