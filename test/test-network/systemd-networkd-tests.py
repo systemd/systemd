@@ -343,15 +343,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev', '21-vlan.network')
         self.start_networkd()
 
+        self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('vlan99'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertTrue(output, ' mtu 2004 ')
 
         output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vlan99']).rstrip().decode('utf-8')
         print(output)
+        self.assertTrue(output, ' mtu 2000 ')
         self.assertTrue(output, 'REORDER_HDR')
         self.assertTrue(output, 'LOOSE_BINDING')
         self.assertTrue(output, 'GVRP')
         self.assertTrue(output, 'MVRP')
-        self.assertTrue(output, '99')
+        self.assertTrue(output, ' id 99 ')
 
     def test_macvtap(self):
         self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
@@ -363,7 +369,16 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.copy_unit_to_networkd_unit_path('21-macvlan.netdev', '11-dummy.netdev', 'macvlan.network')
         self.start_networkd()
 
+        self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('macvlan99'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertTrue(output, ' mtu 2000 ')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'macvlan99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertTrue(output, ' mtu 2000 ')
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):

@@ -261,7 +261,7 @@ static int dhcp_lease_lost(Link *link) {
 
                 r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
                 if (r >= 0 && link->original_mtu != mtu) {
-                        r = link_set_mtu(link, link->original_mtu);
+                        r = link_set_mtu(link, link->original_mtu, true);
                         if (r < 0) {
                                 log_link_warning(link,
                                                  "DHCP error: could not reset MTU");
@@ -451,7 +451,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
 
                 r = sd_dhcp_lease_get_mtu(lease, &mtu);
                 if (r >= 0) {
-                        r = link_set_mtu(link, mtu);
+                        r = link_set_mtu(link, mtu, true);
                         if (r < 0)
                                 log_link_error_errno(link, r, "Failed to set MTU to %" PRIu16 ": %m", mtu);
                 }
