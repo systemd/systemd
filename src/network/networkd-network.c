@@ -728,13 +728,14 @@ int config_parse_stacked_netdev(const char *unit,
                 return log_oom();
 
         r = hashmap_put(*h, name, INT_TO_PTR(kind));
-        if (r < 0) {
+        if (r < 0)
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        name = NULL;
+                           "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
+        else if (r == 0)
+                log_syntax(unit, LOG_DEBUG, filename, line, r,
+                           "NetDev '%s' specified twice, ignoring.", name);
+        else
+                name = NULL;
 
         return 0;
 }
