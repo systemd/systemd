@@ -2258,7 +2258,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                                          * be contained in questions, never in replies. Crappy
                                          * Belkin routers copy the OPT data for example, hence let's
                                          * detect this so that we downgrade early. */
-                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        log_debug("OPT RR contains RFC6975 data, ignoring.");
                                         bad_opt = true;
                                         continue;
                                 }
