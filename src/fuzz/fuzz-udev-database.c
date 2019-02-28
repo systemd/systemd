@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "device-internal.h"
 #include "device-private.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -19,7 +20,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 assert_se(fwrite(data, size, 1, f) == 1);
 
         fflush(f);
-        assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
+        assert_se(device_new_aux(&dev) >= 0);
         (void) device_read_db_internal_filename(dev, filename);
         return 0;
 }
