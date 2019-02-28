@@ -10,4 +10,4 @@ Scope=link
 
 [Route]
 Gateway=149.10.125.65
-GatewayOnlink=true
+GatewayOnLink=true

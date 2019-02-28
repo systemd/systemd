@@ -30,6 +30,7 @@ struct Route {
         uint32_t initrwnd;
         unsigned char pref;
         unsigned flags;
+        int gateway_onlink;
 
         union in_addr_union gw;
         union in_addr_union dst;

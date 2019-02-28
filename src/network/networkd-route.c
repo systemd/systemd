@@ -59,6 +59,7 @@ int route_new(Route **ret) {
                 .table = RT_TABLE_MAIN,
                 .lifetime = USEC_INFINITY,
                 .quickack = -1,
+                .gateway_onlink = -1,
         };
 
         *ret = TAKE_PTR(route);
@@ -565,6 +566,9 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set scope: %m");
 
+        if (route->gateway_onlink >= 0)
+                SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
+
         r = sd_rtnl_message_route_set_flags(req, route->flags);
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
@@ -700,18 +704,20 @@ int config_parse_gateway(
                 r = route_new_static(network, NULL, 0, &n);
         } else
                 r = route_new_static(network, filename, section_line, &n);
-
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
+        else
+                r = in_addr_from_string(n->family, rvalue, &n->gw);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
         TAKE_PTR(n);
-
         return 0;
 }
 
@@ -741,15 +747,17 @@ int config_parse_preferred_src(
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
+        else
+                r = in_addr_from_string(n->family, rvalue, &n->prefsrc);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Preferred source is invalid, ignoring assignment: %s", rvalue);
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
         TAKE_PTR(n);
-
         return 0;
 }
 
@@ -790,11 +798,13 @@ int config_parse_destination(
         } else
                 assert_not_reached(lvalue);
 
-        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        else
+                r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Route %s= prefix is invalid, ignoring assignment: %s",
-                           lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -946,11 +956,12 @@ int config_parse_gateway_onlink(
         r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse gateway onlink \"%s\", ignoring assignment: %m", rvalue);
+                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
-        SET_FLAG(n->flags, RTNH_F_ONLINK, r);
+        n->gateway_onlink = r;
+
         TAKE_PTR(n);
         return 0;
 }
@@ -1019,7 +1030,8 @@ int config_parse_route_protocol(
         else {
                 r = safe_atou8(rvalue , &n->protocol);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
         }
@@ -1059,7 +1071,8 @@ int config_parse_route_type(
         else if (streq(rvalue, "throw"))
                 n->type = RTN_THROW;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
@@ -1095,9 +1108,14 @@ int config_parse_tcp_window(
                 return r;
 
         r = parse_size(rvalue, 1024, &k);
-        if (r < 0 || k > UINT32_MAX)  {
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse TCP %s \"%s\" bytes, ignoring assignment: %m", rvalue, lvalue);
+                           "Could not parse TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k > UINT32_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -1105,10 +1123,8 @@ int config_parse_tcp_window(
                 n->initcwnd = k;
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
                 n->initrwnd = k;
-        else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse TCP %s: %s", lvalue, rvalue);
-                return 0;
-        }
+        else
+                assert_not_reached("Invalid TCP window type.");
 
         TAKE_PTR(n);
         return 0;
@@ -1142,7 +1158,8 @@ int config_parse_quickack(
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse TCP quickack, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, k,
+                           "Failed to parse TCP quickack, ignoring: %s", rvalue);
                 return 0;
         }
 

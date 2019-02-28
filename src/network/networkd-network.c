@@ -196,8 +196,8 @@ static uint32_t network_get_stacked_netdevs_mtu(Network *network) {
 }
 
 static int network_verify(Network *network) {
-        Address *address;
-        Route *route;
+        Address *address, *address_next;
+        Route *route, *route_next;
         uint32_t mtu;
 
         assert(network);
@@ -284,19 +284,35 @@ static int network_verify(Network *network) {
                 network->dhcp_use_mtu = false;
         }
 
-        LIST_FOREACH(routes, route, network->static_routes)
-                if (!route->family)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Route section without Gateway field configured. "
-                                                 "Ignoring %s.",
-                                                 network->filename, network->filename);
+        LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
+                if (address->family == AF_UNSPEC) {
+                        log_warning("%s: Address section without Address= field configured. "
+                                    "Ignoring [Address] section from line %u.",
+                                    network->filename, address->section->line);
 
-        LIST_FOREACH(addresses, address, network->static_addresses)
-                if (!address->family)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Address section without Address field configured. "
-                                                 "Ignoring %s.",
-                                                 network->filename, network->filename);
+                        address_free(address);
+                }
+
+        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes) {
+                if (route->family == AF_UNSPEC) {
+                        log_warning("%s: Route section without Gateway=, Destination=, Source=, "
+                                    "or PreferredSource= field configured. "
+                                    "Ignoring [Route] section from line %u.",
+                                    network->filename, route->section->line);
+
+                        route_free(route);
+                        continue;
+                }
+
+                if (network->n_static_addresses == 0 &&
+                    in_addr_is_null(route->family, &route->gw) == 0 &&
+                    route->gateway_onlink < 0) {
+                        log_warning("%s: Gateway= without static address configured. "
+                                    "Enabling GatewayOnLink= option.",
+                                    network->filename);
+                        route->gateway_onlink = true;
+                }
+        }
 
         return 0;
 }

@@ -1081,7 +1081,7 @@
           </listitem>
         </varlistentry>
          <varlistentry>
-           <term><varname>GatewayOnlink=</varname></term>
+           <term><varname>GatewayOnLink=</varname></term>
            <listitem>
              <para>Takes a boolean. If set to true, the kernel does not have
              to check if the gateway is reachable directly by the current machine (i.e., the kernel does

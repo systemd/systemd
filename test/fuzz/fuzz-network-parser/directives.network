@@ -60,6 +60,7 @@ Protocol=
 Table=
 Gateway=
 InitialAdvertisedReceiveWindow=
+GatewayOnLink=
 GatewayOnlink=
 Type=
 InitialCongestionWindow=

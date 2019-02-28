@@ -1491,6 +1491,7 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         '25-vrf.network',
         'dhcp-client-anonymize.network',
         'dhcp-client-critical-connection.network',
+        'dhcp-client-gateway-onlink-implicit.network',
         'dhcp-client-ipv4-dhcp-settings.network',
         'dhcp-client-ipv4-only-ipv6-disabled.network',
         'dhcp-client-ipv4-only.network',
@@ -1775,6 +1776,26 @@ class NetworkdNetworkDHCPClientTests(unittest.TestCase, Utilities):
         output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
         print(output)
         self.assertRegex(output, 'State: routable \(configured\)')
+
+    def test_dhcp_client_gateway_onlink_implicit(self):
+        self.copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                             'dhcp-client-gateway-onlink-implicit.network')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('veth99'))
+
+        self.start_dnsmasq()
+
+        output = subprocess.check_output(['networkctl', 'status', 'veth99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '192.168.5')
+
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '10.0.0.0/8']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'onlink')
+        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'veth99', '192.168.100.0/24']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'onlink')
 
 if __name__ == '__main__':
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
