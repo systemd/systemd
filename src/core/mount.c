@@ -1317,25 +1317,21 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         mount_exec_command_to_string(m->control_command_id),
                         code, status);
 
-        /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
-         * before we process the SIGCHLD for the mount command. */
+        /* Note that mount(8) returning and the kernel sending us a mount table change event might happen
+         * out-of-order. If an operation succeed we assume the kernel will follow soon too and already change into the
+         * resulting state.  If it fails we check if the kernel still knows about the mount. and change state
+         * accordingly. */
 
         switch (m->state) {
-
         case MOUNT_MOUNTING:
-                /* Our mount point has not appeared in mountinfo.  Something went wrong. */
-
-                if (f == MOUNT_SUCCESS) {
-                        /* Either /bin/mount has an unexpected definition of success,
-                         * or someone raced us and we lost. */
-                        log_unit_warning(UNIT(m), "Mount process finished, but there is no mount.");
-                        f = MOUNT_FAILURE_PROTOCOL;
-                }
-                mount_enter_dead(m, f);
-                break;
-
         case MOUNT_MOUNTING_DONE:
-                mount_enter_mounted(m, f);
+                if (f == MOUNT_SUCCESS || m->from_proc_self_mountinfo)
+                        /* If /bin/mount returned success, or if we see the mount point in /proc/self/mountinfo we are
+                         * happy. If we see the first condition first, we should see the second condition
+                         * immediately after – or /bin/mount lies to us and is broken. */
+                        mount_enter_mounted(m, f);
+                else
+                        mount_enter_dead(m, f);
                 break;
 
         case MOUNT_REMOUNTING:
