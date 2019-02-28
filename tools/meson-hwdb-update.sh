@@ -29,4 +29,8 @@ set -x
 patch -p0 -o- 20-acpi-vendor.hwdb.base <20-acpi-vendor.hwdb.patch >20-acpi-vendor.hwdb
 ! diff -u 20-acpi-vendor.hwdb.base 20-acpi-vendor.hwdb >20-acpi-vendor.hwdb.patch
 
+./fix-hwdb.py <usb.ids >usb.ids.fixed
+./fix-hwdb.py <pci.ids >pci.ids.fixed
+./fix-hwdb.py <sdio.ids >sdio.ids.fixed
+
 ./ids_parser.py
