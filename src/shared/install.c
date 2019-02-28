@@ -2827,19 +2827,14 @@ static int presets_find_config(UnitFileScope scope, const char *root_dir, char *
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        switch (scope) {
-        case UNIT_FILE_SYSTEM:
+        if (scope == UNIT_FILE_SYSTEM)
                 dirs = (const char* const*) CONF_PATHS_STRV("systemd/system-preset");
-                break;
 
-        case UNIT_FILE_GLOBAL:
-        case UNIT_FILE_USER:
+        else if (IN_SET(scope, UNIT_FILE_GLOBAL, UNIT_FILE_USER))
                 dirs = (const char* const*) CONF_PATHS_USR_STRV("systemd/user-preset");
-                break;
 
-        default:
+        else
                 assert_not_reached("Invalid unit file scope");
-        }
 
         return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
 }
