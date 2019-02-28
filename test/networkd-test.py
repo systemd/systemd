@@ -29,6 +29,7 @@ import time
 import unittest
 
 HAVE_DNSMASQ = shutil.which('dnsmasq') is not None
+IS_CONTAINER = subprocess.call(['systemd-detect-virt', '--quiet', '--container']) == 0
 
 NETWORK_UNITDIR = '/run/systemd/network'
 
@@ -335,13 +336,16 @@ class ClientTestBase(NetworkdTestingUtilities):
 
         raise NotImplementedError('must be implemented by a subclass')
 
+    def start_unit(self, unit):
+        try:
+            subprocess.check_call(['systemctl', 'start', unit])
+        except subprocess.CalledProcessError:
+            self.show_journal(unit)
+            raise
+
     def do_test(self, coldplug=True, ipv6=False, extra_opts='',
                 online_timeout=10, dhcp_mode='yes'):
-        try:
-            subprocess.check_call(['systemctl', 'start', 'systemd-resolved'])
-        except subprocess.CalledProcessError:
-            self.show_journal('systemd-resolved.service')
-            raise
+        self.start_unit('systemd-resolved')
         self.write_network(self.config, '''\
 [Match]
 Name={}
@@ -352,14 +356,14 @@ DHCP={}
         if coldplug:
             # create interface first, then start networkd
             self.create_iface(ipv6=ipv6)
-            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+            self.start_unit('systemd-networkd')
         elif coldplug is not None:
             # start networkd first, then create interface
-            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+            self.start_unit('systemd-networkd')
             self.create_iface(ipv6=ipv6)
         else:
             # "None" means test sets up interface by itself
-            subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+            self.start_unit('systemd-networkd')
 
         try:
             subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface',
@@ -472,12 +476,19 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company''')
 
-        self.do_test(coldplug=True, ipv6=False,
-                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+        try:
+            self.do_test(coldplug=True, ipv6=False,
+                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+        except subprocess.CalledProcessError as e:
+            # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
+            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+                raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
+            else:
+                raise
 
         with open(RESOLV_CONF) as f:
             contents = f.read()
@@ -496,12 +507,19 @@ MACAddress=12:34:56:78:9a:bc''')
         self.write_network('myvpn.network', '''[Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= ~company ~.''')
 
-        self.do_test(coldplug=True, ipv6=False,
-                     extra_opts='IPv6AcceptRouterAdvertisements=False')
+        try:
+            self.do_test(coldplug=True, ipv6=False,
+                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+        except subprocess.CalledProcessError as e:
+            # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
+            if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
+                raise unittest.SkipTest('https://github.com/systemd/systemd/issues/11848')
+            else:
+                raise
 
         with open(RESOLV_CONF) as f:
             contents = f.read()
@@ -618,7 +636,7 @@ Address=10.241.3.2/24
 DNS=10.241.3.1
 Domains= ~company ~lab''')
 
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.start_unit('systemd-networkd')
         subprocess.check_call([NETWORKD_WAIT_ONLINE, '--interface', self.iface,
                                '--interface=testvpnclient', '--timeout=20'])
 
@@ -884,11 +902,11 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= one two three four five six seven eight nine ten''')
 
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.start_unit('systemd-networkd')
 
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
@@ -916,11 +934,11 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
 
-        subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
+        self.start_unit('systemd-networkd')
 
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
@@ -944,13 +962,14 @@ MACAddress=12:34:56:78:9a:bc''')
 [Match]
 Name=dummy0
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1''')
         self.write_network_dropin('test.network', 'dns', '''\
 [Network]
 DNS=127.0.0.1''')
 
-        subprocess.check_call(['systemctl', 'start', 'systemd-resolved', 'systemd-networkd'])
+        self.start_unit('systemd-resolved')
+        self.start_unit('systemd-networkd')
 
         for timeout in range(50):
             with open(RESOLV_CONF) as f:
