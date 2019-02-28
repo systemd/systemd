@@ -690,13 +690,15 @@ int config_parse_broadcast(
                 return r;
 
         if (n->family == AF_INET6) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Broadcast is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -802,7 +804,8 @@ int config_parse_label(
                 return r;
 
         if (!address_label_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface label is too long or invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Interface label is too long or invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -811,7 +814,6 @@ int config_parse_label(
                 return log_oom();
 
         n = NULL;
-
         return 0;
 }
 
@@ -883,7 +885,8 @@ int config_parse_address_flags(const char *unit,
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address flag, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse address flag, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -897,6 +900,8 @@ int config_parse_address_flags(const char *unit,
                 n->prefix_route = r;
         else if (streq(lvalue, "AutoJoin"))
                 n->autojoin = r;
+        else
+                assert_not_reached("Invalid address flag type.");
 
         n = NULL;
         return 0;
@@ -935,13 +940,13 @@ int config_parse_address_scope(const char *unit,
         else {
                 r = safe_atou8(rvalue , &n->scope);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Could not parse address scope \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
         }
 
         n = NULL;
-
         return 0;
 }
 
