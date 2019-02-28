@@ -1030,7 +1030,8 @@ int config_parse_route_protocol(
         else {
                 r = safe_atou8(rvalue , &n->protocol);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
         }
@@ -1070,7 +1071,8 @@ int config_parse_route_type(
         else if (streq(rvalue, "throw"))
                 n->type = RTN_THROW;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
@@ -1106,9 +1108,14 @@ int config_parse_tcp_window(
                 return r;
 
         r = parse_size(rvalue, 1024, &k);
-        if (r < 0 || k > UINT32_MAX)  {
+        if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse TCP %s \"%s\" bytes, ignoring assignment: %m", rvalue, lvalue);
+                           "Could not parse TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k > UINT32_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
@@ -1116,10 +1123,8 @@ int config_parse_tcp_window(
                 n->initcwnd = k;
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
                 n->initrwnd = k;
-        else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse TCP %s: %s", lvalue, rvalue);
-                return 0;
-        }
+        else
+                assert_not_reached("Invalid TCP window type.");
 
         TAKE_PTR(n);
         return 0;
@@ -1153,7 +1158,8 @@ int config_parse_quickack(
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse TCP quickack, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, k,
+                           "Failed to parse TCP quickack, ignoring: %s", rvalue);
                 return 0;
         }
 
