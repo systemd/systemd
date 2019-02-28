@@ -732,35 +732,18 @@ int config_parse_stacked_netdev(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        _cleanup_free_ char *kind_string = NULL, *name = NULL;
+        _cleanup_free_ char *name = NULL;
+        NetDevKind kind = ltype;
         Hashmap **h = data;
-        NetDevKind kind;
-        char *p;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
-
-        if (ltype == _NETDEV_KIND_TUNNEL)
-                kind = _NETDEV_KIND_TUNNEL;
-        else {
-                kind_string = strdup(lvalue);
-                if (!kind_string)
-                        return log_oom();
-
-                /* the keys are CamelCase versions of the kind */
-                for (p = kind_string; *p; p++)
-                        *p = tolower(*p);
-
-                kind = netdev_kind_from_string(kind_string);
-                if (kind < 0 || IN_SET(kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Invalid NetDev kind: %s", lvalue);
-                        return 0;
-                }
-        }
+        assert(IN_SET(kind,
+                      NETDEV_KIND_VLAN, NETDEV_KIND_MACVLAN, NETDEV_KIND_MACVTAP,
+                      NETDEV_KIND_IPVLAN, NETDEV_KIND_VXLAN, _NETDEV_KIND_TUNNEL));
 
         if (!ifname_valid(rvalue)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
