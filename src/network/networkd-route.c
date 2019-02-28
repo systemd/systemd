@@ -704,18 +704,20 @@ int config_parse_gateway(
                 r = route_new_static(network, NULL, 0, &n);
         } else
                 r = route_new_static(network, filename, section_line, &n);
-
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
+        else
+                r = in_addr_from_string(n->family, rvalue, &n->gw);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Route is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
         TAKE_PTR(n);
-
         return 0;
 }
 
@@ -745,15 +747,17 @@ int config_parse_preferred_src(
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
+        else
+                r = in_addr_from_string(n->family, rvalue, &n->prefsrc);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Preferred source is invalid, ignoring assignment: %s", rvalue);
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
         TAKE_PTR(n);
-
         return 0;
 }
 
@@ -794,11 +798,13 @@ int config_parse_destination(
         } else
                 assert_not_reached(lvalue);
 
-        r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        if (n->family == AF_UNSPEC)
+                r = in_addr_prefix_from_string_auto(rvalue, &n->family, buffer, prefixlen);
+        else
+                r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Route %s= prefix is invalid, ignoring assignment: %s",
-                           lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
