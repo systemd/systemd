@@ -1214,7 +1214,7 @@ int get_timezones(char ***ret) {
         n_allocated = 2;
         n_zones = 1;
 
-        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
+        f = fopen("/usr/share/zoneinfo/zone1970.tab", "re");
         if (f) {
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
