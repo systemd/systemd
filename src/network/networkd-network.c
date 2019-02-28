@@ -26,42 +26,6 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128
 
-static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
-        siphash24_compress(c->filename, strlen(c->filename), state);
-        siphash24_compress(&c->line, sizeof(c->line), state);
-}
-
-static int network_config_compare_func(const NetworkConfigSection *x, const NetworkConfigSection *y) {
-        int r;
-
-        r = strcmp(x->filename, y->filename);
-        if (r != 0)
-                return r;
-
-        return CMP(x->line, y->line);
-}
-
-DEFINE_HASH_OPS(network_config_hash_ops, NetworkConfigSection, network_config_hash_func, network_config_compare_func);
-
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s) {
-        NetworkConfigSection *cs;
-
-        cs = malloc0(offsetof(NetworkConfigSection, filename) + strlen(filename) + 1);
-        if (!cs)
-                return -ENOMEM;
-
-        strcpy(cs->filename, filename);
-        cs->line = line;
-
-        *s = TAKE_PTR(cs);
-
-        return 0;
-}
-
-void network_config_section_free(NetworkConfigSection *cs) {
-        free(cs);
-}
-
 /* Set defaults following RFC7844 */
 void network_apply_anonymize_if_set(Network *network) {
         if (!network->dhcp_anonymize)
