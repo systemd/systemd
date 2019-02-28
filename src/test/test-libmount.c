@@ -110,6 +110,9 @@ static void test_libmount_unescaping(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         test_libmount_unescaping();
         return 0;
 }

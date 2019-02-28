@@ -34,6 +34,9 @@ static int test_cgroup_mask(void) {
         int r;
         CGroupMask cpu_accounting_mask = get_cpu_accounting_mask();
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");

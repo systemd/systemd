@@ -252,6 +252,9 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         test_path = path_join(get_testdata_dir(), "test-path");
         assert_se(set_unit_path(test_path) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());

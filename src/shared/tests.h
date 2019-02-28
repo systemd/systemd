@@ -5,6 +5,7 @@
 
 #include "sd-daemon.h"
 
+#include "env-util.h"
 #include "string-util.h"
 
 #define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
@@ -37,4 +38,9 @@ bool have_namespaces(void);
 /* https://docs.travis-ci.com/user/environment-variables#default-environment-variables */
 static inline bool is_run_on_travis_ci(void) {
         return streq_ptr(getenv("TRAVIS"), "true");
+}
+
+static inline bool is_run_with_partial_msan(void) {
+        return HAS_FEATURE_MEMORY_SANITIZER &&
+                getenv_bool("MSAN_FULLY_INSTRUMENTED") == 0;
 }

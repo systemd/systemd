@@ -9,6 +9,8 @@
 #include "rlimit-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "tests.h"
+#include "util.h"
 
 static void test_rlimit_parse_format(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;
@@ -42,8 +44,10 @@ int main(int argc, char *argv[]) {
         };
         int i;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
+
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
 
         assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
 

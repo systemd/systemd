@@ -55,6 +55,9 @@ static void test_swap_list(const char *fname) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         test_mount_points_list(NULL);
         test_mount_points_list("/test-umount/empty.mountinfo");
         test_mount_points_list("/test-umount/garbled.mountinfo");

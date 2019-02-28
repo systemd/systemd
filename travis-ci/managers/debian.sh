@@ -90,6 +90,7 @@ for phase in "${PHASES[@]}"; do
             travis_wait docker exec --interactive=false \
                 -e MSAN_OPTIONS=exit_code=42 \
                 -e "TRAVIS=$TRAVIS" \
+                -e "MSAN_FULLY_INSTRUMENTED=0" \
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;

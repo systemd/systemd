@@ -15,8 +15,12 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         if (getuid() != 0)
                 return log_tests_skipped("not root");
+
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");

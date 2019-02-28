@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "bus-util.h"
+#include "env-util.h"
 #include "manager.h"
 #include "rm-rf.h"
 #include "test-helper.h"
@@ -23,6 +24,9 @@ int main(int argc, char *argv[]) {
         r = enter_cgroup_subroot();
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
+
+        if (getenv_bool("MSAN_FULLY_INSTRUMENTED") == 0)
+                return log_tests_skipped("cannot run without full msan instrumentation");
 
         /* prepare the test */
         assert_se(set_unit_path(get_testdata_dir()) >= 0);

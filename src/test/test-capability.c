@@ -246,6 +246,9 @@ int main(int argc, char *argv[]) {
 
         log_info("have ambient caps: %s", yes_no(ambient_capabilities_supported()));
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         if (getuid() != 0)
                 return log_tests_skipped("not running as root");
 

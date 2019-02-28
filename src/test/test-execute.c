@@ -802,6 +802,9 @@ int main(int argc, char *argv[]) {
         if (HAS_FEATURE_ADDRESS_SANITIZER && is_run_on_travis_ci())
                 return log_tests_skipped("Running on TravisCI under ASan, skipping, see https://github.com/systemd/systemd/issues/10696");
 
+        if (is_run_with_partial_msan())
+                return log_tests_skipped("cannot run without full msan instrumentation");
+
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
         (void) unsetenv("SHELL");
