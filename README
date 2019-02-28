@@ -158,6 +158,7 @@ REQUIREMENTS:
         openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
         elfutils >= 158 (optional)
         polkit (optional)
+        tzdata >= 2014f (optional)
         pkg-config
         gperf
         docbook-xsl (optional, required for documentation)
