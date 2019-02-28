@@ -904,6 +904,7 @@ int config_parse_address_flags(const char *unit,
         else if (streq(lvalue, "AutoJoin"))
                 n->autojoin = r;
 
+        n = NULL;
         return 0;
 }
 
