@@ -59,6 +59,7 @@ int route_new(Route **ret) {
                 .table = RT_TABLE_MAIN,
                 .lifetime = USEC_INFINITY,
                 .quickack = -1,
+                .gateway_onlink = -1,
         };
 
         *ret = TAKE_PTR(route);
@@ -565,6 +566,9 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not set scope: %m");
 
+        if (route->gateway_onlink >= 0)
+                SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
+
         r = sd_rtnl_message_route_set_flags(req, route->flags);
         if (r < 0)
                 return log_error_errno(r, "Could not set flags: %m");
@@ -950,7 +954,8 @@ int config_parse_gateway_onlink(
                 return 0;
         }
 
-        SET_FLAG(n->flags, RTNH_F_ONLINK, r);
+        n->gateway_onlink = r;
+
         TAKE_PTR(n);
         return 0;
 }
