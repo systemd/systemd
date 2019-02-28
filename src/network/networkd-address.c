@@ -840,25 +840,19 @@ int config_parse_lifetime(const char *unit,
         if (r < 0)
                 return r;
 
-        if (STR_IN_SET(rvalue, "forever", "infinity")) {
-                n->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
-                n = NULL;
-
-                return 0;
-        }
-
-        r = safe_atou(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PreferredLifetime, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (k != 0)
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid PreferredLifetime value, ignoring: %d", k);
+        /* We accept only "forever", "infinity", or "0". */
+        if (STR_IN_SET(rvalue, "forever", "infinity"))
+                k = CACHE_INFO_INFINITY_LIFE_TIME;
+        else if (streq(rvalue, "0"))
+                k = 0;
         else {
-                n->cinfo.ifa_prefered = k;
-                n = NULL;
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid PreferredLifetime= value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        n->cinfo.ifa_prefered = k;
+        n = NULL;
 
         return 0;
 }
