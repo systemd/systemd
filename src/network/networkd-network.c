@@ -70,13 +70,14 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
         NetDev *netdev;
         int r;
 
+        /* For test-networkd-conf, the check must be earlier than the assertions. */
+        if (!name)
+                return 0;
+
         assert(network);
         assert(network->manager);
         assert(network->filename);
         assert(ret_netdev);
-
-        if (!name)
-                return 0;
 
         if (kind == _NETDEV_KIND_TUNNEL)
                 kind_string = "tunnel";
@@ -159,7 +160,7 @@ static uint32_t network_get_stacked_netdevs_mtu(Network *network) {
         return mtu;
 }
 
-static int network_verify(Network *network) {
+int network_verify(Network *network) {
         Address *address, *address_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
