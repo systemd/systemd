@@ -8,7 +8,18 @@
 
 #include "sd-id128.h"
 
+#include "string-util.h"
+
+typedef enum BootEntryType {
+        BOOT_ENTRY_CONF,     /* Type #1 entries: *.conf files */
+        BOOT_ENTRY_UNIFIED,  /* Type #2 entries: *.efi files */
+        BOOT_ENTRY_LOADER,   /* Additional entries augmented from LoaderEntries EFI var */
+        _BOOT_ENTRY_MAX,
+        _BOOT_ENTRY_INVALID = -1,
+} BootEntryType;
+
 typedef struct BootEntry {
+        BootEntryType type;
         char *id;       /* This is the file basename without extension */
         char *path;     /* This is the full path to the drop-in file */
         char *root;     /* The root path in which the drop-in was found, i.e. to which 'kernel', 'efi' and 'initrd' are relative */
@@ -40,8 +51,19 @@ typedef struct BootConfig {
         ssize_t default_entry;
 } BootConfig;
 
+static inline bool boot_config_has_entry(BootConfig *config, const char *id) {
+        size_t j;
+
+        for (j = 0; j < config->n_entries; j++)
+                if (streq(config->entries[j].id, id))
+                        return true;
+
+        return false;
+}
+
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
+int boot_entries_augment_from_loader(BootConfig *config, bool only_auto);
 
 static inline const char* boot_entry_title(const BootEntry *entry) {
         return entry->show_title ?: entry->title ?: entry->id;
@@ -51,3 +73,6 @@ int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path,
 int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid);
 
 int find_default_boot_entry(BootConfig *config, const BootEntry **e);
+
+const char* boot_entry_type_to_string(BootEntryType t) _const_;
+BootEntryType boot_entry_type_from_string(const char *s) _pure_;

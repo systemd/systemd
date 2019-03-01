@@ -22,6 +22,7 @@
 #include "path-util.h"
 #include "pe-header.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -50,7 +51,10 @@ static int boot_entry_load(
                 const char *path,
                 BootEntry *entry) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        _cleanup_(boot_entry_free) BootEntry tmp = {
+                .type = BOOT_ENTRY_CONF,
+        };
+
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         char *b, *c;
@@ -272,7 +276,9 @@ static int boot_entry_load_unified(
                 BootEntry *ret) {
 
         _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        _cleanup_(boot_entry_free) BootEntry tmp = {
+                .type = BOOT_ENTRY_UNIFIED,
+        };
         _cleanup_fclose_ FILE *f = NULL;
         const char *k;
         int r;
@@ -661,6 +667,70 @@ int boot_entries_load_config(
         }
 
         config->default_entry = boot_entries_select_default(config);
+        return 0;
+}
+
+int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
+
+        static const char * const title_table[] = {
+                /* Pretty names for a few well-known automatically discovered entries. */
+                "auto-osx",                      "macOS",
+                "auto-windows",                  "Windows Boot Manager",
+                "auto-efi-shell",                "EFI Shell",
+                "auto-efi-default",              "EFI Default Loader",
+                "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
+        };
+
+        _cleanup_free_ char **found_by_loader = NULL;
+        size_t n_allocated;
+        char **i;
+        int r;
+
+        assert(config);
+
+        /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
+         * already included there. */
+
+        r = efi_loader_get_entries(&found_by_loader);
+        if (IN_SET(r, -ENOENT, -EOPNOTSUPP))
+                return log_debug_errno(r, "Boot loader reported no entries.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+
+        n_allocated = config->n_entries;
+
+        STRV_FOREACH(i, found_by_loader) {
+                _cleanup_free_ char *c = NULL, *t = NULL;
+                char **a, **b;
+
+                if (boot_config_has_entry(config, *i))
+                        continue;
+
+                if (only_auto && !startswith(*i, "auto-"))
+                        continue;
+
+                c = strdup(*i);
+                if (!c)
+                        return log_oom();
+
+                STRV_FOREACH_PAIR(a, b, (char**) title_table)
+                        if (streq(*a, *i)) {
+                                t = strdup(*b);
+                                if (!t)
+                                        return log_oom();
+                                break;
+                        }
+
+                if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
+                        return log_oom();
+
+                config->entries[config->n_entries++] = (BootEntry) {
+                        .type = BOOT_ENTRY_LOADER,
+                        .id = TAKE_PTR(c),
+                        .title = TAKE_PTR(t),
+                };
+        }
+
         return 0;
 }
 
@@ -1327,3 +1397,11 @@ int find_default_boot_entry(
 
         return 0;
 }
+
+static const char* const boot_entry_type_table[_BOOT_ENTRY_MAX] = {
+        [BOOT_ENTRY_CONF] = "conf",
+        [BOOT_ENTRY_UNIFIED] = "unified",
+        [BOOT_ENTRY_LOADER] = "loader",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);

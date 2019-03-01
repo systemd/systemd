@@ -311,13 +311,15 @@ static int status_variables(void) {
 static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         assert(e);
 
-        printf("        title: %s%s%s%s%s%s\n",
+        printf("        title: %s%s%s%s%s%s\n"
+               "         type: %s\n",
                ansi_highlight(),
                boot_entry_title(e),
                ansi_normal(),
                ansi_highlight_green(),
                show_as_default ? " (default)" : "",
-               ansi_normal());
+               ansi_normal(),
+               boot_entry_type_to_string(e->type));
 
         if (e->id)
                 printf("           id: %s\n", e->id);
@@ -1173,7 +1175,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char **found_by_loader = NULL;
         int r;
 
         /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
@@ -1196,9 +1197,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = efi_loader_get_entries(&found_by_loader);
-        if (r < 0 && !IN_SET(r, -ENOENT, -EOPNOTSUPP))
-                log_debug_errno(r, "Failed to acquire boot loader discovered entries: %m");
+        (void) boot_entries_augment_from_loader(&config, false);
 
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
@@ -1216,18 +1215,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
                         if (n+1 < config.n_entries)
                                 putchar('\n');
-
-                        strv_remove(found_by_loader, config.entries[n].id);
                 }
-        }
-
-        if (!strv_isempty(found_by_loader)) {
-                char **i;
-
-                printf("\nAutomatic/Other Entries Found by Boot Loader:\n\n");
-
-                STRV_FOREACH(i, found_by_loader)
-                        puts(*i);
         }
 
         return 0;
