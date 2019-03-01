@@ -160,16 +160,18 @@
       <varlistentry>
         <term><option>--template=</option></term>
 
-        <listitem><para>Directory or <literal>btrfs</literal> subvolume to use as template for the container's root
-        directory. If this is specified and the container's root directory (as configured by
-        <option>--directory=</option>) does not yet exist it is created as <literal>btrfs</literal> snapshot (if
-        supported) or plain directory (otherwise) and populated from this template tree. Ideally, the specified
-        template path refers to the root of a <literal>btrfs</literal> subvolume, in which case a simple copy-on-write
-        snapshot is taken, and populating the root directory is instant. If the specified template path does not refer
-        to the root of a <literal>btrfs</literal> subvolume (or not even to a <literal>btrfs</literal> file system at
-        all), the tree is copied (though possibly in a 'reflink' copy-on-write scheme — if the file system supports
-        that), which can be substantially more time-consuming. May not be specified together with
-        <option>--image=</option> or <option>--ephemeral</option>.</para>
+        <listitem><para>Directory or <literal>btrfs</literal> subvolume to use as template for the
+        container's root directory. If this is specified and the container's root directory (as configured by
+        <option>--directory=</option>) does not yet exist it is created as <literal>btrfs</literal> snapshot
+        (if supported) or plain directory (otherwise) and populated from this template tree. Ideally, the
+        specified template path refers to the root of a <literal>btrfs</literal> subvolume, in which case a
+        simple copy-on-write snapshot is taken, and populating the root directory is instant. If the
+        specified template path does not refer to the root of a <literal>btrfs</literal> subvolume (or not
+        even to a <literal>btrfs</literal> file system at all), the tree is copied (though possibly in a
+        'reflink' copy-on-write scheme — if the file system supports that), which can be substantially more
+        time-consuming. Note that the snapshot taken is of the specified directory or subvolume, including
+        all subdirectories and subvolumes below it, but excluding any sub-mounts. May not be specified
+        together with <option>--image=</option> or <option>--ephemeral</option>.</para>
 
         <para>Note that this switch leaves host name, machine ID and
         all other settings that could identify the instance
@@ -183,11 +185,13 @@
         <listitem><para>If specified, the container is run with a temporary snapshot of its file system that is removed
         immediately when the container terminates. May not be specified together with
         <option>--template=</option>.</para>
-        <para>Note that this switch leaves host name, machine ID and all other settings that could identify the
-        instance unmodified. Please note that — as with <option>--template=</option> — taking the temporary snapshot is
-        more efficient on file systems that support subvolume snapshots or 'reflinks' naively (<literal>btrfs</literal>
-        or new <literal>xfs</literal>) than on more traditional file systems that do not
-        (<literal>ext4</literal>).</para>
+        <para>Note that this switch leaves host name, machine ID and all other settings that could identify
+        the instance unmodified. Please note that — as with <option>--template=</option> — taking the
+        temporary snapshot is more efficient on file systems that support subvolume snapshots or 'reflinks'
+        natively (<literal>btrfs</literal> or new <literal>xfs</literal>) than on more traditional file
+        systems that do not (<literal>ext4</literal>). Note that the snapshot taken is of the specified
+        directory or subvolume, including all subdirectories and subvolumes below it, but excluding any
+        sub-mounts.</para>
 
         <para>With this option no modifications of the container image are retained. Use
         <option>--volatile=</option> (described below) for other mechanisms to restrict persistency of
