@@ -3569,7 +3569,7 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3578,19 +3578,14 @@ static int load_kexec_kernel(void) {
                         "--load", kernel,
                         "--append", options,
                         initrd ? "--initrd" : NULL, initrd,
-                        NULL };
+                        NULL
+                };
 
                 /* Child */
                 execv(args[0], (char * const *) args);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                /* Command failed */
-                return -EPROTO;
         return 0;
 }
 
