@@ -186,7 +186,7 @@ int config_parse_prefix(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(prefix_freep) Prefix *p = NULL;
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
         uint8_t prefixlen = 64;
         union in_addr_union in6addr;
         int r;
@@ -228,7 +228,7 @@ int config_parse_prefix_flags(const char *unit,
                               void *data,
                               void *userdata) {
         Network *network = userdata;
-        _cleanup_(prefix_freep) Prefix *p = NULL;
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
         int r, val;
 
         assert(filename);
@@ -272,7 +272,7 @@ int config_parse_prefix_lifetime(const char *unit,
                                  void *data,
                                  void *userdata) {
         Network *network = userdata;
-        _cleanup_(prefix_freep) Prefix *p = NULL;
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
         usec_t usec;
         int r;
 

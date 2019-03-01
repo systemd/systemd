@@ -13,6 +13,7 @@ typedef struct Neighbor Neighbor;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "networkd-util.h"
 
 struct Neighbor {
         Network *network;
@@ -29,7 +30,7 @@ struct Neighbor {
 
 void neighbor_free(Neighbor *neighbor);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Neighbor*, neighbor_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
 
 int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback);
 

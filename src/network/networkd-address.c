@@ -681,7 +681,7 @@ int config_parse_broadcast(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
         assert(filename);
@@ -725,7 +725,7 @@ int config_parse_address(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         union in_addr_union buffer;
         unsigned char prefixlen;
         int r, f;
@@ -807,7 +807,7 @@ int config_parse_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -846,7 +846,7 @@ int config_parse_lifetime(const char *unit,
                           void *data,
                           void *userdata) {
         Network *network = userdata;
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         unsigned k;
         int r;
 
@@ -888,7 +888,7 @@ int config_parse_address_flags(const char *unit,
                                void *data,
                                void *userdata) {
         Network *network = userdata;
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
         assert(filename);
@@ -936,7 +936,7 @@ int config_parse_address_scope(const char *unit,
                                void *data,
                                void *userdata) {
         Network *network = userdata;
-        _cleanup_(address_freep) Address *n = NULL;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
 
         assert(filename);
@@ -975,4 +975,20 @@ bool address_is_ready(const Address *a) {
                 return !(a->flags & IFA_F_TENTATIVE);
         else
                 return !(a->flags & (IFA_F_TENTATIVE | IFA_F_DEPRECATED));
+}
+
+int address_section_verify(Address *address) {
+        if (section_is_invalid(address->section))
+                return -EINVAL;
+
+        if (address->family == AF_UNSPEC) {
+                assert(address->section);
+
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Address section without Address= field configured. "
+                                         "Ignoring [Address] section from line %u.",
+                                         address->section->filename, address->section->line);
+        }
+
+        return 0;
 }

@@ -636,7 +636,7 @@ int config_parse_routing_policy_rule_tos(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -673,7 +673,7 @@ int config_parse_routing_policy_rule_priority(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -710,7 +710,7 @@ int config_parse_routing_policy_rule_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -747,7 +747,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -784,7 +784,7 @@ int config_parse_routing_policy_rule_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         union in_addr_union *buffer;
         uint8_t *prefixlen;
@@ -831,7 +831,7 @@ int config_parse_routing_policy_rule_device(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -876,7 +876,7 @@ int config_parse_routing_policy_rule_port_range(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         uint16_t low, high;
         int r;
@@ -922,7 +922,7 @@ int config_parse_routing_policy_rule_ip_protocol(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -961,7 +961,7 @@ int config_parse_routing_policy_rule_invert(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 

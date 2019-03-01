@@ -17,6 +17,7 @@ typedef enum AddressFamilyBoolean {
 
 typedef struct NetworkConfigSection {
         unsigned line;
+        bool invalid;
         char filename[];
 } NetworkConfigSection;
 
@@ -32,3 +33,24 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
 void network_config_section_free(NetworkConfigSection *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
 extern const struct hash_ops network_config_hash_ops;
+
+static inline bool section_is_invalid(NetworkConfigSection *section) {
+        /* If this retuns false, then it does _not_ mean the section is valid. */
+
+        if (!section)
+                return false;
+
+        return section->invalid;
+}
+
+#define DEFINE_NETWORK_SECTION_FUNCTIONS(type, free_func)               \
+        static inline void free_func##_or_set_invalid(type *p) {        \
+                assert(p);                                              \
+                                                                        \
+                if (p->section)                                         \
+                        p->section->invalid = true;                     \
+                else                                                    \
+                        free_func(p);                                   \
+        }                                                               \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
+        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);

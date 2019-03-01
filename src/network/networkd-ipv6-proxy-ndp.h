@@ -10,10 +10,10 @@ typedef struct IPv6ProxyNDPAddress IPv6ProxyNDPAddress;
 typedef struct Link Link;
 
 struct IPv6ProxyNDPAddress {
-    Network *network;
-    struct in6_addr in_addr;
+        Network *network;
+        struct in6_addr in_addr;
 
-    LIST_FIELDS(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
+        LIST_FIELDS(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
 };
 
 void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address);

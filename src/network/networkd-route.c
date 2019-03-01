@@ -678,7 +678,7 @@ int route_configure(
 }
 
 int network_add_ipv4ll_route(Network *network) {
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(network);
@@ -718,7 +718,7 @@ int config_parse_gateway(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -763,7 +763,7 @@ int config_parse_preferred_src(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -803,7 +803,7 @@ int config_parse_destination(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         union in_addr_union *buffer;
         unsigned char *prefixlen;
         int r;
@@ -854,7 +854,7 @@ int config_parse_route_priority(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -891,7 +891,7 @@ int config_parse_route_scope(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -931,7 +931,7 @@ int config_parse_route_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -969,7 +969,7 @@ int config_parse_gateway_onlink(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -1008,7 +1008,7 @@ int config_parse_ipv6_route_preference(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1043,7 +1043,7 @@ int config_parse_route_protocol(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1082,7 +1082,7 @@ int config_parse_route_type(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1121,7 +1121,7 @@ int config_parse_tcp_window(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         Network *network = userdata;
         uint64_t k;
         int r;
@@ -1171,7 +1171,7 @@ int config_parse_quickack(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         Network *network = userdata;
         int k, r;
 
@@ -1210,7 +1210,7 @@ int config_parse_route_mtu(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_freep) Route *n = NULL;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -1228,5 +1228,31 @@ int config_parse_route_mtu(
                 return r;
 
         TAKE_PTR(n);
+        return 0;
+}
+
+int route_section_verify(Route *route, Network *network) {
+        if (section_is_invalid(route->section))
+                return -EINVAL;
+
+        if (route->family == AF_UNSPEC) {
+                assert(route->section);
+
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Route section without Gateway=, Destination=, Source=, "
+                                         "or PreferredSource= field configured. "
+                                         "Ignoring [Route] section from line %u.",
+                                         route->section->filename, route->section->line);
+        }
+
+        if (network->n_static_addresses == 0 &&
+            in_addr_is_null(route->family, &route->gw) == 0 &&
+            route->gateway_onlink < 0) {
+                log_warning("%s: Gateway= without static address configured. "
+                            "Enabling GatewayOnLink= option.",
+                            network->filename);
+                route->gateway_onlink = true;
+        }
+
         return 0;
 }

@@ -162,6 +162,11 @@ static uint32_t network_get_stacked_netdevs_mtu(Network *network) {
 static int network_verify(Network *network) {
         Address *address, *address_next;
         Route *route, *route_next;
+        FdbEntry *fdb, *fdb_next;
+        Neighbor *neighbor, *neighbor_next;
+        AddressLabel *label, *label_next;
+        Prefix *prefix, *prefix_next;
+        RoutingPolicyRule *rule, *rule_next;
         uint32_t mtu;
 
         assert(network);
@@ -249,34 +254,32 @@ static int network_verify(Network *network) {
         }
 
         LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
-                if (address->family == AF_UNSPEC) {
-                        log_warning("%s: Address section without Address= field configured. "
-                                    "Ignoring [Address] section from line %u.",
-                                    network->filename, address->section->line);
-
+                if (address_section_verify(address) < 0)
                         address_free(address);
-                }
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes) {
-                if (route->family == AF_UNSPEC) {
-                        log_warning("%s: Route section without Gateway=, Destination=, Source=, "
-                                    "or PreferredSource= field configured. "
-                                    "Ignoring [Route] section from line %u.",
-                                    network->filename, route->section->line);
-
+        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
+                if (route_section_verify(route, network) < 0)
                         route_free(route);
-                        continue;
-                }
 
-                if (network->n_static_addresses == 0 &&
-                    in_addr_is_null(route->family, &route->gw) == 0 &&
-                    route->gateway_onlink < 0) {
-                        log_warning("%s: Gateway= without static address configured. "
-                                    "Enabling GatewayOnLink= option.",
-                                    network->filename);
-                        route->gateway_onlink = true;
-                }
-        }
+        LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
+                if (section_is_invalid(fdb->section))
+                        fdb_entry_free(fdb);
+
+        LIST_FOREACH_SAFE(neighbors, neighbor, neighbor_next, network->neighbors)
+                if (section_is_invalid(neighbor->section))
+                        neighbor_free(neighbor);
+
+        LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
+                if (section_is_invalid(label->section))
+                        address_label_free(label);
+
+        LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_prefixes)
+                if (section_is_invalid(prefix->section))
+                        prefix_free(prefix);
+
+        LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
+                if (section_is_invalid(rule->section))
+                        routing_policy_rule_free(rule);
 
         return 0;
 }

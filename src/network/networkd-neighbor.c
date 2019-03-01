@@ -164,7 +164,7 @@ int config_parse_neighbor_address(const char *unit,
                                   void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(neighbor_freep) Neighbor *n = NULL;
+        _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
         int r;
 
         assert(filename);
@@ -200,7 +200,7 @@ int config_parse_neighbor_hwaddr(const char *unit,
                                  void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(neighbor_freep) Neighbor *n = NULL;
+        _cleanup_(neighbor_free_or_set_invalidp) Neighbor *n = NULL;
         int r;
 
         assert(filename);

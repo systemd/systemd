@@ -13,6 +13,7 @@ typedef struct RoutingPolicyRule RoutingPolicyRule;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "networkd-util.h"
 
 typedef struct Network Network;
 typedef struct Link Link;
@@ -54,7 +55,7 @@ struct RoutingPolicyRule {
 int routing_policy_rule_new(RoutingPolicyRule **ret);
 void routing_policy_rule_free(RoutingPolicyRule *rule);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(RoutingPolicyRule*, routing_policy_rule_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
 
 int routing_policy_rule_configure(RoutingPolicyRule *address, Link *link, link_netlink_message_handler_t callback, bool update);
 int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback);

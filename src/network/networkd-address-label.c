@@ -159,7 +159,7 @@ int config_parse_address_label_prefix(const char *unit,
                                       void *data,
                                       void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -196,7 +196,7 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;

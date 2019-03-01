@@ -189,7 +189,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -235,7 +235,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
