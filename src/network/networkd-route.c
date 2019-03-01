@@ -67,7 +67,7 @@ int route_new(Route **ret) {
         return 0;
 }
 
-int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
+static int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(route_freep) Route *route = NULL;
         int r;

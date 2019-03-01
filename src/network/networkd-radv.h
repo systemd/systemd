@@ -22,7 +22,6 @@ struct Prefix {
 
 int prefix_new(Prefix **ret);
 void prefix_free(Prefix *prefix);
-int prefix_new_static(Network *network, const char *filename, unsigned section, Prefix **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Prefix*, prefix_free);
 

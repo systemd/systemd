@@ -124,8 +124,8 @@ int prefix_new(Prefix **ret) {
         return 0;
 }
 
-int prefix_new_static(Network *network, const char *filename,
-                      unsigned section_line, Prefix **ret) {
+static int prefix_new_static(Network *network, const char *filename,
+                             unsigned section_line, Prefix **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(prefix_freep) Prefix *prefix = NULL;
         int r;

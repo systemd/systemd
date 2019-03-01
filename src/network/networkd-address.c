@@ -39,7 +39,7 @@ int address_new(Address **ret) {
         return 0;
 }
 
-int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
+static int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(address_freep) Address *address = NULL;
         int r;

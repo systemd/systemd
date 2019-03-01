@@ -18,7 +18,7 @@
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
 /* create a new FDB entry or get an existing one. */
-int fdb_entry_new_static(
+static int fdb_entry_new_static(
                 Network *network,
                 const char *filename,
                 unsigned section_line,

@@ -24,7 +24,6 @@ struct FdbEntry {
         LIST_FIELDS(FdbEntry, static_fdb_entries);
 };
 
-int fdb_entry_new_static(Network *network, const char *filename, unsigned section_line, FdbEntry **ret);
 void fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
 
