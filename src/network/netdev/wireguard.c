@@ -9,6 +9,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "netlink-util.h"
@@ -371,29 +372,17 @@ resolve_next:
         (void) wireguard_set_interface(netdev);
 
         if (!set_isempty(w->peers_with_failed_endpoint)) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+                usec_t usec;
 
                 w->n_retries++;
-                r = sd_event_add_time(netdev->manager->event,
-                                      &s,
-                                      CLOCK_MONOTONIC,
-                                      now(CLOCK_MONOTONIC) + exponential_backoff_milliseconds(w->n_retries),
-                                      0,
-                                      on_resolve_retry,
-                                      netdev);
+                usec = usec_add(now(CLOCK_MONOTONIC), exponential_backoff_milliseconds(w->n_retries));
+                r = event_reset_time(netdev->manager->event, &w->resolve_retry_event_source,
+                                     CLOCK_MONOTONIC, usec, 0, on_resolve_retry, netdev,
+                                     0, "wireguard-resolve-retry", true);
                 if (r < 0) {
                         log_netdev_warning_errno(netdev, r, "Could not arm resolve retry handler: %m");
                         return 0;
                 }
-
-                r = sd_event_source_set_destroy_callback(s, (sd_event_destroy_t) netdev_destroy_callback);
-                if (r < 0) {
-                        log_netdev_warning_errno(netdev, r, "Failed to set destroy callback to event source: %m");
-                        return 0;
-                }
-
-                (void) sd_event_source_set_floating(s, true);
-                netdev_ref(netdev);
         }
 
         return 0;
@@ -814,6 +803,8 @@ static void wireguard_done(NetDev *netdev) {
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
+
+        sd_event_source_unref(w->resolve_retry_event_source);
 
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
         set_free(w->peers_with_unresolved_endpoint);

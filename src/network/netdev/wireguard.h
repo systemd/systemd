@@ -48,6 +48,7 @@ struct Wireguard {
         LIST_HEAD(WireguardPeer, peers);
 
         unsigned n_retries;
+        sd_event_source *resolve_retry_event_source;
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
