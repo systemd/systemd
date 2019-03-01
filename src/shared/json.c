@@ -3108,8 +3108,6 @@ finish:
 
         free(stack);
 
-        va_end(ap);
-
         return r;
 }
 
