@@ -3539,6 +3539,9 @@ static int load_kexec_kernel(void) {
         if (r < 0)
                 return r;
 
+        if (!e->kernel)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Boot entry does not refer to Linux kernel, which is not supported currently.");
         if (strv_length(e->initrd) > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Boot entry specifies multiple initrds, which is not supported currently.");
