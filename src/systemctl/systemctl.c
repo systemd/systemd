@@ -3543,7 +3543,7 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Boot entry does not refer to Linux kernel, which is not supported currently.");
         if (strv_length(e->initrd) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Boot entry specifies multiple initrds, which is not supported currently.");
 
         kernel = path_join(e->root, e->kernel);
@@ -3551,7 +3551,7 @@ static int load_kexec_kernel(void) {
                 return log_oom();
 
         if (!strv_isempty(e->initrd)) {
-                initrd = path_join(e->root, *e->initrd);
+                initrd = path_join(e->root, e->initrd[0]);
                 if (!initrd)
                         return log_oom();
         }
