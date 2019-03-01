@@ -813,6 +813,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
         self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
+        # also tests invalid [Address] section
+        self.assertNotRegex(output, '10.10.0.1/16')
+        self.assertNotRegex(output, '10.10.0.2/16')
 
     def test_ip_route(self):
         self.copy_unit_to_networkd_unit_path('25-route-section.network', '12-dummy.netdev')
