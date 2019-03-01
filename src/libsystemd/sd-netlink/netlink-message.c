@@ -12,7 +12,6 @@
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
-#include "refcnt.h"
 #include "socket-util.h"
 #include "util.h"
 
@@ -36,7 +35,7 @@ int message_new_empty(sd_netlink *rtnl, sd_netlink_message **ret) {
         if (!m)
                 return -ENOMEM;
 
-        m->n_ref = REFCNT_INIT;
+        m->n_ref = 1;
         m->protocol = rtnl->protocol;
         m->sealed = false;
 
@@ -96,12 +95,10 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         return 0;
 }
 
-DEFINE_ATOMIC_REF_FUNC(sd_netlink_message, sd_netlink_message);
+DEFINE_TRIVIAL_REF_FUNC(sd_netlink_message, sd_netlink_message);
 
 sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
-        sd_netlink_message *t;
-
-        while (m && REFCNT_DEC(m->n_ref) == 0) {
+        while (m && --m->n_ref == 0) {
                 unsigned i;
 
                 free(m->hdr);
@@ -109,7 +106,7 @@ sd_netlink_message *sd_netlink_message_unref(sd_netlink_message *m) {
                 for (i = 0; i <= m->n_containers; i++)
                         free(m->containers[i].attributes);
 
-                t = m;
+                sd_netlink_message *t = m;
                 m = m->next;
                 free(t);
         }

@@ -8,7 +8,6 @@
 #include "list.h"
 #include "netlink-types.h"
 #include "prioq.h"
-#include "refcnt.h"
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
@@ -56,7 +55,7 @@ struct sd_netlink_slot {
 };
 
 struct sd_netlink {
-        RefCount n_ref;
+        unsigned n_ref;
 
         int fd;
 
@@ -114,7 +113,7 @@ struct netlink_container {
 };
 
 struct sd_netlink_message {
-        RefCount n_ref;
+        unsigned n_ref;
 
         sd_netlink *rtnl;
 
