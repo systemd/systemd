@@ -1214,7 +1214,8 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        puts("");
+                        if (n+1 < config.n_entries)
+                                putchar('\n');
 
                         strv_remove(found_by_loader, config.entries[n].id);
                 }
@@ -1223,7 +1224,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (!strv_isempty(found_by_loader)) {
                 char **i;
 
-                printf("Automatic/Other Entries Found by Boot Loader:\n\n");
+                printf("\nAutomatic/Other Entries Found by Boot Loader:\n\n");
 
                 STRV_FOREACH(i, found_by_loader)
                         puts(*i);
