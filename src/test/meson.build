@@ -867,6 +867,10 @@ tests += [
          [],
          [threads]],
 
+        [['src/libsystemd/sd-bus/test-bus-queue-ref-cycle.c'],
+         [],
+         [threads]],
+
         [['src/libsystemd/sd-bus/test-bus-watch-bind.c'],
          [],
          [threads], '', 'timeout=120'],
