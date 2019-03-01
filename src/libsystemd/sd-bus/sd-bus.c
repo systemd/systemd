@@ -236,7 +236,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 return -ENOMEM;
 
         *b = (sd_bus) {
-                .n_ref = REFCNT_INIT,
+                .n_ref = 1,
                 .input_fd = -1,
                 .output_fd = -1,
                 .inotify_fd = -1,
@@ -1585,7 +1585,7 @@ void bus_enter_closing(sd_bus *bus) {
         bus_set_state(bus, BUS_CLOSING);
 }
 
-DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
 
 _public_ int sd_bus_is_open(sd_bus *bus) {
         assert_return(bus, -EINVAL);
