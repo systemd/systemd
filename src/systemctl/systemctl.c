@@ -3536,10 +3536,7 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
         r = find_default_boot_entry(NULL, NULL, &config, &e);
-        if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0)
-                /* But it logs about all these cases, hence don't log here again */
                 return r;
 
         if (strv_length(e->initrd) > 1)
