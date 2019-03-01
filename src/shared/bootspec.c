@@ -482,7 +482,7 @@ static int boot_entries_find_unified(
 
                 r = fd_verify_regular(fd);
                 if (r < 0) {
-                        log_warning_errno(errno, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
+                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
                         continue;
                 }
 
