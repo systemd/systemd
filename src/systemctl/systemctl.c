@@ -3535,7 +3535,7 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(NULL, NULL, &config, &e);
+        r = find_default_boot_entry(&config, &e);
         if (r < 0)
                 return r;
 

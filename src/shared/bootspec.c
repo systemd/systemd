@@ -1295,8 +1295,6 @@ found:
 }
 
 int find_default_boot_entry(
-                const char *esp_path,
-                const char *xbootldr_path,
                 BootConfig *config,
                 const BootEntry **e) {
 
@@ -1306,13 +1304,13 @@ int find_default_boot_entry(
         assert(config);
         assert(e);
 
-        r = find_esp_and_warn(esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
+        r = find_esp_and_warn(NULL, false, &esp_where, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0) /* But it logs about all these cases, hence don't log here again */
                 return r;
 
-        r = find_xbootldr_and_warn(xbootldr_path, false, &xbootldr_where, NULL);
+        r = find_xbootldr_and_warn(NULL, false, &xbootldr_where, NULL);
         if (r < 0 && r != -ENOKEY)
                 return r;
 
