@@ -46,18 +46,34 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>--path=</option></term>
-        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
-        <filename>/boot</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
-        the ESP to <filename>/boot</filename>, if possible.</para></listitem>
+        <term><option>--esp-path=</option></term>
+        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
+        <filename>/boot/</filename>, and <filename>/boot/efi</filename> are checked in turn.  It is recommended to mount
+        the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-path=</option></term>
+        <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
+        url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>. If not
+        specified, <filename>/boot/</filename> are checked.  It is recommended to mount the Extended Boot
+        Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-p</option></term>
-        <term><option>--print-path</option></term>
-        <listitem><para>This option modifies the behaviour of <command>status</command>.
-        Just print the path to the EFI System Partition (ESP) to standard output and
-        exit.</para></listitem>
+        <term><option>--print-esp-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
+        path to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--print-boot-path</option></term>
+        <listitem><para>This option modifies the behaviour of <command>status</command>.  Prints only the
+        path to the Extended Boot Loader partition if it exists, and the path to the ESP otherwise to
+        standard output and exit. This command is useful to determine where to place boot loader entries, as
+        they are preferably placed in the Extended Boot Loader partition if it exists and in the ESP
+        otherwise.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -87,10 +103,10 @@
       <varlistentry>
         <term><option>install</option></term>
 
-        <listitem><para>Installs systemd-boot into the EFI system partition. A copy of <command>systemd-boot</command>
-        will be stored as the EFI default/fallback loader at
-        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot loader is then added to the
-        top of the firmware's boot loader list.</para></listitem>
+        <listitem><para>Installs <command>systemd-boot</command> into the EFI system partition. A copy of
+        <command>systemd-boot</command> will be stored as the EFI default/fallback loader at
+        <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot loader is then added
+        to the top of the firmware's boot loader list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -138,9 +154,12 @@
 
   <refsect1>
     <title>Environment</title>
-    <para>If <varname>$SYSTEMD_RELAX_ESP_CHECKS=1</varname> is set the validation checks for the ESP are relaxed, and
-    the path specified with <option>--path=</option> may refer to any kind of file system on any kind of
-    partition.</para>
+    <para>If <varname>$SYSTEMD_RELAX_ESP_CHECKS=1</varname> is set the validation checks for the ESP are
+    relaxed, and the path specified with <option>--esp-path=</option> may refer to any kind of file system on
+    any kind of partition.</para>
+
+    <para>Similarly, <varname>$SYSTEMD_RELAX_XBOOTLDR_CHECKS=1</varname> turns off some validation checks for
+    the Extended Boot Loader partition.</para>
   </refsect1>
 
   <refsect1>

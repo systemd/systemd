@@ -2,14 +2,15 @@
 
 efi_headers = files('''
         console.h
+        crc32.h
         disk.h
         graphics.h
         linux.h
         measure.h
         pe.h
+        shim.h
         splash.h
         util.h
-        shim.h
 '''.split())
 
 common_sources = '''
@@ -24,6 +25,7 @@ systemd_boot_sources = '''
         boot.c
         console.c
         shim.c
+        crc32.c
 '''.split()
 
 stub_sources = '''

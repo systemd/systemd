@@ -134,7 +134,6 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
-static char *arg_esp_path = NULL;
 static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
@@ -3519,7 +3518,7 @@ static int prepare_firmware_setup(void) {
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char *where = NULL, *kernel = NULL, *initrd = NULL, *options = NULL;
+        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
         int r;
@@ -3532,21 +3531,27 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(arg_esp_path, &where, &config, &e);
+        r = find_default_boot_entry(NULL, NULL, &config, &e);
         if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0)
                 /* But it logs about all these cases, hence don't log here again */
                 return r;
 
-        if (strv_length(e->initrd) > 1) {
-                log_error("Boot entry specifies multiple initrds, which is not supported currently.");
-                return -EINVAL;
+        if (strv_length(e->initrd) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Boot entry specifies multiple initrds, which is not supported currently.");
+
+        kernel = path_join(e->root, e->kernel);
+        if (!kernel)
+                return log_oom();
+
+        if (!strv_isempty(e->initrd)) {
+                initrd = path_join(e->root, *e->initrd);
+                if (!initrd)
+                        return log_oom();
         }
 
-        kernel = path_join(where, e->kernel);
-        if (!strv_isempty(e->initrd))
-                initrd = path_join(where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
@@ -8814,7 +8819,6 @@ finish:
 
         strv_free(arg_wall);
         free(arg_root);
-        free(arg_esp_path);
 
         /* Note that we return r here, not 0, so that we can implement the LSB-like return codes */
         return r;

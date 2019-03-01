@@ -117,6 +117,7 @@ shared_sources = files('''
         pager.h
         path-lookup.c
         path-lookup.h
+        pe-header.h
         pretty-print.c
         pretty-print.h
         ptyfwd.c
