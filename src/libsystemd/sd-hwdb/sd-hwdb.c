@@ -18,12 +18,11 @@
 #include "hashmap.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
-#include "refcnt.h"
 #include "string-util.h"
 #include "util.h"
 
 struct sd_hwdb {
-        RefCount n_ref;
+        unsigned n_ref;
 
         FILE *f;
         struct stat st;
@@ -316,7 +315,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         if (!hwdb)
                 return -ENOMEM;
 
-        hwdb->n_ref = REFCNT_INIT;
+        hwdb->n_ref = 1;
 
         /* find hwdb.bin in hwdb_bin_paths */
         NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
@@ -370,7 +369,7 @@ static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
         return mfree(hwdb);
 }
 
-DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
 
 bool hwdb_validate(sd_hwdb *hwdb) {
         bool found = false;
