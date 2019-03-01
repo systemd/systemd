@@ -212,6 +212,8 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
 
         if (!path_is_absolute(destination))
                 return -EINVAL;
+        if (empty_or_root(destination))
+                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_BIND);
         if (!m)
@@ -250,6 +252,8 @@ int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
                 return -ENOMEM;
 
         if (!path_is_absolute(path))
+                return -EINVAL;
+        if (empty_or_root(path))
                 return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_TMPFS);
@@ -309,6 +313,9 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!path_is_absolute(destination))
                         return -EINVAL;
         }
+
+        if (empty_or_root(destination))
+                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_OVERLAY);
         if (!m)
@@ -849,9 +856,8 @@ int mount_custom(
         return 0;
 }
 
-int setup_volatile_state(
+static int setup_volatile_state(
                 const char *directory,
-                VolatileMode mode,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
@@ -861,11 +867,7 @@ int setup_volatile_state(
 
         assert(directory);
 
-        if (mode != VOLATILE_STATE)
-                return 0;
-
-        /* --volatile=state means we simply overmount /var
-           with a tmpfs, and the rest read-only. */
+        /* --volatile=state means we simply overmount /var with a tmpfs, and the rest read-only. */
 
         r = bind_remount_recursive(directory, true, NULL);
         if (r < 0)
@@ -886,9 +888,8 @@ int setup_volatile_state(
         return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
-int setup_volatile(
+static int setup_volatile_yes(
                 const char *directory,
-                VolatileMode mode,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
@@ -900,11 +901,8 @@ int setup_volatile(
 
         assert(directory);
 
-        if (mode != VOLATILE_YES)
-                return 0;
-
-        /* --volatile=yes means we mount a tmpfs to the root dir, and
-           the original /usr to use inside it, and that read-only. */
+        /* --volatile=yes means we mount a tmpfs to the root dir, and the original /usr to use inside it, and that
+           read-only. */
 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
@@ -912,7 +910,7 @@ int setup_volatile(
         options = "mode=755";
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
-                return log_oom();
+                goto fail;
         if (r > 0)
                 options = buf;
 
@@ -959,6 +957,93 @@ fail:
                 (void) umount_verbose(template);
         (void) rmdir(template);
         return r;
+}
+
+static int setup_volatile_overlay(
+                const char *directory,
+                bool userns, uid_t uid_shift, uid_t uid_range,
+                const char *selinux_apifs_context) {
+
+        _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
+        char template[] = "/tmp/nspawn-volatile-XXXXXX";
+        const char *upper, *work, *options;
+        bool tmpfs_mounted = false;
+        int r;
+
+        assert(directory);
+
+        /* --volatile=overlay means we mount an overlayfs to the root dir. */
+
+        if (!mkdtemp(template))
+                return log_error_errno(errno, "Failed to create temporary directory: %m");
+
+        options = "mode=755";
+        r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
+        if (r < 0)
+                goto finish;
+        if (r > 0)
+                options = buf;
+
+        r = mount_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
+        if (r < 0)
+                goto finish;
+
+        tmpfs_mounted = true;
+
+        upper = strjoina(template, "/upper");
+        work = strjoina(template, "/work");
+
+        if (mkdir(upper, 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", upper);
+                goto finish;
+        }
+        if (mkdir(work, 0755) < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", work);
+                goto finish;
+        }
+
+        /* And now, let's overmount the root dir with an overlayfs that uses the root dir as lower dir. It's kinda nice
+         * that the kernel allows us to do that without going through some mount point rearrangements. */
+
+        escaped_directory = shell_escape(directory, ",:");
+        escaped_upper = shell_escape(upper, ",:");
+        escaped_work = shell_escape(work, ",:");
+        if (!escaped_directory || !escaped_upper || !escaped_work) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        options = strjoina("lowerdir=", escaped_directory, ",upperdir=", escaped_upper, ",workdir=", escaped_work);
+        r = mount_verbose(LOG_ERR, "overlay", directory, "overlay", 0, options);
+
+finish:
+        if (tmpfs_mounted)
+                (void) umount_verbose(template);
+
+        (void) rmdir(template);
+        return r;
+}
+
+int setup_volatile_mode(
+                const char *directory,
+                VolatileMode mode,
+                bool userns, uid_t uid_shift, uid_t uid_range,
+                const char *selinux_apifs_context) {
+
+        switch (mode) {
+
+        case VOLATILE_YES:
+                return setup_volatile_yes(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        case VOLATILE_STATE:
+                return setup_volatile_state(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        case VOLATILE_OVERLAY:
+                return setup_volatile_overlay(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+
+        default:
+                return 0;
+        }
 }
 
 /* Expects *pivot_root_new and *pivot_root_old to be initialised to allocated memory or NULL. */

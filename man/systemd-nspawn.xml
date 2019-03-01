@@ -167,9 +167,9 @@
         template path refers to the root of a <literal>btrfs</literal> subvolume, in which case a simple copy-on-write
         snapshot is taken, and populating the root directory is instant. If the specified template path does not refer
         to the root of a <literal>btrfs</literal> subvolume (or not even to a <literal>btrfs</literal> file system at
-        all), the tree is copied (though possibly in a copy-on-write scheme — if the file system supports that), which
-        can be substantially more time-consuming. May not be specified together with <option>--image=</option> or
-        <option>--ephemeral</option>.</para>
+        all), the tree is copied (though possibly in a 'reflink' copy-on-write scheme — if the file system supports
+        that), which can be substantially more time-consuming. May not be specified together with
+        <option>--image=</option> or <option>--ephemeral</option>.</para>
 
         <para>Note that this switch leaves host name, machine ID and
         all other settings that could identify the instance
@@ -183,9 +183,16 @@
         <listitem><para>If specified, the container is run with a temporary snapshot of its file system that is removed
         immediately when the container terminates. May not be specified together with
         <option>--template=</option>.</para>
-        <para>Note that this switch leaves host name, machine ID and
-        all other settings that could identify the instance
-        unmodified.</para></listitem>
+        <para>Note that this switch leaves host name, machine ID and all other settings that could identify the
+        instance unmodified. Please note that — as with <option>--template=</option> — taking the temporary snapshot is
+        more efficient on file systems that support subvolume snapshots or 'reflinks' naively (<literal>btrfs</literal>
+        or new <literal>xfs</literal>) than on more traditional file systems that do not
+        (<literal>ext4</literal>).</para>
+
+        <para>With this option no modifications of the container image are retained. Use
+        <option>--volatile=</option> (described below) for other mechanisms to restrict persistency of
+        container images during runtime.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -899,8 +906,12 @@
       <varlistentry>
         <term><option>--read-only</option></term>
 
-        <listitem><para>Mount the root file system read-only for the
-        container.</para></listitem>
+        <listitem><para>Mount the container's root file system (and any other file systems container in the container
+        image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
+        <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
+        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case the container
+        image on disk is strictly read-only, while changes are permitted but kept non-persistently in memory only. For
+        further details, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -931,20 +942,16 @@
       <varlistentry>
         <term><option>--tmpfs=</option></term>
 
-        <listitem><para>Mount a tmpfs file system into the container.
-        Takes a single absolute path argument that specifies where to
-        mount the tmpfs instance to (in which case the directory
-        access mode will be chosen as 0755, owned by root/root), or
-        optionally a colon-separated pair of path and mount option
-        string that is used for mounting (in which case the kernel
-        default for access mode and owner will be chosen, unless
-        otherwise specified). This option is particularly useful for
-        mounting directories such as <filename>/var</filename> as
-        tmpfs, to allow state-less systems, in particular when
-        combined with <option>--read-only</option>.
-        Backslash escapes are interpreted in the path, so
-        <literal>\:</literal> may be used to embed colons in the path.
-        </para></listitem>
+        <listitem><para>Mount a tmpfs file system into the container.  Takes a single absolute path argument that
+        specifies where to mount the tmpfs instance to (in which case the directory access mode will be chosen as 0755,
+        owned by root/root), or optionally a colon-separated pair of path and mount option string that is used for
+        mounting (in which case the kernel default for access mode and owner will be chosen, unless otherwise
+        specified). Backslash escapes are interpreted in the path, so <literal>\:</literal> may be used to embed colons
+        in the path.</para>
+
+        <para>Note that this option cannot be used to replace the root file system of the container with a temporary
+        file system. However, the <option>--volatile=</option> option described below provides similar
+        functionality, with a focus on implementing stateless operating system images.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1002,7 +1009,11 @@
         be on the same file system as the top-most directory
         tree). Also note that the <literal>lowerdir=</literal> mount
         option receives the paths to stack in the opposite order of
-        this switch.</para></listitem>
+        this switch.</para>
+
+        <para>Note that this option cannot be used to replace the root file system of the container with an overlay
+        file system. However, the <option>--volatile=</option> option described below provides similar functionality,
+        with a focus on implementing stateless operating system images.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1074,33 +1085,49 @@
         <term><option>--volatile</option></term>
         <term><option>--volatile=</option><replaceable>MODE</replaceable></term>
 
-        <listitem><para>Boots the container in volatile mode. When no
-        mode parameter is passed or when mode is specified as
-        <option>yes</option>, full volatile mode is enabled. This
-        means the root directory is mounted as a mostly unpopulated
-        <literal>tmpfs</literal> instance, and
-        <filename>/usr</filename> from the OS tree is mounted into it
-        in read-only mode (the system thus starts up with read-only OS
-        image, but pristine state and configuration, any changes
-        are lost on shutdown). When the mode parameter
-        is specified as <option>state</option>, the OS tree is
-        mounted read-only, but <filename>/var</filename> is mounted as
-        a <literal>tmpfs</literal> instance into it (the system thus
-        starts up with read-only OS resources and configuration, but
-        pristine state, and any changes to the latter are lost on
-        shutdown). When the mode parameter is specified as
-        <option>no</option> (the default), the whole OS tree is made
-        available writable.</para>
+        <listitem><para>Boots the container in volatile mode. When no mode parameter is passed or when mode is
+        specified as <option>yes</option>, full volatile mode is enabled. This means the root directory is mounted as a
+        mostly unpopulated <literal>tmpfs</literal> instance, and <filename>/usr/</filename> from the OS tree is
+        mounted into it in read-only mode (the system thus starts up with read-only OS image, but pristine state and
+        configuration, any changes are lost on shutdown). When the mode parameter is specified as
+        <option>state</option>, the OS tree is mounted read-only, but <filename>/var/</filename> is mounted as a
+        writable <literal>tmpfs</literal> instance into it (the system thus starts up with read-only OS resources and
+        configuration, but pristine state, and any changes to the latter are lost on shutdown). When the mode parameter
+        is specified as <option>overlay</option> the read-only root file system is combined with a writable
+        <filename>tmpfs</filename> instance through <literal>overlayfs</literal>, so that it appears at it normally
+        would, but any changes are applied to the temporary file system only and lost when the container is
+        terminated. When the mode parameter is specified as <option>no</option> (the default), the whole OS tree is
+        made available writable (unless <option>--read-only</option> is specified, see above).</para>
+
+        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system (or
+        <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the hierarchy are
+        unaffected — regardless if they are established automatically (e.g. the EFI system partition that might be
+        mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or explicitly (e.g. through an additional
+        command line option such as <option>--bind=</option>, see above). This means, even if
+        <option>--volatile=overlay</option> is used changes to <filename>/efi/</filename> or
+        <filename>/boot/</filename> are prohibited in case such a partition exists in the container image operated on,
+        and even if <option>--volatile=state</option> is used the hypothetical file <filename>/etc/foobar</filename> is
+        potentially writable if <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only
+        container <filename>/etc</filename> directory.</para>
+
+        <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
+        behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,
+        see above.</para>
+
+        <para>The <option>--tmpfs=</option> and <option>--overlay=</option> options provide similar functionality, but
+        for specific sub-directories of the OS image only. For details, see above.</para>
 
         <para>This option provides similar functionality for containers as the <literal>systemd.volatile=</literal>
         kernel command line switch provides for host systems. See
         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details.</para>
 
-        <para>Note that enabling this setting will only work correctly with operating systems in the container that can
-        boot up with only <filename>/usr</filename> mounted, and are able to automatically populate
-        <filename>/var</filename>, and also <filename>/etc</filename> in case of
-        <literal>--volatile=yes</literal>.</para></listitem>
+        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work correctly
+        with operating systems in the container that can boot up with only <filename>/usr</filename> mounted, and are
+        able to automatically populate <filename>/var</filename>, and also <filename>/etc</filename> in case of
+        <literal>--volatile=yes</literal>. The <option>overlay</option> option does not require any particular
+        preparations in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file
+        systems in a number of ways, and hence compatibility is limited.</para></listitem>
       </varlistentry>
 
       <varlistentry>

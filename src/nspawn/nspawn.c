@@ -1308,6 +1308,9 @@ static int verify_arguments(void) {
         if (arg_start_mode == START_BOOT && arg_kill_signal <= 0)
                 arg_kill_signal = SIGRTMIN+3;
 
+        if (arg_volatile_mode != VOLATILE_NO) /* Make sure all file systems contained in the image are mounted read-only if we are in volatile mode */
+                arg_read_only = true;
+
         if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
                 /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
                  * The latter is not technically a user session, but we don't need to labour the point. */
@@ -1334,6 +1337,12 @@ static int verify_arguments(void) {
         if (arg_userns_chown && arg_read_only)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--read-only and --private-users-chown may not be combined.");
 
+        /* We don't support --private-users-chown together with any of the volatile modes since we couldn't
+         * change the read-only part of the tree (i.e. /usr) anyway, or because it would trigger a massive
+         * copy-up (in case of overlay) making the entire excercise pointless. */
+        if (arg_userns_chown && arg_volatile_mode != VOLATILE_NO)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-chown may not be combined.");
+
         /* If --network-namespace-path is given with any other network-related option,
          * we need to error out, to avoid conflicts between different network options. */
         if (arg_network_namespace_path &&
@@ -1351,9 +1360,6 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write mounts.");
-
-        if (arg_volatile_mode != VOLATILE_NO && arg_read_only)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --read-only with --volatile. Note that --volatile already implies a read-only base hierarchy.");
 
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
@@ -1420,6 +1426,10 @@ static const char *timezone_from_path(const char *path) {
                         "/usr/share/zoneinfo/");
 }
 
+static bool etc_writable(void) {
+        return !arg_read_only || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY);
+}
+
 static int setup_timezone(const char *dest) {
         _cleanup_free_ char *p = NULL, *etc = NULL;
         const char *where, *check;
@@ -1431,9 +1441,9 @@ static int setup_timezone(const char *dest) {
         if (IN_SET(arg_timezone, TIMEZONE_AUTO, TIMEZONE_SYMLINK)) {
                 r = readlink_malloc("/etc/localtime", &p);
                 if (r == -ENOENT && arg_timezone == TIMEZONE_AUTO)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_OFF : TIMEZONE_DELETE;
+                        m = etc_writable() ? TIMEZONE_DELETE : TIMEZONE_OFF;
                 else if (r == -EINVAL && arg_timezone == TIMEZONE_AUTO) /* regular file? */
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_COPY;
+                        m = etc_writable() ? TIMEZONE_COPY : TIMEZONE_BIND;
                 else if (r < 0) {
                         log_warning_errno(r, "Failed to read host's /etc/localtime symlink, not updating container timezone: %m");
                         /* To handle warning, delete /etc/localtime and replace it with a symbolic link to a time zone data
@@ -1444,7 +1454,7 @@ static int setup_timezone(const char *dest) {
                          */
                         return 0;
                 } else if (arg_timezone == TIMEZONE_AUTO)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_SYMLINK;
+                        m = etc_writable() ? TIMEZONE_SYMLINK : TIMEZONE_BIND;
                 else
                         m = arg_timezone;
         } else
@@ -1606,11 +1616,11 @@ static int setup_resolv_conf(const char *dest) {
                 if (arg_private_network)
                         m = RESOLV_CONF_OFF;
                 else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_STATIC : RESOLV_CONF_COPY_STATIC;
+                        m = etc_writable() ? RESOLV_CONF_COPY_STATIC : RESOLV_CONF_BIND_STATIC;
                 else if (have_resolv_conf("/etc/resolv.conf") > 0)
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
+                        m = etc_writable() ? RESOLV_CONF_COPY_HOST : RESOLV_CONF_BIND_HOST;
                 else
-                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_OFF : RESOLV_CONF_DELETE;
+                        m = etc_writable() ? RESOLV_CONF_DELETE : RESOLV_CONF_OFF;
         } else
                 m = arg_resolv_conf;
 
@@ -2896,6 +2906,30 @@ static int outer_child(
                          "Selected user namespace base " UID_FMT " and range " UID_FMT ".", arg_uid_shift, arg_uid_range);
         }
 
+        if (!dissected_image) {
+                /* Turn directory into bind mount */
+                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        r = setup_pivot_root(
+                        directory,
+                        arg_pivot_root_new,
+                        arg_pivot_root_old);
+        if (r < 0)
+                return r;
+
+        r = setup_volatile_mode(
+                        directory,
+                        arg_volatile_mode,
+                        arg_userns_mode != USER_NAMESPACE_NO,
+                        arg_uid_shift,
+                        arg_uid_range,
+                        arg_selinux_context);
+        if (r < 0)
+                return r;
+
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
@@ -2921,38 +2955,6 @@ static int outer_child(
                 unified_cgroup_hierarchy_socket = safe_close(unified_cgroup_hierarchy_socket);
         }
 
-        /* Turn directory into bind mount */
-        r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
-        if (r < 0)
-                return r;
-
-        r = setup_pivot_root(
-                        directory,
-                        arg_pivot_root_new,
-                        arg_pivot_root_old);
-        if (r < 0)
-                return r;
-
-        r = setup_volatile(
-                        directory,
-                        arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
-                        arg_selinux_context);
-        if (r < 0)
-                return r;
-
-        r = setup_volatile_state(
-                        directory,
-                        arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
-                        arg_uid_shift,
-                        arg_uid_range,
-                        arg_selinux_context);
-        if (r < 0)
-                return r;
-
         /* Mark everything as shared so our mounts get propagated down. This is
          * required to make new bind mounts available in systemd services
          * inside the containter that create a new mount namespace.
@@ -2971,7 +2973,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (arg_read_only) {
+        if (arg_read_only && arg_volatile_mode == VOLATILE_NO) {
                 r = bind_remount_recursive(directory, true, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
@@ -4398,7 +4400,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, COPY_REFLINK);
+                        r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
                         if (r < 0) {
                                 r = log_error_errno(r, "Failed to copy image file: %m");
                                 goto finish;
