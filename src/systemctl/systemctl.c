@@ -44,6 +44,7 @@
 #include "install.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "journal-util.h"
 #include "list.h"
 #include "locale-util.h"
 #include "log.h"
@@ -75,6 +76,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
@@ -5225,6 +5227,54 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         if (all || !isempty(paths))
                                 bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "LogExtraFields")) {
+                        _cleanup_free_ char *fields = NULL;
+                        const void *p;
+                        size_t sz;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "ay");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read_array(m, 'y', &p, &sz)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+                                const char *eq;
+
+                                if (memchr(p, 0, sz))
+                                        continue;
+
+                                eq = memchr(p, '=', sz);
+                                if (!eq)
+                                        continue;
+
+                                if (!journal_field_valid(p, eq - (const char*) p, false))
+                                        continue;
+
+                                str = malloc(sz + 1);
+                                if (!str)
+                                        return log_oom();
+
+                                memcpy(str, p, sz);
+                                str[sz] = '\0';
+
+                                if (!utf8_is_valid(str))
+                                        continue;
+
+                                if (!strextend_with_separator(&fields, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(fields))
+                                bus_print_property_value(name, expected_value, value, strempty(fields));
 
                         return 1;
                 }
