@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
@@ -5153,6 +5154,77 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         if (all || !isempty(addresses))
                                 bus_print_property_value(name, expected_value, value, strempty(addresses));
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *source, *dest;
+                        int ignore_enoent;
+                        uint64_t rbind;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ssbt)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ssbt)", &source, &dest, &ignore_enoent, &rbind)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(source))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s%s%s",
+                                             ignore_enoent ? "-" : "",
+                                             source,
+                                             isempty(dest) ? "" : ":",
+                                             strempty(dest),
+                                             rbind == MS_REC ? ":rbind" : "") < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "TemporaryFileSystem")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *target, *option;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &target, &option)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(target))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s", target, isempty(option) ? "" : ":", strempty(option)) < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
 
                         return 1;
                 }
