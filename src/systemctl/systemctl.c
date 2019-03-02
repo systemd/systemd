@@ -4784,6 +4784,68 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
+
+                } else if (endswith(name, "ExitStatus") && streq(contents, "aiai")) {
+                        const int32_t *status, *signal;
+                        size_t sz_status, sz_signal, i;
+
+                        r = sd_bus_message_enter_container(m, 'r', "aiai");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &status, &sz_status);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &signal, &sz_signal);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        sz_status /= sizeof(int32_t);
+                        sz_signal /= sizeof(int32_t);
+
+                        if (all || sz_status > 0 || sz_signal > 0) {
+                                bool first = true;
+
+                                if (!value) {
+                                        fputs(name, stdout);
+                                        fputc('=', stdout);
+                                }
+
+                                for (i = 0; i < sz_status; i++) {
+                                        if (status[i] < 0 || status[i] > 255)
+                                                continue;
+
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        printf("%"PRIi32, status[i]);
+                                }
+
+                                for (i = 0; i < sz_signal; i++) {
+                                        const char *str;
+
+                                        str = signal_to_string((int) signal[i]);
+                                        if (!str)
+                                                continue;
+
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        fputs(str, stdout);
+                                }
+
+                                fputc('\n', stdout);
+                        }
+                        return 1;
                 }
 
                 break;
