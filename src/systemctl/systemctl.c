@@ -4722,8 +4722,10 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(a) || !isempty(b))
+                        if (!isempty(a) || !isempty(b))
                                 bus_print_property_valuef(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
                 } else if (streq(name, "SystemCallFilter")) {
