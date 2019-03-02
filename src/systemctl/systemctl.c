@@ -4669,6 +4669,23 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         switch (bus_type) {
 
+        case SD_BUS_TYPE_INT32:
+                if (endswith(name, "ActionExitStatus")) {
+                        int32_t i;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        if (r < 0)
+                                return r;
+
+                        if (i >= 0 && i <= 255)
+                                bus_print_property_valuef(name, expected_value, value, "%"PRIi32, i);
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "[not set]");
+
+                        return 1;
+                }
+                break;
+
         case SD_BUS_TYPE_STRUCT:
 
                 if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
