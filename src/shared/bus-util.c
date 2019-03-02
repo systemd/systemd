@@ -800,6 +800,8 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                          (startswith(name, "DefaultLimit") && u == (uint64_t) -1))
 
                         bus_print_property_value(name, expected_value, value, "infinity");
+                else if (STR_IN_SET(name, "IPIngressBytes", "IPIngressPackets", "IPEgressBytes", "IPEgressPackets") && u == (uint64_t) -1)
+                        bus_print_property_value(name, expected_value, value, "[no data]");
                 else
                         bus_print_property_valuef(name, expected_value, value, "%"PRIu64, u);
 
