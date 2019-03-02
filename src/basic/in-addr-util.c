@@ -294,7 +294,7 @@ int in_addr_random_prefix(
 }
 
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
-        char *x;
+        _cleanup_free_ char *x = NULL;
         size_t l;
 
         assert(u);
@@ -312,18 +312,16 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
                 return -ENOMEM;
 
         errno = 0;
-        if (!inet_ntop(family, u, x, l)) {
-                free(x);
+        if (!inet_ntop(family, u, x, l))
                 return errno > 0 ? -errno : -EINVAL;
-        }
 
-        *ret = x;
+        *ret = TAKE_PTR(x);
         return 0;
 }
 
 int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
+        _cleanup_free_ char *x = NULL;
         size_t l;
-        char *x;
         int r;
 
         assert(u);
@@ -349,14 +347,12 @@ int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifin
                 return -ENOMEM;
 
         errno = 0;
-        if (!inet_ntop(family, u, x, l)) {
-                free(x);
+        if (!inet_ntop(family, u, x, l))
                 return errno > 0 ? -errno : -EINVAL;
-        }
 
         sprintf(strchr(x, 0), "%%%i", ifindex);
-        *ret = x;
 
+        *ret = TAKE_PTR(x);
         return 0;
 
 fallback:
