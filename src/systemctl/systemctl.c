@@ -41,6 +41,7 @@
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "list.h"
 #include "locale-util.h"
@@ -5088,6 +5089,67 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return log_oom();
 
                         bus_print_property_value(name, expected_value, value, h);
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
+                        _cleanup_free_ char *addresses = NULL;
+
+                        r = sd_bus_message_enter_container(m, 'a', "(iayu)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *str = NULL;
+                                uint32_t prefixlen;
+                                int32_t family;
+                                const void *ap;
+                                size_t an;
+
+                                r = sd_bus_message_enter_container(m, 'r', "iayu");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                r = sd_bus_message_read(m, "i", &family);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read_array(m, 'y', &ap, &an);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read(m, "u", &prefixlen);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (!IN_SET(family, AF_INET, AF_INET6))
+                                        continue;
+
+                                if (an != FAMILY_ADDRESS_SIZE(family))
+                                        continue;
+
+                                if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
+                                        continue;
+
+                                if (in_addr_prefix_to_string(family, (union in_addr_union *) ap, prefixlen, &str) < 0)
+                                        continue;
+
+                                if (!strextend_with_separator(&addresses, " ", str, NULL))
+                                        return log_oom();
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(addresses))
+                                bus_print_property_value(name, expected_value, value, strempty(addresses));
 
                         return 1;
                 }
