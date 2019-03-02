@@ -4725,7 +4725,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 bus_print_property_valuef(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
 
                         return 1;
-                } else if (streq_ptr(name, "SystemCallFilter")) {
+                } else if (streq(name, "SystemCallFilter")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int whitelist;
 
