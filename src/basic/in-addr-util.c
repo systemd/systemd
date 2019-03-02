@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "strxcpyx.h"
 #include "util.h"
 
 bool in4_addr_is_null(const struct in_addr *a) {
@@ -314,6 +315,40 @@ int in_addr_to_string(int family, const union in_addr_union *u, char **ret) {
         errno = 0;
         if (!inet_ntop(family, u, x, l))
                 return errno > 0 ? -errno : -EINVAL;
+
+        *ret = TAKE_PTR(x);
+        return 0;
+}
+
+int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret) {
+        _cleanup_free_ char *x = NULL;
+        char *p;
+        size_t l;
+
+        assert(u);
+        assert(ret);
+
+        if (family == AF_INET)
+                l = INET_ADDRSTRLEN + 3;
+        else if (family == AF_INET6)
+                l = INET6_ADDRSTRLEN + 4;
+        else
+                return -EAFNOSUPPORT;
+
+        if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
+                return -EINVAL;
+
+        x = new(char, l);
+        if (!x)
+                return -ENOMEM;
+
+        errno = 0;
+        if (!inet_ntop(family, u, x, l))
+                return errno > 0 ? -errno : -EINVAL;
+
+        p = x + strlen(x);
+        l -= strlen(x);
+        (void) strpcpyf(&p, l, "/%u", prefixlen);
 
         *ret = TAKE_PTR(x);
         return 0;
