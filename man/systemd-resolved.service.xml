@@ -249,7 +249,7 @@
         <command>systemd-resolved</command> will flush all caches it maintains. Note that it should normally not be
         necessary to request this explicitly – except for debugging purposes – as <command>systemd-resolved</command>
         flushes the caches automatically anyway any time the host's network configuration changes. Sending this signal
-        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl --flush-caches</command>
+        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl flush-caches</command>
         command, however the latter is recommended since it operates in a synchronous way.</para></listitem>
       </varlistentry>
 
@@ -263,7 +263,7 @@
         should normally not be necessary to request this explicitly – except for debugging purposes – as
         <command>systemd-resolved</command> automatically forgets learnt information any time the DNS server
         configuration changes. Sending this signal to <command>systemd-resolved</command> is equivalent to the
-        <command>resolvectl --reset-server-features</command> command, however the latter is recommended since it
+        <command>resolvectl reset-server-features</command> command, however the latter is recommended since it
         operates in a synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>
