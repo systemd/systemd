@@ -333,7 +333,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
 
         if (fstat(fileno(hwdb->f), &hwdb->st) < 0)
                 return log_debug_errno(errno, "Failed to stat %s: %m", hwdb_bin_path);
-        if ((size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
+        if (hwdb->st.st_size < (off_t) offsetof(struct trie_header_f, strings_len) + 8)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                        "File %s is too short: %m", hwdb_bin_path);
 
