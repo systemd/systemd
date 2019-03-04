@@ -812,6 +812,21 @@ static void wireguard_done(NetDev *netdev) {
         set_free(w->peers_with_failed_endpoint);
 }
 
+static int wireguard_peer_verify(WireguardPeer *peer) {
+        NetDev *netdev = NETDEV(peer->wireguard);
+
+        if (section_is_invalid(peer->section))
+                return -EINVAL;
+
+        if (eqzero(peer->public_key))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s: WireGuardPeer section without PublicKey= configured. "
+                                              "Ignoring [WireGuardPeer] section from line %u.",
+                                              peer->section->filename, peer->section->line);
+
+        return 0;
+}
+
 static int wireguard_verify(NetDev *netdev, const char *filename) {
         WireguardPeer *peer, *peer_next;
         Wireguard *w;
@@ -820,8 +835,13 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
         w = WIREGUARD(netdev);
         assert(w);
 
+        if (eqzero(w->private_key))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s: Missing PrivateKey= or PrivateKeyFile=, ignoring.",
+                                              filename);
+
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
-                if (section_is_invalid(peer->section))
+                if (wireguard_peer_verify(peer) < 0)
                         wireguard_peer_free(peer);
 
         return 0;
