@@ -490,12 +490,13 @@ static int parse_wireguard_key(const char *unit,
         r = unbase64mem(rvalue, strlen(rvalue), &key, &len);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse wireguard key \"%s\", ignoring assignment: %m", rvalue);
+                           "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
                 return 0;
         }
         if (len != WG_KEY_LEN) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Wireguard key is too short, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
+                           lvalue, len);
                 return 0;
         }
 
