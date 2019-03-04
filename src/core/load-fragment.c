@@ -2512,6 +2512,8 @@ int config_parse_unit_condition_null(
         assert(rvalue);
         assert(data);
 
+        log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is deprecated, please do not use.", lvalue);
+
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
                 *list = condition_free_list(*list);
