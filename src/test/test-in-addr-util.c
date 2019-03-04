@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fnmatch.h>
 #include <netinet/in.h>
 
 #include "log.h"
+#include "strv.h"
 #include "in-addr-util.h"
 
 static void test_in_addr_prefix_from_string(
@@ -55,6 +57,50 @@ static void test_in_addr_prefix_from_string(
         }
 }
 
+static void test_in_addr_random_prefix(void) {
+        _cleanup_free_ char *str = NULL;
+        union in_addr_union a;
+
+        assert_se(in_addr_from_string(AF_INET, "192.168.10.1", &a) >= 0);
+
+        assert_se(in_addr_random_prefix(AF_INET, &a, 31, 32) >= 0);
+        assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
+        assert_se(STR_IN_SET(str, "192.168.10.0", "192.168.10.1"));
+        str = mfree(str);
+
+        assert_se(in_addr_random_prefix(AF_INET, &a, 24, 26) >= 0);
+        assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
+        assert_se(startswith(str, "192.168.10."));
+        str = mfree(str);
+
+        assert_se(in_addr_random_prefix(AF_INET, &a, 16, 24) >= 0);
+        assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
+        assert_se(fnmatch("192.168.[0-9]*.0", str, 0) == 0);
+        str = mfree(str);
+
+        assert_se(in_addr_random_prefix(AF_INET, &a, 8, 24) >= 0);
+        assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
+        assert_se(fnmatch("192.[0-9]*.[0-9]*.0", str, 0) == 0);
+        str = mfree(str);
+
+        assert_se(in_addr_random_prefix(AF_INET, &a, 8, 16) >= 0);
+        assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
+        assert_se(fnmatch("192.[0-9]*.0.0", str, 0) == 0);
+        str = mfree(str);
+
+        assert_se(in_addr_from_string(AF_INET6, "fd00::1", &a) >= 0);
+
+        assert_se(in_addr_random_prefix(AF_INET6, &a, 16, 64) >= 0);
+        assert_se(in_addr_to_string(AF_INET6, &a, &str) >= 0);
+        assert_se(startswith(str, "fd00:"));
+        str = mfree(str);
+
+        assert_se(in_addr_random_prefix(AF_INET6, &a, 8, 16) >= 0);
+        assert_se(in_addr_to_string(AF_INET6, &a, &str) >= 0);
+        assert_se(fnmatch("fd??::", str, 0) == 0);
+        str = mfree(str);
+}
+
 int main(int argc, char *argv[]) {
         test_in_addr_prefix_from_string("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
@@ -81,6 +127,8 @@ int main(int argc, char *argv[]) {
         test_in_addr_prefix_from_string("::1/128", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, 0, 128, 0, 128);
         test_in_addr_prefix_from_string("::1/129", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
         test_in_addr_prefix_from_string("::1/-1", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
+
+        test_in_addr_random_prefix();
 
         return 0;
 }

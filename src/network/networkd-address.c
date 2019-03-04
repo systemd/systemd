@@ -495,8 +495,9 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        if (in_addr_is_null(original->family, &original->in_addr) <= 0)
-                return 0;
+        r = in_addr_is_null(original->family, &original->in_addr);
+        if (r <= 0)
+                return r;
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
@@ -759,6 +760,19 @@ int config_parse_address(const char *unit,
         if (n->family != AF_UNSPEC && f != n->family) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Address is incompatible, ignoring assignment: %s", rvalue);
                 return 0;
+        }
+
+        if (in_addr_is_null(f, &buffer)) {
+                /* Will use address from address pool. Note that for ipv6 case, prefix of the address
+                 * pool is 8, but 40 bit is used by the global ID and 16 bit by the subnet ID. So,
+                 * let's limit the prefix length to 64 or larger. See RFC4193. */
+                if ((f == AF_INET && prefixlen < 8) ||
+                    (f == AF_INET6 && prefixlen < 64)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Null address with invalid prefixlen='%u', ignoring assignment: %s",
+                                   prefixlen, rvalue);
+                        return 0;
+                }
         }
 
         n->family = f;

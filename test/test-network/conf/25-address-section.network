@@ -16,3 +16,14 @@ Label=33
 [Address]
 Address=2001:db8::20
 Peer=2001:db8::10/128
+
+[Address]
+Address=0.0.0.0/24
+Label=34
+
+[Address]
+Address=0.0.0.0/16
+Label=35
+
+[Address]
+Address=::/64
