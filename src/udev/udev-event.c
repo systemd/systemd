@@ -726,11 +726,14 @@ static int rename_netif(UdevEvent *event) {
                 return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
                                               ifindex, oldname, event->name);
 
+        /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
+        r = device_add_property(dev, "ID_RENAMING", "1");
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
+
         r = device_rename(dev, event->name);
         if (r < 0)
-                return log_device_warning_errno(dev, r, "Network interface %i is renamed from '%s' to '%s', "
-                                                "but could not update sd_device object: %m",
-                                                ifindex, oldname, event->name);
+                log_device_warning_errno(dev, r, "Failed to update properties with new name '%s': %m", event->name);
 
         log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, event->name);
 
@@ -817,6 +820,25 @@ static void event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 }
 
+static int udev_event_on_move(UdevEvent *event) {
+        sd_device *dev = event->dev;
+        int r;
+
+        if (event->dev_db_clone &&
+            sd_device_get_devnum(dev, NULL) < 0) {
+                r = device_copy_properties(dev, event->dev_db_clone);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to copy properties from cloned sd_device object, ignoring: %m");
+        }
+
+        /* Drop previously added property */
+        r = device_add_property(dev, "ID_RENAMING", NULL);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property, ignoring: %m");
+
+        return 0;
+}
+
 int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
@@ -847,21 +869,12 @@ int udev_event_execute_rules(UdevEvent *event,
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to clone sd_device object, ignoring: %m");
 
-        if (event->dev_db_clone) {
-                r = sd_device_get_devnum(dev, NULL);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                log_device_debug_errno(dev, r, "Failed to get devnum, ignoring: %m");
+        if (event->dev_db_clone && sd_device_get_devnum(dev, NULL) >= 0)
+                /* Disable watch during event processing. */
+                (void) udev_watch_end(event->dev_db_clone);
 
-                        if (streq(action, "move")) {
-                                r = device_copy_properties(dev, event->dev_db_clone);
-                                if (r < 0)
-                                        log_device_debug_errno(dev, r, "Failed to copy properties from cloned device, ignoring: %m");
-                        }
-                } else
-                        /* Disable watch during event processing. */
-                        (void) udev_watch_end(event->dev_db_clone);
-        }
+        if (streq(action, "move"))
+                (void) udev_event_on_move(event);
 
         (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
 
