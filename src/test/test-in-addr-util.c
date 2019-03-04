@@ -7,7 +7,7 @@
 #include "strv.h"
 #include "in-addr-util.h"
 
-static void test_in_addr_prefix_from_string(
+static void test_in_addr_prefix_from_string_one(
                 const char *p,
                 int family,
                 int ret,
@@ -57,6 +57,34 @@ static void test_in_addr_prefix_from_string(
         }
 }
 
+static void test_in_addr_prefix_from_string(void) {
+        test_in_addr_prefix_from_string_one("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("/8", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("1.2.3.4", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, -ENOANO, 0, 0, 8);
+        test_in_addr_prefix_from_string_one("1.2.3.4/0", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0, 0, 0, 0, 0);
+        test_in_addr_prefix_from_string_one("1.2.3.4/1", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1, 0, 1, 0, 1);
+        test_in_addr_prefix_from_string_one("1.2.3.4/2", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2, 0, 2, 0, 2);
+        test_in_addr_prefix_from_string_one("1.2.3.4/32", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, 0, 32, 0, 32);
+        test_in_addr_prefix_from_string_one("1.2.3.4/33", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
+        test_in_addr_prefix_from_string_one("1.2.3.4/-1", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
+        test_in_addr_prefix_from_string_one("::1", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+
+        test_in_addr_prefix_from_string_one("", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("/", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("/8", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
+        test_in_addr_prefix_from_string_one("::1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, -ENOANO, 0, 0, 0);
+        test_in_addr_prefix_from_string_one("::1/0", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0, 0, 0, 0, 0);
+        test_in_addr_prefix_from_string_one("::1/1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1, 0, 1, 0, 1);
+        test_in_addr_prefix_from_string_one("::1/2", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2, 0, 2, 0, 2);
+        test_in_addr_prefix_from_string_one("::1/32", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 32, 0, 32, 0, 32);
+        test_in_addr_prefix_from_string_one("::1/33", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 33, 0, 33, 0, 33);
+        test_in_addr_prefix_from_string_one("::1/64", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 64, 0, 64, 0, 64);
+        test_in_addr_prefix_from_string_one("::1/128", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, 0, 128, 0, 128);
+        test_in_addr_prefix_from_string_one("::1/129", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
+        test_in_addr_prefix_from_string_one("::1/-1", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
+}
+
 static void test_in_addr_random_prefix(void) {
         _cleanup_free_ char *str = NULL;
         union in_addr_union a;
@@ -102,32 +130,7 @@ static void test_in_addr_random_prefix(void) {
 }
 
 int main(int argc, char *argv[]) {
-        test_in_addr_prefix_from_string("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("/8", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("1.2.3.4", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, -ENOANO, 0, 0, 8);
-        test_in_addr_prefix_from_string("1.2.3.4/0", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 0, 0, 0, 0, 0);
-        test_in_addr_prefix_from_string("1.2.3.4/1", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 1, 0, 1, 0, 1);
-        test_in_addr_prefix_from_string("1.2.3.4/2", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 2, 0, 2, 0, 2);
-        test_in_addr_prefix_from_string("1.2.3.4/32", AF_INET, 0, &(union in_addr_union) { .in = (struct in_addr) { .s_addr = htobe32(0x01020304) } }, 32, 0, 32, 0, 32);
-        test_in_addr_prefix_from_string("1.2.3.4/33", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
-        test_in_addr_prefix_from_string("1.2.3.4/-1", AF_INET, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
-        test_in_addr_prefix_from_string("::1", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-
-        test_in_addr_prefix_from_string("", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("/", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("/8", AF_INET6, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
-        test_in_addr_prefix_from_string("::1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, -ENOANO, 0, 0, 0);
-        test_in_addr_prefix_from_string("::1/0", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 0, 0, 0, 0, 0);
-        test_in_addr_prefix_from_string("::1/1", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 1, 0, 1, 0, 1);
-        test_in_addr_prefix_from_string("::1/2", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 2, 0, 2, 0, 2);
-        test_in_addr_prefix_from_string("::1/32", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 32, 0, 32, 0, 32);
-        test_in_addr_prefix_from_string("::1/33", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 33, 0, 33, 0, 33);
-        test_in_addr_prefix_from_string("::1/64", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 64, 0, 64, 0, 64);
-        test_in_addr_prefix_from_string("::1/128", AF_INET6, 0, &(union in_addr_union) { .in6 = IN6ADDR_LOOPBACK_INIT }, 128, 0, 128, 0, 128);
-        test_in_addr_prefix_from_string("::1/129", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
-        test_in_addr_prefix_from_string("::1/-1", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
-
+        test_in_addr_prefix_from_string();
         test_in_addr_random_prefix();
 
         return 0;
