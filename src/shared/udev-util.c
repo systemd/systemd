@@ -169,3 +169,15 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
                 *ret = TAKE_PTR(data.device);
         return 0;
 }
+
+int device_is_renaming(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_property_value(dev, "ID_RENAMING", NULL);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        return r >= 0;
+}
