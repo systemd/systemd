@@ -3767,20 +3767,14 @@ int link_update(Link *link, sd_netlink_message *m) {
 
         r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
+                Manager *manager = link->manager;
+
                 log_link_info(link, "Interface name change detected, %s has been renamed to %s.", link->ifname, ifname);
 
-                if (link->state == LINK_STATE_PENDING) {
-                        r = free_and_strdup(&link->ifname, ifname);
-                        if (r < 0)
-                                return r;
-                } else {
-                        Manager *manager = link->manager;
-
-                        link_drop(link);
-                        r = link_add(manager, m, &link);
-                        if (r < 0)
-                                return r;
-                }
+                link_drop(link);
+                r = link_add(manager, m, &link);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
