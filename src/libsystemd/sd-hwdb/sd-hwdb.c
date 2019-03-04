@@ -18,12 +18,11 @@
 #include "hashmap.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
-#include "refcnt.h"
 #include "string-util.h"
 #include "util.h"
 
 struct sd_hwdb {
-        RefCount n_ref;
+        unsigned n_ref;
 
         FILE *f;
         struct stat st;
@@ -316,27 +315,27 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         if (!hwdb)
                 return -ENOMEM;
 
-        hwdb->n_ref = REFCNT_INIT;
+        hwdb->n_ref = 1;
 
         /* find hwdb.bin in hwdb_bin_paths */
         NULSTR_FOREACH(hwdb_bin_path, hwdb_bin_paths) {
+                log_debug("Trying to open \"%s\"...", hwdb_bin_path);
                 hwdb->f = fopen(hwdb_bin_path, "re");
                 if (hwdb->f)
                         break;
-                else if (errno == ENOENT)
-                        continue;
-                else
+                if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to open %s: %m", hwdb_bin_path);
         }
 
-        if (!hwdb->f) {
-                log_debug("hwdb.bin does not exist, please run 'systemd-hwdb update'");
-                return -ENOENT;
-        }
+        if (!hwdb->f)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "hwdb.bin does not exist, please run 'systemd-hwdb update'");
 
-        if (fstat(fileno(hwdb->f), &hwdb->st) < 0 ||
-            (size_t) hwdb->st.st_size < offsetof(struct trie_header_f, strings_len) + 8)
-                return log_debug_errno(errno, "Failed to read %s: %m", hwdb_bin_path);
+        if (fstat(fileno(hwdb->f), &hwdb->st) < 0)
+                return log_debug_errno(errno, "Failed to stat %s: %m", hwdb_bin_path);
+        if (hwdb->st.st_size < (off_t) offsetof(struct trie_header_f, strings_len) + 8)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "File %s is too short: %m", hwdb_bin_path);
 
         hwdb->map = mmap(0, hwdb->st.st_size, PROT_READ, MAP_SHARED, fileno(hwdb->f), 0);
         if (hwdb->map == MAP_FAILED)
@@ -370,7 +369,7 @@ static sd_hwdb *hwdb_free(sd_hwdb *hwdb) {
         return mfree(hwdb);
 }
 
-DEFINE_PUBLIC_ATOMIC_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_hwdb, sd_hwdb, hwdb_free)
 
 bool hwdb_validate(sd_hwdb *hwdb) {
         bool found = false;
@@ -383,12 +382,11 @@ bool hwdb_validate(sd_hwdb *hwdb) {
                 return false;
 
         /* if hwdb.bin doesn't exist anywhere, we need to update */
-        NULSTR_FOREACH(p, hwdb_bin_paths) {
+        NULSTR_FOREACH(p, hwdb_bin_paths)
                 if (stat(p, &st) >= 0) {
                         found = true;
                         break;
                 }
-        }
         if (!found)
                 return true;
 

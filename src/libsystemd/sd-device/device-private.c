@@ -18,7 +18,6 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "refcnt.h"
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"

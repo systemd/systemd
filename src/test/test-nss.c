@@ -12,11 +12,13 @@
 #include "in-addr-util.h"
 #include "local-addresses.h"
 #include "log.h"
+#include "main-func.h"
 #include "nss-util.h"
 #include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static const char* nss_status_to_string(enum nss_status status, char *buf, size_t buf_len) {
         switch (status) {
@@ -485,7 +487,7 @@ static int parse_argv(int argc, char **argv,
         return 0;
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
         _cleanup_strv_free_ char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
@@ -493,8 +495,7 @@ int main(int argc, char **argv) {
         char **module;
         int r;
 
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
+        test_setup_logging(LOG_INFO);
 
         r = parse_argv(argc, argv, &modules, &names, &addresses, &n_addresses);
         if (r < 0) {
@@ -504,13 +505,15 @@ int main(int argc, char **argv) {
 
         dir = dirname_malloc(argv[0]);
         if (!dir)
-                return EXIT_FAILURE;
+                return log_oom();
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
                 if (r < 0)
-                        return EXIT_FAILURE;
+                        return r;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

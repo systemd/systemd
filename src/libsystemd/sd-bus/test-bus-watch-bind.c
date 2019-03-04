@@ -16,6 +16,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+#include "tests.h"
 
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Foobar() call.");
@@ -198,7 +199,7 @@ int main(int argc, char *argv[]) {
         pthread_t server, client1, client2;
         char *path;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* We use /dev/shm here rather than /tmp, since some weird distros might set up /tmp as some weird fs that
          * doesn't support inotify properly. */
