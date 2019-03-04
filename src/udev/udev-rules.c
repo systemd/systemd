@@ -2260,13 +2260,13 @@ int udev_rules_apply_to_event(
                                 return log_oom();
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                hashmap_clear_free_free(event->seclabel_list);
+                                ordered_hashmap_clear_free_free(event->seclabel_list);
 
-                        r = hashmap_ensure_allocated(&event->seclabel_list, NULL);
+                        r = ordered_hashmap_ensure_allocated(&event->seclabel_list, NULL);
                         if (r < 0)
                                 return log_oom();
 
-                        r = hashmap_put(event->seclabel_list, name, label);
+                        r = ordered_hashmap_put(event->seclabel_list, name, label);
                         if (r < 0)
                                 return log_oom();
                         log_device_debug(dev, "SECLABEL{%s}='%s' %s:%u",
@@ -2443,9 +2443,9 @@ int udev_rules_apply_to_event(
                         _cleanup_free_ char *cmd = NULL;
 
                         if (IN_SET(cur->key.op, OP_ASSIGN, OP_ASSIGN_FINAL))
-                                hashmap_clear_free_key(event->run_list);
+                                ordered_hashmap_clear_free_key(event->run_list);
 
-                        r = hashmap_ensure_allocated(&event->run_list, NULL);
+                        r = ordered_hashmap_ensure_allocated(&event->run_list, NULL);
                         if (r < 0)
                                 return log_oom();
 
@@ -2453,7 +2453,7 @@ int udev_rules_apply_to_event(
                         if (!cmd)
                                 return log_oom();
 
-                        r = hashmap_put(event->run_list, cmd, INT_TO_PTR(cur->key.builtin_cmd));
+                        r = ordered_hashmap_put(event->run_list, cmd, INT_TO_PTR(cur->key.builtin_cmd));
                         if (r < 0)
                                 return log_oom();
 

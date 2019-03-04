@@ -71,8 +71,8 @@ UdevEvent *udev_event_free(UdevEvent *event) {
         sd_device_unref(event->dev);
         sd_device_unref(event->dev_db_clone);
         sd_netlink_unref(event->rtnl);
-        hashmap_free_free_key(event->run_list);
-        hashmap_free_free_free(event->seclabel_list);
+        ordered_hashmap_free_free_key(event->run_list);
+        ordered_hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
 
@@ -891,7 +891,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
         void *val;
         Iterator i;
 
-        HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
                 enum udev_builtin_cmd builtin_cmd = PTR_TO_INT(val);
                 char command[UTIL_PATH_SIZE];
 

@@ -272,7 +272,7 @@ int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
 
 static int node_permissions_apply(sd_device *dev, bool apply,
                                   mode_t mode, uid_t uid, gid_t gid,
-                                  Hashmap *seclabel_list) {
+                                  OrderedHashmap *seclabel_list) {
         const char *devnode, *subsystem, *id_filename = NULL;
         struct stat stats;
         dev_t devnum;
@@ -318,7 +318,7 @@ static int node_permissions_apply(sd_device *dev, bool apply,
                         log_device_debug(dev, "Preserve permissions of %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
 
                 /* apply SECLABEL{$module}=$label */
-                HASHMAP_FOREACH_KEY(label, name, seclabel_list, i) {
+                ORDERED_HASHMAP_FOREACH_KEY(label, name, seclabel_list, i) {
                         int q;
 
                         if (streq(name, "selinux")) {
@@ -386,7 +386,7 @@ static int xsprintf_dev_num_path_from_sd_device(sd_device *dev, char **ret) {
 
 int udev_node_add(sd_device *dev, bool apply,
                   mode_t mode, uid_t uid, gid_t gid,
-                  Hashmap *seclabel_list) {
+                  OrderedHashmap *seclabel_list) {
         const char *devnode, *devlink;
         _cleanup_free_ char *filename = NULL;
         int r;

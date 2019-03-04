@@ -25,8 +25,8 @@ typedef struct UdevEvent {
         mode_t mode;
         uid_t uid;
         gid_t gid;
-        Hashmap *seclabel_list;
-        Hashmap *run_list;
+        OrderedHashmap *seclabel_list;
+        OrderedHashmap *run_list;
         usec_t exec_delay_usec;
         usec_t birth_usec;
         sd_netlink *rtnl;
