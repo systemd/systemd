@@ -557,18 +557,10 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
         ((a).field ## _size == (b).field ## _size &&  \
          memcmp((a).field, (b).field, (a).field ## _size) == 0)
 
-int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
+int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
 
-        assert(a);
-        assert(b);
-
-        if (a == b)
-                return 1;
-
-        r = dns_resource_key_equal(a->key, b->key);
-        if (r <= 0)
-                return r;
+        /* Check if a and b are the same, but don't look at their keys */
 
         if (a->unparseable != b->unparseable)
                 return 0;
@@ -690,6 +682,22 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         default:
                 return FIELD_EQUAL(a->generic, b->generic, data);
         }
+}
+
+int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        if (a == b)
+                return 1;
+
+        r = dns_resource_key_equal(a->key, b->key);
+        if (r <= 0)
+                return r;
+
+        return dns_resource_record_payload_equal(a, b);
 }
 
 static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t altitude,
