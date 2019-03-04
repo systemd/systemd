@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -3621,6 +3622,16 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 if (r == 0) {
                         /* not yet ready */
                         log_link_debug(link, "link pending udev initialization...");
+                        return 0;
+                }
+
+                r = device_is_renaming(device);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to determine the device is renamed or not: %m");
+                        goto failed;
+                }
+                if (r > 0) {
+                        log_link_debug(link, "Interface is under renaming, pending initialization.");
                         return 0;
                 }
 

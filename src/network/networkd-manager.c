@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "virt.h"
 
 /* use 8 MB for receive socket kernel queue. */
@@ -194,7 +195,7 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
         }
 
-        if (!STR_IN_SET(action, "add", "change")) {
+        if (!STR_IN_SET(action, "add", "change", "move")) {
                 log_device_debug(device, "Ignoring udev %s event for device.", action);
                 return 0;
         }
@@ -202,6 +203,16 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0) {
                 log_device_debug_errno(device, r, "Ignoring udev ADD event for device without ifindex or with invalid ifindex: %m");
+                return 0;
+        }
+
+        r = device_is_renaming(device);
+        if (r < 0) {
+                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m", action);
+                return 0;
+        }
+        if (r > 0) {
+                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed: %m");
                 return 0;
         }
 
