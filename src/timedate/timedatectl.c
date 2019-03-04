@@ -670,7 +670,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                                 return r;
 
                         if (arg_all || !isempty(str))
-                                bus_print_property_value(name, expected_value, value, "%s", str);
+                                bus_print_property_value(name, expected_value, value, str);
 
                         return 1;
                 }

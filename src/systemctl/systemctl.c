@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
@@ -41,7 +42,9 @@
 #include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
+#include "in-addr-util.h"
 #include "io-util.h"
+#include "journal-util.h"
 #include "list.h"
 #include "locale-util.h"
 #include "log.h"
@@ -73,6 +76,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
@@ -4669,6 +4673,23 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         switch (bus_type) {
 
+        case SD_BUS_TYPE_INT32:
+                if (endswith(name, "ActionExitStatus")) {
+                        int32_t i;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        if (r < 0)
+                                return r;
+
+                        if (i >= 0 && i <= 255)
+                                bus_print_property_valuef(name, expected_value, value, "%"PRIi32, i);
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "[not set]");
+
+                        return 1;
+                }
+                break;
+
         case SD_BUS_TYPE_STRUCT:
 
                 if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
@@ -4679,9 +4700,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
                         else if (all)
-                                bus_print_property_value(name, expected_value, value, "%s", "");
+                                bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
 
@@ -4693,7 +4714,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, "%s", s);
+                                bus_print_property_value(name, expected_value, value, s);
 
                         return 1;
 
@@ -4704,11 +4725,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(a) || !isempty(b))
-                                bus_print_property_value(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
+                        if (!isempty(a) || !isempty(b))
+                                bus_print_property_valuef(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
-                } else if (streq_ptr(name, "SystemCallFilter")) {
+
+                } else if (STR_IN_SET(name, "SystemCallFilter", "RestrictAddressFamilies")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int whitelist;
 
@@ -4752,6 +4776,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         }
 
                         return 1;
+
                 } else if (STR_IN_SET(name, "SELinuxContext", "AppArmorProfile", "SmackProcessLabel")) {
                         int ignore;
                         const char *s;
@@ -4761,10 +4786,72 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (!isempty(s))
-                                bus_print_property_value(name, expected_value, value, "%s%s", ignore ? "-" : "", s);
+                                bus_print_property_valuef(name, expected_value, value, "%s%s", ignore ? "-" : "", s);
                         else if (all)
-                                bus_print_property_value(name, expected_value, value, "%s", "");
+                                bus_print_property_value(name, expected_value, value, "");
 
+                        return 1;
+
+                } else if (endswith(name, "ExitStatus") && streq(contents, "aiai")) {
+                        const int32_t *status, *signal;
+                        size_t sz_status, sz_signal, i;
+
+                        r = sd_bus_message_enter_container(m, 'r', "aiai");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &status, &sz_status);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &signal, &sz_signal);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        sz_status /= sizeof(int32_t);
+                        sz_signal /= sizeof(int32_t);
+
+                        if (all || sz_status > 0 || sz_signal > 0) {
+                                bool first = true;
+
+                                if (!value) {
+                                        fputs(name, stdout);
+                                        fputc('=', stdout);
+                                }
+
+                                for (i = 0; i < sz_status; i++) {
+                                        if (status[i] < 0 || status[i] > 255)
+                                                continue;
+
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        printf("%"PRIi32, status[i]);
+                                }
+
+                                for (i = 0; i < sz_signal; i++) {
+                                        const char *str;
+
+                                        str = signal_to_string((int) signal[i]);
+                                        if (!str)
+                                                continue;
+
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        fputs(str, stdout);
+                                }
+
+                                fputc('\n', stdout);
+                        }
                         return 1;
                 }
 
@@ -4781,7 +4868,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
+                                bus_print_property_valuef(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4800,7 +4887,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4818,7 +4905,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4839,9 +4926,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
                                 char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
 
-                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base,
-                                                         format_timespan(timespan1, sizeof(timespan1), v, 0),
-                                                         format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                                bus_print_property_valuef(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base,
+                                                          format_timespan(timespan1, sizeof(timespan1), v, 0),
+                                                          format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4863,8 +4950,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
                                 char timestamp[FORMAT_TIMESTAMP_MAX];
 
-                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base, spec,
-                                                         format_timestamp(timestamp, sizeof(timestamp), next_elapse));
+                                bus_print_property_valuef(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base, spec,
+                                                          format_timestamp(timestamp, sizeof(timestamp), next_elapse));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4888,18 +4975,18 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                                 tt = strv_join(info.argv, " ");
 
-                                 bus_print_property_value(name, expected_value, value,
-                                                          "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
-                                                          strna(info.path),
-                                                          strna(tt),
-                                                          yes_no(info.ignore),
-                                                          strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                                          strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
-                                                          info.pid,
-                                                          sigchld_code_to_string(info.code),
-                                                          info.status,
-                                                          info.code == CLD_EXITED ? "" : "/",
-                                                          strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+                                 bus_print_property_valuef(name, expected_value, value,
+                                                           "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
+                                                           strna(info.path),
+                                                           strna(tt),
+                                                           yes_no(info.ignore),
+                                                           strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                                           strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                           info.pid,
+                                                           sigchld_code_to_string(info.code),
+                                                           info.status,
+                                                           info.code == CLD_EXITED ? "" : "/",
+                                                           strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
 
                                 free(info.path);
                                 strv_free(info.argv);
@@ -4920,7 +5007,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &path, &rwm)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path), strna(rwm));
+                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path), strna(rwm));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4940,7 +5027,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &weight)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
+                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4961,7 +5048,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &bandwidth)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
+                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4982,8 +5069,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &target)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path),
-                                                         format_timespan(ts, sizeof(ts), target, 1));
+                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path),
+                                                          format_timespan(ts, sizeof(ts), target, 1));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -5007,7 +5094,187 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (n < 0)
                                 return log_oom();
 
-                        bus_print_property_value(name, expected_value, value, "%s", h);
+                        bus_print_property_value(name, expected_value, value, h);
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
+                        _cleanup_free_ char *addresses = NULL;
+
+                        r = sd_bus_message_enter_container(m, 'a', "(iayu)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *str = NULL;
+                                uint32_t prefixlen;
+                                int32_t family;
+                                const void *ap;
+                                size_t an;
+
+                                r = sd_bus_message_enter_container(m, 'r', "iayu");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                r = sd_bus_message_read(m, "i", &family);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read_array(m, 'y', &ap, &an);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read(m, "u", &prefixlen);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (!IN_SET(family, AF_INET, AF_INET6))
+                                        continue;
+
+                                if (an != FAMILY_ADDRESS_SIZE(family))
+                                        continue;
+
+                                if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
+                                        continue;
+
+                                if (in_addr_prefix_to_string(family, (union in_addr_union *) ap, prefixlen, &str) < 0)
+                                        continue;
+
+                                if (!strextend_with_separator(&addresses, " ", str, NULL))
+                                        return log_oom();
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(addresses))
+                                bus_print_property_value(name, expected_value, value, strempty(addresses));
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *source, *dest;
+                        int ignore_enoent;
+                        uint64_t rbind;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ssbt)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ssbt)", &source, &dest, &ignore_enoent, &rbind)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(source))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s%s%s",
+                                             ignore_enoent ? "-" : "",
+                                             source,
+                                             isempty(dest) ? "" : ":",
+                                             strempty(dest),
+                                             rbind == MS_REC ? ":rbind" : "") < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "TemporaryFileSystem")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *target, *option;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &target, &option)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(target))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s", target, isempty(option) ? "" : ":", strempty(option)) < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "LogExtraFields")) {
+                        _cleanup_free_ char *fields = NULL;
+                        const void *p;
+                        size_t sz;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "ay");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read_array(m, 'y', &p, &sz)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+                                const char *eq;
+
+                                if (memchr(p, 0, sz))
+                                        continue;
+
+                                eq = memchr(p, '=', sz);
+                                if (!eq)
+                                        continue;
+
+                                if (!journal_field_valid(p, eq - (const char*) p, false))
+                                        continue;
+
+                                str = malloc(sz + 1);
+                                if (!str)
+                                        return log_oom();
+
+                                memcpy(str, p, sz);
+                                str[sz] = '\0';
+
+                                if (!utf8_is_valid(str))
+                                        continue;
+
+                                if (!strextend_with_separator(&fields, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(fields))
+                                bus_print_property_value(name, expected_value, value, strempty(fields));
 
                         return 1;
                 }

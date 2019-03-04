@@ -755,7 +755,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, "%s", s);
+                                bus_print_property_value(name, expected_value, value, s);
 
                         return 1;
 
@@ -771,7 +771,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                        "Invalid user ID: " UID_FMT,
                                                        uid);
 
-                        bus_print_property_value(name, expected_value, value, UID_FMT, uid);
+                        bus_print_property_valuef(name, expected_value, value, UID_FMT, uid);
                         return 1;
                 }
                 break;
