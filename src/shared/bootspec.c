@@ -670,6 +670,54 @@ int boot_entries_load_config(
         return 0;
 }
 
+int boot_entries_load_config_auto(
+                const char *override_esp_path,
+                const char *override_xbootldr_path,
+                BootConfig *config) {
+
+        _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
+        int r;
+
+        assert(config);
+
+        /* This function is similar to boot_entries_load_config(), however we automatically search for the
+         * ESP and the XBOOTLDR partition unless it is explicitly specified. Also, if the user did not pass
+         * an ESP or XBOOTLDR path directly, let's see if /run/boot-loader-entries/ exists. If so, let's
+         * read data from there, as if it was an ESP (i.e. loading both entries and loader.conf data from
+         * it). This allows other boot loaders to pass boot loader entry information to our tools if they
+         * want to. */
+
+        if (!override_esp_path && !override_xbootldr_path) {
+
+                if (access("/run/boot-loader-entries/", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to determine whether /run/boot-loader-entries/ exists: %m");
+                } else {
+                        r = boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+                }
+        }
+
+        r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
+                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        if (r < 0) /* But it logs about all these cases, hence don't log here again */
+                return r;
+
+        r = find_xbootldr_and_warn(override_xbootldr_path, false, &xbootldr_where, NULL);
+        if (r < 0 && r != -ENOKEY)
+                return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
+
+        r = boot_entries_load_config(esp_where, xbootldr_where, config);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
 
         static const char * const title_table[] = {
