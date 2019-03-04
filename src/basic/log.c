@@ -1223,7 +1223,7 @@ int log_syntax_internal(
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
-        errno = error;
+        errno = ERRNO_VALUE(error);
 
         va_start(ap, format);
         (void) vsnprintf(buffer, sizeof buffer, format, ap);

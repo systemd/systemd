@@ -308,7 +308,7 @@ int log_syntax_invalid_utf8_internal(
                 int _level = (level), _e = (error);                     \
                 (log_get_max_level() >= LOG_PRI(_level))                \
                         ? log_syntax_internal(unit, _level, config_file, config_line, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
