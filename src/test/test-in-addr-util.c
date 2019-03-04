@@ -85,6 +85,54 @@ static void test_in_addr_prefix_from_string(void) {
         test_in_addr_prefix_from_string_one("::1/-1", AF_INET6, -ERANGE, NULL, 0, -ERANGE, 0, -ERANGE, 0);
 }
 
+static void test_in_addr_prefix_to_string_valid(int family, const char *p) {
+        _cleanup_free_ char *str = NULL;
+        union in_addr_union u;
+        unsigned char l;
+
+        log_info("/* %s */", p);
+
+        assert_se(in_addr_prefix_from_string(p, family, &u, &l) >= 0);
+        assert_se(in_addr_prefix_to_string(family, &u, l, &str) >= 0);
+        assert_se(streq(str, p));
+}
+
+static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p) {
+        _cleanup_free_ char *str1 = NULL, *str2 = NULL;
+        union in_addr_union u1, u2;
+        unsigned char len1, len2;
+
+        log_info("/* %s */", p);
+
+        assert_se(in_addr_prefix_from_string(p, family, &u1, &len1) >= 0);
+        assert_se(in_addr_prefix_to_string(family, &u1, len1, &str1) >= 0);
+        assert_se(in_addr_prefix_from_string(str1, family, &u2, &len2) >= 0);
+        assert_se(in_addr_prefix_to_string(family, &u2, len2, &str2) >= 0);
+
+        assert_se(streq(str1, str2));
+        assert_se(len1 == len2);
+        assert_se(in_addr_equal(family, &u1, &u2) > 0);
+}
+
+static void test_in_addr_prefix_to_string(void) {
+        test_in_addr_prefix_to_string_valid(AF_INET, "0.0.0.0/32");
+        test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/0");
+        test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/24");
+        test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/32");
+        test_in_addr_prefix_to_string_valid(AF_INET, "255.255.255.255/32");
+
+        test_in_addr_prefix_to_string_valid(AF_INET6, "::1/128");
+        test_in_addr_prefix_to_string_valid(AF_INET6, "fd00:abcd::1/64");
+        test_in_addr_prefix_to_string_valid(AF_INET6, "fd00:abcd::1234:1/64");
+        test_in_addr_prefix_to_string_valid(AF_INET6, "1111:2222:3333:4444:5555:6666:7777:8888/128");
+
+        test_in_addr_prefix_to_string_unoptimized(AF_INET, "0.0.0.0");
+        test_in_addr_prefix_to_string_unoptimized(AF_INET, "192.168.0.1");
+
+        test_in_addr_prefix_to_string_unoptimized(AF_INET6, "fd00:0000:0000:0000:0000:0000:0000:0001/64");
+        test_in_addr_prefix_to_string_unoptimized(AF_INET6, "fd00:1111::0000:2222:3333:4444:0001/64");
+}
+
 static void test_in_addr_random_prefix(void) {
         _cleanup_free_ char *str = NULL;
         union in_addr_union a;
@@ -132,6 +180,7 @@ static void test_in_addr_random_prefix(void) {
 int main(int argc, char *argv[]) {
         test_in_addr_prefix_from_string();
         test_in_addr_random_prefix();
+        test_in_addr_prefix_to_string();
 
         return 0;
 }
