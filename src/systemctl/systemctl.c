@@ -3535,9 +3535,16 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(&config, &e);
+        r = boot_entries_load_config_auto(NULL, NULL, &config);
         if (r < 0)
                 return r;
+
+        e = boot_config_default_entry(&config);
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No boot loader entry suitable as default, refusing to guess.");
+
+        log_debug("Found default boot loader entry in file \"%s\"", e->path);
 
         if (!e->kernel)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

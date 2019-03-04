@@ -1412,29 +1412,6 @@ found:
         return 0;
 }
 
-int find_default_boot_entry(
-                BootConfig *config,
-                const BootEntry **e) {
-
-        int r;
-
-        assert(config);
-        assert(e);
-
-        r = boot_entries_load_config_auto(NULL, NULL, config);
-        if (r < 0)
-                return r;
-
-        if (config->default_entry < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No boot loader entry suitable as default, refusing to guess.");
-
-        *e = &config->entries[config->default_entry];
-        log_debug("Found default boot loader entry in file \"%s\"", (*e)->path);
-
-        return 0;
-}
-
 static const char* const boot_entry_type_table[_BOOT_ENTRY_MAX] = {
         [BOOT_ENTRY_CONF] = "conf",
         [BOOT_ENTRY_UNIFIED] = "unified",

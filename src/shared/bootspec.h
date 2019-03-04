@@ -61,6 +61,13 @@ static inline bool boot_config_has_entry(BootConfig *config, const char *id) {
         return false;
 }
 
+static inline BootEntry* boot_config_default_entry(BootConfig *config) {
+        if (config->default_entry < 0)
+                return NULL;
+
+        return config->entries + config->default_entry;
+}
+
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, const char *xbootldr_path, BootConfig *config);
 int boot_entries_load_config_auto(const char *override_esp_path, const char *override_xbootldr_path, BootConfig *config);
@@ -72,8 +79,6 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int find_esp_and_warn(const char *path, bool unprivileged_mode, char **ret_path, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid);
 int find_xbootldr_and_warn(const char *path, bool unprivileged_mode, char **ret_path,sd_id128_t *ret_uuid);
-
-int find_default_boot_entry(BootConfig *config, const BootEntry **e);
 
 const char* boot_entry_type_to_string(BootEntryType t) _const_;
 BootEntryType boot_entry_type_from_string(const char *s) _pure_;
