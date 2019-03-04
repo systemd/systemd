@@ -66,12 +66,15 @@ static int boot_entry_load(
 
         c = endswith_no_case(path, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
 
         b = basename(path);
         tmp.id = strndup(b, c - b);
         if (!tmp.id)
                 return log_oom();
+
+        if (!efi_loader_entry_name_valid(tmp.id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -309,6 +312,9 @@ static int boot_entry_load_unified(
         tmp.id = strjoin(os_id, "-", version_id ?: build_id);
         if (!tmp.id)
                 return log_oom();
+
+        if (!efi_loader_entry_name_valid(tmp.id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
