@@ -167,6 +167,7 @@ VRF.Table,                         config_parse_uint32,                  0,     
 WireGuard.FwMark,                  config_parse_unsigned,                0,                             offsetof(Wireguard, fwmark)
 WireGuard.ListenPort,              config_parse_wireguard_listen_port,   0,                             offsetof(Wireguard, port)
 WireGuard.PrivateKey,              config_parse_wireguard_private_key,   0,                             0
+WireGuard.PrivateKeyFile,          config_parse_wireguard_private_key_file, 0,                          0
 WireGuardPeer.AllowedIPs,          config_parse_wireguard_allowed_ips,   0,                             0
 WireGuardPeer.Endpoint,            config_parse_wireguard_endpoint,      0,                             0
 WireGuardPeer.PublicKey,           config_parse_wireguard_public_key,    0,                             0

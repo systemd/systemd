@@ -11,12 +11,14 @@
 #include "alloc-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "resolve-private.h"
 #include "string-util.h"
 #include "strv.h"
@@ -529,6 +531,40 @@ int config_parse_wireguard_private_key(const char *unit,
 
 }
 
+int config_parse_wireguard_private_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *path = NULL;
+        Wireguard *w;
+
+        assert(data);
+        w = WIREGUARD(data);
+        assert(w);
+
+        if (isempty(rvalue)) {
+                w->private_key_file = mfree(w->private_key_file);
+                return 0;
+        }
+
+        path = strdup(rvalue);
+        if (!path)
+                return log_oom();
+
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        return free_and_replace(w->private_key_file, path);
+}
+
 int config_parse_wireguard_preshared_key(const char *unit,
                                          const char *filename,
                                          unsigned line,
@@ -807,9 +843,48 @@ static void wireguard_done(NetDev *netdev) {
 
         sd_event_source_unref(w->resolve_retry_event_source);
 
+        free(w->private_key_file);
+
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
         set_free(w->peers_with_unresolved_endpoint);
         set_free(w->peers_with_failed_endpoint);
+}
+
+static int wireguard_read_private_key_file(Wireguard *w, bool fatal) {
+        _cleanup_free_ char *contents = NULL;
+        _cleanup_free_ void *key = NULL;
+        size_t size, key_len;
+        NetDev *netdev;
+        int level, r;
+
+        assert(w);
+
+        netdev = NETDEV(w);
+
+        if (!w->private_key_file)
+                return 0;
+
+        level = fatal ? LOG_ERR : LOG_INFO;
+
+        r = read_full_file(w->private_key_file, &contents, &size);
+        if (r < 0)
+                return log_netdev_full(netdev, level, r,
+                                       "Failed to read private key from '%s'%s: %m",
+                                       w->private_key_file, fatal ? "" : ", ignoring");
+
+        r = unbase64mem(contents, size, &key, &key_len);
+        if (r < 0)
+                return log_netdev_full(netdev, level, r,
+                                       "Failed to decode private key%s: %m",
+                                       fatal ? "" : ", ignoring");
+
+        if (key_len != WG_KEY_LEN)
+                return log_netdev_full(netdev, level, SYNTHETIC_ERRNO(EINVAL),
+                                       "Wireguard private key has invalid length (%zu bytes)%s: %m",
+                                       key_len, fatal ? "" : ", ignoring");
+
+        memcpy(w->private_key, key, WG_KEY_LEN);
+        return 0;
 }
 
 static int wireguard_peer_verify(WireguardPeer *peer) {
@@ -830,15 +905,22 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
 static int wireguard_verify(NetDev *netdev, const char *filename) {
         WireguardPeer *peer, *peer_next;
         Wireguard *w;
+        bool empty;
+        int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        if (eqzero(w->private_key))
+        empty = eqzero(w->private_key);
+        if (empty && !w->private_key_file)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: Missing PrivateKey= or PrivateKeyFile=, ignoring.",
                                               filename);
+
+        r = wireguard_read_private_key_file(w, empty);
+        if (r < 0 && empty)
+                return r;
 
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
                 if (wireguard_peer_verify(peer) < 0)

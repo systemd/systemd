@@ -38,6 +38,7 @@ struct Wireguard {
 
         uint32_t flags;
         uint8_t private_key[WG_KEY_LEN];
+        char *private_key_file;
         uint16_t port;
         uint32_t fwmark;
 
@@ -60,5 +61,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_listen_port);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_public_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key);
+CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_private_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_preshared_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_wireguard_keepalive);
