@@ -696,7 +696,6 @@ int udev_event_spawn(UdevEvent *event,
 static int rename_netif(UdevEvent *event) {
         sd_device *dev = event->dev;
         const char *action, *oldname;
-        char name[IFNAMSIZ];
         int ifindex, r;
 
         if (!event->name)
@@ -722,16 +721,18 @@ static int rename_netif(UdevEvent *event) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
 
-        strscpy(name, IFNAMSIZ, event->name);
-        r = rtnl_set_link_name(&event->rtnl, ifindex, name);
+        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m", ifindex, oldname, name);
+                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
+                                              ifindex, oldname, event->name);
 
         r = device_rename(dev, event->name);
         if (r < 0)
-                return log_warning_errno(r, "Network interface %i is renamed from '%s' to '%s', but could not update sd_device object: %m", ifindex, oldname, name);
+                return log_device_warning_errno(dev, r, "Network interface %i is renamed from '%s' to '%s', "
+                                                "but could not update sd_device object: %m",
+                                                ifindex, oldname, event->name);
 
-        log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, name);
+        log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, event->name);
 
         return 1;
 }
