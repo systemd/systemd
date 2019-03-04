@@ -7,7 +7,9 @@ Description=For issue #11404
 [WireGuard]
 # 51820 is common port for Wireguard, 4500 is IPSec/UDP
 ListenPort=4500
-PrivateKey=CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr+WHtZLZ90FU=
+# The key below should be overridden by PrivateKeyFile=
+PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+PrivateKeyFile=/run/systemd/network/25-wireguard-private-key.txt
 
 # peer 1
 [WireGuardPeer]
