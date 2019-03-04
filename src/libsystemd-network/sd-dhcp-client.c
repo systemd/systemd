@@ -1881,6 +1881,17 @@ static int client_receive_message_raw(
         return client_handle_message(client, &packet->dhcp, len);
 }
 
+int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(client->fd >= 0, -EINVAL);
+
+        client->start_delay = 0;
+        client->attempt = 1;
+        client->state = DHCP_STATE_RENEWING;
+
+        return client_initialize_time_events(client);
+}
+
 int sd_dhcp_client_start(sd_dhcp_client *client) {
         int r;
 
