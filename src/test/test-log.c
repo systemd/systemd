@@ -59,15 +59,22 @@ static void test_long_lines(void) {
                             "asdfasdf %s asdfasdfa", "foobar");
 }
 
+static void test_log_syntax(void) {
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, EINVAL, "EINVAL: %s: %m", "hogehoge") == -EINVAL);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, -ENOENT, "ENOENT: %s: %m", "hogehoge") == -ENOENT);
+        assert_se(log_syntax("unit", LOG_ERR, "filename", 10, SYNTHETIC_ERRNO(ENOTTY), "ENOTTY: %s: %m", "hogehoge") == -ENOTTY);
+}
+
 int main(int argc, char* argv[]) {
         int target;
 
-        for (target = 0; target <  _LOG_TARGET_MAX; target++) {
+        for (target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
                 log_open();
 
                 test_log_struct();
                 test_long_lines();
+                test_log_syntax();
         }
 
         assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
