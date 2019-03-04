@@ -30,3 +30,4 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error);
