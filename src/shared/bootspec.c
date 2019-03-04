@@ -1416,25 +1416,14 @@ int find_default_boot_entry(
                 BootConfig *config,
                 const BootEntry **e) {
 
-        _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
         int r;
 
         assert(config);
         assert(e);
 
-        r = find_esp_and_warn(NULL, false, &esp_where, NULL, NULL, NULL, NULL);
-        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
-        if (r < 0) /* But it logs about all these cases, hence don't log here again */
-                return r;
-
-        r = find_xbootldr_and_warn(NULL, false, &xbootldr_where, NULL);
-        if (r < 0 && r != -ENOKEY)
-                return r;
-
-        r = boot_entries_load_config(esp_where, xbootldr_where, config);
+        r = boot_entries_load_config_auto(NULL, NULL, config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load boot loader entries: %m");
+                return r;
 
         if (config->default_entry < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
