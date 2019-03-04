@@ -154,6 +154,30 @@ static void test_chase_symlinks(void) {
         assert_se(path_equal(result, q));
         result = mfree(result);
 
+        /* Paths underneath the "root" with different UIDs while using CHASE_SAFE */
+
+        if (geteuid() == 0) {
+                p = strjoina(temp, "/user");
+                assert_se(mkdir(p, 0755) >= 0);
+                assert_se(chown(p, UID_NOBODY, GID_NOBODY) >= 0);
+
+                q = strjoina(temp, "/user/root");
+                assert_se(mkdir(q, 0755) >= 0);
+
+                p = strjoina(q, "/link");
+                assert_se(symlink("/", p) >= 0);
+
+                /* Fail when user-owned directories contain root-owned subdirectories. */
+                r = chase_symlinks(p, temp, CHASE_SAFE, &result);
+                assert_se(r == -ENOLINK);
+                result = mfree(result);
+
+                /* Allow this when the user-owned directories are all in the "root". */
+                r = chase_symlinks(p, q, CHASE_SAFE, &result);
+                assert_se(r > 0);
+                result = mfree(result);
+        }
+
         /* Paths using . */
 
         r = chase_symlinks("/etc/./.././", NULL, 0, &result);
