@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
+#include "udev-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -3624,6 +3625,16 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                         return 0;
                 }
 
+                r = device_is_renaming(device);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to determine the device is renamed or not: %m");
+                        goto failed;
+                }
+                if (r > 0) {
+                        log_link_debug(link, "Interface is under renaming, pending initialization.");
+                        return 0;
+                }
+
                 r = link_initialized(link, device);
                 if (r < 0)
                         goto failed;
@@ -3767,20 +3778,14 @@ int link_update(Link *link, sd_netlink_message *m) {
 
         r = sd_netlink_message_read_string(m, IFLA_IFNAME, &ifname);
         if (r >= 0 && !streq(ifname, link->ifname)) {
+                Manager *manager = link->manager;
+
                 log_link_info(link, "Interface name change detected, %s has been renamed to %s.", link->ifname, ifname);
 
-                if (link->state == LINK_STATE_PENDING) {
-                        r = free_and_strdup(&link->ifname, ifname);
-                        if (r < 0)
-                                return r;
-                } else {
-                        Manager *manager = link->manager;
-
-                        link_drop(link);
-                        r = link_add(manager, m, &link);
-                        if (r < 0)
-                                return r;
-                }
+                link_drop(link);
+                r = link_add(manager, m, &link);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);

@@ -13,6 +13,9 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         assert(ifindex > 0);
         assert(name);
 
+        if (!ifname_valid(name))
+                return -EINVAL;
+
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
