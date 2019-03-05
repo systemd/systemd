@@ -343,14 +343,14 @@ int main(int argc, char *argv[]) {
                 bool changed = false;
 
                 if (use_watchdog)
-                        watchdog_ping();
+                        (void) watchdog_ping();
 
                 /* Let's trim the cgroup tree on each iteration so
                    that we leave an empty cgroup tree around, so that
                    container managers get a nice notify event when we
                    are down */
                 if (cgroup)
-                        cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
+                        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
@@ -440,7 +440,7 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 
