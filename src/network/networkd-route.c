@@ -677,6 +677,34 @@ int route_configure(
         return 0;
 }
 
+int network_add_ipv4ll_route(Network *network) {
+        _cleanup_(route_freep) Route *n = NULL;
+        int r;
+
+        assert(network);
+
+        if (!network->ipv4ll_route)
+                return 0;
+
+        /* IPv4LLRoute= is in [Network] section. */
+        r = route_new_static(network, NULL, 0, &n);
+        if (r < 0)
+                return r;
+
+        r = in_addr_from_string(AF_INET, "169.254.0.0", &n->dst);
+        if (r < 0)
+                return r;
+
+        n->family = AF_INET;
+        n->dst_prefixlen = 16;
+        n->scope = RT_SCOPE_LINK;
+        n->priority = IPV4LL_ROUTE_METRIC;
+        n->protocol = RTPROT_STATIC;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
 int config_parse_gateway(
                 const char *unit,
                 const char *filename,

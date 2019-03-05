@@ -423,6 +423,10 @@ int network_load_one(Manager *manager, const char *filename) {
 
         network_apply_anonymize_if_set(network);
 
+        r = network_add_ipv4ll_route(network);
+        if (r < 0)
+                log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
+
         LIST_PREPEND(networks, manager->networks, network);
         network->manager = manager;
 
@@ -637,32 +641,10 @@ int network_get(Manager *manager, sd_device *device,
 }
 
 int network_apply(Network *network, Link *link) {
-        int r;
-
         assert(network);
         assert(link);
 
         link->network = network;
-
-        if (network->ipv4ll_route) {
-                Route *route;
-
-                r = route_new_static(network, NULL, 0, &route);
-                if (r < 0)
-                        return r;
-
-                r = inet_pton(AF_INET, "169.254.0.0", &route->dst.in);
-                if (r == 0)
-                        return -EINVAL;
-                if (r < 0)
-                        return -errno;
-
-                route->family = AF_INET;
-                route->dst_prefixlen = 16;
-                route->scope = RT_SCOPE_LINK;
-                route->priority = IPV4LL_ROUTE_METRIC;
-                route->protocol = RTPROT_STATIC;
-        }
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||

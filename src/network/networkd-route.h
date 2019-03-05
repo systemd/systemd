@@ -59,6 +59,8 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 
+int network_add_ipv4ll_route(Network *network);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
