@@ -23,6 +23,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* check ID_RENAMING= property from PID1's .device logic, and don't consider
+  devices that are being renamed.
+
 * make MAINPID= message reception checks even stricter: if service uses User=,
   then check sending UID and ignore message if it doesn't match the user or
   root.
@@ -63,7 +66,7 @@ Features:
 
 * paranoia: whenever we process passwords, call mlock() on the memory
   first. i.e. look for all places we use string_erase()/string_free_erase() and
-  augment them with mlock()
+  augment them with mlock(). Also use MADV_DONTDUMP
 
 * whenever oom_kill memory.event event is triggered print a nice log message
 
