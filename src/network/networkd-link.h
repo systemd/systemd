@@ -15,6 +15,7 @@
 #include "sd-netlink.h"
 
 #include "list.h"
+#include "network-util.h"
 #include "set.h"
 
 typedef enum LinkState {
@@ -27,18 +28,6 @@ typedef enum LinkState {
         _LINK_STATE_MAX,
         _LINK_STATE_INVALID = -1
 } LinkState;
-
-typedef enum LinkOperationalState {
-        LINK_OPERSTATE_OFF,
-        LINK_OPERSTATE_NO_CARRIER,
-        LINK_OPERSTATE_DORMANT,
-        LINK_OPERSTATE_CARRIER,
-        LINK_OPERSTATE_DEGRADED,
-        LINK_OPERSTATE_ENSLAVED,
-        LINK_OPERSTATE_ROUTABLE,
-        _LINK_OPERSTATE_MAX,
-        _LINK_OPERSTATE_INVALID = -1
-} LinkOperationalState;
 
 typedef struct Manager Manager;
 typedef struct Network Network;
@@ -179,9 +168,6 @@ int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
-
-const char* link_operstate_to_string(LinkOperationalState s) _const_;
-LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 
 extern const sd_bus_vtable link_vtable[];
 
