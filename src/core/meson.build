@@ -11,7 +11,7 @@ libcore_shared_sources = '''
         mount-setup.h
 '''.split()
 
-libcore_la_sources = '''
+libcore_sources = '''
         audit-fd.c
         audit-fd.h
         automount.c
@@ -158,7 +158,7 @@ libcore_shared = static_library(
 
 libcore = static_library(
         'core',
-        libcore_la_sources,
+        libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
