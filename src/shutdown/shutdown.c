@@ -169,10 +169,10 @@ static int switch_root_initramfs(void) {
  * value input. For all other issues, report the failure and indicate that
  * the sync is not making progress.
  */
-static bool sync_making_progress(unsigned long long *prev_dirty) {
+static int sync_making_progress(unsigned long long *prev_dirty) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned long long val = 0;
-        bool r = false;
+        int ret;
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
@@ -205,11 +205,9 @@ static bool sync_making_progress(unsigned long long *prev_dirty) {
                 val += ull;
         }
 
-        r = *prev_dirty > val;
-
+        ret = *prev_dirty > val;
         *prev_dirty = val;
-
-        return r;
+        return ret;
 }
 
 static void sync_with_progress(void) {
@@ -243,7 +241,7 @@ static void sync_with_progress(void) {
                 else if (r == -ETIMEDOUT) {
                         /* Reset the check counter if the "Dirty" value is
                          * decreasing */
-                        if (sync_making_progress(&dirty))
+                        if (sync_making_progress(&dirty) > 0)
                                 checks = 0;
                 } else {
                         log_error_errno(r, "Failed to sync filesystems and block devices: %m");
@@ -345,14 +343,14 @@ int main(int argc, char *argv[]) {
                 bool changed = false;
 
                 if (use_watchdog)
-                        watchdog_ping();
+                        (void) watchdog_ping();
 
                 /* Let's trim the cgroup tree on each iteration so
                    that we leave an empty cgroup tree around, so that
                    container managers get a nice notify event when we
                    are down */
                 if (cgroup)
-                        cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
+                        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, false);
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
@@ -442,7 +440,7 @@ int main(int argc, char *argv[]) {
         arguments[0] = NULL;
         arguments[1] = arg_verb;
         arguments[2] = NULL;
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 
