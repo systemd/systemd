@@ -66,6 +66,7 @@ rootprefix_default = split_usr ? '/' : '/usr'
 if rootprefixdir == ''
         rootprefixdir = rootprefix_default
 endif
+rootprefixdir_noslash = rootprefixdir == '/' ? '' : rootprefixdir
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
@@ -76,7 +77,7 @@ conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
 conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
 
-# join_paths ignore the preceding arguments if an absolute component is
+# join_paths ignores the preceding arguments if an absolute component is
 # encountered, so this should canonicalize various paths when they are
 # absolute or relative.
 prefixdir = get_option('prefix')
@@ -235,6 +236,7 @@ conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_
 
 substs.set('prefix',                                          prefixdir)
 substs.set('rootprefix',                                      rootprefixdir)
+substs.set('rootprefix_noslash',                              rootprefixdir_noslash)
 substs.set('exec_prefix',                                     prefixdir)
 substs.set('libdir',                                          libdir)
 substs.set('rootlibdir',                                      rootlibdir)

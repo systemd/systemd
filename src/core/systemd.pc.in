@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 prefix=@prefix@
-rootprefix=@rootprefix@
+rootprefix=@rootprefix_noslash@
 sysconfdir=@sysconfdir@
 systemdutildir=${rootprefix}/lib/systemd
 systemdsystemunitdir=${rootprefix}/lib/systemd/system
