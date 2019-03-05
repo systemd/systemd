@@ -22,6 +22,7 @@
 #include "path-util.h"
 #include "pe-header.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -50,7 +51,10 @@ static int boot_entry_load(
                 const char *path,
                 BootEntry *entry) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        _cleanup_(boot_entry_free) BootEntry tmp = {
+                .type = BOOT_ENTRY_CONF,
+        };
+
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         char *b, *c;
@@ -62,12 +66,15 @@ static int boot_entry_load(
 
         c = endswith_no_case(path, ".conf");
         if (!c)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
 
         b = basename(path);
         tmp.id = strndup(b, c - b);
         if (!tmp.id)
                 return log_oom();
+
+        if (!efi_loader_entry_name_valid(tmp.id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -272,7 +279,9 @@ static int boot_entry_load_unified(
                 BootEntry *ret) {
 
         _cleanup_free_ char *os_pretty_name = NULL, *os_id = NULL, *version_id = NULL, *build_id = NULL;
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        _cleanup_(boot_entry_free) BootEntry tmp = {
+                .type = BOOT_ENTRY_UNIFIED,
+        };
         _cleanup_fclose_ FILE *f = NULL;
         const char *k;
         int r;
@@ -303,6 +312,9 @@ static int boot_entry_load_unified(
         tmp.id = strjoin(os_id, "-", version_id ?: build_id);
         if (!tmp.id)
                 return log_oom();
+
+        if (!efi_loader_entry_name_valid(tmp.id))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -476,7 +488,7 @@ static int boot_entries_find_unified(
 
                 r = fd_verify_regular(fd);
                 if (r < 0) {
-                        log_warning_errno(errno, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
+                        log_warning_errno(r, "File %s/%s is not regular, ignoring: %m", dir, de->d_name);
                         continue;
                 }
 
@@ -661,6 +673,118 @@ int boot_entries_load_config(
         }
 
         config->default_entry = boot_entries_select_default(config);
+        return 0;
+}
+
+int boot_entries_load_config_auto(
+                const char *override_esp_path,
+                const char *override_xbootldr_path,
+                BootConfig *config) {
+
+        _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
+        int r;
+
+        assert(config);
+
+        /* This function is similar to boot_entries_load_config(), however we automatically search for the
+         * ESP and the XBOOTLDR partition unless it is explicitly specified. Also, if the user did not pass
+         * an ESP or XBOOTLDR path directly, let's see if /run/boot-loader-entries/ exists. If so, let's
+         * read data from there, as if it was an ESP (i.e. loading both entries and loader.conf data from
+         * it). This allows other boot loaders to pass boot loader entry information to our tools if they
+         * want to. */
+
+        if (!override_esp_path && !override_xbootldr_path) {
+
+                if (access("/run/boot-loader-entries/", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to determine whether /run/boot-loader-entries/ exists: %m");
+                } else {
+                        r = boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+                }
+        }
+
+        r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
+                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        if (r < 0) /* But it logs about all these cases, hence don't log here again */
+                return r;
+
+        r = find_xbootldr_and_warn(override_xbootldr_path, false, &xbootldr_where, NULL);
+        if (r < 0 && r != -ENOKEY)
+                return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
+
+        r = boot_entries_load_config(esp_where, xbootldr_where, config);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
+
+        static const char * const title_table[] = {
+                /* Pretty names for a few well-known automatically discovered entries. */
+                "auto-osx",                      "macOS",
+                "auto-windows",                  "Windows Boot Manager",
+                "auto-efi-shell",                "EFI Shell",
+                "auto-efi-default",              "EFI Default Loader",
+                "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
+        };
+
+        _cleanup_free_ char **found_by_loader = NULL;
+        size_t n_allocated;
+        char **i;
+        int r;
+
+        assert(config);
+
+        /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
+         * already included there. */
+
+        r = efi_loader_get_entries(&found_by_loader);
+        if (IN_SET(r, -ENOENT, -EOPNOTSUPP))
+                return log_debug_errno(r, "Boot loader reported no entries.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+
+        n_allocated = config->n_entries;
+
+        STRV_FOREACH(i, found_by_loader) {
+                _cleanup_free_ char *c = NULL, *t = NULL;
+                char **a, **b;
+
+                if (boot_config_has_entry(config, *i))
+                        continue;
+
+                if (only_auto && !startswith(*i, "auto-"))
+                        continue;
+
+                c = strdup(*i);
+                if (!c)
+                        return log_oom();
+
+                STRV_FOREACH_PAIR(a, b, (char**) title_table)
+                        if (streq(*a, *i)) {
+                                t = strdup(*b);
+                                if (!t)
+                                        return log_oom();
+                                break;
+                        }
+
+                if (!GREEDY_REALLOC0(config->entries, n_allocated, config->n_entries + 1))
+                        return log_oom();
+
+                config->entries[config->n_entries++] = (BootEntry) {
+                        .type = BOOT_ENTRY_LOADER,
+                        .id = TAKE_PTR(c),
+                        .title = TAKE_PTR(t),
+                };
+        }
+
         return 0;
 }
 
@@ -1294,36 +1418,10 @@ found:
         return 0;
 }
 
-int find_default_boot_entry(
-                const char *esp_path,
-                const char *xbootldr_path,
-                BootConfig *config,
-                const BootEntry **e) {
+static const char* const boot_entry_type_table[_BOOT_ENTRY_MAX] = {
+        [BOOT_ENTRY_CONF] = "conf",
+        [BOOT_ENTRY_UNIFIED] = "unified",
+        [BOOT_ENTRY_LOADER] = "loader",
+};
 
-        _cleanup_free_ char *esp_where = NULL, *xbootldr_where = NULL;
-        int r;
-
-        assert(config);
-        assert(e);
-
-        r = find_esp_and_warn(esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = find_xbootldr_and_warn(xbootldr_path, false, &xbootldr_where, NULL);
-        if (r < 0 && r != -ENOKEY)
-                return r;
-
-        r = boot_entries_load_config(esp_where, xbootldr_where, config);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load boot loader entries: %m");
-
-        if (config->default_entry < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "No boot loader entry suitable as default, refusing to guess.");
-
-        *e = &config->entries[config->default_entry];
-        log_debug("Found default boot loader entry in file \"%s\"", (*e)->path);
-
-        return 0;
-}
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);

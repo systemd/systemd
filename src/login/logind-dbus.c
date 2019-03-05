@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "audit-util.h"
+#include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-unit-util.h"
@@ -18,6 +19,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio-label.h"
@@ -27,11 +29,13 @@
 #include "logind.h"
 #include "missing_capability.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "sleep-config.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -2392,9 +2396,24 @@ static int property_get_reboot_to_firmware_setup(
         assert(reply);
         assert(userdata);
 
-        r = efi_get_reboot_to_firmware();
-        if (r < 0 && r != -EOPNOTSUPP)
-                log_warning_errno(r, "Failed to determine reboot-to-firmware state: %m");
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what is currently configured in the EFI variables */
+                r = efi_get_reboot_to_firmware();
+                if (r < 0 && r != -EOPNOTSUPP)
+                        log_warning_errno(r, "Failed to determine reboot-to-firmware-setup state: %m");
+        } else if (r < 0)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+        else if (r > 0) {
+                /* Non-EFI case: let's see whether /run/systemd/reboot-to-firmware-setup exists. */
+                if (access("/run/systemd/reboot-to-firmware-setup", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno, "Failed to check whether /run/systemd/reboot-to-firmware-setup exists: %m");
+
+                        r = false;
+                } else
+                        r = true;
+        }
 
         return sd_bus_message_append(reply, "b", r > 0);
 }
@@ -2404,8 +2423,9 @@ static int method_set_reboot_to_firmware_setup(
                 void *userdata,
                 sd_bus_error *error) {
 
-        int b, r;
         Manager *m = userdata;
+        bool use_efi;
+        int b, r;
 
         assert(message);
         assert(m);
@@ -2413,6 +2433,29 @@ static int method_set_reboot_to_firmware_setup(
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0)
                 return r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what the firmware supports */
+
+                r = efi_reboot_to_firmware_supported();
+                if (r == -EOPNOTSUPP)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Firmware does not support boot into firmware.");
+                if (r < 0)
+                        return r;
+
+                use_efi = true;
+
+        } else if (r <= 0) {
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP is set to off */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Firmware does not support boot into firmware.");
+        } else
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP is set to on */
+                use_efi = false;
 
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
@@ -2427,41 +2470,37 @@ static int method_set_reboot_to_firmware_setup(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = efi_set_reboot_to_firmware(b);
-        if (r < 0)
-                return r;
+        if (use_efi) {
+                r = efi_set_reboot_to_firmware(b);
+                if (r < 0)
+                        return r;
+        } else {
+                if (b) {
+                        r = touch("/run/systemd/reboot-to-firmware-setup");
+                        if (r < 0)
+                                return r;
+                } else {
+                        if (unlink("/run/systemd/reboot-to-firmware-setup") < 0 && errno != ENOENT)
+                                return -errno;
+                }
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int method_can_reboot_to_firmware_setup(
+static int return_test_polkit(
                 sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
+                int capability,
+                const char *action,
+                const char **details,
+                uid_t good_user,
+                sd_bus_error *e) {
 
-        int r;
-        bool challenge;
         const char *result;
-        Manager *m = userdata;
+        bool challenge;
+        int r;
 
-        assert(message);
-        assert(m);
-
-        r = efi_reboot_to_firmware_supported();
-        if (r < 0) {
-                if (r != -EOPNOTSUPP)
-                        log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
-
-                return sd_bus_reply_method_return(message, "s", "na");
-        }
-
-        r = bus_test_polkit(message,
-                            CAP_SYS_ADMIN,
-                            "org.freedesktop.login1.set-reboot-to-firmware-setup",
-                            NULL,
-                            UID_INVALID,
-                            &challenge,
-                            error);
+        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
         if (r < 0)
                 return r;
 
@@ -2473,6 +2512,466 @@ static int method_can_reboot_to_firmware_setup(
                 result = "no";
 
         return sd_bus_reply_method_return(message, "s", result);
+}
+
+static int method_can_reboot_to_firmware_setup(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_FIRMWARE_SETUP");
+        if (r == -ENXIO) {
+                /* EFI case: let's see what the firmware supports */
+
+                r = efi_reboot_to_firmware_supported();
+                if (r < 0) {
+                        if (r != -EOPNOTSUPP)
+                                log_warning_errno(r, "Failed to determine whether reboot to firmware is supported: %m");
+
+                        return sd_bus_reply_method_return(message, "s", "na");
+                }
+
+        } else if (r <= 0) {
+                /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP: %m");
+
+                return sd_bus_reply_method_return(message, "s", "na");
+        }
+
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                        NULL,
+                        UID_INVALID,
+                        error);
+}
+
+static int property_get_reboot_to_boot_loader_menu(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t x = UINT64_MAX;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                _cleanup_free_ char *v = NULL;
+
+                /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distuingished:
+                 *
+                 *     1. Variable not set, boot into boot loader menu is not enabled (we return UINT64_MAX to the user)
+                 *     2. Variable set to "0", boot into boot loader menu is enabled with no timeout (we return 0 to the user)
+                 *     3. Variable set to numeric value formatted in ASCII, boot into boot loader menu with the specified timeout in seconds
+                 */
+
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", &v);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to read LoaderConfigTimeoutOneShot variable: %m");
+                } else {
+                        uint64_t sec;
+
+                        r = safe_atou64(v, &sec);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse LoaderConfigTimeoutOneShot value '%s': %m", v);
+                        else if (sec > (USEC_INFINITY / USEC_PER_SEC))
+                                log_warning("LoaderConfigTimeoutOneShot too large, ignoring: %m");
+                        else
+                                x = sec * USEC_PER_SEC; /* return in µs */
+                }
+
+        } else if (r < 0)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU: %m");
+        else if (r > 0) {
+                _cleanup_free_ char *v = NULL;
+
+                /* Non-EFI case, let's process /run/systemd/reboot-to-boot-loader-menu. */
+
+                r = read_one_line_file("/run/systemd/reboot-to-boot-loader-menu", &v);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to read /run/systemd/reboot-to-boot-loader-menu: %m");
+                } else {
+                        r = safe_atou64(v, &x);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse /run/systemd/reboot-to-boot-loader-menu: %m");
+                }
+        }
+
+        return sd_bus_message_append(reply, "t", x);
+}
+
+static int method_set_reboot_to_boot_loader_menu(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        bool use_efi;
+        uint64_t x;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "t", &x);
+        if (r < 0)
+                return r;
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                uint64_t features;
+
+                /* EFI case: let's see if booting into boot loader menu is supported. */
+
+                r = efi_loader_get_features(&features);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether reboot to boot loader menu is supported: %m");
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Boot loader does not support boot into boot loader menu.");
+
+                use_efi = true;
+
+        } else if (r <= 0) {
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU is set to off */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU: %m");
+
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Boot loader does not support boot into boot loader menu.");
+        } else
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU is set to on */
+                use_efi = false;
+
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (use_efi) {
+                if (x == UINT64_MAX)
+                        r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", NULL, 0);
+                else {
+                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+                        xsprintf(buf, "%" PRIu64, DIV_ROUND_UP(x, USEC_PER_SEC)); /* second granularity */
+
+                        r = efi_set_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", buf);
+                }
+                if (r < 0)
+                        return r;
+        } else {
+                if (x == UINT64_MAX) {
+                        if (unlink("/run/systemd/reboot-to-loader-menu") < 0 && errno != ENOENT)
+                                return -errno;
+                } else {
+                        char buf[DECIMAL_STR_MAX(uint64_t) + 1];
+
+                        xsprintf(buf, "%" PRIu64, x); /* µs granularity */
+
+                        r = write_string_file_atomic_label("/run/systemd/reboot-to-loader-menu", buf);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_can_reboot_to_boot_loader_menu(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+
+        assert(message);
+        assert(m);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
+        if (r == -ENXIO) {
+                uint64_t features = 0;
+
+                /* EFI case, let's see if booting into boot loader menu is supported. */
+
+                r = efi_loader_get_features(&features);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether reboot to boot loader menu is supported: %m");
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT))
+                        return sd_bus_reply_method_return(message, "s", "na");
+
+        } else if (r <= 0) {
+                /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU: %m");
+
+                return sd_bus_reply_method_return(message, "s", "na");
+        }
+
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
+                        NULL,
+                        UID_INVALID,
+                        error);
+}
+
+static int property_get_reboot_to_boot_loader_entry(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                /* EFI case: let's read the LoaderEntryOneShot variable */
+
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &v);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to read LoaderEntryOneShot variable: %m");
+                } else if (!efi_loader_entry_name_valid(v)) {
+                        log_warning("LoaderEntryOneShot contains invalid entry name '%s', ignoring.", v);
+                        v = mfree(v);
+                }
+        } else if (r < 0)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY: %m");
+        else if (r > 0) {
+
+                /* Non-EFI case, let's process /run/systemd/reboot-to-boot-loader-entry. */
+
+                r = read_one_line_file("/run/systemd/reboot-to-boot-loader-entry", &v);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to read /run/systemd/reboot-to-boot-loader-entry: %m");
+                } else if (!efi_loader_entry_name_valid(v)) {
+                        log_warning("/run/systemd/reboot-to-boot-loader-entry is not valid, ignoring.");
+                        v = mfree(v);
+                }
+        }
+
+        return sd_bus_message_append(reply, "s", v);
+}
+
+static int boot_loader_entry_exists(const char *id) {
+        _cleanup_(boot_config_free) BootConfig config = {};
+        int r;
+
+        assert(id);
+
+        r = boot_entries_load_config_auto(NULL, NULL, &config);
+        if (r < 0)
+                return r;
+
+        (void) boot_entries_augment_from_loader(&config, true);
+
+        return boot_config_has_entry(&config, id);
+}
+
+static int method_set_reboot_to_boot_loader_entry(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        bool use_efi;
+        const char *v;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &v);
+        if (r < 0)
+                return r;
+
+        if (isempty(v))
+                v = NULL;
+        else if (efi_loader_entry_name_valid(v)) {
+                r = boot_loader_entry_exists(v);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Boot loader entry '%s' is not known.", v);
+        } else
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Boot loader entry name '%s' is not valid, refusing.", v);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                uint64_t features;
+
+                /* EFI case: let's see if booting into boot loader entry is supported. */
+
+                r = efi_loader_get_features(&features);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether reboot into boot loader entry is supported: %m");
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_ENTRY_ONESHOT))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Loader does not support boot into boot loader entry.");
+
+                use_efi = true;
+
+        } else if (r <= 0) {
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY is set to off */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY: %m");
+
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Loader does not support boot into boot loader entry.");
+        } else
+                /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY is set to on */
+                use_efi = false;
+
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (use_efi) {
+                if (isempty(v))
+                        /* Delete item */
+                        r = efi_set_variable(EFI_VENDOR_LOADER, "LoaderEntryOneShot", NULL, 0);
+                else
+                        r = efi_set_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", v);
+                if (r < 0)
+                        return r;
+        } else {
+                if (isempty(v)) {
+                        if (unlink("/run/systemd/reboot-to-boot-loader-entry") < 0 && errno != ENOENT)
+                                return -errno;
+                } else {
+                        r = write_string_file_atomic_label("/run/systemd/reboot-boot-to-loader-entry", v);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_can_reboot_to_boot_loader_entry(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
+        if (r == -ENXIO) {
+                uint64_t features = 0;
+
+                /* EFI case, let's see if booting into boot loader entry is supported. */
+
+                r = efi_loader_get_features(&features);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine whether reboot to boot loader entry is supported: %m");
+                if (r < 0 || !FLAGS_SET(features, EFI_LOADER_FEATURE_ENTRY_ONESHOT))
+                        return sd_bus_reply_method_return(message, "s", "na");
+
+        } else if (r <= 0) {
+                /* Non-EFI case: let's trust $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY */
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY: %m");
+
+                return sd_bus_reply_method_return(message, "s", "na");
+        }
+
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
+                        NULL,
+                        UID_INVALID,
+                        error);
+}
+
+static int property_get_boot_loader_entries(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_(boot_config_free) BootConfig config = {};
+        size_t i;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        r = boot_entries_load_config_auto(NULL, NULL, &config);
+        if (r < 0)
+                return r;
+
+        (void) boot_entries_augment_from_loader(&config, true);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < config.n_entries; i++) {
+                BootEntry *e = config.entries + i;
+
+                r = sd_bus_message_append(reply, "s", e->id);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
 }
 
 static int method_set_wall_message(
@@ -2640,6 +3139,9 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillUserProcesses", "b", NULL, offsetof(Manager, kill_user_processes), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RebootToFirmwareSetup", "b", property_get_reboot_to_firmware_setup, 0, 0),
+        SD_BUS_PROPERTY("RebootToBootLoaderMenu", "t", property_get_reboot_to_boot_loader_menu, 0, 0),
+        SD_BUS_PROPERTY("RebootToBootLoaderEntry", "s", property_get_reboot_to_boot_loader_entry, 0, 0),
+        SD_BUS_PROPERTY("BootLoaderEntries", "as", property_get_boot_loader_entries, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -2714,6 +3216,10 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanRebootToFirmwareSetup", NULL, "s", method_can_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetRebootToFirmwareSetup", "b", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanRebootToBootLoaderMenu", NULL, "s", method_can_reboot_to_boot_loader_menu, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetRebootToBootLoaderMenu", "t", NULL, method_set_reboot_to_boot_loader_menu, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanRebootToBootLoaderEntry", NULL, "s", method_can_reboot_to_boot_loader_entry, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetRebootToBootLoaderEntry", "s", NULL, method_set_reboot_to_boot_loader_entry, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetWallMessage", "sb", NULL, method_set_wall_message, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("SessionNew", "so", 0),

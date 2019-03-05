@@ -170,6 +170,8 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 static bool arg_firmware_setup = false;
+static usec_t arg_boot_loader_menu = USEC_INFINITY;
+static const char *arg_boot_loader_entry = NULL;
 static bool arg_now = false;
 static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
@@ -3473,7 +3475,11 @@ static int logind_check_inhibitors(enum action a) {
 #endif
 }
 
-static int logind_prepare_firmware_setup(void) {
+static int prepare_firmware_setup(void) {
+
+        if (!arg_firmware_setup)
+                return 0;
+
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
@@ -3497,27 +3503,75 @@ static int logind_prepare_firmware_setup(void) {
 
         return 0;
 #else
-        log_error("Cannot remotely indicate to EFI to boot into setup mode.");
+        log_error("Booting into firmware setup not supported.");
         return -ENOSYS;
 #endif
 }
 
-static int prepare_firmware_setup(void) {
-        int r;
+static int prepare_boot_loader_menu(void) {
 
-        if (!arg_firmware_setup)
+        if (arg_boot_loader_menu == USEC_INFINITY)
                 return 0;
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
 
-                r = efi_set_reboot_to_firmware(true);
-                if (r < 0)
-                        log_debug_errno(r, "Cannot indicate to EFI to boot into setup mode, will retry via logind: %m");
-                else
-                        return r;
-        }
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
 
-        return logind_prepare_firmware_setup();
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToBootLoaderMenu",
+                        &error,
+                        NULL,
+                        "t", arg_boot_loader_menu);
+        if (r < 0)
+                return log_error_errno(r, "Cannot indicate to boot loader to enter boot loader entry menu: %s", bus_error_message(&error, r));
+
+        return 0;
+#else
+        log_error("Booting into boot loader menu not supported.");
+        return -ENOSYS;
+#endif
+}
+
+static int prepare_boot_loader_entry(void) {
+
+        if (!arg_boot_loader_entry)
+                return 0;
+
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToBootLoaderEntry",
+                        &error,
+                        NULL,
+                        "s", arg_boot_loader_entry);
+        if (r < 0)
+                return log_error_errno(r, "Cannot set boot into loader entry '%s': %s", arg_boot_loader_entry, bus_error_message(&error, r));
+
+        return 0;
+#else
+        log_error("Booting into boot loader entry not supported.");
+        return -ENOSYS;
+#endif
 }
 
 static int load_kexec_kernel(void) {
@@ -3535,15 +3589,22 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(NULL, NULL, &config, &e);
-        if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        r = boot_entries_load_config_auto(NULL, NULL, &config);
         if (r < 0)
-                /* But it logs about all these cases, hence don't log here again */
                 return r;
 
+        e = boot_config_default_entry(&config);
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No boot loader entry suitable as default, refusing to guess.");
+
+        log_debug("Found default boot loader entry in file \"%s\"", e->path);
+
+        if (!e->kernel)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Boot entry does not refer to Linux kernel, which is not supported currently.");
         if (strv_length(e->initrd) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Boot entry specifies multiple initrds, which is not supported currently.");
 
         kernel = path_join(e->root, e->kernel);
@@ -3551,7 +3612,7 @@ static int load_kexec_kernel(void) {
                 return log_oom();
 
         if (!strv_isempty(e->initrd)) {
-                initrd = path_join(e->root, *e->initrd);
+                initrd = path_join(e->root, e->initrd[0]);
                 if (!initrd)
                         return log_oom();
         }
@@ -3569,7 +3630,7 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3578,19 +3639,14 @@ static int load_kexec_kernel(void) {
                         "--load", kernel,
                         "--append", options,
                         initrd ? "--initrd" : NULL, initrd,
-                        NULL };
+                        NULL
+                };
 
                 /* Child */
                 execv(args[0], (char * const *) args);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                /* Command failed */
-                return -EPROTO;
         return 0;
 }
 
@@ -3639,6 +3695,14 @@ static int start_special(int argc, char *argv[], void *userdata) {
         }
 
         r = prepare_firmware_setup();
+        if (r < 0)
+                return r;
+
+        r = prepare_boot_loader_menu();
+        if (r < 0)
+                return r;
+
+        r = prepare_boot_loader_entry();
         if (r < 0)
                 return r;
 
@@ -7520,6 +7584,10 @@ static int systemctl_help(void) {
                "                             short-monotonic, short-unix,\n"
                "                             verbose, export, json, json-pretty, json-sse, cat)\n"
                "     --firmware-setup Tell the firmware to show the setup menu on next boot\n"
+               "     --boot-loader-menu=TIME\n"
+               "                      Boot into boot loader menu on next boot\n"
+               "     --boot-loader-entry=NAME\n"
+               "                      Boot into a specific boot loader entry on next boot\n"
                "     --plain          Print unit dependencies as a list instead of a tree\n\n"
                "Unit Commands:\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
@@ -7774,6 +7842,39 @@ static void help_states(void) {
         DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
 
+static int help_boot_loader_entry(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char **l = NULL;
+        sd_bus *bus;
+        char **i;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "BootLoaderEntries",
+                        &error,
+                        &l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate boot loader entries: %s", bus_error_message(&error, r));
+
+        if (strv_isempty(l)) {
+                log_error("No boot loader entries discovered.");
+                return -ENODATA;
+        }
+
+        STRV_FOREACH(i, l)
+                puts(*i);
+
+        return 0;
+}
+
 static int systemctl_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_FAIL = 0x100,
@@ -7804,6 +7905,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_JOB_MODE,
                 ARG_PRESET_MODE,
                 ARG_FIRMWARE_SETUP,
+                ARG_BOOT_LOADER_MENU,
+                ARG_BOOT_LOADER_ENTRY,
                 ARG_NOW,
                 ARG_MESSAGE,
                 ARG_WAIT,
@@ -7853,6 +7956,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "recursive",           no_argument,       NULL, 'r'                     },
                 { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
                 { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
+                { "boot-loader-menu",    required_argument, NULL, ARG_BOOT_LOADER_MENU    },
+                { "boot-loader-entry",   required_argument, NULL, ARG_BOOT_LOADER_ENTRY   },
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
                 {}
@@ -8124,6 +8229,27 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_FIRMWARE_SETUP:
                         arg_firmware_setup = true;
+                        break;
+
+                case ARG_BOOT_LOADER_MENU:
+
+                        r = parse_sec(optarg, &arg_boot_loader_menu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --boot-loader-menu= argument '%s': %m", optarg);
+
+                        break;
+
+                case ARG_BOOT_LOADER_ENTRY:
+
+                        if (streq(optarg, "help")) { /* Yes, this means, "help" is not a valid boot loader entry name we can deal with */
+                                r = help_boot_loader_entry();
+                                if (r < 0)
+                                        return r;
+
+                                return 0;
+                        }
+
+                        arg_boot_loader_entry = empty_to_null(optarg);
                         break;
 
                 case ARG_STATE: {

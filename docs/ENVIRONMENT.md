@@ -107,6 +107,51 @@ systemd-udevd:
   with `:` in which case the kernel command line option takes precedence, if it
   is specified as well.
 
+* `$SYSTEMD_REBOOT_TO_FIRMWARE_SETUP` — if set overrides systemd-logind's
+  built-in EFI logic of requesting a reboot into the firmware. Takes a
+  boolean. If set to false the functionality is turned off entirely. If set to
+  true instead of requesting a reboot into the firmware setup UI through EFI a
+  file `/run/systemd/reboot-to-firmware-setup` is created whenever this is
+  requested. This file may be checked for by services run during system
+  shutdown in order to request the appropriate operation from the firmware in
+  an alternative fashion.
+
+* `$SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU` — similar to the above, allows
+  overriding of systemd-logind's built-in EFI logic of requesting a reboot into
+  the boot loader menu. Takes a boolean. If set to false the functionality is
+  turned off entirely. If set to true instead of requesting a reboot into the
+  boot loader menu through EFI a file `/run/systemd/reboot-to-boot-loader-menu`
+  is created whenever this is requested. The file contains the requested boot
+  loader menu timeout in µs, formatted in ASCII decimals, or zero in case no
+  time-out is requested. This file may be checked for by services run during
+  system shutdown in order to request the appropriate operation from the boot
+  loader in an alternative fashion.
+
+* `$SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY` — similar to the above, allows
+  overriding of systemd-logind's built-in EFI logic of requesting a reboot into
+  a specific boot loader entry. Takes a boolean. If set to false the
+  functionality is turned off entirely. If set to true instead of requesting a
+  reboot into a specific boot loader entry through EFI a file
+  `/run/systemd/reboot-to-boot-loader-entry` is created whenever this is
+  requested. The file contains the requested boot loader entry identifier. This
+  file may be checked for by services run during system shutdown in order to
+  request the appropriate operation from the boot loader in an alternative
+  fashion. Note that by default only boot loader entries which follow the [Boot
+  Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION) and are
+  placed in the ESP or the Extended Boot Loader partition may be selected this
+  way. However, if a directory `/run/boot-loader-entries/` exists, the entries
+  are loaded from there instead. The directory should contain the usual
+  directory hierarchy mandated by the Boot Loader Specification, i.e. the entry
+  drop-ins should be placed in
+  `/run/boot-loader-entries/loader/entries/*.conf`, and the files referenced by
+  the drop-ins (including the kernels and initrds) somewhere else below
+  `/run/boot-loader-entries/`. Note that all these files may be (and are
+  supposed to be) symlinks. systemd-logind will load these files on-demand,
+  these files can hence be updated (ideally atomically) whenever the boot
+  loader configuration changes. A foreign boot loader installer script should
+  hence synthesize drop-in snippets and symlinks for all boot entries at boot
+  or whenever they change if it wants to integrate with systemd-logind's APIs.
+
 installed systemd tests:
 
 * `$SYSTEMD_TEST_DATA` — override the location of test data. This is useful if

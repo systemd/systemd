@@ -91,16 +91,11 @@ Features:
   show state of these flags, and optionally trigger such a factory reset on
   next boot by setting the flag.
 
-* sd-boot: add "oneshot boot timeout" variable support
-
 * sd-boot: automatically load EFI modules from some drop-in dir, so that people
   can add in file system drivers and such
 
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
-
-* logind: add "boot into bootmenu" API, and possibly even "boot into windows"
-  and "boot into macos".
 
 * maybe set a special xattr on cgroups that have delegate=yes set, to make it
   easy to mark cut points

@@ -617,11 +617,30 @@
         <term><option>--firmware-setup</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command,
-          indicate to the system's firmware to boot into setup
-          mode. Note that this is currently only supported on some EFI
-          systems and only if the system was booted in EFI
-          mode.</para>
+          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to reboot into
+          the firmware setup interface. Note that this functionality is not available on all systems.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-menu=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to show the
+          boot loader menu on the following boot. Takes a time value as parameter — indicating the menu time-out. Pass
+          zero in order to disable the menu time-out. Note that not all boot loaders support this
+          functionality.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--boot-loader-entry=</option></term>
+
+        <listitem>
+          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to boot into
+          a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
+          <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
+          functionality.</para>
         </listitem>
       </varlistentry>
 
