@@ -469,23 +469,26 @@ int config_parse_wireguard_listen_port(const char *unit,
         return 0;
 }
 
-static int parse_wireguard_key(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+static int wireguard_decode_key_and_warn(
+                const char *rvalue,
+                uint8_t *ret,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
         _cleanup_free_ void *key = NULL;
         size_t len;
         int r;
 
-        assert(filename);
         assert(rvalue);
-        assert(userdata);
+        assert(ret);
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(rvalue)) {
+                memzero(ret, WG_KEY_LEN);
+                return 0;
+        }
 
         r = unbase64mem(rvalue, strlen(rvalue), &key, &len);
         if (r < 0) {
@@ -500,7 +503,7 @@ static int parse_wireguard_key(const char *unit,
                 return 0;
         }
 
-        memcpy(userdata, key, WG_KEY_LEN);
+        memcpy(ret, key, WG_KEY_LEN);
         return true;
 }
 
@@ -522,8 +525,7 @@ int config_parse_wireguard_private_key(const char *unit,
 
         assert(w);
 
-        return parse_wireguard_key(unit, filename, line, section, section_line,
-                                   lvalue, ltype, rvalue, data, &w->private_key);
+        return wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
 
 }
 
@@ -552,8 +554,7 @@ int config_parse_wireguard_preshared_key(const char *unit,
         if (r < 0)
                 return r;
 
-        r = parse_wireguard_key(unit, filename, line, section, section_line,
-                                lvalue, ltype, rvalue, data, peer->preshared_key);
+        r = wireguard_decode_key_and_warn(rvalue, peer->preshared_key, unit, filename, line, lvalue);
         if (r < 0)
                 return r;
 
@@ -586,8 +587,7 @@ int config_parse_wireguard_public_key(const char *unit,
         if (r < 0)
                 return r;
 
-        r = parse_wireguard_key(unit, filename, line, section, section_line,
-                                lvalue, ltype, rvalue, data, peer->public_key);
+        r = wireguard_decode_key_and_warn(rvalue, peer->public_key, unit, filename, line, lvalue);
         if (r < 0)
                 return r;
 
