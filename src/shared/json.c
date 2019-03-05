@@ -3164,7 +3164,7 @@ int json_log_internal(
                                 "CONFIG_FILE=%s", source,
                                 "CONFIG_LINE=%u", source_line,
                                 "CONFIG_COLUMN=%u", source_column,
-                                LOG_MESSAGE("%s:%u: %s", source, line, buffer),
+                                LOG_MESSAGE("%s:%u:%u: %s", source, source_line, source_column, buffer),
                                 NULL);
         else
                 return log_struct_internal(
