@@ -716,8 +716,8 @@ tests += [
         [['src/test/test-umount.c',
           'src/core/mount-setup.c',
           'src/core/mount-setup.h',
-          'src/core/umount.c',
-          'src/core/umount.h'],
+          'src/shutdown/umount.c',
+          'src/shutdown/umount.h'],
          [],
          [libmount]],
 

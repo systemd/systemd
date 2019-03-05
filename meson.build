@@ -1441,6 +1441,7 @@ includes = include_directories('src/basic',
                                'src/udev',
                                'src/libudev',
                                'src/core',
+                               'src/shutdown',
                                'src/libsystemd/sd-bus',
                                'src/libsystemd/sd-device',
                                'src/libsystemd/sd-event',
@@ -1527,6 +1528,7 @@ public_programs = []
 subdir('src/libudev')
 subdir('src/shared')
 subdir('src/core')
+subdir('src/shutdown')
 subdir('src/udev')
 subdir('src/network')
 
@@ -2676,6 +2678,10 @@ public_programs += exe
 
 executable('systemd-shutdown',
            systemd_shutdown_sources,
+           'src/core/mount-setup.c',
+           'src/core/mount-setup.h',
+           'src/core/killall.c',
+           'src/core/killall.h',
            include_directories : includes,
            link_with : [libshared],
            dependencies : [libmount],
