@@ -1200,7 +1200,7 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
 
         output = subprocess.check_output(['networkctl', 'status', 'bond99']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, 'State: degraded \(configured\)')
+        self.assertRegex(output, 'State: degraded-carrier \(configured\)')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'set', 'dummy98', 'up']), 0)
         time.sleep(2)
@@ -1313,7 +1313,7 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         time.sleep(3)
 
         output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
-        self.assertRegex(output, 'State: degraded \(configured\)')
+        self.assertRegex(output, 'State: degraded-carrier \(configured\)')
 
         self.assertEqual(subprocess.call(['ip', 'link', 'del', 'dummy98']), 0)
         time.sleep(3)

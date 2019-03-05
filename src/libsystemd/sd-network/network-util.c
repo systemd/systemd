@@ -21,13 +21,14 @@ bool network_is_online(void) {
 }
 
 static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
-        [LINK_OPERSTATE_OFF] = "off",
-        [LINK_OPERSTATE_NO_CARRIER] = "no-carrier",
-        [LINK_OPERSTATE_DORMANT] = "dormant",
-        [LINK_OPERSTATE_CARRIER] = "carrier",
-        [LINK_OPERSTATE_DEGRADED] = "degraded",
-        [LINK_OPERSTATE_ENSLAVED] = "enslaved",
-        [LINK_OPERSTATE_ROUTABLE] = "routable",
+        [LINK_OPERSTATE_OFF]              = "off",
+        [LINK_OPERSTATE_NO_CARRIER]       = "no-carrier",
+        [LINK_OPERSTATE_DORMANT]          = "dormant",
+        [LINK_OPERSTATE_DEGRADED_CARRIER] = "degraded-carrier",
+        [LINK_OPERSTATE_CARRIER]          = "carrier",
+        [LINK_OPERSTATE_DEGRADED]         = "degraded",
+        [LINK_OPERSTATE_ENSLAVED]         = "enslaved",
+        [LINK_OPERSTATE_ROUTABLE]         = "routable",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);

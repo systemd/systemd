@@ -407,15 +407,14 @@ void link_update_operstate(Link *link, bool also_update_master) {
             link_is_enslaved(link))
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE)) {
+        if (operstate >= LINK_OPERSTATE_CARRIER) {
                 Link *slave;
 
                 HASHMAP_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
-                        if (IN_SET(slave->operstate,
-                                   LINK_OPERSTATE_OFF, LINK_OPERSTATE_NO_CARRIER, LINK_OPERSTATE_DORMANT))
-                                operstate = LINK_OPERSTATE_DEGRADED;
+                        if (slave->operstate < LINK_OPERSTATE_CARRIER)
+                                operstate = LINK_OPERSTATE_DEGRADED_CARRIER;
                 }
         }
 

@@ -213,7 +213,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (arg_legend)
-                printf("%3s %-16s %-18s %-11s %-10s\n",
+                printf("%3s %-16s %-18s %-16s %-10s\n",
                        "IDX",
                        "LINK",
                        "TYPE",
@@ -241,7 +241,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
                 t = link_get_type_string(links[i].iftype, d);
 
-                printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
+                printf("%3i %-16s %-18s %s%-16s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
                        on_color_operational, strna(operational_state), off_color_operational,
                        on_color_setup, strna(setup_state), off_color_setup);

@@ -116,6 +116,13 @@
                 </listitem>
               </varlistentry>
               <varlistentry>
+                <term>degraded-carrier</term>
+                <listitem>
+                  <para>for bond or bridge master, one of the bonding or bridge slave network interfaces is
+                  in off, no-carrier, or dormant state</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term>carrier</term>
                 <listitem>
                   <para>the link has a carrier, or for bond or bridge master, all bonding or bridge slave
@@ -125,9 +132,7 @@
               <varlistentry>
                 <term>degraded</term>
                 <listitem>
-                  <para>the link has carrier and addresses valid on the local link configured, or for bond
-                  or bridge master, one of the bonding or bridge slave network interfaces is in off,
-                  no-carrier, or dormant</para>
+                  <para>the link has carrier and addresses valid on the local link configured</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
