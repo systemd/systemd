@@ -34,7 +34,7 @@ for phase in "${PHASES[@]}"; do
             info "Starting container $CONT_NAME"
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
-                        -dit --net=host debian-with-systemd/latest /usr/bin/systemd
+                        -dit --net=host debian-with-systemd/latest /bin/systemd
             $DOCKER_EXEC bash -c "echo deb-src http://deb.debian.org/debian $DEBIAN_RELEASE main >>/etc/apt/sources.list"
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
