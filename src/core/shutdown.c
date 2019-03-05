@@ -169,10 +169,10 @@ static int switch_root_initramfs(void) {
  * value input. For all other issues, report the failure and indicate that
  * the sync is not making progress.
  */
-static bool sync_making_progress(unsigned long long *prev_dirty) {
+static int sync_making_progress(unsigned long long *prev_dirty) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned long long val = 0;
-        bool r = false;
+        int ret;
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
@@ -205,11 +205,9 @@ static bool sync_making_progress(unsigned long long *prev_dirty) {
                 val += ull;
         }
 
-        r = *prev_dirty > val;
-
+        ret = *prev_dirty > val;
         *prev_dirty = val;
-
-        return r;
+        return ret;
 }
 
 static void sync_with_progress(void) {
@@ -243,7 +241,7 @@ static void sync_with_progress(void) {
                 else if (r == -ETIMEDOUT) {
                         /* Reset the check counter if the "Dirty" value is
                          * decreasing */
-                        if (sync_making_progress(&dirty))
+                        if (sync_making_progress(&dirty) > 0)
                                 checks = 0;
                 } else {
                         log_error_errno(r, "Failed to sync filesystems and block devices: %m");
