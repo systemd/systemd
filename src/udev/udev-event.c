@@ -821,12 +821,14 @@ int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
                              UdevRules *rules) {
-        sd_device *dev = event->dev;
         const char *subsystem, *action;
+        sd_device *dev;
         int r;
 
         assert(event);
         assert(rules);
+
+        dev = event->dev;
 
         r = sd_device_get_subsystem(dev, &subsystem);
         if (r < 0)
