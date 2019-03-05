@@ -78,6 +78,8 @@ test_setup() {
         setup_basic_environment
         install_keymaps yes
         install_zoneinfo
+        # Install nproc to determine # of CPUs for correct parallelization
+        inst_binary nproc
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
