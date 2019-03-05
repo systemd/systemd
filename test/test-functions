@@ -120,7 +120,16 @@ run_qemu() {
         fi
     fi
 
-    [ "$QEMU_SMP" ]   || QEMU_SMP=1
+    # If QEMU_SMP was not explicitly set, try to determine the value 'dynamically'
+    # i.e. use the number of online CPUs on the host machine. If the nproc utility
+    # is not installed or there's some other error when calling it, fall back
+    # to the original value (QEMU_SMP=1).
+    if ! [ "$QEMU_SMP" ]; then
+        if ! QEMU_SMP=$(nproc); then
+            dwarn "nproc utility is not installed, falling back to QEMU_SMP=1"
+            QEMU_SMP=1
+        fi
+    fi
 
     find_qemu_bin || return 1
 
