@@ -100,6 +100,32 @@ evdev:input:b0003v05ACp025B*
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
 
+# MacBook8,1 (2015), MacBook9,1 (2016), MacBook10,1 (2017)
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook8,1:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook9,1:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBook10,1:*
+ EVDEV_ABS_00=::95
+ EVDEV_ABS_01=::90
+ EVDEV_ABS_35=::95
+ EVDEV_ABS_36=::90
+
+# MacBookPro13,* (Late 2016), MacBookPro14,* (Mid 2017)
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro13,1:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro13,2:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro14,1:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro14,2:*
+ EVDEV_ABS_00=::96
+ EVDEV_ABS_01=::94
+ EVDEV_ABS_35=::96
+ EVDEV_ABS_36=::94
+
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro13,3:*
+evdev:name:Apple SPI Touchpad:dmi:*:svnAppleInc.:pnMacBookPro14,3:*
+ EVDEV_ABS_00=::96
+ EVDEV_ABS_01=::95
+ EVDEV_ABS_35=::96
+ EVDEV_ABS_36=::95
+
 #########################################
 # ASUS
 #########################################
