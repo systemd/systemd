@@ -602,7 +602,7 @@ static int import_program_into_properties(UdevEvent *event,
         char *line;
         int r;
 
-        r = udev_event_spawn(event, timeout_usec, false, program, result, sizeof result);
+        r = udev_event_spawn(event, timeout_usec, true, program, result, sizeof result);
         if (r < 0)
                 return r;
         if (r > 0)
