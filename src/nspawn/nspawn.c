@@ -3960,11 +3960,11 @@ static int run(int master,
         } else if (arg_slice || arg_property)
                 log_notice("Machine and scope registration turned off, --slice= and --property= settings will have no effect.");
 
-        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
+        r = create_subcgroup(*pid, arg_keep_unit, arg_unified_cgroup_hierarchy);
         if (r < 0)
                 return r;
 
-        r = create_subcgroup(*pid, arg_keep_unit, arg_unified_cgroup_hierarchy);
+        r = sync_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
                 return r;
 
