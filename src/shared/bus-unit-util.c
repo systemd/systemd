@@ -1986,6 +1986,7 @@ finish:
 }
 
 static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
+        assert(d);
         assert(d->result);
 
         if (!quiet) {
@@ -2006,7 +2007,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 else if (streq(d->result, "once"))
                         log_error("Unit %s was started already once and can't be started again.", strna(d->name));
                 else if (!STR_IN_SET(d->result, "done", "skipped")) {
-                        if (d->name) {
+
+                        if (d->name && endswith(d->name, ".service")) {
                                 _cleanup_free_ char *result = NULL;
                                 int q;
 
