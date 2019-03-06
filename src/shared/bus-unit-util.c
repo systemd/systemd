@@ -1844,11 +1844,13 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         assert(bus);
         assert(ret);
 
-        d = new0(BusWaitForJobs, 1);
+        d = new(BusWaitForJobs, 1);
         if (!d)
                 return -ENOMEM;
 
-        d->bus = sd_bus_ref(bus);
+        *d = (BusWaitForJobs) {
+                .bus = sd_bus_ref(bus),
+        };
 
         /* When we are a bus client we match by sender. Direct
          * connections OTOH have no initialized sender field, and
