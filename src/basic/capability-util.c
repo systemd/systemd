@@ -363,6 +363,7 @@ bool ambient_capabilities_supported(void) {
 
 int capability_quintet_enforce(const CapabilityQuintet *q) {
         _cleanup_cap_free_ cap_t c = NULL;
+        bool need_set_proc_again = false;
         int r;
 
         if (q->ambient != (uint64_t) -1) {
@@ -393,7 +394,6 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
 
                         if (cap_set_flag(c, CAP_INHERITABLE, 1, &cv, CAP_SET) < 0)
                                 return -errno;
-
                         if (cap_set_flag(c, CAP_PERMITTED, 1, &cv, CAP_SET) < 0)
                                 return -errno;
 
@@ -472,9 +472,39 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                         }
                 }
 
-                if (changed)
-                        if (cap_set_proc(c) < 0)
+                if (changed) {
+                        _cleanup_cap_free_ cap_t modified = NULL;
+
+                        /* In order to change the bounding caps, we need to keep CAP_SETPCAP for a bit
+                         * longer. Let's add it to our list hence for now. */
+                        if (q->bounding != (uint64_t) -1) {
+                                cap_value_t cv = CAP_SETPCAP;
+
+                                modified = cap_dup(c);
+                                if (!modified)
+                                        return -ENOMEM;
+
+                                if (cap_set_flag(modified, CAP_PERMITTED, 1, &cv, CAP_SET) < 0)
+                                        return -errno;
+                                if (cap_set_flag(modified, CAP_EFFECTIVE, 1, &cv, CAP_SET) < 0)
+                                        return -errno;
+
+                                if (cap_compare(modified, c) == 0) {
+                                        /* No change? then drop this nonsense again */
+                                        cap_free(modified);
+                                        modified = NULL;
+                                }
+                        }
+
+                        /* Now, let's enforce the caps for the first time. Note that this is where we acquire
+                         * caps in any of the sets we currently don't have. We have to do this before
+                         * droppoing the bounding caps below, since at that point we can never acquire new
+                         * caps in inherited/permitted/effective anymore, but only lose them.*/
+                        if (cap_set_proc(modified ?: c) < 0)
                                 return -errno;
+
+                        need_set_proc_again = !!modified;
+                }
         }
 
         if (q->bounding != (uint64_t) -1) {
@@ -482,6 +512,14 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
                 if (r < 0)
                         return r;
         }
+
+        /* If needed, let's now set the caps again, this time in the final version, which differs from what
+         * we have already set only in the CAP_SETPCAP bit, which we needed for dropping the bounding
+         * bits. This call only undoes bits and doesn't acquire any which means the bounding caps don't
+         * matter. */
+        if (need_set_proc_again)
+                if (cap_set_proc(c) < 0)
+                        return -errno;
 
         return 0;
 }
