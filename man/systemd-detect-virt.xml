@@ -131,7 +131,7 @@
           </row>
 
           <row>
-            <entry valign="top" morerows="5">Container</entry>
+            <entry valign="top" morerows="6">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
           </row>
@@ -160,6 +160,11 @@
             <entry><varname>rkt</varname></entry>
             <entry>rkt app container runtime</entry>
           </row>
+
+          <row>
+            <entry><varname>wsl</varname></entry>
+            <entry><ulink url="https://docs.microsoft.com/en-us/windows/wsl/about">Windows Subsystem for Linux</ulink></entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -169,6 +174,12 @@
     machine and container virtualization are used in
     conjunction, only the latter will be identified (unless
     <option>--vm</option> is passed).</para>
+    <para> Windows Subsystem for Linux is not a Linux container,
+    but an environment for running Linux userspace applications on
+    top of the Windows kernel using a Linux-compatible interface.
+    WSL is categorized as a container for practical purposes.
+    Multiple WSL environments share the same kernel and services
+    should generally behave like when being run in a container.</para>
   </refsect1>
 
   <refsect1>
