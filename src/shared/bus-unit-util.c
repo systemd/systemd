@@ -1921,22 +1921,22 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
                                           result);
 }
 
-static const struct {
-        const char *result, *explanation;
-} explanations [] = {
-        { "resources",   "of unavailable resources or another system error" },
-        { "protocol",    "the service did not take the steps required by its unit configuration" },
-        { "timeout",     "a timeout was exceeded" },
-        { "exit-code",   "the control process exited with error code" },
-        { "signal",      "a fatal signal was delivered to the control process" },
-        { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
-        { "watchdog",    "the service failed to send watchdog ping" },
-        { "start-limit", "start of the service was attempted too often" }
-};
-
 static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
         _cleanup_free_ char *service_shell_quoted = NULL;
         const char *systemctl = "systemctl", *journalctl = "journalctl";
+
+        static const struct {
+                const char *result, *explanation;
+        } explanations[] = {
+                { "resources",   "of unavailable resources or another system error" },
+                { "protocol",    "the service did not take the steps required by its unit configuration" },
+                { "timeout",     "a timeout was exceeded" },
+                { "exit-code",   "the control process exited with error code" },
+                { "signal",      "a fatal signal was delivered to the control process" },
+                { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
+                { "watchdog",    "the service failed to send watchdog ping" },
+                { "start-limit", "start of the service was attempted too often" }
+        };
 
         assert(service);
 
@@ -1951,7 +1951,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
         }
 
         if (!isempty(result)) {
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < ELEMENTSOF(explanations); ++i)
                         if (streq(result, explanations[i].result))
