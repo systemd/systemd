@@ -6,6 +6,7 @@
 #include "sd-network.h"
 
 #include "hashmap.h"
+#include "network-util.h"
 
 typedef struct Manager Manager;
 typedef struct Link Link;
@@ -14,8 +15,11 @@ struct Manager {
         Hashmap *links;
         Hashmap *links_by_name;
 
-        char **interfaces;
+        /* Do not free the two members below. */
+        Hashmap *interfaces;
         char **ignore;
+
+        LinkOperationalState required_operstate;
 
         sd_netlink *rtnl;
         sd_event_source *rtnl_event_source;
@@ -27,9 +31,9 @@ struct Manager {
 };
 
 void manager_free(Manager *m);
-int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout);
+int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
+                LinkOperationalState required_operstate, usec_t timeout);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 bool manager_all_configured(Manager *m);
-bool manager_ignore_link(Manager *m, Link *link);

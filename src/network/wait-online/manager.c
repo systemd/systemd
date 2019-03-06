@@ -13,7 +13,7 @@
 #include "time-util.h"
 #include "util.h"
 
-bool manager_ignore_link(Manager *m, Link *link) {
+static bool manager_ignore_link(Manager *m, Link *link) {
         assert(m);
         assert(link);
 
@@ -22,7 +22,7 @@ bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* if interfaces are given on the command line, ignore all others */
-        if (m->interfaces && !strv_contains(m->interfaces, link->ifname))
+        if (m->interfaces && !hashmap_contains(m->interfaces, link->ifname))
                 return true;
 
         if (!link->required_for_online)
@@ -32,45 +32,76 @@ bool manager_ignore_link(Manager *m, Link *link) {
         return strv_fnmatch(m->ignore, link->ifname, 0);
 }
 
-bool manager_all_configured(Manager *m) {
-        Iterator i;
-        Link *l;
-        char **ifname;
-        bool one_ready = false;
+static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {
+        /* This returns the following:
+         * -EAGAIN: not processed by udev or networkd
+         *       0: operstate is not enough
+         *       1: online */
 
-        /* wait for all the links given on the command line to appear */
-        STRV_FOREACH(ifname, m->interfaces) {
-                l = hashmap_get(m->links_by_name, *ifname);
-                if (!l) {
-                        log_debug("still waiting for %s", *ifname);
-                        return false;
-                }
+        if (!l->state) {
+                log_debug("link %s has not yet been processed by udev",
+                          l->ifname);
+                return -EAGAIN;
         }
 
+        if (STR_IN_SET(l->state, "configuring", "pending")) {
+                log_debug("link %s is being processed by networkd",
+                          l->ifname);
+                return -EAGAIN;
+        }
+
+        if (s < 0)
+                s = m->required_operstate >= 0 ? m->required_operstate : l->required_operstate;
+
+        if (l->operational_state < s) {
+                log_debug("Operational state of link %s does not reach to %s",
+                          l->ifname, link_operstate_to_string(s));
+                return 0;
+        }
+
+        return 1;
+}
+
+bool manager_all_configured(Manager *m) {
+        bool one_ready = false;
+        Iterator i;
+        const char *ifname;
+        void *p;
+        Link *l;
+        int r;
+
+        /* wait for all the links given on the command line to appear */
+        HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
+                LinkOperationalState s = PTR_TO_INT(p);
+
+                l = hashmap_get(m->links_by_name, ifname);
+                if (!l) {
+                        log_debug("still waiting for %s", ifname);
+                        return false;
+                }
+
+                if (manager_link_is_online(m, l, s) <= 0)
+                        return false;
+        }
+
+        if (!hashmap_isempty(m->interfaces))
+                /* all interfaces given by the command line are online. */
+                return true;
+
         /* wait for all links networkd manages to be in admin state 'configured'
-           and at least one link to gain a carrier */
+         * and at least one link to gain a carrier */
         HASHMAP_FOREACH(l, m->links, i) {
                 if (manager_ignore_link(m, l)) {
                         log_info("ignoring: %s", l->ifname);
                         continue;
                 }
 
-                if (!l->state) {
-                        log_debug("link %s has not yet been processed by udev",
-                                  l->ifname);
+                r = manager_link_is_online(m, l, _LINK_OPERSTATE_INVALID);
+                if (r < 0)
                         return false;
-                }
-
-                if (STR_IN_SET(l->state, "configuring", "pending")) {
-                        log_debug("link %s is being processed by networkd",
-                                  l->ifname);
-                        return false;
-                }
-
-                if (l->operational_state &&
-                    STR_IN_SET(l->operational_state, "degraded", "routable"))
+                if (r > 0)
                         /* we wait for at least one link to be ready,
-                           regardless of who manages it */
+                         * regardless of who manages it */
                         one_ready = true;
         }
 
@@ -120,15 +151,15 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         r = link_new(m, &l, ifindex, ifname);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create link object: %m");
-
-                        r = link_update_monitor(l);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to initialize link object: %m");
                 }
 
                 r = link_update_rtnl(l, mm);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to process RTNL link message: %m");;
+                        log_warning_errno(r, "Failed to process RTNL link message, ignoring: %m");
+
+                r = link_update_monitor(l);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to initialize link object, ignoring: %m");
 
                 break;
 
@@ -251,18 +282,22 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout) {
+int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
+                LinkOperationalState required_operstate, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->interfaces = interfaces;
-        m->ignore = ignore;
+        *m = (Manager) {
+                .interfaces = interfaces,
+                .ignore = ignore,
+                .required_operstate = required_operstate,
+        };
 
         r = sd_event_default(&m->event);
         if (r < 0)
