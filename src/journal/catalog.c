@@ -209,9 +209,15 @@ int catalog_file_lang(const char* filename, char **lang) {
         return 1;
 }
 
-static int catalog_entry_lang(const char* filename, int line,
-                              const char* t, const char* deflang, char **lang) {
+static int catalog_entry_lang(
+                const char* filename,
+                unsigned line,
+                const char* t,
+                const char* deflang,
+                char **ret) {
+
         size_t c;
+        char *z;
 
         c = strlen(t);
         if (c < 2)
@@ -233,10 +239,11 @@ static int catalog_entry_lang(const char* filename, int line,
                                     filename, line);
         }
 
-        *lang = strdup(t);
-        if (!*lang)
-                        return -ENOMEM;
+        z = strdup(t);
+        if (!z)
+                return -ENOMEM;
 
+        *ret = z;
         return 0;
 }
 
