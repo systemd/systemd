@@ -425,7 +425,7 @@ static int64_t write_catalog(
                 goto error;
         }
 
-        fchmod(fileno(w), 0644);
+        (void) fchmod(fileno(w), 0644);
 
         if (rename(p, database) < 0) {
                 r = log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
