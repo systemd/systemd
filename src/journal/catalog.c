@@ -371,21 +371,21 @@ int catalog_import_file(Hashmap *h, const char *path) {
         return 0;
 }
 
-static int64_t write_catalog(const char *database, struct strbuf *sb,
-                             CatalogItem *items, size_t n) {
-        CatalogHeader header;
+static int64_t write_catalog(
+                const char *database,
+                struct strbuf *sb,
+                CatalogItem *items,
+                size_t n) {
+
         _cleanup_fclose_ FILE *w = NULL;
-        int r;
-        _cleanup_free_ char *d, *p = NULL;
+        _cleanup_free_ char *p = NULL;
+        CatalogHeader header;
         size_t k;
+        int r;
 
-        d = dirname_malloc(database);
-        if (!d)
-                return log_oom();
-
-        r = mkdir_p(d, 0775);
+        r = mkdir_parents(database, 0755);
         if (r < 0)
-                return log_error_errno(r, "Recursive mkdir %s: %m", d);
+                return log_error_errno(r, "Failed to create parent directories of %s: %m", database);
 
         r = fopen_temporary(database, &w, &p);
         if (r < 0)
