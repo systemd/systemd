@@ -8046,9 +8046,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'p': {
-                        /* Make sure that if the empty property list
-                           was specified, we won't show any properties. */
+                case 'p':
+                        /* Make sure that if the empty property list was specified, we won't show any
+                           properties. */
                         if (isempty(optarg) && !arg_properties) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
@@ -8078,7 +8078,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
 
                         break;
-                }
 
                 case 'a':
                         arg_all = true;
