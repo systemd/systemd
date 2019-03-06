@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-10-26 19:14+0000\n"
-"PO-Revision-Date: 2018-10-26 21:15+0200\n"
+"POT-Creation-Date: 2019-03-06 17:54+0000\n"
+"PO-Revision-Date: 2019-03-06 18:58+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -469,7 +469,7 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zablokować lub odblokować aktywne sesje."
 
 #: src/login/org.freedesktop.login1.policy:341
-msgid "Allow indication to the firmware to boot to setup interface"
+msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
 
 #: src/login/org.freedesktop.login1.policy:342
@@ -480,11 +480,35 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać oprogramowaniu sprzętowemu, że "
 "należy uruchomić interfejs ustawień."
 
-#: src/login/org.freedesktop.login1.policy:351
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "Wskazanie programowi startowemu, aby uruchomić jego menu"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
+"uruchomić jego menu."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Wskazanie programowi startowemu, aby uruchomić podany wpis"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
+"uruchomić podany wpis."
+
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Set a wall message"
 msgstr "Ustawienie komunikatu wall"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:375
 msgid "Authentication is required to set a wall message"
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić komunikat wall"
 
