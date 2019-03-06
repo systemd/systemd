@@ -188,6 +188,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOA*:pvr*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*
+ KEYBOARD_KEY_81=f21                                    # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
