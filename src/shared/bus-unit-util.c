@@ -1814,11 +1814,8 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         free(found);
 
-        if (!isempty(result))
-                d->result = strdup(result);
-
-        if (!isempty(unit))
-                d->name = strdup(unit);
+        (void) free_and_strdup(&d->result, empty_to_null(result));
+        (void) free_and_strdup(&d->name, empty_to_null(unit));
 
         return 0;
 }
