@@ -15,6 +15,7 @@
 #include "sd-netlink.h"
 
 #include "list.h"
+#include "log-link.h"
 #include "network-util.h"
 #include "set.h"
 
@@ -178,30 +179,6 @@ int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
-
-/* Macros which append INTERFACE= to the message */
-
-#define log_link_full(link, level, error, ...)                          \
-        ({                                                              \
-                const Link *_l = (link);                                \
-                _l ? log_object_internal(level, error, __FILE__, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
-        })                                                              \
-
-#define log_link_debug(link, ...)   log_link_full(link, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_link_info(link, ...)    log_link_full(link, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_link_notice(link, ...)  log_link_full(link, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_link_warning(link, ...) log_link_full(link, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_link_error(link, ...)   log_link_full(link, LOG_ERR, 0, ##__VA_ARGS__)
-
-#define log_link_debug_errno(link, error, ...)   log_link_full(link, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_link_info_errno(link, error, ...)    log_link_full(link, LOG_INFO, error, ##__VA_ARGS__)
-#define log_link_notice_errno(link, error, ...)  log_link_full(link, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_link_warning_errno(link, error, ...) log_link_full(link, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_link_error_errno(link, error, ...)   log_link_full(link, LOG_ERR, error, ##__VA_ARGS__)
-
-#define LOG_LINK_MESSAGE(link, fmt, ...) "MESSAGE=%s: " fmt, (link)->ifname, ##__VA_ARGS__
-#define LOG_LINK_INTERFACE(link) "INTERFACE=%s", (link)->ifname
 
 #define ADDRESS_FMT_VAL(address)                   \
         be32toh((address).s_addr) >> 24,           \
