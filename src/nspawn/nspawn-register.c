@@ -5,6 +5,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "nspawn-register.h"
 #include "special.h"
 #include "stat-util.h"

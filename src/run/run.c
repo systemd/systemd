@@ -10,6 +10,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "env-util.h"
 #include "fd-util.h"

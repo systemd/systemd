@@ -26,6 +26,7 @@
 #include "bus-message.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
