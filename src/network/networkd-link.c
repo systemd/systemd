@@ -4003,6 +4003,9 @@ int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s\n",
+                        strempty(link_operstate_to_string(link->network->required_operstate_for_online)));
+
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
                         if (r < 0 && r != -ENOMSG)

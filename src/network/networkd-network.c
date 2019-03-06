@@ -366,6 +366,7 @@ int network_load_one(Manager *manager, const char *filename) {
                 .name = TAKE_PTR(name),
 
                 .required_for_online = true,
+                .required_operstate_for_online = LINK_OPERSTATE_DEGRADED,
                 .dhcp = ADDRESS_FAMILY_NO,
                 .dhcp_use_ntp = true,
                 .dhcp_use_dns = true,
@@ -1668,6 +1669,49 @@ int config_parse_iaid(const char *unit,
 
         network->iaid = iaid;
         network->iaid_set = true;
+
+        return 0;
+}
+
+int config_parse_required_for_online(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        LinkOperationalState s;
+        bool required = true;
+        int r;
+
+        if (isempty(rvalue)) {
+                network->required_for_online = true;
+                network->required_operstate_for_online = LINK_OPERSTATE_DEGRADED;
+                return 0;
+        }
+
+        s = link_operstate_from_string(rvalue);
+        if (s < 0) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse %s= setting, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+
+                required = r;
+                s = LINK_OPERSTATE_DEGRADED;
+        }
+
+        network->required_for_online = required;
+        network->required_operstate_for_online = s;
 
         return 0;
 }
