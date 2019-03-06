@@ -33,7 +33,7 @@ const char * const catalog_file_dirs[] = {
         NULL
 };
 
-#define CATALOG_SIGNATURE (uint8_t[]) { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }
+#define CATALOG_SIGNATURE { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }
 
 typedef struct CatalogHeader {
         uint8_t signature[8];  /* "RHHHKSLP" */
@@ -392,11 +392,12 @@ static int64_t write_catalog(
                 return log_error_errno(r, "Failed to open database for writing: %s: %m",
                                        database);
 
-        zero(header);
-        memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
-        header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
-        header.catalog_item_size = htole64(sizeof(CatalogItem));
-        header.n_items = htole64(n);
+        header = (CatalogHeader) {
+                .signature = CATALOG_SIGNATURE,
+                .header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8)),
+                .catalog_item_size = htole64(sizeof(CatalogItem)),
+                .n_items = htole64(n),
+        };
 
         r = -EIO;
 
@@ -537,7 +538,7 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
         }
 
         h = p;
-        if (memcmp(h->signature, CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
+        if (memcmp(h->signature, (const uint8_t[]) CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
             le64toh(h->header_size) < sizeof(CatalogHeader) ||
             le64toh(h->catalog_item_size) < sizeof(CatalogItem) ||
             h->incompatible_flags != 0 ||
