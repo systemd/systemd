@@ -110,6 +110,7 @@ IPForward=
 IPv6Token=
 Description=
 VXLAN=
+L2TP=
 LinkLocalAddressing=
 ConfigureWithoutCarrier=
 NTP=

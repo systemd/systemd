@@ -34,7 +34,13 @@ typedef struct sd_netlink sd_netlink;
 typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
 typedef struct sd_netlink_slot sd_netlink_slot;
-typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
+
+typedef enum sd_gen_family {
+        SD_GENL_ID_CTRL,
+        SD_GENL_WIREGUARD,
+        SD_GENL_FOU,
+        SD_GENL_L2TP,
+} sd_genl_family;
 
 /* callback */
 

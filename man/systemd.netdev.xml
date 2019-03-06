@@ -153,6 +153,9 @@
           <row><entry><varname>geneve</varname></entry>
           <entry>A GEneric NEtwork Virtualization Encapsulation (GENEVE) netdev driver.</entry></row>
 
+          <row><entry><varname>l2tp</varname></entry>
+          <entry>A Layer 2 Tunneling Protocol (L2TP) is a tunneling protocol used to support virtual private networks (VPNs) or as part of the delivery of services by ISPs. It does not provide any encryption or confidentiality by itself</entry></row>
+
           <row><entry><varname>vrf</varname></entry>
           <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
@@ -735,6 +738,113 @@
       <term><varname>FlowLabel=</varname></term>
         <listitem>
           <para>Specifies the flow label to use in outgoing packets.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[L2TP] Section Options</title>
+    <para>The <literal>[L2TP]</literal> section only applies for
+    netdevs of kind <literal>l2tp</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>TunnelId=</varname></term>
+        <listitem>
+          <para>Specifies the tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PeerTunnelId=</varname></term>
+        <listitem>
+          <para>Specifies the peer tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Remote=</varname></term>
+        <listitem>
+          <para>Specifies the IP address of the remote peer. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Local=</varname></term>
+        <listitem>
+          <para>Specifies the IP address of the local interface. This address must be the address of a local interface. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>EncapsulationType=</varname></term>
+        <listitem>
+          <para>Specifies the encapsulation type of the tunnel. Takes one of <literal>udp</literal> or <literal>ip</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPSourcePort=</varname></term>
+        <listitem>
+          <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected it's mandotory. Ignored when ip
+          encapsulation is selected.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DestinationPort=</varname></term>
+        <listitem>
+          <para>Specifies destination port. When UDP encapsulation is selected it's mandotory. Ignored when ip
+          encapsulation is selected.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDPChecksum=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumTx=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UDP6ZeroChecksumRx=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[L2TPSession] Section Options</title>
+    <para>The <literal>[L2TPSession]</literal> section only applies for
+    netdevs of kind <literal>l2tp</literal>, and accepts the
+    following keys:</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Name=</varname></term>
+        <listitem>
+          <para>Specifies the name of the sesssion. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SessionId=</varname></term>
+        <listitem>
+          <para>Specifies the sesssion id. The value used must match the <literal>SessionId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PeerSessionId=</varname></term>
+        <listitem>
+          <para>Specifies the peer session id. The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
+          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Layer2SpecificHeader=</varname></term>
+        <listitem>
+          <para>Specifies layer2specific header type of the session. One of <literal>none</literal> or <literal>default</literal>. Defaults to <literal>default</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>

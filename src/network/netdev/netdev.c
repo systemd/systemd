@@ -7,34 +7,34 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "list.h"
+#include "netdev/bond.h"
+#include "netdev/bridge.h"
+#include "netdev/dummy.h"
+#include "netdev/fou-tunnel.h"
+#include "netdev/geneve.h"
+#include "netdev/ipvlan.h"
+#include "netdev/l2tp-tunnel.h"
+#include "netdev/macvlan.h"
+#include "netdev/netdev.h"
+#include "netdev/netdevsim.h"
+#include "netdev/tunnel.h"
+#include "netdev/tuntap.h"
+#include "netdev/vcan.h"
+#include "netdev/veth.h"
+#include "netdev/vlan.h"
+#include "netdev/vrf.h"
+#include "netdev/vxcan.h"
+#include "netdev/vxlan.h"
+#include "netdev/wireguard.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "netdev/netdev.h"
-#include "networkd-manager.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-
-#include "netdev/bridge.h"
-#include "netdev/bond.h"
-#include "netdev/geneve.h"
-#include "netdev/vlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/ipvlan.h"
-#include "netdev/vxlan.h"
-#include "netdev/tunnel.h"
-#include "netdev/tuntap.h"
-#include "netdev/veth.h"
-#include "netdev/dummy.h"
-#include "netdev/vrf.h"
-#include "netdev/vcan.h"
-#include "netdev/vxcan.h"
-#include "netdev/wireguard.h"
-#include "netdev/netdevsim.h"
-#include "netdev/fou-tunnel.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -65,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
         [NETDEV_KIND_FOU] = &foutnl_vtable,
         [NETDEV_KIND_ERSPAN] = &erspan_vtable,
+        [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -96,6 +97,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = "netdevsim",
         [NETDEV_KIND_FOU] = "fou",
         [NETDEV_KIND_ERSPAN] = "erspan",
+        [NETDEV_KIND_L2TP] = "l2tp",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
