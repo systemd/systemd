@@ -3,6 +3,7 @@
 
 #include "sd-netlink.h"
 
+#include "log-link.h"
 #include "network-util.h"
 
 typedef struct Link Link;

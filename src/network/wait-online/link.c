@@ -113,44 +113,38 @@ int link_update_monitor(Link *l) {
 
         r = sd_network_link_get_required_for_online(l->ifindex);
         if (r < 0)
-                ret = log_debug_errno(r,
-                                      "Failed to get whether link %s is required for online or not, "
-                                      "ignoring: %m", l->ifname);
+                ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
+                                           "ignoring: %m");
         else
                 l->required_for_online = r > 0;
 
         r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
         if (r < 0)
-                ret = log_debug_errno(r, "Failed to get required operational state for link %s to be online, "
-                                      "ignoring: %m", l->ifname);
+                ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
         else {
                 s = link_operstate_from_string(required_operstate);
                 if (s < 0)
-                        ret = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                              "Failed to parse required operational state for link %s to be online, "
-                                              "ignoring: %m", l->ifname);
+                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
+                                                   "Failed to parse required operational state, ignoring: %m");
                 else
                         l->required_operstate = s;
         }
 
         r = sd_network_link_get_operational_state(l->ifindex, &operstate);
         if (r < 0)
-                ret = log_debug_errno(r, "Failed to get operational state of link %s, ignoring: %m",
-                                      l->ifname);
+                ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
         else {
                 s = link_operstate_from_string(operstate);
                 if (s < 0)
-                        ret = log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                              "Failed to parse operational state of link %s, ignoring: %m",
-                                              l->ifname);
+                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
+                                                   "Failed to parse operational state, ignoring: %m");
                 else
                         l->operational_state = s;
         }
 
         r = sd_network_link_get_setup_state(l->ifindex, &state);
         if (r < 0)
-                ret = log_debug_errno(r, "Failed to get setup state of link %s, ignoring: %m",
-                                      l->ifname);
+                ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
         else
                 free_and_replace(l->state, state);
 

@@ -38,24 +38,21 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {
          *       0: operstate is not enough
          *       1: online */
 
-        if (!l->state) {
-                log_debug("link %s has not yet been processed by udev",
-                          l->ifname);
-                return -EAGAIN;
-        }
+        if (!l->state)
+                return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
+                                            "link has not yet been processed by udev");
 
-        if (STR_IN_SET(l->state, "configuring", "pending")) {
-                log_debug("link %s is being processed by networkd",
-                          l->ifname);
-                return -EAGAIN;
-        }
+        if (STR_IN_SET(l->state, "configuring", "pending"))
+                return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
+                                            "link is being processed by networkd");
 
         if (s < 0)
                 s = m->required_operstate >= 0 ? m->required_operstate : l->required_operstate;
 
         if (l->operational_state < s) {
-                log_debug("Operational state of link %s does not reach to %s",
-                          l->ifname, link_operstate_to_string(s));
+                log_link_debug(l, "Operational state '%s' is below '%s'",
+                               link_operstate_to_string(l->operational_state),
+                               link_operstate_to_string(s));
                 return 0;
         }
 
@@ -92,7 +89,7 @@ bool manager_all_configured(Manager *m) {
          * and at least one link to gain a carrier */
         HASHMAP_FOREACH(l, m->links, i) {
                 if (manager_ignore_link(m, l)) {
-                        log_info("ignoring: %s", l->ifname);
+                        log_link_info(l, "link is ignored");
                         continue;
                 }
 
@@ -155,17 +152,17 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
 
                 r = link_update_rtnl(l, mm);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to process RTNL link message, ignoring: %m");
+                        log_link_warning_errno(l, r, "Failed to process RTNL link message, ignoring: %m");
 
                 r = link_update_monitor(l);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to initialize link object, ignoring: %m");
+                        log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");
 
                 break;
 
         case RTM_DELLINK:
                 if (l) {
-                        log_debug("Removing link %i", l->ifindex);
+                        log_link_debug(l, "Removing link");
                         link_free(l);
                 }
 
@@ -248,7 +245,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
         HASHMAP_FOREACH(l, m->links, i) {
                 r = link_update_monitor(l);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex);
+                        log_link_warning_errno(l, r, "Failed to update monitor information: %m");
         }
 
         if (manager_all_configured(m))
