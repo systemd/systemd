@@ -1094,6 +1094,7 @@
         <varname>systemd-nspawn</varname>,
         <varname>docker</varname>,
         <varname>rkt</varname>,
+        <varname>wsl</varname>,
         <varname>acrn</varname> to test
         against a specific implementation, or
         <varname>private-users</varname> to check whether we are running in a user namespace. See
