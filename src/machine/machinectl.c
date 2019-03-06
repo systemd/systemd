@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-unit-procs.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"

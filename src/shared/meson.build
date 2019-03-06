@@ -27,6 +27,8 @@ shared_sources = files('''
         bus-util.h
         bus-wait-for-jobs.c
         bus-wait-for-jobs.h
+        bus-unit-procs.c
+        bus-unit-procs.h
         calendarspec.c
         calendarspec.h
         cgroup-show.c
