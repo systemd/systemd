@@ -1987,6 +1987,7 @@ finish:
 
 static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
         assert(d);
+        assert(d->name);
         assert(d->result);
 
         if (!quiet) {
@@ -2055,14 +2056,14 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                 if (q < 0)
                         return log_error_errno(q, "Failed to wait for response: %m");
 
-                if (d->result) {
+                if (d->name && d->result) {
                         q = check_wait_response(d, quiet, extra_args);
                         /* Return the first error as it is most likely to be
                          * meaningful. */
                         if (q < 0 && r == 0)
                                 r = q;
 
-                        log_debug_errno(q, "Got result %s/%m for job %s", strna(d->result), strna(d->name));
+                        log_debug_errno(q, "Got result %s/%m for job %s", d->result, d->name);
                 }
 
                 d->name = mfree(d->name);
