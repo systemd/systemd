@@ -7983,7 +7983,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        const char *p;
         int c, r;
 
         assert(argc >= 0);
@@ -8003,6 +8002,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--type= requires arguments.");
@@ -8054,7 +8055,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else
+                        } else {
+                                const char *p;
+
                                 for (p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
@@ -8069,6 +8072,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                         prop = NULL;
                                 }
+                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
@@ -8273,6 +8277,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--state= requires arguments.");
