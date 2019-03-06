@@ -664,12 +664,12 @@ int boot_entries_load_config(
 
         if (is_efi_boot()) {
                 r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                        return log_error_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
 
                 r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA))
+                        return log_error_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
         }
 
         config->default_entry = boot_entries_select_default(config);
