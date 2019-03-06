@@ -35,6 +35,7 @@
 #include "netdev/wireguard.h"
 #include "netdev/netdevsim.h"
 #include "netdev/fou-tunnel.h"
+#include "netdev/l2tp-tunnel.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -65,6 +66,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
         [NETDEV_KIND_FOU] = &foutnl_vtable,
         [NETDEV_KIND_ERSPAN] = &erspan_vtable,
+        [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -96,6 +98,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = "netdevsim",
         [NETDEV_KIND_FOU] = "fou",
         [NETDEV_KIND_ERSPAN] = "erspan",
+        [NETDEV_KIND_L2TP] = "l2tp",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
