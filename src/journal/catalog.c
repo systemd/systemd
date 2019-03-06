@@ -222,21 +222,18 @@ static int catalog_entry_lang(
         c = strlen(t);
         if (c < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] Language too short.",
-                                       filename, line);
+                                       "[%s:%u] Language too short.", filename, line);
         if (c > 31)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] language too long.", filename,
-                                       line);
+                                       "[%s:%u] language too long.", filename, line);
 
         if (deflang) {
                 if (streq(t, deflang)) {
-                        log_warning("[%s:%u] language specified unnecessarily",
-                                    filename, line);
+                        log_warning("[%s:%u] language specified unnecessarily", filename, line);
                         return 0;
-                } else
-                        log_warning("[%s:%u] language differs from default for file",
-                                    filename, line);
+                }
+
+                log_warning("[%s:%u] language differs from default for file", filename, line);
         }
 
         z = strdup(t);
