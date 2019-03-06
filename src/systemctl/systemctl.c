@@ -8023,9 +8023,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (unit_type_from_string(type) >= 0) {
-                                        if (strv_push(&arg_types, type) < 0)
+                                        if (strv_consume(&arg_types, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
@@ -8034,9 +8033,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                  * in --types= too for compatibility
                                  * with old versions */
                                 if (unit_load_state_from_string(type) >= 0) {
-                                        if (strv_push(&arg_states, type) < 0)
+                                        if (strv_consume(&arg_states, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
