@@ -508,10 +508,10 @@ int catalog_update(const char* database, const char* root, const char* const* di
 }
 
 static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
+        _cleanup_close_ int fd = -1;
         const CatalogHeader *h;
-        int fd;
-        void *p;
         struct stat st;
+        void *p;
 
         assert(_fd);
         assert(_st);
@@ -521,21 +521,15 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0) {
-                safe_close(fd);
+        if (fstat(fd, &st) < 0)
                 return -errno;
-        }
 
-        if (st.st_size < (off_t) sizeof(CatalogHeader)) {
-                safe_close(fd);
+        if (st.st_size < (off_t) sizeof(CatalogHeader))
                 return -EINVAL;
-        }
 
         p = mmap(NULL, PAGE_ALIGN(st.st_size), PROT_READ, MAP_SHARED, fd, 0);
-        if (p == MAP_FAILED) {
-                safe_close(fd);
+        if (p == MAP_FAILED)
                 return -errno;
-        }
 
         h = p;
         if (memcmp(h->signature, (const uint8_t[]) CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
@@ -544,12 +538,11 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
             h->incompatible_flags != 0 ||
             le64toh(h->n_items) <= 0 ||
             st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
-                safe_close(fd);
                 munmap(p, st.st_size);
                 return -EBADMSG;
         }
 
-        *_fd = fd;
+        *_fd = TAKE_FD(fd);
         *_st = st;
         *_p = p;
 
