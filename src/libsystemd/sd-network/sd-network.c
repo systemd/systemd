@@ -164,6 +164,27 @@ _public_ int sd_network_link_get_required_for_online(int ifindex) {
         return parse_boolean(s);
 }
 
+_public_ int sd_network_link_get_required_operstate_for_online(int ifindex, char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = network_link_get_string(ifindex, "REQUIRED_OPER_STATE_FOR_ONLINE", &s);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return r;
+
+                /* For compatibility, assuming degraded. */
+                s = strdup("degraded");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *state = TAKE_PTR(s);
+        return 0;
+}
+
 _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
         return network_link_get_string(ifindex, "LLMNR", llmnr);
 }
