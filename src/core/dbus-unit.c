@@ -1674,8 +1674,16 @@ static int bus_unit_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
+                        path_simplify(*p, true);
+
                         if (!path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s is not absolute: %s", name, *p);
+
+                        if (!path_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s has invalid length: %s", name, *p);
+
+                        if (!path_is_normalized(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s is not normalized: %s", name, *p);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_require_mounts_for(u, *p, UNIT_DEPENDENCY_FILE);
