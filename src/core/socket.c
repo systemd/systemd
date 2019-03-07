@@ -1473,6 +1473,25 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
+static int fork_needed(const SocketAddress *address, const ExecContext *context) {
+        int r;
+
+        assert(address);
+        assert(context);
+
+        /* Check if we need to do the cgroup or netns stuff. If not we can do things much simpler. */
+
+        if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
+                r = bpf_firewall_supported();
+                if (r < 0)
+                        return r;
+                if (r != BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+                        return true;
+        }
+
+        return context->private_network || context->network_namespace_path;
+}
+
 static int socket_address_listen_in_cgroup(
                 Socket *s,
                 const SocketAddress *address,
@@ -1485,18 +1504,34 @@ static int socket_address_listen_in_cgroup(
         assert(s);
         assert(address);
 
-        /* This is a wrapper around socket_address_listen(), that forks off a helper process inside the socket's cgroup
-         * in which the socket is actually created. This way we ensure the socket is actually properly attached to the
-         * unit's cgroup for the purpose of BPF filtering and such. */
+        /* This is a wrapper around socket_address_listen(), that forks off a helper process inside the
+         * socket's cgroup and network namespace in which the socket is actually created. This way we ensure
+         * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
+         * such. */
 
-        if (!IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6))
-                goto shortcut; /* BPF filtering only applies to IPv4 + IPv6, shortcut things for other protocols */
-
-        r = bpf_firewall_supported();
+        r = fork_needed(address, &s->exec_context);
         if (r < 0)
                 return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
-                goto shortcut;
+        if (r == 0) {
+                /* Shortcut things... */
+                fd = socket_address_listen_do(s, address, label);
+                if (fd < 0)
+                        return log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
+
+                return fd;
+        }
+
+        r = unit_setup_exec_runtime(UNIT(s));
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed acquire runtime: %m");
+
+        if (s->exec_context.network_namespace_path &&
+            s->exec_runtime &&
+            s->exec_runtime->netns_storage_socket[0] >= 0) {
+                r = open_netns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
+        }
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
@@ -1508,6 +1543,23 @@ static int socket_address_listen_in_cgroup(
                 /* Child */
 
                 pair[0] = safe_close(pair[0]);
+
+                if ((s->exec_context.private_network || s->exec_context.network_namespace_path) &&
+                    s->exec_runtime &&
+                    s->exec_runtime->netns_storage_socket[0] >= 0) {
+
+                        if (ns_type_supported(NAMESPACE_NET)) {
+                                r = setup_netns(s->exec_runtime->netns_storage_socket);
+                                if (r < 0) {
+                                        log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
+                                        _exit(EXIT_NETWORK);
+                                }
+                        } else if (s->exec_context.network_namespace_path) {
+                                log_unit_error(UNIT(s), "Network namespace path configured but network namespaces not supported.");
+                                _exit(EXIT_NETWORK);
+                        } else
+                                log_unit_warning(UNIT(s), "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
+                }
 
                 fd = socket_address_listen_do(s, address, label);
                 if (fd < 0) {
@@ -1536,13 +1588,6 @@ static int socket_address_listen_in_cgroup(
 
         if (fd < 0)
                 return log_address_error_errno(UNIT(s), address, fd, "Failed to receive listening socket (%s): %m");
-
-        return fd;
-
-shortcut:
-        fd = socket_address_listen_do(s, address, label);
-        if (fd < 0)
-                return log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
 
         return fd;
 }
