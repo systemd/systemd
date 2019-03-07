@@ -8,6 +8,8 @@
 
 #include "sd-device.h"
 
+#include "macro.h"
+
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len);
 int device_new_from_strv(sd_device **ret, char **strv);
 int device_new_from_stat_rdev(sd_device **ret, const struct stat *st);
@@ -55,3 +57,19 @@ int device_read_db_internal(sd_device *device, bool force);
 static inline int device_read_db(sd_device *device) {
         return device_read_db_internal(device, false);
 }
+
+typedef enum DeviceAction {
+        DEVICE_ACTION_ADD,
+        DEVICE_ACTION_REMOVE,
+        DEVICE_ACTION_CHANGE,
+        DEVICE_ACTION_MOVE,
+        DEVICE_ACTION_ONLINE,
+        DEVICE_ACTION_OFFLINE,
+        DEVICE_ACTION_BIND,
+        DEVICE_ACTION_UNBIND,
+        _DEVICE_ACTION_MAX,
+        _DEVICE_ACTION_INVALID = -1,
+} DeviceAction;
+
+DeviceAction device_action_from_string(const char *s) _pure_;
+const char *device_action_to_string(DeviceAction a) _const_;

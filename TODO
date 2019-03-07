@@ -23,9 +23,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* check ID_RENAMING= property from PID1's .device logic, and don't consider
-  devices that are being renamed.
-
 * make MAINPID= message reception checks even stricter: if service uses User=,
   then check sending UID and ignore message if it doesn't match the user or
   root.

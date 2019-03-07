@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "swap.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"
 
@@ -728,6 +729,9 @@ static bool device_is_ready(sd_device *dev) {
         const char *ready;
 
         assert(dev);
+
+        if (device_is_renaming(dev) > 0)
+                return false;
 
         if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0)
                 return true;

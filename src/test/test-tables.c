@@ -5,7 +5,7 @@
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
-#include "device-internal.h"
+#include "device-private.h"
 #include "device.h"
 #include "execute.h"
 #include "import-util.h"
