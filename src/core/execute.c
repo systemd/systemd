@@ -4567,11 +4567,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 else
                         fprintf(f, "%d\n", c->syscall_errno);
         }
-
-        if (c->apparmor_profile)
-                fprintf(f,
-                        "%sAppArmorProfile: %s%s\n",
-                        prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {
