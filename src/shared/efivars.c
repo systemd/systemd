@@ -223,7 +223,7 @@ int efi_get_variable(
         if (fstat(fd, &st) < 0)
                 return -errno;
         if (st.st_size < 4)
-                return -EIO;
+                return -ENODATA;
         if (st.st_size > 4*1024*1024 + 4)
                 return -E2BIG;
 

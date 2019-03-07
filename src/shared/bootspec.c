@@ -664,12 +664,18 @@ int boot_entries_load_config(
 
         if (is_efi_boot()) {
                 r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryOneShot\": %m");
+                        if (r == -ENOMEM)
+                                return r;
+                }
 
                 r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENODATA)) {
+                        log_warning_errno(r, "Failed to read EFI variable \"LoaderEntryDefault\": %m");
+                        if (r == -ENOMEM)
+                                return r;
+                }
         }
 
         config->default_entry = boot_entries_select_default(config);
@@ -694,17 +700,12 @@ int boot_entries_load_config_auto(
          * want to. */
 
         if (!override_esp_path && !override_xbootldr_path) {
+                if (access("/run/boot-loader-entries/", F_OK) >= 0)
+                        return boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
 
-                if (access("/run/boot-loader-entries/", F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to determine whether /run/boot-loader-entries/ exists: %m");
-                } else {
-                        r = boot_entries_load_config("/run/boot-loader-entries/", NULL, config);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
-                }
+                if (errno != ENOENT)
+                        return log_error_errno(errno,
+                                               "Failed to determine whether /run/boot-loader-entries/ exists: %m");
         }
 
         r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
@@ -717,11 +718,7 @@ int boot_entries_load_config_auto(
         if (r < 0 && r != -ENOKEY)
                 return r; /* It's fine if the XBOOTLDR partition doesn't exist, hence we ignore ENOKEY here */
 
-        r = boot_entries_load_config(esp_where, xbootldr_where, config);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return boot_entries_load_config(esp_where, xbootldr_where, config);
 }
 
 int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
