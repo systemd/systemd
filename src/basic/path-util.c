@@ -1132,17 +1132,17 @@ int path_simplify_and_warn(
 
         path_simplify(path, true);
 
-        if (!path_is_normalized(path)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "%s= path is not normalized%s: %s",
-                           lvalue, fatal ? "" : ", ignoring", path);
-                return -EINVAL;
-        }
-
         if (!path_is_valid(path)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "%s= path has invalid length (%zu bytes)%s.",
                            lvalue, strlen(path), fatal ? "" : ", ignoring");
+                return -EINVAL;
+        }
+
+        if (!path_is_normalized(path)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= path is not normalized%s: %s",
+                           lvalue, fatal ? "" : ", ignoring", path);
                 return -EINVAL;
         }
 
