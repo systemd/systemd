@@ -350,6 +350,9 @@ char* uid_to_name(uid_t uid) {
                         if (r != ERANGE)
                                 break;
 
+                        if (bufsize > LONG_MAX/2) /* overflow check */
+                                return NULL;
+
                         bufsize *= 2;
                 }
         }
@@ -390,6 +393,9 @@ char* gid_to_name(gid_t gid) {
                                 return strdup(gr->gr_name);
                         if (r != ERANGE)
                                 break;
+
+                        if (bufsize > LONG_MAX/2) /* overflow check */
+                                return NULL;
 
                         bufsize *= 2;
                 }
