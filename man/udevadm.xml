@@ -220,8 +220,10 @@
           <term><option>-c</option></term>
           <term><option>--action=<replaceable>ACTION</replaceable></option></term>
           <listitem>
-            <para>Type of event to be triggered. The default value is
-            <command>change</command>.</para>
+            <para>Type of event to be triggered. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. The default value is <literal>change</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
