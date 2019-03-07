@@ -1661,14 +1661,14 @@ int setup_netns(int netns_storage_socket[static 2]) {
 
         netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
         if (netns == -EAGAIN) {
-                /* Nothing stored yet, so let's create a new namespace */
+                /* Nothing stored yet, so let's create a new namespace. */
 
                 if (unshare(CLONE_NEWNET) < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                loopback_setup();
+                (void) loopback_setup();
 
                 netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (netns < 0) {
