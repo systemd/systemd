@@ -81,19 +81,6 @@ struct sd_device {
         bool db_persist:1; /* don't clean up the db when switching from initrd to real root */
 };
 
-typedef enum DeviceAction {
-        DEVICE_ACTION_ADD,
-        DEVICE_ACTION_REMOVE,
-        DEVICE_ACTION_CHANGE,
-        DEVICE_ACTION_MOVE,
-        DEVICE_ACTION_ONLINE,
-        DEVICE_ACTION_OFFLINE,
-        DEVICE_ACTION_BIND,
-        DEVICE_ACTION_UNBIND,
-        _DEVICE_ACTION_MAX,
-        _DEVICE_ACTION_INVALID = -1,
-} DeviceAction;
-
 int device_new_aux(sd_device **ret);
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db);
 int device_add_property_internal(sd_device *device, const char *key, const char *value);
@@ -108,6 +95,3 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor);
 int device_set_subsystem(sd_device *device, const char *_subsystem);
 int device_set_driver(sd_device *device, const char *_driver);
 int device_set_usec_initialized(sd_device *device, usec_t when);
-
-DeviceAction device_action_from_string(const char *s) _pure_;
-const char *device_action_to_string(DeviceAction a) _const_;
