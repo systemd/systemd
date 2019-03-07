@@ -461,8 +461,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-b <optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
-        <term><option>--boot=<optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
+        <term><option>-b <optional><optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional>|<constant>all</constant></optional></option></term>
+        <term><option>--boot<optional>=<optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional>|<constant>all</constant></optional></option></term>
 
         <listitem><para>Show messages from a specific boot. This will
         add a match for <literal>_BOOT_ID=</literal>.</para>
@@ -494,6 +494,10 @@
         <replaceable>offset</replaceable> is not specified, a value of
         zero is assumed, and the logs for the boot given by
         <replaceable>ID</replaceable> are shown.</para>
+
+        <para>The special argument <constant>all</constant> can be
+        used to negate the effect of an earlier use of
+        <option>-b</option>.</para>
         </listitem>
       </varlistentry>
 
