@@ -1697,6 +1697,8 @@ static int build_environment(
                 x = strappend("HOME=", home);
                 if (!x)
                         return -ENOMEM;
+
+                path_simplify(x + 5, true);
                 our_env[n_env++] = x;
         }
 
@@ -1716,6 +1718,8 @@ static int build_environment(
                 x = strappend("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
+
+                path_simplify(x + 6, true);
                 our_env[n_env++] = x;
         }
 
