@@ -4864,14 +4864,20 @@ static void exec_runtime_freep(ExecRuntime **rt) {
                 (void) exec_runtime_free(*rt, false);
 }
 
-static int exec_runtime_allocate(ExecRuntime **rt) {
-        assert(rt);
+static int exec_runtime_allocate(ExecRuntime **ret) {
+        ExecRuntime *n;
 
-        *rt = new0(ExecRuntime, 1);
-        if (!*rt)
+        assert(ret);
+
+        n = new(ExecRuntime, 1);
+        if (!n)
                 return -ENOMEM;
 
-        (*rt)->netns_storage_socket[0] = (*rt)->netns_storage_socket[1] = -1;
+        *n = (ExecRuntime) {
+                .netns_storage_socket = { -1, -1 },
+        };
+
+        *ret = n;
         return 0;
 }
 
