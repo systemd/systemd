@@ -2742,12 +2742,6 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
         if (!c->working_directory_home)
                 return 0;
 
-        if (uid == 0) {
-                /* Hardcode /root as home directory for UID 0 */
-                *home = "/root";
-                return 1;
-        }
-
         r = get_home_dir(buf);
         if (r < 0)
                 return r;
