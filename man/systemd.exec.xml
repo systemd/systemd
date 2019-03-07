@@ -1100,7 +1100,29 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if network namespaces are
         not available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para></listitem>
+        security.</para>
+
+        <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
+        bound within a private network namespace. This may be combined with
+        <varname>JoinsNamespaceOf=</varname> to listen on sockets inside of network namespaces of other
+        services.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkNamespacePath=</varname></term>
+
+        <listitem><para>Takes an absolute file system path refererring to a Linux network namespace
+        pseudo-file (i.e. a file like <filename>/proc/$PID/ns/net</filename> or a bind mount or symlink to
+        one). When set the invoked processes are added to the network namespace referenced by that path. The
+        path has to point to a valid namespace file at the moment the processes are forked off. If this
+        option is used <varname>PrivateNetwork=</varname> has no effect. If this option is used together with
+        <varname>JoinsNamespaceOf=</varname> then it only has an effect if this unit is started before any of
+        the listed units that have <varname>PrivateNetwork=</varname> or
+        <varname>NetworkNamespacePath=</varname> configured, as otherwise the network namespace of those
+        units is reused.</para>
+
+        <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
+        bound within the specified network namespace.</para></listitem>
       </varlistentry>
 
       <varlistentry>
