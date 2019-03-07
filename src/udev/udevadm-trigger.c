@@ -7,6 +7,7 @@
 #include "sd-event.h"
 
 #include "device-enumerator-private.h"
+#include "device-private.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "path-util.h"
@@ -199,11 +200,10 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type --type=%s", optarg);
                         break;
                 case 'c':
-                        if (STR_IN_SET(optarg, "add", "remove", "change"))
-                                action = optarg;
-                        else
-                                log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
+                        if (device_action_from_string(optarg) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown action '%s'", optarg);
 
+                        action = optarg;
                         break;
                 case 's':
                         r = sd_device_enumerator_add_match_subsystem(e, optarg, true);
