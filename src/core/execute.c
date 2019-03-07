@@ -4860,8 +4860,7 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
 }
 
 static void exec_runtime_freep(ExecRuntime **rt) {
-        if (*rt)
-                (void) exec_runtime_free(*rt, false);
+        (void) exec_runtime_free(*rt, false);
 }
 
 static int exec_runtime_allocate(ExecRuntime **ret) {
