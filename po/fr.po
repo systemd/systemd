@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-11-02 14:28+0100\n"
-"PO-Revision-Date: 2018-11-02 14:32+0100\n"
+"POT-Creation-Date: 2019-03-07 22:43+0100\n"
+"PO-Revision-Date: 2019-03-07 23:09+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -489,10 +489,9 @@ msgstr ""
 "actives."
 
 #: src/login/org.freedesktop.login1.policy:341
-msgid "Allow indication to the firmware to boot to setup interface"
+msgid "Indicate to the firmware to boot to setup interface"
 msgstr ""
-"Permet d'indiquer au micrologiciel de démarrer sur l'interface de "
-"configuration"
+"Indiquer au micrologiciel de démarrer sur l'interface de configuration"
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid ""
@@ -502,11 +501,35 @@ msgstr ""
 "Authentification requise pour indiquer au micrologiciel de démarrer sur "
 "l'interface de configuration."
 
-#: src/login/org.freedesktop.login1.policy:351
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "Indiquer au programme d'amorçage d'afficher le menu au démarrage"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Authentification requise pour indiquer au programme d'amorçage d'afficher "
+"le menu au démarrage."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Indiquer au programme d'amorçage de démarrer une entrée spécifique"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Authentification requise pour indiquer au programme d'amorçage de démarrer "
+"une entrée spécifique."
+
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Set a wall message"
 msgstr "Définir un message wall"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:375
 msgid "Authentication is required to set a wall message"
 msgstr "Authentification requise pour définir un message wall."
 
