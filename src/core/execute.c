@@ -4940,7 +4940,7 @@ static int exec_runtime_add(
 
 static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, ExecRuntime **ret) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int netns_storage_socket[2] = {-1, -1};
+        _cleanup_close_pair_ int netns_storage_socket[2] = { -1, -1 };
         int r;
 
         assert(m);
@@ -4967,8 +4967,7 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
                 return r;
 
         /* Avoid cleanup */
-        netns_storage_socket[0] = -1;
-        netns_storage_socket[1] = -1;
+        netns_storage_socket[0] = netns_storage_socket[1] = -1;
         return 1;
 }
 
