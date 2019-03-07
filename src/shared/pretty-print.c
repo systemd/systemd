@@ -244,6 +244,9 @@ static int guess_type(const char **name, bool *is_usr, bool *is_collection, cons
         if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
 
+        if (path_equal(n, "kernel/install.d"))
+                ext = ".install";
+
         if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
