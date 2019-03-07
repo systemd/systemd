@@ -51,7 +51,7 @@ static int run(int argc, char *argv[]) {
         if (buf_size < POOL_SIZE_MIN)
                 buf_size = POOL_SIZE_MIN;
 
-        r = mkdir_parents_label(RANDOM_SEED, 0755);
+        r = mkdir_parents(RANDOM_SEED, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " RANDOM_SEED_DIR ": %m");
 
