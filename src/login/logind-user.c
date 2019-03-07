@@ -68,6 +68,8 @@ int user_new(User **ret,
         if (!u->home)
                 return -ENOMEM;
 
+        path_simplify(u->home, true);
+
         if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
                 return -ENOMEM;
 
