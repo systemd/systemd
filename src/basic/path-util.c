@@ -1103,7 +1103,7 @@ int path_simplify_and_warn(
                 unsigned line,
                 const char *lvalue) {
 
-        bool absolute, fatal = flag & PATH_CHECK_FATAL;
+        bool fatal = flag & PATH_CHECK_FATAL;
 
         assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
 
@@ -1113,6 +1113,8 @@ int path_simplify_and_warn(
         }
 
         if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
+                bool absolute;
+
                 absolute = path_is_absolute(path);
 
                 if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
