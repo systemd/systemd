@@ -125,11 +125,6 @@ case $COMMAND in
             exit 1
         fi
 
-        mkdir -p "$ENTRY_DIR_ABS" || {
-            echo "Could not create boot directory '$ENTRY_DIR_ABS'." >&2
-            exit 1
-        }
-
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
