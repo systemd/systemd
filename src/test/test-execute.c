@@ -714,7 +714,6 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *test_execute_path = NULL;
-        _cleanup_hashmap_free_ Hashmap *s = NULL;
         static const test_function_t user_tests[] = {
                 test_exec_basic,
                 test_exec_ambientcapabilities,
@@ -812,6 +811,7 @@ int main(int argc, char *argv[]) {
                 return 0;
         }
 
+        _cleanup_hashmap_free_ Hashmap *s = NULL;
         assert_se(s = hashmap_new(NULL));
         r = seccomp_syscall_resolve_name("unshare");
         assert_se(r != __NR_SCMP_ERROR);

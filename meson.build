@@ -336,7 +336,8 @@ possible_cc_flags = [
         '-Wno-missing-field-initializers',
         '-Wno-unused-result',
         '-Wno-format-signedness',
-        '-Wno-error=#warnings',
+        '-Wno-error=#warnings',  # clang
+        '-Wno-string-plus-int',  # clang
 
         # work-around for gcc 7.1 turning this on on its own.
         '-Wno-error=nonnull',
