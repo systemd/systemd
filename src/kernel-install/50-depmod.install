@@ -13,9 +13,13 @@ INITRD_OPTIONS_START="5"
 case "$COMMAND" in
     add)
         [[ -d "/lib/modules/${KERNEL_VERSION}/kernel" ]] || exit 0
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Running depmod -a ${KERNEL_VERSION}"
         exec depmod -a "${KERNEL_VERSION}"
         ;;
     remove)
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
         exec rm -f /lib/modules/"${KERNEL_VERSION}"/modules.{alias{,.bin},builtin.bin,dep{,.bin},devname,softdep,symbols{,.bin}}
         ;;
     *)

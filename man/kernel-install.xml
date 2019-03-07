@@ -6,7 +6,8 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="kernel-install">
+<refentry id="kernel-install"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>kernel-install</title>
@@ -27,6 +28,7 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
       <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
@@ -125,6 +127,29 @@
 
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+        <listitem>
+          <para>Output additional information about operations being performed.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment variables</title>
+    <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
+    the plugins. They may output additional logs in this case.</para>
   </refsect1>
 
   <refsect1>

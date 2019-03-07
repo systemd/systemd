@@ -5,7 +5,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -62,6 +61,13 @@ for i in "$@"; do
         exit 0
     fi
 done
+
+KERNEL_INSTALL_VERBOSE=0
+if [ "$1" == "--verbose" -o "$1" == "-v" ]; then
+    shift
+    KERNEL_INSTALL_VERBOSE=1
+fi
+export KERNEL_INSTALL_VERBOSE
 
 if [[ "${0##*/}" == 'installkernel' ]]; then
     COMMAND='add'
@@ -126,6 +132,8 @@ case $COMMAND in
 
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
+                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                    echo "+$f add $KERNEL_VERSION $BOOT_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[@]}"
                 "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
@@ -148,6 +156,8 @@ case $COMMAND in
     remove)
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
+                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                    echo "+$f remove $KERNEL_VERSION $BOOT_DIR_ABS"
                 "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
@@ -157,6 +167,9 @@ case $COMMAND in
                 ((ret+=$x))
             fi
         done
+
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing $BOOT_DIR_ABS"
 
         rm -rf "$BOOT_DIR_ABS"
         ((ret+=$?))

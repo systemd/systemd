@@ -88,6 +88,8 @@ INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
 for initrd in "${INITRD_OPTIONS[@]}"; do
     if [[ -f "${initrd}" ]]; then
         initrd_basename="$(basename ${initrd})"
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Installing $BOOT_DIR_ABS/${initrd_basename}"
         cp "${initrd}" "$BOOT_DIR_ABS/${initrd_basename}" &&
             chown root:root "$BOOT_DIR_ABS/${initrd_basename}" &&
             chmod 0644 "$BOOT_DIR_ABS/${initrd_basename}" || {
@@ -106,6 +108,8 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     exit 1
 }
 
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+    echo "Creating $LOADER_ENTRY"
 {
     echo "title      $PRETTY_NAME"
     echo "version    $KERNEL_VERSION"
