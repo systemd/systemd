@@ -266,7 +266,11 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         sd_id128_t id = SD_ID128_NULL;
         int off = 0, r;
 
-        if (strlen(x) >= 32) {
+        if (streq(x, "all")) {
+                *boot_id = SD_ID128_NULL;
+                *offset = 0;
+                return 0;
+        } else if (strlen(x) >= 32) {
                 char *t;
 
                 t = strndupa(x, 32);
@@ -294,7 +298,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         if (offset)
                 *offset = off;
 
-        return 0;
+        return 1;
 }
 
 static int help(void) {
@@ -593,30 +597,34 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_THIS_BOOT:
                         arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
                         break;
 
                 case 'b':
                         arg_boot = true;
+                        arg_boot_id = SD_ID128_NULL;
+                        arg_boot_offset = 0;
 
                         if (optarg) {
                                 r = parse_boot_descriptor(optarg, &arg_boot_id, &arg_boot_offset);
-                                if (r < 0) {
-                                        log_error("Failed to parse boot descriptor '%s'", optarg);
-                                        return -EINVAL;
-                                }
-                        } else {
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse boot descriptor '%s'", optarg);
 
-                                /* Hmm, no argument? Maybe the next
-                                 * word on the command line is
-                                 * supposed to be the argument? Let's
-                                 * see if there is one and is parsable
-                                 * as a boot descriptor... */
+                                arg_boot = r;
 
-                                if (optind < argc &&
-                                    parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset) >= 0)
+                        /* Hmm, no argument? Maybe the next
+                         * word on the command line is
+                         * supposed to be the argument? Let's
+                         * see if there is one and is parsable
+                         * as a boot descriptor... */
+                        } else if (optind < argc) {
+                                r = parse_boot_descriptor(argv[optind], &arg_boot_id, &arg_boot_offset);
+                                if (r >= 0) {
+                                        arg_boot = r;
                                         optind++;
+                                }
                         }
-
                         break;
 
                 case ARG_LIST_BOOTS:
