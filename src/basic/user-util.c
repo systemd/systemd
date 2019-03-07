@@ -238,14 +238,21 @@ int get_user_creds(
         }
 
         if (home) {
-                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && empty_or_root(p->pw_dir))
-                        *home = NULL;
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
+                    (empty_or_root(p->pw_dir) ||
+                     !path_is_valid(p->pw_dir) ||
+                     !path_is_absolute(p->pw_dir)))
+                    *home = NULL; /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
                 else
                         *home = p->pw_dir;
         }
 
         if (shell) {
-                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
+                    (isempty(p->pw_shell) ||
+                     !path_is_valid(p->pw_dir) ||
+                     !path_is_absolute(p->pw_shell) ||
+                     is_nologin_shell(p->pw_shell)))
                         *shell = NULL;
                 else
                         *shell = p->pw_shell;
