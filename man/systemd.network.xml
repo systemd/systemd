@@ -309,7 +309,7 @@
         <varlistentry>
           <term><varname>DHCPServer=</varname></term>
           <listitem>
-            <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be start. Defaults
+            <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started. Defaults
             to <literal>no</literal>. Further settings for the DHCP
             server may be set in the <literal>[DHCPServer]</literal>
             section described below.</para>
