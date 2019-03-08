@@ -159,7 +159,6 @@ int config_parse_net_condition(const char *unit,
         Condition **ret = data;
         bool negate;
         Condition *c;
-        _cleanup_free_ char *s = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -170,11 +169,7 @@ int config_parse_net_condition(const char *unit,
         if (negate)
                 rvalue++;
 
-        s = strdup(rvalue);
-        if (!s)
-                return log_oom();
-
-        c = condition_new(cond, s, false, negate);
+        c = condition_new(cond, rvalue, false, negate);
         if (!c)
                 return log_oom();
 
