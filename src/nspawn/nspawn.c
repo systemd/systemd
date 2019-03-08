@@ -1375,7 +1375,7 @@ static int parse_argv(int argc, char *argv[]) {
                  * --directory=". */
                 arg_directory = TAKE_PTR(arg_template);
 
-        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
+        arg_caps_retain = (arg_caps_retain | plus | (arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0)) & ~minus;
 
         /* Make sure to parse environment before we reset the settings mask below */
         parse_environment();
@@ -3655,7 +3655,7 @@ static int merge_settings(Settings *settings, const char *path) {
 
                 plus = settings->capability;
                 if (settings_private_network(settings))
-                        plus |= (1ULL << CAP_NET_ADMIN);
+                        plus |= UINT64_C(1) << CAP_NET_ADMIN;
 
                 if (!arg_settings_trusted && plus != 0) {
                         if (settings->capability != 0)
