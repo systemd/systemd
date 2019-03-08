@@ -301,7 +301,9 @@ $ eog bootup.svg&amp;
     graph if any of these patterns match either the origin or
     destination node. See
     <citerefentry><refentrytitle>analyze.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    page for details of configuring edge colors and styles.</para>
+    page for details of configuring edge colors and styles.
+    In addition, you can override configured colors and styles on
+    the command line using <option>--dependency-color-style</option>.</para>
 
       <example>
         <title>Plot all dependencies of any unit whose name starts with <literal>avahi-daemon</literal>
@@ -633,6 +635,21 @@ Service b@0.service not loaded, b.socket cannot be started.
         options will trim the list of edges matched by the positional
         arguments, if any are given, and fully determine the list of
         edges shown otherwise.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--dependency-color-style=</option></term>
+
+        <listitem><para>When used in conjunction with the
+        <command>dot</command> command (see above), this overrides
+        configured colors and styles. This option takes an argument
+        composed of dependency, color and style, seperated by colons.
+        For example,
+        <option>--dependency-color-style=After:red:dotted</option>
+        will paint unit dependencies of type After in red color
+        and dotted style. Style can be omitted if only the color should
+        be changed. Use this option multiple times to change multiple
+        dependencies.</para></listitem>
       </varlistentry>
 
       <varlistentry>
