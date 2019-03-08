@@ -190,53 +190,55 @@
       <varlistentry>
         <term><varname>Host=</varname></term>
         <listitem>
-          <para>Matches against the hostname or machine ID of the
-          host. See <literal>ConditionHost=</literal> in
+          <para>Matches against the hostname or machine ID of the host. See
+          <literal>ConditionHost=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Virtualization=</varname></term>
         <listitem>
-          <para>Checks whether the system is executed in a virtualized
-          environment and optionally test whether it is a specific
-          implementation. See
-          <literal>ConditionVirtualization=</literal> in
+          <para>Checks whether the system is executed in a virtualized environment and optionally test
+          whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KernelCommandLine=</varname></term>
         <listitem>
-          <para>Checks whether a specific kernel command line option
-          is set (or if prefixed with the exclamation mark unset). See
+          <para>Checks whether a specific kernel command line option is set. See
           <literal>ConditionKernelCommandLine=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KernelVersion=</varname></term>
         <listitem>
-          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
-          expression (or if prefixed with the exclamation mark does not match it). See
-          <literal>ConditionKernelVersion=</literal> in
-          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.
+          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
+          certain expression. See <literal>ConditionKernelVersion=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Architecture=</varname></term>
         <listitem>
-          <para>Checks whether the system is running on a specific
-          architecture. See <literal>ConditionArchitecture=</literal> in
+          <para>Checks whether the system is running on a specific architecture. See
+          <literal>ConditionArchitecture=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details.
+          for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
+          If an empty string is assigned, then previously assigned value is cleared.
           </para>
         </listitem>
       </varlistentry>
