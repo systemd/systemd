@@ -1589,55 +1589,32 @@ fail:
         return log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 }
 
-static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to_string)(ConditionType t)) {
-        Condition *c;
-        int triggered = -1;
+_printf_(7, 8)
+static int log_unit_internal(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+        Unit *u = userdata;
+        va_list ap;
+        int r;
 
-        assert(u);
-        assert(to_string);
+        va_start(ap, format);
+        if (u)
+                r = log_object_internalv(level, error, file, line, func,
+                                         u->manager->unit_log_field,
+                                         u->id,
+                                         u->manager->invocation_log_field,
+                                         u->invocation_id_string,
+                                         format, ap);
+        else
+                r = log_internalv(level, error,  file, line, func, format, ap);
+        va_end(ap);
 
-        /* If the condition list is empty, then it is true */
-        if (!first)
-                return true;
-
-        /* Otherwise, if all of the non-trigger conditions apply and
-         * if any of the trigger conditions apply (unless there are
-         * none) we return true */
-        LIST_FOREACH(conditions, c, first) {
-                int r;
-
-                r = condition_test(c);
-                if (r < 0)
-                        log_unit_warning(u,
-                                         "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
-                                         to_string(c->type),
-                                         c->trigger ? "|" : "",
-                                         c->negate ? "!" : "",
-                                         c->parameter);
-                else
-                        log_unit_debug(u,
-                                       "%s=%s%s%s %s.",
-                                       to_string(c->type),
-                                       c->trigger ? "|" : "",
-                                       c->negate ? "!" : "",
-                                       c->parameter,
-                                       condition_result_to_string(c->result));
-
-                if (!c->trigger && r <= 0)
-                        return false;
-
-                if (c->trigger && triggered <= 0)
-                        triggered = r > 0;
-        }
-
-        return triggered != 0;
+        return r;
 }
 
 static bool unit_test_condition(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = unit_condition_test_list(u, u->conditions, condition_type_to_string);
+        u->condition_result = condition_test_list(u->conditions, condition_type_to_string, log_unit_internal, u);
 
         unit_add_to_dbus_queue(u);
 
@@ -1648,7 +1625,7 @@ static bool unit_test_assert(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
-        u->assert_result = unit_condition_test_list(u, u->asserts, assert_type_to_string);
+        u->assert_result = condition_test_list(u->asserts, assert_type_to_string, log_unit_internal, u);
 
         unit_add_to_dbus_queue(u);
 
