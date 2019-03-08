@@ -699,8 +699,7 @@ int log_internal_realm(
         return r;
 }
 
-_printf_(10,0)
-static int log_object_internalv(
+int log_object_internalv(
                 int level,
                 int error,
                 const char *file,
