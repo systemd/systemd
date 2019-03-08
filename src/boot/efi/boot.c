@@ -2080,8 +2080,11 @@ static VOID config_load_xbootldr(
                             h->NumberOfPartitionEntries > 1024)
                                 continue;
 
+                        if (h->SizeOfPartitionEntry > UINTN_MAX / h->NumberOfPartitionEntries) /* overflow check */
+                                continue;
+
                         /* Now load the GPT entry table */
-                        sz = ((h->SizeOfPartitionEntry * h->NumberOfPartitionEntries + 511) / 512) * 512;
+                        sz = ALIGN_TO((UINTN) h->SizeOfPartitionEntry * (UINTN) h->NumberOfPartitionEntries, 512);
                         entries = AllocatePool(sz);
 
                         r = uefi_call_wrapper(block_io->ReadBlocks, 5,
