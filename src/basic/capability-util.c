@@ -47,6 +47,13 @@ unsigned long cap_last_cap(void) {
         if (r >= 0) {
                 r = safe_atolu(content, &p);
                 if (r >= 0) {
+
+                        if (p > 63) /* Safety for the future: if one day the kernel learns more than 64 caps,
+                                     * then we are in trouble (since we, as much userspace and kernel space
+                                     * store capability masks in uint64_t types. Let's hence protect
+                                     * ourselves against that and always cap at 63 for now. */
+                                p = 63;
+
                         saved = p;
                         valid = true;
                         return p;
@@ -58,17 +65,15 @@ unsigned long cap_last_cap(void) {
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
 
-                /* Hmm, look downwards, until we find one that
-                 * works */
+                /* Hmm, look downwards, until we find one that works */
                 for (p--; p > 0; p --)
                         if (prctl(PR_CAPBSET_READ, p) >= 0)
                                 break;
 
         } else {
 
-                /* Hmm, look upwards, until we find one that doesn't
-                 * work */
-                for (;; p++)
+                /* Hmm, look upwards, until we find one that doesn't work */
+                for (; p < 63; p++)
                         if (prctl(PR_CAPBSET_READ, p+1) < 0)
                                 break;
         }
