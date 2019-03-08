@@ -68,6 +68,8 @@ void condition_free(Condition *c);
 Condition* condition_free_list(Condition *c);
 
 int condition_test(Condition *c);
+typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
+bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
 void condition_dump_list(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));

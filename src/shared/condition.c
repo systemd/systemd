@@ -644,6 +644,52 @@ int condition_test(Condition *c) {
         return b;
 }
 
+bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata) {
+        Condition *c;
+        int triggered = -1;
+
+        assert(!!logger == !!to_string);
+
+        /* If the condition list is empty, then it is true */
+        if (!first)
+                return true;
+
+        /* Otherwise, if all of the non-trigger conditions apply and
+         * if any of the trigger conditions apply (unless there are
+         * none) we return true */
+        LIST_FOREACH(conditions, c, first) {
+                int r;
+
+                r = condition_test(c);
+
+                if (logger) {
+                        if (r < 0)
+                                logger(userdata, LOG_WARNING, r, __FILE__, __LINE__, __func__,
+                                       "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
+                                       to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter);
+                        else
+                                logger(userdata, LOG_DEBUG, 0, __FILE__, __LINE__, __func__,
+                                       "%s=%s%s%s %s.",
+                                       to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter,
+                                       condition_result_to_string(c->result));
+                }
+
+                if (!c->trigger && r <= 0)
+                        return false;
+
+                if (c->trigger && triggered <= 0)
+                        triggered = r > 0;
+        }
+
+        return triggered != 0;
+}
+
 void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t)) {
         assert(c);
         assert(f);
