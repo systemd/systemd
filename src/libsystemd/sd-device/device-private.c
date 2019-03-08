@@ -183,6 +183,72 @@ static int device_set_devgid(sd_device *device, const char *gid) {
         return 0;
 }
 
+int device_get_action(sd_device *device, DeviceAction *action) {
+        assert(device);
+
+        if (device->action < 0)
+                return -ENOENT;
+
+        if (action)
+                *action = device->action;
+
+        return 0;
+}
+
+static int device_set_action(sd_device *device, const char *action) {
+        DeviceAction a;
+        int r;
+
+        assert(device);
+        assert(action);
+
+        a = device_action_from_string(action);
+        if (a < 0)
+                return -EINVAL;
+
+        r = device_add_property_internal(device, "ACTION", action);
+        if (r < 0)
+                return r;
+
+        device->action = a;
+
+        return 0;
+}
+
+int device_get_seqnum(sd_device *device, uint64_t *seqnum) {
+        assert(device);
+
+        if (device->seqnum == 0)
+                return -ENOENT;
+
+        if (seqnum)
+                *seqnum = device->seqnum;
+
+        return 0;
+}
+
+static int device_set_seqnum(sd_device *device, const char *str) {
+        uint64_t seqnum;
+        int r;
+
+        assert(device);
+        assert(str);
+
+        r = safe_atou64(str, &seqnum);
+        if (r < 0)
+                return r;
+        if (seqnum == 0)
+                return -EINVAL;
+
+        r = device_add_property_internal(device, "SEQNUM", str);
+        if (r < 0)
+                return r;
+
+        device->seqnum = seqnum;
+
+        return 0;
+}
+
 static int device_amend(sd_device *device, const char *key, const char *value) {
         int r;
 
@@ -241,6 +307,14 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 r = device_set_devgid(device, value);
                 if (r < 0)
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devgid to '%s': %m", value);
+        } else if (streq(key, "ACTION")) {
+                r = device_set_action(device, value);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set action to '%s': %m", value);
+        } else if (streq(key, "SEQNUM")) {
+                r = device_set_seqnum(device, value);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set SEQNUM to '%s': %m", value);
         } else if (streq(key, "DEVLINKS")) {
                 const char *word, *state;
                 size_t l;
@@ -278,23 +352,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
         return 0;
 }
 
-static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
-        [DEVICE_ACTION_ADD] = "add",
-        [DEVICE_ACTION_REMOVE] = "remove",
-        [DEVICE_ACTION_CHANGE] = "change",
-        [DEVICE_ACTION_MOVE] = "move",
-        [DEVICE_ACTION_ONLINE] = "online",
-        [DEVICE_ACTION_OFFLINE] = "offline",
-        [DEVICE_ACTION_BIND] = "bind",
-        [DEVICE_ACTION_UNBIND] = "unbind",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
-
-static int device_append(sd_device *device, char *key, const char **_major, const char **_minor, uint64_t *_seqnum,
-                         DeviceAction *_action) {
-        DeviceAction action = _DEVICE_ACTION_INVALID;
-        uint64_t seqnum = 0;
+static int device_append(sd_device *device, char *key, const char **_major, const char **_minor) {
         const char *major = NULL, *minor = NULL;
         char *value;
         int r;
@@ -303,8 +361,6 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
         assert(key);
         assert(_major);
         assert(_minor);
-        assert(_seqnum);
-        assert(_action);
 
         value = strchr(key, '=');
         if (!value) {
@@ -321,19 +377,6 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
         else if (streq(key, "MINOR"))
                 minor = value;
         else {
-                if (streq(key, "ACTION")) {
-                        action = device_action_from_string(value);
-                        if (action == _DEVICE_ACTION_INVALID)
-                                return -EINVAL;
-                } else if (streq(key, "SEQNUM")) {
-                        r = safe_atou64(value, &seqnum);
-                        if (r < 0)
-                                return r;
-                        else if (seqnum == 0)
-                                 /* kernel only sends seqnum > 0 */
-                                return -EINVAL;
-                }
-
                 r = device_amend(device, key, value);
                 if (r < 0)
                         return r;
@@ -345,12 +388,6 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
         if (minor != 0)
                 *_minor = minor;
 
-        if (action != _DEVICE_ACTION_INVALID)
-                *_action = action;
-
-        if (seqnum > 0)
-                *_seqnum = seqnum;
-
         return 0;
 }
 
@@ -360,10 +397,10 @@ void device_seal(sd_device *device) {
         device->sealed = true;
 }
 
-static int device_verify(sd_device *device, DeviceAction action, uint64_t seqnum) {
+static int device_verify(sd_device *device) {
         assert(device);
 
-        if (!device->devpath || !device->subsystem || action == _DEVICE_ACTION_INVALID || seqnum == 0) {
+        if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0) {
                 log_device_debug(device, "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
                 return -EINVAL;
         }
@@ -377,8 +414,6 @@ int device_new_from_strv(sd_device **ret, char **strv) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char **key;
         const char *major = NULL, *minor = NULL;
-        DeviceAction action = _DEVICE_ACTION_INVALID;
-        uint64_t seqnum = 0;
         int r;
 
         assert(ret);
@@ -389,7 +424,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
                 return r;
 
         STRV_FOREACH(key, strv) {
-                r = device_append(device, *key, &major, &minor, &seqnum, &action);
+                r = device_append(device, *key, &major, &minor);
                 if (r < 0)
                         return r;
         }
@@ -400,7 +435,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devnum %s:%s: %m", major, minor);
         }
 
-        r = device_verify(device, action, seqnum);
+        r = device_verify(device);
         if (r < 0)
                 return r;
 
@@ -412,8 +447,6 @@ int device_new_from_strv(sd_device **ret, char **strv) {
 int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         const char *major = NULL, *minor = NULL;
-        DeviceAction action = _DEVICE_ACTION_INVALID;
-        uint64_t seqnum = 0;
         unsigned i = 0;
         int r;
 
@@ -437,7 +470,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
                 }
                 i += end - key + 1;
 
-                r = device_append(device, key, &major, &minor, &seqnum, &action);
+                r = device_append(device, key, &major, &minor);
                 if (r < 0)
                         return r;
         }
@@ -448,7 +481,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
                         return log_device_debug_errno(device, r, "sd-device: Failed to set devnum %s:%s: %m", major, minor);
         }
 
-        r = device_verify(device, action, seqnum);
+        r = device_verify(device);
         if (r < 0)
                 return r;
 
@@ -674,7 +707,7 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
         if (r < 0)
                 return r;
 
-        r = device_add_property_internal(ret, "ACTION", action);
+        r = device_set_action(ret, action);
         if (r < 0)
                 return r;
 
@@ -953,3 +986,16 @@ int device_delete_db(sd_device *device) {
 
         return 0;
 }
+
+static const char* const device_action_table[_DEVICE_ACTION_MAX] = {
+        [DEVICE_ACTION_ADD]     = "add",
+        [DEVICE_ACTION_REMOVE]  = "remove",
+        [DEVICE_ACTION_CHANGE]  = "change",
+        [DEVICE_ACTION_MOVE]    = "move",
+        [DEVICE_ACTION_ONLINE]  = "online",
+        [DEVICE_ACTION_OFFLINE] = "offline",
+        [DEVICE_ACTION_BIND]    = "bind",
+        [DEVICE_ACTION_UNBIND]  = "unbind",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(device_action, DeviceAction);
