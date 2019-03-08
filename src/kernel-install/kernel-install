@@ -92,20 +92,20 @@ if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
 fi
 
 if ! [[ $MACHINE_ID ]]; then
-    BOOT_DIR_ABS=$(mktemp -d /tmp/kernel-install.XXXXX) || exit 1
-    trap "rm -rf '$BOOT_DIR_ABS'" EXIT INT QUIT PIPE
+    ENTRY_DIR_ABS=$(mktemp -d /tmp/kernel-install.XXXXX) || exit 1
+    trap "rm -rf '$ENTRY_DIR_ABS'" EXIT INT QUIT PIPE
 elif [[ -d /efi/loader/entries ]] || [[ -d /efi/$MACHINE_ID ]]; then
-    BOOT_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
 elif [[ -d /boot/loader/entries ]] || [[ -d /boot/$MACHINE_ID ]]; then
-    BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
 elif [[ -d /boot/efi/loader/entries ]] || [[ -d /boot/efi/$MACHINE_ID ]]; then
-    BOOT_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
 elif mountpoint -q /efi; then
-    BOOT_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/efi/$MACHINE_ID/$KERNEL_VERSION"
 elif mountpoint -q /boot/efi; then
-    BOOT_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/boot/efi/$MACHINE_ID/$KERNEL_VERSION"
 else
-    BOOT_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
+    ENTRY_DIR_ABS="/boot/$MACHINE_ID/$KERNEL_VERSION"
 fi
 
 export KERNEL_INSTALL_MACHINE_ID=$MACHINE_ID
@@ -125,16 +125,16 @@ case $COMMAND in
             exit 1
         fi
 
-        mkdir -p "$BOOT_DIR_ABS" || {
-            echo "Could not create boot directory '$BOOT_DIR_ABS'." >&2
+        mkdir -p "$ENTRY_DIR_ABS" || {
+            echo "Could not create boot directory '$ENTRY_DIR_ABS'." >&2
             exit 1
         }
 
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-                    echo "+$f add $KERNEL_VERSION $BOOT_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[@]}"
-                "$f" add "$KERNEL_VERSION" "$BOOT_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
+                    echo "+$f add $KERNEL_VERSION $ENTRY_DIR_ABS $KERNEL_IMAGE ${INITRD_OPTIONS[@]}"
+                "$f" add "$KERNEL_VERSION" "$ENTRY_DIR_ABS" "$KERNEL_IMAGE" "${INITRD_OPTIONS[@]}"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
                     ret=0
@@ -144,11 +144,11 @@ case $COMMAND in
             fi
         done
 
-        if ! [[ $MACHINE_ID ]] && ! rmdir "$BOOT_DIR_ABS"; then
-            echo "Warning: In kernel-install plugins, requiring BOOT_DIR_ABS to be preset is deprecated." >&2
-            echo "         All plugins should not put anything in BOOT_DIR_ABS if the environment" >&2
+        if ! [[ $MACHINE_ID ]] && ! rmdir "$ENTRY_DIR_ABS"; then
+            echo "Warning: In kernel-install plugins, requiring ENTRY_DIR_ABS to be preset is deprecated." >&2
+            echo "         All plugins should not put anything in ENTRY_DIR_ABS if the environment" >&2
             echo "         variable KERNEL_INSTALL_MACHINE_ID is empty." >&2
-            rm -rf "$BOOT_DIR_ABS"
+            rm -rf "$ENTRY_DIR_ABS"
             ((ret+=$?))
         fi
         ;;
@@ -157,8 +157,8 @@ case $COMMAND in
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-                    echo "+$f remove $KERNEL_VERSION $BOOT_DIR_ABS"
-                "$f" remove "$KERNEL_VERSION" "$BOOT_DIR_ABS"
+                    echo "+$f remove $KERNEL_VERSION $ENTRY_DIR_ABS"
+                "$f" remove "$KERNEL_VERSION" "$ENTRY_DIR_ABS"
                 x=$?
                 if [[ $x == $SKIP_REMAINING ]]; then
                     ret=0
@@ -169,9 +169,9 @@ case $COMMAND in
         done
 
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "Removing $BOOT_DIR_ABS"
+            echo "Removing $ENTRY_DIR_ABS"
 
-        rm -rf "$BOOT_DIR_ABS"
+        rm -rf "$ENTRY_DIR_ABS"
         ((ret+=$?))
         ;;
 
