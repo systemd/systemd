@@ -6,7 +6,6 @@
 #include "sd-device.h"
 #include "sd-dhcp-lease.h"
 
-#include "condition.h"
 #include "conf-parser.h"
 #include "def.h"
 #include "set.h"
@@ -20,11 +19,6 @@ bool net_match_config(Set *match_mac,
                       char * const *match_driver,
                       char * const *match_type,
                       char * const *match_name,
-                      Condition *match_host,
-                      Condition *match_virt,
-                      Condition *match_kernel_cmdline,
-                      Condition *match_kernel_version,
-                      Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
                       const char *dev_driver,

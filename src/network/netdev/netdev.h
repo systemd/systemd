@@ -81,11 +81,7 @@ typedef struct NetDev {
 
         char *filename;
 
-        Condition *match_host;
-        Condition *match_virt;
-        Condition *match_kernel_cmdline;
-        Condition *match_kernel_version;
-        Condition *match_arch;
+        Condition *conditions;
 
         NetDevState state;
         NetDevKind kind;

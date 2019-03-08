@@ -65,7 +65,10 @@ typedef struct Condition {
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
 void condition_free(Condition *c);
-Condition* condition_free_list(Condition *c);
+Condition* condition_free_list_type(Condition *first, ConditionType type);
+static inline Condition* condition_free_list(Condition *first) {
+        return condition_free_list_type(first, _CONDITION_TYPE_INVALID);
+}
 
 int condition_test(Condition *c);
 typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
