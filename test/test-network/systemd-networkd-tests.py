@@ -214,6 +214,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '12-dummy.netdev',
         '21-macvlan.netdev',
         '21-macvtap.netdev',
+        '21-vlan-test1.network',
         '21-vlan.netdev',
         '21-vlan.network',
         '25-6rd-tunnel.netdev',
@@ -341,7 +342,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual('1',             self.read_link_attr('bond99', 'bonding', 'tlb_dynamic_lb'))
 
     def test_vlan(self):
-        self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev', '21-vlan.network')
+        self.copy_unit_to_networkd_unit_path('21-vlan.netdev', '11-dummy.netdev',
+                                             '21-vlan.network', '21-vlan-test1.network')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('test1'))
@@ -359,6 +361,15 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(output, 'GVRP')
         self.assertTrue(output, 'MVRP')
         self.assertTrue(output, ' id 99 ')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 192.168.24.5/24 brd 192.168.24.255 scope global test1')
+        self.assertRegex(output, 'inet 192.168.25.5/24 brd 192.168.25.255 scope global test1')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'vlan99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 192.168.23.5/24 brd 192.168.23.255 scope global vlan99')
 
     def test_macvtap(self):
         self.copy_unit_to_networkd_unit_path('21-macvtap.netdev', '11-dummy.netdev', 'macvtap.network')
