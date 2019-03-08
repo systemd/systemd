@@ -584,6 +584,12 @@ static int boot_entries_select_default(const BootConfig *config) {
         int i;
 
         assert(config);
+        assert(config->entries || config->n_entries == 0);
+
+        if (config->n_entries == 0) {
+                log_debug("Found no default boot entry :(");
+                return -1; /* -1 means "no default" */
+        }
 
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
@@ -609,12 +615,8 @@ static int boot_entries_select_default(const BootConfig *config) {
                                 return i;
                         }
 
-        if (config->n_entries > 0)
-                log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].id);
-        else
-                log_debug("Found no default boot entry :(");
-
-        return config->n_entries - 1; /* -1 means "no default" */
+        log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].id);
+        return config->n_entries - 1;
 }
 
 int boot_entries_load_config(
