@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "device-monitor-private.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -26,14 +27,15 @@ static Set *arg_tag_filter = NULL;
 static Hashmap *arg_subsystem_filter = NULL;
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        const char *action = NULL, *devpath = NULL, *subsystem = NULL;
+        DeviceAction action = _DEVICE_ACTION_INVALID;
+        const char *devpath = NULL, *subsystem = NULL;
         MonitorNetlinkGroup group = PTR_TO_INT(userdata);
         struct timespec ts;
 
         assert(device);
         assert(IN_SET(group, MONITOR_GROUP_UDEV, MONITOR_GROUP_KERNEL));
 
-        (void) sd_device_get_property_value(device, "ACTION", &action);
+        (void) device_get_action(device, &action);
         (void) sd_device_get_devpath(device, &devpath);
         (void) sd_device_get_subsystem(device, &subsystem);
 
@@ -42,7 +44,8 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         printf("%-6s[%"PRI_TIME".%06"PRI_NSEC"] %-8s %s (%s)\n",
                group == MONITOR_GROUP_UDEV ? "UDEV" : "KERNEL",
                ts.tv_sec, (nsec_t)ts.tv_nsec/1000,
-               action, devpath, subsystem);
+               strna(device_action_to_string(action)),
+               devpath, subsystem);
 
         if (arg_show_property) {
                 const char *key, *value;
