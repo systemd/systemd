@@ -202,7 +202,9 @@ if __name__ == '__main__':
 		print('got version: "' + versionString)
 		printHelp()
 
-	print("FORMATTING: ")
+	infoText = "FORMATTING: "
+	if(dry): infoText += "(DRY RUN)"
+	print(infoText)
 	for file in files:
 		print(file.ljust(40), end="", flush=True)
 		if(not os.path.isfile(file)):
@@ -215,12 +217,14 @@ if __name__ == '__main__':
 		shutil.copyfile(file, fileTmp)
 		run_clang_format(fileTmp)
 		run_post_clang_format(fileTmp)
-		if(filecmp.cmp(file, fileTmp)):
+		fileUnchanged = filecmp.cmp(file, fileTmp)
+		if(fileUnchanged):
 			print(' [UNCHANGED]')
 		else:
 			print(' [CHANGED]')
-		if(not dry):
-			shutil.copyfile(fileTmp, file)
-		os.remove(fileTmp)
+		if not dry and not fileUnchanged:
+			shutil.move(fileTmp, file)
+		else:
+			os.remove(fileTmp)
 	print("ALL DONE")
 
