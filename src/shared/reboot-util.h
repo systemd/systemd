@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-int update_reboot_parameter_and_warn(const char *parameter);
+int update_reboot_parameter_and_warn(const char *parameter, bool keep);
 
 typedef enum RebootFlags {
         REBOOT_LOG      = 1 << 0, /* log about what we are going to do and all errors */

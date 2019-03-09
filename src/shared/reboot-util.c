@@ -12,10 +12,13 @@
 #include "umask-util.h"
 #include "virt.h"
 
-int update_reboot_parameter_and_warn(const char *parameter) {
+int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
         int r;
 
         if (isempty(parameter)) {
+                if (keep)
+                        return 0;
+
                 if (unlink("/run/systemd/reboot-param") < 0) {
                         if (errno == ENOENT)
                                 return 0;
