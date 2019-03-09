@@ -28,6 +28,7 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 #include "udev-node.h"
+#include "udev-util.h"
 #include "udev-watch.h"
 #include "udev.h"
 
@@ -695,7 +696,7 @@ int udev_event_spawn(UdevEvent *event,
 
 static int rename_netif(UdevEvent *event) {
         sd_device *dev = event->dev;
-        const char *action, *oldname;
+        const char *oldname;
         int ifindex, r;
 
         if (!event->name)
@@ -708,11 +709,7 @@ static int rename_netif(UdevEvent *event) {
         if (streq(event->name, oldname))
                 return 0; /* The interface name is already requested name. */
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
-
-        if (!streq(action, "add"))
+        if (!device_for_action(dev, DEVICE_ACTION_ADD))
                 return 0; /* Rename the interface only when it is added. */
 
         r = sd_device_get_ifindex(dev, &ifindex);
@@ -742,7 +739,6 @@ static int rename_netif(UdevEvent *event) {
 
 static int update_devnode(UdevEvent *event) {
         sd_device *dev = event->dev;
-        const char *action;
         bool apply;
         int r;
 
@@ -782,11 +778,7 @@ static int update_devnode(UdevEvent *event) {
                 }
         }
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
-
-        apply = streq(action, "add") || event->owner_set || event->group_set || event->mode_set;
+        apply = device_for_action(dev, DEVICE_ACTION_ADD) || event->owner_set || event->group_set || event->mode_set;
         return udev_node_add(dev, apply, event->mode, event->uid, event->gid, event->seclabel_list);
 }
 
@@ -843,7 +835,8 @@ int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
                              Hashmap *properties_list,
                              UdevRules *rules) {
-        const char *subsystem, *action;
+        const char *subsystem;
+        DeviceAction action;
         sd_device *dev;
         int r;
 
@@ -856,11 +849,11 @@ int udev_event_execute_rules(UdevEvent *event,
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get subsystem: %m");
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
+        r = device_get_action(dev, &action);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get property 'ACTION': %m");
+                return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
-        if (streq(action, "remove")) {
+        if (action == DEVICE_ACTION_REMOVE) {
                 event_execute_rules_on_remove(event, timeout_usec, properties_list, rules);
                 return 0;
         }
@@ -873,7 +866,7 @@ int udev_event_execute_rules(UdevEvent *event,
                 /* Disable watch during event processing. */
                 (void) udev_watch_end(event->dev_db_clone);
 
-        if (streq(action, "move"))
+        if (action == DEVICE_ACTION_MOVE)
                 (void) udev_event_on_move(event);
 
         (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
