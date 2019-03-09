@@ -1156,6 +1156,7 @@ static void add_rule(UdevRules *rules, char *line,
                         else {
                                 if (STR_IN_SET(attr,
                                                "ACTION",
+                                               "SEQNUM",
                                                "SUBSYSTEM",
                                                "DEVTYPE",
                                                "MAJOR",
