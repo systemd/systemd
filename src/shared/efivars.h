@@ -132,6 +132,10 @@ static inline int efi_loader_get_entries(char ***ret) {
         return -EOPNOTSUPP;
 }
 
+static inline bool efi_loader_entry_name_valid(const char *s) {
+        return false;
+}
+
 static inline int efi_loader_get_features(uint64_t *ret) {
         return -EOPNOTSUPP;
 }
