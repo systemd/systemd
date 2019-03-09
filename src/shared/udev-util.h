@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "device-private.h"
 #include "time-util.h"
 
 typedef enum ResolveNameTiming {
@@ -28,3 +29,4 @@ static inline int udev_parse_config(void) {
 
 int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_device **ret);
 int device_is_renaming(sd_device *dev);
+bool device_for_action(sd_device *dev, DeviceAction action);

@@ -181,3 +181,14 @@ int device_is_renaming(sd_device *dev) {
 
         return r >= 0;
 }
+
+bool device_for_action(sd_device *dev, DeviceAction action) {
+        DeviceAction a;
+
+        assert(dev);
+
+        if (device_get_action(dev, &a) < 0)
+                return false;
+
+        return a == action;
+}
