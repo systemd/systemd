@@ -4,38 +4,13 @@
 import sys
 import os.path
 import re
-import getopt
+import argparse
 import shutil
 from subprocess import check_output
 from shlex import split
 import filecmp
 
 clangFormatCmd = "clang-format"
-
-def printHelp():
-	print("""
-Usage: format-file.py [OPTION]... [FILE]...
-Formats .c and .h files in systemd with clang-format
-and some custom style rules.
-
-Options:
-  -c --clang-format <path> Specify the path to the clang-format version to use.
-                           Systemd uses clang-format version 6.0.0. This may be
-                           available in your package manager, otherwise you can
-                           download the proper binary directly from LLVM:
-                           https://releases.llvm.org/download.html
-  -d --dry                 Do not modify files but only show which files would
-                           be changed by the script.
-  -h --help                Show this help message
-
-Example:
-$ tools/format-file.py -d -c clang-format-6.0 src/*/*.c
-
-If you experience any issues please:
-- contact the mailing list (systemd-devel@lists.freedesktop.org)
-- or file an issue on github (https://github.com/systemd/systemd/issues)
-""")
-	sys.exit()
 
 def run_clang_format(file):
 	cmd = clangFormatCmd + " -i -style=file " + file
@@ -89,7 +64,7 @@ def spaceAlignEnumTypedefs(content):
 			leftWidth = max(leftWidth, line.find('='))
 		for line in lines:
 			pos = line.find('=')
-			if(pos >= 0):
+			if pos >= 0:
 				fill = spaces[0:(leftWidth - pos)]
 				line = re.sub('=', r'' + fill + '=', line)
 			newLines.append(line)
@@ -123,7 +98,7 @@ def spaceAlignTableStructures(content):
 			# find line comments
 			match = re.search('\s*/\*.*\*\/', row)
 			lineComment = ""
-			if(match != None): lineComment = match.group(0)
+			if match != None: lineComment = match.group(0)
 			lineComments.append(lineComment)
 			# read comma-separated cells and trim them
 			cellsCleaned = []
@@ -140,14 +115,14 @@ def spaceAlignTableStructures(content):
 			# find maxlen of the column -> column width
 			maxlen = 0
 			for (r, row) in enumerate(cells):
-				if(len(row) > c and len(row[c]) > maxlen):
+				if len(row) > c and len(row[c]) > maxlen:
 					maxlen = len(row[c])
 			# replace cells of column with padded string
 			for (r, row) in enumerate(cells):
-				if(len(row) > c):
+				if len(row) > c:
 					cell = row[c]
-					if(cell == ""): continue
-					if(len(row) == (c + 1)):
+					if cell == "": continue
+					if len(row) == (c + 1):
 						cell += ' ' # no comma after last cell in row
 					else:
 						cell += ','
@@ -160,12 +135,12 @@ def spaceAlignTableStructures(content):
 		for (r, row) in enumerate(cells):
 			tableInner += '{ ' + ' '.join([item for item in row]) + '}'
 			lineComment = ''
-			if(len(lineComments) > r):
+			if len(lineComments) > r:
 				# print('lc: ' + str(r) + ' --> ' + lineComments[r])
 				lineComment = lineComments[r]
 				# reindent multiline comments
 				lineComment = re.sub('\n\s*', r'\n' + indent + '        ', lineComment)
-			if(len(cells) > (r + 1)):
+			if len(cells) > (r + 1):
 				tableInner += ',' + lineComment + '\n' + indent + '        '
 
 		# write table
@@ -177,40 +152,58 @@ def spaceAlignTableStructures(content):
 	return content
 
 if __name__ == '__main__':
-	opts, args = getopt.getopt(sys.argv[1:], 'c:hd', ['clang-format=', 'help', 'dry'])
-	dry = False
-	for opt, arg in opts:
-		if opt in ('--help'):
-			printHelp()
-		if opt in ('--clang-format'):
-			clangFormatCmd = arg
-		if opt in ('--dry'):
-			dry = True
-	files = args
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		description='Formats .c and .h files in systemd'
+			' with clang-format and some custom style rules.',
+		epilog='''
+Example:
+$ tools/format-file.py -d -c clang-format-6.0 src/*/*.c
 
-	if(len(files) <= 0):
+If you experience any issues please:
+- contact the mailing list (systemd-devel@lists.freedesktop.org)
+- or file an issue on github (https://github.com/systemd/systemd/issues)''')
+	parser.add_argument('files', metavar='FILE', nargs='+',
+		            help='file(s) to format')
+	parser.add_argument('-d', '--dry',
+		help="Do not modify files but only show which files would"
+			"be changed by the script.", action='store_true')
+	parser.add_argument('-c', '--clangformat', default='clang-format',
+		help="Specify the path to the clang-format version to use."
+			"Systemd uses clang-format version 6.0.0. This may be"
+			"available in your package manager, otherwise you can"
+			"download the proper binary directly from LLVM:"
+			"https://releases.llvm.org/download.html")
+
+	args = parser.parse_args()
+
+	files = args.files
+	clangFormatCmd = args.clangformat
+	dry = args.dry
+
+	if len(files) <= 0:
 		print('error: no file given')
-		printHelp()
+		sys.exit(1)
 
-	if (shutil.which(clangFormatCmd) is None):
+	if shutil.which(clangFormatCmd) is None:
 		print('error: "' + clangFormatCmd + '" not executable')
-		printHelp()
+		sys.exit(1)
 
 	versionString = str(check_output(split(clangFormatCmd + ' -version')))
-	if ("version 6.0" not in versionString):
+	if "version 6.0" not in versionString:
 		print('error: "' + clangFormatCmd + '" not in correct version, expecting version 6.0.x')
 		print('got version: "' + versionString)
-		printHelp()
+		sys.exit(1)
 
 	infoText = "FORMATTING: "
-	if(dry): infoText += "(DRY RUN)"
+	if dry: infoText += "(DRY RUN)"
 	print(infoText)
 	for file in files:
 		print(file.ljust(40), end="", flush=True)
-		if(not os.path.isfile(file)):
+		if not os.path.isfile(file):
 			print(' [Skipping non existing file]')
 			continue
-		if(file.find('MurmurHash2') > 0):
+		if file.find('MurmurHash2') > 0:
 			print(' [Skipping MurmurHash2 file]')
 			continue
 		fileTmp = file + '.tmp'
@@ -218,7 +211,7 @@ if __name__ == '__main__':
 		run_clang_format(fileTmp)
 		run_post_clang_format(fileTmp)
 		fileUnchanged = filecmp.cmp(file, fileTmp)
-		if(fileUnchanged):
+		if fileUnchanged:
 			print(' [UNCHANGED]')
 		else:
 			print(' [CHANGED]')
@@ -227,4 +220,3 @@ if __name__ == '__main__':
 		else:
 			os.remove(fileTmp)
 	print("ALL DONE")
-
