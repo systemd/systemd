@@ -39,6 +39,18 @@ int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
         return 0;
 }
 
+int read_reboot_parameter(char **parameter) {
+        int r;
+
+        assert(parameter);
+
+        r = read_one_line_file("/run/systemd/reboot-param", parameter);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Failed to read /run/systemd/reboot-param: %m");
+
+        return 0;
+}
+
 int reboot_with_parameter(RebootFlags flags) {
         int r;
 

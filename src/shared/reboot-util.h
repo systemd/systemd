@@ -9,4 +9,5 @@ typedef enum RebootFlags {
         REBOOT_FALLBACK = 1 << 2, /* fallback to plain reboot() if argument-based reboot doesn't work, isn't configured or doesn't apply otherwise */
 } RebootFlags;
 
+int read_reboot_parameter(char **parameter);
 int reboot_with_parameter(RebootFlags flags);
