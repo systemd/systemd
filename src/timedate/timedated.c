@@ -377,9 +377,9 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                         n += !!u->path;
 
         if (n == 0) {
-                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
-
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
+
+                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
         }
 
         return 0;
