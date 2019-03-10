@@ -9,4 +9,7 @@ Cost=400
 HairPin = true
 FastLeave = true
 UnicastFlood = true
+MulticastFlood = false
 MulticastToUnicast = true
+NeighborSuppression = true
+Learning = false
