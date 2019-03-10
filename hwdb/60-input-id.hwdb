@@ -66,3 +66,7 @@ id-input:modalias:input:b0003v5543p0081*
 # XP-PEN STAR 06
 id-input:modalias:input:b0003v28bdp0078*
  ID_INPUT_TABLET=1
+
+# Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
+id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
+ ID_INPUT_POINTINGSTICK=1
