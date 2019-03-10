@@ -1293,7 +1293,11 @@ class NetworkdNetWorkBridgeTests(unittest.TestCase, Utilities):
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'hairpin_mode'), '1')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'path_cost'), '400')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'unicast_flood'), '1')
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_flood'), '0')
         self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'multicast_fast_leave'), '1')
+        if (os.path.exists('/sys/devices/virtual/net/bridge99/lower_dummy98/brport/neigh_suppress')):
+            self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'neigh_suppress'), '1')
+        self.assertEqual(self.read_bridge_port_attr('bridge99', 'dummy98', 'learning'), '0')
 
         # CONFIG_BRIDGE_IGMP_SNOOPING=y
         if (os.path.exists('/sys/devices/virtual/net/bridge00/lower_dummy98/brport/multicast_to_unicast')):

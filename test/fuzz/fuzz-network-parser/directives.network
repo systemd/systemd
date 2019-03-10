@@ -7,6 +7,9 @@ FastLeave=
 Priority=
 AllowPortToBeRoot=
 MulticastToUnicast=
+MulticastFlood=
+NeighborSuppression=
+Learning=
 [Match]
 KernelVersion=
 Type=

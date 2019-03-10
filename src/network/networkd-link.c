@@ -1595,10 +1595,28 @@ static int link_set_bridge(Link *link) {
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
         }
 
+        if (link->network->multicast_flood >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_FLOOD, link->network->multicast_flood);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_FLOOD attribute: %m");
+        }
+
         if (link->network->multicast_to_unicast >= 0) {
                 r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MCAST_TO_UCAST, link->network->multicast_to_unicast);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MCAST_TO_UCAST attribute: %m");
+        }
+
+        if (link->network->neighbor_suppression >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_NEIGH_SUPPRESS, link->network->neighbor_suppression);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_NEIGH_SUPPRESS attribute: %m");
+        }
+
+        if (link->network->learning >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_LEARNING, link->network->learning);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_LEARNING attribute: %m");
         }
 
         if (link->network->cost != 0) {

@@ -1790,11 +1790,36 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>MulticastFlood=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Controls whether the bridge should flood
+            traffic for which an MDB entry is missing and the destination
+            is unknown through this port. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MulticastToUnicast=</varname></term>
           <listitem>
             <para>Takes a boolean. Multicast to unicast works on top of the multicast snooping feature of
             the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
             When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>NeighborSuppression=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether ARP and ND neighbor suppression is enabled for
+            this port. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>Learning=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Configures whether MAC address learning is enabled for
+            this port. When unset, the kernel's default will be used.
             </para>
           </listitem>
         </varlistentry>
