@@ -112,4 +112,8 @@ fuzzers += [
         [['src/fuzz/fuzz-compress.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-bus-label.c'],
+         [libshared],
+         []],
 ]
