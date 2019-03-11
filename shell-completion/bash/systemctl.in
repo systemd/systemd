@@ -84,10 +84,13 @@ __get_restartable_units () {
 
 __get_stoppable_units () {
         # filter out masked and not-found
-        __filter_units_by_properties $1 ActiveState=active,CanStop=yes $(
+        local units=$(
                 { __get_not_masked_unit_files $1 $2
                   __get_active_units $1 $2
                 } | sort -u )
+        __filter_units_by_properties $1 ActiveState=active,CanStop=yes $units
+        __filter_units_by_properties $1 ActiveState=reloading,CanStop=yes $units
+        __filter_units_by_properties $1 ActiveState=activating,CanStop=yes $units
 }
 
 __get_reloadable_units () {
