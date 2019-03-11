@@ -225,6 +225,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>same-cpu-crypt</option></term>
+
+        <listitem><para>Perform encryption using the same cpu that IO was submitted on. The default is to use
+        an unbound workqueue so that encryption work is automatically balanced between available CPUs.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>submit-from-crypt-cpus</option></term>
+
+        <listitem><para>Disable offloading writes to a separate thread after encryption. There are some
+        situations where offloading write bios from the encryption threads to a single thread degrades
+        performance significantly. The default is to offload write bios to the same thread because it benefits
+        CFQ to have writes submitted using the same context.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>skip=</option></term>
 
         <listitem><para>How many 512-byte sectors of the encrypted data to skip at the
