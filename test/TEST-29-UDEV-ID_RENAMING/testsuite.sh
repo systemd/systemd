@@ -21,19 +21,19 @@ EOF
 udevadm control --log-priority=debug --reload
 udevadm trigger --action=add --settle /sys/devices/virtual/net/lo
 udevadm info /sys/devices/virtual/net/lo
-
+sleep 1
 STATE=$(systemctl show --property=ActiveState --value sys-devices-virtual-net-lo.device)
 [[ $STATE == "active" ]] || exit 1
 
 udevadm trigger --action=change --settle /sys/devices/virtual/net/lo
 udevadm info /sys/devices/virtual/net/lo
-
+sleep 1
 STATE=$(systemctl show --property=ActiveState --value sys-devices-virtual-net-lo.device)
 [[ $STATE == "inactive" ]] || exit 1
 
 udevadm trigger --action=move --settle /sys/devices/virtual/net/lo
 udevadm info /sys/devices/virtual/net/lo
-
+sleep 1
 STATE=$(systemctl show --property=ActiveState --value sys-devices-virtual-net-lo.device)
 [[ $STATE == "active" ]] || exit 1
 
