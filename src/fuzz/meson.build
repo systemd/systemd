@@ -116,4 +116,8 @@ fuzzers += [
         [['src/fuzz/fuzz-bus-label.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-env-file.c'],
+         [libshared],
+         []],
 ]
