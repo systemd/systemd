@@ -789,16 +789,6 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         return 0;
 }
 
-bool efi_loader_entry_name_valid(const char *s) {
-        if (isempty(s))
-                return false;
-
-        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
-                return false;
-
-        return in_charset(s, ALPHANUMERICAL "-_.");
-}
-
 int efi_loader_get_entries(char ***ret) {
         _cleanup_free_ char16_t *entries = NULL;
         _cleanup_strv_free_ char **l = NULL;
@@ -902,6 +892,16 @@ int efi_loader_get_features(uint64_t *ret) {
 }
 
 #endif
+
+bool efi_loader_entry_name_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
+                return false;
+
+        return in_charset(s, ALPHANUMERICAL "-_.");
+}
 
 char *efi_tilt_backslashes(char *s) {
         char *p;
