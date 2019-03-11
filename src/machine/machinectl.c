@@ -2666,10 +2666,15 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(st)", &name, &usage)) > 0) {
-                log_info("Removed image '%s'. Freed exclusive disk space: %s",
-                         name, format_bytes(fb, sizeof(fb), usage));
-
-                total += usage;
+                if (usage == UINT64_MAX) {
+                        log_info("Removed image '%s'", name);
+                        total = UINT64_MAX;
+                } else {
+                        log_info("Removed image '%s'. Freed exclusive disk space: %s",
+                                 name, format_bytes(fb, sizeof(fb), usage));
+                        if (total != UINT64_MAX)
+                                total += usage;
+                }
                 c++;
         }
 
@@ -2677,8 +2682,11 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        log_info("Removed %u images in total. Total freed exclusive disk space %s.",
-                 c, format_bytes(fb, sizeof(fb), total));
+        if (total == UINT64_MAX)
+                log_info("Removed %u images in total.", c);
+        else
+                log_info("Removed %u images in total. Total freed exclusive disk space: %s.",
+                         c, format_bytes(fb, sizeof(fb), total));
 
         return 0;
 }
