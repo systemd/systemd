@@ -44,6 +44,8 @@ static unsigned arg_tries = 3;
 static bool arg_readonly = false;
 static bool arg_verify = false;
 static bool arg_discards = false;
+static bool arg_same_cpu_crypt = false;
+static bool arg_submit_from_crypt_cpus = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
 #ifdef CRYPT_TCRYPT_VERA_MODES
@@ -199,6 +201,10 @@ static int parse_one_option(const char *option) {
                 arg_verify = true;
         else if (STR_IN_SET(option, "allow-discards", "discard"))
                 arg_discards = true;
+        else if (streq(option, "same-cpu-crypt"))
+                arg_same_cpu_crypt = true;
+        else if (streq(option, "submit-from-crypt-cpus"))
+                arg_submit_from_crypt_cpus = true;
         else if (streq(option, "luks"))
                 arg_type = ANY_LUKS;
         else if (streq(option, "tcrypt"))
@@ -675,6 +681,12 @@ static int run(int argc, char *argv[]) {
 
                 if (arg_discards)
                         flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
+
+                if (arg_same_cpu_crypt)
+                        flags |= CRYPT_ACTIVATE_SAME_CPU_CRYPT;
+
+                if (arg_submit_from_crypt_cpus)
+                        flags |= CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS;
 
                 if (arg_timeout == USEC_INFINITY)
                         until = 0;
