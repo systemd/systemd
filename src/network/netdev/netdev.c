@@ -598,6 +598,14 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         return 0;
 }
 
+static int netdev_create_after_configured(NetDev *netdev, Link *link) {
+        assert(netdev);
+        assert(link);
+        assert(NETDEV_VTABLE(netdev)->create_after_configured);
+
+        return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
+}
+
 /* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
@@ -618,6 +626,11 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
                 if (r < 0)
                         return r;
 
+                break;
+        case NETDEV_CREATE_AFTER_CONFIGURED:
+                r = netdev_create_after_configured(netdev, link);
+                if (r < 0)
+                        return r;
                 break;
         default:
                 assert_not_reached("Can not join independent netdev");

@@ -822,6 +822,35 @@ static Address* link_find_dhcp_server_address(Link *link) {
         return NULL;
 }
 
+static int link_join_netdevs_after_configured(Link *link) {
+        NetDev *netdev;
+        Iterator i;
+        int r;
+
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
+                if (netdev->ifindex > 0)
+                        /* Assume already enslaved. */
+                        continue;
+
+                if (netdev_get_create_type(netdev) != NETDEV_CREATE_AFTER_CONFIGURED)
+                        continue;
+
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_NETDEV_INTERFACE(netdev),
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
+
+                r = netdev_join(netdev, link, NULL);
+                if (r < 0)
+                        return log_struct_errno(LOG_WARNING, r,
+                                                LOG_LINK_INTERFACE(link),
+                                                LOG_NETDEV_INTERFACE(netdev),
+                                                LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname));
+        }
+
+        return 0;
+}
+
 static void link_enter_configured(Link *link) {
         assert(link);
         assert(link->network);
@@ -832,6 +861,8 @@ static void link_enter_configured(Link *link) {
         log_link_info(link, "Configured");
 
         link_set_state(link, LINK_STATE_CONFIGURED);
+
+        (void) link_join_netdevs_after_configured(link);
 
         link_dirty(link);
 }
@@ -2683,6 +2714,9 @@ static int link_enter_join_netdev(Link *link) {
 
                 if (netdev->ifindex > 0)
                         /* Assume already enslaved. */
+                        continue;
+
+                if (netdev_get_create_type(netdev) != NETDEV_CREATE_STACKED)
                         continue;
 
                 log_struct(LOG_DEBUG,

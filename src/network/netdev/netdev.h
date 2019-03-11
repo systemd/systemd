@@ -65,6 +65,7 @@ typedef enum NetDevCreateType {
         NETDEV_CREATE_INDEPENDENT,
         NETDEV_CREATE_MASTER,
         NETDEV_CREATE_STACKED,
+        NETDEV_CREATE_AFTER_CONFIGURED,
         _NETDEV_CREATE_MAX,
         _NETDEV_CREATE_INVALID = -1,
 } NetDevCreateType;
@@ -123,6 +124,9 @@ typedef struct NetDevVTable {
         /* create netdev, if not done via rtnl */
         int (*create)(NetDev *netdev);
 
+        /* create netdev after link is fully configured */
+        int (*create_after_configured)(NetDev *netdev, Link *link);
+
         /* perform additional configuration after netdev has been createad */
         int (*post_create)(NetDev *netdev, Link *link, sd_netlink_message *message);
 
@@ -162,6 +166,7 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);
 int netdev_get_mac(const char *ifname, struct ether_addr **ret);
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
+int netdev_join_after_configured(NetDev *netdev, Link *link, link_netlink_message_handler_t callback);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
