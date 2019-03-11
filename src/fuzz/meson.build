@@ -120,4 +120,8 @@ fuzzers += [
         [['src/fuzz/fuzz-env-file.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-hostname-util.c'],
+         [libshared],
+         []],
 ]
