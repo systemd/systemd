@@ -308,6 +308,7 @@ static const NLType rtnl_link_info_data_geneve_types[] = {
 static const NLType rtnl_link_info_data_can_types[] = {
         [IFLA_CAN_BITTIMING]            = { .size = sizeof(struct can_bittiming) },
         [IFLA_CAN_RESTART_MS]           = { .type = NETLINK_TYPE_U32 },
+        [IFLA_CAN_CTRLMODE]             = { .size = sizeof(struct can_ctrlmode) },
 };
 
 /* these strings must match the .kind entries in the kernel */

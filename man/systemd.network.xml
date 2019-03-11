@@ -1903,6 +1903,13 @@
             automatic restart off. By default automatic restart is disabled.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>TripleSampling=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine
+            the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

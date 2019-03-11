@@ -202,6 +202,7 @@ struct Network {
         size_t can_bitrate;
         unsigned can_sample_point;
         usec_t can_restart_us;
+        int can_triple_sampling;
 
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
