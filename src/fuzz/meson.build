@@ -124,4 +124,9 @@ fuzzers += [
         [['src/fuzz/fuzz-hostname-util.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-nspawn-settings.c'],
+         [libshared,
+          libnspawn_core],
+         []],
 ]
