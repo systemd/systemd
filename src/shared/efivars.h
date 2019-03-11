@@ -50,8 +50,6 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
 
 int efi_loader_get_entries(char ***ret);
 
-bool efi_loader_entry_name_valid(const char *s);
-
 int efi_loader_get_features(uint64_t *ret);
 
 #else
@@ -132,14 +130,12 @@ static inline int efi_loader_get_entries(char ***ret) {
         return -EOPNOTSUPP;
 }
 
-static inline bool efi_loader_entry_name_valid(const char *s) {
-        return false;
-}
-
 static inline int efi_loader_get_features(uint64_t *ret) {
         return -EOPNOTSUPP;
 }
 
 #endif
+
+bool efi_loader_entry_name_valid(const char *s);
 
 char *efi_tilt_backslashes(char *s);
