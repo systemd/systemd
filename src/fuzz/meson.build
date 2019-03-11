@@ -133,4 +133,8 @@ fuzzers += [
         [['src/fuzz/fuzz-calendarspec.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-time-util.c'],
+         [libshared],
+         []],
 ]
