@@ -132,6 +132,7 @@ PVID=
 SamplePoint=
 BitRate=
 RestartSec=
+TripleSampling=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=

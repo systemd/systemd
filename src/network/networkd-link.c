@@ -2163,6 +2163,19 @@ static int link_set_can(Link *link) {
                         return log_link_error_errno(link, r, "Could not append IFLA_CAN_RESTART_MS attribute: %m");
         }
 
+        if (link->network->can_triple_sampling >= 0) {
+                struct can_ctrlmode cm = {
+                        .mask = CAN_CTRLMODE_3_SAMPLES,
+                        .flags = link->network->can_triple_sampling ? CAN_CTRLMODE_3_SAMPLES : 0,
+                };
+
+                log_link_debug(link, "%sabling triple-sampling", link->network->can_triple_sampling ? "En" : "Dis");
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to close netlink container: %m");

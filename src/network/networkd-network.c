@@ -428,6 +428,8 @@ int network_load_one(Manager *manager, const char *filename) {
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
                 .ipv6_accept_ra_route_table_set = false,
+
+                .can_triple_sampling = -1,
         };
 
         r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
