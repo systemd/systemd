@@ -112,4 +112,21 @@ fuzzers += [
         [['src/fuzz/fuzz-compress.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-bus-label.c'],
+         [libshared],
+         []],
+
+        [['src/fuzz/fuzz-env-file.c'],
+         [libshared],
+         []],
+
+        [['src/fuzz/fuzz-hostname-util.c'],
+         [libshared],
+         []],
+
+        [['src/fuzz/fuzz-nspawn-settings.c'],
+         [libshared,
+          libnspawn_core],
+         []],
 ]
