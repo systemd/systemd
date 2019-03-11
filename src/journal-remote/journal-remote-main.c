@@ -265,6 +265,7 @@ static int request_handler(
         const char *header;
         int r, code, fd;
         _cleanup_free_ char *hostname = NULL;
+        bool chunked = false;
         size_t len;
 
         assert(connection);
@@ -290,21 +291,33 @@ static int request_handler(
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
-        if (!header)
-                return mhd_respond(connection, MHD_HTTP_LENGTH_REQUIRED,
-                                   "Content-Length header is required.");
-        r = safe_atozu(header, &len);
-        if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_LENGTH_REQUIRED,
-                                    "Content-Length: %s cannot be parsed: %m", header);
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
+        if (header) {
+                if (!strcaseeq(header, "chunked"))
+                        return mhd_respondf(connection, 0, MHD_HTTP_BAD_REQUEST,
+                                            "Unsupported Transfer-Encoding type: %s", header);
 
-        if (len > ENTRY_SIZE_MAX)
-                /* When serialized, an entry of maximum size might be slightly larger,
-                 * so this does not correspond exactly to the limit in journald. Oh well.
-                 */
-                return mhd_respondf(connection, 0, MHD_HTTP_PAYLOAD_TOO_LARGE,
-                                    "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
+                chunked = true;
+        }
+
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
+        if (header) {
+                if (chunked)
+                        return mhd_respond(connection, MHD_HTTP_BAD_REQUEST,
+                                           "Content-Length must not specified when Transfer-Encoding type is 'chuncked'");
+
+                r = safe_atozu(header, &len);
+                if (r < 0)
+                        return mhd_respondf(connection, r, MHD_HTTP_LENGTH_REQUIRED,
+                                            "Content-Length: %s cannot be parsed: %m", header);
+
+                if (len > ENTRY_SIZE_MAX)
+                        /* When serialized, an entry of maximum size might be slightly larger,
+                         * so this does not correspond exactly to the limit in journald. Oh well.
+                         */
+                        return mhd_respondf(connection, 0, MHD_HTTP_PAYLOAD_TOO_LARGE,
+                                            "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
+        }
 
         {
                 const union MHD_ConnectionInfo *ci;
