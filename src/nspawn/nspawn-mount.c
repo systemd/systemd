@@ -206,7 +206,7 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
         }
 
         if (isempty(source))
-                source = NULL;
+                source = mfree(source);
         else if (!source_path_is_valid(source))
                 return -EINVAL;
 
@@ -219,12 +219,10 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
         if (!m)
                 return -ENOMEM;
 
-        m->source = source;
-        m->destination = destination;
+        m->source = TAKE_PTR(source);
+        m->destination = TAKE_PTR(destination);
         m->read_only = read_only;
-        m->options = opts;
-
-        source = destination = opts = NULL;
+        m->options = TAKE_PTR(opts);
         return 0;
 }
 
