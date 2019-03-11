@@ -166,6 +166,14 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t cb);
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
 
+static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
+        assert(netdev);
+        assert(NETDEV_VTABLE(netdev));
+
+        return NETDEV_VTABLE(netdev)->create_type;
+}
+
+
 CONFIG_PARSER_PROTOTYPE(config_parse_netdev_kind);
 
 /* gperf */

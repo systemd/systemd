@@ -605,9 +605,8 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
         assert(netdev);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(NETDEV_VTABLE(netdev));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
+        switch (netdev_get_create_type(netdev)) {
         case NETDEV_CREATE_MASTER:
                 r = netdev_enslave(netdev, link, callback);
                 if (r < 0)
@@ -740,16 +739,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
-        case NETDEV_CREATE_MASTER:
-        case NETDEV_CREATE_INDEPENDENT:
+        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT)) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
-
-                break;
-        default:
-                break;
         }
 
         switch (netdev->kind) {
