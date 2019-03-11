@@ -168,6 +168,32 @@ int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char 
         return 0;
 }
 
+static int return_test_polkit(
+                sd_bus_message *message,
+                int capability,
+                const char *action,
+                const char **details,
+                uid_t good_user,
+                sd_bus_error *e) {
+
+        const char *result;
+        bool challenge;
+        int r;
+
+        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
+        if (r < 0)
+                return r;
+
+        if (r > 0)
+                result = "yes";
+        else if (challenge)
+                result = "challenge";
+        else
+                result = "no";
+
+        return sd_bus_reply_method_return(message, "s", result);
+}
+
 static int property_get_idle_hint(
                 sd_bus *bus,
                 const char *path,
@@ -2486,32 +2512,6 @@ static int method_set_reboot_to_firmware_setup(
         }
 
         return sd_bus_reply_method_return(message, NULL);
-}
-
-static int return_test_polkit(
-                sd_bus_message *message,
-                int capability,
-                const char *action,
-                const char **details,
-                uid_t good_user,
-                sd_bus_error *e) {
-
-        const char *result;
-        bool challenge;
-        int r;
-
-        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                result = "yes";
-        else if (challenge)
-                result = "challenge";
-        else
-                result = "no";
-
-        return sd_bus_reply_method_return(message, "s", result);
 }
 
 static int method_can_reboot_to_firmware_setup(
