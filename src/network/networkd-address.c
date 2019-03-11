@@ -223,7 +223,7 @@ static int address_establish(Address *address, Link *link) {
 
                 r = fw_add_masquerade(masq, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "Could not enable IP masquerading: %m");
+                        return r;
 
                 address->ip_masquerade_done = masq;
         }
@@ -321,7 +321,7 @@ static int address_release(Address *address) {
 
                 r = fw_add_masquerade(false, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
                 if (r < 0)
-                        log_link_warning_errno(address->link, r, "Failed to disable IP masquerading: %m");
+                        return r;
 
                 address->ip_masquerade_done = false;
         }
@@ -371,13 +371,17 @@ int address_update(
 int address_drop(Address *address) {
         Link *link;
         bool ready;
+        int r;
 
         assert(address);
 
         ready = address_is_ready(address);
         link = address->link;
 
-        address_release(address);
+        r = address_release(address);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
+
         address_free(address);
 
         link_update_operstate(link, true);
@@ -445,7 +449,6 @@ int address_remove(
                 link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_free_ char *b = NULL;
         int r;
 
         assert(address);
@@ -456,28 +459,30 @@ int address_remove(
         assert(link->manager->rtnl);
 
         if (DEBUG_LOGGING) {
-                if (in_addr_to_string(address->family, &address->in_addr, &b) >= 0)
-                        log_link_debug(link, "Removing address %s", b);
+                _cleanup_free_ char *b = NULL;
+
+                (void) in_addr_to_string(address->family, &address->in_addr, &b);
+                log_link_debug(link, "Removing address %s", strna(b));
         }
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_DELADDR message: %m");
+                return log_link_error_errno(link, r, "Could not allocate RTM_DELADDR message: %m");
 
         r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
         if (r < 0)
-                return log_error_errno(r, "Could not set prefixlen: %m");
+                return log_link_error_errno(link, r, "Could not set prefixlen: %m");
 
         r = netlink_message_append_in_addr_union(req, IFA_LOCAL, address->family, &address->in_addr);
         if (r < 0)
-                return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
+                return log_link_error_errno(link, r, "Could not append IFA_LOCAL attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                callback ?: address_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
@@ -503,11 +508,9 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
          * Then let's acquire something more useful from the pool. */
         r = manager_address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to acquire address from pool: %m");
-        if (r == 0) {
-                log_link_error(link, "Couldn't find free address for interface, all taken.");
+                return r;
+        if (r == 0)
                 return -EBUSY;
-        }
 
         if (original->family == AF_INET) {
                 /* Pick first address in range for ourselves ... */
@@ -566,11 +569,12 @@ int address_configure(
         /* If this is a new address, then refuse adding more than the limit */
         if (address_get(link, address->family, &address->in_addr, address->prefixlen, NULL) <= 0 &&
             set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
-                return -E2BIG;
+                return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
+                                            "Too many addresses are configured, refusing: %m");
 
         r = address_acquire(link, address, &address);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
 
         if (update)
                 r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
@@ -579,11 +583,11 @@ int address_configure(
                 r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_NEWADDR,
                                              link->ifindex, address->family);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
+                return log_link_error_errno(link, r, "Could not allocate RTM_NEWADDR message: %m");
 
         r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
         if (r < 0)
-                return log_error_errno(r, "Could not set prefixlen: %m");
+                return log_link_error_errno(link, r, "Could not set prefixlen: %m");
 
         address->flags |= IFA_F_PERMANENT;
 
@@ -604,50 +608,50 @@ int address_configure(
 
         r = sd_rtnl_message_addr_set_flags(req, (address->flags & 0xff));
         if (r < 0)
-                return log_error_errno(r, "Could not set flags: %m");
+                return log_link_error_errno(link, r, "Could not set flags: %m");
 
         if (address->flags & ~0xff) {
                 r = sd_netlink_message_append_u32(req, IFA_FLAGS, address->flags);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set extended flags: %m");
+                        return log_link_error_errno(link, r, "Could not set extended flags: %m");
         }
 
         r = sd_rtnl_message_addr_set_scope(req, address->scope);
         if (r < 0)
-                return log_error_errno(r, "Could not set scope: %m");
+                return log_link_error_errno(link, r, "Could not set scope: %m");
 
         r = netlink_message_append_in_addr_union(req, IFA_LOCAL, address->family, &address->in_addr);
         if (r < 0)
-                return log_error_errno(r, "Could not append IFA_LOCAL attribute: %m");
+                return log_link_error_errno(link, r, "Could not append IFA_LOCAL attribute: %m");
 
         if (in_addr_is_null(address->family, &address->in_addr_peer) == 0) {
                 r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
         } else if (address->family == AF_INET && address->prefixlen <= 30) {
                 r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append IFA_BROADCAST attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append IFA_BROADCAST attribute: %m");
         }
 
         if (address->label) {
                 r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append IFA_LABEL attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append IFA_LABEL attribute: %m");
         }
 
         r = sd_netlink_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
         if (r < 0)
-                return log_error_errno(r, "Could not append IFA_CACHEINFO attribute: %m");
+                return log_link_error_errno(link, r, "Could not append IFA_CACHEINFO attribute: %m");
 
         r = address_establish(address, link);
         if (r < 0)
-                return r;
+                log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
         if (r < 0) {
                 address_release(address);
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
         }
 
         link_ref(link);
@@ -658,7 +662,7 @@ int address_configure(
                 r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
         if (r < 0) {
                 address_release(address);
-                return log_error_errno(r, "Could not add address: %m");
+                return log_link_error_errno(link, r, "Could not add address: %m");
         }
 
         return 0;
