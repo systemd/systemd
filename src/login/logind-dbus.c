@@ -2711,7 +2711,6 @@ static int method_can_reboot_to_boot_loader_menu(
         Manager *m = userdata;
         int r;
 
-
         assert(message);
         assert(m);
 
