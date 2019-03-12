@@ -80,7 +80,7 @@ char* getlogname_malloc(void) {
 char *getusername_malloc(void) {
         const char *e;
 
-        e = getenv("USER");
+        e = secure_getenv("USER");
         if (e)
                 return strdup(e);
 
@@ -238,14 +238,21 @@ int get_user_creds(
         }
 
         if (home) {
-                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && empty_or_root(p->pw_dir))
-                        *home = NULL;
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
+                    (empty_or_root(p->pw_dir) ||
+                     !path_is_valid(p->pw_dir) ||
+                     !path_is_absolute(p->pw_dir)))
+                    *home = NULL; /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
                 else
                         *home = p->pw_dir;
         }
 
         if (shell) {
-                if (FLAGS_SET(flags, USER_CREDS_CLEAN) && (isempty(p->pw_shell) || is_nologin_shell(p->pw_shell)))
+                if (FLAGS_SET(flags, USER_CREDS_CLEAN) &&
+                    (isempty(p->pw_shell) ||
+                     !path_is_valid(p->pw_dir) ||
+                     !path_is_absolute(p->pw_shell) ||
+                     is_nologin_shell(p->pw_shell)))
                         *shell = NULL;
                 else
                         *shell = p->pw_shell;
@@ -343,6 +350,9 @@ char* uid_to_name(uid_t uid) {
                         if (r != ERANGE)
                                 break;
 
+                        if (bufsize > LONG_MAX/2) /* overflow check */
+                                return NULL;
+
                         bufsize *= 2;
                 }
         }
@@ -383,6 +393,9 @@ char* gid_to_name(gid_t gid) {
                                 return strdup(gr->gr_name);
                         if (r != ERANGE)
                                 break;
+
+                        if (bufsize > LONG_MAX/2) /* overflow check */
+                                return NULL;
 
                         bufsize *= 2;
                 }
@@ -445,12 +458,12 @@ int get_home_dir(char **_h) {
 
         /* Take the user specified one */
         e = secure_getenv("HOME");
-        if (e && path_is_absolute(e)) {
+        if (e && path_is_valid(e) && path_is_absolute(e)) {
                 h = strdup(e);
                 if (!h)
                         return -ENOMEM;
 
-                *_h = h;
+                *_h = path_simplify(h, true);
                 return 0;
         }
 
@@ -480,14 +493,15 @@ int get_home_dir(char **_h) {
         if (!p)
                 return errno > 0 ? -errno : -ESRCH;
 
-        if (!path_is_absolute(p->pw_dir))
+        if (!path_is_valid(p->pw_dir) ||
+            !path_is_absolute(p->pw_dir))
                 return -EINVAL;
 
         h = strdup(p->pw_dir);
         if (!h)
                 return -ENOMEM;
 
-        *_h = h;
+        *_h = path_simplify(h, true);
         return 0;
 }
 
@@ -500,13 +514,13 @@ int get_shell(char **_s) {
         assert(_s);
 
         /* Take the user specified one */
-        e = getenv("SHELL");
-        if (e) {
+        e = secure_getenv("SHELL");
+        if (e && path_is_valid(e) && path_is_absolute(e)) {
                 s = strdup(e);
                 if (!s)
                         return -ENOMEM;
 
-                *_s = s;
+                *_s = path_simplify(s, true);
                 return 0;
         }
 
@@ -536,14 +550,15 @@ int get_shell(char **_s) {
         if (!p)
                 return errno > 0 ? -errno : -ESRCH;
 
-        if (!path_is_absolute(p->pw_shell))
+        if (!path_is_valid(p->pw_shell) ||
+            !path_is_absolute(p->pw_shell))
                 return -EINVAL;
 
         s = strdup(p->pw_shell);
         if (!s)
                 return -ENOMEM;
 
-        *_s = s;
+        *_s = path_simplify(s, true);
         return 0;
 }
 

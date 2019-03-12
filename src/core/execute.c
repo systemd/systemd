@@ -1697,6 +1697,8 @@ static int build_environment(
                 x = strappend("HOME=", home);
                 if (!x)
                         return -ENOMEM;
+
+                path_simplify(x + 5, true);
                 our_env[n_env++] = x;
         }
 
@@ -1716,6 +1718,8 @@ static int build_environment(
                 x = strappend("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
+
+                path_simplify(x + 6, true);
                 our_env[n_env++] = x;
         }
 
@@ -2737,12 +2741,6 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
 
         if (!c->working_directory_home)
                 return 0;
-
-        if (uid == 0) {
-                /* Hardcode /root as home directory for UID 0 */
-                *home = "/root";
-                return 1;
-        }
 
         r = get_home_dir(buf);
         if (r < 0)

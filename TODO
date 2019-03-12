@@ -23,6 +23,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* maybe add a seccomp-based high-level filter that blocks creation of suid/sgid
+  files.
+
 * make MAINPID= message reception checks even stricter: if service uses User=,
   then check sending UID and ignore message if it doesn't match the user or
   root.
