@@ -711,8 +711,13 @@ inst_libs() {
 
 import_testdir() {
     [[ -e $STATEFILE ]] && . $STATEFILE
-    if [[ -z "$TESTDIR" ]] || [[ ! -d "$TESTDIR" ]]; then
-        TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
+    if [[ ! -d "$TESTDIR" ]]; then
+        if [[ -z "$TESTDIR" ]]; then
+            TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
+        else
+            mkdir -p "$TESTDIR"
+        fi
+
         echo "TESTDIR=\"$TESTDIR\"" > $STATEFILE
         export TESTDIR
     fi
