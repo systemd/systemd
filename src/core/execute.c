@@ -3062,6 +3062,14 @@ static int exec_child(
                 }
         }
 
+        if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
+                r = open_netns_path(runtime->netns_storage_socket, context->network_namespace_path);
+                if (r < 0) {
+                        *exit_status = EXIT_NETWORK;
+                        return log_unit_error_errno(unit, r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
+                }
+        }
+
         r = setup_input(context, params, socket_fd, named_iofds);
         if (r < 0) {
                 *exit_status = EXIT_STDIN;
@@ -3272,13 +3280,17 @@ static int exec_child(
                 }
         }
 
-        if (context->private_network && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if ((context->private_network || context->network_namespace_path) && runtime && runtime->netns_storage_socket[0] >= 0) {
+
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_netns(runtime->netns_storage_socket);
                         if (r < 0) {
                                 *exit_status = EXIT_NETWORK;
                                 return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
                         }
+                } else if (context->network_namespace_path) {
+                        *exit_status = EXIT_NETWORK;
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP), "NetworkNamespacePath= is not supported, refusing.");
                 } else
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
@@ -3879,6 +3891,8 @@ void exec_context_done(ExecContext *c) {
 
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
+
+        c->network_namespace_path = mfree(c->network_namespace_path);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -4556,6 +4570,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 prefix, s);
         }
 
+        if (c->network_namespace_path)
+                fprintf(f,
+                        "%sNetworkNamespacePath: %s\n",
+                        prefix, c->network_namespace_path);
+
         if (c->syscall_errno > 0) {
                 const char *errno_name;
 
@@ -4855,18 +4874,23 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
 }
 
 static void exec_runtime_freep(ExecRuntime **rt) {
-        if (*rt)
-                (void) exec_runtime_free(*rt, false);
+        (void) exec_runtime_free(*rt, false);
 }
 
-static int exec_runtime_allocate(ExecRuntime **rt) {
-        assert(rt);
+static int exec_runtime_allocate(ExecRuntime **ret) {
+        ExecRuntime *n;
 
-        *rt = new0(ExecRuntime, 1);
-        if (!*rt)
+        assert(ret);
+
+        n = new(ExecRuntime, 1);
+        if (!n)
                 return -ENOMEM;
 
-        (*rt)->netns_storage_socket[0] = (*rt)->netns_storage_socket[1] = -1;
+        *n = (ExecRuntime) {
+                .netns_storage_socket = { -1, -1 },
+        };
+
+        *ret = n;
         return 0;
 }
 
@@ -4929,7 +4953,7 @@ static int exec_runtime_add(
 
 static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, ExecRuntime **ret) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int netns_storage_socket[2] = {-1, -1};
+        _cleanup_close_pair_ int netns_storage_socket[2] = { -1, -1 };
         int r;
 
         assert(m);
@@ -4937,7 +4961,7 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_tmp)
+        if (!c->private_network && !c->private_tmp && !c->network_namespace_path)
                 return 0;
 
         if (c->private_tmp) {
@@ -4946,7 +4970,7 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
                         return r;
         }
 
-        if (c->private_network) {
+        if (c->private_network || c->network_namespace_path) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
         }
@@ -4956,8 +4980,7 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
                 return r;
 
         /* Avoid cleanup */
-        netns_storage_socket[0] = -1;
-        netns_storage_socket[1] = -1;
+        netns_storage_socket[0] = netns_storage_socket[1] = -1;
         return 1;
 }
 

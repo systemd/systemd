@@ -93,6 +93,7 @@ int setup_tmp_dirs(
                 char **var_tmp_dir);
 
 int setup_netns(int netns_storage_socket[static 2]);
+int open_netns_path(int netns_storage_socket[static 2], const char *path);
 
 const char* protect_home_to_string(ProtectHome p) _const_;
 ProtectHome protect_home_from_string(const char *s) _pure_;

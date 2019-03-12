@@ -1661,14 +1661,14 @@ int setup_netns(int netns_storage_socket[static 2]) {
 
         netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
         if (netns == -EAGAIN) {
-                /* Nothing stored yet, so let's create a new namespace */
+                /* Nothing stored yet, so let's create a new namespace. */
 
                 if (unshare(CLONE_NEWNET) < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                loopback_setup();
+                (void) loopback_setup();
 
                 netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (netns < 0) {
@@ -1691,6 +1691,59 @@ int setup_netns(int netns_storage_socket[static 2]) {
 
                 r = 0;
         }
+
+        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        if (q < 0) {
+                r = q;
+                goto fail;
+        }
+
+fail:
+        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        return r;
+}
+
+int open_netns_path(int netns_storage_socket[static 2], const char *path) {
+        _cleanup_close_ int netns = -1;
+        int q, r;
+
+        assert(netns_storage_socket);
+        assert(netns_storage_socket[0] >= 0);
+        assert(netns_storage_socket[1] >= 0);
+        assert(path);
+
+        /* If the storage socket doesn't contain a netns fd yet, open one via the file system and store it in
+         * it. This is supposed to be called ahead of time, i.e. before setup_netns() which will allocate a
+         * new anonymous netns if needed. */
+
+        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+                return -errno;
+
+        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
+        if (netns == -EAGAIN) {
+                /* Nothing stored yet. Open the file from the file system. */
+
+                netns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netns < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                r = fd_is_network_ns(netns);
+                if (r == 0) { /* Not a netns? Refuse early. */
+                        r = -EINVAL;
+                        goto fail;
+                }
+                if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
+                        goto fail;
+
+                r = 1;
+
+        } else if (netns < 0) {
+                r = netns;
+                goto fail;
+        } else
+                r = 0; /* Already allocated */
 
         q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
         if (q < 0) {
