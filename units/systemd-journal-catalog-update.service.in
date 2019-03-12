@@ -12,7 +12,7 @@ Description=Rebuild Journal Catalog
 Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=local-fs.target
+After=local-fs.target systemd-tmpfiles-setup.service
 Before=sysinit.target shutdown.target systemd-update-done.service
 ConditionNeedsUpdate=/var
 
