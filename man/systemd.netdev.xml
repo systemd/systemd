@@ -772,7 +772,12 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>Specifies the IP address of the local interface. This address must be the address of a local interface. This option is compulsory.</para>
+          <para>Specifies the IP address of the local interface. Takes an IP address, or the special values
+          <literal>auto</literal>, <literal>static</literal>, or <literal>dynamic</literal>. When an address
+          is set, then the local interface must have the address. If <literal>auto</literal>, then one of the
+          addresses on the local interface is used. Similarly, if <literal>static</literal> or
+          <literal>dynamic</literal> is set, then one of the static or dynamic addresses on the local
+          interface is used. Defaults to <literal>auto</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

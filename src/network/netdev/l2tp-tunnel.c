@@ -11,6 +11,7 @@
 #include "l2tp-tunnel.h"
 #include "missing.h"
 #include "netlink-util.h"
+#include "networkd-address.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "socket-util.h"
@@ -32,6 +33,14 @@ static const char* const l2tp_encap_type_table[_NETDEV_L2TP_ENCAPTYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(l2tp_encap_type, L2tpEncapType);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_l2tp_encap_type, l2tp_encap_type, L2tpEncapType, "Failed to parse L2TP Encapsulation Type");
+
+static const char* const l2tp_local_address_type_table[_NETDEV_L2TP_LOCAL_ADDRESS_MAX] = {
+         [NETDEV_L2TP_LOCAL_ADDRESS_AUTO]    = "auto",
+         [NETDEV_L2TP_LOCAL_ADDRESS_STATIC]  = "static",
+         [NETDEV_L2TP_LOCAL_ADDRESS_DYNAMIC] = "dynamic",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(l2tp_local_address_type, L2tpLocalAddressType);
 
 static void l2tp_session_free(L2tpSession *s) {
         if (!s)
@@ -91,13 +100,14 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
         return 0;
 }
 
-static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, sd_netlink_message **ret) {
+static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t encap_type;
         L2tpTunnel *t;
         int r;
 
         assert(netdev);
+        assert(local_address);
 
         t = L2TP(netdev);
 
@@ -134,7 +144,7 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, sd_netlink_message **
                 return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_ENCAP_TYPE attribute: %m");
 
         if (t->family == AF_INET) {
-                r = sd_netlink_message_append_in_addr(m, L2TP_ATTR_IP_SADDR, &t->local.in);
+                r = sd_netlink_message_append_in_addr(m, L2TP_ATTR_IP_SADDR, &local_address->in);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP_SADDR attribute: %m");
 
@@ -142,7 +152,7 @@ static int netdev_l2tp_fill_message_tunnel(NetDev *netdev, sd_netlink_message **
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP_DADDR attribute: %m");
         } else {
-                r = sd_netlink_message_append_in6_addr(m, L2TP_ATTR_IP6_SADDR, &t->local.in6);
+                r = sd_netlink_message_append_in6_addr(m, L2TP_ATTR_IP6_SADDR, &local_address->in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append L2TP_ATTR_IP6_SADDR attribute: %m");
 
@@ -247,8 +257,54 @@ static int netdev_l2tp_fill_message_session(NetDev *netdev, L2tpSession *session
         return 0;
 }
 
+static int l2tp_acquire_local_address_one(L2tpTunnel *t, Address *a, union in_addr_union *ret) {
+        if (a->family != t->family)
+                return -EINVAL;
+
+        if (in_addr_is_null(a->family, &a->in_addr_peer) <= 0)
+                return -EINVAL;
+
+        if (t->local_address_type == NETDEV_L2TP_LOCAL_ADDRESS_STATIC &&
+            !FLAGS_SET(a->flags, IFA_F_PERMANENT))
+                return -EINVAL;
+
+        if (t->local_address_type == NETDEV_L2TP_LOCAL_ADDRESS_DYNAMIC &&
+            FLAGS_SET(a->flags, IFA_F_PERMANENT))
+                return -EINVAL;
+
+        *ret = a->in_addr;
+        return 0;
+}
+
+static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_union *ret) {
+        Address *a;
+        Iterator i;
+
+        assert(t);
+        assert(link);
+        assert(ret);
+        assert(IN_SET(t->family, AF_INET, AF_INET6));
+
+        if (!in_addr_is_null(t->family, &t->local)) {
+                /* local address is explicitly specified. */
+                *ret = t->local;
+                return 0;
+        }
+
+        SET_FOREACH(a, link->addresses, i)
+                if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
+                        return 1;
+
+        SET_FOREACH(a, link->addresses_foreign, i)
+                if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
+                        return 1;
+
+        return -ENODATA;
+}
+
 static int netdev_l2tp_tunnel_create(NetDev *netdev, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        union in_addr_union local_address;
         L2tpTunnel *t;
         L2tpSession *session;
         uint32_t serial;
@@ -261,7 +317,18 @@ static int netdev_l2tp_tunnel_create(NetDev *netdev, Link *link) {
 
         assert(t);
 
-        r = netdev_l2tp_fill_message_tunnel(netdev, &m);
+        r = l2tp_acquire_local_address(t, link, &local_address);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not find local address.");
+
+        if (r > 0 && DEBUG_LOGGING) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) in_addr_to_string(t->family, &local_address, &str);
+                log_netdev_debug(netdev, "Local address %s acquired.", strna(str));
+        }
+
+        r = netdev_l2tp_fill_message_tunnel(netdev, &local_address, &m);
         if (r < 0)
                 return r;
 
@@ -308,6 +375,26 @@ int config_parse_l2tp_tunnel_address(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (streq(lvalue, "Local")) {
+                L2tpLocalAddressType addr_type;
+
+                if (isempty(rvalue))
+                        addr_type = NETDEV_L2TP_LOCAL_ADDRESS_AUTO;
+                else
+                        addr_type = l2tp_local_address_type_from_string(rvalue);
+
+                if (addr_type >= 0) {
+                        if (in_addr_is_null(t->family, &t->remote) != 0)
+                                /* If Remote= is not specified yet, then also clear family. */
+                                t->family = AF_UNSPEC;
+
+                        t->local = IN_ADDR_NULL;
+                        t->local_address_type = addr_type;
+
+                        return 0;
+                }
+        }
 
         if (t->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &t->family, addr);
@@ -546,9 +633,9 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "%s: L2TP tunnel with invalid address family configured. Ignoring",
                                               filename);
 
-        if (in_addr_is_null(t->family, &t->local) || in_addr_is_null(t->family, &t->remote))
+        if (in_addr_is_null(t->family, &t->remote))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: L2TP tunnel without a local or remote address configured. Ignoring",
+                                              "%s: L2TP tunnel without a remote address configured. Ignoring",
                                               filename);
 
         if (t->tunnel_id == 0 || t->peer_tunnel_id == 0)

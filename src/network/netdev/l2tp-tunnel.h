@@ -21,6 +21,14 @@ typedef enum L2tpEncapType {
         _NETDEV_L2TP_ENCAPTYPE_INVALID = -1,
 } L2tpEncapType;
 
+typedef enum L2tpLocalAddressType {
+        NETDEV_L2TP_LOCAL_ADDRESS_AUTO,
+        NETDEV_L2TP_LOCAL_ADDRESS_STATIC,
+        NETDEV_L2TP_LOCAL_ADDRESS_DYNAMIC,
+        _NETDEV_L2TP_LOCAL_ADDRESS_MAX,
+        _NETDEV_L2TP_LOCAL_ADDRESS_INVALID = -1,
+} L2tpLocalAddressType;
+
 typedef struct L2tpTunnel L2tpTunnel;
 
 typedef struct L2tpSession {
@@ -49,6 +57,7 @@ struct L2tpTunnel {
         bool udp6_csum_rx;
         bool udp6_csum_tx;
 
+        L2tpLocalAddressType local_address_type;
         union in_addr_union local;
         union in_addr_union remote;
 
