@@ -517,9 +517,9 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 }
 
 static int mkdir_one(const char *prefix, const char *suffix) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
-        p = strjoina(prefix, "/", suffix);
+        p = path_join(prefix, suffix);
         if (mkdir(p, 0700) < 0) {
                 if (errno != EEXIST)
                         return log_error_errno(errno, "Failed to create \"%s\": %m", p);
@@ -935,7 +935,7 @@ static int install_entries_directories(const char *dollar_boot_path, sd_id128_t 
          * partition. Also create the parent directory for entry directories, so that kernel-install
          * knows where to put them. */
 
-        r = mkdir_one(dollar_boot_path, "/loader/entries");
+        r = mkdir_one(dollar_boot_path, "loader/entries");
         if (r < 0)
                 return r;
 
