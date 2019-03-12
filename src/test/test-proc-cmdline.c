@@ -92,7 +92,7 @@ static void test_proc_cmdline_get_key(void) {
         _cleanup_free_ char *value = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -129,13 +129,16 @@ static void test_proc_cmdline_get_key(void) {
         value = mfree(value);
 
         assert_se(proc_cmdline_get_key("ticks", 0, &value) > 0 && streq_ptr(value, "''"));
+        value = mfree(value);
+
+        assert_se(proc_cmdline_get_key("kkk", 0, &value) > 0 && streq_ptr(value, "uuu"));
 }
 
 static void test_proc_cmdline_get_bool(void) {
         bool value = false;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
 
         assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
         assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
@@ -148,13 +151,15 @@ static void test_proc_cmdline_get_bool(void) {
         assert_se(proc_cmdline_get_bool("x-y_z", &value) > 0 && value == false);
         assert_se(proc_cmdline_get_bool("x_y_z", &value) > 0 && value == false);
         assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
+        assert_se(proc_cmdline_get_bool("da", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("the", &value) > 0 && value == true);
 }
 
 static void test_proc_cmdline_get_key_many(void) {
-        _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL;
+        _cleanup_free_ char *value1 = NULL, *value2 = NULL, *value3 = NULL, *value4 = NULL, *value5 = NULL, *value6 = NULL, *value7 = NULL;
 
         log_info("/* %s */", __func__);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm SPACE='one two' doubleticks=\" aaa aaa \"\n\nzummm='\n'\n") == 0);
 
         assert_se(proc_cmdline_get_key_many(0,
                                             "wuff-piep", &value3,
@@ -162,7 +167,9 @@ static void test_proc_cmdline_get_key_many(void) {
                                             "idontexist", &value2,
                                             "zumm", &value4,
                                             "SPACE", &value5,
-                                            "doubleticks", &value6) == 4);
+                                            "doubleticks", &value6,
+                                            "zummm", &value7) == 5);
+
 
         assert_se(streq_ptr(value1, "quux"));
         assert_se(!value2);
@@ -170,6 +177,7 @@ static void test_proc_cmdline_get_key_many(void) {
         assert_se(!value4);
         assert_se(streq_ptr(value5, "one two"));
         assert_se(streq_ptr(value6, " aaa aaa "));
+        assert_se(streq_ptr(value7, "\n"));
 }
 
 static void test_proc_cmdline_key_streq(void) {
