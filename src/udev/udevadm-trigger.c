@@ -60,6 +60,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_se
 }
 
 static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *userdata) {
+        _cleanup_free_ char *val = NULL;
         Set *settle_set = userdata;
         const char *syspath;
 
@@ -72,7 +73,8 @@ static int device_monitor_handler(sd_device_monitor *m, sd_device *dev, void *us
         if (arg_verbose)
                 printf("settle %s\n", syspath);
 
-        if (!set_remove(settle_set, syspath))
+        val = set_remove(settle_set, syspath);
+        if (!val)
                 log_debug("Got epoll event on syspath %s not present in syspath set", syspath);
 
         if (set_isempty(settle_set))
