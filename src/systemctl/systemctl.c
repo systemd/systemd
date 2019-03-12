@@ -3591,6 +3591,8 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
+        if (r == -ENOKEY) /* The call doesn't log about ENOKEY, let's do so here. */
+                return log_error_errno(r, "Cannot find the ESP partition mount point.");
         if (r < 0)
                 return r;
 

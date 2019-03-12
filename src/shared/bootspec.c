@@ -712,9 +712,7 @@ int boot_entries_load_config_auto(
         }
 
         r = find_esp_and_warn(override_esp_path, false, &esp_where, NULL, NULL, NULL, NULL);
-        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
-        if (r < 0) /* But it logs about all these cases, hence don't log here again */
+        if (r < 0) /* we don't log about ENOKEY here, but propagate it, leaving it to the caller to log */
                 return r;
 
         r = find_xbootldr_and_warn(override_xbootldr_path, false, &xbootldr_where, NULL);
