@@ -304,7 +304,7 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 /* If the upper directory is unspecified, then let's create it automatically as a throw-away directory
                  * in /var/tmp */
                 if (isempty(upper))
-                        upper = NULL;
+                        upper = mfree(upper);
                 else if (!source_path_is_valid(upper))
                         return -EINVAL;
 
