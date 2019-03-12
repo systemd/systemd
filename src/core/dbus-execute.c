@@ -225,6 +225,48 @@ static int property_get_cpu_affinity(
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
 
+static int property_get_numa_mask(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_free_ uint8_t *array = NULL;
+        size_t allocated;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        (void) cpu_set_to_dbus(&c->numa_policy.nodes, &array, &allocated);
+
+        return sd_bus_message_append_array(reply, 'y', array, allocated);
+}
+
+static int property_get_numa_policy(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        ExecContext *c = userdata;
+        int32_t policy;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        policy = numa_policy_get_type(&c->numa_policy);
+
+        return sd_bus_message_append_basic(reply, 'i', &policy);
+}
+
 static int property_get_timer_slack_nsec(
                 sd_bus *bus,
                 const char *path,
@@ -700,6 +742,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("CPUSchedulingPolicy", "i", property_get_cpu_sched_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUSchedulingPriority", "i", property_get_cpu_sched_priority, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUAffinity", "ay", property_get_cpu_affinity, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NUMAPolicy", "i", property_get_numa_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NUMAMask", "ay", property_get_numa_mask, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUSchedulingResetOnFork", "b", bus_property_get_bool, offsetof(ExecContext, cpu_sched_reset_on_fork), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NonBlocking", "b", bus_property_get_bool, offsetof(ExecContext, non_blocking), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1650,9 +1694,10 @@ int bus_exec_context_set_transient_property(
                 return 1;
         }
 #endif
-        if (streq(name, "CPUAffinity")) {
+        if (STR_IN_SET(name, "CPUAffinity", "NUMAMask")) {
                 const void *a;
                 size_t n;
+                bool affinity = streq(name, "CPUAffinity");
                 _cleanup_(cpu_set_reset) CPUSet set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
@@ -1665,7 +1710,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (n == 0) {
-                                cpu_set_reset(&c->cpu_set);
+                                cpu_set_reset(affinity ? &c->cpu_set : &c->numa_policy.nodes);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *str = NULL;
@@ -1677,7 +1722,7 @@ int bus_exec_context_set_transient_property(
                                 /* We forego any optimizations here, and always create the structure using
                                  * cpu_set_add_all(), because we don't want to care if the existing size we
                                  * got over dbus is appropriate. */
-                                r = cpu_set_add_all(&c->cpu_set, &set);
+                                r = cpu_set_add_all(affinity ? &c->cpu_set : &c->numa_policy.nodes, &set);
                                 if (r < 0)
                                         return r;
 
@@ -1687,6 +1732,20 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "NUMAPolicy")) {
+                int32_t type;
+
+                r = sd_bus_message_read(message, "i", &type);
+                if (r < 0)
+                        return r;
+
+                if (!mpol_is_valid(type))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NUMAPolicy value: %i", type);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                        c->numa_policy.type = type;
+
+                return 1;
         } else if (streq(name, "Nice")) {
                 int32_t q;
 

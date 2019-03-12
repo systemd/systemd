@@ -23,6 +23,8 @@
 #CrashReboot=no
 #CtrlAltDelBurstAction=reboot-force
 #CPUAffinity=1 2
+#NUMAPolicy=default
+#NUMAMask=
 #RuntimeWatchdogSec=0
 #ShutdownWatchdogSec=10min
 #WatchdogDevice=

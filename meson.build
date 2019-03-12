@@ -496,6 +496,10 @@ foreach ident : [
                                  #include <unistd.h>'''],
         ['explicit_bzero' ,   '''#include <string.h>'''],
         ['reallocarray',      '''#include <malloc.h>'''],
+        ['set_mempolicy',     '''#include <stdlib.h>
+                                 #include <unistd.h>'''],
+        ['get_mempolicy',     '''#include <stdlib.h>
+                                 #include <unistd.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')

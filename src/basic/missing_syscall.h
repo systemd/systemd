@@ -444,3 +444,46 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
 
 #  define statx missing_statx
 #endif
+
+#if !HAVE_SET_MEMPOLICY
+
+enum {
+        MPOL_DEFAULT,
+        MPOL_PREFERRED,
+        MPOL_BIND,
+        MPOL_INTERLEAVE,
+        MPOL_LOCAL,
+};
+
+static inline long missing_set_mempolicy(int mode, const unsigned long *nodemask,
+                           unsigned long maxnode) {
+        long i;
+#  ifdef __NR_set_mempolicy
+        i = syscall(__NR_set_mempolicy, mode, nodemask, maxnode);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#  define set_mempolicy missing_set_mempolicy
+#endif
+
+
+#if !HAVE_GET_MEMPOLICY
+static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
+                           unsigned long maxnode, void *addr,
+                           unsigned long flags) {
+        long i;
+#  ifdef __NR_get_mempolicy
+        i = syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
+#  else
+        errno = ENOSYS;
+        i = -1;
+#  endif
+        return i;
+}
+
+#define get_mempolicy missing_get_mempolicy
+#endif

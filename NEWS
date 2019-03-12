@@ -104,6 +104,12 @@ CHANGES WITH 243 in spe:
           all" pattern instead, e.g. OriginalName=* or Name=* in case all
           interfaces should really be matched.
 
+        * A new setting NUMAPolicy= may be used to set process memory
+          allocation policy. Setting can be specified in system.conf and
+          hence will set the default policy for PID1. Default policy can be
+          overriden on per-service basis. Related setting NUMAMask= is used to
+          specify NUMA node mask that should be associated with the selected
+          policy.
           …
 
 CHANGES WITH 242:

@@ -167,6 +167,7 @@ struct ExecContext {
         int cpu_sched_priority;
 
         CPUSet cpu_set;
+        NUMAPolicy numa_policy;
 
         ExecInput std_input;
         ExecOutput std_output;
