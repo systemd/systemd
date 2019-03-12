@@ -893,7 +893,8 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *m = userdata;
-        const char *action, *sysfs;
+        DeviceAction action;
+        const char *sysfs;
         int r;
 
         assert(m);
@@ -905,19 +906,19 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
+        r = device_get_action(dev, &action);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get udev action string: %m");
+                log_device_error_errno(dev, r, "Failed to get udev action: %m");
                 return 0;
         }
 
-        if (streq(action, "change"))
+        if (action == DEVICE_ACTION_CHANGE)
                 device_propagate_reload_by_sysfs(m, sysfs);
 
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
          * so we need to reach the else block of the follwing if, even for change events */
-        if (streq(action, "remove"))  {
+        if (action == DEVICE_ACTION_REMOVE) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");

@@ -43,6 +43,7 @@ int device_new_aux(sd_device **ret) {
                 .devmode = (mode_t) -1,
                 .devuid = (uid_t) -1,
                 .devgid = (gid_t) -1,
+                .action = _DEVICE_ACTION_INVALID,
         };
 
         *ret = device;

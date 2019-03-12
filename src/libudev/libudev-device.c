@@ -45,24 +45,15 @@
  *
  * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
  **/
-_public_ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device) {
-        const char *seqnum;
-        unsigned long long ret;
-        int r;
+_public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_device) {
+        uint64_t seqnum;
 
         assert_return_errno(udev_device, 0, EINVAL);
 
-        r = sd_device_get_property_value(udev_device->device, "SEQNUM", &seqnum);
-        if (r == -ENOENT)
+        if (device_get_seqnum(udev_device->device, &seqnum) < 0)
                 return 0;
-        else if (r < 0)
-                return_with_errno(0, r);
 
-        r = safe_atollu(seqnum, &ret);
-        if (r < 0)
-                return_with_errno(0, r);
-
-        return ret;
+        return seqnum;
 }
 
 /**
@@ -652,18 +643,14 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
 _public_ const char *udev_device_get_action(struct udev_device *udev_device) {
-        const char *action;
-        int r;
+        DeviceAction action;
 
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        r = sd_device_get_property_value(udev_device->device, "ACTION", &action);
-        if (r == -ENOENT)
+        if (device_get_action(udev_device->device, &action) < 0)
                 return NULL;
-        if (r < 0)
-                return_with_errno(NULL, r);
 
-        return action;
+        return device_action_to_string(action);
 }
 
 /**

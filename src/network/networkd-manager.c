@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
@@ -182,21 +183,21 @@ int manager_connect_bus(Manager *m) {
 
 static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = userdata;
-        const char *action;
+        DeviceAction action;
         Link *link = NULL;
         int r, ifindex;
 
         assert(m);
         assert(device);
 
-        r = sd_device_get_property_value(device, "ACTION", &action);
+        r = device_get_action(device, &action);
         if (r < 0) {
-                log_device_debug_errno(device, r, "Failed to get 'ACTION' property, ignoring device: %m");
+                log_device_debug_errno(device, r, "Failed to get udev action, ignoring device: %m");
                 return 0;
         }
 
-        if (!STR_IN_SET(action, "add", "change", "move")) {
-                log_device_debug(device, "Ignoring udev %s event for device.", action);
+        if (!IN_SET(action, DEVICE_ACTION_ADD, DEVICE_ACTION_CHANGE, DEVICE_ACTION_MOVE)) {
+                log_device_debug(device, "Ignoring udev %s event for device.", device_action_to_string(action));
                 return 0;
         }
 
@@ -208,7 +209,8 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
 
         r = device_is_renaming(device);
         if (r < 0) {
-                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m", action);
+                log_device_error_errno(device, r, "Failed to determine the device is renamed or not, ignoring '%s' uevent: %m",
+                                       device_action_to_string(action));
                 return 0;
         }
         if (r > 0) {

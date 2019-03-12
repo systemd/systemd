@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "device-private.h"
 #include "hashmap.h"
 #include "set.h"
 #include "time-util.h"
@@ -63,6 +64,10 @@ struct sd_device {
         mode_t devmode;
         uid_t devuid;
         gid_t devgid;
+
+        /* only set when device is passed through netlink */
+        DeviceAction action;
+        uint64_t seqnum;
 
         bool parent_set:1; /* no need to try to reload parent */
         bool sysattrs_read:1; /* don't try to re-read sysattrs once read */

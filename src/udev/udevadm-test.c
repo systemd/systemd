@@ -53,9 +53,17 @@ static int parse_argv(int argc, char *argv[]) {
 
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
-                case 'a':
+                case 'a': {
+                        DeviceAction a;
+
+                        a = device_action_from_string(optarg);
+                        if (a < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid action '%s'", optarg);
+
                         arg_action = optarg;
                         break;
+                }
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)

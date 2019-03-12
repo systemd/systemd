@@ -1156,6 +1156,7 @@ static void add_rule(UdevRules *rules, char *line,
                         else {
                                 if (STR_IN_SET(attr,
                                                "ACTION",
+                                               "SEQNUM",
                                                "SUBSYSTEM",
                                                "DEVTYPE",
                                                "MAJOR",
@@ -1767,18 +1768,19 @@ int udev_rules_apply_to_event(
         sd_device *dev = event->dev;
         enum escape_type esc = ESCAPE_UNSET;
         struct token *cur, *rule;
-        const char *action, *val;
+        DeviceAction action;
+        const char *val;
         bool can_set_name;
         int r;
 
         if (!rules->tokens)
                 return 0;
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
+        r = device_get_action(dev, &action);
         if (r < 0)
                 return r;
 
-        can_set_name = (!streq(action, "remove") &&
+        can_set_name = (action != DEVICE_ACTION_REMOVE &&
                         (sd_device_get_devnum(dev, NULL) >= 0 ||
                          sd_device_get_ifindex(dev, NULL) >= 0));
 
@@ -1797,7 +1799,7 @@ int udev_rules_apply_to_event(
                         esc = ESCAPE_UNSET;
                         break;
                 case TK_M_ACTION:
-                        if (!match_key(rules, cur, action))
+                        if (!match_key(rules, cur, device_action_to_string(action)))
                                 goto nomatch;
                         break;
                 case TK_M_DEVPATH:
