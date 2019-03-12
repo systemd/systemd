@@ -3148,6 +3148,16 @@ static int exec_child(
                         return log_unit_error_errno(unit, errno, "Failed to set up CPU affinity: %m");
                 }
 
+        if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
+                r = apply_numa_policy(&context->numa_policy);
+                if (r == -EOPNOTSUPP)
+                        log_unit_debug_errno(unit, SYNTHETIC_ERRNO(r), "NUMA support not available, ignoring.");
+                else if (r < 0) {
+                        *exit_status = EXIT_NUMA_POLICY;
+                        return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
+                }
+        }
+
         if (context->ioprio_set)
                 if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
                         *exit_status = EXIT_IOPRIO;
@@ -3854,6 +3864,7 @@ void exec_context_init(ExecContext *c) {
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
+        numa_policy_reset(&c->numa_policy);
 }
 
 void exec_context_done(ExecContext *c) {
@@ -3898,6 +3909,7 @@ void exec_context_done(ExecContext *c) {
         c->n_temporary_filesystems = 0;
 
         cpu_set_reset(&c->cpu_set);
+        numa_policy_reset(&c->numa_policy);
 
         c->utmp_id = mfree(c->utmp_id);
         c->selinux_context = mfree(c->selinux_context);
@@ -4334,6 +4346,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
                 affinity = cpu_set_to_range_string(&c->cpu_set);
                 fprintf(f, "%sCPUAffinity: %s\n", prefix, affinity);
+        }
+
+        if (mpol_is_valid(numa_policy_get_type(&c->numa_policy))) {
+                _cleanup_free_ char *nodes = NULL;
+
+                nodes = cpu_set_to_range_string(&c->numa_policy.nodes);
+                fprintf(f, "%sNUMAPolicy: %s\n", prefix, mpol_to_string(numa_policy_get_type(&c->numa_policy)));
+                fprintf(f, "%sNUMAMask: %s\n", prefix, strnull(nodes));
         }
 
         if (c->timer_slack_nsec != NSEC_INFINITY)

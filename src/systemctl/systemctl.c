@@ -4839,6 +4839,16 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 bus_print_property_value(name, expected_value, value, "[not set]");
 
                         return 1;
+                } else if (streq(name, "NUMAPolicy")) {
+                        int32_t i;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        if (r < 0)
+                                return r;
+
+                        bus_print_property_valuef(name, expected_value, value, "%s", strna(mpol_to_string(i)));
+
+                        return 1;
                 }
                 break;
 
@@ -5451,7 +5461,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 bus_print_property_value(name, expected_value, value, strempty(fields));
 
                         return 1;
-                } else if (contents[0] == SD_BUS_TYPE_BYTE && streq(name, "CPUAffinity")) {
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "CPUAffinity", "NUMAMask")) {
                         _cleanup_free_ char *affinity = NULL;
                         _cleanup_(cpu_set_reset) CPUSet set = {};
                         const void *a;
@@ -5463,7 +5473,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         r = cpu_set_from_dbus(a, n, &set);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to deserialize CPUAffinity: %m");
+                                return log_error_errno(r, "Failed to deserialize %s: %m", name);
 
                         affinity = cpu_set_to_range_string(&set);
                         if (!affinity)

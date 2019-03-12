@@ -157,6 +157,9 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
                 case EXIT_CONFIGURATION_DIRECTORY:
                         return "CONFIGURATION_DIRECTORY";
 
+                case EXIT_NUMA_POLICY:
+                        return "NUMA_POLICY";
+
                 case EXIT_EXCEPTION:
                         return "EXCEPTION";
                 }
