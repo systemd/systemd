@@ -20,6 +20,9 @@ SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", DRIVERS=="hyperv_fb", TAG+="master-of-
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="seat", TAG+="master-of-seat"
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 
+# allow efifb / uvesafb to be a master if KMS is disabled
+SUBSYSTEM=="graphics", KERNEL=="fb[0-9]", PROGRAM="/usr/bin/grep -qw nomodeset /proc/cmdline", TAG+="master-of-seat"
+
 # 'Plugable' USB hub, sound, network, graphics adapter
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUTOSEAT}="1"
 
