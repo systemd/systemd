@@ -108,6 +108,14 @@ class Utilities():
                 subprocess.call(['ip', 'link', 'del', 'dev', link])
         time.sleep(1)
 
+    def l2tp_tunnel_remove(self, tunnel_ids):
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel']).rstrip().decode('utf-8')
+        for tid in tunnel_ids:
+            words='Tunnel ' + tid + ', encap'
+            if words in output:
+                subprocess.call(['ip', 'l2tp', 'del', 'tunnel', 'tid', tid])
+        time.sleep(1)
+
     def read_ipv6_sysctl_attr(self, link, attribute):
         with open(os.path.join(os.path.join(network_sysctl_ipv6_path, link), attribute)) as f:
             return f.readline().strip()
@@ -580,7 +588,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('ipiptun99'))
 
     def test_vxlan(self):
-        self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network','11-dummy.netdev')
+        self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network', '11-dummy.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('vxlan99'))
@@ -597,6 +605,88 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'remcsumtx')
         self.assertRegex(output, 'remcsumrx')
         self.assertRegex(output, 'gbp')
+
+class NetworkdL2TPTests(unittest.TestCase, Utilities):
+
+    links =[
+        'l2tp-ses1',
+        'l2tp-ses2',
+        'l2tp-ses3',
+        'l2tp-ses4',
+        'test1']
+
+    units = [
+        '11-dummy.netdev',
+        '25-l2tp-dummy.network',
+        '25-l2tp-ip.netdev',
+        '25-l2tp-udp.netdev']
+
+    l2tp_tunnel_ids = [ '10' ]
+
+    def setUp(self):
+        self.l2tp_tunnel_remove(self.l2tp_tunnel_ids)
+        self.link_remove(self.links)
+
+    def tearDown(self):
+        self.l2tp_tunnel_remove(self.l2tp_tunnel_ids)
+        self.link_remove(self.links)
+        self.remove_unit_from_networkd_path(self.units)
+
+    @expectedFailureIfModuleIsNotAvailable('l2tp_eth')
+    def test_l2tp_udp(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-udp.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+        self.assertTrue(self.link_exits('l2tp-ses1'))
+        self.assertTrue(self.link_exits('l2tp-ses2'))
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Tunnel 10, encap UDP")
+        self.assertRegex(output, "From 192.168.30.100 to 192.168.30.101")
+        self.assertRegex(output, "Peer tunnel 11")
+        self.assertRegex(output, "UDP source / dest ports: 3000/4000")
+        self.assertRegex(output, "UDP checksum: enabled")
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '15']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Session 15 in tunnel 10")
+        self.assertRegex(output, "Peer session 16, tunnel 11")
+        self.assertRegex(output, "interface name: l2tp-ses1")
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '17']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Session 17 in tunnel 10")
+        self.assertRegex(output, "Peer session 18, tunnel 11")
+        self.assertRegex(output, "interface name: l2tp-ses2")
+
+    @expectedFailureIfModuleIsNotAvailable('l2tp_ip')
+    def test_l2tp_ip(self):
+        self.copy_unit_to_networkd_unit_path('11-dummy.netdev', '25-l2tp-dummy.network', '25-l2tp-ip.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+        self.assertTrue(self.link_exits('l2tp-ses3'))
+        self.assertTrue(self.link_exits('l2tp-ses4'))
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'tunnel', 'tunnel_id', '10']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Tunnel 10, encap IP")
+        self.assertRegex(output, "From 192.168.30.100 to 192.168.30.101")
+        self.assertRegex(output, "Peer tunnel 12")
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '25']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Session 25 in tunnel 10")
+        self.assertRegex(output, "Peer session 26, tunnel 12")
+        self.assertRegex(output, "interface name: l2tp-ses3")
+
+        output = subprocess.check_output(['ip', 'l2tp', 'show', 'session', 'tid', '10', 'session_id', '27']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "Session 27 in tunnel 10")
+        self.assertRegex(output, "Peer session 28, tunnel 12")
+        self.assertRegex(output, "interface name: l2tp-ses4")
 
 class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     links = [
