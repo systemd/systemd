@@ -2798,7 +2798,7 @@ static int boot_loader_entry_exists(const char *id) {
         assert(id);
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
-        if (r < 0)
+        if (r < 0 && r != -ENOKEY) /* don't complain if no GPT is found, hence skip ENOKEY */
                 return r;
 
         (void) boot_entries_augment_from_loader(&config, true);
@@ -2953,7 +2953,7 @@ static int property_get_boot_loader_entries(
         assert(userdata);
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
-        if (r < 0)
+        if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
                 return r;
 
         (void) boot_entries_augment_from_loader(&config, true);
