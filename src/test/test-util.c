@@ -8,6 +8,7 @@
 #include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "limits-util.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
