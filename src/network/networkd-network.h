@@ -84,16 +84,6 @@ typedef enum RADVPrefixDelegation {
         _RADV_PREFIX_DELEGATION_INVALID = -1,
 } RADVPrefixDelegation;
 
-typedef struct NetworkConfigSection {
-        unsigned line;
-        char filename[];
-} NetworkConfigSection;
-
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
-void network_config_section_free(NetworkConfigSection *network);
-DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
-extern const struct hash_ops network_config_hash_ops;
-
 typedef struct Manager Manager;
 
 struct Network {
@@ -296,6 +286,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
 
 int network_load(Manager *manager);
 int network_load_one(Manager *manager, const char *filename);
+int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
 int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac, Network **ret);

@@ -9,6 +9,7 @@ Mode=
 [WireGuard]
 ListenPort=
 PrivateKey=
+PrivateKeyFile=
 FwMark=
 [MACVTAP]
 Mode=

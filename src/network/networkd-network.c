@@ -26,42 +26,6 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128
 
-static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
-        siphash24_compress(c->filename, strlen(c->filename), state);
-        siphash24_compress(&c->line, sizeof(c->line), state);
-}
-
-static int network_config_compare_func(const NetworkConfigSection *x, const NetworkConfigSection *y) {
-        int r;
-
-        r = strcmp(x->filename, y->filename);
-        if (r != 0)
-                return r;
-
-        return CMP(x->line, y->line);
-}
-
-DEFINE_HASH_OPS(network_config_hash_ops, NetworkConfigSection, network_config_hash_func, network_config_compare_func);
-
-int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s) {
-        NetworkConfigSection *cs;
-
-        cs = malloc0(offsetof(NetworkConfigSection, filename) + strlen(filename) + 1);
-        if (!cs)
-                return -ENOMEM;
-
-        strcpy(cs->filename, filename);
-        cs->line = line;
-
-        *s = TAKE_PTR(cs);
-
-        return 0;
-}
-
-void network_config_section_free(NetworkConfigSection *cs) {
-        free(cs);
-}
-
 /* Set defaults following RFC7844 */
 void network_apply_anonymize_if_set(Network *network) {
         if (!network->dhcp_anonymize)
@@ -106,13 +70,14 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
         NetDev *netdev;
         int r;
 
+        /* For test-networkd-conf, the check must be earlier than the assertions. */
+        if (!name)
+                return 0;
+
         assert(network);
         assert(network->manager);
         assert(network->filename);
         assert(ret_netdev);
-
-        if (!name)
-                return 0;
 
         if (kind == _NETDEV_KIND_TUNNEL)
                 kind_string = "tunnel";
@@ -195,9 +160,14 @@ static uint32_t network_get_stacked_netdevs_mtu(Network *network) {
         return mtu;
 }
 
-static int network_verify(Network *network) {
+int network_verify(Network *network) {
         Address *address, *address_next;
         Route *route, *route_next;
+        FdbEntry *fdb, *fdb_next;
+        Neighbor *neighbor, *neighbor_next;
+        AddressLabel *label, *label_next;
+        Prefix *prefix, *prefix_next;
+        RoutingPolicyRule *rule, *rule_next;
         uint32_t mtu;
 
         assert(network);
@@ -285,34 +255,32 @@ static int network_verify(Network *network) {
         }
 
         LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
-                if (address->family == AF_UNSPEC) {
-                        log_warning("%s: Address section without Address= field configured. "
-                                    "Ignoring [Address] section from line %u.",
-                                    network->filename, address->section->line);
-
+                if (address_section_verify(address) < 0)
                         address_free(address);
-                }
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes) {
-                if (route->family == AF_UNSPEC) {
-                        log_warning("%s: Route section without Gateway=, Destination=, Source=, "
-                                    "or PreferredSource= field configured. "
-                                    "Ignoring [Route] section from line %u.",
-                                    network->filename, route->section->line);
-
+        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
+                if (route_section_verify(route, network) < 0)
                         route_free(route);
-                        continue;
-                }
 
-                if (network->n_static_addresses == 0 &&
-                    in_addr_is_null(route->family, &route->gw) == 0 &&
-                    route->gateway_onlink < 0) {
-                        log_warning("%s: Gateway= without static address configured. "
-                                    "Enabling GatewayOnLink= option.",
-                                    network->filename);
-                        route->gateway_onlink = true;
-                }
-        }
+        LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
+                if (section_is_invalid(fdb->section))
+                        fdb_entry_free(fdb);
+
+        LIST_FOREACH_SAFE(neighbors, neighbor, neighbor_next, network->neighbors)
+                if (section_is_invalid(neighbor->section))
+                        neighbor_free(neighbor);
+
+        LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
+                if (section_is_invalid(label->section))
+                        address_label_free(label);
+
+        LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_prefixes)
+                if (section_is_invalid(prefix->section))
+                        prefix_free(prefix);
+
+        LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
+                if (section_is_invalid(rule->section))
+                        routing_policy_rule_free(rule);
 
         return 0;
 }
@@ -459,6 +427,10 @@ int network_load_one(Manager *manager, const char *filename) {
                 return r;
 
         network_apply_anonymize_if_set(network);
+
+        r = network_add_ipv4ll_route(network);
+        if (r < 0)
+                log_warning_errno(r, "%s: Failed to add IPv4LL route, ignoring: %m", network->filename);
 
         LIST_PREPEND(networks, manager->networks, network);
         network->manager = manager;
@@ -674,32 +646,10 @@ int network_get(Manager *manager, sd_device *device,
 }
 
 int network_apply(Network *network, Link *link) {
-        int r;
-
         assert(network);
         assert(link);
 
         link->network = network;
-
-        if (network->ipv4ll_route) {
-                Route *route;
-
-                r = route_new_static(network, NULL, 0, &route);
-                if (r < 0)
-                        return r;
-
-                r = inet_pton(AF_INET, "169.254.0.0", &route->dst.in);
-                if (r == 0)
-                        return -EINVAL;
-                if (r < 0)
-                        return -errno;
-
-                route->family = AF_INET;
-                route->dst_prefixlen = 16;
-                route->scope = RT_SCOPE_LINK;
-                route->priority = IPV4LL_ROUTE_METRIC;
-                route->protocol = RTPROT_STATIC;
-        }
 
         if (network->n_dns > 0 ||
             !strv_isempty(network->ntp) ||
@@ -733,35 +683,18 @@ int config_parse_stacked_netdev(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        _cleanup_free_ char *kind_string = NULL, *name = NULL;
+        _cleanup_free_ char *name = NULL;
+        NetDevKind kind = ltype;
         Hashmap **h = data;
-        NetDevKind kind;
-        char *p;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
-
-        if (ltype == _NETDEV_KIND_TUNNEL)
-                kind = _NETDEV_KIND_TUNNEL;
-        else {
-                kind_string = strdup(lvalue);
-                if (!kind_string)
-                        return log_oom();
-
-                /* the keys are CamelCase versions of the kind */
-                for (p = kind_string; *p; p++)
-                        *p = tolower(*p);
-
-                kind = netdev_kind_from_string(kind_string);
-                if (kind < 0 || IN_SET(kind, NETDEV_KIND_BRIDGE, NETDEV_KIND_BOND, NETDEV_KIND_VRF)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Invalid NetDev kind: %s", lvalue);
-                        return 0;
-                }
-        }
+        assert(IN_SET(kind,
+                      NETDEV_KIND_VLAN, NETDEV_KIND_MACVLAN, NETDEV_KIND_MACVTAP,
+                      NETDEV_KIND_IPVLAN, NETDEV_KIND_VXLAN, _NETDEV_KIND_TUNNEL));
 
         if (!ifname_valid(rvalue)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,

@@ -11,6 +11,7 @@ typedef struct Address Address;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "networkd-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
@@ -46,7 +47,6 @@ struct Address {
         LIST_FIELDS(Address, addresses);
 };
 
-int address_new_static(Network *network, const char *filename, unsigned section, Address **ret);
 int address_new(Address **ret);
 void address_free(Address *address);
 int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
@@ -58,8 +58,9 @@ int address_configure(Address *address, Link *link, link_netlink_message_handler
 int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
+int address_section_verify(Address *a);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);

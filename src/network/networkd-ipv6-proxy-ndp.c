@@ -50,7 +50,7 @@ static int ipv6_proxy_ndp_set(Link *link) {
         return 0;
 }
 
-int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **ret) {
+static int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **ret) {
         _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
 
         assert(network);

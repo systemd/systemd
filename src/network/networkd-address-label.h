@@ -11,6 +11,7 @@ typedef struct AddressLabel AddressLabel;
 
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "networkd-util.h"
 
 typedef struct Network Network;
 typedef struct Link Link;
@@ -30,7 +31,7 @@ struct AddressLabel {
 
 void address_label_free(AddressLabel *label);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel*, address_label_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
 int address_label_configure(AddressLabel *address, Link *link, link_netlink_message_handler_t callback, bool update);
 

@@ -242,6 +242,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
+        '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
         '6rd.network',
         'gre.network',
@@ -454,16 +455,21 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t20')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'endpoints']).rstrip().decode('utf-8')
             self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.27.3:51820')
+            output = subprocess.check_output(['wg', 'show', 'wg99', 'private-key']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=')
 
         self.assertTrue(self.link_exits('wg99'))
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard_23_peers(self):
-        self.copy_unit_to_networkd_unit_path('25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network')
+        self.copy_unit_to_networkd_unit_path('25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
+                                             '25-wireguard-private-key.txt')
         self.start_networkd()
 
         if shutil.which('wg'):
             subprocess.call('wg')
+            output = subprocess.check_output(['wg', 'show', 'wg98', 'private-key']).rstrip().decode('utf-8')
+            self.assertTrue(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr+WHtZLZ90FU=')
 
         self.assertTrue(self.link_exits('wg98'))
 
@@ -813,6 +819,9 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
         self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
+        # also tests invalid [Address] section
+        self.assertNotRegex(output, '10.10.0.1/16')
+        self.assertNotRegex(output, '10.10.0.2/16')
 
     def test_ip_route(self):
         self.copy_unit_to_networkd_unit_path('25-route-section.network', '12-dummy.netdev')

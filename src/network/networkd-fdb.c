@@ -18,7 +18,7 @@
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
 /* create a new FDB entry or get an existing one. */
-int fdb_entry_new_static(
+static int fdb_entry_new_static(
                 Network *network,
                 const char *filename,
                 unsigned section_line,
@@ -189,7 +189,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -235,7 +235,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_free_or_set_invalidp) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);

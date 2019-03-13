@@ -7,6 +7,7 @@ typedef struct Route Route;
 typedef struct NetworkConfigSection NetworkConfigSection;
 
 #include "networkd-network.h"
+#include "networkd-util.h"
 
 struct Route {
         Network *network;
@@ -43,7 +44,6 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
-int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_new(Route **ret);
 void route_free(Route *route);
 int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback);
@@ -56,8 +56,11 @@ void route_update(Route *route, const union in_addr_union *src, unsigned char sr
 bool route_equal(Route *r1, Route *r2);
 
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
+int route_section_verify(Route *route, Network *network);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
+
+int network_add_ipv4ll_route(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);

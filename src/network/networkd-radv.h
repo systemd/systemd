@@ -8,6 +8,7 @@
 #include "conf-parser.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
+#include "networkd-util.h"
 
 typedef struct Prefix Prefix;
 
@@ -22,9 +23,8 @@ struct Prefix {
 
 int prefix_new(Prefix **ret);
 void prefix_free(Prefix *prefix);
-int prefix_new_static(Network *network, const char *filename, unsigned section, Prefix **ret);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Prefix*, prefix_free);
+DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
