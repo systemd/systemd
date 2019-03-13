@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "limits-util.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "procfs-util.h"

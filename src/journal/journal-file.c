@@ -22,6 +22,7 @@
 #include "journal-def.h"
 #include "journal-file.h"
 #include "lookup3.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"

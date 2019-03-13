@@ -10,6 +10,7 @@
 #include "bitmap.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "memory-util.h"
 
 struct Bitmap {
         uint64_t *bitmaps;

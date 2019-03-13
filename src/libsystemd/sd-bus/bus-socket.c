@@ -18,6 +18,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -28,7 +29,6 @@
 #include "string-util.h"
 #include "user-util.h"
 #include "utf8.h"
-#include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
 

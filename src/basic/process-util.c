@@ -32,6 +32,7 @@
 #include "ioprio.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "namespace-util.h"
 #include "process-util.h"
@@ -43,7 +44,6 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int get_process_state(pid_t pid) {
         const char *p;

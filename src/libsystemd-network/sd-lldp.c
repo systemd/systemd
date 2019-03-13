@@ -13,6 +13,7 @@
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
+#include "memory-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 

@@ -16,7 +16,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
+#include "memory-util.h"
 
 static void test_align_power2(void) {
         unsigned long i, p2;

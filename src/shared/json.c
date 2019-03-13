@@ -18,6 +18,7 @@
 #include "json-internal.h"
 #include "json.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"

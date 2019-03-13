@@ -9,9 +9,9 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "path-util.h"
-#include "util.h"
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;

@@ -9,7 +9,7 @@
 #include "bus-util.h"
 #include "log.h"
 #include "macro.h"
-#include "util.h"
+#include "memory-util.h"
 
 struct context {
         int fds[2];

@@ -20,6 +20,7 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "ip-address-access.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 #include "unit.h"
 

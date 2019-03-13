@@ -10,9 +10,9 @@
 #include "list.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "mmap-cache.h"
 #include "sigbus.h"
-#include "util.h"
 
 typedef struct Window Window;
 typedef struct Context Context;

@@ -6,10 +6,10 @@
 
 #include "fd-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "sleep-config.h"
 #include "strv.h"
 #include "tests.h"
-#include "util.h"
 
 static void test_parse_sleep_config(void) {
         const char *verb;

@@ -7,9 +7,9 @@
 #include "in-addr-util.h"
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "unaligned.h"
-#include "util.h"
 
 static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash *state) {
         siphash24_compress(id->chassis_id, id->chassis_id_size, state);

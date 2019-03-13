@@ -31,6 +31,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -40,7 +41,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "utmp-wtmp.h"
 
 static enum {

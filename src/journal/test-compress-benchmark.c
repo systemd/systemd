@@ -4,6 +4,7 @@
 #include "compress.h"
 #include "env-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "random-util.h"

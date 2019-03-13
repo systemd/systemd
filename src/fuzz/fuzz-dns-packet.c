@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fuzz.h"
+#include "memory-util.h"
 #include "resolved-dns-packet.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

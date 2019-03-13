@@ -65,6 +65,7 @@
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "namespace.h"
@@ -91,7 +92,6 @@
 #include "umask-util.h"
 #include "unit.h"
 #include "user-util.h"
-#include "util.h"
 #include "utmp-wtmp.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)

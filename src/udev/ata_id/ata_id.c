@@ -26,8 +26,8 @@
 #include "fd-util.h"
 #include "libudev-util.h"
 #include "log.h"
+#include "memory-util.h"
 #include "udev-util.h"
-#include "util.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 

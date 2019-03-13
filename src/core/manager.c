@@ -52,6 +52,7 @@
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -77,7 +78,6 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 

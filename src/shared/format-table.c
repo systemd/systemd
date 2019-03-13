@@ -8,6 +8,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "gunicode.h"
+#include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -15,7 +16,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 
 #define DEFAULT_WEIGHT 100
 

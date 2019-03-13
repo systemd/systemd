@@ -21,11 +21,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "memory-util.h"
 #include "random-util.h"
 #include "scsi.h"
 #include "scsi_id.h"
 #include "string-util.h"
-#include "util.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

@@ -7,7 +7,7 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "util.h"
+#include "memory-util.h"
 
 #define snprintf_ok(buf, len, fmt, ...) \
         ((size_t) snprintf(buf, len, fmt, __VA_ARGS__) < (len))

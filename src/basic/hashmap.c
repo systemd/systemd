@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "mempool.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -16,7 +17,6 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #if ENABLE_DEBUG_HASHMAP
 #include <pthread.h>

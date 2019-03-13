@@ -20,6 +20,7 @@
 #include "install.h"
 #include "load-fragment.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "rm-rf.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -28,7 +29,6 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 static int test_unit_file_get_set(void) {
         int r;

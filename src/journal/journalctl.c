@@ -50,6 +50,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "pager.h"
 #include "parse-util.h"

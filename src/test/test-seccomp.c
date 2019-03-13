@@ -13,6 +13,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "nsflags.h"
 #include "process-util.h"
@@ -21,7 +22,6 @@
 #include "set.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 #include "virt.h"
 
 #if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
