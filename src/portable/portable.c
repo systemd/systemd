@@ -24,6 +24,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"

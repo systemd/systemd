@@ -24,10 +24,10 @@
 #include "event-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
+#include "memory-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)

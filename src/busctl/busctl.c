@@ -25,10 +25,10 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "sort-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static enum {

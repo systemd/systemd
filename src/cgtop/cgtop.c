@@ -25,11 +25,11 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "sort-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 
 typedef struct Group {

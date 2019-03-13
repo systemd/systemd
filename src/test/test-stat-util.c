@@ -9,6 +9,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"

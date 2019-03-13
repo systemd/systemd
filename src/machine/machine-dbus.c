@@ -29,6 +29,7 @@
 #include "machine.h"
 #include "missing_capability.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"

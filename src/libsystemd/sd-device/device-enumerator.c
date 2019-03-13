@@ -8,9 +8,9 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #define DEVICE_ENUMERATE_MAX_DEPTH 256
 

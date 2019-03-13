@@ -61,6 +61,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "netlink-util.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-def.h"

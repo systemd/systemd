@@ -20,6 +20,7 @@
 #include "output-mode.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "unit-name.h"

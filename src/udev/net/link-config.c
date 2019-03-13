@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "link-config.h"
 #include "log.h"
+#include "memory-util.h"
 #include "missing_network.h"
 #include "naming-scheme.h"
 #include "netlink-util.h"
@@ -26,7 +27,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);

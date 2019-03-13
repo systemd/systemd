@@ -13,7 +13,9 @@
 #include "lldp-internal.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
+#include "memory-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 
 #define LLDP_DEFAULT_NEIGHBORS_MAX 128U

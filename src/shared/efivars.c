@@ -21,11 +21,11 @@
 #include "io-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "sort-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "virt.h"
 
 #if ENABLE_EFI

@@ -36,11 +36,12 @@
 #if HAVE_SECCOMP
 #  include "seccomp-util.h"
 #endif
+#include "sort-util.h"
 #include "special.h"
 #include "strv.h"
 #include "strxcpyx.h"
-#include "time-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "util.h"
 #include "verbs.h"

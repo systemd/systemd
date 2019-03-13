@@ -18,6 +18,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
 

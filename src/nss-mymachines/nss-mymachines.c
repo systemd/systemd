@@ -12,11 +12,11 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "nss-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);

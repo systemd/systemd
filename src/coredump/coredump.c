@@ -35,6 +35,7 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -48,7 +49,6 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((uint64_t) (2LLU*1024LLU*1024LLU*1024LLU))

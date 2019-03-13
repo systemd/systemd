@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "macro.h"
-#include "util.h"
+#include "memory-util.h"
 
 static void test_alloca(void) {
         static const uint8_t zero[997] = { };

@@ -47,6 +47,7 @@
 #include "ima-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
 #include "loopback-setup.h"

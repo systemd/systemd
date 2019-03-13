@@ -32,6 +32,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"

@@ -21,9 +21,9 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "memory-util.h"
 #include "random-util.h"
 #include "udev-util.h"
-#include "util.h"
 
 /* device info */
 static unsigned cd_cd_rom;

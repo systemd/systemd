@@ -17,15 +17,16 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "sort-util.h"
 #include "sparse-endian.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",

@@ -31,6 +31,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "process-util.h"
@@ -44,7 +45,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"
-#include "util.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
 

@@ -14,10 +14,10 @@
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
+#include "memory-util.h"
 #include "sparse-endian.h"
 #include "strv.h"
 #include "unaligned.h"
-#include "util.h"
 
 typedef struct DHCP6StatusOption {
         struct DHCP6Option option;

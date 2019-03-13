@@ -21,6 +21,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -31,7 +32,6 @@
 #include "strv.h"
 #include "user-util.h"
 #include "utf8.h"
-#include "util.h"
 
 #if ENABLE_IDN
 #  define IDN_FLAGS NI_IDN

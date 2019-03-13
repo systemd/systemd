@@ -22,13 +22,14 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "sort-util.h"
 #include "spawn-polkit-agent.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "terminal-util.h"
 
 enum {
         ACTION_DEFAULT,

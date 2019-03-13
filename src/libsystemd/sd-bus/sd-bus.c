@@ -32,12 +32,12 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #define log_debug_bus_message(m)                                         \
         do {                                                             \

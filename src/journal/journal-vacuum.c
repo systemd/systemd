@@ -14,9 +14,9 @@
 #include "journal-file.h"
 #include "journal-vacuum.h"
 #include "parse-util.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "util.h"
 #include "xattr-util.h"
 
 struct vacuum_info {

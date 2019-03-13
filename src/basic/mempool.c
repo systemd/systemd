@@ -5,6 +5,7 @@
 
 #include "env-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "mempool.h"
 #include "process-util.h"
 #include "util.h"

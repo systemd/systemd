@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 

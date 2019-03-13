@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -22,8 +23,8 @@
 #include "resolve-private.h"
 #include "string-util.h"
 #include "strv.h"
-#include "wireguard.h"
 #include "wireguard-netlink.h"
+#include "wireguard.h"
 
 static void resolve_endpoints(NetDev *netdev);
 

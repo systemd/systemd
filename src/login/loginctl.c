@@ -19,6 +19,7 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -33,7 +34,6 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static char **arg_property = NULL;

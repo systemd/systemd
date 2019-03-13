@@ -27,9 +27,6 @@
 #include "macro.h"
 #include "time-util.h"
 
-size_t page_size(void) _pure_;
-#define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
-
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
 }
@@ -66,112 +63,7 @@ int prot_from_flags(int flags) _const_;
 bool in_initrd(void);
 void in_initrd_force(bool value);
 
-void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
-                 __compar_d_fn_t compar, void *arg);
-
-#define typesafe_bsearch_r(k, b, n, func, userdata)                     \
-        ({                                                              \
-                const typeof(b[0]) *_k = k;                             \
-                int (*_func_)(const typeof(b[0])*, const typeof(b[0])*, typeof(userdata)) = func; \
-                xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (__compar_d_fn_t) _func_, userdata); \
-        })
-
-/**
- * Normal bsearch requires base to be nonnull. Here were require
- * that only if nmemb > 0.
- */
-static inline void* bsearch_safe(const void *key, const void *base,
-                                 size_t nmemb, size_t size, __compar_fn_t compar) {
-        if (nmemb <= 0)
-                return NULL;
-
-        assert(base);
-        return bsearch(key, base, nmemb, size, compar);
-}
-
-#define typesafe_bsearch(k, b, n, func)                                 \
-        ({                                                              \
-                const typeof(b[0]) *_k = k;                             \
-                int (*_func_)(const typeof(b[0])*, const typeof(b[0])*) = func; \
-                bsearch_safe((const void*) _k, (b), (n), sizeof((b)[0]), (__compar_fn_t) _func_); \
-        })
-
-/**
- * Normal qsort requires base to be nonnull. Here were require
- * that only if nmemb > 0.
- */
-static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
-        if (nmemb <= 1)
-                return;
-
-        assert(base);
-        qsort(base, nmemb, size, compar);
-}
-
-/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
- * is the prototype for the comparison function */
-#define typesafe_qsort(p, n, func)                                      \
-        ({                                                              \
-                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*) = func; \
-                qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
-        })
-
-static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *userdata) {
-        if (nmemb <= 1)
-                return;
-
-        assert(base);
-        qsort_r(base, nmemb, size, compar, userdata);
-}
-
-#define typesafe_qsort_r(p, n, func, userdata)                          \
-        ({                                                              \
-                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*, typeof(userdata)) = func; \
-                qsort_r_safe((p), (n), sizeof((p)[0]), (__compar_d_fn_t) _func_, userdata); \
-        })
-
-/* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
-static inline void memcpy_safe(void *dst, const void *src, size_t n) {
-        if (n == 0)
-                return;
-        assert(src);
-        memcpy(dst, src, n);
-}
-
-/* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
-static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
-        if (n == 0)
-                return 0;
-        assert(s1);
-        assert(s2);
-        return memcmp(s1, s2, n);
-}
-
-/* Compare s1 (length n1) with s2 (length n2) in lexicographic order. */
-static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2) {
-        return memcmp_safe(s1, s2, MIN(n1, n2))
-            ?: CMP(n1, n2);
-}
-
 int on_ac_power(void);
-
-#define memzero(x,l)                                            \
-        ({                                                      \
-                size_t _l_ = (l);                               \
-                void *_x_ = (x);                                \
-                _l_ == 0 ? _x_ : memset(_x_, 0, _l_);           \
-        })
-
-#define zero(x) (memzero(&(x), sizeof(x)))
-
-bool memeqzero(const void *data, size_t length);
-
-#define eqzero(x) memeqzero(x, sizeof(x))
-
-static inline void *mempset(void *s, int c, size_t n) {
-        memset(s, c, n);
-        return (uint8_t*)s + n;
-}
 
 static inline void _reset_errno_(int *saved_errno) {
         if (*saved_errno < 0) /* Invalidated by UNPROTECT_ERRNO? */
@@ -236,15 +128,6 @@ static inline unsigned log2u_round_up(unsigned x) {
 }
 
 int container_get_leader(const char *machine, pid_t *pid);
-
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd);
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
-
-uint64_t physical_memory(void);
-uint64_t physical_memory_scale(uint64_t v, uint64_t max);
-
-uint64_t system_tasks_max(void);
-uint64_t system_tasks_max_scale(uint64_t v, uint64_t max);
 
 int version(void);
 

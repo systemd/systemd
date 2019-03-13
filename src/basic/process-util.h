@@ -12,6 +12,7 @@
 #include <sys/resource.h>
 #include <sys/types.h>
 
+#include "alloc-util.h"
 #include "format-util.h"
 #include "ioprio.h"
 #include "macro.h"

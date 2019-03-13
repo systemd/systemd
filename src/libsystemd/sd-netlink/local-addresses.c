@@ -6,6 +6,7 @@
 #include "local-addresses.h"
 #include "macro.h"
 #include "netlink-util.h"
+#include "sort-util.h"
 
 static int address_compare(const struct local_address *a, const struct local_address *b) {
         int r;

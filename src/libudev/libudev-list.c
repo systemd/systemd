@@ -7,7 +7,7 @@
 
 #include "alloc-util.h"
 #include "libudev-list-internal.h"
-#include "util.h"
+#include "memory-util.h"
 
 /**
  * SECTION:libudev-list

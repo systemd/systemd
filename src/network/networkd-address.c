@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
+#include "memory-util.h"
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
@@ -15,7 +16,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
-#include "util.h"
 
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U

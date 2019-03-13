@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "hostname-util.h"
+#include "memory-util.h"
 #include "missing.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
