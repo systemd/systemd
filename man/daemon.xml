@@ -77,9 +77,10 @@
         <function>setsid()</function> to detach from any terminal and
         create an independent session.</para></listitem>
 
-        <listitem><para>In the child, call <function>fork()</function>
-        again, to ensure that the daemon can never re-acquire a
-        terminal again.</para></listitem>
+        <listitem><para>In the child, call <function>fork()</function> again, to ensure that the daemon can
+        never re-acquire a terminal again. (This relevant if the program — and all its dependencies — does
+        not carefully specify `O_NOCTTY` on each and every single `open()` call that might potentially open a
+        TTY device node.)</para></listitem>
 
         <listitem><para>Call <function>exit()</function> in the first
         child, so that only the second child (the actual daemon
@@ -243,6 +244,10 @@
         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+        <listitem><para>As new-style daemons are invoked without a controlling TTY (but as their own session
+        leaders) care should be taken to always specify `O_NOCTTY` on `open()` calls that possibly reference
+        a TTY device node, so that no controlling TTY is accidentally acquired.</para></listitem>
 
       </orderedlist>
 
