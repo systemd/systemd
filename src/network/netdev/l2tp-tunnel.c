@@ -302,13 +302,87 @@ static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_u
         return -ENODATA;
 }
 
-static int netdev_l2tp_tunnel_create(NetDev *netdev, Link *link) {
+static void l2tp_session_destroy_callback(L2tpSession *session) {
+        if (!session)
+                return;
+
+        netdev_unref(NETDEV(session->tunnel));
+}
+
+static int l2tp_create_session_handler(sd_netlink *rtnl, sd_netlink_message *m, L2tpSession *session) {
+        NetDev *netdev;
+        int r;
+
+        assert(session);
+        assert(session->tunnel);
+
+        netdev = NETDEV(session->tunnel);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r == -EEXIST)
+                log_netdev_info(netdev, "L2TP session %s exists, using existing without changing its parameters",
+                                session->name);
+        else if (r < 0) {
+                log_netdev_warning_errno(netdev, r, "L2TP session %s could not be created: %m", session->name);
+                return 1;
+        }
+
+        log_netdev_debug(netdev, "L2TP session %s created", session->name);
+        return 1;
+}
+
+static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *n = NULL;
+        int r;
+
+        r = netdev_l2tp_fill_message_session(netdev, session, &n);
+        if (r < 0)
+                return r;
+
+        r = netlink_call_async(netdev->manager->genl, NULL, n, l2tp_create_session_handler,
+                               l2tp_session_destroy_callback, session);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Failed to create L2TP session %s: %m", session->name);
+
+        netdev_ref(netdev);
+        return 0;
+}
+
+static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+        L2tpSession *session;
+        L2tpTunnel *t;
+        Iterator i;
+        int r;
+
+        assert(netdev);
+        assert(netdev->state != _NETDEV_STATE_INVALID);
+
+        t = L2TP(netdev);
+
+        assert(t);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r == -EEXIST)
+                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
+        else if (r < 0) {
+                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+                netdev_drop(netdev);
+
+                return 1;
+        }
+
+        log_netdev_debug(netdev, "L2TP tunnel is created");
+
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section, i)
+                (void) l2tp_create_session(netdev, session);
+
+        return 1;
+}
+
+static int l2tp_create_tunnel(NetDev *netdev, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         union in_addr_union local_address;
         L2tpTunnel *t;
-        L2tpSession *session;
-        uint32_t serial;
-        Iterator i;
         int r;
 
         assert(netdev);
@@ -332,25 +406,12 @@ static int netdev_l2tp_tunnel_create(NetDev *netdev, Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_send(netdev->manager->genl, m, &serial);
+        r = netlink_call_async(netdev->manager->genl, NULL, m, l2tp_create_tunnel_handler,
+                               netdev_destroy_callback, netdev);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Failed to create L2TP tunnel: %m");
 
-        log_netdev_debug(netdev, "L2TP tunnel created");
-
-        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section, i) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *n = NULL;
-
-                r = netdev_l2tp_fill_message_session(netdev, session, &n);
-                if (r < 0)
-                        continue;
-
-                r = sd_netlink_send(netdev->manager->genl, n, &serial);
-                if (r < 0)
-                        log_netdev_error_errno(netdev, r, "Failed to create L2TP session %s: %m", session->name);
-
-                log_netdev_debug(netdev, "L2TP session %s created", session->name);
-        }
+        netdev_ref(netdev);
 
         return 0;
 }
@@ -666,7 +727,7 @@ const NetDevVTable l2tptnl_vtable = {
         .object_size = sizeof(L2tpTunnel),
         .init = l2tp_tunnel_init,
         .sections = "Match\0NetDev\0L2TP\0L2TPSession",
-        .create_after_configured = netdev_l2tp_tunnel_create,
+        .create_after_configured = l2tp_create_tunnel,
         .done = l2tp_tunnel_done,
         .create_type = NETDEV_CREATE_AFTER_CONFIGURED,
         .config_verify = netdev_l2tp_tunnel_verify,
