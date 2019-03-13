@@ -807,24 +807,26 @@
 
       <varlistentry>
         <term><varname>RestartPreventExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will prevent
-        automatic service restarts, regardless of the restart setting
-        configured with <varname>Restart=</varname>. Exit status
-        definitions can either be numeric exit codes or termination
-        signal names, and are separated by spaces. Defaults to the
-        empty list, so that, by default, no exit status is excluded
-        from the configured restart logic. For example:
+
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will prevent automatic service restarts, regardless of the restart setting configured with
+        <varname>Restart=</varname>. Exit status definitions can either be numeric exit codes or termination
+        signal names, and are separated by spaces. Defaults to the empty list, so that, by default, no exit
+        status is excluded from the configured restart logic. For example:
 
         <programlisting>RestartPreventExitStatus=1 6 SIGABRT</programlisting>
 
-        ensures that exit codes 1 and 6 and the termination signal
-        <constant>SIGABRT</constant> will not result in automatic
-        service restarting. This option may appear more than once, in
-        which case the list of restart-preventing statuses is
-        merged. If the empty string is assigned to this option, the
-        list is reset and all prior assignments of this option will
-        have no effect.</para></listitem>
+        ensures that exit codes 1 and 6 and the termination signal <constant>SIGABRT</constant> will not
+        result in automatic service restarting. This option may appear more than once, in which case the list
+        of restart-preventing statuses is merged. If the empty string is assigned to this option, the list is
+        reset and all prior assignments of this option will have no effect.</para>
+
+        <para>Note that this setting has no effect on processes configured via
+        <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecStop=</varname>,
+        <varname>ExecStopPost=</varname> or <varname>ExecReload=</varname>, but only on the main service
+        process, i.e. either the one invoked by <varname>ExecStart=</varname> or (depending on
+        <varname>Type=</varname>, <varname>PIDFile=</varname>, …) the otherwise configured main
+        process.</para></listitem>
       </varlistentry>
 
       <varlistentry>
