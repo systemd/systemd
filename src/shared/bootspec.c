@@ -21,6 +21,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pe-header.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"

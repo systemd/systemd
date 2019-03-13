@@ -174,6 +174,8 @@ basic_sources = files('''
         socket-label.c
         socket-util.c
         socket-util.h
+        sort-util.c
+        sort-util.h
         sparse-endian.h
         special.h
         stat-util.c

@@ -10,9 +10,10 @@
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "parse-util.h"
-#include "resolved-dns-trust-anchor.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-dns-trust-anchor.h"
 #include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 

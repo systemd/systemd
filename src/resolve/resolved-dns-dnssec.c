@@ -15,6 +15,7 @@
 #include "memory-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
+#include "sort-util.h"
 #include "string-table.h"
 
 #define VERIFY_RRS_MAX 256

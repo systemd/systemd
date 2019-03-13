@@ -26,13 +26,13 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 

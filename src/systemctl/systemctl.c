@@ -66,6 +66,7 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "special.h"

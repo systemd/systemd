@@ -17,11 +17,11 @@
 #include "missing.h"
 #include "path-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int files_add(
                 Hashmap *h,

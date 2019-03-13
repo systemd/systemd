@@ -13,6 +13,7 @@
 #include "label.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "sort-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"

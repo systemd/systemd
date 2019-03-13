@@ -21,6 +21,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "sort-util.h"
 #include "sparse-endian.h"
 #include "strbuf.h"
 #include "string-util.h"

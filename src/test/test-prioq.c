@@ -6,7 +6,7 @@
 #include "prioq.h"
 #include "set.h"
 #include "siphash24.h"
-#include "util.h"
+#include "sort-util.h"
 
 #define SET_SIZE 1024*4
 

@@ -53,6 +53,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -61,7 +62,6 @@
 #include "strv.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create

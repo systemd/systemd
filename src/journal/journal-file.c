@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"

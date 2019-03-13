@@ -26,6 +26,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -33,7 +34,6 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;

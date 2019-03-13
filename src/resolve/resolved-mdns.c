@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
+#include "sort-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH & (x))
 

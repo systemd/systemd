@@ -27,13 +27,13 @@
 #include "rlimit-util.h"
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit-def.h"
 #include "user-util.h"
 #include "utf8.h"
-#include "util.h"
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
         assert(message);

@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "serialize.h"
 #include "set.h"
+#include "sort-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"

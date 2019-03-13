@@ -11,9 +11,9 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 char *strv_find(char **l, const char *name) {
         char **i;
