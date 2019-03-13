@@ -161,6 +161,8 @@ run_qemu() {
 
 if [[ "$LOOKS_LIKE_SUSE" ]]; then
     PARAMS+="rd.hostonly=0"
+elif [[ "$LOOKS_LIKE_ARCH" ]]; then
+    PARAMS+="rw"
 else
     PARAMS+="ro"
 fi
