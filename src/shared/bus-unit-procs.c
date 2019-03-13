@@ -5,6 +5,7 @@
 #include "list.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -23,10 +24,6 @@ struct CGroupInfo {
         size_t n_children;
 };
 
-static bool IS_ROOT(const char *p) {
-        return isempty(p) || streq(p, "/");
-}
-
 static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct CGroupInfo **ret) {
         struct CGroupInfo *parent = NULL, *cg;
         int r;
@@ -34,7 +31,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
         assert(cgroups);
         assert(ret);
 
-        if (IS_ROOT(path))
+        if (empty_or_root(path))
                 path = "/";
 
         cg = hashmap_get(cgroups, path);
@@ -43,7 +40,7 @@ static int add_cgroup(Hashmap *cgroups, const char *path, bool is_const, struct 
                 return 0;
         }
 
-        if (!IS_ROOT(path)) {
+        if (!empty_or_root(path)) {
                 const char *e, *pp;
 
                 e = strrchr(path, '/');
@@ -153,7 +150,7 @@ static int dump_processes(
 
         assert(prefix);
 
-        if (IS_ROOT(cgroup_path))
+        if (empty_or_root(cgroup_path))
                 cgroup_path = "/";
 
         cg = hashmap_get(cgroups, cgroup_path);
