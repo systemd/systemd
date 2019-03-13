@@ -50,8 +50,6 @@ bool is_network_fs(const struct statfs *s) _pure_;
 int fd_is_temporary_fs(int fd);
 int fd_is_network_fs(int fd);
 
-int fd_is_network_ns(int fd);
-
 int path_is_temporary_fs(const char *path);
 
 /* Because statfs.t_type can be int on some architectures, we have to cast

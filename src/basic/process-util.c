@@ -33,6 +33,7 @@
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"

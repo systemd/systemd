@@ -127,6 +127,8 @@ basic_sources = files('''
         mkdir.h
         mountpoint-util.c
         mountpoint-util.h
+        namespace-util.c
+        namespace-util.h
         nss-util.h
         ordered-set.c
         ordered-set.h
