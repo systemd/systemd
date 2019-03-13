@@ -10,6 +10,7 @@
 
 int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         _cleanup_(link_freep) Link *l = NULL;
+        _cleanup_free_ char *n = NULL;
         int r;
 
         assert(m);
@@ -23,21 +24,24 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
         if (r < 0)
                 return r;
 
-        l = new0(Link, 1);
+        n = strdup(ifname);
+        if (!n)
+                return -ENOMEM;
+
+        l = new(Link, 1);
         if (!l)
                 return -ENOMEM;
 
-        l->manager = m;
-
-        l->ifname = strdup(ifname);
-        if (!l->ifname)
-                return -ENOMEM;
+        *l = (Link) {
+                .manager = m,
+                .ifname = TAKE_PTR(n),
+                .ifindex = ifindex,
+                .required_operstate = LINK_OPERSTATE_DEGRADED,
+        };
 
         r = hashmap_put(m->links_by_name, l->ifname, l);
         if (r < 0)
                 return r;
-
-        l->ifindex = ifindex;
 
         r = hashmap_put(m->links, INT_TO_PTR(ifindex), l);
         if (r < 0)
@@ -45,8 +49,8 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
 
         if (ret)
                 *ret = l;
-        l = NULL;
 
+        TAKE_PTR(l);
         return 0;
 }
 
@@ -60,6 +64,7 @@ Link *link_free(Link *l) {
                 hashmap_remove(l->manager->links_by_name, l->ifname);
         }
 
+        free(l->state);
         free(l->ifname);
         return mfree(l);
  }
@@ -87,9 +92,8 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
                 if (!new_ifname)
                         return -ENOMEM;
 
-                hashmap_remove(l->manager->links_by_name, l->ifname);
-                free(l->ifname);
-                l->ifname = new_ifname;
+                assert_se(hashmap_remove(l->manager->links_by_name, l->ifname) == l);
+                free_and_replace(l->ifname, new_ifname);
 
                 r = hashmap_put(l->manager->links_by_name, l->ifname, l);
                 if (r < 0)
@@ -100,17 +104,49 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 }
 
 int link_update_monitor(Link *l) {
+        _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *state = NULL;
+        LinkOperationalState s;
+        int r, ret = 0;
+
         assert(l);
+        assert(l->ifname);
 
-        l->required_for_online = sd_network_link_get_required_for_online(l->ifindex) != 0;
+        r = sd_network_link_get_required_for_online(l->ifindex);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
+                                           "ignoring: %m");
+        else
+                l->required_for_online = r > 0;
 
-        l->operational_state = mfree(l->operational_state);
+        r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
+        else {
+                s = link_operstate_from_string(required_operstate);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
+                                                   "Failed to parse required operational state, ignoring: %m");
+                else
+                        l->required_operstate = s;
+        }
 
-        sd_network_link_get_operational_state(l->ifindex, &l->operational_state);
+        r = sd_network_link_get_operational_state(l->ifindex, &operstate);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
+        else {
+                s = link_operstate_from_string(operstate);
+                if (s < 0)
+                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
+                                                   "Failed to parse operational state, ignoring: %m");
+                else
+                        l->operational_state = s;
+        }
 
-        l->state = mfree(l->state);
+        r = sd_network_link_get_setup_state(l->ifindex, &state);
+        if (r < 0)
+                ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
+        else
+                free_and_replace(l->state, state);
 
-        sd_network_link_get_setup_state(l->ifindex, &l->state);
-
-        return 0;
+        return ret;
 }

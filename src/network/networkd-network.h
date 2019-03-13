@@ -241,6 +241,7 @@ struct Network {
         bool iaid_set;
 
         bool required_for_online; /* Is this network required to be considered online? */
+        LinkOperationalState required_operstate_for_online;
 
         LLDPMode lldp_mode; /* LLDP reception */
         LLDPEmit lldp_emit; /* LLDP transmission */
@@ -324,6 +325,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
+CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 /* Legacy IPv4LL support */
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 

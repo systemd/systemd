@@ -407,15 +407,14 @@ void link_update_operstate(Link *link, bool also_update_master) {
             link_is_enslaved(link))
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
-        if (IN_SET(operstate, LINK_OPERSTATE_CARRIER, LINK_OPERSTATE_ENSLAVED, LINK_OPERSTATE_ROUTABLE)) {
+        if (operstate >= LINK_OPERSTATE_CARRIER) {
                 Link *slave;
 
                 HASHMAP_FOREACH(slave, link->slaves, i) {
                         link_update_operstate(slave, false);
 
-                        if (IN_SET(slave->operstate,
-                                   LINK_OPERSTATE_OFF, LINK_OPERSTATE_NO_CARRIER, LINK_OPERSTATE_DORMANT))
-                                operstate = LINK_OPERSTATE_DEGRADED;
+                        if (slave->operstate < LINK_OPERSTATE_CARRIER)
+                                operstate = LINK_OPERSTATE_DEGRADED_CARRIER;
                 }
         }
 
@@ -4004,6 +4003,9 @@ int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s\n",
+                        strempty(link_operstate_to_string(link->network->required_operstate_for_online)));
+
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
                         if (r < 0 && r != -ENOMSG)
@@ -4306,15 +4308,3 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
-
-static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
-        [LINK_OPERSTATE_OFF] = "off",
-        [LINK_OPERSTATE_NO_CARRIER] = "no-carrier",
-        [LINK_OPERSTATE_DORMANT] = "dormant",
-        [LINK_OPERSTATE_CARRIER] = "carrier",
-        [LINK_OPERSTATE_DEGRADED] = "degraded",
-        [LINK_OPERSTATE_ENSLAVED] = "enslaved",
-        [LINK_OPERSTATE_ROUTABLE] = "routable",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(link_operstate, LinkOperationalState);

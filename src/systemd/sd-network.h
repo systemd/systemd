@@ -89,6 +89,7 @@ int sd_network_link_get_setup_state(int ifindex, char **state);
  *   -ENODATA: networkd is not aware of the link
  */
 int sd_network_link_get_operational_state(int ifindex, char **state);
+int sd_network_link_get_required_operstate_for_online(int ifindex, char **state);
 
 /* Indicates whether the network is relevant to being online.
  * Possible return codes:
