@@ -672,6 +672,9 @@ install_dbus() {
     else
         inst $ROOTLIBDIR/system/dbus.service
     fi
+    # Newer Fedora versions use dbus-broker by default. Let's install it is available.
+    [ -f /usr/bin/dbus-broker ] && inst /usr/bin/dbus-broker
+    [ -f /usr/bin/dbus-broker-launch ] && inst /usr/bin/dbus-broker-launch
 
     find \
         /etc/dbus-1 /usr/share/dbus-1 -xtype f \
