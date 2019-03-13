@@ -49,6 +49,8 @@ typedef enum MountMode {
         READONLY,
         READWRITE,
         TMPFS,
+        READWRITE_IMPLICIT, /* Should have the lowest priority. */
+        _MOUNT_MODE_MAX,
 } MountMode;
 
 typedef struct MountEntry {
@@ -77,26 +79,26 @@ static const MountEntry apivfs_table[] = {
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_table[] = {
-        { "/proc/acpi",          READONLY,     true  },
-        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
-        { "/proc/asound",        READONLY,     true  },
-        { "/proc/bus",           READONLY,     true  },
-        { "/proc/fs",            READONLY,     true  },
-        { "/proc/irq",           READONLY,     true  },
-        { "/proc/kallsyms",      INACCESSIBLE, true  },
-        { "/proc/kcore",         INACCESSIBLE, true  },
-        { "/proc/latency_stats", READONLY,     true  },
-        { "/proc/mtrr",          READONLY,     true  },
-        { "/proc/scsi",          READONLY,     true  },
-        { "/proc/sys",           READONLY,     false },
-        { "/proc/sysrq-trigger", READONLY,     true  },
-        { "/proc/timer_stats",   READONLY,     true  },
-        { "/sys",                READONLY,     false },
-        { "/sys/fs/bpf",         READONLY,     true  },
-        { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
-        { "/sys/fs/selinux",     READWRITE,    true  },
-        { "/sys/kernel/debug",   READONLY,     true  },
-        { "/sys/kernel/tracing", READONLY,     true  },
+        { "/proc/acpi",          READONLY,           true  },
+        { "/proc/apm",           READONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
+        { "/proc/asound",        READONLY,           true  },
+        { "/proc/bus",           READONLY,           true  },
+        { "/proc/fs",            READONLY,           true  },
+        { "/proc/irq",           READONLY,           true  },
+        { "/proc/kallsyms",      INACCESSIBLE,       true  },
+        { "/proc/kcore",         INACCESSIBLE,       true  },
+        { "/proc/latency_stats", READONLY,           true  },
+        { "/proc/mtrr",          READONLY,           true  },
+        { "/proc/scsi",          READONLY,           true  },
+        { "/proc/sys",           READONLY,           false },
+        { "/proc/sysrq-trigger", READONLY,           true  },
+        { "/proc/timer_stats",   READONLY,           true  },
+        { "/sys",                READONLY,           false },
+        { "/sys/fs/bpf",         READONLY,           true  },
+        { "/sys/fs/cgroup",      READWRITE_IMPLICIT, false }, /* READONLY is set by ProtectControlGroups= option */
+        { "/sys/fs/selinux",     READWRITE_IMPLICIT, true  },
+        { "/sys/kernel/debug",   READONLY,           true  },
+        { "/sys/kernel/tracing", READONLY,           true  },
 };
 
 /* ProtectKernelModules= option */
@@ -171,14 +173,32 @@ static const MountEntry protect_system_full_table[] = {
  * shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
-        { "/",                   READONLY,     false },
-        { "/proc",               READWRITE,    false },      /* ProtectKernelTunables= */
-        { "/sys",                READWRITE,    false },      /* ProtectKernelTunables= */
-        { "/dev",                READWRITE,    false },      /* PrivateDevices= */
-        { "/home",               READWRITE,    true  },      /* ProtectHome= */
-        { "/run/user",           READWRITE,    true  },      /* ProtectHome= */
-        { "/root",               READWRITE,    true  },      /* ProtectHome= */
+        { "/",                   READONLY,           false },
+        { "/proc",               READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/sys",                READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/dev",                READWRITE_IMPLICIT, false },      /* PrivateDevices= */
+        { "/home",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
+
+static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
+        [INACCESSIBLE]         = "inaccessible",
+        [BIND_MOUNT]           = "bind",
+        [BIND_MOUNT_RECURSIVE] = "rbind",
+        [PRIVATE_TMP]          = "private-tmp",
+        [PRIVATE_DEV]          = "private-dev",
+        [BIND_DEV]             = "bind-dev",
+        [EMPTY_DIR]            = "empty",
+        [SYSFS]                = "sysfs",
+        [PROCFS]               = "procfs",
+        [READONLY]             = "read-only",
+        [READWRITE]            = "read-write",
+        [TMPFS]                = "tmpfs",
+        [READWRITE_IMPLICIT]   = "rw-implicit",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
 static const char *mount_entry_path(const MountEntry *p) {
         assert(p);
@@ -220,7 +240,7 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
 
         assert(p);
 
-        /* Adds a list of user-supplied READWRITE/READONLY/INACCESSIBLE entries */
+        /* Adds a list of user-supplied READWRITE/READWRITE_IMPLICIT/READONLY/INACCESSIBLE entries */
 
         STRV_FOREACH(i, strv) {
                 bool ignore = false, needs_prefix = false;
@@ -446,7 +466,7 @@ static void drop_duplicates(MountEntry *m, size_t *n) {
                 if (previous &&
                     path_equal(mount_entry_path(f), mount_entry_path(previous)) &&
                     !f->applied && !previous->applied) {
-                        log_debug("%s is duplicate.", mount_entry_path(f));
+                        log_debug("%s (%s) is duplicate.", mount_entry_path(f), mount_mode_to_string(f->mode));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
                         mount_entry_done(f);
                         continue;
@@ -500,8 +520,8 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
         for (f = m, t = m; f < m + *n; f++) {
 
-                /* Only suppress such subtrees for READONLY and READWRITE entries */
-                if (IN_SET(f->mode, READONLY, READWRITE)) {
+                /* Only suppress such subtrees for READONLY, READWRITE and READWRITE_IMPLICIT entries */
+                if (IN_SET(f->mode, READONLY, READWRITE, READWRITE_IMPLICIT)) {
                         MountEntry *p;
                         bool found = false;
 
@@ -515,7 +535,9 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
-                                log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
+                                log_debug("%s (%s) is made redundant by %s (%s)",
+                                          mount_entry_path(f), mount_mode_to_string(f->mode),
+                                          mount_entry_path(p), mount_mode_to_string(p->mode));
                                 mount_entry_done(f);
                                 continue;
                         }
@@ -908,6 +930,7 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
+        case READWRITE_IMPLICIT:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;

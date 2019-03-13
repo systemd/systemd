@@ -269,6 +269,10 @@ static void test_exec_privatedevices(Manager *m) {
         test(m, "exec-privatedevices-no-capability-sys-rawio.service", 0, CLD_EXITED);
 }
 
+static void test_exec_protecthome(Manager *m) {
+        test(m, "exec-protecthome-tmpfs-vs-protectsystem-strict.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+}
+
 static void test_exec_protectkernelmodules(Manager *m) {
         int r;
 
@@ -732,6 +736,7 @@ int main(int argc, char *argv[]) {
                 test_exec_privatedevices,
                 test_exec_privatenetwork,
                 test_exec_privatetmp,
+                test_exec_protecthome,
                 test_exec_protectkernelmodules,
                 test_exec_readonlypaths,
                 test_exec_readwritepaths,
