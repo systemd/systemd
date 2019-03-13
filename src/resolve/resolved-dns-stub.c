@@ -189,17 +189,19 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         break;
                 }
 
-                r = dns_query_process_cname(q);
-                if (r == -ELOOP) {
-                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
-                        break;
+                if (!truncated) {
+                        r = dns_query_process_cname(q);
+                        if (r == -ELOOP) {
+                                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                                break;
+                        }
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to process CNAME: %m");
+                                break;
+                        }
+                        if (r == DNS_QUERY_RESTARTED)
+                                return;
                 }
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to process CNAME: %m");
-                        break;
-                }
-                if (r == DNS_QUERY_RESTARTED)
-                        return;
 
                 r = dns_stub_finish_reply_packet(
                                 q->reply_dns_packet,
