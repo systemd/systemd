@@ -24,3 +24,4 @@ KillMode=mixed
 Delegate=pids memory
 TasksMax=infinity
 TimeoutStopSec=120s
+KeyringMode=inherit
