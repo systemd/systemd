@@ -91,7 +91,14 @@ static int dns_stub_finish_reply_packet(
 
         assert(p);
 
-        if (!add_opt) {
+        if (add_opt) {
+                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
+                if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
+                        tc = true;
+                else if (r < 0)
+                        return r;
+
+        } else {
                 /* If the client can't to EDNS0, don't do DO either */
                 edns0_do = false;
 
@@ -116,12 +123,6 @@ static int dns_stub_finish_reply_packet(
                                                               ad /* ad */,
                                                               0  /* cd */,
                                                               rcode));
-
-        if (add_opt) {
-                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 }
