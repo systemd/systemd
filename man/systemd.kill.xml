@@ -87,22 +87,17 @@
         group and the control group continues to exist after stop
         unless it is empty.</para>
 
-        <para>Processes will first be terminated via
-        <constant>SIGTERM</constant> (unless the signal to send is
-        changed via <varname>KillSignal=</varname>). Optionally, this
-        is immediately followed by a <constant>SIGHUP</constant> (if
-        enabled with <varname>SendSIGHUP=</varname>). If then, after a
-        delay (configured via the <varname>TimeoutStopSec=</varname>
-        option), processes still remain, the termination request is
-        repeated with the <constant>SIGKILL</constant> signal or the
-        signal specified via <varname>FinalKillSignal=</varname> (unless
-        this is disabled via the <varname>SendSIGKILL=</varname>
-        option). See
-        <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for more information.</para>
+        <para>Processes will first be terminated via <constant>SIGTERM</constant> (unless the signal to send
+        is changed via <varname>KillSignal=</varname>). Optionally, this is immediately followed by a
+        <constant>SIGHUP</constant> (if enabled with <varname>SendSIGHUP=</varname>). If processes still
+        remain after the main process of a unit has exited or the delay configured via the
+        <varname>TimeoutStopSec=</varname> has passed, the termination request is repeated with the
+        <constant>SIGKILL</constant> signal or the signal specified via <varname>FinalKillSignal=</varname>
+        (unless this is disabled via the <varname>SendSIGKILL=</varname> option). See
+        <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry> for more
+        information.</para>
 
-        <para>Defaults to
-        <option>control-group</option>.</para></listitem>
+        <para>Defaults to <option>control-group</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
