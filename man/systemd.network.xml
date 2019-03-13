@@ -630,6 +630,11 @@
           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink> in the kernel
           documentation regarding <literal>accept_ra</literal>, but note that systemd's setting of
           <constant>1</constant> (i.e. true) corresponds to kernel's setting of <constant>2</constant>.</para>
+
+          <para>Note that if this option is enabled a userspace implementation of the IPv6 RA protocol is
+          used, and the kernel's own implementation remains disabled, since `networkd` needs to know all
+          details supplied in the advertisements, and these are not available from the kernel if the kernel's
+          own implemenation is used.</para>
         </listitem>
         </varlistentry>
         <varlistentry>
