@@ -7,6 +7,10 @@
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 #define OFFSETOF(x,y) __builtin_offsetof(x,y)
 
+static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
+        return ((l + ali - 1) & ~(ali - 1));
+}
+
 static inline const CHAR16 *yes_no(BOOLEAN b) {
         return b ? L"yes" : L"no";
 }

@@ -2028,62 +2028,82 @@ static VOID config_load_xbootldr(
                                 EFI_PARTITION_TABLE_HEADER gpt_header;
                                 uint8_t space[((sizeof(EFI_PARTITION_TABLE_HEADER) + 511) / 512) * 512];
                         } gpt_header_buffer;
+                        const EFI_PARTITION_TABLE_HEADER *h = &gpt_header_buffer.gpt_header;
                         UINT64 where;
                         UINTN i, sz;
                         UINT32 c;
 
                         if (nr == 0)
-                                where = 1; /* Read the first copy at LBA 1 */
+                                /* Read the first copy at LBA 1 */
+                                where = 1;
                         else
-                                where = block_io->Media->LastBlock; /* Read the second copy at the very last LBA of this block device */
+                                /* Read the second copy at the very last LBA of this block device */
+                                where = block_io->Media->LastBlock;
 
                         /* Read the GPT header */
-                        r = uefi_call_wrapper(block_io->ReadBlocks, 5, block_io, block_io->Media->MediaId, where, sizeof(gpt_header_buffer), &gpt_header_buffer);
+                        r = uefi_call_wrapper(block_io->ReadBlocks, 5,
+                                              block_io,
+                                              block_io->Media->MediaId,
+                                              where,
+                                              sizeof(gpt_header_buffer), &gpt_header_buffer);
                         if (EFI_ERROR(r))
                                 continue;
 
                         /* Some superficial validation of the GPT header */
-                        if (CompareMem(&gpt_header_buffer.gpt_header.Header.Signature, "EFI PART", sizeof(gpt_header_buffer.gpt_header.Header.Signature)) != 0)
+                        c = CompareMem(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature));
+                        if (c != 0)
                                 continue;
 
-                        if (gpt_header_buffer.gpt_header.Header.HeaderSize < 92 || gpt_header_buffer.gpt_header.Header.HeaderSize > 512)
+                        if (h->Header.HeaderSize < 92 ||
+                            h->Header.HeaderSize > 512)
                                 continue;
 
-                        if (gpt_header_buffer.gpt_header.Header.Revision != 0x00010000U)
+                        if (h->Header.Revision != 0x00010000U)
                                 continue;
 
                         /* Calculate CRC check */
-                        c = ~crc32_exclude_offset((UINT32) -1, (const UINT8*) &gpt_header_buffer, gpt_header_buffer.gpt_header.Header.HeaderSize,
-                                                  OFFSETOF(EFI_PARTITION_TABLE_HEADER, Header.CRC32), sizeof(gpt_header_buffer.gpt_header.Header.CRC32));
-                        if (c != gpt_header_buffer.gpt_header.Header.CRC32)
+                        c = ~crc32_exclude_offset((UINT32) -1,
+                                                  (const UINT8*) &gpt_header_buffer,
+                                                  h->Header.HeaderSize,
+                                                  OFFSETOF(EFI_PARTITION_TABLE_HEADER, Header.CRC32),
+                                                  sizeof(h->Header.CRC32));
+                        if (c != h->Header.CRC32)
                                 continue;
 
-                        if (gpt_header_buffer.gpt_header.MyLBA != where)
+                        if (h->MyLBA != where)
                                 continue;
 
-                        if (gpt_header_buffer.gpt_header.SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
+                        if (h->SizeOfPartitionEntry < sizeof(EFI_PARTITION_ENTRY))
                                 continue;
 
-                        if (gpt_header_buffer.gpt_header.NumberOfPartitionEntries <= 0 || gpt_header_buffer.gpt_header.NumberOfPartitionEntries > 1024)
+                        if (h->NumberOfPartitionEntries <= 0 ||
+                            h->NumberOfPartitionEntries > 1024)
+                                continue;
+
+                        if (h->SizeOfPartitionEntry > UINTN_MAX / h->NumberOfPartitionEntries) /* overflow check */
                                 continue;
 
                         /* Now load the GPT entry table */
-                        sz = ((gpt_header_buffer.gpt_header.SizeOfPartitionEntry * gpt_header_buffer.gpt_header.NumberOfPartitionEntries + 511) / 512) * 512;
+                        sz = ALIGN_TO((UINTN) h->SizeOfPartitionEntry * (UINTN) h->NumberOfPartitionEntries, 512);
                         entries = AllocatePool(sz);
 
-                        r = uefi_call_wrapper(block_io->ReadBlocks, 5, block_io, block_io->Media->MediaId, gpt_header_buffer.gpt_header.PartitionEntryLBA, sz, entries);
+                        r = uefi_call_wrapper(block_io->ReadBlocks, 5,
+                                              block_io,
+                                              block_io->Media->MediaId,
+                                              h->PartitionEntryLBA,
+                                              sz, entries);
                         if (EFI_ERROR(r))
                                 continue;
 
                         /* Calculate CRC of entries array, too */
                         c = ~crc32((UINT32) -1, entries, sz);
-                        if (c != gpt_header_buffer.gpt_header.PartitionEntryArrayCRC32)
+                        if (c != h->PartitionEntryArrayCRC32)
                                 continue;
 
-                        for (i = 0; i < gpt_header_buffer.gpt_header.NumberOfPartitionEntries; i++) {
+                        for (i = 0; i < h->NumberOfPartitionEntries; i++) {
                                 EFI_PARTITION_ENTRY *entry;
 
-                                entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + gpt_header_buffer.gpt_header.SizeOfPartitionEntry * i);
+                                entry = (EFI_PARTITION_ENTRY*) ((UINT8*) entries + h->SizeOfPartitionEntry * i);
 
                                 if (CompareMem(&entry->PartitionTypeGUID, xbootldr_guid, 16) == 0) {
                                         UINT64 end;
@@ -2355,7 +2375,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(&config, L"auto-reboot-to-firmware-setup", L"Reboot Into Firmware Interface", reboot_into_firmware);
+                        config_entry_add_call(&config,
+                                              L"auto-reboot-to-firmware-setup",
+                                              L"Reboot Into Firmware Interface",
+                                              reboot_into_firmware);
                 FreePool(b);
         }
 
