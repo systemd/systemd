@@ -46,6 +46,10 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
 
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
+m4_ifdef(`GROUP_RENDER_UACCESS',``
+# DRI render nodes
+SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess"''
+)m4_dnl
 m4_ifdef(`DEV_KVM_UACCESS',``
 # KVM
 SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"''
