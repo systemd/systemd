@@ -862,6 +862,7 @@ const NLTypeSystem genl_family_type_system_root = {
 };
 
 static const NLType genl_types[] = {
+        [NLMSG_ERROR]  = { .type = NETLINK_TYPE_NESTED, .type_system = &empty_type_system, .size = sizeof(struct nlmsgerr) },
         [GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system, .size = sizeof(struct genlmsghdr) },
 };
 
