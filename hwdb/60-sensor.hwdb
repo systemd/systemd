@@ -371,6 +371,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
+# MYRIA
+#########################################
+
+# MY8307
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnCompletElectroServ:pnMY8307:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # Nuvision (TMax)
 #########################################
 
