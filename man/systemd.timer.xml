@@ -260,6 +260,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OnClockChange=</varname></term>
+        <term><varname>OnTimezoneChange=</varname></term>
+
+        <listitem><para>These options take boolean arguments. When true, the service unit will be triggered
+        when the system clock (<constant>CLOCK_REALTIME</constant>) jumps relative to the monotonic clock
+        (<constant>CLOCK_MONOTONIC</constant>), or when the local system timezone is modified. These options
+        can be used alone or in combination with other timer expressions (see above) within the same timer
+        unit. These options default to false.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Unit=</varname></term>
 
         <listitem><para>The unit to activate when this timer elapses.

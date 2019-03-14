@@ -317,6 +317,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--on-clock-change</option></term>
+        <term><option>--on-timezone-change</option></term>
+
+        <listitem><para>Defines a trigger based on system clock jumps or timezone changes for starting the
+        specified command. See <varname>OnClockChange=</varname> and <varname>OnTimezoneChange=</varname> in
+        <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. These
+        options are shortcuts for <command>--timer-property=OnClockChange=yes</command> and
+        <command>--timer-property=OnTimezoneChange=yes</command>. These options may not be combined with
+        <option>--scope</option> or <option>--pty</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--path-property=</option></term>
         <term><option>--socket-property=</option></term>
         <term><option>--timer-property=</option></term>
