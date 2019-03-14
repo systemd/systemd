@@ -6,13 +6,13 @@
 #include <unistd.h>
 
 #include "bus-util.h"
-#include "def.h"
-#include "env-file.h"
 #include "env-file-label.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
+#include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
