@@ -45,6 +45,7 @@ basic_sources = files('''
         env-util.h
         errno-list.c
         errno-list.h
+        errno-util.h
         escape.c
         escape.h
         ether-addr-util.c
@@ -75,6 +76,8 @@ basic_sources = files('''
         io-util.c
         io-util.h
         ioprio.h
+        kbd-util.c
+        kbd-util.h
         khash.c
         khash.h
         label.c
@@ -134,12 +137,16 @@ basic_sources = files('''
         namespace-util.c
         namespace-util.h
         nss-util.h
+        nulstr-util.c
+        nulstr-util.h
         ordered-set.c
         ordered-set.h
         parse-util.c
         parse-util.h
         path-util.c
         path-util.h
+        plymouth-util.c
+        plymouth-util.h
         prioq.c
         prioq.h
         proc-cmdline.c

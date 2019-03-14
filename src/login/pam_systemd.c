@@ -15,9 +15,9 @@
 #include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -113,6 +113,15 @@ static int get_user_data(
         *ret_username = username;
 
         return PAM_SUCCESS;
+}
+
+static bool display_is_local(const char *display) {
+        assert(display);
+
+        return
+                display[0] == ':' &&
+                display[1] >= '0' &&
+                display[1] <= '9';
 }
 
 static int socket_from_display(const char *display, char **path) {

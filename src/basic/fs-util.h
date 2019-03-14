@@ -10,8 +10,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "time-util.h"
-#include "util.h"
 
 int unlink_noerrno(const char *path);
 

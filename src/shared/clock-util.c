@@ -12,11 +12,11 @@
 
 #include "alloc-util.h"
 #include "clock-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "string-util.h"
-#include "util.h"
 
 int clock_get_hwclock(struct tm *tm) {
         _cleanup_close_ int fd = -1;

@@ -17,6 +17,7 @@
 #include "loop-util.h"
 #include "machine-image.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "portable.h"

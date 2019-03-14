@@ -16,6 +16,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -25,7 +26,6 @@
 #include "strxcpyx.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int device_add_property(sd_device *device, const char *key, const char *value) {
         int r;

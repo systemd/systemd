@@ -14,6 +14,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -24,7 +25,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static const char prefixes[] =
         "/etc\0"

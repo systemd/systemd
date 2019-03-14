@@ -16,6 +16,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -23,7 +24,6 @@
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);

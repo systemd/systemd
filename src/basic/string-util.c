@@ -10,14 +10,15 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "fileio.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 
@@ -675,19 +676,6 @@ char *cellescape(char *buf, size_t len, const char *s) {
         return buf;
 }
 
-bool nulstr_contains(const char *nulstr, const char *needle) {
-        const char *i;
-
-        if (!nulstr)
-                return false;
-
-        NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return true;
-
-        return false;
-}
-
 char* strshorten(char *s, size_t l) {
         assert(s);
 
@@ -1047,25 +1035,6 @@ int free_and_strndup(char **p, const char *s, size_t l) {
         free_and_replace(*p, t);
         return 1;
 }
-
-#if !HAVE_EXPLICIT_BZERO
-/*
- * Pointer to memset is volatile so that compiler must de-reference
- * the pointer and can't assume that it points to any function in
- * particular (such as memset, which it then might further "optimize")
- * This approach is inspired by openssl's crypto/mem_clr.c.
- */
-typedef void *(*memset_t)(void *,int,size_t);
-
-static volatile memset_t memset_func = memset;
-
-void* explicit_bzero_safe(void *p, size_t l) {
-        if (l > 0)
-                memset_func(p, '\0', l);
-
-        return p;
-}
-#endif
 
 char* string_erase(char *x) {
         if (!x)

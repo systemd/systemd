@@ -41,6 +41,7 @@
 #include "log.h"
 #include "missing.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"

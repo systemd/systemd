@@ -43,16 +43,6 @@ static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
 }
 
-bool plymouth_running(void);
-
-bool display_is_local(const char *display) _pure_;
-
-#define NULSTR_FOREACH(i, l)                                    \
-        for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
-
-#define NULSTR_FOREACH_PAIR(i, j, l)                             \
-        for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
-
 extern int saved_argc;
 extern char **saved_argv;
 
@@ -64,31 +54,6 @@ bool in_initrd(void);
 void in_initrd_force(bool value);
 
 int on_ac_power(void);
-
-static inline void _reset_errno_(int *saved_errno) {
-        if (*saved_errno < 0) /* Invalidated by UNPROTECT_ERRNO? */
-                return;
-
-        errno = *saved_errno;
-}
-
-#define PROTECT_ERRNO                                                   \
-        _cleanup_(_reset_errno_) _unused_ int _saved_errno_ = errno
-
-#define UNPROTECT_ERRNO                         \
-        do {                                    \
-                errno = _saved_errno_;          \
-                _saved_errno_ = -1;             \
-        } while (false)
-
-static inline int negative_errno(void) {
-        /* This helper should be used to shut up gcc if you know 'errno' is
-         * negative. Instead of "return -errno;", use "return negative_errno();"
-         * It will suppress bogus gcc warnings in case it assumes 'errno' might
-         * be 0 and thus the caller's error-handling might not be triggered. */
-        assert_return(errno > 0, -EINVAL);
-        return -errno;
-}
 
 static inline unsigned u64log2(uint64_t n) {
 #if __SIZEOF_LONG_LONG__ == 8

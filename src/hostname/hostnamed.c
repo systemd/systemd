@@ -19,6 +19,7 @@
 #include "main-func.h"
 #include "missing_capability.h"
 #include "nscd-flush.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"

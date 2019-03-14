@@ -138,11 +138,11 @@ static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
-        /* If we are running in a contianer, let's prefer exiting, after all we can propagate an exit code to the
-         * container manager, and thus inform it that something went wrong. */
+        /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
+         * the container manager, and thus inform it that something went wrong. */
         if (detect_container() > 0) {
                 log_emergency("Exiting PID 1...");
-                exit(EXIT_EXCEPTION);
+                _exit(EXIT_EXCEPTION);
         }
 
         if (arg_crash_reboot) {

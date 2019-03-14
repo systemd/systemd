@@ -52,6 +52,7 @@
 #include "logs-show.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"

@@ -31,6 +31,7 @@
 #include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -39,7 +40,6 @@
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "xattr-util.h"
 
 static const char* const image_search_path[_IMAGE_CLASS_MAX] = {

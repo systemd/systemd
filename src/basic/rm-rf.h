@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "util.h"
+#include "errno-util.h"
 
 typedef enum RemoveFlags {
         REMOVE_ONLY_DIRECTORIES = 1 << 0,

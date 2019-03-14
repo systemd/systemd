@@ -19,15 +19,15 @@
 #include "ima-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "tomoyo-util.h"
 #include "user-util.h"
-#include "tests.h"
-#include "util.h"
 #include "virt.h"
 
 static void test_condition_test_path(void) {

@@ -27,6 +27,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "kbd-util.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "mkdir.h"

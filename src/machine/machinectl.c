@@ -37,6 +37,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
