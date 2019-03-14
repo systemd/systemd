@@ -8,13 +8,13 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "hostname-util.h"
 #include "local-addresses.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "util.h"
 
 /* We use 127.0.0.2 as IPv4 address. This has the advantage over
  * 127.0.0.1 that it can be translated back to the local hostname. For

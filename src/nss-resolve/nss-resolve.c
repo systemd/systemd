@@ -9,13 +9,13 @@
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
+#include "errno-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "resolved-def.h"
-#include "string-util.h"
-#include "util.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);

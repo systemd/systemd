@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chown-recursive.h"

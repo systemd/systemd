@@ -45,6 +45,7 @@ basic_sources = files('''
         env-util.h
         errno-list.c
         errno-list.h
+        errno-util.h
         escape.c
         escape.h
         ether-addr-util.c
