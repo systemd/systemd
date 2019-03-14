@@ -115,6 +115,15 @@ static int get_user_data(
         return PAM_SUCCESS;
 }
 
+static bool display_is_local(const char *display) {
+        assert(display);
+
+        return
+                display[0] == ':' &&
+                display[1] >= '0' &&
+                display[1] <= '9';
+}
+
 static int socket_from_display(const char *display, char **path) {
         size_t k;
         char *f, *c;

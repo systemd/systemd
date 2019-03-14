@@ -43,8 +43,6 @@ static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
 }
 
-bool display_is_local(const char *display) _pure_;
-
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
