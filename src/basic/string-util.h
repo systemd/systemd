@@ -165,8 +165,6 @@ char *cellescape(char *buf, size_t len, const char *s);
 /* This limit is arbitrary, enough to give some idea what the string contains */
 #define CELLESCAPE_DEFAULT_LENGTH 64
 
-bool nulstr_contains(const char *nulstr, const char *needle);
-
 char* strshorten(char *s, size_t l);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);

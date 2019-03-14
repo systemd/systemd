@@ -17,6 +17,7 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"

@@ -43,12 +43,6 @@ static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
 }
 
-#define NULSTR_FOREACH(i, l)                                    \
-        for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
-
-#define NULSTR_FOREACH_PAIR(i, j, l)                             \
-        for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
-
 extern int saved_argc;
 extern char **saved_argv;
 

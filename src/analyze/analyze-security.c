@@ -13,6 +13,7 @@
 #include "locale-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"

@@ -23,12 +23,12 @@
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 typedef enum MountMode {

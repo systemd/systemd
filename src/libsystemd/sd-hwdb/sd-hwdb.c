@@ -18,8 +18,8 @@
 #include "hashmap.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
+#include "nulstr-util.h"
 #include "string-util.h"
-#include "util.h"
 
 struct sd_hwdb {
         unsigned n_ref;

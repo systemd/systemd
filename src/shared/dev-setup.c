@@ -8,10 +8,10 @@
 #include "dev-setup.h"
 #include "label.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =

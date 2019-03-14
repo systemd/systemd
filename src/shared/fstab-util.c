@@ -11,11 +11,11 @@
 #include "fstab-util.h"
 #include "macro.h"
 #include "mount-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;

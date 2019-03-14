@@ -13,10 +13,10 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "string-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 typedef struct BaseFilesystem {
         const char *dir;

@@ -4,10 +4,10 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "nulstr-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 static void test_specifier_printf(void) {
         static const Specifier table[] = {

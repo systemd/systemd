@@ -137,6 +137,8 @@ basic_sources = files('''
         namespace-util.c
         namespace-util.h
         nss-util.h
+        nulstr-util.c
+        nulstr-util.h
         ordered-set.c
         ordered-set.h
         parse-util.c

@@ -4,6 +4,7 @@
 
 #include "kbd-util.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-util.h"

@@ -16,12 +16,12 @@
 #include "log.h"
 #include "main-func.h"
 #include "mount-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "pretty-print.h"
-#include "util.h"
 
 /* internal helper */
 #define ANY_LUKS "LUKS"

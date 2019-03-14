@@ -29,6 +29,7 @@
 #include "missing.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"

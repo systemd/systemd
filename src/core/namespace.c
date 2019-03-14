@@ -23,6 +23,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "namespace.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"

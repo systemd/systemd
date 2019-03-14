@@ -16,6 +16,7 @@
 #include "memory-util.h"
 #include "missing.h"
 #include "nsflags.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "seccomp-util.h"

@@ -10,15 +10,15 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "errno-list.h"
 #include "macro.h"
 #include "nsflags.h"
+#include "nulstr-util.h"
 #include "process-util.h"
 #include "seccomp-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
-#include "errno-list.h"
 
 const uint32_t seccomp_local_archs[] = {
 

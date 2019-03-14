@@ -676,19 +676,6 @@ char *cellescape(char *buf, size_t len, const char *s) {
         return buf;
 }
 
-bool nulstr_contains(const char *nulstr, const char *needle) {
-        const char *i;
-
-        if (!nulstr)
-                return false;
-
-        NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return true;
-
-        return false;
-}
-
 char* strshorten(char *s, size_t l) {
         assert(s);
 
