@@ -2085,7 +2085,8 @@ static int setup_exec_directory(
                         goto fail;
 
                 if (context->dynamic_user &&
-                    !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
+                    (!IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) ||
+                     (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode != EXEC_PRESERVE_NO))) {
                         _cleanup_free_ char *private_root = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
