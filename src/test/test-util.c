@@ -5,10 +5,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "limits-util.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -16,7 +16,7 @@
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
-#include "memory-util.h"
+#include "util.h"
 
 static void test_align_power2(void) {
         unsigned long i, p2;

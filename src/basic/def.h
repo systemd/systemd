@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "util.h"
-
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
