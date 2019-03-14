@@ -162,17 +162,25 @@ static int bus_socket_write_auth(sd_bus *b) {
 }
 
 static int bus_socket_auth_verify_client(sd_bus *b) {
-        char *e, *f, *start;
+        char *d, *e, *f, *start;
         sd_id128_t peer;
         unsigned i;
         int r;
 
         assert(b);
 
-        /* We expect two response lines: "OK" and possibly
-         * "AGREE_UNIX_FD" */
+        /*
+         * We expect three response lines:
+         *   "DATA\r\n"
+         *   "OK <server-id>\r\n"
+         *   "AGREE_UNIX_FD\r\n"        (optional)
+         */
 
-        e = memmem_safe(b->rbuffer, b->rbuffer_size, "\r\n", 2);
+        d = memmem_safe(b->rbuffer, b->rbuffer_size, "\r\n", 2);
+        if (!d)
+                return 0;
+
+        e = memmem(d + 2, b->rbuffer_size - (d - (char*) b->rbuffer) - 2, "\r\n", 2);
         if (!e)
                 return 0;
 
@@ -187,13 +195,30 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                 start = e + 2;
         }
 
-        /* Nice! We got all the lines we need. First check the OK
-         * line */
+        /* Nice! We got all the lines we need. First check the DATA line. */
 
-        if (e - (char*) b->rbuffer != 3 + 32)
+        if (d - (char*) b->rbuffer == 4) {
+                if (memcmp(b->rbuffer, "DATA", 4))
+                        return -EPERM;
+        } else if (d - (char*) b->rbuffer == 3 + 32) {
+                /*
+                 * Old versions of the server-side implementation of `sd-bus` replied with "OK <id>" to
+                 * "AUTH" requests from a client, even if the "AUTH" line did not contain inlined
+                 * arguments. Therefore, we also accept "OK <id>" here, even though it is technically the
+                 * wrong reply. We ignore the "<id>" parameter, though, since it has no real value.
+                 */
+                if (memcmp(b->rbuffer, "OK ", 3))
+                        return -EPERM;
+        } else {
+                return -EPERM;
+        }
+
+        /* Now check the OK line. */
+
+        if (e - d != 2 + 3 + 32)
                 return -EPERM;
 
-        if (memcmp(b->rbuffer, "OK ", 3))
+        if (memcmp(d + 2, "OK ", 3))
                 return -EPERM;
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
@@ -201,8 +226,8 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         for (i = 0; i < 32; i += 2) {
                 int x, y;
 
-                x = unhexchar(((char*) b->rbuffer)[3 + i]);
-                y = unhexchar(((char*) b->rbuffer)[3 + i + 1]);
+                x = unhexchar(d[2 + 3 + i]);
+                y = unhexchar(d[2 + 3 + i + 1]);
 
                 if (x < 0 || y < 0)
                         return -EINVAL;
@@ -216,7 +241,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         b->server_id = peer;
 
-        /* And possibly check the second line, too */
+        /* And possibly check the third line, too */
 
         if (f)
                 b->can_fds =
@@ -616,42 +641,39 @@ static void bus_get_peercred(sd_bus *b) {
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {
-        size_t l;
-        const char *auth_suffix, *auth_prefix;
+        static const char sasl_auth_anonymous[] = {
+                /*
+                 * We use an arbitrary trace-string for the ANONYMOUS authentication. It can be used by the
+                 * message broker to aid debugging of clients. We fully anonymize the connection and use a
+                 * static default.
+                 */
+                "\0AUTH ANONYMOUS\r\n"
+                /* HEX a n o n y m o u s */
+                "DATA 616e6f6e796d6f7573\r\n"
+        };
+        static const char sasl_auth_external[] = {
+                "\0AUTH EXTERNAL\r\n"
+                "DATA\r\n"
+        };
+        static const char sasl_negotiate_unix_fd[] = {
+                "NEGOTIATE_UNIX_FD\r\n"
+        };
+        static const char sasl_begin[] = {
+                "BEGIN\r\n"
+        };
+        size_t i = 0;
 
         assert(b);
 
-        if (b->anonymous_auth) {
-                auth_prefix = "\0AUTH ANONYMOUS ";
-
-                /* For ANONYMOUS auth we send some arbitrary "trace" string */
-                l = 9;
-                b->auth_buffer = hexmem("anonymous", l);
-        } else {
-                char text[DECIMAL_STR_MAX(uid_t) + 1];
-
-                auth_prefix = "\0AUTH EXTERNAL ";
-
-                xsprintf(text, UID_FMT, geteuid());
-
-                l = strlen(text);
-                b->auth_buffer = hexmem(text, l);
-        }
-
-        if (!b->auth_buffer)
-                return -ENOMEM;
+        if (b->anonymous_auth)
+                b->auth_iovec[i++] = IOVEC_MAKE((char*) sasl_auth_anonymous, sizeof(sasl_auth_anonymous) - 1);
+        else
+                b->auth_iovec[i++] = IOVEC_MAKE((char*) sasl_auth_external, sizeof(sasl_auth_external) - 1);
 
         if (b->accept_fd)
-                auth_suffix = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
-        else
-                auth_suffix = "\r\nBEGIN\r\n";
+                b->auth_iovec[i++] = IOVEC_MAKE_STRING(sasl_negotiate_unix_fd);
 
-        b->auth_iovec[0].iov_base = (void*) auth_prefix;
-        b->auth_iovec[0].iov_len = 1 + strlen(auth_prefix + 1);
-        b->auth_iovec[1].iov_base = (void*) b->auth_buffer;
-        b->auth_iovec[1].iov_len = l * 2;
-        b->auth_iovec[2].iov_base = (void*) auth_suffix;
-        b->auth_iovec[2].iov_len = strlen(auth_suffix);
+        b->auth_iovec[i++] = IOVEC_MAKE_STRING(sasl_begin);
 
         return bus_socket_write_auth(b);
 }
