@@ -395,7 +395,10 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                                 r = bus_socket_auth_write(b, "REJECTED\r\n");
                         else {
                                 b->auth = BUS_AUTH_ANONYMOUS;
-                                r = bus_socket_auth_write_ok(b);
+                                if (l <= strlen("AUTH ANONYMOUS"))
+                                        r = bus_socket_auth_write(b, "DATA\r\n");
+                                else
+                                        r = bus_socket_auth_write_ok(b);
                         }
 
                 } else if (line_begins(line, l, "AUTH EXTERNAL")) {
@@ -409,7 +412,10 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                                 r = bus_socket_auth_write(b, "REJECTED\r\n");
                         else {
                                 b->auth = BUS_AUTH_EXTERNAL;
-                                r = bus_socket_auth_write_ok(b);
+                                if (l <= strlen("AUTH EXTERNAL"))
+                                        r = bus_socket_auth_write(b, "DATA\r\n");
+                                else
+                                        r = bus_socket_auth_write_ok(b);
                         }
 
                 } else if (line_begins(line, l, "AUTH"))
