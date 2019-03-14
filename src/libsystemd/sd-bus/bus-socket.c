@@ -390,7 +390,9 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
 
                 if (line_begins(line, l, "AUTH ANONYMOUS")) {
 
-                        r = verify_anonymous_token(b, line + 14, l - 14);
+                        r = verify_anonymous_token(b,
+                                                   line + strlen("AUTH ANONYMOUS"),
+                                                   l - strlen("AUTH ANONYMOUS"));
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -402,7 +404,9 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
 
                 } else if (line_begins(line, l, "AUTH EXTERNAL")) {
 
-                        r = verify_external_token(b, line + 13, l - 13);
+                        r = verify_external_token(b,
+                                                  line + strlen("AUTH EXTERNAL"),
+                                                  l - strlen("AUTH EXTERNAL"));
                         if (r < 0)
                                 return r;
                         if (r == 0)
