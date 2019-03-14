@@ -2157,37 +2157,42 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        /* Lock down the access mode */
-                        if (chmod(pp, context->directories[type].mode) < 0) {
-                                r = -errno;
-                                goto fail;
-                        }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
                         if (r < 0) {
-                                struct stat st;
-
                                 if (r != -EEXIST)
                                         goto fail;
 
-                                if (stat(p, &st) < 0) {
-                                        r = -errno;
-                                        goto fail;
-                                }
-                                if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
-                                        log_warning("%s \'%s\' already exists but the mode is different. "
-                                                    "(filesystem: %o %sMode: %o)",
-                                                    exec_directory_type_to_string(type), *rt,
-                                                    st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
-                                if (!context->dynamic_user)
+                                if (type == EXEC_DIRECTORY_CONFIGURATION) {
+                                        struct stat st;
+
+                                        /* Don't change the owner/access mode of the configuration directory,
+                                         * as in the common case it is not written to by a service, and shall
+                                         * not be writable. */
+
+                                        if (stat(p, &st) < 0) {
+                                                r = -errno;
+                                                goto fail;
+                                        }
+
+                                        /* Still complain if the access mode doesn't match */
+                                        if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
+                                                log_warning("%s \'%s\' already exists but the mode is different. "
+                                                            "(File system: %o %sMode: %o)",
+                                                            exec_directory_type_to_string(type), *rt,
+                                                            st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
+
                                         continue;
+                                }
                         }
                 }
 
-                /* Don't change the owner of the configuration directory, as in the common case it is not written to by
-                 * a service, and shall not be writable. */
-                if (type == EXEC_DIRECTORY_CONFIGURATION)
-                        continue;
+                /* Lock down the access mode (we use chmod_and_chown() to make this idempotent. We don't
+                 * specifiy UID/GID here, so that path_chown_recursive() can optimize things depending on the
+                 * current UID/GID ownership.) */
+                r = chmod_and_chown(pp ?: p, context->directories[type].mode, UID_INVALID, GID_INVALID);
+                if (r < 0)
+                        goto fail;
 
                 /* Then, change the ownership of the whole tree, if necessary */
                 r = path_chown_recursive(pp ?: p, uid, gid);
