@@ -388,10 +388,14 @@ static int dns_scope_socket(
         if (s->link) {
                 be32_t ifindex_be = htobe32(ifindex);
 
-                if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
-                        if (r < 0)
+                if (sa.sa.sa_family == AF_INET && type == SOCK_DGRAM) {
+                        /* Send the request on the link associated to the server */
+                        log_debug("Send the request on the interface %d", ifindex);
+                        r = socket_bind_to_ifindex(fd, ifindex);
+                        if (r < 0) {
+                                log_error("Failed to bind the socket to the interface %d", ifindex);
                                 return -errno;
+                        }
                 } else if (sa.sa.sa_family == AF_INET6) {
                         r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
                         if (r < 0)

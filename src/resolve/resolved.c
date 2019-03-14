@@ -74,8 +74,8 @@ static int run(int argc, char *argv[]) {
 
         (void) manager_check_resolv_conf(m);
 
-        /* Let's drop the remaining caps now */
-        r = capability_bounding_set_drop(0, true);
+        /* Let's drop the remaining caps now, except CAP_NET_RAW which is needed for SO_BINDTODEVICE */
+        r = capability_bounding_set_drop((UINT64_C(1) << CAP_NET_RAW), true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop remaining caps: %m");
 
