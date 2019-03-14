@@ -91,7 +91,14 @@ static int dns_stub_finish_reply_packet(
 
         assert(p);
 
-        if (!add_opt) {
+        if (add_opt) {
+                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
+                if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
+                        tc = true;
+                else if (r < 0)
+                        return r;
+
+        } else {
                 /* If the client can't to EDNS0, don't do DO either */
                 edns0_do = false;
 
@@ -116,12 +123,6 @@ static int dns_stub_finish_reply_packet(
                                                               ad /* ad */,
                                                               0  /* cd */,
                                                               rcode));
-
-        if (add_opt) {
-                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
-                if (r < 0)
-                        return r;
-        }
 
         return 0;
 }
@@ -189,17 +190,19 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         break;
                 }
 
-                r = dns_query_process_cname(q);
-                if (r == -ELOOP) {
-                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
-                        break;
+                if (!truncated) {
+                        r = dns_query_process_cname(q);
+                        if (r == -ELOOP) {
+                                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                                break;
+                        }
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to process CNAME: %m");
+                                break;
+                        }
+                        if (r == DNS_QUERY_RESTARTED)
+                                return;
                 }
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to process CNAME: %m");
-                        break;
-                }
-                if (r == DNS_QUERY_RESTARTED)
-                        return;
 
                 r = dns_stub_finish_reply_packet(
                                 q->reply_dns_packet,

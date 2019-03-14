@@ -119,11 +119,11 @@ static inline uint16_t DNS_PACKET_PAYLOAD_SIZE_MAX(DnsPacket *p) {
 
         /* Returns the advertised maximum size for replies, or the DNS default if there's nothing defined. */
 
+        if (p->ipproto == IPPROTO_TCP) /* we ignore EDNS(0) size data on TCP, like everybody else */
+                return DNS_PACKET_SIZE_MAX;
+
         if (p->opt)
                 return MAX(DNS_PACKET_UNICAST_SIZE_MAX, p->opt->key->class);
-
-        if (p->ipproto == IPPROTO_TCP)
-                return DNS_PACKET_SIZE_MAX;
 
         return DNS_PACKET_UNICAST_SIZE_MAX;
 }
