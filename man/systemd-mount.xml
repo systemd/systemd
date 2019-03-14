@@ -304,6 +304,15 @@
   </refsect1>
 
   <refsect1>
+    <title>Example</title>
+
+    <para>Use a udev rule like the following to automatically mount all USB storage plugged in:</para>
+
+    <programlisting>ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
+        RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode"</programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
