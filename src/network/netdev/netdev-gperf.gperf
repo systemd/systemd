@@ -20,6 +20,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
 #include "netdev/fou-tunnel.h"
+#include "netdev/l2tp-tunnel.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -77,6 +78,20 @@ Tunnel.ISATAP,                     config_parse_tristate,                0,     
 FooOverUDP.Protocol,               config_parse_uint8,                   0,                             offsetof(FouTunnel, fou_protocol)
 FooOverUDP.Encapsulation,          config_parse_fou_encap_type,          0,                             offsetof(FouTunnel, fou_encap_type)
 FooOverUDP.Port,                   config_parse_ip_port,                 0,                             offsetof(FouTunnel, port)
+L2TP.TunnelId,                     config_parse_l2tp_tunnel_id,          0,                             offsetof(L2tpTunnel, tunnel_id)
+L2TP.PeerTunnelId,                 config_parse_l2tp_tunnel_id,          0,                             offsetof(L2tpTunnel, peer_tunnel_id)
+L2TP.UDPSourcePort,                config_parse_ip_port,                 0,                             offsetof(L2tpTunnel, l2tp_udp_sport)
+L2TP.UDPDestinationPort,           config_parse_ip_port,                 0,                             offsetof(L2tpTunnel, l2tp_udp_dport)
+L2TP.Local,                        config_parse_l2tp_tunnel_address,     0,                             offsetof(L2tpTunnel, local)
+L2TP.Remote,                       config_parse_l2tp_tunnel_address,     0,                             offsetof(L2tpTunnel, remote)
+L2TP.EncapsulationType,            config_parse_l2tp_encap_type,         0,                             offsetof(L2tpTunnel, l2tp_encap_type)
+L2TP.UDPCheckSum,                  config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp_csum)
+L2TP.UDP6CheckSumRx,               config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp6_csum_rx)
+L2TP.UDP6CheckSumTx,               config_parse_bool,                    0,                             offsetof(L2tpTunnel, udp6_csum_tx)
+L2TPSession.SessionId,             config_parse_l2tp_session_id,         0,                             0
+L2TPSession.PeerSessionId,         config_parse_l2tp_session_id,         0,                             0
+L2TPSession.Layer2SpecificHeader,  config_parse_l2tp_session_l2spec,     0,                             0
+L2TPSession.Name,                  config_parse_l2tp_session_name,       0,                             0
 Peer.Name,                         config_parse_ifname,                  0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,                   config_parse_hwaddr,                  0,                             offsetof(Veth, mac_peer)
 VXCAN.Peer,                        config_parse_ifname,                  0,                             offsetof(VxCan, ifname_peer)

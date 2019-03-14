@@ -7,34 +7,34 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "list.h"
+#include "netdev/bond.h"
+#include "netdev/bridge.h"
+#include "netdev/dummy.h"
+#include "netdev/fou-tunnel.h"
+#include "netdev/geneve.h"
+#include "netdev/ipvlan.h"
+#include "netdev/l2tp-tunnel.h"
+#include "netdev/macvlan.h"
+#include "netdev/netdev.h"
+#include "netdev/netdevsim.h"
+#include "netdev/tunnel.h"
+#include "netdev/tuntap.h"
+#include "netdev/vcan.h"
+#include "netdev/veth.h"
+#include "netdev/vlan.h"
+#include "netdev/vrf.h"
+#include "netdev/vxcan.h"
+#include "netdev/vxlan.h"
+#include "netdev/wireguard.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "netdev/netdev.h"
-#include "networkd-manager.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-
-#include "netdev/bridge.h"
-#include "netdev/bond.h"
-#include "netdev/geneve.h"
-#include "netdev/vlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/ipvlan.h"
-#include "netdev/vxlan.h"
-#include "netdev/tunnel.h"
-#include "netdev/tuntap.h"
-#include "netdev/veth.h"
-#include "netdev/dummy.h"
-#include "netdev/vrf.h"
-#include "netdev/vcan.h"
-#include "netdev/vxcan.h"
-#include "netdev/wireguard.h"
-#include "netdev/netdevsim.h"
-#include "netdev/fou-tunnel.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -65,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
         [NETDEV_KIND_FOU] = &foutnl_vtable,
         [NETDEV_KIND_ERSPAN] = &erspan_vtable,
+        [NETDEV_KIND_L2TP] = &l2tptnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -96,6 +97,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NETDEVSIM] = "netdevsim",
         [NETDEV_KIND_FOU] = "fou",
         [NETDEV_KIND_ERSPAN] = "erspan",
+        [NETDEV_KIND_L2TP] = "l2tp",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -598,6 +600,14 @@ static int netdev_create(NetDev *netdev, Link *link, link_netlink_message_handle
         return 0;
 }
 
+static int netdev_create_after_configured(NetDev *netdev, Link *link) {
+        assert(netdev);
+        assert(link);
+        assert(NETDEV_VTABLE(netdev)->create_after_configured);
+
+        return NETDEV_VTABLE(netdev)->create_after_configured(netdev, link);
+}
+
 /* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
 int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callback) {
         int r;
@@ -605,9 +615,8 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
         assert(netdev);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
-        assert(NETDEV_VTABLE(netdev));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
+        switch (netdev_get_create_type(netdev)) {
         case NETDEV_CREATE_MASTER:
                 r = netdev_enslave(netdev, link, callback);
                 if (r < 0)
@@ -619,6 +628,11 @@ int netdev_join(NetDev *netdev, Link *link, link_netlink_message_handler_t callb
                 if (r < 0)
                         return r;
 
+                break;
+        case NETDEV_CREATE_AFTER_CONFIGURED:
+                r = netdev_create_after_configured(netdev, link);
+                if (r < 0)
+                        return r;
                 break;
         default:
                 assert_not_reached("Can not join independent netdev");
@@ -740,16 +754,10 @@ int netdev_load_one(Manager *manager, const char *filename) {
 
         log_netdev_debug(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));
 
-        switch (NETDEV_VTABLE(netdev)->create_type) {
-        case NETDEV_CREATE_MASTER:
-        case NETDEV_CREATE_INDEPENDENT:
+        if (IN_SET(netdev_get_create_type(netdev), NETDEV_CREATE_MASTER, NETDEV_CREATE_INDEPENDENT)) {
                 r = netdev_create(netdev, NULL, NULL);
                 if (r < 0)
                         return r;
-
-                break;
-        default:
-                break;
         }
 
         switch (netdev->kind) {

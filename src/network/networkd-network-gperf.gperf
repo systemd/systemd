@@ -45,6 +45,7 @@ Network.MACVLAN,                        config_parse_stacked_netdev,            
 Network.MACVTAP,                        config_parse_stacked_netdev,                    NETDEV_KIND_MACVTAP,           offsetof(Network, stacked_netdev_names)
 Network.IPVLAN,                         config_parse_stacked_netdev,                    NETDEV_KIND_IPVLAN,            offsetof(Network, stacked_netdev_names)
 Network.VXLAN,                          config_parse_stacked_netdev,                    NETDEV_KIND_VXLAN,             offsetof(Network, stacked_netdev_names)
+Network.L2TP,                           config_parse_stacked_netdev,                    NETDEV_KIND_L2TP,              offsetof(Network, stacked_netdev_names)
 Network.Tunnel,                         config_parse_stacked_netdev,                    _NETDEV_KIND_TUNNEL,           offsetof(Network, stacked_netdev_names)
 Network.VRF,                            config_parse_ifname,                            0,                             offsetof(Network, vrf_name)
 Network.DHCP,                           config_parse_dhcp,                              0,                             offsetof(Network, dhcp)
