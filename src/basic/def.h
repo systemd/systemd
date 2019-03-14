@@ -39,11 +39,6 @@
 #define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
 #define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
 
-#define PLYMOUTH_SOCKET {                                       \
-                .un.sun_family = AF_UNIX,                       \
-                .un.sun_path = "\0/org/freedesktop/plymouthd",  \
-        }
-
 #define NOTIFY_FD_MAX 768
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 

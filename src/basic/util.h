@@ -43,8 +43,6 @@ static inline const char* enable_disable(bool b) {
         return b ? "enable" : "disable";
 }
 
-bool plymouth_running(void);
-
 bool display_is_local(const char *display) _pure_;
 
 #define NULSTR_FOREACH(i, l)                                    \

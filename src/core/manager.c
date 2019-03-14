@@ -58,6 +58,7 @@
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "process-util.h"
 #include "ratelimit.h"
 #include "rlimit-util.h"

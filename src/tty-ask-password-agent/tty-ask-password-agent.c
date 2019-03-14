@@ -34,6 +34,7 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"

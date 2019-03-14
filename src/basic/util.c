@@ -51,10 +51,6 @@ int saved_argc = 0;
 char **saved_argv = NULL;
 static int saved_in_initrd = -1;
 
-bool plymouth_running(void) {
-        return access("/run/plymouth/pid", F_OK) >= 0;
-}
-
 bool display_is_local(const char *display) {
         assert(display);
 
