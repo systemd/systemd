@@ -3904,12 +3904,12 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
         STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
                 _cleanup_free_ char *p;
 
-                p = strjoin(runtime_prefix, "/", *i);
+                p = path_join(runtime_prefix, *i);
                 if (!p)
                         return -ENOMEM;
 
-                /* We execute this synchronously, since we need to be sure this is gone when we start the service
-                 * next. */
+                /* We execute this synchronously, since we need to be sure this is gone when we start the
+                 * service next. */
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 

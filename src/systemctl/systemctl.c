@@ -24,8 +24,10 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
+#include "bus-unit-procs.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
@@ -2893,6 +2895,56 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return 0;
 }
 
+static int wait_context_watch(
+                WaitContext *wait_context,
+                sd_bus *bus,
+                const char *name) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *unit_path = NULL;
+        int r;
+
+        assert(wait_context);
+        assert(name);
+
+        log_debug("Watching for property changes of %s", name);
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "RefUnit",
+                        &error,
+                        NULL,
+                        "s", name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add reference to unit %s: %s", name, bus_error_message(&error, r));
+
+        unit_path = unit_dbus_path_from_name(name);
+        if (!unit_path)
+                return log_oom();
+
+        r = set_ensure_allocated(&wait_context->unit_paths, &string_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = set_put_strdup(wait_context->unit_paths, unit_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
+
+        r = sd_bus_match_signal_async(bus,
+                                      &wait_context->match,
+                                      NULL,
+                                      unit_path,
+                                      "org.freedesktop.DBus.Properties",
+                                      "PropertiesChanged",
+                                      on_properties_changed, NULL, wait_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
+
+        return 0;
+}
+
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,
@@ -2912,38 +2964,9 @@ static int start_unit_one(
         assert(error);
 
         if (wait_context) {
-                _cleanup_free_ char *unit_path = NULL;
-
-                log_debug("Watching for property changes of %s", name);
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "RefUnit",
-                                error,
-                                NULL,
-                                "s", name);
+                r = wait_context_watch(wait_context, bus, name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to RefUnit %s: %s", name, bus_error_message(error, r));
-
-                unit_path = unit_dbus_path_from_name(name);
-                if (!unit_path)
-                        return log_oom();
-
-                r = set_put_strdup(wait_context->unit_paths, unit_path);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
-
-                r = sd_bus_match_signal_async(bus,
-                                              &wait_context->match,
-                                              NULL,
-                                              unit_path,
-                                              "org.freedesktop.DBus.Properties",
-                                              "PropertiesChanged",
-                                              on_properties_changed, NULL, wait_context);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
+                        return r;
         }
 
         log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
@@ -3164,10 +3187,6 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                wait_context.unit_paths = set_new(&string_hash_ops);
-                if (!wait_context.unit_paths)
-                        return log_oom();
-
                 r = sd_bus_call_method_async(
                                 bus,
                                 NULL,
@@ -7966,7 +7985,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        const char *p;
         int c, r;
 
         assert(argc >= 0);
@@ -7986,6 +8004,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--type= requires arguments.");
@@ -8005,9 +8025,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (unit_type_from_string(type) >= 0) {
-                                        if (strv_push(&arg_types, type) < 0)
+                                        if (strv_consume(&arg_types, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
@@ -8016,9 +8035,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                  * in --types= too for compatibility
                                  * with old versions */
                                 if (unit_load_state_from_string(type) >= 0) {
-                                        if (strv_push(&arg_states, type) < 0)
+                                        if (strv_consume(&arg_states, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
@@ -8030,14 +8048,16 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'p': {
-                        /* Make sure that if the empty property list
-                           was specified, we won't show any properties. */
+                case 'p':
+                        /* Make sure that if the empty property list was specified, we won't show any
+                           properties. */
                         if (isempty(optarg) && !arg_properties) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else
+                        } else {
+                                const char *p;
+
                                 for (p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
@@ -8052,6 +8072,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                                         prop = NULL;
                                 }
+                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
@@ -8059,7 +8080,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
 
                         break;
-                }
 
                 case 'a':
                         arg_all = true;
@@ -8256,6 +8276,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_STATE: {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--state= requires arguments.");

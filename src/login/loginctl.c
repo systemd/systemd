@@ -10,7 +10,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
-#include "bus-unit-util.h"
+#include "bus-unit-procs.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
