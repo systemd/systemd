@@ -68,7 +68,11 @@ int process_source(RemoteSource *source, bool compress, bool seal) {
 
         assert(source->importer.iovw.iovec);
 
-        r = writer_write(source->writer, &source->importer.iovw, &source->importer.ts, compress, seal);
+        r = writer_write(source->writer,
+                         &source->importer.iovw,
+                         &source->importer.ts,
+                         &source->importer.boot_id,
+                         compress, seal);
         if (r == -EBADMSG) {
                 log_error_errno(r, "Entry is invalid, ignoring.");
                 r = 0;
