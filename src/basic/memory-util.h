@@ -51,3 +51,29 @@ static inline void *mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*)s + n;
 }
+
+/* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
+static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+
+        if (needlelen <= 0)
+                return (void*) haystack;
+
+        if (haystacklen < needlelen)
+                return NULL;
+
+        assert(haystack);
+        assert(needle);
+
+        return memmem(haystack, haystacklen, needle, needlelen);
+}
+
+#if HAVE_EXPLICIT_BZERO
+static inline void* explicit_bzero_safe(void *p, size_t l) {
+        if (l > 0)
+                explicit_bzero(p, l);
+
+        return p;
+}
+#else
+void *explicit_bzero_safe(void *p, size_t l);
+#endif
