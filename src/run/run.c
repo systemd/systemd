@@ -124,6 +124,8 @@ static int help(void) {
                "     --on-unit-active=SECONDS     Run SECONDS after the last activation\n"
                "     --on-unit-inactive=SECONDS   Run SECONDS after the last deactivation\n"
                "     --on-calendar=SPEC           Realtime timer\n"
+               "     --on-timezone-change         Run when the timezone changes\n"
+               "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
@@ -170,6 +172,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ON_UNIT_ACTIVE,
                 ARG_ON_UNIT_INACTIVE,
                 ARG_ON_CALENDAR,
+                ARG_ON_TIMEZONE_CHANGE,
+                ARG_ON_CLOCK_CHANGE,
                 ARG_TIMER_PROPERTY,
                 ARG_PATH_PROPERTY,
                 ARG_SOCKET_PROPERTY,
@@ -210,6 +214,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "on-unit-active",    required_argument, NULL, ARG_ON_UNIT_ACTIVE    },
                 { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE  },
                 { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR       },
+                { "on-timezone-change",no_argument,       NULL, ARG_ON_TIMEZONE_CHANGE},
+                { "on-clock-change",   no_argument,       NULL, ARG_ON_CLOCK_CHANGE   },
                 { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY    },
                 { "path-property",     required_argument, NULL, ARG_PATH_PROPERTY     },
                 { "socket-property",   required_argument, NULL, ARG_SOCKET_PROPERTY   },
@@ -376,6 +382,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ON_CALENDAR:
                         r = add_timer_property("OnCalendar", optarg);
+                        if (r < 0)
+                                return r;
+
+                        arg_with_timer = true;
+                        break;
+
+                case ARG_ON_TIMEZONE_CHANGE:
+                        r = add_timer_property("OnTimezoneChange", "yes");
+                        if (r < 0)
+                                return r;
+
+                        arg_with_timer = true;
+                        break;
+
+                case ARG_ON_CLOCK_CHANGE:
+                        r = add_timer_property("OnClockChange", "yes");
                         if (r < 0)
                                 return r;
 

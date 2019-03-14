@@ -1499,7 +1499,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field, "WakeSystem", "RemainAfterElapse", "Persistent"))
+        if (STR_IN_SET(field, "WakeSystem", "RemainAfterElapse", "Persistent",
+                       "OnTimezoneChange", "OnClockChange"))
 
                 return bus_append_parse_boolean(m, field, eq);
 

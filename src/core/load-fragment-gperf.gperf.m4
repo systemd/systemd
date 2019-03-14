@@ -433,6 +433,8 @@ Timer.OnBootSec,                 config_parse_timer,                 TIMER_BOOT,
 Timer.OnStartupSec,              config_parse_timer,                 TIMER_STARTUP,                 0
 Timer.OnUnitActiveSec,           config_parse_timer,                 TIMER_UNIT_ACTIVE,             0
 Timer.OnUnitInactiveSec,         config_parse_timer,                 TIMER_UNIT_INACTIVE,           0
+Timer.OnClockChange,             config_parse_bool,                  0,                             offsetof(Timer, on_clock_change)
+Timer.OnTimezoneChange,          config_parse_bool,                  0,                             offsetof(Timer, on_timezone_change)
 Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
 Timer.WakeSystem,                config_parse_bool,                  0,                             offsetof(Timer, wake_system)
 Timer.RemainAfterElapse,         config_parse_bool,                  0,                             offsetof(Timer, remain_after_elapse)
