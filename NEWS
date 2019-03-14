@@ -1957,12 +1957,14 @@ CHANGES WITH 234:
           systemd-logind to be safe. See
           https://cgit.freedesktop.org/xorg/xserver/commit/?id=dc48bd653c7e101.)
 
-        * All kernel install plugins are called with the environment variable
+        * All kernel-install plugins are called with the environment variable
           KERNEL_INSTALL_MACHINE_ID which is set to the machine ID given by
-          /etc/machine-id. If the file is missing or empty, the variable is
-          empty and BOOT_DIR_ABS is the path of a temporary directory which is
-          removed after all the plugins exit. So, if KERNEL_INSTALL_MACHINE_ID
-          is empty, all plugins should not put anything in BOOT_DIR_ABS.
+          /etc/machine-id. If the machine ID could not be determined,
+          $KERNEL_INSTALL_MACHINE_ID will be empty. Plugins should not put
+          anything in the entry directory (passed as the second argument) if
+          $KERNEL_INSTALL_MACHINE_ID is empty. For backwards compatiblity, a
+          temporary directory is passed as the entry directory and removed
+          after all the plugins exit.
 
         Contributions from: Adrian Heine né Lang, Aggelos Avgerinos, Alexander
         Kurtz, Alexandros Frantzis, Alexey Brodkin, Alex Lu, Amir Pakdel, Amir

@@ -2,15 +2,25 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 
-[[ $2 ]] || exit 1
+COMMAND="$1"
+KERNEL_VERSION="$2"
+ENTRY_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+INITRD_OPTIONS_START="5"
 
-case "$1" in
+[[ $KERNEL_VERSION ]] || exit 1
+
+case "$COMMAND" in
     add)
-        [[ -d /lib/modules/"$2"/kernel ]] || exit 0
-        exec depmod -a "$2"
+        [[ -d "/lib/modules/${KERNEL_VERSION}/kernel" ]] || exit 0
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Running depmod -a ${KERNEL_VERSION}"
+        exec depmod -a "${KERNEL_VERSION}"
         ;;
     remove)
-        exec rm -f /lib/modules/"$2"/modules.{alias{,.bin},builtin.bin,dep{,.bin},devname,softdep,symbols{,.bin}}
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
+        exec rm -f /lib/modules/"${KERNEL_VERSION}"/modules.{alias{,.bin},builtin.bin,dep{,.bin},devname,softdep,symbols{,.bin}}
         ;;
     *)
         exit 0
