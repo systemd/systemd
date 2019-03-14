@@ -21,11 +21,6 @@
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
 
-/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and that way we
- * become independent of /var being mounted */
-#define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
-#define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
-
 #define NOTIFY_FD_MAX 768
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 

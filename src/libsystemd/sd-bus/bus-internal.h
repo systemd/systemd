@@ -16,6 +16,11 @@
 #include "socket-util.h"
 #include "util.h"
 
+/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
+ * that way we become independent of /var being mounted */
+#define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
+#define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
+
 struct reply_callback {
         sd_bus_message_handler_t callback;
         usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
