@@ -3161,7 +3161,7 @@ static int exec_child(
                                       USER_PROCESS,
                                       username);
 
-        if (context->user) {
+        if (uid_is_valid(uid)) {
                 r = chown_terminal(STDIN_FILENO, uid);
                 if (r < 0) {
                         *exit_status = EXIT_STDIN;
@@ -3466,7 +3466,7 @@ static int exec_child(
         }
 
         if (needs_setuid) {
-                if (context->user) {
+                if (uid_is_valid(uid)) {
                         r = enforce_user(context, uid);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
