@@ -2164,10 +2164,11 @@ static int setup_exec_directory(
                         }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
-                        if (r < 0 && r != -EEXIST)
-                                goto fail;
-                        if (r == -EEXIST) {
+                        if (r < 0) {
                                 struct stat st;
+
+                                if (r != -EEXIST)
+                                        goto fail;
 
                                 if (stat(p, &st) < 0) {
                                         r = -errno;
