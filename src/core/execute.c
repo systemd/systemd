@@ -2074,7 +2074,7 @@ static int setup_exec_directory(
         STRV_FOREACH(rt, context->directories[type].paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
-                p = strjoin(params->prefix[type], "/", *rt);
+                p = path_join(params->prefix[type], *rt);
                 if (!p) {
                         r = -ENOMEM;
                         goto fail;
@@ -2110,7 +2110,7 @@ static int setup_exec_directory(
                          * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used for sharing
                          * files or sockets with other services. */
 
-                        private_root = strjoin(params->prefix[type], "/private");
+                        private_root = path_join(params->prefix[type], "private");
                         if (!private_root) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -2121,7 +2121,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        pp = strjoin(private_root, "/", *rt);
+                        pp = path_join(private_root, *rt);
                         if (!pp) {
                                 r = -ENOMEM;
                                 goto fail;
