@@ -60,7 +60,7 @@ static enum {
 static char **arg_path_property = NULL;
 static char **arg_socket_property = NULL;
 static char **arg_timer_property = NULL;
-static bool with_timer = false;
+static bool arg_with_timer = false;
 static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
@@ -339,7 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_ON_BOOT:
@@ -347,7 +347,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_ON_STARTUP:
@@ -355,7 +355,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_ON_UNIT_ACTIVE:
@@ -363,7 +363,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_ON_UNIT_INACTIVE:
@@ -371,7 +371,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_ON_CALENDAR:
@@ -379,7 +379,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        with_timer = true;
+                        arg_with_timer = true;
                         break;
 
                 case ARG_TIMER_PROPERTY:
@@ -387,7 +387,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_timer_property, optarg) < 0)
                                 return log_oom();
 
-                        with_timer = with_timer ||
+                        arg_with_timer = arg_with_timer ||
                                 STARTSWITH_SET(optarg,
                                                "OnActiveSec=",
                                                "OnBootSec=",
@@ -455,10 +455,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        with_trigger = !!arg_path_property || !!arg_socket_property || with_timer;
+        with_trigger = !!arg_path_property || !!arg_socket_property || arg_with_timer;
 
         /* currently, only single trigger (path, socket, timer) unit can be created simultaneously */
-        if ((int) !!arg_path_property + (int) !!arg_socket_property + (int) with_timer > 1)
+        if ((int) !!arg_path_property + (int) !!arg_socket_property + (int) arg_with_timer > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Only single trigger (path, socket, timer) unit can be created.");
 
@@ -554,7 +554,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Path, socket or timer options are not supported in --scope mode.");
 
-        if (arg_timer_property && !with_timer)
+        if (arg_timer_property && !arg_with_timer)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--timer-property= has no effect without any other timer options.");
 
@@ -1646,7 +1646,7 @@ static int run(int argc, char* argv[]) {
                 r = start_transient_trigger(bus, ".path");
         else if (arg_socket_property)
                 r = start_transient_trigger(bus, ".socket");
-        else if (with_timer)
+        else if (arg_with_timer)
                 r = start_transient_trigger(bus, ".timer");
         else
                 r = start_transient_service(bus, &retval);
