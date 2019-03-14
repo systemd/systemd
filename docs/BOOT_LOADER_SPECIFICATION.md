@@ -4,20 +4,33 @@ title: The Boot Loader Specification
 
 # The Boot Loader Specification
 
-_TL;DR: Currently there's little cooperation between multiple distributions in dual-boot (or triple, ... multi-boot) setups, and we'd like to improve this situation by getting everybody to commit to a single boot configuration format that is based on drop-in files, and thus is robust, simple, works without rewriting configuration files and is free of namespace clashes._
+_TL;DR: Currently there's no common boot scheme across architectures and
+platforms for open-source operating systems. There's also little cooperation
+between multiple distributions in dual-boot (or triple, … multi-boot)
+setups. We'd like to improve this situation by getting everybody to commit to a
+single boot configuration format that is based on drop-in files, and thus is
+robust, simple, works without rewriting configuration files and is free of
+namespace clashes._
 
-The Boot Loader Specification defines a scheme how different operating systems can cooperatively manage a boot loader configuration directory, that accepts drop-in files for boot menu items that are defined in a format that is shared between various boot loader implementations, operating systems, and userspace programs. The target audience for this specification is:
+The Boot Loader Specification defines a scheme how different operating systems
+can cooperatively manage a boot loader configuration directory, that accepts
+drop-in files for boot menu items that are defined in a format that is shared
+between various boot loader implementations, operating systems, and userspace
+programs. The same scheme can be used to prepare OS media for cases where the
+firmware includes a boot loader. The target audience for this specification is:
 
 * Boot loader developers, to write a boot loader that directly reads its configuration at runtime from these drop-in snippets
+* Firmware developers, to add generic boot loading support directly to the firmware itself
 * Distribution and Core OS developers, in order to create these snippets at OS/kernel package installation time
 * UI developers, for implementing a user interface that discovers the available boot options
-* OS Installer developers, for setting up the initial drop-in directory
+* OS Installer developers, to prepare their installation media and for setting up the initial drop-in directory
 
 ## Why is there a need for this specification?
 
 Of course, without this specification things already work mostly fine. But here's why we think this specification is needed:
 
 * To make the boot more robust, as no explicit rewriting of configuration files is required any more
+* To allow an out of the box boot experience on any platform without the need of traditional firmware mechanisms (e.g. BIOS calls, UEFI Boot Services)
 * To improve dual-boot scenarios. Currently, multiple Linux installations tend to fight over which boot loader becomes the primary one in possession of the MBR, and only that one installation can then update the boot loader configuration of it freely. Other Linux installs have to be manually configured to never touch the MBR and instead install a chain-loaded boot loader in their own partition headers. In this new scheme as all installations share a loader directory no manual configuration has to take place, and all participants implicitly cooperate due to removal of name collisions and can install/remove their own boot menu entries at free will, without interfering with the entries of other installed operating systems.
 * Drop-in directories are otherwise now pretty ubiquitous on Linux as an easy way to extend configuration without having to edit, regenerate or manipulate configuration files. For the sake of uniformity, we should do the same for extending the boot menu.
 * Userspace code can sanely parse boot loader configuration which is essential with modern BIOSes which do not necessarily initialize USB keyboards anymore during boot, which makes boot menus hard to reach for the user. If userspace code can parse the boot loader configuration, too, this allows for UIs that can select a boot menu item to boot into, before rebooting the machine, thus not requiring interactivity during early boot.
@@ -26,7 +39,9 @@ Of course, without this specification things already work mostly fine. But here'
 
 ## Why not simply rely on the EFI boot menu logic?
 
-The EFI specification provides a boot options logic that can offer similar functionality. Here's why we think that it is not enough for our uses:
+EFI is not ubiquitous, especially not in embedded systems. If you have an EFI
+system, it provides a boot options logic that can offer similar
+functionality. Here's why we think that it is not enough for our uses:
 
 * The various EFI implementations implement the boot order/boot item logic to different levels. Some firmware implementations do not offer a boot menu at all and instead unconditionally follow the EFI boot order, booting the first item that is working.
 * If the firmware setup is used to reset all data usually all EFI boot entries are lost, making the system entirely unbootable, as the firmware setups generally do not offer a UI to define additional boot items. By placing the menu item information on disk, it is always available, regardless if the BIOS setup data is lost.
@@ -51,7 +66,12 @@ This placeholder file system shall be determined during _installation time_, and
 
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot/` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._
 
-For systems where the firmware is able to read file systems directly, `$BOOT` must be a file system readable by the firmware. For other systems, `$BOOT` must be a VFAT (16 or 32) file system. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
+For systems where the firmware is able to read file systems directly, `$BOOT`
+must be a file system readable by the firmware. For other systems and generic
+installation and live media, `$BOOT` must be a VFAT (16 or 32) file
+system. Applications accessing `$BOOT` should hence not assume that fancier
+file system features such as symlinks, hardlinks, access control or case
+sensitivity are supported.
 
 This specification defines two types of boot loader entries. The first type is
 text based, very simple and suitable for a variety of firmware, architecture
@@ -105,7 +125,16 @@ Each configuration drop-in snippet must include at least a `linux` or an `efi` k
     linux        /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux
     initrd       /6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd
 
-On EFI systems all Linux kernel images should be EFI images. In order to increase compatibility with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.
+On EFI systems all Linux kernel images should be EFI images. In order to
+increase compatibility with EFI systems it is highly recommended only to
+install EFI kernel images, even on non-EFI systems, if that's applicable and
+supported on the specific architecture.
+
+Conversely, in order to increase compatibility it is recommended to install
+generic kernel images that make few assumptions about the firmware they run on,
+i.e. it is a good idea that both images shipped as UEFI PE images and those
+which are not don't make unnecessary assumption on the underlying firmware,
+i.e. don't hard depend on legacy BIOS calls or UEFI boot services.
 
 Note that these configuration snippets may only reference kernels (and EFI programs) that reside on the same file system as the configuration snippets, i.e. everything referenced must be contained in the same file system. This is by design, as referencing other partitions or devices would require a non-trivial language for denoting device paths. If kernels/initrds are to be read from other partitions/disks the boot loader can do this in its own native configuration, using its own specific device path language, and this is out of focus for this specification. More specifically, on non-EFI systems configuration snippets following this specification cannot be used to spawn other operating systems (such as Windows).
 

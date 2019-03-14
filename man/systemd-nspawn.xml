@@ -614,6 +614,16 @@
 
         <para>Note that <option>--network-veth</option> is the default if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <para>Note that on Linux network interface names may have a length of 15 characters at maximum, while
+        container names may have a length up to 64 characters. As this option derives the host-side interface
+        name from the container name the name is possibly truncated. Thus, care needs to be taken to ensure
+        that interface names remain unique in this case, or even better container names are generally not
+        chosen longer than 12 characters, to avoid the truncation. Alternatively, the
+        <option>--network-veth-extra=</option> option may be used, which allows free configuration of the
+        host-side interface name independently of the container name — but might require a bit more
+        additional configuration in case bridging in a fashion similar to <option>--network-bridge=</option>
+        is desired.</para>
         </listitem>
       </varlistentry>
 
@@ -635,11 +645,13 @@
       <varlistentry>
         <term><option>--network-bridge=</option></term>
 
-        <listitem><para>Adds the host side of the Ethernet link created with <option>--network-veth</option> to the
-        specified Ethernet bridge interface. Expects a valid network interface name of a bridge device as
-        argument. Note that <option>--network-bridge=</option> implies <option>--network-veth</option>. If this option
-        is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix instead of
-        <literal>ve-</literal>.</para></listitem>
+        <listitem><para>Adds the host side of the Ethernet link created with <option>--network-veth</option>
+        to the specified Ethernet bridge interface. Expects a valid network interface name of a bridge device
+        as argument. Note that <option>--network-bridge=</option> implies <option>--network-veth</option>. If
+        this option is used, the host side of the Ethernet link will use the <literal>vb-</literal> prefix
+        instead of <literal>ve-</literal>. Regardless of the used naming prefix the same network interface
+        name length limits imposed by Linux apply, along with the complications this creates (for details see
+        above).</para></listitem>
       </varlistentry>
 
       <varlistentry>

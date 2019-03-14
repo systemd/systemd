@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="systemd.exec">
+<refentry id="systemd.exec" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.exec</title>
     <productname>systemd</productname>
@@ -112,7 +112,9 @@
         dependencies to be added to the unit (see above).</para>
 
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
-        in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para></listitem>
+        in conjunction with <varname>RootDirectory=</varname>. For details, see below.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -126,14 +128,17 @@
         url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
         Specification</ulink>.</para>
 
-        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or <literal>strict</literal>,
-        or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is set, then this setting adds
-        <filename>/dev/loop-control</filename> with <constant>rw</constant> mode, <literal>block-loop</literal> and
-        <literal>block-blkext</literal> with <constant>rwm</constant> mode to <varname>DeviceAllow=</varname>. See
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
+        <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
+        set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
+        <literal>block-loop</literal> and <literal>block-blkext</literal> with <constant>rwm</constant> mode
+        to <varname>DeviceAllow=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
-        <varname>PrivateDevices=</varname> below, as it may change the setting of <varname>DevicePolicy=</varname>.
-        </para></listitem>
+        <varname>PrivateDevices=</varname> below, as it may change the setting of
+        <varname>DevicePolicy=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -147,7 +152,9 @@
         will be a 1:1 copy of the host's, and include these three mounts. Note that the <filename>/dev</filename> file
         system of the host is bind mounted if this option is used without <varname>PrivateDevices=</varname>. To run
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
-        <varname>PrivateDevices=</varname>.</para></listitem>
+        <varname>PrivateDevices=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -174,7 +181,9 @@
 
         <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
         is used. In this case the source path refers to a path on the host file system, while the destination path
-        refers to a path below the root directory of the unit.</para></listitem>
+        refers to a path below the root directory of the unit.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -182,6 +191,8 @@
 
   <refsect1>
     <title>Credentials</title>
+
+    <xi:include href="system-only.xml" xpointer="plural"/>
 
     <variablelist class='unit-directives'>
 
@@ -306,6 +317,8 @@
   <refsect1>
     <title>Capabilities</title>
 
+    <xi:include href="system-only.xml" xpointer="plural"/>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -402,6 +415,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
   <refsect1>
     <title>Mandatory Access Control</title>
+
+    <xi:include href="system-only.xml" xpointer="plural"/>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -815,7 +831,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         ones), to ensure they cannot get access to private user data, unless the services actually require access to
         the user's private data. This setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot
         ensure protection in all cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>,
-        see below.</para></listitem>
+        see below.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1009,7 +1027,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <para>Note that the effect of these settings may be undone by privileged processes. In order to set up an
         effective sandboxed environment for a unit it is thus recommended to combine these settings with either
         <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
-        <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+        <varname>SystemCallFilter=~@mount</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="plural"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1032,7 +1052,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <programlisting>TemporaryFileSystem=/var:ro
 BindReadOnlyPaths=/var/lib/systemd</programlisting>
         then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
-        <filename>/var/lib/systemd</filename> or its contents.</para></listitem>
+        <filename>/var/lib/systemd</filename> or its contents.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1057,7 +1079,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para></listitem>
+        security.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1087,7 +1111,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if mount namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para></listitem>
+        security.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1114,7 +1140,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
         bound within a private network namespace. This may be combined with
         <varname>JoinsNamespaceOf=</varname> to listen on sockets inside of network namespaces of other
-        services.</para></listitem>
+        services.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1131,7 +1159,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         units is reused.</para>
 
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
-        bound within the specified network namespace.</para></listitem>
+        bound within the specified network namespace.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1157,7 +1187,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para></listitem>
+        security.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1172,7 +1204,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that when this option is enabled for a service hostname changes no longer propagate from
         the system into the service, it is hence not suitable for services that need to take notice of system
-        hostname changes dynamically.</para></listitem>
+        hostname changes dynamically.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1193,7 +1227,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         option does not prevent indirect changes to kernel tunables effected by IPC calls to other processes. However,
         <varname>InaccessiblePaths=</varname> may be used to make relevant IPC file system objects inaccessible. If
         <varname>ProtectKernelTunables=</varname> is set, <varname>MountAPIVFS=yes</varname> is
-        implied.</para></listitem>
+        implied.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1212,7 +1248,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <constant>kernel.modules_disabled</constant> mechanism and
         <filename>/proc/sys/kernel/modules_disabled</filename> documentation.  If turned on and if running in user
         mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1225,7 +1263,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         it is hence recommended to turn this on for most services. For this setting the same restrictions regarding
         mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see
         above. Defaults to off. If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname>
-        is implied.</para></listitem>
+        is implied.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1364,7 +1404,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <varname>DynamicUser=</varname> are used. It has no effect on IPC objects owned by the root user. Specifically,
         this removes System V semaphores, as well as System V and POSIX shared memory segments and message queues. If
         multiple units use the same user or group the IPC objects are removed when the last of these units is
-        stopped. This setting is implied if <varname>DynamicUser=</varname> is set.</para></listitem>
+        stopped. This setting is implied if <varname>DynamicUser=</varname> is set.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1397,7 +1439,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname>,
         <varname>ReadWritePaths=</varname>, … — also enable file system namespacing in a fashion equivalent to this
         option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1426,7 +1470,8 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
         options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
-        </listitem>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
     </variablelist>
