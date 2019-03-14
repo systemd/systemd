@@ -4,7 +4,6 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.syntax">
