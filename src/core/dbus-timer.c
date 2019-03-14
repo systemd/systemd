@@ -194,12 +194,14 @@ static int bus_timer_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name,
                                                     format_timespan(ts, sizeof(ts), usec, USEC_PER_MSEC));
 
-                                v = new0(TimerValue, 1);
+                                v = new(TimerValue, 1);
                                 if (!v)
                                         return -ENOMEM;
 
-                                v->base = b;
-                                v->value = usec;
+                                *v = (TimerValue) {
+                                        .base = b,
+                                        .value = usec,
+                                };
 
                                 LIST_PREPEND(value, t->values, v);
                         }
@@ -247,12 +249,14 @@ static int bus_timer_set_transient_property(
 
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name, str);
 
-                                v = new0(TimerValue, 1);
+                                v = new(TimerValue, 1);
                                 if (!v)
                                         return -ENOMEM;
 
-                                v->base = b;
-                                v->calendar_spec = TAKE_PTR(c);
+                                *v = (TimerValue) {
+                                        .base = b,
+                                        .calendar_spec = TAKE_PTR(c),
+                                };
 
                                 LIST_PREPEND(value, t->values, v);
                         }
@@ -300,12 +304,14 @@ static int bus_timer_set_transient_property(
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name,
                                             format_timespan(time, sizeof(time), usec, USEC_PER_MSEC));
 
-                        v = new0(TimerValue, 1);
+                        v = new(TimerValue, 1);
                         if (!v)
                                 return -ENOMEM;
 
-                        v->base = b;
-                        v->value = usec;
+                        *v = (TimerValue) {
+                                .base = b,
+                                .value = usec,
+                        };
 
                         LIST_PREPEND(value, t->values, v);
                 }
@@ -333,12 +339,14 @@ static int bus_timer_set_transient_property(
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
 
-                        v = new0(TimerValue, 1);
+                        v = new(TimerValue, 1);
                         if (!v)
                                 return -ENOMEM;
 
-                        v->base = TIMER_CALENDAR;
-                        v->calendar_spec = TAKE_PTR(c);
+                        *v = (TimerValue) {
+                                .base = TIMER_CALENDAR,
+                                .calendar_spec = TAKE_PTR(c),
+                        };
 
                         LIST_PREPEND(value, t->values, v);
                 }
