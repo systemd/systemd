@@ -1022,10 +1022,23 @@
       <title>Special User Units</title>
 
       <para>When systemd runs as a user instance, the following special
-      units are available, which have similar definitions as their
+      units are available:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>default.target</filename></term>
+          <listitem>
+            <para>This is the main target of the user session, started by default. Various services that
+            compose the normal user session should be pulled into this target. In this regard,
+            <filename>default.target</filename> is similar to <filename>multi-user.target</filename> in the
+            system instance, but it is a real unit, not an alias.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, the following units are available which have definitions similar to their
       system counterparts:
       <filename>exit.target</filename>,
-      <filename>default.target</filename>,
       <filename>shutdown.target</filename>,
       <filename>sockets.target</filename>,
       <filename>timers.target</filename>,
