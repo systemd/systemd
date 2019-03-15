@@ -422,7 +422,7 @@ static int find_sections(
                 n = pread(fd, k, size, offset);
                 if (n < 0)
                         return log_error_errno(errno, "Failed to read section payload: %m");
-                if (n != size)
+                if ((size_t) n != size)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading section payload, refusing:");
 
                 /* Allow one trailing NUL byte, but nothing more. */
