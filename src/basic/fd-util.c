@@ -25,6 +25,10 @@
 #include "util.h"
 #include "tmpfile-util.h"
 
+/* The maximum number of iterations in the loop to close descriptors in the fallback case
+ * when /proc/self/fd/ is inaccessible. */
+#define MAX_FD_LOOP_LIMIT (1024*1024)
+
 int close_nointr(int fd) {
         assert(fd >= 0);
 
@@ -227,6 +231,13 @@ int close_all_fds(const int except[], size_t n_except) {
                 max_fd = get_max_fd();
                 if (max_fd < 0)
                         return max_fd;
+
+                /* Refuse to do the loop over more too many elements. It's better to fail immediately than to
+                 * spin the CPU for a long time. */
+                if (max_fd > MAX_FD_LOOP_LIMIT)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "/proc/self/fd is inaccessible. Refusing to loop over %d potential fds.",
+                                               max_fd);
 
                 for (fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -1) {
                         int q;

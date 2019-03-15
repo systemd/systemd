@@ -67,7 +67,7 @@ int stub_pid1(sd_id128_t uuid) {
         reset_all_signal_handlers();
 
         log_close();
-        close_all_fds(NULL, 0);
+        (void) close_all_fds(NULL, 0);
         log_open();
 
         /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,

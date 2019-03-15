@@ -74,7 +74,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
                         except[fd] = fd;
 
                 log_close();
-                close_all_fds(except, 3 + n);
+                r = close_all_fds(except, 3 + n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to close all file descriptors: %m");
         }
 
         /** Note: we leak some fd's on error here. I doesn't matter
