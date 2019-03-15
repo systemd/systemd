@@ -629,9 +629,9 @@ int config_parse_l2tp_session_name(
                 return 0;
         }
 
-        session->name = strdup(rvalue);
-        if (!session->name)
-                return -ENOMEM;
+        r = free_and_strdup(&session->name, rvalue);
+        if (r < 0)
+                return log_oom();
 
         session = NULL;
         return 0;
