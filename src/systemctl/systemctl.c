@@ -8073,10 +8073,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (r == 0)
                                                 break;
 
-                                        if (strv_push(&arg_properties, prop) < 0)
+                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
                                                 return log_oom();
-
-                                        prop = NULL;
                                 }
                         }
 
@@ -8302,10 +8300,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return 0;
                                 }
 
-                                if (strv_push(&arg_states, s) < 0)
+                                if (strv_consume(&arg_states, TAKE_PTR(s)) < 0)
                                         return log_oom();
-
-                                s = NULL;
                         }
                         break;
                 }
