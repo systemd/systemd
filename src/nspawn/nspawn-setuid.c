@@ -43,7 +43,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 if (rearrange_stdio(-1, pipe_fds[1], -1) < 0)
                         _exit(EXIT_FAILURE);
 
-                close_all_fds(NULL, 0);
+                (void) close_all_fds(NULL, 0);
 
                 (void) rlimit_nofile_safe();
 
