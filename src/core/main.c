@@ -1908,9 +1908,8 @@ static int invoke_main_loop(
                         *ret_shutdown_verb = NULL;
 
                         /* Steal the switch root parameters */
-                        *ret_switch_root_dir = m->switch_root;
-                        *ret_switch_root_init = m->switch_root_init;
-                        m->switch_root = m->switch_root_init = NULL;
+                        *ret_switch_root_dir = TAKE_PTR(m->switch_root);
+                        *ret_switch_root_init = TAKE_PTR(m->switch_root_init);
 
                         return 0;
 
