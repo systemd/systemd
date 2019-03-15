@@ -666,9 +666,13 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+        Manager *m;
+
         assert(d);
 
-        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
+        m = UNIT(d)->manager;
+
+        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
                 DeviceFound n, previous;
 
                 /* When we are already running, then apply the new mask right-away, and trigger state changes

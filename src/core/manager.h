@@ -395,6 +395,8 @@ struct Manager {
          * multiple times on the same unit. */
         unsigned sigchldgen;
         unsigned notifygen;
+
+        bool honor_device_enumeration;
 };
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
