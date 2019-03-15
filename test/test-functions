@@ -470,7 +470,7 @@ create_empty_image() {
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
     sfdisk "$LOOPDEV" <<EOF
-,$((_size-10))M
+,$((_size-50))M
 ,
 EOF
 
