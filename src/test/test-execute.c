@@ -659,8 +659,15 @@ static void test_exec_standardoutput_append(Manager *m) {
         test(m, "exec-standardoutput-append.service", 0, CLD_EXITED);
 }
 
-static int run_tests(UnitFileScope scope, const test_function_t *tests) {
-        const test_function_t *test = NULL;
+typedef struct test_entry {
+        test_function_t f;
+        const char *name;
+} test_entry;
+
+#define entry(x) {x, #x}
+
+static int run_tests(UnitFileScope scope, const test_entry tests[], char **patterns) {
+        const test_entry *test = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -674,55 +681,60 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
-        for (test = tests; test && *test; test++)
-                (*test)(m);
+        for (test = tests; test && test->f; test++)
+                if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
+                        test->f(m);
+                else
+                        log_info("Skipping %s because it does not match any pattern.", test->name);
 
         return 0;
 }
 
+
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        static const test_function_t user_tests[] = {
-                test_exec_basic,
-                test_exec_ambientcapabilities,
-                test_exec_bindpaths,
-                test_exec_capabilityboundingset,
-                test_exec_cpuaffinity,
-                test_exec_environment,
-                test_exec_environmentfile,
-                test_exec_group,
-                test_exec_ignoresigpipe,
-                test_exec_inaccessiblepaths,
-                test_exec_ioschedulingclass,
-                test_exec_oomscoreadjust,
-                test_exec_passenvironment,
-                test_exec_personality,
-                test_exec_privatedevices,
-                test_exec_privatenetwork,
-                test_exec_privatetmp,
-                test_exec_protectkernelmodules,
-                test_exec_readonlypaths,
-                test_exec_readwritepaths,
-                test_exec_restrictnamespaces,
-                test_exec_runtimedirectory,
-                test_exec_standardinput,
-                test_exec_standardoutput,
-                test_exec_standardoutput_append,
-                test_exec_supplementarygroups,
-                test_exec_systemcallerrornumber,
-                test_exec_systemcallfilter,
-                test_exec_temporaryfilesystem,
-                test_exec_umask,
-                test_exec_unsetenvironment,
-                test_exec_user,
-                test_exec_workingdirectory,
-                NULL,
+        _cleanup_free_ char *test_execute_path = NULL;
+        static const test_entry user_tests[] = {
+                entry(test_exec_basic),
+                entry(test_exec_ambientcapabilities),
+                entry(test_exec_bindpaths),
+                entry(test_exec_capabilityboundingset),
+                entry(test_exec_cpuaffinity),
+                entry(test_exec_environment),
+                entry(test_exec_environmentfile),
+                entry(test_exec_group),
+                entry(test_exec_ignoresigpipe),
+                entry(test_exec_inaccessiblepaths),
+                entry(test_exec_ioschedulingclass),
+                entry(test_exec_oomscoreadjust),
+                entry(test_exec_passenvironment),
+                entry(test_exec_personality),
+                entry(test_exec_privatedevices),
+                entry(test_exec_privatenetwork),
+                entry(test_exec_privatetmp),
+                entry(test_exec_protectkernelmodules),
+                entry(test_exec_readonlypaths),
+                entry(test_exec_readwritepaths),
+                entry(test_exec_restrictnamespaces),
+                entry(test_exec_runtimedirectory),
+                entry(test_exec_standardinput),
+                entry(test_exec_standardoutput),
+                entry(test_exec_standardoutput_append),
+                entry(test_exec_supplementarygroups),
+                entry(test_exec_systemcallerrornumber),
+                entry(test_exec_systemcallfilter),
+                entry(test_exec_temporaryfilesystem),
+                entry(test_exec_umask),
+                entry(test_exec_unsetenvironment),
+                entry(test_exec_user),
+                entry(test_exec_workingdirectory),
+                {},
         };
-        static const test_function_t system_tests[] = {
-                test_exec_dynamicuser,
-                test_exec_specifier,
-                test_exec_systemcallfilter_system,
-                NULL,
+        static const test_entry system_tests[] = {
+                entry(test_exec_dynamicuser),
+                entry(test_exec_specifier),
+                entry(test_exec_systemcallfilter_system),
+                {},
         };
         int r;
 
@@ -759,9 +771,9 @@ int main(int argc, char *argv[]) {
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
 
-        r = run_tests(UNIT_FILE_USER, user_tests);
+        r = run_tests(UNIT_FILE_USER, user_tests, argv + 1);
         if (r != 0)
                 return r;
 
-        return run_tests(UNIT_FILE_SYSTEM, system_tests);
+        return run_tests(UNIT_FILE_SYSTEM, system_tests, argv + 1);
 }
