@@ -4667,9 +4667,6 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        /* Make sure rename_process() in the stub init process can work */
-        save_argc_argv(argc, argv);
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
