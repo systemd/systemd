@@ -4668,8 +4668,7 @@ static int run(int argc, char *argv[]) {
         log_open();
 
         /* Make sure rename_process() in the stub init process can work */
-        saved_argv = argv;
-        saved_argc = argc;
+        save_argc_argv(argc, argv);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -2380,8 +2380,7 @@ int main(int argc, char *argv[]) {
         (void) prctl(PR_SET_NAME, systemd);
 
         /* Save the original command line */
-        saved_argv = argv;
-        saved_argc = argc;
+        save_argc_argv(argc, argv);
 
         /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
