@@ -1036,8 +1036,8 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        puts("The time after the unit is active or started is printed after the \"@\" character.\n"
-             "The time the unit takes to start is printed after the \"+\" character.\n");
+        puts("The time when unit became active or started is printed after the \"@\" character.\n"
+             "The time the unit took to start is printed after the \"+\" character.\n");
 
         if (argc > 1) {
                 char **name;
