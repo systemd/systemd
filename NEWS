@@ -5748,7 +5748,7 @@ CHANGES WITH 214:
         * Socket units gained a new Symlinks= setting. It takes a list
           of symlinks to create to file system sockets or FIFOs
           created by the specific Unix sockets. This is useful to
-          manage symlinks to socket nodes with the same life-cycle as
+          manage symlinks to socket nodes with the same lifecycle as
           the socket itself.
 
         * The /dev/log socket and /dev/initctl FIFO have been moved to
@@ -6056,7 +6056,7 @@ CHANGES WITH 212:
           users who are logged out cannot continue to consume IPC
           resources. This covers SysV memory, semaphores and message
           queues as well as POSIX shared memory and message
-          queues. Traditionally, SysV and POSIX IPC had no life-cycle
+          queues. Traditionally, SysV and POSIX IPC had no lifecycle
           limits. With this functionality, that is corrected. This may
           be turned off by using the RemoveIPC= switch of logind.conf.
 
@@ -6206,7 +6206,7 @@ CHANGES WITH 211:
           systemd-networkd.
 
         * The sd-bus.h bus API gained a new sd_bus_track object for
-          tracking the life-cycle of bus peers. Note that sd-bus.h is
+          tracking the lifecycle of bus peers. Note that sd-bus.h is
           still not a public API though (unless you specify
           --enable-kdbus on the configure command line, which however
           voids your warranty and you get no API stability guarantee).

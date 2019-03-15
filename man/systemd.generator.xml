@@ -193,12 +193,15 @@
       </listitem>
 
       <listitem>
-        <para>It is a good idea to use the <varname>SourcePath=</varname> directive
-        in generated unit files to specify the source configuration file you are
-        generating the unit from. This makes things more easily understood by the
-        user and also has the benefit that systemd can warn the user about
-        configuration files that changed on disk but have not been read yet by
-        systemd.</para>
+        <para>The generator should always include its own name in a comment at the top of the generated file,
+        so that the user can easily figure out which component created or amended a particular unit.</para>
+
+        <para>The <varname>SourcePath=</varname> directive should be used in generated files to specify the
+        source configuration file they are generated from. This makes things more easily understood by the
+        user and also has the benefit that systemd can warn the user about configuration files that changed
+        on disk but have not been read yet by systemd. The <varname>SourcePath=</varname> value does not have
+        to be a file in a physical filesystem. For example, in the common case of the generator looking at
+        the kernel command line, <option>SourcePath=/proc/cmdline</option> should be used.</para>
       </listitem>
 
       <listitem>
