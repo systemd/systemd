@@ -1519,6 +1519,7 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
+                        shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 case SCMP_ARCH_PPC:
@@ -1585,7 +1586,7 @@ int seccomp_memory_deny_write_execute(void) {
                         continue;
 #endif
 
-                if (shmat_syscall != 0) {
+                if (shmat_syscall > 0) {
                         r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
                                                        1,
                                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
