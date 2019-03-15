@@ -1502,14 +1502,9 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
 assert_cc(SCMP_SYS(shmget) > 0);
 assert_cc(SCMP_SYS(shmat) > 0);
 assert_cc(SCMP_SYS(shmdt) > 0);
-#elif defined(__i386__) || defined(__powerpc64__)
-assert_cc(SCMP_SYS(shmget) < 0);
-assert_cc(SCMP_SYS(shmat) < 0);
-assert_cc(SCMP_SYS(shmdt) < 0);
 #endif
 
 int seccomp_memory_deny_write_execute(void) {
-
         uint32_t arch;
         int r;
 

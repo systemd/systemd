@@ -507,8 +507,17 @@ static void test_memory_deny_write_execute_mmap(void) {
 static void test_memory_deny_write_execute_shmat(void) {
         int shmid;
         pid_t pid;
+        uint32_t arch;
 
         log_info("/* %s */", __func__);
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                log_debug("arch %s: SCMP_SYS(mmap) = %d", seccomp_arch_to_string(arch), SCMP_SYS(mmap));
+                log_debug("arch %s: SCMP_SYS(mmap2) = %d", seccomp_arch_to_string(arch), SCMP_SYS(mmap2));
+                log_debug("arch %s: SCMP_SYS(shmget) = %d", seccomp_arch_to_string(arch), SCMP_SYS(shmget));
+                log_debug("arch %s: SCMP_SYS(shmat) = %d", seccomp_arch_to_string(arch), SCMP_SYS(shmat));
+                log_debug("arch %s: SCMP_SYS(shmdt) = %d", seccomp_arch_to_string(arch), SCMP_SYS(shmdt));
+        }
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
