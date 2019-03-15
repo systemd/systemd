@@ -215,6 +215,18 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         return 1;
 }
 
+static int get_invocation_from_environment(sd_id128_t *ret) {
+        const char *e;
+
+        assert(ret);
+
+        e = secure_getenv("INVOCATION_ID");
+        if (!e)
+                return -ENXIO;
+
+        return sd_id128_from_string(e, ret);
+}
+
 _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
         static thread_local sd_id128_t saved_invocation_id = {};
         int r;
@@ -237,13 +249,7 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
                         return r;
 
                 if (r == 0) {
-                        const char *e;
-
-                        e = secure_getenv("INVOCATION_ID");
-                        if (!e)
-                                return -ENXIO;
-
-                        r = sd_id128_from_string(e, &saved_invocation_id);
+                        r = get_invocation_from_environment(&saved_invocation_id);
                         if (r < 0)
                                 return r;
                 }

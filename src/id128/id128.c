@@ -70,7 +70,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+        printf("%s [OPTIONS...] {COMMAND}\n\n"
                "Generate and print id128 strings.\n\n"
                "  -h --help               Show this help\n"
                "  -p --pretty             Generate samples of program code\n"
