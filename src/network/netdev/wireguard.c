@@ -758,12 +758,12 @@ int config_parse_wireguard_endpoint(const char *unit,
                 ++end;
         }
 
-        peer->endpoint_host = strndup(begin, len);
-        if (!peer->endpoint_host)
+        r = free_and_strndup(&peer->endpoint_host, begin, len);
+        if (r < 0)
                 return log_oom();
 
-        peer->endpoint_port = strdup(end);
-        if (!peer->endpoint_port)
+        r = free_and_strdup(&peer->endpoint_port, end);
+        if (r < 0)
                 return log_oom();
 
         r = set_ensure_allocated(&w->peers_with_unresolved_endpoint, NULL);
