@@ -327,7 +327,7 @@ static void test_exec_inaccessiblepaths(Manager *m) {
                 return;
         }
 
-        test(m, "exec-inaccessiblepaths-proc.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 
         if (path_is_read_only_fs("/") > 0) {
                 log_notice("Root directory is readonly, skipping remaining tests in %s", __func__);

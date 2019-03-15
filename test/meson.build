@@ -67,7 +67,7 @@ test_data_files = '''
         test-execute/exec-ignoresigpipe-no.service
         test-execute/exec-ignoresigpipe-yes.service
         test-execute/exec-inaccessiblepaths-mount-propagation.service
-        test-execute/exec-inaccessiblepaths-proc.service
+        test-execute/exec-inaccessiblepaths-sys.service
         test-execute/exec-ioschedulingclass-best-effort.service
         test-execute/exec-ioschedulingclass-idle.service
         test-execute/exec-ioschedulingclass-none.service
