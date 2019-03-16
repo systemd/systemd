@@ -1132,13 +1132,15 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
                                     bus->fds, bus->n_fds,
                                     NULL,
                                     &t);
-        if (r == -EBADMSG)
+        if (r == -EBADMSG) {
                 log_debug_errno(r, "Received invalid message from connection %s, dropping.", strna(bus->description));
-        else if (r < 0) {
+                free(bus->rbuffer); /* We want to drop current rbuffer and proceed with whatever remains in b */
+        } else if (r < 0) {
                 free(b);
                 return r;
         }
 
+        /* rbuffer ownership was either transferred to t, or we got EBADMSG and dropped it. */
         bus->rbuffer = b;
         bus->rbuffer_size -= size;
 
