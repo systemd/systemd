@@ -60,7 +60,7 @@ function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
     # Either way, only use this version if we aren't running in KVM, because
     # nested KVM is flaky still.
-    if [ `systemd-detect-virt -v` != kvm ] ; then
+    if [[ $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
     fi
 
@@ -192,7 +192,7 @@ $KERNEL_APPEND \
     fi
 
     # Let's use KVM if it is available, but let's avoid using nested KVM as that is still flaky
-    if [ -c /dev/kvm -a `systemd-detect-virt -v` != kvm ]; then
+    if [[ -c /dev/kvm && $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
