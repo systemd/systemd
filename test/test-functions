@@ -509,7 +509,7 @@ check_asan_reports() {
                          "dbus-daemon" => undef,
                      );
                  }
-	         print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
+                 print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
         )
         if [[ ! -z "$pids" ]]; then
             ret=$(($ret+1))
