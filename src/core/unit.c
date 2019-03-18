@@ -1727,12 +1727,14 @@ static bool unit_verify_deps(Unit *u) {
         return true;
 }
 
-/* Errors:
- *         -EBADR:      This unit type does not support starting.
+/* Errors that aren't really errors:
  *         -EALREADY:   Unit is already started.
- *         -EAGAIN:     An operation is already in progress. Retry later.
- *         -ECANCELED:  Start limit hit, too many requests for now
  *         -ECOMM:      Condition failed
+ *         -EAGAIN:     An operation is already in progress. Retry later.
+ *
+ * Errors that are real errors:
+ *         -EBADR:      This unit type does not support starting.
+ *         -ECANCELED:  Start limit hit, too many requests for now
  *         -EPROTO:     Assert failed
  *         -EINVAL:     Unit not loaded
  *         -EOPNOTSUPP: Unit type not supported
