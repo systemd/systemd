@@ -1744,10 +1744,9 @@ int unit_start(Unit *u) {
 
         assert(u);
 
-        /* If this is already started, then this will succeed. Note
-         * that this will even succeed if this unit is not startable
-         * by the user. This is relied on to detect when we need to
-         * wait for units and when waiting is finished. */
+        /* If this is already started, then this will succeed. Note that this will even succeed if this unit
+         * is not startable by the user. This is relied on to detect when we need to wait for units and when
+         * waiting is finished. */
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
@@ -1760,35 +1759,28 @@ int unit_start(Unit *u) {
         if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_enter_timestamp))
                 return -ESTALE;
 
-        /* If the conditions failed, don't do anything at all. If we
-         * already are activating this call might still be useful to
-         * speed up activation in case there is some hold-off time,
-         * but we don't want to recheck the condition in that case. */
+        /* If the conditions failed, don't do anything at all. If we already are activating this call might
+         * still be useful to speed up activation in case there is some hold-off time, but we don't want to
+         * recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
-            !unit_test_condition(u)) {
-                log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
-                return -ECOMM;
-        }
+            !unit_test_condition(u))
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(ECOMM), "Starting requested but condition failed. Not starting unit.");
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
-            !unit_test_assert(u)) {
-                log_unit_notice(u, "Starting requested but asserts failed.");
-                return -EPROTO;
-        }
+            !unit_test_assert(u))
+                return log_unit_notice_errno(u, SYNTHETIC_ERRNO(EPROTO), "Starting requested but asserts failed.");
 
-        /* Units of types that aren't supported cannot be
-         * started. Note that we do this test only after the condition
-         * checks, so that we rather return condition check errors
-         * (which are usually not considered a true failure) than "not
-         * supported" errors (which are considered a failure).
+        /* Units of types that aren't supported cannot be started. Note that we do this test only after the
+         * condition checks, so that we rather return condition check errors (which are usually not
+         * considered a true failure) than "not supported" errors (which are considered a failure).
          */
         if (!unit_supported(u))
                 return -EOPNOTSUPP;
 
-        /* Let's make sure that the deps really are in order before we start this. Normally the job engine should have
-         * taken care of this already, but let's check this here again. After all, our dependencies might not be in
-         * effect anymore, due to a reload or due to a failed condition. */
+        /* Let's make sure that the deps really are in order before we start this. Normally the job engine
+         * should have taken care of this already, but let's check this here again. After all, our
+         * dependencies might not be in effect anymore, due to a reload or due to a failed condition. */
         if (!unit_verify_deps(u))
                 return -ENOLINK;
 
@@ -1803,11 +1795,9 @@ int unit_start(Unit *u) {
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
 
-        /* We don't suppress calls to ->start() here when we are
-         * already starting, to allow this request to be used as a
-         * "hurry up" call, for example when the unit is in some "auto
-         * restart" state where it waits for a holdoff timer to elapse
-         * before it will start again. */
+        /* We don't suppress calls to ->start() here when we are already starting, to allow this request to
+         * be used as a "hurry up" call, for example when the unit is in some "auto restart" state where it
+         * waits for a holdoff timer to elapse before it will start again. */
 
         unit_add_to_dbus_queue(u);
 
