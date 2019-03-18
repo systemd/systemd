@@ -128,29 +128,72 @@ static int condition_test_kernel_command_line(Condition *c) {
         return false;
 }
 
-static int condition_test_kernel_version(Condition *c) {
-        enum {
-                /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
-                 * should be listed first. */
-                LOWER_OR_EQUAL,
-                GREATER_OR_EQUAL,
-                LOWER,
-                GREATER,
-                EQUAL,
-                _ORDER_MAX,
-        };
+typedef enum {
+        /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
+         * should be listed first. */
+        ORDER_LOWER_OR_EQUAL,
+        ORDER_GREATER_OR_EQUAL,
+        ORDER_LOWER,
+        ORDER_GREATER,
+        ORDER_EQUAL,
+        _ORDER_MAX,
+        _ORDER_INVALID = -1
+} OrderOperator;
+
+static OrderOperator parse_order(const char **s) {
 
         static const char *const prefix[_ORDER_MAX] = {
-                [LOWER_OR_EQUAL] = "<=",
-                [GREATER_OR_EQUAL] = ">=",
-                [LOWER] = "<",
-                [GREATER] = ">",
-                [EQUAL] = "=",
+                [ORDER_LOWER_OR_EQUAL] = "<=",
+                [ORDER_GREATER_OR_EQUAL] = ">=",
+                [ORDER_LOWER] = "<",
+                [ORDER_GREATER] = ">",
+                [ORDER_EQUAL] = "=",
         };
-        const char *p = NULL;
+
+        OrderOperator i;
+
+        for (i = 0; i < _ORDER_MAX; i++) {
+                const char *e;
+
+                e = startswith(*s, prefix[i]);
+                if (e) {
+                        *s = e;
+                        return i;
+                }
+        }
+
+        return _ORDER_INVALID;
+}
+
+static bool test_order(int k, OrderOperator p) {
+
+        switch (p) {
+
+        case ORDER_LOWER:
+                return k < 0;
+
+        case ORDER_LOWER_OR_EQUAL:
+                return k <= 0;
+
+        case ORDER_EQUAL:
+                return k == 0;
+
+        case ORDER_GREATER_OR_EQUAL:
+                return k >= 0;
+
+        case ORDER_GREATER:
+                return k > 0;
+
+        default:
+                assert_not_reached("unknown order");
+
+        }
+}
+
+static int condition_test_kernel_version(Condition *c) {
+        OrderOperator order;
         struct utsname u;
-        size_t i;
-        int k;
+        const char *p;
 
         assert(c);
         assert(c->parameter);
@@ -158,38 +201,14 @@ static int condition_test_kernel_version(Condition *c) {
 
         assert_se(uname(&u) >= 0);
 
-        for (i = 0; i < _ORDER_MAX; i++) {
-                p = startswith(c->parameter, prefix[i]);
-                if (p)
-                        break;
-        }
+        p = c->parameter;
+        order = parse_order(&p);
 
         /* No prefix? Then treat as glob string */
-        if (!p)
+        if (order < 0)
                 return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
 
-        k = str_verscmp(u.release, skip_leading_chars(p, NULL));
-
-        switch (i) {
-
-        case LOWER:
-                return k < 0;
-
-        case LOWER_OR_EQUAL:
-                return k <= 0;
-
-        case EQUAL:
-                return k == 0;
-
-        case GREATER_OR_EQUAL:
-                return k >= 0;
-
-        case GREATER:
-                return k > 0;
-
-        default:
-                assert_not_reached("Can't compare");
-        }
+        return test_order(str_verscmp(u.release, skip_leading_chars(p, NULL)), order);
 }
 
 static int condition_test_user(Condition *c) {
