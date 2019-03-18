@@ -34,6 +34,7 @@ EOF
 
 	cat  >$initdir/etc/systemd/system/test.socket <<'EOF'
 [Socket]
+TriggerLimitBurst=10
 ListenStream=/run/test.ctl
 EOF
 
