@@ -934,6 +934,20 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         return 0;
 }
 
+int pid_is_my_child(pid_t pid) {
+        pid_t ppid;
+        int r;
+
+        if (pid <= 1)
+                return false;
+
+        r = get_process_ppid(pid, &ppid);
+        if (r < 0)
+                return r;
+
+        return ppid == getpid_cached();
+}
+
 bool pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 

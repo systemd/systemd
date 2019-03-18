@@ -143,8 +143,6 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
-        pid_t ppid;
-
         assert(s);
 
         if (pid <= 1)
@@ -163,12 +161,10 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         s->main_pid = pid;
         s->main_pid_known = true;
+        s->main_pid_alien = pid_is_my_child(pid) == 0;
 
-        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid_cached()) {
+        if (s->main_pid_alien)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
-                s->main_pid_alien = true;
-        } else
-                s->main_pid_alien = false;
 
         return 0;
 }
