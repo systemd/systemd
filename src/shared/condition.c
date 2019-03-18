@@ -22,6 +22,7 @@
 #include "cgroup-util.h"
 #include "condition.h"
 #include "efivars.h"
+#include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -31,7 +32,6 @@
 #include "list.h"
 #include "macro.h"
 #include "mountpoint-util.h"
-#include "env-file.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -48,23 +48,25 @@
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
-        int r;
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
         assert((!parameter) == (type == CONDITION_NULL));
 
-        c = new0(Condition, 1);
+        c = new(Condition, 1);
         if (!c)
                 return NULL;
 
-        c->type = type;
-        c->trigger = trigger;
-        c->negate = negate;
+        *c = (Condition) {
+                .type = type,
+                .trigger = trigger,
+                .negate = negate,
+        };
 
-        r = free_and_strdup(&c->parameter, parameter);
-        if (r < 0) {
-                return mfree(c);
+        if (parameter) {
+                c->parameter = strdup(parameter);
+                if (!c->parameter)
+                        return mfree(c);
         }
 
         return c;
