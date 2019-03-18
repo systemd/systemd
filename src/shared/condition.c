@@ -29,6 +29,7 @@
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
+#include "limits-util.h"
 #include "list.h"
 #include "macro.h"
 #include "mountpoint-util.h"
@@ -216,6 +217,56 @@ static int condition_test_kernel_version(Condition *c) {
                 return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
 
         return test_order(str_verscmp(u.release, skip_leading_chars(p, NULL)), order);
+}
+
+static int condition_test_memory(Condition *c) {
+        OrderOperator order;
+        uint64_t m, k;
+        const char *p;
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_MEMORY);
+
+        m = physical_memory();
+
+        p = c->parameter;
+        order = parse_order(&p);
+        if (order < 0)
+                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
+
+        r = safe_atou64(p, &k);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse size: %m");
+
+        return test_order(CMP(m, k), order);
+}
+
+static int condition_test_cpus(Condition *c) {
+        OrderOperator order;
+        const char *p;
+        unsigned k;
+        int r, n;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CPUS);
+
+        n = cpus_in_affinity_mask();
+        if (n < 0)
+                return log_debug_errno(n, "Failed to determine CPUs in affinity mask: %m");
+
+        p = c->parameter;
+        order = parse_order(&p);
+        if (order < 0)
+                order = ORDER_GREATER_OR_EQUAL; /* default to >= check, if nothing is specified. */
+
+        r = safe_atou(p, &k);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse number of CPUs: %m");
+
+        return test_order(CMP((unsigned) n, k), order);
 }
 
 static int condition_test_user(Condition *c) {
@@ -651,6 +702,8 @@ int condition_test(Condition *c) {
                 [CONDITION_GROUP] = condition_test_group,
                 [CONDITION_CONTROL_GROUP_CONTROLLER] = condition_test_control_group_controller,
                 [CONDITION_NULL] = condition_test_null,
+                [CONDITION_CPUS] = condition_test_cpus,
+                [CONDITION_MEMORY] = condition_test_memory,
         };
 
         int r, b;
@@ -716,7 +769,9 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "ConditionUser",
         [CONDITION_GROUP] = "ConditionGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "ConditionControlGroupController",
-        [CONDITION_NULL] = "ConditionNull"
+        [CONDITION_NULL] = "ConditionNull",
+        [CONDITION_CPUS] = "ConditionCPUs",
+        [CONDITION_MEMORY] = "ConditionMemory",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -744,7 +799,9 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "AssertUser",
         [CONDITION_GROUP] = "AssertGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
-        [CONDITION_NULL] = "AssertNull"
+        [CONDITION_NULL] = "AssertNull",
+        [CONDITION_CPUS] = "AssertCPUs",
+        [CONDITION_MEMORY] = "AssertMemory",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
