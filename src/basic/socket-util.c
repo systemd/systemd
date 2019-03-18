@@ -1354,3 +1354,39 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
                 return (int) (offsetof(struct sockaddr_un, sun_path) + l + 1); /* include trailing NUL in size */
         }
 }
+
+int socket_bind_to_ifname(int fd, const char *ifname) {
+        assert(fd >= 0);
+
+        /* Call with NULL to drop binding */
+
+        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen_ptr(ifname)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int socket_bind_to_ifindex(int fd, int ifindex) {
+        char ifname[IFNAMSIZ] = "";
+
+        assert(fd >= 0);
+
+        if (ifindex <= 0) {
+                /* Drop binding */
+                if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, NULL, 0) < 0)
+                        return -errno;
+
+                return 0;
+        }
+
+        if (setsockopt(fd, SOL_SOCKET, SO_BINDTOIFINDEX, &ifindex, sizeof(ifindex)) >= 0)
+                return 0;
+        if (errno != ENOPROTOOPT)
+                return -errno;
+
+        /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
+        if (!if_indextoname(ifindex, ifname))
+                return -errno;
+
+        return socket_bind_to_ifname(fd, ifname);
+}
