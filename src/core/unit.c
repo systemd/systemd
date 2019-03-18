@@ -1736,6 +1736,7 @@ static bool unit_verify_deps(Unit *u) {
  *         -EOPNOTSUPP: Unit type not supported
  *         -ENOLINK:    The necessary dependencies are not fulfilled.
  *         -ESTALE:     This unit has been started before and can't be started a second time
+ *         -ENOENT:     This is a triggering unit and unit to trigger is not loaded
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -5588,6 +5589,20 @@ int unit_success_action_exit_status(Unit *u) {
                 return 255;
 
         return r;
+}
+
+int unit_test_trigger_loaded(Unit *u) {
+        Unit *trigger;
+
+        /* Tests whether the unit to trigger is loaded */
+
+        trigger = UNIT_TRIGGER(u);
+        if (!trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit to trigger not loaded.");
+        if (trigger->load_state != UNIT_LOADED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT), "Refusing to start, unit %s to trigger not loaded.", u->id);
+
+        return 0;
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

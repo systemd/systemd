@@ -796,7 +796,6 @@ fail:
 
 static int automount_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
-        Unit *trigger;
         int r;
 
         assert(a);
@@ -807,11 +806,9 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

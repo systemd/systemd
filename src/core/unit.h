@@ -830,6 +830,8 @@ int unit_exit_status(Unit *u);
 int unit_success_action_exit_status(Unit *u);
 int unit_failure_action_exit_status(Unit *u);
 
+int unit_test_trigger_loaded(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
