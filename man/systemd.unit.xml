@@ -1002,6 +1002,8 @@
         <term><varname>ConditionUser=</varname></term>
         <term><varname>ConditionGroup=</varname></term>
         <term><varname>ConditionControlGroupController=</varname></term>
+        <term><varname>ConditionMemory=</varname></term>
+        <term><varname>ConditionCPUs=</varname></term>
 
         <!-- We do not document ConditionNull=
              here, as it is not particularly
@@ -1255,6 +1257,24 @@
         <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
         <option>blkio</option>, <option>memory</option>,
         <option>devices</option>, and <option>pids</option>.</para>
+
+        <para><varname>ConditionMemory=</varname> verifies if the specified amount of system memory is
+        available to the current system. Takes a memory size in bytes as argument, optionally prefixed with a
+        comparison operator <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>,
+        <literal>!=</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>. On bare-metal systems
+        compares the amount of physical memory in the system with the specified size, adhering to the
+        specified comparison operator. In containers compares the amount of memory assigned to the container
+        instead.</para>
+
+        <para><varname>ConditionCPUs=</varname> verifies if the specified number of CPUs is available to the
+        current system. Takes a number of CPUs as argument, optionally prefixed with a comparison operator
+        <literal>&lt;</literal>, <literal>&lt;=</literal>, <literal>=</literal>, <literal>!=</literal>,
+        <literal>&gt;=</literal>, <literal>&gt;</literal>. Compares the number of CPUs in the CPU affinity mask
+        configured of the service manager itself with the specified number, adhering to the specified
+        comparision operator. On physical systems the number of CPUs in the affinity mask of the service
+        manager usually matches the number of physical CPUs, but in special and virtual environments might
+        differ. In particular, in containers the affinity mask usually matches the number of CPUs assigned to
+        the container and not the physically available ones.</para>
 
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).
