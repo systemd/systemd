@@ -3663,7 +3663,7 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
                         &reply,
                         "s");
         if (r < 0) {
-                /* systemd might have droppped off momentarily, let's
+                /* systemd might have dropped off momentarily, let's
                  * not make this an error */
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_NO_REPLY) ||
                     sd_bus_error_has_name(&error, SD_BUS_ERROR_DISCONNECTED))

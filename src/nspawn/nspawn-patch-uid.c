@@ -402,7 +402,7 @@ read_only:
 
                 /* When we hit a ready-only subtree we simply skip it, but log about it. */
                 (void) fd_get_path(fd, &name);
-                log_debug("Skippping read-only file or directory %s.", strna(name));
+                log_debug("Skipping read-only file or directory %s.", strna(name));
                 r = changed;
         }
 
