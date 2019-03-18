@@ -106,7 +106,7 @@ static int bus_scope_set_transient_property(
                                 return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = unit_watch_pid(UNIT(s), pid);
+                                r = unit_watch_pid(UNIT(s), pid, false);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }

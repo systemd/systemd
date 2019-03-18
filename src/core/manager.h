@@ -406,6 +406,8 @@ int manager_get_dump_string(Manager *m, char **ret);
 
 void manager_clear_jobs(Manager *m);
 
+void manager_unwatch_pid(Manager *m, pid_t pid);
+
 unsigned manager_dispatch_load_queue(Manager *m);
 
 int manager_environment_add(Manager *m, char **minus, char **plus);
