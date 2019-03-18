@@ -17,9 +17,11 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
+#include "limits-util.h"
 #include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
@@ -673,6 +675,127 @@ static void test_condition_test_group(void) {
         condition_free(condition);
 }
 
+static void test_condition_test_cpus_one(const char *s, bool result) {
+        Condition *condition;
+        int r;
+
+        log_debug("%s=%s", condition_type_to_string(CONDITION_CPUS), s);
+
+        condition = condition_new(CONDITION_CPUS, s, false, false);
+        assert_se(condition);
+
+        r = condition_test(condition);
+        assert_se(r >= 0);
+        assert_se(r == result);
+        condition_free(condition);
+}
+
+static void test_condition_test_cpus(void) {
+        _cleanup_free_ char *t = NULL;
+        int cpus;
+
+        cpus = cpus_in_affinity_mask();
+        assert_se(cpus >= 0);
+
+        test_condition_test_cpus_one("> 0", true);
+        test_condition_test_cpus_one(">= 0", true);
+        test_condition_test_cpus_one("!= 0", true);
+        test_condition_test_cpus_one("<= 0", false);
+        test_condition_test_cpus_one("< 0", false);
+        test_condition_test_cpus_one("= 0", false);
+
+        test_condition_test_cpus_one("> 100000", false);
+        test_condition_test_cpus_one("= 100000", false);
+        test_condition_test_cpus_one(">= 100000", false);
+        test_condition_test_cpus_one("< 100000", true);
+        test_condition_test_cpus_one("!= 100000", true);
+        test_condition_test_cpus_one("<= 100000", true);
+
+        assert_se(asprintf(&t, "= %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "<= %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, ">= %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "!= %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, false);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "< %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, false);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "> %i", cpus) >= 0);
+        test_condition_test_cpus_one(t, false);
+        t = mfree(t);
+}
+
+static void test_condition_test_memory_one(const char *s, bool result) {
+        Condition *condition;
+        int r;
+
+        log_debug("%s=%s", condition_type_to_string(CONDITION_MEMORY), s);
+
+        condition = condition_new(CONDITION_MEMORY, s, false, false);
+        assert_se(condition);
+
+        r = condition_test(condition);
+        assert_se(r >= 0);
+        assert_se(r == result);
+        condition_free(condition);
+}
+
+static void test_condition_test_memory(void) {
+        _cleanup_free_ char *t = NULL;
+        uint64_t memory;
+
+        memory = physical_memory();
+
+        test_condition_test_memory_one("> 0", true);
+        test_condition_test_memory_one(">= 0", true);
+        test_condition_test_memory_one("!= 0", true);
+        test_condition_test_memory_one("<= 0", false);
+        test_condition_test_memory_one("< 0", false);
+        test_condition_test_memory_one("= 0", false);
+
+        test_condition_test_memory_one("> 18446744073709547520", false);
+        test_condition_test_memory_one("= 18446744073709547520", false);
+        test_condition_test_memory_one(">= 18446744073709547520", false);
+        test_condition_test_memory_one("< 18446744073709547520", true);
+        test_condition_test_memory_one("!= 18446744073709547520", true);
+        test_condition_test_memory_one("<= 18446744073709547520", true);
+
+        assert_se(asprintf(&t, "= %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "<= %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, ">= %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, true);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "!= %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, false);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "< %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, false);
+        t = mfree(t);
+
+        assert_se(asprintf(&t, "> %" PRIu64, memory) >= 0);
+        test_condition_test_memory_one(t, false);
+        t = mfree(t);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -689,6 +812,8 @@ int main(int argc, char *argv[]) {
         test_condition_test_user();
         test_condition_test_group();
         test_condition_test_control_group_controller();
+        test_condition_test_cpus();
+        test_condition_test_memory();
 
         return 0;
 }
