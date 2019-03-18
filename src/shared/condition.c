@@ -138,6 +138,7 @@ typedef enum {
         ORDER_LOWER,
         ORDER_GREATER,
         ORDER_EQUAL,
+        ORDER_UNEQUAL,
         _ORDER_MAX,
         _ORDER_INVALID = -1
 } OrderOperator;
@@ -150,6 +151,7 @@ static OrderOperator parse_order(const char **s) {
                 [ORDER_LOWER] = "<",
                 [ORDER_GREATER] = ">",
                 [ORDER_EQUAL] = "=",
+                [ORDER_UNEQUAL] = "!=",
         };
 
         OrderOperator i;
@@ -179,6 +181,9 @@ static bool test_order(int k, OrderOperator p) {
 
         case ORDER_EQUAL:
                 return k == 0;
+
+        case ORDER_UNEQUAL:
+                return k != 0;
 
         case ORDER_GREATER_OR_EQUAL:
                 return k >= 0;
