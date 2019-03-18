@@ -1730,6 +1730,7 @@ static bool unit_verify_deps(Unit *u) {
  *         -EALREADY:   Unit is already started.
  *         -EAGAIN:     An operation is already in progress. Retry later.
  *         -ECANCELED:  Too many requests for now.
+ *         -ECOMM:      Condition failed
  *         -EPROTO:     Assert failed
  *         -EINVAL:     Unit not loaded
  *         -EOPNOTSUPP: Unit type not supported
