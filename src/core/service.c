@@ -990,7 +990,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0) /* FIXME: we need to do something here */
                 return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
 
@@ -1020,7 +1020,7 @@ static void service_search_main_pid(Service *s) {
         if (service_set_main_pid(s, pid) < 0)
                 return;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", pid);
@@ -1154,7 +1154,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                r = unit_watch_pid(UNIT(s), s->main_pid);
+                r = unit_watch_pid(UNIT(s), s->main_pid, false);
                 if (r < 0)
                         return r;
         }
@@ -1166,7 +1166,7 @@ static int service_coldplug(Unit *u) {
                    SERVICE_RELOAD,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
-                r = unit_watch_pid(UNIT(s), s->control_pid);
+                r = unit_watch_pid(UNIT(s), s->control_pid, false);
                 if (r < 0)
                         return r;
         }
@@ -1566,8 +1566,8 @@ static int service_spawn(
         s->exec_fd_event_source = TAKE_PTR(exec_fd_source);
         s->exec_fd_hot = false;
 
-        r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0) /* FIXME: we need to do something here */
+        r = unit_watch_pid(UNIT(s), pid, true);
+        if (r < 0)
                 return r;
 
         *_pid = pid;
@@ -3705,7 +3705,7 @@ static void service_notify_message(
                         if (r > 0) {
                                 service_set_main_pid(s, new_main_pid);
 
-                                r = unit_watch_pid(UNIT(s), new_main_pid);
+                                r = unit_watch_pid(UNIT(s), new_main_pid, false);
                                 if (r < 0)
                                         log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", new_main_pid);
 
@@ -3923,7 +3923,7 @@ static void service_bus_name_owner_change(
                         log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, name, pid);
 
                         service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
+                        unit_watch_pid(UNIT(s), pid, false);
                 }
         }
 }

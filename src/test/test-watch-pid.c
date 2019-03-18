@@ -42,25 +42,25 @@ int main(int argc, char *argv[]) {
         assert_se(hashmap_isempty(m->watch_pids));
         assert_se(manager_get_unit_by_pid(m, 4711) == NULL);
 
-        assert_se(unit_watch_pid(a, 4711) >= 0);
+        assert_se(unit_watch_pid(a, 4711, false) >= 0);
         assert_se(manager_get_unit_by_pid(m, 4711) == a);
 
-        assert_se(unit_watch_pid(a, 4711) >= 0);
+        assert_se(unit_watch_pid(a, 4711, false) >= 0);
         assert_se(manager_get_unit_by_pid(m, 4711) == a);
 
-        assert_se(unit_watch_pid(b, 4711) >= 0);
+        assert_se(unit_watch_pid(b, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(b, 4711) >= 0);
+        assert_se(unit_watch_pid(b, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(c, 4711) >= 0);
+        assert_se(unit_watch_pid(c, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b || u == c);
 
-        assert_se(unit_watch_pid(c, 4711) >= 0);
+        assert_se(unit_watch_pid(c, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b || u == c);
 

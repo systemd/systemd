@@ -2319,7 +2319,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 pid_t pid;
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid);
+                        r = unit_watch_pid(u, pid, false);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }

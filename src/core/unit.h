@@ -678,7 +678,7 @@ typedef enum UnitNotifyFlags {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
 
-int unit_watch_pid(Unit *u, pid_t pid);
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 

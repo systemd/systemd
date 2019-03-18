@@ -2525,13 +2525,19 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         unit_add_to_gc_queue(u);
 }
 
-int unit_watch_pid(Unit *u, pid_t pid) {
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         int r;
 
         assert(u);
         assert(pid_is_valid(pid));
 
         /* Watch a specific PID */
+
+        /* Caller might be sure that this PID belongs to this unit only. Let's take this
+         * opportunity to remove any stalled references to this PID as they can be created
+         * easily (when watching a process which is not our direct child). */
+        if (exclusive)
+                manager_unwatch_pid(u->manager, pid);
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
