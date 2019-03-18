@@ -2606,6 +2606,9 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create cgroup empty event source: %m");
 
+        /* Schedule cgroup empty checks early, but after having processed service notification messages or
+         * SIGCHLD signals, so that a cgroup running empty is always just the last safety net of
+         * notification, and we collected the metadata the notification and SIGCHLD stuff offers first. */
         r = sd_event_source_set_priority(m->cgroup_empty_event_source, SD_EVENT_PRIORITY_NORMAL-5);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of cgroup empty event source: %m");
@@ -2632,9 +2635,10 @@ int manager_setup_cgroup(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to watch control group inotify object: %m");
 
-                /* Process cgroup empty notifications early, but after service notifications and SIGCHLD. Also
-                 * see handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-4);
+                /* Process cgroup empty notifications early. Note that when this event is dispatched it'll
+                 * just add the unit to a cgroup empty queue, hence let's run earlier than that. Also see
+                 * handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
+                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-9);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 

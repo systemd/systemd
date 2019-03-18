@@ -992,11 +992,10 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate cgroups agent event source: %m");
 
-                /* Process cgroups notifications early, but after having processed service notification messages or
-                 * SIGCHLD signals, so that a cgroup running empty is always just the last safety net of notification,
-                 * and we collected the metadata the notification and SIGCHLD stuff offers first. Also see handling of
-                 * cgroup inotify for the unified cgroup stuff. */
-                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-4);
+                /* Process cgroups notifications early. Note that when the agent notification is received
+                 * we'll just enqueue the unit in the cgroup empty queue, hence pick a high priority than
+                 * that. Also see handling of cgroup inotify for the unified cgroup stuff. */
+                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-9);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of cgroups agent event source: %m");
 
