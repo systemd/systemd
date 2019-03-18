@@ -567,7 +567,7 @@ static int path_start(Unit *u) {
                 return -ENOENT;
         }
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
                 return r;

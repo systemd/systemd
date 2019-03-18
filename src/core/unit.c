@@ -1633,7 +1633,7 @@ static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to
         return triggered != 0;
 }
 
-static bool unit_condition_test(Unit *u) {
+static bool unit_test_condition(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
@@ -1644,7 +1644,7 @@ static bool unit_condition_test(Unit *u) {
         return u->condition_result;
 }
 
-static bool unit_assert_test(Unit *u) {
+static bool unit_test_assert(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
@@ -1667,7 +1667,7 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
         REENABLE_WARNING;
 }
 
-int unit_start_limit_test(Unit *u) {
+int unit_test_start_limit(Unit *u) {
         const char *reason;
 
         assert(u);
@@ -1764,14 +1764,14 @@ int unit_start(Unit *u) {
          * speed up activation in case there is some hold-off time,
          * but we don't want to recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
-            !unit_condition_test(u)) {
+            !unit_test_condition(u)) {
                 log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
                 return -ECOMM;
         }
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
-            !unit_assert_test(u)) {
+            !unit_test_assert(u)) {
                 log_unit_notice(u, "Starting requested but asserts failed.");
                 return -EPROTO;
         }

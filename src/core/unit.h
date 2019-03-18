@@ -778,7 +778,7 @@ static inline bool unit_supported(Unit *u) {
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
-int unit_start_limit_test(Unit *u);
+int unit_test_start_limit(Unit *u);
 
 void unit_unref_uid(Unit *u, bool destroy_now);
 int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);

@@ -2364,7 +2364,7 @@ static int service_start(Unit *u) {
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
 
         /* Make sure we don't enter a busy loop of some kind. */
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 service_enter_dead(s, SERVICE_FAILURE_START_LIMIT_HIT, false);
                 return r;

@@ -813,7 +813,7 @@ static int automount_start(Unit *u) {
                 return -ENOENT;
         }
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
                 return r;
