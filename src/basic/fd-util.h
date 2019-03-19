@@ -81,13 +81,13 @@ int fd_duplicate_data_fd(int fd);
 /* The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.
  * See the icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources */
 #define ERRNO_IS_DISCONNECT(r)                                          \
-        IN_SET(r,                                                       \
+        IN_SET(abs(r),                                                  \
                ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, \
                ENETUNREACH, EHOSTUNREACH, ENOPROTOOPT, EHOSTDOWN, ENONET)
 
 /* Resource exhaustion, could be our fault or general system trouble */
 #define ERRNO_IS_RESOURCE(r) \
-        IN_SET(r, ENOMEM, EMFILE, ENFILE)
+        IN_SET(abs(r), ENOMEM, EMFILE, ENFILE)
 
 int fd_move_above_stdio(int fd);
 
