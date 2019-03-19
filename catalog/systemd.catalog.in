@@ -391,3 +391,16 @@ The following "tags" are possible:
 - "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 Current system is tagged as @TAINT@.
+
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: A process of @UNIT@ unit has been killed by the OOM killer.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A process of unit @UNIT has been killed by the Linux kernel out-of-memory (OOM)
+killer logic. This usually indicates that the system is low on memory and that
+memory needed to be freed. A process associated with @UNIT@ has been determined
+as the best process to terminate and has been forcibly terminated by the
+kernel.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.
