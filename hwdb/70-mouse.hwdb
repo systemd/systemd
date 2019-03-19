@@ -681,7 +681,7 @@ mouse:usb:v0425p0101:name:G-Tech CHINA    USB Wireless Mouse & KeyBoard V1.01  :
 
 # Razer Abyssus
 mouse:usb:v1532p0042:name:Razer Razer Abyssus:
- MOUSE_DPI=3500@1000
+ MOUSE_DPI=1600@1000
 
 # Razer DeathAdder Black Edition
 mouse:usb:v1532p0029:name:Razer Razer DeathAdder:
