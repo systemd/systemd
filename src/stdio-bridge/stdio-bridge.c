@@ -14,6 +14,7 @@
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "util.h"
@@ -187,9 +188,13 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 r = sd_bus_process(b, &m);
-                if (r < 0)
+                if (r < 0) {
                         /* treat 'connection reset by peer' as clean exit condition */
-                        return r == -ECONNRESET ? 0 : r;
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return 0;
+
+                        return log_error_errno(r, "Failed to process bus: %m");
+                }
 
                 if (m) {
                         r = sd_bus_send(a, m, NULL);
