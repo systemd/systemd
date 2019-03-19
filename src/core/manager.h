@@ -268,7 +268,7 @@ struct Manager {
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
         sd_event_source *cgroup_inotify_event_source;
-        Hashmap *cgroup_inotify_wd_unit;
+        Hashmap *cgroup_control_inotify_wd_unit;
 
         /* A defer event for handling cgroup empty events and processing them after SIGCHLD in all cases. */
         sd_event_source *cgroup_empty_event_source;

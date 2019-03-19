@@ -1595,10 +1595,13 @@ int unit_watch_cgroup(Unit *u) {
 
         assert(u);
 
+        /* Watches the "cgroups.events" attribute of this unit's cgroup for "empty" events, but only if
+         * cgroupv2 is available. */
+
         if (!u->cgroup_path)
                 return 0;
 
-        if (u->cgroup_inotify_wd >= 0)
+        if (u->cgroup_control_inotify_wd >= 0)
                 return 0;
 
         /* Only applies to the unified hierarchy */
@@ -1608,11 +1611,11 @@ int unit_watch_cgroup(Unit *u) {
         if (r == 0)
                 return 0;
 
-        /* Don't watch the root slice, it's pointless. */
+        /* No point in watch the top-level slice, it's never going to run empty. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return 0;
 
-        r = hashmap_ensure_allocated(&u->manager->cgroup_inotify_wd_unit, &trivial_hash_ops);
+        r = hashmap_ensure_allocated(&u->manager->cgroup_control_inotify_wd_unit, &trivial_hash_ops);
         if (r < 0)
                 return log_oom();
 
@@ -1620,20 +1623,19 @@ int unit_watch_cgroup(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        u->cgroup_inotify_wd = inotify_add_watch(u->manager->cgroup_inotify_fd, events, IN_MODIFY);
-        if (u->cgroup_inotify_wd < 0) {
+        u->cgroup_control_inotify_wd = inotify_add_watch(u->manager->cgroup_inotify_fd, events, IN_MODIFY);
+        if (u->cgroup_control_inotify_wd < 0) {
 
-                if (errno == ENOENT) /* If the directory is already
-                                      * gone we don't need to track
-                                      * it, so this is not an error */
+                if (errno == ENOENT) /* If the directory is already gone we don't need to track it, so this
+                                      * is not an error */
                         return 0;
 
-                return log_unit_error_errno(u, errno, "Failed to add inotify watch descriptor for control group %s: %m", u->cgroup_path);
+                return log_unit_error_errno(u, errno, "Failed to add control inotify watch descriptor for control group %s: %m", u->cgroup_path);
         }
 
-        r = hashmap_put(u->manager->cgroup_inotify_wd_unit, INT_TO_PTR(u->cgroup_inotify_wd), u);
+        r = hashmap_put(u->manager->cgroup_control_inotify_wd_unit, INT_TO_PTR(u->cgroup_control_inotify_wd), u);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Failed to add inotify watch descriptor to hash map: %m");
+                return log_unit_error_errno(u, r, "Failed to add control inotify watch descriptor to hash map: %m");
 
         return 0;
 }
@@ -2223,12 +2225,12 @@ void unit_release_cgroup(Unit *u) {
                 u->cgroup_path = mfree(u->cgroup_path);
         }
 
-        if (u->cgroup_inotify_wd >= 0) {
-                if (inotify_rm_watch(u->manager->cgroup_inotify_fd, u->cgroup_inotify_wd) < 0)
-                        log_unit_debug_errno(u, errno, "Failed to remove cgroup inotify watch %i for %s, ignoring: %m", u->cgroup_inotify_wd, u->id);
+        if (u->cgroup_control_inotify_wd >= 0) {
+                if (inotify_rm_watch(u->manager->cgroup_inotify_fd, u->cgroup_control_inotify_wd) < 0)
+                        log_unit_debug_errno(u, errno, "Failed to remove cgroup control inotify watch %i for %s, ignoring: %m", u->cgroup_control_inotify_wd, u->id);
 
-                (void) hashmap_remove(u->manager->cgroup_inotify_wd_unit, INT_TO_PTR(u->cgroup_inotify_wd));
-                u->cgroup_inotify_wd = -1;
+                (void) hashmap_remove(u->manager->cgroup_control_inotify_wd_unit, INT_TO_PTR(u->cgroup_control_inotify_wd));
+                u->cgroup_control_inotify_wd = -1;
         }
 }
 
@@ -2508,7 +2510,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
                                 /* The watch was just removed */
                                 continue;
 
-                        u = hashmap_get(m->cgroup_inotify_wd_unit, INT_TO_PTR(e->wd));
+                        u = hashmap_get(m->cgroup_control_inotify_wd_unit, INT_TO_PTR(e->wd));
                         if (!u) /* Not that inotify might deliver
                                  * events for a watch even after it
                                  * was removed, because it was queued
@@ -2706,7 +2708,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
 
         m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
 
-        m->cgroup_inotify_wd_unit = hashmap_free(m->cgroup_inotify_wd_unit);
+        m->cgroup_control_inotify_wd_unit = hashmap_free(m->cgroup_control_inotify_wd_unit);
 
         m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
         m->cgroup_inotify_fd = safe_close(m->cgroup_inotify_fd);
