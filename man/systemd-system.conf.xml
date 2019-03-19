@@ -364,6 +364,17 @@
         limits are only defaults for units, they are not applied to PID 1
         itself.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultOOMPolicy=</varname></term>
+
+        <listitem><para>Configure the default policy for reacting to processes being killed by the Linux
+        Out-Of-Memory (OOM) killer. This may be used to pick a global default for the per-unit
+        <varname>OOMPolicy=</varname> setting. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Note that this default is not used for services that have <varname>Delegate=</varname>
+        turned on.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

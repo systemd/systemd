@@ -651,11 +651,17 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>OOMScoreAdjust=</varname></term>
 
-        <listitem><para>Sets the adjustment level for the Out-Of-Memory killer for executed processes. Takes an integer
-        between -1000 (to disable OOM killing for this process) and 1000 (to make killing of this process under memory
-        pressure very likely). See <ulink
-        url="https://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink> for
-        details.</para></listitem>
+        <listitem><para>Sets the adjustment value for the Linux kernel's Out-Of-Memory (OOM) killer score for
+        executed processes. Takes an integer between -1000 (to disable OOM killing of processes of this unit)
+        and 1000 (to make killing of processes of this unit under memory pressure very likely). See <ulink
+        url="https://www.kernel.org/doc/Documentation/filesystems/proc.txt">proc.txt</ulink> for details. If
+        not specified defaults to the OOM score adjustment level of the service manager itself, which is
+        normally at 0.</para>
+
+        <para>Use the <varname>OOMPolicy=</varname> setting of service units to configure how the service
+        manager shall react to the kernel OOM killer terminating a process of the service.  See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
