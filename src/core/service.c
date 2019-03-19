@@ -3148,7 +3148,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         assert(u);
 
-        log_unit_debug(u, "cgroup is empty");
+        log_unit_debug(u, "Control group is empty.");
 
         switch (s->state) {
 
