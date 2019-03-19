@@ -612,6 +612,24 @@ static int help(void) {
         return 0;
 }
 
+static uint32_t determine_flags(void) {
+        uint32_t flags = 0;
+
+        if (arg_readonly)
+                flags |= CRYPT_ACTIVATE_READONLY;
+
+        if (arg_discards)
+                flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
+
+        if (arg_same_cpu_crypt)
+                flags |= CRYPT_ACTIVATE_SAME_CPU_CRYPT;
+
+        if (arg_submit_from_crypt_cpus)
+                flags |= CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS;
+
+        return flags;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
@@ -676,17 +694,7 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
-                if (arg_readonly)
-                        flags |= CRYPT_ACTIVATE_READONLY;
-
-                if (arg_discards)
-                        flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
-
-                if (arg_same_cpu_crypt)
-                        flags |= CRYPT_ACTIVATE_SAME_CPU_CRYPT;
-
-                if (arg_submit_from_crypt_cpus)
-                        flags |= CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS;
+                flags = determine_flags();
 
                 if (arg_timeout == USEC_INFINITY)
                         until = 0;
