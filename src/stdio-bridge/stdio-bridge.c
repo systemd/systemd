@@ -109,10 +109,8 @@ static int run(int argc, char *argv[]) {
         } else if (r == 1) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
-        } else {
-                log_error("Illegal number of file descriptors passed.");
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Illegal number of file descriptors passed.");
 
         is_unix =
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
