@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "random-util.h"
 #include "resolved-dns-cache.h"
