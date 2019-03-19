@@ -333,6 +333,7 @@ Service.Sockets,                 config_parse_service_sockets,       0,         
 Service.BusPolicy,               config_parse_warn_compat,           DISABLED_LEGACY,               0
 Service.USBFunctionDescriptors,  config_parse_unit_path_printf,      0,                             offsetof(Service, usb_function_descriptors)
 Service.USBFunctionStrings,      config_parse_unit_path_printf,      0,                             offsetof(Service, usb_function_strings)
+Service.OOMPolicy,               config_parse_oom_policy,            0,                             offsetof(Service, oom_policy)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl

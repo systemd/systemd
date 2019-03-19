@@ -67,6 +67,7 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_CORE_DUMP,
         SERVICE_FAILURE_WATCHDOG,
         SERVICE_FAILURE_START_LIMIT_HIT,
+        SERVICE_FAILURE_OOM_KILL,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
@@ -184,6 +185,8 @@ struct Service {
 
         unsigned n_restarts;
         bool flush_n_restarts;
+
+        OOMPolicy oom_policy;
 };
 
 extern const UnitVTable service_vtable;

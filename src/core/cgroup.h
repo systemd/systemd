@@ -79,6 +79,9 @@ struct CGroupContext {
         bool tasks_accounting;
         bool ip_accounting;
 
+        /* Configures the memory.oom.group attribute (on unified) */
+        bool memory_oom_group;
+
         bool delegate;
         CGroupMask delegate_controllers;
         CGroupMask disable_controllers;
@@ -174,6 +177,7 @@ int unit_realize_cgroup(Unit *u);
 void unit_release_cgroup(Unit *u);
 void unit_prune_cgroup(Unit *u);
 int unit_watch_cgroup(Unit *u);
+int unit_watch_cgroup_memory(Unit *u);
 
 void unit_add_to_cgroup_empty_queue(Unit *u);
 

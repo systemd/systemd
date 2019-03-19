@@ -92,6 +92,7 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
         u->cgroup_control_inotify_wd = -1;
+        u->cgroup_memory_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
         u->job_running_timeout = USEC_INFINITY;
         u->ref_uid = UID_INVALID;
@@ -3245,6 +3246,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (u->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
+        if (u->oom_kill_last > 0)
+                (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
+
         if (u->cgroup_path)
                 (void) serialize_item(f, "cgroup", u->cgroup_path);
 
@@ -3478,6 +3482,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
+                } else if (streq(l, "oom-kill-last")) {
+
+                        r = safe_atou64(v, &u->oom_kill_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read OOM kill last %s, ignoring.", v);
+
+                        continue;
+
                 } else if (streq(l, "cgroup")) {
 
                         r = unit_set_cgroup_path(u, v);
@@ -3485,6 +3497,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
 
                         (void) unit_watch_cgroup(u);
+                        (void) unit_watch_cgroup_memory(u);
 
                         continue;
                 } else if (streq(l, "cgroup-realized")) {

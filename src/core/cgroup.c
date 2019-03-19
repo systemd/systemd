@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "bpf-devices.h"
@@ -1141,6 +1143,8 @@ static void cgroup_context_apply(
                         cgroup_apply_unified_memory_limit(u, "memory.max", max);
                         cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
 
+                        (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
+
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
                         uint64_t val;
@@ -1640,6 +1644,69 @@ int unit_watch_cgroup(Unit *u) {
         return 0;
 }
 
+int unit_watch_cgroup_memory(Unit *u) {
+        _cleanup_free_ char *events = NULL;
+        CGroupContext *c;
+        int r;
+
+        assert(u);
+
+        /* Watches the "memory.events" attribute of this unit's cgroup for "oom_kill" events, but only if
+         * cgroupv2 is available. */
+
+        if (!u->cgroup_path)
+                return 0;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        /* The "memory.events" attribute is only available if the memory controller is on. Let's hence tie
+         * this to memory accounting, in a way watching for OOM kills is a form of memory accounting after
+         * all. */
+        if (!c->memory_accounting)
+                return 0;
+
+        /* Don't watch inner nodes, as the kernel doesn't report oom_kill events recursively currently, and
+         * we also don't want to generate a log message for each parent cgroup of a process. */
+        if (u->type == UNIT_SLICE)
+                return 0;
+
+        if (u->cgroup_memory_inotify_wd >= 0)
+                return 0;
+
+        /* Only applies to the unified hierarchy */
+        r = cg_all_unified();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether the memory controller is unified: %m");
+        if (r == 0)
+                return 0;
+
+        r = hashmap_ensure_allocated(&u->manager->cgroup_memory_inotify_wd_unit, &trivial_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "memory.events", &events);
+        if (r < 0)
+                return log_oom();
+
+        u->cgroup_memory_inotify_wd = inotify_add_watch(u->manager->cgroup_inotify_fd, events, IN_MODIFY);
+        if (u->cgroup_memory_inotify_wd < 0) {
+
+                if (errno == ENOENT) /* If the directory is already gone we don't need to track it, so this
+                                      * is not an error */
+                        return 0;
+
+                return log_unit_error_errno(u, errno, "Failed to add memory inotify watch descriptor for control group %s: %m", u->cgroup_path);
+        }
+
+        r = hashmap_put(u->manager->cgroup_memory_inotify_wd_unit, INT_TO_PTR(u->cgroup_memory_inotify_wd), u);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to add memory inotify watch descriptor to hash map: %m");
+
+        return 0;
+}
+
 int unit_pick_cgroup_path(Unit *u) {
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1692,6 +1759,7 @@ static int unit_create_cgroup(
 
         /* Start watching it */
         (void) unit_watch_cgroup(u);
+        (void) unit_watch_cgroup_memory(u);
 
         /* Preserve enabled controllers in delegated units, adjust others. */
         if (created || !u->cgroup_realized || !unit_cgroup_delegate(u)) {
@@ -2232,6 +2300,14 @@ void unit_release_cgroup(Unit *u) {
                 (void) hashmap_remove(u->manager->cgroup_control_inotify_wd_unit, INT_TO_PTR(u->cgroup_control_inotify_wd));
                 u->cgroup_control_inotify_wd = -1;
         }
+
+        if (u->cgroup_memory_inotify_wd >= 0) {
+                if (inotify_rm_watch(u->manager->cgroup_inotify_fd, u->cgroup_memory_inotify_wd) < 0)
+                        log_unit_debug_errno(u, errno, "Failed to remove cgroup memory inotify watch %i for %s, ignoring: %m", u->cgroup_memory_inotify_wd, u->id);
+
+                (void) hashmap_remove(u->manager->cgroup_memory_inotify_wd_unit, INT_TO_PTR(u->cgroup_memory_inotify_wd));
+                u->cgroup_memory_inotify_wd = -1;
+        }
 }
 
 void unit_prune_cgroup(Unit *u) {
@@ -2479,6 +2555,106 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
                 log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
 }
 
+static int unit_check_oom(Unit *u) {
+        _cleanup_free_ char *oom_kill = NULL;
+        bool increased;
+        uint64_t c;
+        int r;
+
+        if (!u->cgroup_path)
+                return 0;
+
+        r = cg_get_keyed_attribute("memory", u->cgroup_path, "memory.events", STRV_MAKE("oom_kill"), &oom_kill);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
+
+        r = safe_atou64(oom_kill, &c);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to parse oom_kill field: %m");
+
+        increased = c > u->oom_kill_last;
+        u->oom_kill_last = c;
+
+        if (!increased)
+                return 0;
+
+        log_struct(LOG_NOTICE,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
+
+        if (UNIT_VTABLE(u)->notify_cgroup_oom)
+                UNIT_VTABLE(u)->notify_cgroup_oom(u);
+
+        return 1;
+}
+
+static int on_cgroup_oom_event(sd_event_source *s, void *userdata) {
+        Manager *m = userdata;
+        Unit *u;
+        int r;
+
+        assert(s);
+        assert(m);
+
+        u = m->cgroup_oom_queue;
+        if (!u)
+                return 0;
+
+        assert(u->in_cgroup_oom_queue);
+        u->in_cgroup_oom_queue = false;
+        LIST_REMOVE(cgroup_oom_queue, m->cgroup_oom_queue, u);
+
+        if (m->cgroup_oom_queue) {
+                /* More stuff queued, let's make sure we remain enabled */
+                r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable cgroup oom event source, ignoring: %m");
+        }
+
+        (void) unit_check_oom(u);
+        return 0;
+}
+
+static void unit_add_to_cgroup_oom_queue(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (u->in_cgroup_oom_queue)
+                return;
+        if (!u->cgroup_path)
+                return;
+
+        LIST_PREPEND(cgroup_oom_queue, u->manager->cgroup_oom_queue, u);
+        u->in_cgroup_oom_queue = true;
+
+        /* Trigger the defer event */
+        if (!u->manager->cgroup_oom_event_source) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+
+                r = sd_event_add_defer(u->manager->event, &s, on_cgroup_oom_event, u->manager);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create cgroup oom event source: %m");
+                        return;
+                }
+
+                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL-8);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
+                        return;
+                }
+
+                (void) sd_event_source_set_description(s, "cgroup-oom");
+                u->manager->cgroup_oom_event_source = TAKE_PTR(s);
+        }
+
+        r = sd_event_source_set_enabled(u->manager->cgroup_oom_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                log_error_errno(r, "Failed to enable cgroup oom event source: %m");
+}
+
 static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
 
@@ -2510,15 +2686,16 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
                                 /* The watch was just removed */
                                 continue;
 
-                        u = hashmap_get(m->cgroup_control_inotify_wd_unit, INT_TO_PTR(e->wd));
-                        if (!u) /* Not that inotify might deliver
-                                 * events for a watch even after it
-                                 * was removed, because it was queued
-                                 * before the removal. Let's ignore
-                                 * this here safely. */
-                                continue;
+                        /* Note that inotify might deliver events for a watch even after it was removed,
+                         * because it was queued before the removal. Let's ignore this here safely. */
 
-                        unit_add_to_cgroup_empty_queue(u);
+                        u = hashmap_get(m->cgroup_control_inotify_wd_unit, INT_TO_PTR(e->wd));
+                        if (u)
+                                unit_add_to_cgroup_empty_queue(u);
+
+                        u = hashmap_get(m->cgroup_memory_inotify_wd_unit, INT_TO_PTR(e->wd));
+                        if (u)
+                                unit_add_to_cgroup_oom_queue(u);
                 }
         }
 }
@@ -2709,6 +2886,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         m->cgroup_empty_event_source = sd_event_source_unref(m->cgroup_empty_event_source);
 
         m->cgroup_control_inotify_wd_unit = hashmap_free(m->cgroup_control_inotify_wd_unit);
+        m->cgroup_memory_inotify_wd_unit = hashmap_free(m->cgroup_memory_inotify_wd_unit);
 
         m->cgroup_inotify_event_source = sd_event_source_unref(m->cgroup_inotify_event_source);
         m->cgroup_inotify_fd = safe_close(m->cgroup_inotify_fd);

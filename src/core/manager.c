@@ -764,6 +764,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .have_ask_password = -EINVAL, /* we don't know */
                 .first_boot = -1,
                 .test_run_flags = test_run_flags,
+
+                .default_oom_policy = OOM_STOP,
         };
 
 #if ENABLE_EFI
@@ -4714,3 +4716,11 @@ static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
+
+static const char* const oom_policy_table[_OOM_POLICY_MAX] = {
+        [OOM_CONTINUE] = "continue",
+        [OOM_STOP] = "stop",
+        [OOM_KILL] = "kill",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
