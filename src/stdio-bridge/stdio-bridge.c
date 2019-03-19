@@ -62,26 +62,23 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
-                case '?':
-                        return -EINVAL;
-
                 case 'p':
                         arg_bus_path = optarg;
-
                         break;
 
                 case 'M':
                         arg_bus_path = optarg;
-
                         arg_transport = BUS_TRANSPORT_MACHINE;
-
                         break;
+
+                case '?':
+                        return -EINVAL;
+
                 default:
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown option code %c", c);
