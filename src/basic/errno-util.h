@@ -35,7 +35,8 @@ static inline int negative_errno(void) {
 #define ERRNO_IS_DISCONNECT(r)                                          \
         IN_SET(abs(r),                                                  \
                ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, \
-               ENETUNREACH, EHOSTUNREACH, ENOPROTOOPT, EHOSTDOWN, ENONET)
+               ENETUNREACH, EHOSTUNREACH, ENOPROTOOPT, EHOSTDOWN,       \
+               ENONET, ESHUTDOWN)
 
 /* Resource exhaustion, could be our fault or general system trouble */
 #define ERRNO_IS_RESOURCE(r) \
