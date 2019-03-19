@@ -3056,7 +3056,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         }
 
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-                if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
+                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT(errno))
                         log_error_errno(errno, "connect() failed: %m");
                 return;
         }
@@ -3068,7 +3068,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         errno = 0;
         if (write(fd, message, n + 1) != n + 1)
-                if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
+                if (!IN_SET(errno, EAGAIN, ENOENT) && !ERRNO_IS_DISCONNECT(errno))
                         log_error_errno(errno, "Failed to write Plymouth message: %m");
 }
 
