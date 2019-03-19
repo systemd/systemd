@@ -1568,15 +1568,14 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
 
         assert(u);
 
+        if (streq_ptr(u->cgroup_path, path))
+                return 0;
+
         if (path) {
                 p = strdup(path);
                 if (!p)
                         return -ENOMEM;
-        } else
-                p = NULL;
-
-        if (streq_ptr(u->cgroup_path, p))
-                return 0;
+        }
 
         if (p) {
                 r = hashmap_put(u->manager->cgroup_unit, p, u);
@@ -1585,7 +1584,6 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
         }
 
         unit_release_cgroup(u);
-
         u->cgroup_path = TAKE_PTR(p);
 
         return 1;
