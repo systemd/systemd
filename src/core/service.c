@@ -3471,8 +3471,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (main_pid_good(s) <= 0)
                                         service_enter_stop_post(s, f);
 
-                                /* If there is still a service
-                                 * process around, wait until
+                                /* If there is still a service process around, wait until
                                  * that one quit, too */
                                 break;
 
@@ -3494,10 +3493,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (notify_dbus)
                 unit_add_to_dbus_queue(u);
 
-        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
-         * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
-         * was probably the parent of them, and they are hence now our children. */
-        (void) unit_enqueue_rewatch_pids(u);
+        /* We watch the main/control process otherwise we can't retrieve the unit they
+         * belong to with cgroupv1. But if they are not our direct child, we won't get a
+         * SIGCHLD for them. Therefore we need to look for others to watch so we can
+         * detect when the cgroup becomes empty. Note that the control process is always
+         * our child so it's pointless to watch all other processes. */
+        if (!control_pid_good(s))
+                if (!s->main_pid_known || s->main_pid_alien)
+                        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
