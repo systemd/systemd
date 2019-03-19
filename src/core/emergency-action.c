@@ -20,7 +20,7 @@ static void log_and_status(Manager *m, bool warn, const char *message, const cha
                                       "%s: %s", message, reason);
 }
 
-int emergency_action(
+void emergency_action(
                 Manager *m,
                 EmergencyAction action,
                 EmergencyActionFlags options,
@@ -33,11 +33,11 @@ int emergency_action(
         assert(action < _EMERGENCY_ACTION_MAX);
 
         if (action == EMERGENCY_ACTION_NONE)
-                return -ECANCELED;
+                return;
 
         if (FLAGS_SET(options, EMERGENCY_ACTION_IS_WATCHDOG) && !m->service_watchdogs) {
                 log_warning("Watchdog disabled! Not acting on: %s", reason);
-                return -ECANCELED;
+                return;
         }
 
         bool warn = FLAGS_SET(options, EMERGENCY_ACTION_WARN);
@@ -125,8 +125,6 @@ int emergency_action(
         default:
                 assert_not_reached("Unknown emergency action");
         }
-
-        return -ECANCELED;
 }
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {

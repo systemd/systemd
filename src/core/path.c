@@ -555,19 +555,16 @@ static void path_mkdir(Path *p) {
 
 static int path_start(Unit *u) {
         Path *p = PATH(u);
-        Unit *trigger;
         int r;
 
         assert(p);
         assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
                 return r;

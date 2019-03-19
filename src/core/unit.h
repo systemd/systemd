@@ -778,7 +778,7 @@ static inline bool unit_supported(Unit *u) {
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
-int unit_start_limit_test(Unit *u);
+int unit_test_start_limit(Unit *u);
 
 void unit_unref_uid(Unit *u, bool destroy_now);
 int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
@@ -829,6 +829,8 @@ void unit_log_process_exit(Unit *u, int level, const char *kind, const char *com
 int unit_exit_status(Unit *u);
 int unit_success_action_exit_status(Unit *u);
 int unit_failure_action_exit_status(Unit *u);
+
+int unit_test_trigger_loaded(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

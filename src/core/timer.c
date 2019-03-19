@@ -595,19 +595,16 @@ fail:
 static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
         TimerValue *v;
-        Unit *trigger;
         int r;
 
         assert(t);
         assert(IN_SET(t->state, TIMER_DEAD, TIMER_FAILED));
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 timer_enter_dead(t, TIMER_FAILURE_START_LIMIT_HIT);
                 return r;

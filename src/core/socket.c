@@ -2487,7 +2487,7 @@ static int socket_start(Unit *u) {
 
         assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED));
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 socket_enter_dead(s, SOCKET_FAILURE_START_LIMIT_HIT);
                 return r;

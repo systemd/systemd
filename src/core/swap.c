@@ -871,7 +871,7 @@ static int swap_start(Unit *u) {
                 if (UNIT(other)->job && UNIT(other)->job->state == JOB_RUNNING)
                         return -EAGAIN;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 swap_enter_dead(s, SWAP_FAILURE_START_LIMIT_HIT);
                 return r;
