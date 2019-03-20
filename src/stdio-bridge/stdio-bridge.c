@@ -14,6 +14,7 @@
 #include "build.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "util.h"
@@ -56,31 +57,28 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hsup:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
-                case '?':
-                        return -EINVAL;
-
                 case 'p':
                         arg_bus_path = optarg;
-
                         break;
 
                 case 'M':
                         arg_bus_path = optarg;
-
                         arg_transport = BUS_TRANSPORT_MACHINE;
-
                         break;
+
+                case '?':
+                        return -EINVAL;
+
                 default:
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown option code %c", c);
@@ -111,10 +109,8 @@ static int run(int argc, char *argv[]) {
         } else if (r == 1) {
                 in_fd = SD_LISTEN_FDS_START;
                 out_fd = SD_LISTEN_FDS_START;
-        } else {
-                log_error("Illegal number of file descriptors passed.");
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Illegal number of file descriptors passed.");
 
         is_unix =
                 sd_is_socket(in_fd, AF_UNIX, 0, 0) > 0 &&
@@ -187,9 +183,13 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 r = sd_bus_process(b, &m);
-                if (r < 0)
+                if (r < 0) {
                         /* treat 'connection reset by peer' as clean exit condition */
-                        return r == -ECONNRESET ? 0 : r;
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return 0;
+
+                        return log_error_errno(r, "Failed to process bus: %m");
+                }
 
                 if (m) {
                         r = sd_bus_send(a, m, NULL);
@@ -240,9 +240,10 @@ static int run(int argc, char *argv[]) {
 
                 {
                         struct pollfd p[3] = {
-                                {.fd = fd,            .events = events_a, },
-                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN, },
-                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT, }};
+                                {.fd = fd,            .events = events_a           },
+                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN  },
+                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT },
+                        };
 
                         r = ppoll(p, ELEMENTSOF(p), ts, NULL);
                 }

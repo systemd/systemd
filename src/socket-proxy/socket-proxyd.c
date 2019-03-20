@@ -16,6 +16,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -29,8 +30,8 @@
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
-static unsigned arg_connections_max = 256;
 
+static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 
 typedef struct Context {
@@ -141,7 +142,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))
@@ -153,7 +154,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full -= z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))

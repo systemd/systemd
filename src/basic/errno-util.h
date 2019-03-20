@@ -27,3 +27,17 @@ static inline int negative_errno(void) {
         assert_return(errno > 0, -EINVAL);
         return -errno;
 }
+
+/* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
+ *
+ * Hint #2: The kernel sends e.g., EHOSTUNREACH or ENONET to userspace in some ICMP error cases.  See the
+ *          icmp_err_convert[] in net/ipv4/icmp.c in the kernel sources */
+#define ERRNO_IS_DISCONNECT(r)                                          \
+        IN_SET(abs(r),                                                  \
+               ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, \
+               ENETUNREACH, EHOSTUNREACH, ENOPROTOOPT, EHOSTDOWN,       \
+               ENONET, ESHUTDOWN)
+
+/* Resource exhaustion, could be our fault or general system trouble */
+#define ERRNO_IS_RESOURCE(r) \
+        IN_SET(abs(r), ENOMEM, EMFILE, ENFILE)
