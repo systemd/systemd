@@ -68,9 +68,11 @@ int socket_address_listen(
         }
 
         if (IN_SET(socket_address_family(a), AF_INET, AF_INET6)) {
-                if (bind_to_device)
-                        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
-                                return -errno;
+                if (bind_to_device) {
+                        r = socket_bind_to_ifname(fd, bind_to_device);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (reuse_port) {
                         r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEPORT, true);

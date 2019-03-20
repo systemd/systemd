@@ -421,8 +421,9 @@ static int manager_dns_stub_udp_fd(Manager *m) {
                 return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
-                return -errno;
+        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
+        if (r < 0)
+                return r;
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
                 return -errno;
@@ -514,8 +515,9 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
                 return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
-                return -errno;
+        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
+        if (r < 0)
+                return r;
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
                 return -errno;

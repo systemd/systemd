@@ -31,9 +31,8 @@
 
 static int icmp6_bind_router_message(const struct icmp6_filter *filter,
                                      const struct ipv6_mreq *mreq) {
-        int index = mreq->ipv6mr_interface;
+        int ifindex = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -1;
-        char ifname[IF_NAMESIZE] = "";
         int r;
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -52,7 +51,7 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
            IPV6_PKTINFO socket option also applies for ICMPv6 multicast.
            Empirical experiments indicates otherwise and therefore an
            IPV6_MULTICAST_IF socket option is used here instead */
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, index);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, ifindex);
         if (r < 0)
                 return r;
 
@@ -76,12 +75,9 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return r;
 
-        if (if_indextoname(index, ifname) == 0)
-                return -errno;
-
-        r = setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname));
+        r = socket_bind_to_ifindex(s, ifindex);
         if (r < 0)
-                return -errno;
+                return r;
 
         return TAKE_FD(s);
 }

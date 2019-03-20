@@ -198,3 +198,6 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
 
         return 0;
 }
+
+int socket_bind_to_ifname(int fd, const char *ifname);
+int socket_bind_to_ifindex(int fd, int ifindex);
