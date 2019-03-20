@@ -239,6 +239,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
                 int k;
 
                 assert_se(sigfillset(&ss) >= 0);
+                /* Don't block SIGBUS since the offlining thread accesses a memory mapped file.
+                 * Asynchronous SIGBUS signals can safely be handled by either thread. */
+                assert_se(sigdelset(&ss, SIGBUS) >= 0);
 
                 r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
                 if (r > 0)
