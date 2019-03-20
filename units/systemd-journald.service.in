@@ -28,6 +28,7 @@ RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
 StandardOutput=null
 SystemCallArchitectures=native

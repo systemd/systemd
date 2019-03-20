@@ -40,6 +40,7 @@ RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/sessions systemd/seats systemd/users systemd/inhibit systemd/shutdown
 RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
