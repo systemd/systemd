@@ -1776,16 +1776,20 @@ int seccomp_protect_hostname(void) {
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(sethostname),
                                 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add sethostname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                         continue;
+                }
 
                 r = seccomp_rule_add_exact(
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(setdomainname),
                                 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add setdomainname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                         continue;
+                }
 
                 r = seccomp_load(seccomp);
                 if (IN_SET(r, -EPERM, -EACCES))
