@@ -48,12 +48,16 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         if (*allocated >= need)
                 return *p;
 
-        newalloc = MAX(need * 2, 64u / size);
-        a = newalloc * size;
-
-        /* check for overflows */
-        if (a < size * need)
+        if (_unlikely_(need > SIZE_MAX/2)) /* Overflow check */
                 return NULL;
+
+        newalloc = need * 2;
+        if (size_multiply_overflow(newalloc, size))
+                return NULL;
+
+        a = newalloc * size;
+        if (a < 64) /* Allocate at least 64 bytes */
+                a = 64;
 
         q = realloc(*p, a);
         if (!q)
