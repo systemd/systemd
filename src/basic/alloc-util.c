@@ -27,6 +27,9 @@ void* memdup_suffix0(const void *p, size_t l) {
 
         /* The same as memdup() but place a safety NUL byte after the allocated memory */
 
+        if (_unlikely_(l == SIZE_MAX)) /* prevent overflow */
+                return NULL;
+
         ret = malloc(l + 1);
         if (!ret)
                 return NULL;
