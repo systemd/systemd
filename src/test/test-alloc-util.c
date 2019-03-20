@@ -19,6 +19,25 @@ static void test_alloca(void) {
         assert_se(!memcmp(t, zero, 997));
 }
 
+static void test_GREEDY_REALLOC(void) {
+        _cleanup_free_ int *a = NULL, *b = NULL;
+        size_t n_allocated = 0, i;
+
+        /* Give valgrind a chance to verify our realloc operations */
+
+        for (i = 0; i < 2048; i++) {
+                assert_se(GREEDY_REALLOC(a, n_allocated, i + 1));
+                a[i] = i;
+                assert_se(GREEDY_REALLOC(a, n_allocated, i / 2));
+        }
+
+        for (i = 30, n_allocated = 0; i < 2048; i+=7) {
+                assert_se(GREEDY_REALLOC(b, n_allocated, i + 1));
+                b[i] = i;
+                assert_se(GREEDY_REALLOC(b, n_allocated, i / 2));
+        }
+}
+
 static void test_memdup_multiply_and_greedy_realloc(void) {
         int org[] = {1, 2, 3};
         _cleanup_free_ int *dup;
@@ -74,6 +93,7 @@ static void test_bool_assign(void) {
 
 int main(int argc, char *argv[]) {
         test_alloca();
+        test_GREEDY_REALLOC();
         test_memdup_multiply_and_greedy_realloc();
         test_bool_assign();
 
