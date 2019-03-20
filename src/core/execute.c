@@ -2074,7 +2074,7 @@ static int setup_exec_directory(
         STRV_FOREACH(rt, context->directories[type].paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
-                p = strjoin(params->prefix[type], "/", *rt);
+                p = path_join(params->prefix[type], *rt);
                 if (!p) {
                         r = -ENOMEM;
                         goto fail;
@@ -2085,7 +2085,8 @@ static int setup_exec_directory(
                         goto fail;
 
                 if (context->dynamic_user &&
-                    !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
+                    (!IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) ||
+                     (type == EXEC_DIRECTORY_RUNTIME && context->runtime_directory_preserve_mode != EXEC_PRESERVE_NO))) {
                         _cleanup_free_ char *private_root = NULL;
 
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that case we
@@ -2110,7 +2111,7 @@ static int setup_exec_directory(
                          * Also, note that we don't do this for EXEC_DIRECTORY_RUNTIME as that's often used for sharing
                          * files or sockets with other services. */
 
-                        private_root = strjoin(params->prefix[type], "/private");
+                        private_root = path_join(params->prefix[type], "private");
                         if (!private_root) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -2121,7 +2122,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        pp = strjoin(private_root, "/", *rt);
+                        pp = path_join(private_root, *rt);
                         if (!pp) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -2156,36 +2157,42 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        /* Lock down the access mode */
-                        if (chmod(pp, context->directories[type].mode) < 0) {
-                                r = -errno;
-                                goto fail;
-                        }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
-                        if (r < 0 && r != -EEXIST)
-                                goto fail;
-                        if (r == -EEXIST) {
-                                struct stat st;
-
-                                if (stat(p, &st) < 0) {
-                                        r = -errno;
+                        if (r < 0) {
+                                if (r != -EEXIST)
                                         goto fail;
-                                }
-                                if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
-                                        log_warning("%s \'%s\' already exists but the mode is different. "
-                                                    "(filesystem: %o %sMode: %o)",
-                                                    exec_directory_type_to_string(type), *rt,
-                                                    st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
-                                if (!context->dynamic_user)
+
+                                if (type == EXEC_DIRECTORY_CONFIGURATION) {
+                                        struct stat st;
+
+                                        /* Don't change the owner/access mode of the configuration directory,
+                                         * as in the common case it is not written to by a service, and shall
+                                         * not be writable. */
+
+                                        if (stat(p, &st) < 0) {
+                                                r = -errno;
+                                                goto fail;
+                                        }
+
+                                        /* Still complain if the access mode doesn't match */
+                                        if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
+                                                log_warning("%s \'%s\' already exists but the mode is different. "
+                                                            "(File system: %o %sMode: %o)",
+                                                            exec_directory_type_to_string(type), *rt,
+                                                            st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
+
                                         continue;
+                                }
                         }
                 }
 
-                /* Don't change the owner of the configuration directory, as in the common case it is not written to by
-                 * a service, and shall not be writable. */
-                if (type == EXEC_DIRECTORY_CONFIGURATION)
-                        continue;
+                /* Lock down the access mode (we use chmod_and_chown() to make this idempotent. We don't
+                 * specifiy UID/GID here, so that path_chown_recursive() can optimize things depending on the
+                 * current UID/GID ownership.) */
+                r = chmod_and_chown(pp ?: p, context->directories[type].mode, UID_INVALID, GID_INVALID);
+                if (r < 0)
+                        goto fail;
 
                 /* Then, change the ownership of the whole tree, if necessary */
                 r = path_chown_recursive(pp ?: p, uid, gid);
@@ -3154,7 +3161,7 @@ static int exec_child(
                                       USER_PROCESS,
                                       username);
 
-        if (context->user) {
+        if (uid_is_valid(uid)) {
                 r = chown_terminal(STDIN_FILENO, uid);
                 if (r < 0) {
                         *exit_status = EXIT_STDIN;
@@ -3459,7 +3466,7 @@ static int exec_child(
         }
 
         if (needs_setuid) {
-                if (context->user) {
+                if (uid_is_valid(uid)) {
                         r = enforce_user(context, uid);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;

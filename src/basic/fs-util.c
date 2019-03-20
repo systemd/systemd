@@ -215,64 +215,109 @@ int readlink_and_make_absolute(const char *p, char **r) {
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -1;
+        bool st_valid = false;
+        struct stat st;
+        int r;
+
         assert(path);
 
-        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
-         * ownership to avoid a window where access is too open. */
+        /* Under the assumption that we are running privileged we first change the access mode and only then
+         * hand out ownership to avoid a window where access is too open. */
 
-        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change mode/owner
-                                                       * on the same file */
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change
+                                                       * mode/owner on the same file */
         if (fd < 0)
                 return -errno;
 
         xsprintf(fd_path, "/proc/self/fd/%i", fd);
 
         if (mode != MODE_INVALID) {
-
                 if ((mode & S_IFMT) != 0) {
-                        struct stat st;
 
                         if (stat(fd_path, &st) < 0)
                                 return -errno;
 
                         if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
                                 return -EINVAL;
+
+                        st_valid = true;
                 }
 
-                if (chmod(fd_path, mode & 07777) < 0)
-                        return -errno;
+                if (chmod(fd_path, mode & 07777) < 0) {
+                        r = -errno;
+
+                        if (!st_valid && stat(fd_path, &st) < 0)
+                                return -errno;
+
+                        if ((mode & 07777) != (st.st_mode & 07777))
+                                return r;
+
+                        st_valid = true;
+                }
         }
 
-        if (uid != UID_INVALID || gid != GID_INVALID)
-                if (chown(fd_path, uid, gid) < 0)
-                        return -errno;
+        if (uid != UID_INVALID || gid != GID_INVALID) {
+                if (chown(fd_path, uid, gid) < 0) {
+                        r = -errno;
+
+                        if (!st_valid && stat(fd_path, &st) < 0)
+                                return -errno;
+
+                        if (uid != UID_INVALID && st.st_uid != uid)
+                                return r;
+                        if (gid != GID_INVALID && st.st_gid != gid)
+                                return r;
+                }
+        }
 
         return 0;
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
+        bool st_valid = false;
+        struct stat st;
+        int r;
+
         /* Under the assumption that we are running privileged we first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
         if (mode != MODE_INVALID) {
-
                 if ((mode & S_IFMT) != 0) {
-                        struct stat st;
 
                         if (fstat(fd, &st) < 0)
                                 return -errno;
 
                         if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
                                 return -EINVAL;
+
+                        st_valid = true;
                 }
 
-                if (fchmod(fd, mode & 0777) < 0)
-                        return -errno;
+                if (fchmod(fd, mode & 07777) < 0) {
+                        r = -errno;
+
+                        if (!st_valid && fstat(fd, &st) < 0)
+                                return -errno;
+
+                        if ((mode & 07777) != (st.st_mode & 07777))
+                                return r;
+
+                        st_valid = true;
+                }
         }
 
         if (uid != UID_INVALID || gid != GID_INVALID)
-                if (fchown(fd, uid, gid) < 0)
-                        return -errno;
+                if (fchown(fd, uid, gid) < 0) {
+                        r = -errno;
+
+                        if (!st_valid && fstat(fd, &st) < 0)
+                                return -errno;
+
+                        if (uid != UID_INVALID && st.st_uid != uid)
+                                return r;
+                        if (gid != GID_INVALID && st.st_gid != gid)
+                                return r;
+                }
 
         return 0;
 }
