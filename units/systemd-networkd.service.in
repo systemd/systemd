@@ -39,6 +39,7 @@ SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 SystemCallArchitectures=native
 LockPersonality=yes
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
 

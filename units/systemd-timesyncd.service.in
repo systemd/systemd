@@ -37,6 +37,7 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/timesync
 SystemCallFilter=@system-service @clock
 SystemCallErrorNumber=EPERM
