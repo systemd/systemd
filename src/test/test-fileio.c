@@ -629,6 +629,10 @@ static void test_tempfn(void) {
 static const char chars[] =
         "Aąę„”\n루\377";
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+
 static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
@@ -640,7 +644,7 @@ static void test_fgetc(void) {
                 assert_se(safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
 
-                /* EOF is -1, and hence we can't push value 255 in this way */
+                /* EOF is -1, and hence we can't push value 255 in this way if char is signed */
                 assert_se(ungetc(c, f) != EOF || c == EOF);
                 assert_se(c == EOF || safe_fgetc(f, &c) == 1);
                 assert_se(c == chars[i]);
@@ -653,6 +657,8 @@ static void test_fgetc(void) {
 
         assert_se(safe_fgetc(f, &c) == 0);
 }
+
+#pragma GCC diagnostic pop
 
 static const char buffer[] =
         "Some test data\n"
