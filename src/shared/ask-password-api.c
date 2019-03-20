@@ -306,9 +306,9 @@ int ask_password_tty(
         };
 
         for (;;) {
+                _cleanup_(erase_char) char c;
                 int sleep_for = -1, k;
                 ssize_t n;
-                char c;
 
                 if (until > 0) {
                         usec_t y;
@@ -452,9 +452,6 @@ int ask_password_tty(
 
                         dirty = true;
                 }
-
-                /* Let's forget this char, just to not keep needlessly copies of key material around */
-                c = 'x';
         }
 
         x = strndup(passphrase, p);

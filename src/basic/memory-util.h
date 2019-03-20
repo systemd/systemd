@@ -77,3 +77,8 @@ static inline void* explicit_bzero_safe(void *p, size_t l) {
 #else
 void *explicit_bzero_safe(void *p, size_t l);
 #endif
+
+/* Use with _cleanup_ to erase a single 'char' when leaving scope */
+static inline void erase_char(char *p) {
+        explicit_bzero_safe(p, sizeof(char));
+}
