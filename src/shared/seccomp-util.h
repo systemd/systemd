@@ -85,6 +85,7 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist);
 int seccomp_restrict_realtime(void);
 int seccomp_memory_deny_write_execute(void);
 int seccomp_lock_personality(unsigned long personality);
+int seccomp_restrict_suid_sgid(void);
 
 extern const uint32_t seccomp_local_archs[];
 
