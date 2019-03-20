@@ -77,13 +77,18 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
                 if (n < 0)
                         return -errno;
-
                 if (n < m)
                         break;
 
                 explicit_bzero_safe(p, n);
-                free(p);
+
+                if (m > LONG_MAX / 2) /* overflow check */
+                        return -ENOMEM;
                 m *= 2;
+                if ((long) (size_t) m != m) /* make sure that this still fits if converted to size_t */
+                        return -ENOMEM;
+
+                free(p);
         }
 
         l = strv_parse_nulstr(p, n);
