@@ -252,7 +252,9 @@
         of the service, and hence the lifetime of the dynamic user/group. Since <filename>/tmp</filename> and
         <filename>/var/tmp</filename> are usually the only world-writable directories on a system this
         ensures that a unit making use of dynamic user/group allocation cannot leave files around after unit
-        termination. Moreover <varname>ProtectSystem=strict</varname> and
+        termination. Furthermore <varname>NoNewPrivileges=</varname> and <varname>RestrictSUIDSGID=</varname>
+        are implicitly enabled to ensure that processes invoked cannot take benefit or create SUID/SGID files
+        or directories. Moreover <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
         have to be whitelisted using <varname>ReadWritePaths=</varname>, but care must be taken so that
@@ -388,11 +390,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectKernelModules=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
-        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname> or
-        <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by
-        them, <command>systemctl show</command> shows the original value of this setting. Also see <ulink
+        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>,
+        <varname>DynamicUser=</varname> or <varname>LockPersonality=</varname> are specified. Note that even
+        if this setting is overridden by them, <command>systemctl show</command> shows the original value of
+        this setting. Also see <ulink
         url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
-        Flag</ulink>.  </para></listitem>
+        Flag</ulink>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1406,7 +1409,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         identity of other users, it is recommended to restrict creation of SUID/SGID files to the few
         programs that actually require them. Note that this restricts marking of any type of file system
         object with these bits, including both regular files and directories (where the SGID is a different
-        meaning than for files, see documentation). Defaults to off.</para></listitem>
+        meaning than for files, see documentation). This option is implied if <varname>DynamicUser=</varname>
+        is enabled. Defaults to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

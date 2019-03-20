@@ -201,6 +201,21 @@ CHANGES WITH 242 in spe:
           done anymore, and instead calling `systemctl preset-all` is
           recommended after the first installation of systemd.
 
+        * A new boolean sandboxing option RestrictSUIDSGID= has been added that
+          is built on seccomp. When turned on creation of SUID/SGID files is
+          prohibited.
+
+        * The NoNewPrivileges= and the new RestrictSUIDSGID= options are now
+          implied if DynamicUser= is turned on for a service. This hardens
+          these services, so that they neither can benefit from nor create
+          SUID/SGID executables. This is a minor compatibility breakage, given
+          that when DynamicUser= was first introduced SUID/SGID behaviour was
+          unaffected. However, the security benefit of these two options is
+          substantial, and the setting is still relatively new, hence we opted
+          to make it mandatory for services with dynamic users.
+
+        …
+
 CHANGES WITH 241:
 
         * The default locale can now be configured at compile time. Otherwise,
