@@ -4160,14 +4160,20 @@ static bool tty_may_match_dev_console(const char *tty) {
         return path_equal(resolved, tty) || (streq(resolved, "tty0") && tty_is_vc(tty));
 }
 
-bool exec_context_may_touch_console(const ExecContext *ec) {
+static bool exec_context_may_touch_tty(const ExecContext *ec) {
+        assert(ec);
 
-        return (ec->tty_reset ||
+        return ec->tty_reset ||
                 ec->tty_vhangup ||
                 ec->tty_vt_disallocate ||
                 is_terminal_input(ec->std_input) ||
                 is_terminal_output(ec->std_output) ||
-                is_terminal_output(ec->std_error)) &&
+                is_terminal_output(ec->std_error);
+}
+
+bool exec_context_may_touch_console(const ExecContext *ec) {
+
+        return exec_context_may_touch_tty(ec) &&
                tty_may_match_dev_console(exec_context_tty_path(ec));
 }
 
