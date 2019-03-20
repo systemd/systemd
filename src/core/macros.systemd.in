@@ -45,9 +45,9 @@ OrderWithRequires(postun): systemd \
 
 %systemd_post() \
 %{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 1 ] ; then \
+if [ $1 -eq 1 ] && [ -x @bindir@/systemctl ] ; then \
         # Initial installation \
-        systemctl --no-reload preset %{?*} >/dev/null 2>&1 || : \
+        @bindir@/systemctl --no-reload preset %{?*} || : \
 fi \
 %{nil}
 
@@ -55,17 +55,17 @@ fi \
 
 %systemd_preun() \
 %{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 0 ] ; then \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
         # Package removal, not upgrade \
-        systemctl --no-reload disable --now %{?*} >/dev/null 2>&1 || : \
+        @bindir@/systemctl --no-reload disable --now %{?*} || : \
 fi \
 %{nil}
 
 %systemd_user_preun() \
 %{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 0 ] ; then \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
         # Package removal, not upgrade \
-        systemctl --global disable %{?*} >/dev/null 2>&1 || : \
+        @bindir@/systemctl --global disable %{?*} || : \
 fi \
 %{nil}
 
@@ -75,9 +75,9 @@ fi \
 
 %systemd_postun_with_restart() \
 %{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -ge 1 ] ; then \
+if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ] ; then \
         # Package upgrade, not uninstall \
-        systemctl try-restart %{?*} >/dev/null 2>&1 || : \
+        @bindir@/systemctl try-restart %{?*} || : \
 fi \
 %{nil}
 
@@ -92,17 +92,17 @@ fi \
 # Deprecated. Use %tmpfiles_create_package instead
 %tmpfiles_create() \
 %{expand:%%{?__systemd_someargs_%#}} \
-systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
+[ -x @bindir@/systemd-tmpfiles ] && @bindir@/systemd-tmpfiles --create %{?*} || : \
 %{nil}
 
 # Deprecated. Use %sysusers_create_package instead
 %sysusers_create() \
 %{expand:%%{?__systemd_someargs_%#}} \
-systemd-sysusers %{?*} >/dev/null 2>&1 || : \
+[ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers %{?*} || : \
 %{nil}
 
 %sysusers_create_inline() \
-systemd-sysusers - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+[ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers - <<SYSTEMD_INLINE_EOF || : \
 %{?*} \
 SYSTEMD_INLINE_EOF \
 %{nil}
@@ -149,10 +149,10 @@ SYSTEMD_INLINE_EOF \
 
 %sysctl_apply() \
 %{expand:%%{?__systemd_someargs_%#}} \
-@rootlibexecdir@/systemd-sysctl %{?*} >/dev/null 2>&1 || : \
+[ -x @rootlibexecdir@/systemd-sysctl ] && @rootlibexecdir@/systemd-sysctl %{?*} || : \
 %{nil}
 
 %binfmt_apply() \
 %{expand:%%{?__systemd_someargs_%#}} \
-@rootlibexecdir@/systemd-binfmt %{?*} >/dev/null 2>&1 || : \
+[ -x @rootlibexecdir@/systemd-binfmt ] && @rootlibexecdir@/systemd-binfmt %{?*} || : \
 %{nil}
