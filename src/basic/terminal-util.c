@@ -891,16 +891,18 @@ bool on_tty(void) {
 }
 
 int getttyname_malloc(int fd, char **ret) {
-        size_t l = 100;
+        _cleanup_free_ char *path = NULL;
+        size_t allocated = 0, sz = 100;
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
         for (;;) {
-                char path[l];
+                if (!LAZY_REALLOC(path, allocated, sz))
+                        return -ENOMEM;
 
-                r = ttyname_r(fd, path, sizeof(path));
+                r = ttyname_r(fd, path, sz);
                 if (r == 0) {
                         char *c;
 
@@ -915,7 +917,7 @@ int getttyname_malloc(int fd, char **ret) {
                 if (r != ERANGE)
                         return -r;
 
-                l *= 2;
+                sz *= 2;
         }
 
         return 0;
