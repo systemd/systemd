@@ -78,8 +78,6 @@ Features:
 * maybe implicitly attach monotonic+realtime timestamps to outgoing messages in
   log.c and sd-journal-send
 
-* chown() tty a service is attached to after the service goes down
-
 * optionally: turn on cgroup delegation for per-session scope units
 
 * introduce per-unit (i.e. per-slice, per-service) journal log size limits.
@@ -257,8 +255,6 @@ Features:
   as the unit is running or has a job queued.
 
 * support projid-based quota in machinectl for containers
-
-* Add NetworkNamespacePath= to specify a path to a network namespace
 
 * maybe use SOURCE_DATE_EPOCH (i.e. the env var the reproducible builds folks
   introduced) as the RTC epoch, instead of the mtime of NEWS.
@@ -439,8 +435,6 @@ Features:
 
 * optionally, also require WATCHDOG=1 notifications during service start-up and shutdown
 
-* resolved: when routing queries, make sure only look for the *longest* suffix...
-
 * delay activation of logind until somebody logs in, or when /dev/tty0 pulls it
   in or lingering is on (so that containers don't bother with it until PAM is used). also exit-on-idle
 
@@ -585,12 +579,6 @@ Features:
   service instances processing the listening socket, and open this up
   for ReusePort=
 
-* socket units: support creating sockets in different namespace,
-  opening it up for JoinsNamespaceOf=. This would require to fork off
-  a tiny process that joins the namespace and creates/binds the socket
-  and passes this back to PID1 via SCM_RIGHTS. This also could be used
-  to allow Chown/chgrp on sockets without requiring NSS in PID 1.
-
 * introduce bus call FreezeUnit(s, b), as well as "systemctl freeze
   $UNIT" and "systemctl thaw $UNIT" as wrappers around this. The calls
   should SIGSTOP all unit processes in a loop until all processes of
@@ -630,9 +618,6 @@ Features:
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
 * load .d/*.conf dropins for device units
-
-* allow implementation of InaccessibleDirectories=/ plus
-  ReadOnlyDirectories=... for whitelisting files for a service.
 
 * sd-bus:
   - EBADSLT handling
@@ -735,8 +720,6 @@ Features:
     make assumptions about their slice anymore.
   - follow PropertiesChanged state more closely, to deal with quick logouts and
     relogins
-
-* exec: when deinitializating a tty device fix the perms and group, too, not only when initializing. Set access mode/gid to 0620/tty.
 
 * journal:
   - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
