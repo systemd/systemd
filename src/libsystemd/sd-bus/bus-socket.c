@@ -160,7 +160,6 @@ static int bus_socket_write_auth(sd_bus *b) {
 static int bus_socket_auth_verify_client(sd_bus *b) {
         char *d, *e, *f, *start;
         sd_id128_t peer;
-        unsigned i;
         int r;
 
         assert(b);
@@ -205,9 +204,8 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                  */
                 if (memcmp(b->rbuffer, "OK ", 3))
                         return -EPERM;
-        } else {
+        } else
                 return -EPERM;
-        }
 
         /* Now check the OK line. */
 
@@ -219,7 +217,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;
 
-        for (i = 0; i < 32; i += 2) {
+        for (unsigned i = 0; i < 32; i += 2) {
                 int x, y;
 
                 x = unhexchar(d[2 + 3 + i]);
