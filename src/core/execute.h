@@ -245,6 +245,7 @@ struct ExecContext {
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
         bool same_pgrp;
+        bool restrict_suid_sgid;
 
         unsigned long personality;
         bool lock_personality;
