@@ -4640,6 +4640,30 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
         c->n_log_extra_fields = 0;
 }
 
+void exec_context_revert_tty(ExecContext *c) {
+        int r;
+
+        assert(c);
+
+        /* First, reset the TTY (possibly kicking everybody else from the TTY) */
+        exec_context_tty_reset(c, NULL);
+
+        /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
+         * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
+         * by whoever passed it to us and thus knows better when and how to chmod()/chown() it back. */
+
+        if (exec_context_may_touch_tty(c)) {
+                const char *path;
+
+                path = exec_context_tty_path(c);
+                if (path) {
+                        r = chmod_and_chown(path, TTY_MODE, 0, TTY_GID);
+                        if (r < 0 && r != -ENOENT)
+                                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s, ignoring: %m", path);
+                }
+        }
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
@@ -4664,12 +4688,8 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
         s->code = code;
         s->status = status;
 
-        if (context) {
-                if (context->utmp_id)
-                        (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
-
-                exec_context_tty_reset(context, NULL);
-        }
+        if (context && context->utmp_id)
+                (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
 }
 
 void exec_status_reset(ExecStatus *s) {

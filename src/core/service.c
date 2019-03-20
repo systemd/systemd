@@ -1754,6 +1754,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->pid_file)
                 (void) unlink(s->pid_file);
 
+        /* Reset TTY ownership if necessary */
+        exec_context_revert_tty(&s->exec_context);
+
         return;
 
 fail:
