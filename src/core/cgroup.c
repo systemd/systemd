@@ -2269,7 +2269,7 @@ void unit_prune_cgroup(Unit *u) {
 
 int unit_search_main_pid(Unit *u, pid_t *ret) {
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid = 0, npid, mypid;
+        pid_t pid = 0, npid;
         int r;
 
         assert(u);
@@ -2282,15 +2282,12 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
         if (r < 0)
                 return r;
 
-        mypid = getpid_cached();
         while (cg_read_pid(f, &npid) > 0)  {
-                pid_t ppid;
 
                 if (npid == pid)
                         continue;
 
-                /* Ignore processes that aren't our kids */
-                if (get_process_ppid(npid, &ppid) >= 0 && ppid != mypid)
+                if (pid_is_my_child(npid) == 0)
                         continue;
 
                 if (pid != 0)
@@ -2322,7 +2319,7 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
                 pid_t pid;
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid);
+                        r = unit_watch_pid(u, pid, false);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }

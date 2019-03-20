@@ -2129,6 +2129,16 @@ void manager_clear_jobs(Manager *m) {
                 job_finish_and_invalidate(j, JOB_CANCELED, false, false);
 }
 
+void manager_unwatch_pid(Manager *m, pid_t pid) {
+        assert(m);
+
+        /* First let's drop the unit keyed as "pid". */
+        (void) hashmap_remove(m->watch_pids, PID_TO_PTR(pid));
+
+        /* Then, let's also drop the array keyed by -pid. */
+        free(hashmap_remove(m->watch_pids, PID_TO_PTR(-pid)));
+}
+
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
         Manager *m = userdata;
         Job *j;

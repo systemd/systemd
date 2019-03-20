@@ -143,8 +143,6 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pid(Service *s, pid_t pid) {
-        pid_t ppid;
-
         assert(s);
 
         if (pid <= 1)
@@ -163,12 +161,10 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 
         s->main_pid = pid;
         s->main_pid_known = true;
+        s->main_pid_alien = pid_is_my_child(pid) == 0;
 
-        if (get_process_ppid(pid, &ppid) >= 0 && ppid != getpid_cached()) {
+        if (s->main_pid_alien)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
-                s->main_pid_alien = true;
-        } else
-                s->main_pid_alien = false;
 
         return 0;
 }
@@ -994,7 +990,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0) /* FIXME: we need to do something here */
                 return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
 
@@ -1024,7 +1020,7 @@ static void service_search_main_pid(Service *s) {
         if (service_set_main_pid(s, pid) < 0)
                 return;
 
-        r = unit_watch_pid(UNIT(s), pid);
+        r = unit_watch_pid(UNIT(s), pid, false);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", pid);
@@ -1158,7 +1154,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                r = unit_watch_pid(UNIT(s), s->main_pid);
+                r = unit_watch_pid(UNIT(s), s->main_pid, false);
                 if (r < 0)
                         return r;
         }
@@ -1170,7 +1166,7 @@ static int service_coldplug(Unit *u) {
                    SERVICE_RELOAD,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
-                r = unit_watch_pid(UNIT(s), s->control_pid);
+                r = unit_watch_pid(UNIT(s), s->control_pid, false);
                 if (r < 0)
                         return r;
         }
@@ -1570,8 +1566,8 @@ static int service_spawn(
         s->exec_fd_event_source = TAKE_PTR(exec_fd_source);
         s->exec_fd_hot = false;
 
-        r = unit_watch_pid(UNIT(s), pid);
-        if (r < 0) /* FIXME: we need to do something here */
+        r = unit_watch_pid(UNIT(s), pid, true);
+        if (r < 0)
                 return r;
 
         *_pid = pid;
@@ -3475,8 +3471,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (main_pid_good(s) <= 0)
                                         service_enter_stop_post(s, f);
 
-                                /* If there is still a service
-                                 * process around, wait until
+                                /* If there is still a service process around, wait until
                                  * that one quit, too */
                                 break;
 
@@ -3498,10 +3493,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (notify_dbus)
                 unit_add_to_dbus_queue(u);
 
-        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
-         * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
-         * was probably the parent of them, and they are hence now our children. */
-        (void) unit_enqueue_rewatch_pids(u);
+        /* We watch the main/control process otherwise we can't retrieve the unit they
+         * belong to with cgroupv1. But if they are not our direct child, we won't get a
+         * SIGCHLD for them. Therefore we need to look for others to watch so we can
+         * detect when the cgroup becomes empty. Note that the control process is always
+         * our child so it's pointless to watch all other processes. */
+        if (!control_pid_good(s))
+                if (!s->main_pid_known || s->main_pid_alien)
+                        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -3709,7 +3708,7 @@ static void service_notify_message(
                         if (r > 0) {
                                 service_set_main_pid(s, new_main_pid);
 
-                                r = unit_watch_pid(UNIT(s), new_main_pid);
+                                r = unit_watch_pid(UNIT(s), new_main_pid, false);
                                 if (r < 0)
                                         log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", new_main_pid);
 
@@ -3927,7 +3926,7 @@ static void service_bus_name_owner_change(
                         log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, name, pid);
 
                         service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
+                        unit_watch_pid(UNIT(s), pid, false);
                 }
         }
 }
