@@ -1744,7 +1744,9 @@ static int add_object_vtable_internal(
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
         assert_return(vtable[0].type == _SD_BUS_VTABLE_START, -EINVAL);
-        assert_return(IN_SET(vtable[0].x.start.element_size, VTABLE_ELEMENT_SIZE_ORIGINAL, VTABLE_ELEMENT_SIZE), -EINVAL);
+        assert_return(vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE_ORIGINAL ||
+                      vtable[0].x.start.element_size == VTABLE_ELEMENT_SIZE,
+                      -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!streq(interface, "org.freedesktop.DBus.Properties") &&
                       !streq(interface, "org.freedesktop.DBus.Introspectable") &&
