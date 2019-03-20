@@ -119,6 +119,17 @@ _alloc_(2, 3) static inline void *memdup_suffix0_multiply(const void *p, size_t 
         return memdup_suffix0(p, size * need);
 }
 
+/* Lazy realloc only grows as needed, never shrinks, and grows by only what's needed. */
+void* lazy_realloc(void **p, size_t *allocated, size_t need, size_t size);
+void* lazy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
+
+#define LAZY_REALLOC(array, allocated, need)                            \
+        lazy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+
+#define LAZY_REALLOC0(array, allocated, need)                           \
+        lazy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
+
+/* Greedy realloc also only grows as needed, never shrinks, and grows by twice what's needed. */
 void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
 

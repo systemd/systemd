@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -35,7 +36,7 @@ void* memdup_suffix0(const void *p, size_t l) {
         return ret;
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+static void* greedy_realloc_internal(void **p, size_t *allocated, size_t need, size_t size, bool greedy) {
         size_t a, newalloc;
         void *q;
 
@@ -45,7 +46,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         if (*allocated >= need)
                 return *p;
 
-        newalloc = MAX(need * 2, 64u / size);
+        newalloc = MAX(greedy ? need * 2 : need, 64u / size);
         a = newalloc * size;
 
         /* check for overflows */
@@ -61,7 +62,7 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
         return q;
 }
 
-void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
+static void* greedy_realloc0_internal(void **p, size_t *allocated, size_t need, size_t size, bool greedy) {
         size_t prev;
         uint8_t *q;
 
@@ -70,7 +71,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
 
         prev = *allocated;
 
-        q = greedy_realloc(p, allocated, need, size);
+        q = greedy_realloc_internal(p, allocated, need, size, greedy);
         if (!q)
                 return NULL;
 
@@ -78,4 +79,20 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
                 memzero(q + prev * size, (*allocated - prev) * size);
 
         return q;
+}
+
+void* lazy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+        return greedy_realloc_internal(p, allocated, need, size, false);
+}
+
+void* lazy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
+        return greedy_realloc0_internal(p, allocated, need, size, false);
+}
+
+void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+        return greedy_realloc_internal(p, allocated, need, size, true);
+}
+
+void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
+        return greedy_realloc0_internal(p, allocated, need, size, true);
 }
