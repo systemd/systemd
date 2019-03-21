@@ -872,8 +872,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '23-primary-slave.network',
         '23-test1-bond199.network',
         '25-address-link-section.network',
-        '25-address-section-miscellaneous.network',
-        '25-address-section.network',
+        '25-address-preferred-lifetime-zero-ipv6.network',
+        '25-address-static.network',
         '25-bind-carrier.network',
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
@@ -894,8 +894,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-sysctl.network',
         'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
-        'routing-policy-rule-test1.network',
-        'test-static.network']
+        'routing-policy-rule-test1.network']
 
     def setUp(self):
         self.link_remove(self.links)
@@ -904,17 +903,57 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.link_remove(self.links)
         self.remove_unit_from_networkd_path(self.units)
 
-    def test_static_address(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'test-static.network')
+    def test_address_static(self):
+        self.copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
+        self.start_networkd(0)
+
+        self.wait_online(['dummy98:routable'])
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98')
+        self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
+        self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
+
+        # invalid sections
+        self.assertNotRegex(output, '10.10.0.1/16')
+        self.assertNotRegex(output, '10.10.0.2/16')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '32']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 10.3.2.3/16 brd 10.3.255.255 scope global 32')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '33']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 10.4.2.3 peer 10.4.2.4/16 scope global 33')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '34']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
+
+        output = subprocess.check_output(['ip', '-4', 'address', 'show', 'dev', 'dummy98', 'label', '35']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
+
+        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet6 2001:db8:0:f101::15/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f101::16/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f102::15/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f102::16/64 scope global')
+        self.assertRegex(output, 'inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global')
+        self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
+
+    def test_address_preferred_lifetime_zero_ipv6(self):
+        self.copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero-ipv6.network', '12-dummy.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
 
         output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, '192.168.0.15')
-        self.assertRegex(output, '192.168.0.1')
-        self.assertRegex(output, 'routable')
+        self.assertRegex(output, 'State: routable \(configuring\)')
+
+        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
+        self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
 
     def test_configure_without_carrier(self):
         self.copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')
@@ -1034,53 +1073,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'lookup 7')
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
-
-    def test_address_peer(self):
-        self.copy_unit_to_networkd_unit_path('25-address-section.network', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-
-        # This also tests address pool
-
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '32']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet 10.2.3.4 peer 10.2.3.5/16 scope global 32')
-
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '33']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet 10.6.7.8/16 brd 10.6.255.255 scope global 33')
-
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '34']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
-
-        output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'dummy98', 'label', '35']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
-
-        output = subprocess.check_output(['ip', '-6', 'address', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet6 2001:db8::20 peer 2001:db8::10/128 scope global')
-        self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
-
-        output = subprocess.check_output(['networkctl', 'status', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'State: routable \(configured\)')
-
-    def test_address_preferred_lifetime_zero_ipv6(self):
-        self.copy_unit_to_networkd_unit_path('25-address-section-miscellaneous.network', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-
-        output = subprocess.check_output(['ip', 'address', 'show', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'inet 10.2.3.4/16 brd 10.2.255.255 scope link deprecated dummy98')
-        self.assertRegex(output, 'inet6 2001:db8:0:f101::1/64 scope global')
-        # also tests invalid [Address] section
-        self.assertNotRegex(output, '10.10.0.1/16')
-        self.assertNotRegex(output, '10.10.0.2/16')
 
     def test_ip_route(self):
         self.copy_unit_to_networkd_unit_path('25-route-section.network', '12-dummy.netdev')
