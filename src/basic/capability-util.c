@@ -28,8 +28,8 @@ int have_effective_cap(int value) {
 
         if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
-        else
-                return fv == CAP_SET;
+
+        return fv == CAP_SET;
 }
 
 unsigned long cap_last_cap(void) {
@@ -107,13 +107,13 @@ int capability_update_inherited_set(cap_t caps, uint64_t set) {
 }
 
 int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
-        unsigned long i;
         _cleanup_cap_free_ cap_t caps = NULL;
+        unsigned long i;
+        int r;
 
         /* Add the capabilities to the ambient set. */
 
         if (also_inherit) {
-                int r;
                 caps = cap_get_proc();
                 if (!caps)
                         return -errno;
