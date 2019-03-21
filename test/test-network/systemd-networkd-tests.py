@@ -1204,12 +1204,11 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
     def test_link_local_addressing(self):
         self.copy_unit_to_networkd_unit_path('25-link-local-addressing-yes.network', '11-dummy.netdev',
                                              '25-link-local-addressing-no.network', '12-dummy.netdev')
-        self.start_networkd()
+        self.start_networkd(0)
+        self.wait_online(['test1:degraded', 'dummy98:carrier'])
 
         self.assertTrue(self.link_exits('test1'))
         self.assertTrue(self.link_exits('dummy98'))
-
-        time.sleep(10)
 
         output = subprocess.check_output(['ip', 'address', 'show', 'dev', 'test1']).rstrip().decode('utf-8')
         print(output)
