@@ -57,6 +57,7 @@
 #include "loopback-setup.h"
 #include "machine-image.h"
 #include "macro.h"
+#include "main-func.h"
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -4019,7 +4020,7 @@ static int load_oci_bundle(void) {
         return merge_settings(settings, arg_oci_bundle);
 }
 
-static int run(int master,
+static int run_container(int master,
                const char* console,
                DissectedImage *dissected_image,
                bool secondary,
@@ -4607,7 +4608,7 @@ static int initialize_rlimits(void) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_free_ char *console = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -4964,14 +4965,14 @@ int main(int argc, char *argv[]) {
         }
 
         for (;;) {
-                r = run(master,
-                        console,
-                        dissected_image,
-                        secondary,
-                        fds,
-                        veth_name, &veth_created,
-                        &exposed,
-                        &pid, &ret);
+                r = run_container(master,
+                                  console,
+                                  dissected_image,
+                                  secondary,
+                                  fds,
+                                  veth_name, &veth_created,
+                                  &exposed,
+                                  &pid, &ret);
                 if (r <= 0)
                         break;
         }
@@ -5062,5 +5063,10 @@ finish:
         strv_free(arg_sysctl);
         free(arg_slice);
 
-        return r < 0 ? EXIT_FAILURE : ret;
+        if (r < 0)
+                return r;
+
+        return ret;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
