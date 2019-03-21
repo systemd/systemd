@@ -87,7 +87,7 @@ static int oci_terminal(const char *name, JsonVariant *v, JsonDispatchFlags flag
         Settings *s = userdata;
 
         /* If not specified, or set to true, we'll default to either an interactive or a read-only
-         * console. If specifiy as false, we'll forcibly move to "pipe" mode though. */
+         * console. If specified as false, we'll forcibly move to "pipe" mode though. */
         s->console_mode = json_variant_boolean(v) ? _CONSOLE_MODE_INVALID : CONSOLE_PIPE;
         return 0;
 }
@@ -194,8 +194,7 @@ static int oci_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Executable name is empty, refusing.");
 
-        strv_free_and_replace(*value, l);
-        return 0;
+        return strv_free_and_replace(*value, l);
 }
 
 static int oci_rlimit_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
