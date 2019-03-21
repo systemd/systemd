@@ -121,7 +121,7 @@
 
 typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
-        CONTAINER_REBOOTED
+        CONTAINER_REBOOTED,
 } ContainerStatus;
 
 static char *arg_directory = NULL;
@@ -228,6 +228,38 @@ static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
+
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_chdir, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pivot_root_new, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_pivot_root_old, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_user, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_supplementary_gids, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_interfaces, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_macvlan, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_ipvlan, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_veth_extra, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_bridge, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_zone, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_network_namespace_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_oci_bundle, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
+STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syscall_whitelist, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syscall_blacklist, strv_freep);
+#if HAVE_SECCOMP
+STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
+#endif
+STATIC_DESTRUCTOR_REGISTER(arg_cpuset, CPU_FREEp);
+STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -5027,41 +5059,10 @@ finish:
                 (void) remove_veth_links(veth_name, arg_network_veth_extra);
         (void) remove_bridge(arg_network_zone);
 
-        free(arg_directory);
-        free(arg_template);
-        free(arg_image);
-        free(arg_machine);
-        free(arg_hostname);
-        free(arg_user);
-        free(arg_supplementary_gids);
-        free(arg_pivot_root_new);
-        free(arg_pivot_root_old);
-        free(arg_chdir);
-        strv_free(arg_setenv);
-        free(arg_network_bridge);
-        strv_free(arg_network_interfaces);
-        strv_free(arg_network_macvlan);
-        strv_free(arg_network_ipvlan);
-        strv_free(arg_network_veth_extra);
-        strv_free(arg_parameters);
-        free(arg_network_zone);
-        free(arg_network_namespace_path);
-        strv_free(arg_property);
-        sd_bus_message_unref(arg_property_message);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
-        free(arg_root_hash);
         rlimit_free_all(arg_rlimit);
-        strv_free(arg_syscall_whitelist);
-        strv_free(arg_syscall_blacklist);
-#if HAVE_SECCOMP
-        seccomp_release(arg_seccomp);
-#endif
-        arg_cpuset = cpu_set_mfree(arg_cpuset);
-        free(arg_oci_bundle);
         device_node_free_many(arg_extra_nodes, arg_n_extra_nodes);
-        strv_free(arg_sysctl);
-        free(arg_slice);
 
         if (r < 0)
                 return r;
