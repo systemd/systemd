@@ -519,8 +519,8 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
 
                         /* Now, let's enforce the caps for the first time. Note that this is where we acquire
                          * caps in any of the sets we currently don't have. We have to do this before
-                         * droppoing the bounding caps below, since at that point we can never acquire new
-                         * caps in inherited/permitted/effective anymore, but only lose them.*/
+                         * dropping the bounding caps below, since at that point we can never acquire new
+                         * caps in inherited/permitted/effective anymore, but only lose them. */
                         if (cap_set_proc(modified ?: c) < 0)
                                 return -errno;
 
