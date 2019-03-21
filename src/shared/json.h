@@ -264,12 +264,12 @@ static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
 int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...)  _printf_(7, 8);
 
-#define json_log(variant, flags, error, ...)                       \
+#define json_log(variant, flags, error, ...)                            \
         ({                                                              \
-                int _level = json_dispatch_level(flags), _e = (error);    \
+                int _level = json_dispatch_level(flags), _e = (error);  \
                 (log_get_max_level() >= LOG_PRI(_level))                \
                         ? json_log_internal(variant, _level, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define JSON_VARIANT_STRING_CONST(x) _JSON_VARIANT_STRING_CONST(UNIQ, (x))
