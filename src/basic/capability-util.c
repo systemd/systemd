@@ -28,8 +28,8 @@ int have_effective_cap(int value) {
 
         if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
-        else
-                return fv == CAP_SET;
+
+        return fv == CAP_SET;
 }
 
 unsigned long cap_last_cap(void) {
@@ -50,7 +50,7 @@ unsigned long cap_last_cap(void) {
 
                         if (p > 63) /* Safety for the future: if one day the kernel learns more than 64 caps,
                                      * then we are in trouble (since we, as much userspace and kernel space
-                                     * store capability masks in uint64_t types. Let's hence protect
+                                     * store capability masks in uint64_t types). Let's hence protect
                                      * ourselves against that and always cap at 63 for now. */
                                 p = 63;
 
@@ -61,7 +61,7 @@ unsigned long cap_last_cap(void) {
         }
 
         /* fall back to syscall-probing for pre linux-3.2 */
-        p = (unsigned long) CAP_LAST_CAP;
+        p = MIN((unsigned long) CAP_LAST_CAP, 63U);
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
 
@@ -107,13 +107,13 @@ int capability_update_inherited_set(cap_t caps, uint64_t set) {
 }
 
 int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
-        unsigned long i;
         _cleanup_cap_free_ cap_t caps = NULL;
+        unsigned long i;
+        int r;
 
         /* Add the capabilities to the ambient set. */
 
         if (also_inherit) {
-                int r;
                 caps = cap_get_proc();
                 if (!caps)
                         return -errno;
@@ -272,16 +272,12 @@ int capability_bounding_set_drop_usermode(uint64_t keep) {
 }
 
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
-        _cleanup_cap_free_ cap_t d = NULL;
-        unsigned i, j = 0;
         int r;
 
-        /* Unfortunately we cannot leave privilege dropping to PID 1
-         * here, since we want to run as user but want to keep some
-         * capabilities. Since file capabilities have been introduced
-         * this cannot be done across exec() anymore, unless our
-         * binary has the capability configured in the file system,
-         * which we want to avoid. */
+        /* Unfortunately we cannot leave privilege dropping to PID 1 here, since we want to run as user but
+         * want to keep some capabilities. Since file capabilities have been introduced this cannot be done
+         * across exec() anymore, unless our binary has the capability configured in the file system, which
+         * we want to avoid. */
 
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
@@ -290,7 +286,9 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (r < 0)
                 return log_error_errno(r, "Failed to drop auxiliary groups list: %m");
 
-        /* Ensure we keep the permitted caps across the setresuid() */
+        /* Ensure we keep the permitted caps across the setresuid(). Note that we do this even if we actually
+         * don't want to keep any capabilities, since we want to be able to drop them from the bounding set
+         * too, and we can only do that if we have capabilities. */
         if (prctl(PR_SET_KEEPCAPS, 1) < 0)
                 return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
@@ -300,18 +298,21 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (prctl(PR_SET_KEEPCAPS, 0) < 0)
                 return log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
 
-        /* Drop all caps from the bounding set, except the ones we want */
+        /* Drop all caps from the bounding set (as well as the inheritable/permitted/effective sets), except
+         * the ones we want to keep */
         r = capability_bounding_set_drop(keep_capabilities, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 
         /* Now upgrade the permitted caps we still kept to effective caps */
-        d = cap_init();
-        if (!d)
-                return log_oom();
-
-        if (keep_capabilities) {
+        if (keep_capabilities != 0) {
                 cap_value_t bits[u64log2(keep_capabilities) + 1];
+                _cleanup_cap_free_ cap_t d = NULL;
+                unsigned i, j = 0;
+
+                d = cap_init();
+                if (!d)
+                        return log_oom();
 
                 for (i = 0; i < ELEMENTSOF(bits); i++)
                         if (keep_capabilities & (1ULL << i))
@@ -320,7 +321,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 /* use enough bits */
                 assert(i == 64 || (keep_capabilities >> i) == 0);
                 /* don't use too many bits */
-                assert(keep_capabilities & (1ULL << (i - 1)));
+                assert(keep_capabilities & (UINT64_C(1) << (i - 1)));
 
                 if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
                     cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
@@ -515,8 +516,8 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
 
                         /* Now, let's enforce the caps for the first time. Note that this is where we acquire
                          * caps in any of the sets we currently don't have. We have to do this before
-                         * droppoing the bounding caps below, since at that point we can never acquire new
-                         * caps in inherited/permitted/effective anymore, but only lose them.*/
+                         * dropping the bounding caps below, since at that point we can never acquire new
+                         * caps in inherited/permitted/effective anymore, but only lose them. */
                         if (cap_set_proc(modified ?: c) < 0)
                                 return -errno;
                 }
