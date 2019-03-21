@@ -1256,7 +1256,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
             test1_addr_gen_mode = '0'
 
         if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'test1'), 'addr_gen_mode')):
-            self.assertEqual(self.read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), '0')
+            self.assertEqual(self.read_ipv6_sysctl_attr('test1', 'addr_gen_mode'), test1_addr_gen_mode)
 
         if os.path.exists(os.path.join(os.path.join(network_sysctl_ipv6_path, 'dummy98'), 'addr_gen_mode')):
             self.assertEqual(self.read_ipv6_sysctl_attr('dummy98', 'addr_gen_mode'), '1')
