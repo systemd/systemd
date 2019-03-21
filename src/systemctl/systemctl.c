@@ -6449,7 +6449,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 assert(f > 0);
                 f--;
                 assert(args[f] == name);
-                strv_remove(args, name);
+                strv_remove(args + f, name);
         }
 
 #endif
