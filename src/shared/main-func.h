@@ -16,11 +16,11 @@
                 save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \
-                static_destruct();                                      \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
-                mac_selinux_finish();                                   \
                 pager_close();                                          \
+                mac_selinux_finish();                                   \
+                static_destruct();                                      \
                 return ret;                                             \
         }
 
