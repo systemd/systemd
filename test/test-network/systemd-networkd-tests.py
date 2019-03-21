@@ -22,6 +22,8 @@ network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
 
+wait_online_bin='/usr/lib/systemd/systemd-networkd-wait-online'
+
 def is_module_available(module_name):
     lsmod_output = subprocess.check_output('lsmod', universal_newlines=True)
     module_re = re.compile(r'^{0}\b'.format(re.escape(module_name)), re.MULTILINE)
@@ -173,7 +175,7 @@ class Utilities():
         if os.path.exists(dnsmasq_log_file):
             os.remove(dnsmasq_log_file)
 
-    def start_networkd(self, remove_state_files=True):
+    def start_networkd(self, sleep_sec=5, remove_state_files=True):
         if (remove_state_files and
             os.path.exists(os.path.join(networkd_runtime_directory, 'state'))):
             subprocess.check_call('systemctl stop systemd-networkd', shell=True)
@@ -181,7 +183,12 @@ class Utilities():
             subprocess.check_call('systemctl start systemd-networkd', shell=True)
         else:
             subprocess.check_call('systemctl restart systemd-networkd', shell=True)
-        time.sleep(5)
+        if sleep_sec > 0:
+            time.sleep(sleep_sec)
+
+    def wait_online(self, links_with_operstate, timeout='20s'):
+        args = [wait_online_bin, f' --timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+        subprocess.check_call(args)
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
@@ -972,7 +979,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         for trial in range(3):
             # Remove state files only first time
-            self.start_networkd(trial == 0)
+            self.start_networkd(remove_state_files=(trial == 0))
 
             self.assertTrue(self.link_exits('test1'))
             self.assertTrue(self.link_exits('dummy98'))
