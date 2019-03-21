@@ -61,7 +61,7 @@ unsigned long cap_last_cap(void) {
         }
 
         /* fall back to syscall-probing for pre linux-3.2 */
-        p = (unsigned long) CAP_LAST_CAP;
+        p = MIN((unsigned long) CAP_LAST_CAP, 63U);
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
 
