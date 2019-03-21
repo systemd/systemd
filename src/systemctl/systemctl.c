@@ -6397,8 +6397,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
                 }
 
-                if (!isempty(arg_root))
-                        argv[c++] = q = strappend("--root=", arg_root);
+                if (!isempty(arg_root)) {
+                        q = strappend("--root=", arg_root);
+                        if (!q)
+                                return log_oom();
+
+                        argv[c++] = q;
+                }
 
                 argv[c++] = verb;
                 argv[c++] = basename(p);
