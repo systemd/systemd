@@ -130,6 +130,11 @@ fuzzers += [
           libnspawn_core],
          []],
 
+        [['src/fuzz/fuzz-nspawn-oci.c'],
+         [libshared,
+          libnspawn_core],
+         []],
+
         [['src/fuzz/fuzz-calendarspec.c'],
          [libshared],
          []],
