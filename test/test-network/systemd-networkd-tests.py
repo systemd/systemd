@@ -1262,7 +1262,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
     def test_sysctl(self):
         self.copy_unit_to_networkd_unit_path('25-sysctl.network', '12-dummy.netdev')
-        self.start_networkd()
+        self.start_networkd(0)
+        self.wait_online(['dummy98:degraded'])
 
         self.assertTrue(self.link_exits('dummy98'))
 
