@@ -8941,7 +8941,7 @@ static int reload_with_fallback(void) {
 
 static int start_with_fallback(void) {
         /* First, try systemd via D-Bus. */
-        if (start_unit(0, NULL, NULL) >= 0)
+        if (start_unit(0, NULL, NULL) == 0)
                 return 0;
 
         /* Nothing else worked, so let's try /dev/initctl */
