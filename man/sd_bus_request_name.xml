@@ -132,63 +132,63 @@
     case, the caller can subscribe to <literal>NameOwnerChanged</literal> signals to be notified when the name is
     successfully acquired.  <function>sd_bus_request_name()</function> returns &gt; 0 when the name has immediately
     been acquired successfully.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EALREADY</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EALREADY</constant></term>
 
-        <listitem><para>The caller already is the owner of the specified name.</para></listitem>
-      </varlistentry>
+          <listitem><para>The caller already is the owner of the specified name.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EEXIST</constant></term>
+        <varlistentry>
+          <term><constant>-EEXIST</constant></term>
 
-        <listitem><para>The name has already been acquired by a different peer, and SD_BUS_NAME_REPLACE_EXISTING was
-        not specified or the other peer did not specify SD_BUS_NAME_ALLOW_REPLACEMENT while acquiring the
-        name.</para></listitem>
-      </varlistentry>
+          <listitem><para>The name has already been acquired by a different peer, and SD_BUS_NAME_REPLACE_EXISTING was
+          not specified or the other peer did not specify SD_BUS_NAME_ALLOW_REPLACEMENT while acquiring the
+          name.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESRCH</constant></term>
+        <varlistentry>
+          <term><constant>-ESRCH</constant></term>
 
-        <listitem><para>It was attempted to release a name that is currently not registered on the
-        bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>It was attempted to release a name that is currently not registered on the
+          bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EADDRINUSE</constant></term>
+        <varlistentry>
+          <term><constant>-EADDRINUSE</constant></term>
 
-        <listitem><para>It was attempted to release a name that is owned by a different peer on the
-        bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>It was attempted to release a name that is owned by a different peer on the
+          bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>A specified parameter is invalid. This is also generated when the requested name is a special
-        service name reserved by the D-Bus specification, or when the operation is requested on a connection that does
-        not refer to a bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>A specified parameter is invalid. This is also generated when the requested name is
+          a special service name reserved by the D-Bus specification, or when the operation is requested on a
+          connection that does not refer to a bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus connection has been disconnected.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus connection has been disconnected.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection has been created in a different process than the current
-        one.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The bus connection has been created in a different process than the current
+          one.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

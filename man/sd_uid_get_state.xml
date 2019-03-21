@@ -131,55 +131,48 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_uid_get_state()</function> returns
-    0 or a positive integer. If the test succeeds,
-    <function>sd_uid_is_on_seat()</function> returns a positive
-    integer; if it fails, 0.
-    <function>sd_uid_get_sessions()</function> and
-    <function>sd_uid_get_seats()</function> return the number of
-    entries in the returned arrays.
-    <function>sd_uid_get_display()</function> returns a non-negative
-    code on success. On failure, these calls return a negative
-    errno-style error code.</para>
-  </refsect1>
+    <para>On success, <function>sd_uid_get_state()</function> returns 0 or a positive integer. If the test
+    succeeds, <function>sd_uid_is_on_seat()</function> returns a positive integer; if it fails, 0.
+    <function>sd_uid_get_sessions()</function> and <function>sd_uid_get_seats()</function> return the number
+    of entries in the returned arrays. <function>sd_uid_get_display()</function> returns a non-negative code
+    on success. On failure, these calls return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>The given field is not specified for the described
-        user.</para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The given field is not specified for the described user.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>The specified seat is unknown.</para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The specified seat is unknown.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that is not accepted). This is also returned if
-        the passed user ID is 0xFFFF or 0xFFFFFFFF, which are
-        undefined on Linux.</para></listitem>
-      </varlistentry>
+          <listitem><para>An input parameter was invalid (out of range, or NULL, where that is not
+          accepted). This is also returned if the passed user ID is <constant>0xFFFF</constant> or
+          <constant>0xFFFFFFFF</constant>, which are undefined on Linux.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

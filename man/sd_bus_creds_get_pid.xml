@@ -455,62 +455,53 @@
     <para>On success, these calls return 0 or a positive integer. On
     failure, these calls return a negative errno-style error code.
     </para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>The given field is not available in the
-        credentials object <parameter>c</parameter>.</para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The given field is not available in the credentials object
+          <parameter>c</parameter>.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>The given field is not specified for the described
-        process or peer. This will be returned by
-        <function>sd_bus_creds_get_unit()</function>,
-        <function>sd_bus_creds_get_slice()</function>,
-        <function>sd_bus_creds_get_user_unit()</function>,
-        <function>sd_bus_creds_get_user_slice()</function>, and
-        <function>sd_bus_creds_get_session()</function> if the process is
-        not part of a systemd system unit, systemd user unit, systemd
-        slice, or logind session. It will be returned by
-        <function>sd_bus_creds_get_owner_uid()</function> if the process is
-        not part of a systemd user unit or logind session. It will also be
-        returned by <function>sd_bus_creds_get_exe()</function> and
-        <function>sd_bus_creds_get_cmdline()</function> for kernel
-        threads (since these are not started from an executable binary,
-        nor have a command line), and by
-        <function>sd_bus_creds_get_audit_session_id()</function> and
-        <function>sd_bus_creds_get_audit_login_uid()</function> when
-        the process is not part of an audit session, and
-        <function>sd_bus_creds_get_tty()</function> if the process has
-        no controlling TTY.
-        </para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The given field is not specified for the described process or peer. This will be
+          returned by <function>sd_bus_creds_get_unit()</function>,
+          <function>sd_bus_creds_get_slice()</function>, <function>sd_bus_creds_get_user_unit()</function>,
+          <function>sd_bus_creds_get_user_slice()</function>, and
+          <function>sd_bus_creds_get_session()</function> if the process is not part of a systemd system
+          unit, systemd user unit, systemd slice, or logind session. It will be returned by
+          <function>sd_bus_creds_get_owner_uid()</function> if the process is not part of a systemd user unit
+          or logind session. It will also be returned by <function>sd_bus_creds_get_exe()</function> and
+          <function>sd_bus_creds_get_cmdline()</function> for kernel threads (since these are not started
+          from an executable binary, nor have a command line), and by
+          <function>sd_bus_creds_get_audit_session_id()</function> and
+          <function>sd_bus_creds_get_audit_login_uid()</function> when the process is not part of an audit
+          session, and <function>sd_bus_creds_get_tty()</function> if the process has no controlling
+          TTY.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified pointer parameter is <constant>NULL</constant>.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Specified pointer parameter is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

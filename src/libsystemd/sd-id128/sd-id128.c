@@ -117,7 +117,6 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
 }
 
 static int get_invocation_from_keyring(sd_id128_t *ret) {
-
         _cleanup_free_ char *description = NULL;
         char *d, *p, *g, *u, *e;
         unsigned long perms;
@@ -136,7 +135,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         if (key == -1) {
                 /* Keyring support not available? No invocation key stored? */
                 if (IN_SET(errno, ENOSYS, ENOKEY))
-                        return 0;
+                        return -ENXIO;
 
                 return -errno;
         }
@@ -212,7 +211,7 @@ static int get_invocation_from_keyring(sd_id128_t *ret) {
         if (c != sizeof(sd_id128_t))
                 return -EIO;
 
-        return 1;
+        return 0;
 }
 
 static int get_invocation_from_environment(sd_id128_t *ret) {
@@ -234,25 +233,17 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
         assert_return(ret, -EINVAL);
 
         if (sd_id128_is_null(saved_invocation_id)) {
+                /* We first check the environment. The environment variable is primarily relevant for user
+                 * services, and sufficiently safe as long as no privilege boundary is involved. */
+                r = get_invocation_from_environment(&saved_invocation_id);
+                if (r < 0 && r != -ENXIO)
+                        return r;
 
-                /* We first try to read the invocation ID from the kernel keyring. This has the benefit that it is not
-                 * fakeable by unprivileged code. If the information is not available in the keyring, we use
-                 * $INVOCATION_ID but ignore the data if our process was called by less privileged code
-                 * (i.e. secure_getenv() instead of getenv()).
-                 *
-                 * The kernel keyring is only relevant for system services (as for user services we don't store the
-                 * invocation ID in the keyring, as there'd be no trust benefit in that). The environment variable is
-                 * primarily relevant for user services, and sufficiently safe as no privilege boundary is involved. */
-
+                /* The kernel keyring is relevant for system services (as for user services we don't store
+                 * the invocation ID in the keyring, as there'd be no trust benefit in that). */
                 r = get_invocation_from_keyring(&saved_invocation_id);
                 if (r < 0)
                         return r;
-
-                if (r == 0) {
-                        r = get_invocation_from_environment(&saved_invocation_id);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         *ret = saved_invocation_id;

@@ -51,29 +51,29 @@
       container or whole message in case no container is open is empty, and positive otherwise. On
       failure, it returns a negative errno-style error code.
     </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> has not been sealed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
-
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
-
-        <listitem><para>The message <parameter>m</parameter> has not been sealed.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
 
   <refsect1>
     <title>See Also</title>

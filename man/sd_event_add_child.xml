@@ -137,61 +137,61 @@
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
     code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory to allocate an object.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory to allocate an object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An invalid argument has been passed. This includes
-        specifying an empty mask in <parameter>options</parameter> or a mask
-        which contains values different than a combination of
-        <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
-        <constant>WCONTINUED</constant>.
-        </para></listitem>
+          <listitem><para>An invalid argument has been passed. This includes
+          specifying an empty mask in <parameter>options</parameter> or a mask
+          which contains values different than a combination of
+          <constant>WEXITED</constant>, <constant>WSTOPPED</constant>, and
+          <constant>WCONTINUED</constant>.
+          </para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EBUSY</constant></term>
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
 
-        <listitem><para>A handler is already installed for this
-        child process.</para></listitem>
+          <listitem><para>A handler is already installed for this
+          child process.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>The event loop is already terminated.</para></listitem>
+          <listitem><para>The event loop is already terminated.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EDOM</constant></term>
+        <varlistentry>
+          <term><constant>-EDOM</constant></term>
 
-        <listitem><para>The passed event source is not a child process event source.</para></listitem>
-      </varlistentry>
+          <listitem><para>The passed event source is not a child process event source.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
