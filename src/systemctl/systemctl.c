@@ -179,6 +179,12 @@ static bool arg_now = false;
 static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
 static int halt_now(enum action a);
@@ -8067,10 +8073,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (r == 0)
                                                 break;
 
-                                        if (strv_push(&arg_properties, prop) < 0)
+                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
                                                 return log_oom();
-
-                                        prop = NULL;
                                 }
                         }
 
@@ -8296,10 +8300,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return 0;
                                 }
 
-                                if (strv_push(&arg_states, s) < 0)
+                                if (strv_consume(&arg_states, TAKE_PTR(s)) < 0)
                                         return log_oom();
-
-                                s = NULL;
                         }
                         break;
                 }
@@ -9244,13 +9246,6 @@ static int run(int argc, char *argv[]) {
 
 finish:
         release_busses();
-
-        strv_free(arg_types);
-        strv_free(arg_states);
-        strv_free(arg_properties);
-
-        strv_free(arg_wall);
-        free(arg_root);
 
         /* Note that we return r here, not 0, so that we can implement the LSB-like return codes */
         return r;
