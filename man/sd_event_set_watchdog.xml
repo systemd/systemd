@@ -93,36 +93,32 @@
     <title>Return Value</title>
 
     <para>On success, <function>sd_event_set_watchdog()</function> and
-    <function>sd_event_get_watchdog()</function> return a non-zero
-    positive integer if the service manager requested watchdog support
-    and watchdog support was successfully enabled. They return zero if
-    the service manager did not request watchdog support, or if
-    watchdog support was explicitly disabled with a false
-    <parameter>b</parameter> parameter. On failure, they return a
-    negative errno-style error
-    code.</para>
-  </refsect1>
+    <function>sd_event_get_watchdog()</function> return a non-zero positive integer if the service manager
+    requested watchdog support and watchdog support was successfully enabled. They return zero if the service
+    manager did not request watchdog support, or if watchdog support was explicitly disabled with a false
+    <parameter>b</parameter> parameter. On failure, they return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The passed event loop object was invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>The passed event loop object was invalid.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
