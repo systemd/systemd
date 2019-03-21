@@ -25,7 +25,7 @@ fi
 PATH_TO_INIT=$ROOTLIBDIR/systemd
 
 BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
-DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
+DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find vi mv"
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
@@ -60,7 +60,7 @@ function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
     # Either way, only use this version if we aren't running in KVM, because
     # nested KVM is flaky still.
-    if [ `systemd-detect-virt -v` != kvm ] ; then
+    if [[ $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
         [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
     fi
 
@@ -192,7 +192,7 @@ $KERNEL_APPEND \
     fi
 
     # Let's use KVM if it is available, but let's avoid using nested KVM as that is still flaky
-    if [ -c /dev/kvm -a `systemd-detect-virt -v` != kvm ]; then
+    if [[ -c /dev/kvm && $(systemd-detect-virt -v) != kvm && -z $TEST_NO_KVM ]] ; then
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
@@ -509,7 +509,7 @@ check_asan_reports() {
                          "dbus-daemon" => undef,
                      );
                  }
-	         print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
+                 print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
         )
         if [[ ! -z "$pids" ]]; then
             ret=$(($ret+1))
@@ -655,6 +655,21 @@ install_basic_tools() {
 
 install_debug_tools() {
     [[ $DEBUGTOOLS ]] && dracut_install $DEBUGTOOLS
+
+    if [[ $INTERACTIVE_DEBUG ]]; then
+        # Set default TERM from vt220 to linux, so at least basic key shortcuts work
+        local _getty_override="$initdir/etc/systemd/system/serial-getty@.service.d"
+        mkdir -p "$_getty_override"
+        echo -e "[Service]\nEnvironment=TERM=linux" > "$_getty_override/default-TERM.conf"
+
+        cat > "$initdir/etc/motd" << EOF
+To adjust the terminal size use:
+    export COLUMNS=xx
+    export LINES=yy
+or
+    stty cols xx rows yy
+EOF
+    fi
 }
 
 install_libnss() {
@@ -761,7 +776,8 @@ setup_testsuite() {
 
     mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
     ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
-    ln -fs $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/testsuite.target.wants/end.service
+    # Don't shutdown the machine after running the test when INTERACTIVE_DEBUG is set
+    [[ -z $INTERACTIVE_DEBUG ]] && ln -fs $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/testsuite.target.wants/end.service
 
     # make the testsuite the default target
     ln -fs testsuite.target $initdir/etc/systemd/system/default.target

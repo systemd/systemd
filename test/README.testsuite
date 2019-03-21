@@ -44,11 +44,38 @@ An absolute path may also be used in both cases.
 Configuration variables
 =======================
 
-TEST_NO_QEMU=1 can be used to disable qemu tests.
+TEST_NO_QEMU=1
+    Don't run tests under QEMU
 
-TEST_NO_NSPAWN=1 can be used to disable nspawn tests.
+TEST_NO_NSPAWN=1
+    Don't run tests under systemd-nspawn
 
-KERNEL_APPEND='...' can be used to add additional kernel parameters for the QEMU runs.
+TEST_NO_KVM=1
+    Disable QEMU KVM autodetection (may be necessary when you're trying to run the
+    *vanilla* QEMU and have both qemu and qemu-kvm installed)
+
+QEMU_MEM=512M
+    Configure amount of memory for QEMU VMs (defaults to 512M)
+
+QEMU_SMP=1
+    Configure number of CPUs for QEMU VMs (defaults to 1)
+
+KERNEL_APPEND='...'
+    Append additional parameters to the kernel command line
+
+NSPAWN_ARGUMENTS='...'
+    Specify additional arguments for systemd-nspawn
+
+QEMU_TIMEOUT=infinity
+    Set a timeout for tests under QEMU (defaults to infinity)
+
+NSPAWN_TIMEOUT=infinity
+    Set a timeout for tests under systemd-nspawn (defaults to infinity)
+
+INTERACTIVE_DEBUG=1
+    Configure the machine to be more *user-friendly* for interactive debuggung
+    (e.g. by setting a usable default terminal, suppressing the shutdown after
+    the test, etc.)
 
 The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
 (Fedora's or Debian's default kernel path and initramfs are used by default)
