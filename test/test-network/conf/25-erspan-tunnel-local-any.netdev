@@ -1,11 +1,11 @@
 [NetDev]
-Name=erspan99
+Name=erspan98
 Kind=erspan
 
 [Tunnel]
 Independent=true
-ERSPANIndex=123
-Local = 172.16.1.200
+ERSPANIndex=124
+Local = any
 Remote = 172.16.1.100
-Key=101
+Key=102
 SerializeTunneledPackets=true

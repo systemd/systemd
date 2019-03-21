@@ -3,3 +3,4 @@ Name=dummy98
 
 [Network]
 Tunnel=gretap99
+Tunnel=gretap98
