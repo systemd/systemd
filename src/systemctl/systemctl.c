@@ -6350,9 +6350,9 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 const char *argv[] = {
                         ROOTLIBEXECDIR "/systemd-sysv-install",
-                        NULL,
-                        NULL,
-                        NULL,
+                        NULL, /* --root= */
+                        NULL, /* verb */
+                        NULL, /* service */
                         NULL,
                 };
 
