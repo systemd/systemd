@@ -124,7 +124,6 @@ static int oci_console_size(const char *name, JsonVariant *v, JsonDispatchFlags 
 static int oci_absolute_path(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         char **p = userdata;
         const char *n;
-        int r;
 
         assert(p);
 
@@ -134,11 +133,7 @@ static int oci_absolute_path(const char *name, JsonVariant *v, JsonDispatchFlags
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Path in JSON field '%s' is not absolute: %s", strna(name), n);
 
-        r = free_and_strdup(p, n);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(p, n);
 }
 
 static int oci_env(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -479,10 +474,7 @@ static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flag
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Hostname string is not a valid hostname: %s", n);
 
-        if (free_and_strdup(&s->hostname, n) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(&s->hostname, n);
 }
 
 static bool oci_exclude_mount(const char *path) {
