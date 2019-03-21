@@ -868,9 +868,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '12-dummy.netdev',
         '23-active-slave.network',
-        '23-bond199.network',
-        '23-primary-slave.network',
-        '23-test1-bond199.network',
         '25-address-link-section.network',
         '25-address-preferred-lifetime-zero-ipv6.network',
         '25-address-static.network',
@@ -966,28 +963,6 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.0.15')
         self.assertRegex(output, '192.168.0.1')
         self.assertRegex(output, 'routable')
-
-    def test_bond_active_slave(self):
-        self.copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-        self.assertTrue(self.link_exits('bond199'))
-
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'active_slave dummy98')
-
-    def test_bond_primary_slave(self):
-        self.copy_unit_to_networkd_unit_path('23-primary-slave.network', '23-test1-bond199.network', '25-bond-active-backup-slave.netdev', '11-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('test1'))
-        self.assertTrue(self.link_exits('bond199'))
-
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'primary test1')
 
     def test_routing_policy_rule(self):
         self.copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
@@ -1396,6 +1371,7 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
 class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
     links = [
+        'bond199',
         'bond99',
         'dummy98',
         'test1']
@@ -1403,6 +1379,11 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
     units = [
         '11-dummy.netdev',
         '12-dummy.netdev',
+        '23-active-slave.network',
+        '23-bond199.network',
+        '23-primary-slave.network',
+        '23-test1-bond199.network',
+        '25-bond-active-backup-slave.netdev',
         '25-bond.netdev',
         'bond99.network',
         'bond-slave.network']
@@ -1413,6 +1394,28 @@ class NetworkdNetWorkBondTests(unittest.TestCase, Utilities):
     def tearDown(self):
         self.link_remove(self.links)
         self.remove_unit_from_networkd_path(self.units)
+
+    def test_bond_active_slave(self):
+        self.copy_unit_to_networkd_unit_path('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+        self.assertTrue(self.link_exits('bond199'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'active_slave dummy98')
+
+    def test_bond_primary_slave(self):
+        self.copy_unit_to_networkd_unit_path('23-primary-slave.network', '23-test1-bond199.network', '25-bond-active-backup-slave.netdev', '11-dummy.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('test1'))
+        self.assertTrue(self.link_exits('bond199'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'bond199']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'primary test1')
 
     def test_bond_operstate(self):
         self.copy_unit_to_networkd_unit_path('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',
