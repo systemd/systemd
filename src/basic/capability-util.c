@@ -50,7 +50,7 @@ unsigned long cap_last_cap(void) {
 
                         if (p > 63) /* Safety for the future: if one day the kernel learns more than 64 caps,
                                      * then we are in trouble (since we, as much userspace and kernel space
-                                     * store capability masks in uint64_t types. Let's hence protect
+                                     * store capability masks in uint64_t types). Let's hence protect
                                      * ourselves against that and always cap at 63 for now. */
                                 p = 63;
 
