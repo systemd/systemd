@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <linux/seccomp.h>
 #include <linux/oom.h>
+#if HAVE_SECCOMP
 #include <seccomp.h>
+#endif
 
 #include "bus-util.h"
 #include "cap-list.h"
@@ -15,7 +16,9 @@
 #include "nspawn-oci.h"
 #include "path-util.h"
 #include "rlimit-util.h"
+#if HAVE_SECCOMP
 #include "seccomp-util.h"
+#endif
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -1663,6 +1666,7 @@ static int oci_sysctl(const char *name, JsonVariant *v, JsonDispatchFlags flags,
         return 0;
 }
 
+#if HAVE_SECCOMP
 static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
 
         static const struct {
@@ -1931,9 +1935,11 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
 
         return 0;
 }
+#endif
 
 static int oci_seccomp(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
 
+#if HAVE_SECCOMP
         static const JsonDispatch table[] = {
                 { "defaultAction", JSON_VARIANT_STRING, NULL,                 0, JSON_MANDATORY },
                 { "architectures", JSON_VARIANT_ARRAY,  oci_seccomp_archs,    0, 0              },
@@ -1962,7 +1968,7 @@ static int oci_seccomp(const char *name, JsonVariant *v, JsonDispatchFlags flags
 
         sc = seccomp_init(d);
         if (!sc)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Couldn't allocate seccomp object.");
+                return json_log(v, flags, SYNTHETIC_ERRNO(ENOMEM), "Couldn't allocate seccomp object.");
 
         r = json_dispatch(v, table, oci_unexpected, flags, sc);
         if (r < 0)
@@ -1970,8 +1976,10 @@ static int oci_seccomp(const char *name, JsonVariant *v, JsonDispatchFlags flags
 
         seccomp_release(s->seccomp);
         s->seccomp = TAKE_PTR(sc);
-
         return 0;
+#else
+        return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP), "libseccomp support not enabled, can't parse seccomp object.");
+#endif
 }
 
 static int oci_rootfs_propagation(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
