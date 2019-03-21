@@ -5,6 +5,7 @@ import sys
 from pyparsing import (Word, White, Literal, Regex,
                        LineEnd, SkipTo,
                        ZeroOrMore, OneOrMore, Combine, Optional, Suppress,
+                       Group,
                        stringEnd, pythonStyleComment)
 
 EOL = LineEnd().suppress()
@@ -23,10 +24,10 @@ def klass_grammar():
     subclass_line = TAB + NUM2('subclass') + text_eol('text')
     protocol_line = TAB + TAB + NUM2('protocol') + text_eol('name')
     subclass = (subclass_line('SUBCLASS') -
-                ZeroOrMore(protocol_line('PROTOCOLS*')
+                ZeroOrMore(Group(protocol_line)('PROTOCOLS*')
                            ^ COMMENTLINE.suppress()))
     klass = (klass_line('KLASS') -
-             ZeroOrMore(subclass('SUBCLASSES*')
+             ZeroOrMore(Group(subclass)('SUBCLASSES*')
                         ^ COMMENTLINE.suppress()))
     return klass
 
@@ -34,7 +35,7 @@ def usb_ids_grammar():
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
     vendor = (vendor_line('VENDOR') +
-             ZeroOrMore(device_line('VENDOR_DEV*') ^ COMMENTLINE.suppress()))
+              ZeroOrMore(Group(device_line)('VENDOR_DEV*') ^ COMMENTLINE.suppress()))
 
     klass = klass_grammar()
 
@@ -44,7 +45,8 @@ def usb_ids_grammar():
     other_group = (other_line - ZeroOrMore(TAB + text_eol('text')))
 
     commentgroup = OneOrMore(COMMENTLINE).suppress() ^ EMPTYLINE.suppress()
-    grammar = OneOrMore(vendor('VENDORS*') ^ klass('CLASSES*')
+    grammar = OneOrMore(Group(vendor)('VENDORS*')
+                        ^ Group(klass)('CLASSES*')
                         ^ other_group.suppress() ^ commentgroup) + stringEnd()
 
     grammar.parseWithTabs()
@@ -56,14 +58,15 @@ def pci_ids_grammar():
     subvendor_line = TAB + TAB + NUM4('a') + White(' ') + NUM4('b') + text_eol('name')
 
     device = (device_line('DEVICE') +
-              ZeroOrMore(subvendor_line('SUBVENDORS*') ^ COMMENTLINE.suppress()))
+              ZeroOrMore(Group(subvendor_line)('SUBVENDORS*') ^ COMMENTLINE.suppress()))
     vendor = (vendor_line('VENDOR') +
-              ZeroOrMore(device('DEVICES*') ^ COMMENTLINE.suppress()))
+              ZeroOrMore(Group(device)('DEVICES*') ^ COMMENTLINE.suppress()))
 
     klass = klass_grammar()
 
     commentgroup = OneOrMore(COMMENTLINE).suppress() ^ EMPTYLINE.suppress()
-    grammar = OneOrMore(vendor('VENDORS*') ^ klass('CLASSES*')
+    grammar = OneOrMore(Group(vendor)('VENDORS*')
+                        ^ Group(klass)('CLASSES*')
                         ^ commentgroup) + stringEnd()
 
     grammar.parseWithTabs()
@@ -73,12 +76,14 @@ def sdio_ids_grammar():
     vendor_line = NUM4('vendor') + text_eol('text')
     device_line = TAB + NUM4('device') + text_eol('text')
     vendor = (vendor_line('VENDOR') +
-              ZeroOrMore(device_line('DEVICES*') ^ COMMENTLINE.suppress()))
+              ZeroOrMore(Group(device_line)('DEVICES*') ^ COMMENTLINE.suppress()))
 
     klass = klass_grammar()
 
     commentgroup = OneOrMore(COMMENTLINE).suppress() ^ EMPTYLINE.suppress()
-    grammar = OneOrMore(vendor('VENDORS*') ^ klass('CLASSES*') ^ commentgroup) + stringEnd()
+    grammar = OneOrMore(Group(vendor)('VENDORS*')
+                        ^ Group(klass)('CLASSES*')
+                        ^ commentgroup) + stringEnd()
 
     grammar.parseWithTabs()
     return grammar
@@ -102,7 +107,7 @@ def oui_grammar(type):
 
     grammar = (Literal('OUI') + text_eol('header')
                + text_eol('header') + text_eol('header') + EMPTYLINE
-               + OneOrMore(vendor('VENDORS*')) + stringEnd())
+               + OneOrMore(Group(vendor)('VENDORS*')) + stringEnd())
 
     grammar.parseWithTabs()
     return grammar
@@ -126,8 +131,8 @@ def usb_vendor_model(p):
     items = {}
 
     for vendor_group in p.VENDORS:
-        vendor = vendor_group.VENDOR.vendor.upper()
-        text = vendor_group.VENDOR.text.strip()
+        vendor = vendor_group.vendor.upper()
+        text = vendor_group.text.strip()
         add_item(items, (vendor,), text)
 
         for vendor_dev in vendor_group.VENDOR_DEV:
@@ -152,8 +157,8 @@ def usb_classes(p):
     items = {}
 
     for klass_group in p.CLASSES:
-        klass = klass_group.KLASS.klass.upper()
-        text = klass_group.KLASS.text.strip()
+        klass = klass_group.klass.upper()
+        text = klass_group.text.strip()
 
         if klass != '00' and not re.match(r'(\?|None|Unused)\s*$', text):
             add_item(items, (klass,), text)
@@ -189,8 +194,8 @@ def pci_vendor_model(p):
     items = {}
 
     for vendor_group in p.VENDORS:
-        vendor = vendor_group.VENDOR.vendor.upper()
-        text = vendor_group.VENDOR.text.strip()
+        vendor = vendor_group.vendor.upper()
+        text = vendor_group.text.strip()
         add_item(items, (vendor,), text)
 
         for device_group in vendor_group.DEVICES:
@@ -227,8 +232,8 @@ def pci_classes(p):
     items = {}
 
     for klass_group in p.CLASSES:
-        klass = klass_group.KLASS.klass.upper()
-        text = klass_group.KLASS.text.strip()
+        klass = klass_group.klass.upper()
+        text = klass_group.text.strip()
         add_item(items, (klass,), text)
 
         for subclass_group in klass_group.SUBCLASSES:
@@ -260,8 +265,8 @@ def sdio_vendor_model(p):
     items = {}
 
     for vendor_group in p.VENDORS:
-        vendor = vendor_group.VENDOR.vendor.upper()
-        text = vendor_group.VENDOR.text.strip()
+        vendor = vendor_group.vendor.upper()
+        text = vendor_group.text.strip()
         add_item(items, (vendor,), text)
 
         for device_group in vendor_group.DEVICES:
@@ -286,8 +291,8 @@ def sdio_classes(p):
     items = {}
 
     for klass_group in p.CLASSES:
-        klass = klass_group.KLASS.klass.upper()
-        text = klass_group.KLASS.text.strip()
+        klass = klass_group.klass.upper()
+        text = klass_group.text.strip()
         add_item(items, klass, text)
 
     with open('20-sdio-classes.hwdb', 'wt') as out:
