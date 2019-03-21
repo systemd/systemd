@@ -133,6 +133,75 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Turns off any status output by the tool
+        itself. When this switch is used, the only output from nspawn
+        will be the console output of the container OS
+        itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--settings=</option><replaceable>MODE</replaceable></term>
+
+        <listitem><para>Controls whether
+        <command>systemd-nspawn</command> shall search for and use
+        additional per-container settings from
+        <filename>.nspawn</filename> files. Takes a boolean or the
+        special values <option>override</option> or
+        <option>trusted</option>.</para>
+
+        <para>If enabled (the default), a settings file named after the
+        machine (as specified with the <option>--machine=</option>
+        setting, or derived from the directory or image file name)
+        with the suffix <filename>.nspawn</filename> is searched in
+        <filename>/etc/systemd/nspawn/</filename> and
+        <filename>/run/systemd/nspawn/</filename>. If it is found
+        there, its settings are read and used. If it is not found
+        there, it is subsequently searched in the same directory as the
+        image file or in the immediate parent of the root directory of
+        the container. In this case, if the file is found, its settings
+        will be also read and used, but potentially unsafe settings
+        are ignored. Note that in both these cases, settings on the
+        command line take precedence over the corresponding settings
+        from loaded <filename>.nspawn</filename> files, if both are
+        specified. Unsafe settings are considered all settings that
+        elevate the container's privileges or grant access to
+        additional resources such as files or directories of the
+        host. For details about the format and contents of
+        <filename>.nspawn</filename> files, consult
+        <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para>If this option is set to <option>override</option>, the
+        file is searched, read and used the same way, however, the order of
+        precedence is reversed: settings read from the
+        <filename>.nspawn</filename> file will take precedence over
+        the corresponding command line options, if both are
+        specified.</para>
+
+        <para>If this option is set to <option>trusted</option>, the
+        file is searched, read and used the same way, but regardless
+        of being found in <filename>/etc/systemd/nspawn/</filename>,
+        <filename>/run/systemd/nspawn/</filename> or next to the image
+        file or container root directory, all settings will take
+        effect, however, command line arguments still take precedence
+        over corresponding settings.</para>
+
+        <para>If disabled, no <filename>.nspawn</filename> file is read
+        and no settings except the ones on the command line are in
+        effect.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <refsect2>
+    <title>Image Options</title>
+
+    <variablelist>
+
       <varlistentry>
         <term><option>-D</option></term>
         <term><option>--directory=</option></term>
@@ -248,6 +317,66 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem><para>Mount the container's root file system (and any other file systems container in the container
+        image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
+        <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
+        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case the container
+        image on disk is strictly read-only, while changes are permitted but kept non-persistently in memory only. For
+        further details, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--volatile</option></term>
+        <term><option>--volatile=</option><replaceable>MODE</replaceable></term>
+
+        <listitem><para>Boots the container in volatile mode. When no mode parameter is passed or when mode is
+        specified as <option>yes</option>, full volatile mode is enabled. This means the root directory is mounted as a
+        mostly unpopulated <literal>tmpfs</literal> instance, and <filename>/usr/</filename> from the OS tree is
+        mounted into it in read-only mode (the system thus starts up with read-only OS image, but pristine state and
+        configuration, any changes are lost on shutdown). When the mode parameter is specified as
+        <option>state</option>, the OS tree is mounted read-only, but <filename>/var/</filename> is mounted as a
+        writable <literal>tmpfs</literal> instance into it (the system thus starts up with read-only OS resources and
+        configuration, but pristine state, and any changes to the latter are lost on shutdown). When the mode parameter
+        is specified as <option>overlay</option> the read-only root file system is combined with a writable
+        <filename>tmpfs</filename> instance through <literal>overlayfs</literal>, so that it appears at it normally
+        would, but any changes are applied to the temporary file system only and lost when the container is
+        terminated. When the mode parameter is specified as <option>no</option> (the default), the whole OS tree is
+        made available writable (unless <option>--read-only</option> is specified, see above).</para>
+
+        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system (or
+        <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the hierarchy are
+        unaffected — regardless if they are established automatically (e.g. the EFI system partition that might be
+        mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or explicitly (e.g. through an additional
+        command line option such as <option>--bind=</option>, see below). This means, even if
+        <option>--volatile=overlay</option> is used changes to <filename>/efi/</filename> or
+        <filename>/boot/</filename> are prohibited in case such a partition exists in the container image operated on,
+        and even if <option>--volatile=state</option> is used the hypothetical file <filename>/etc/foobar</filename> is
+        potentially writable if <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only
+        container <filename>/etc</filename> directory.</para>
+
+        <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
+        behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,
+        see above.</para>
+
+        <para>The <option>--tmpfs=</option> and <option>--overlay=</option> options provide similar functionality, but
+        for specific sub-directories of the OS image only. For details, see below.</para>
+
+        <para>This option provides similar functionality for containers as the <literal>systemd.volatile=</literal>
+        kernel command line switch provides for host systems. See
+        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work correctly
+        with operating systems in the container that can boot up with only <filename>/usr</filename> mounted, and are
+        able to automatically populate <filename>/var</filename>, and also <filename>/etc</filename> in case of
+        <literal>--volatile=yes</literal>. The <option>overlay</option> option does not require any particular
+        preparations in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file
+        systems in a number of ways, and hence compatibility is limited.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root-hash=</option></term>
 
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal. This option enables data
@@ -262,6 +391,27 @@
         used, also as formatted hexadecimal characters.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--pivot-root=</option></term>
+
+        <listitem><para>Pivot the specified directory to <filename>/</filename> inside the container, and either unmount the
+        container's old root, or pivot it to another specified directory. Takes one of: a path argument — in which case the
+        specified path will be pivoted to <filename>/</filename> and the old root will be unmounted; or a colon-separated pair
+        of new root path and pivot destination for the old root. The new root path will be pivoted to <filename>/</filename>,
+        and the old <filename>/</filename> will be pivoted to the other directory. Both paths must be absolute, and are resolved
+        in the container's file system namespace.</para>
+
+        <para>This is for containers which have several bootable directories in them; for example, several
+        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
+        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
+        container's PID 1 in.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Execution Options</title>
+
+    <variablelist>
       <varlistentry>
         <term><option>-a</option></term>
         <term><option>--as-pid2</option></term>
@@ -336,19 +486,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--pivot-root=</option></term>
+        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
 
-        <listitem><para>Pivot the specified directory to <filename>/</filename> inside the container, and either unmount the
-        container's old root, or pivot it to another specified directory. Takes one of: a path argument — in which case the
-        specified path will be pivoted to <filename>/</filename> and the old root will be unmounted; or a colon-separated pair
-        of new root path and pivot destination for the old root. The new root path will be pivoted to <filename>/</filename>,
-        and the old <filename>/</filename> will be pivoted to the other directory. Both paths must be absolute, and are resolved
-        in the container's file system namespace.</para>
-
-        <para>This is for containers which have several bootable directories in them; for example, several
-        <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the behavior of
-        the boot loader and initial RAM disk which normally select which directory to mount as the root and start the
-        container's PID 1 in.</para></listitem>
+        <listitem><para>Specifies an environment variable assignment
+        to pass to the init process in the container, in the format
+        <literal>NAME=VALUE</literal>. This may be used to override
+        the default variables or to set additional variables. This
+        parameter may be used more than once.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -362,6 +507,36 @@
         destructive operations only.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--kill-signal=</option></term>
+
+        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
+        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
+        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
+        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
+        option is not specified the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
+        a list of valid signals, see <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--notify-ready=</option></term>
+
+        <listitem><para>Configures support for notifications from the container's init process.
+        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
+        With option <option>no</option> systemd-nspawn notifies systemd
+        with a <literal>READY=1</literal> message when the init process is created.
+        With option <option>yes</option> systemd-nspawn waits for the
+        <literal>READY=1</literal> message from the init process in the container
+        before sending its own to systemd. For more details about notifications
+        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>System Identity Options</title>
+
+    <variablelist>
       <varlistentry>
         <term><option>-M</option></term>
         <term><option>--machine=</option></term>
@@ -406,7 +581,12 @@
         <filename>/etc/machine-id</filename> in the container is
         unpopulated.</para></listitem>
       </varlistentry>
+    </variablelist>
 
+    </refsect2><refsect2>
+    <title>Property Options</title>
+
+    <variablelist>
       <varlistentry>
         <term><option>-S</option></term>
         <term><option>--slice=</option></term>
@@ -427,6 +607,42 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--register=</option></term>
+
+        <listitem><para>Controls whether the container is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
+        boolean argument, which defaults to <literal>yes</literal>.  This option should be enabled when the container
+        runs a full Operating System (more specifically: a system and service manager as PID 1), and is useful to
+        ensure that the container is accessible via
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
+        tools such as <citerefentry
+        project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
+        does not run a service manager, it is recommended to set this option to
+        <literal>no</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--keep-unit</option></term>
+
+        <listitem><para>Instead of creating a transient scope unit to run the container in, simply use the service or
+        scope unit <command>systemd-nspawn</command> has been invoked in. If <option>--register=yes</option> is set
+        this unit is registered with
+        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
+        switch should be used if <command>systemd-nspawn</command> is invoked from within a service unit, and the
+        service unit's sole purpose is to run a single <command>systemd-nspawn</command> container. This option is not
+        available if run from a user session.</para>
+        <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
+        <option>--property=</option>. Use <option>--keep-unit</option> and <option>--register=no</option> in
+        combination to disable any kind of unit allocation or registration with
+        <command>systemd-machined</command>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>User Namespacing Options</title>
+
+    <variablelist>
       <varlistentry>
         <term><option>--private-users=</option></term>
 
@@ -519,6 +735,13 @@
         </listitem>
       </varlistentry>
 
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Networking Options</title>
+
+    <variablelist>
+
       <varlistentry>
         <term><option>--private-network</option></term>
 
@@ -533,23 +756,6 @@
         If this option is not specified (or implied by one of the options
         listed below), the container will have full access to the host network.
         </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--network-namespace-path=</option></term>
-
-        <listitem><para>Takes the path to a file representing a kernel
-        network namespace that the container shall run in. The specified path
-        should refer to a (possibly bind-mounted) network namespace file, as
-        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
-        This makes the container enter the given network namespace. One of the
-        typical use cases is to give a network namespace under
-        <filename>/run/netns</filename> created by <citerefentry
-        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        for example, <option>--network-namespace-path=/run/netns/foo</option>.
-        Note that this option cannot be used together with other
-        network-related options, such as <option>--private-network</option>
-        or <option>--network-interface=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -690,6 +896,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--network-namespace-path=</option></term>
+
+        <listitem><para>Takes the path to a file representing a kernel
+        network namespace that the container shall run in. The specified path
+        should refer to a (possibly bind-mounted) network namespace file, as
+        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
+        This makes the container enter the given network namespace. One of the
+        typical use cases is to give a network namespace under
+        <filename>/run/netns</filename> created by <citerefentry
+        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        for example, <option>--network-namespace-path=/run/netns/foo</option>.
+        Note that this option cannot be used together with other
+        network-related options, such as <option>--private-network</option>
+        or <option>--network-interface=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--port=</option></term>
 
@@ -707,26 +930,12 @@
         <option>--network-veth</option>, <option>--network-zone=</option>
         <option>--network-bridge=</option>.</para></listitem>
       </varlistentry>
+    </variablelist>
 
-      <varlistentry>
-        <term><option>-Z</option></term>
-        <term><option>--selinux-context=</option></term>
+    </refsect2><refsect2>
+    <title>Security Options</title>
 
-        <listitem><para>Sets the SELinux security context to be used
-        to label processes in the container.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-L</option></term>
-        <term><option>--selinux-apifs-context=</option></term>
-
-        <listitem><para>Sets the SELinux security context to be used
-        to label files in the virtual API file systems in the
-        container.</para>
-        </listitem>
-      </varlistentry>
-
+    <variablelist>
       <varlistentry>
         <term><option>--capability=</option></term>
 
@@ -781,6 +990,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-Z</option></term>
+        <term><option>--selinux-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label processes in the container.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-L</option></term>
+        <term><option>--selinux-apifs-context=</option></term>
+
+        <listitem><para>Sets the SELinux security context to be used
+        to label files in the virtual API file systems in the
+        container.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Resource Options</title>
+
+    <variablelist>
+
+      <varlistentry>
         <term><option>--rlimit=</option></term>
 
         <listitem><para>Sets the specified POSIX resource limit for the container payload. Expects an assignment of the
@@ -825,58 +1059,23 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-signal=</option></term>
+        <term><option>--personality=</option></term>
 
-        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
-        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
-        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
-        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
-        option is not specified the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
-        a list of valid signals, see <citerefentry
-        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Control the architecture ("personality")
+        reported by
+        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        in the container. Currently, only <literal>x86</literal> and
+        <literal>x86-64</literal> are supported. This is useful when
+        running a 32-bit container on a 64-bit host. If this setting
+        is not used, the personality reported in the container is the
+        same as the one reported on the host.</para></listitem>
       </varlistentry>
+    </variablelist>
 
-      <varlistentry>
-        <term><option>--link-journal=</option></term>
+    </refsect2><refsect2>
+    <title>Integration Options</title>
 
-        <listitem><para>Control whether the container's journal shall
-        be made visible to the host system. If enabled, allows viewing
-        the container's journal files from the host (but not vice
-        versa). Takes one of <literal>no</literal>,
-        <literal>host</literal>, <literal>try-host</literal>,
-        <literal>guest</literal>, <literal>try-guest</literal>,
-        <literal>auto</literal>. If <literal>no</literal>, the journal
-        is not linked. If <literal>host</literal>, the journal files
-        are stored on the host file system (beneath
-        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
-        and the subdirectory is bind-mounted into the container at the
-        same location. If <literal>guest</literal>, the journal files
-        are stored on the guest file system (beneath
-        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
-        and the subdirectory is symlinked into the host at the same
-        location. <literal>try-host</literal> and
-        <literal>try-guest</literal> do the same but do not fail if
-        the host does not have persistent journaling enabled. If
-        <literal>auto</literal> (the default), and the right
-        subdirectory of <filename>/var/log/journal</filename> exists,
-        it will be bind mounted into the container. If the
-        subdirectory does not exist, no linking is performed.
-        Effectively, booting a container once with
-        <literal>guest</literal> or <literal>host</literal> will link
-        the journal persistently if further on the default of
-        <literal>auto</literal> is used.</para>
-
-        <para>Note that <option>--link-journal=try-guest</option> is the default if the
-        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>-j</option></term>
-
-        <listitem><para>Equivalent to
-        <option>--link-journal=try-guest</option>.</para></listitem>
-      </varlistentry>
-
+    <variablelist>
       <varlistentry>
         <term><option>--resolv-conf=</option></term>
 
@@ -926,15 +1125,52 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--read-only</option></term>
+        <term><option>--link-journal=</option></term>
 
-        <listitem><para>Mount the container's root file system (and any other file systems container in the container
-        image) read-only. This has no effect on additional mounts made with <option>--bind=</option>,
-        <option>--tmpfs=</option> and similar options. This mode is implied if the container image file or directory is
-        marked read-only itself. It is also implied if <option>--volatile=</option> is used. In this case the container
-        image on disk is strictly read-only, while changes are permitted but kept non-persistently in memory only. For
-        further details, see below.</para></listitem>
+        <listitem><para>Control whether the container's journal shall
+        be made visible to the host system. If enabled, allows viewing
+        the container's journal files from the host (but not vice
+        versa). Takes one of <literal>no</literal>,
+        <literal>host</literal>, <literal>try-host</literal>,
+        <literal>guest</literal>, <literal>try-guest</literal>,
+        <literal>auto</literal>. If <literal>no</literal>, the journal
+        is not linked. If <literal>host</literal>, the journal files
+        are stored on the host file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is bind-mounted into the container at the
+        same location. If <literal>guest</literal>, the journal files
+        are stored on the guest file system (beneath
+        <filename>/var/log/journal/<replaceable>machine-id</replaceable></filename>)
+        and the subdirectory is symlinked into the host at the same
+        location. <literal>try-host</literal> and
+        <literal>try-guest</literal> do the same but do not fail if
+        the host does not have persistent journaling enabled. If
+        <literal>auto</literal> (the default), and the right
+        subdirectory of <filename>/var/log/journal</filename> exists,
+        it will be bind mounted into the container. If the
+        subdirectory does not exist, no linking is performed.
+        Effectively, booting a container once with
+        <literal>guest</literal> or <literal>host</literal> will link
+        the journal persistently if further on the default of
+        <literal>auto</literal> is used.</para>
+
+        <para>Note that <option>--link-journal=try-guest</option> is the default if the
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem><para>Equivalent to
+        <option>--link-journal=try-guest</option>.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Mount Options</title>
+
+    <variablelist>
 
       <varlistentry>
         <term><option>--bind=</option></term>
@@ -1044,65 +1280,15 @@
         this switch.</para>
 
         <para>Note that this option cannot be used to replace the root file system of the container with an overlay
-        file system. However, the <option>--volatile=</option> option described below provides similar functionality,
+        file system. However, the <option>--volatile=</option> option described above provides similar functionality,
         with a focus on implementing stateless operating system images.</para></listitem>
       </varlistentry>
+    </variablelist>
 
-      <varlistentry>
-        <term><option>-E <replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
-        <term><option>--setenv=<replaceable>NAME</replaceable>=<replaceable>VALUE</replaceable></option></term>
+    </refsect2><refsect2>
+    <title>Input/Output Options</title>
 
-        <listitem><para>Specifies an environment variable assignment
-        to pass to the init process in the container, in the format
-        <literal>NAME=VALUE</literal>. This may be used to override
-        the default variables or to set additional variables. This
-        parameter may be used more than once.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--register=</option></term>
-
-        <listitem><para>Controls whether the container is registered with
-        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
-        boolean argument, which defaults to <literal>yes</literal>.  This option should be enabled when the container
-        runs a full Operating System (more specifically: a system and service manager as PID 1), and is useful to
-        ensure that the container is accessible via
-        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
-        tools such as <citerefentry
-        project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
-        does not run a service manager, it is recommended to set this option to
-        <literal>no</literal>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--keep-unit</option></term>
-
-        <listitem><para>Instead of creating a transient scope unit to run the container in, simply use the service or
-        scope unit <command>systemd-nspawn</command> has been invoked in. If <option>--register=yes</option> is set
-        this unit is registered with
-        <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>. This
-        switch should be used if <command>systemd-nspawn</command> is invoked from within a service unit, and the
-        service unit's sole purpose is to run a single <command>systemd-nspawn</command> container. This option is not
-        available if run from a user session.</para>
-        <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
-        <option>--property=</option>. Use <option>--keep-unit</option> and <option>--register=no</option> in
-        combination to disable any kind of unit allocation or registration with
-        <command>systemd-machined</command>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--personality=</option></term>
-
-        <listitem><para>Control the architecture ("personality")
-        reported by
-        <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        in the container. Currently, only <literal>x86</literal> and
-        <literal>x86-64</literal> are supported. This is useful when
-        running a 32-bit container on a 64-bit host. If this setting
-        is not used, the personality reported in the container is the
-        same as the one reported on the host.</para></listitem>
-      </varlistentry>
-
+    <variablelist>
       <varlistentry>
         <term><option>--console=</option><replaceable>MODE</replaceable></term>
 
@@ -1139,133 +1325,10 @@
         <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><option>-q</option></term>
-        <term><option>--quiet</option></term>
-
-        <listitem><para>Turns off any status output by the tool
-        itself. When this switch is used, the only output from nspawn
-        will be the console output of the container OS
-        itself.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--volatile</option></term>
-        <term><option>--volatile=</option><replaceable>MODE</replaceable></term>
-
-        <listitem><para>Boots the container in volatile mode. When no mode parameter is passed or when mode is
-        specified as <option>yes</option>, full volatile mode is enabled. This means the root directory is mounted as a
-        mostly unpopulated <literal>tmpfs</literal> instance, and <filename>/usr/</filename> from the OS tree is
-        mounted into it in read-only mode (the system thus starts up with read-only OS image, but pristine state and
-        configuration, any changes are lost on shutdown). When the mode parameter is specified as
-        <option>state</option>, the OS tree is mounted read-only, but <filename>/var/</filename> is mounted as a
-        writable <literal>tmpfs</literal> instance into it (the system thus starts up with read-only OS resources and
-        configuration, but pristine state, and any changes to the latter are lost on shutdown). When the mode parameter
-        is specified as <option>overlay</option> the read-only root file system is combined with a writable
-        <filename>tmpfs</filename> instance through <literal>overlayfs</literal>, so that it appears at it normally
-        would, but any changes are applied to the temporary file system only and lost when the container is
-        terminated. When the mode parameter is specified as <option>no</option> (the default), the whole OS tree is
-        made available writable (unless <option>--read-only</option> is specified, see above).</para>
-
-        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system (or
-        <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the hierarchy are
-        unaffected — regardless if they are established automatically (e.g. the EFI system partition that might be
-        mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or explicitly (e.g. through an additional
-        command line option such as <option>--bind=</option>, see above). This means, even if
-        <option>--volatile=overlay</option> is used changes to <filename>/efi/</filename> or
-        <filename>/boot/</filename> are prohibited in case such a partition exists in the container image operated on,
-        and even if <option>--volatile=state</option> is used the hypothetical file <filename>/etc/foobar</filename> is
-        potentially writable if <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only
-        container <filename>/etc</filename> directory.</para>
-
-        <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
-        behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,
-        see above.</para>
-
-        <para>The <option>--tmpfs=</option> and <option>--overlay=</option> options provide similar functionality, but
-        for specific sub-directories of the OS image only. For details, see above.</para>
-
-        <para>This option provides similar functionality for containers as the <literal>systemd.volatile=</literal>
-        kernel command line switch provides for host systems. See
-        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
-
-        <para>Note that setting this option to <option>yes</option> or <option>state</option> will only work correctly
-        with operating systems in the container that can boot up with only <filename>/usr</filename> mounted, and are
-        able to automatically populate <filename>/var</filename>, and also <filename>/etc</filename> in case of
-        <literal>--volatile=yes</literal>. The <option>overlay</option> option does not require any particular
-        preparations in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file
-        systems in a number of ways, and hence compatibility is limited.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--settings=</option><replaceable>MODE</replaceable></term>
-
-        <listitem><para>Controls whether
-        <command>systemd-nspawn</command> shall search for and use
-        additional per-container settings from
-        <filename>.nspawn</filename> files. Takes a boolean or the
-        special values <option>override</option> or
-        <option>trusted</option>.</para>
-
-        <para>If enabled (the default), a settings file named after the
-        machine (as specified with the <option>--machine=</option>
-        setting, or derived from the directory or image file name)
-        with the suffix <filename>.nspawn</filename> is searched in
-        <filename>/etc/systemd/nspawn/</filename> and
-        <filename>/run/systemd/nspawn/</filename>. If it is found
-        there, its settings are read and used. If it is not found
-        there, it is subsequently searched in the same directory as the
-        image file or in the immediate parent of the root directory of
-        the container. In this case, if the file is found, its settings
-        will be also read and used, but potentially unsafe settings
-        are ignored. Note that in both these cases, settings on the
-        command line take precedence over the corresponding settings
-        from loaded <filename>.nspawn</filename> files, if both are
-        specified. Unsafe settings are considered all settings that
-        elevate the container's privileges or grant access to
-        additional resources such as files or directories of the
-        host. For details about the format and contents of
-        <filename>.nspawn</filename> files, consult
-        <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-        <para>If this option is set to <option>override</option>, the
-        file is searched, read and used the same way, however, the order of
-        precedence is reversed: settings read from the
-        <filename>.nspawn</filename> file will take precedence over
-        the corresponding command line options, if both are
-        specified.</para>
-
-        <para>If this option is set to <option>trusted</option>, the
-        file is searched, read and used the same way, but regardless
-        of being found in <filename>/etc/systemd/nspawn/</filename>,
-        <filename>/run/systemd/nspawn/</filename> or next to the image
-        file or container root directory, all settings will take
-        effect, however, command line arguments still take precedence
-        over corresponding settings.</para>
-
-        <para>If disabled, no <filename>.nspawn</filename> file is read
-        and no settings except the ones on the command line are in
-        effect.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--notify-ready=</option></term>
-
-        <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
-        With option <option>no</option> systemd-nspawn notifies systemd
-        with a <literal>READY=1</literal> message when the init process is created.
-        With option <option>yes</option> systemd-nspawn waits for the
-        <literal>READY=1</literal> message from the init process in the container
-        before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para></listitem>
-      </varlistentry>
-
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
-
+   </refsect2>
   </refsect1>
 
   <refsect1>
