@@ -1282,7 +1282,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=1']), 0)
         self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=1']), 0)
 
-        self.start_networkd()
+        self.start_networkd(0)
+        self.wait_online(['dummy98:routable'])
 
         self.assertTrue(self.link_exits('dummy98'))
 
@@ -1301,7 +1302,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.all.disable_ipv6=0']), 0)
         self.assertEqual(subprocess.call(['sysctl', 'net.ipv6.conf.default.disable_ipv6=0']), 0)
 
-        self.start_networkd()
+        self.start_networkd(0)
+        self.wait_online(['dummy98:routable'])
 
         self.assertTrue(self.link_exits('dummy98'))
 
