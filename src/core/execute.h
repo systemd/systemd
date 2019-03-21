@@ -374,6 +374,8 @@ int exec_context_get_effective_ioprio(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
+void exec_context_revert_tty(ExecContext *c);
+
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
