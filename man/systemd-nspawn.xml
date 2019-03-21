@@ -1325,11 +1325,14 @@
         <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
    </refsect2>
   </refsect1>
+
+  <xi:include href="less-variables.xml" />
 
   <refsect1>
     <title>Examples</title>

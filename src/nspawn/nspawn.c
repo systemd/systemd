@@ -187,6 +187,7 @@ static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
 static char *arg_network_zone = NULL;
 static char *arg_network_namespace_path = NULL;
+static PagerFlags arg_pager_flags = 0;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
 static char *arg_oci_bundle = NULL;
@@ -232,7 +233,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        (void) pager_open(false);
+        (void) pager_open(arg_pager_flags);
 
         r = terminal_urlify_man("systemd-nspawn", "1", &link);
         if (r < 0)
@@ -243,6 +244,7 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
+               "     --no-pager             Do not pipe output into a pager\n"
                "     --settings=BOOLEAN     Load additional settings from .nspawn file\n\n"
                "%3$sImage:%4$s\n"
                "  -D --directory=PATH       Root directory for the container\n"
@@ -557,6 +559,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CONSOLE,
                 ARG_PIPE,
                 ARG_OCI_BUNDLE,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -621,6 +624,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "console",                required_argument, NULL, ARG_CONSOLE                },
                 { "pipe",                   no_argument,       NULL, ARG_PIPE                   },
                 { "oci-bundle",             required_argument, NULL, ARG_OCI_BUNDLE             },
+                { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
                 {}
         };
 
@@ -1363,6 +1367,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PIPE:
                         arg_console_mode = CONSOLE_PIPE;
                         arg_settings_mask |= SETTING_CONSOLE_MODE;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
