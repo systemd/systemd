@@ -59,14 +59,41 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         return pipe_fds[0];
 }
 
+int change_uid_gid_raw(
+                uid_t uid,
+                gid_t gid,
+                const gid_t *supplementary_gids,
+                size_t n_supplementary_gids) {
+
+        if (!uid_is_valid(uid))
+                uid = 0;
+        if (!gid_is_valid(gid))
+                gid = 0;
+
+        (void) fchown(STDIN_FILENO, uid, gid);
+        (void) fchown(STDOUT_FILENO, uid, gid);
+        (void) fchown(STDERR_FILENO, uid, gid);
+
+        if (setgroups(n_supplementary_gids, supplementary_gids) < 0)
+                return log_error_errno(errno, "Failed to set auxiliary groups: %m");
+
+        if (setresgid(gid, gid, gid) < 0)
+                return log_error_errno(errno, "setresgid() failed: %m");
+
+        if (setresuid(uid, uid, uid) < 0)
+                return log_error_errno(errno, "setresuid() failed: %m");
+
+        return 0;
+}
+
 int change_uid_gid(const char *user, char **_home) {
         char *x, *u, *g, *h;
         const char *word, *state;
-        _cleanup_free_ uid_t *uids = NULL;
+        _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ char *home = NULL, *line = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
-        unsigned n_uids = 0;
+        unsigned n_gids = 0;
         size_t sz = 0, l;
         uid_t uid;
         gid_t gid;
@@ -189,10 +216,10 @@ int change_uid_gid(const char *user, char **_home) {
                 memcpy(c, word, l);
                 c[l] = 0;
 
-                if (!GREEDY_REALLOC(uids, sz, n_uids+1))
+                if (!GREEDY_REALLOC(gids, sz, n_gids+1))
                         return log_oom();
 
-                r = parse_uid(c, &uids[n_uids++]);
+                r = parse_gid(c, &gids[n_gids++]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse group data from getent: %m");
         }
@@ -205,18 +232,9 @@ int change_uid_gid(const char *user, char **_home) {
         if (r < 0 && !IN_SET(r, -EEXIST, -ENOTDIR))
                 return log_error_errno(r, "Failed to make home directory: %m");
 
-        (void) fchown(STDIN_FILENO, uid, gid);
-        (void) fchown(STDOUT_FILENO, uid, gid);
-        (void) fchown(STDERR_FILENO, uid, gid);
-
-        if (setgroups(n_uids, uids) < 0)
-                return log_error_errno(errno, "Failed to set auxiliary groups: %m");
-
-        if (setresgid(gid, gid, gid) < 0)
-                return log_error_errno(errno, "setresgid() failed: %m");
-
-        if (setresuid(uid, uid, uid) < 0)
-                return log_error_errno(errno, "setresuid() failed: %m");
+        r = change_uid_gid_raw(uid, gid, gids, n_gids);
+        if (r < 0)
+                return r;
 
         if (_home)
                 *_home = TAKE_PTR(home);

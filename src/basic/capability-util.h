@@ -33,10 +33,12 @@ static inline void cap_free_charpp(char **p) {
 }
 #define _cleanup_cap_free_charp_ _cleanup_(cap_free_charpp)
 
+static inline uint64_t all_capabilities(void) {
+        return UINT64_MAX >> (63 - cap_last_cap());
+}
+
 static inline bool cap_test_all(uint64_t caps) {
-        uint64_t m;
-        m = (UINT64_C(1) << (cap_last_cap() + 1)) - 1;
-        return FLAGS_SET(caps, m);
+        return FLAGS_SET(caps, all_capabilities());
 }
 
 bool ambient_capabilities_supported(void);

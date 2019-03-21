@@ -17,6 +17,50 @@
 #include "user-util.h"
 #include "util.h"
 
+Settings *settings_new(void) {
+        Settings *s;
+
+        s = new(Settings, 1);
+        if (!s)
+                return NULL;
+
+        *s = (Settings) {
+                .start_mode = _START_MODE_INVALID,
+                .personality = PERSONALITY_INVALID,
+
+                .resolv_conf = _RESOLV_CONF_MODE_INVALID,
+                .link_journal = _LINK_JOURNAL_INVALID,
+                .timezone = _TIMEZONE_MODE_INVALID,
+
+                .userns_mode = _USER_NAMESPACE_MODE_INVALID,
+                .userns_chown = -1,
+                .uid_shift = UID_INVALID,
+                .uid_range = UID_INVALID,
+
+                .no_new_privileges = -1,
+
+                .read_only = -1,
+                .volatile_mode = _VOLATILE_MODE_INVALID,
+
+                .private_network = -1,
+                .network_veth = -1,
+
+                .full_capabilities = CAPABILITY_QUINTET_NULL,
+
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+
+                .console_mode = _CONSOLE_MODE_INVALID,
+                .console_width = (unsigned) -1,
+                .console_height = (unsigned) -1,
+
+                .clone_ns_flags = (unsigned long) -1,
+                .use_cgns = -1,
+        };
+
+        return s;
+}
+
 int settings_load(FILE *f, const char *path, Settings **ret) {
         _cleanup_(settings_freep) Settings *s = NULL;
         int r;
@@ -24,26 +68,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         assert(path);
         assert(ret);
 
-        s = new0(Settings, 1);
+        s = settings_new();
         if (!s)
                 return -ENOMEM;
-
-        s->start_mode = _START_MODE_INVALID;
-        s->personality = PERSONALITY_INVALID;
-        s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
-        s->resolv_conf = _RESOLV_CONF_MODE_INVALID;
-        s->link_journal = _LINK_JOURNAL_INVALID;
-        s->timezone = _TIMEZONE_MODE_INVALID;
-        s->uid_shift = UID_INVALID;
-        s->uid_range = UID_INVALID;
-        s->no_new_privileges = -1;
-
-        s->read_only = -1;
-        s->volatile_mode = _VOLATILE_MODE_INVALID;
-        s->userns_chown = -1;
-
-        s->private_network = -1;
-        s->network_veth = -1;
 
         r = config_parse(NULL, path, f,
                          "Exec\0"
@@ -66,12 +93,33 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
                 s->userns_mode = USER_NAMESPACE_NO;
 
         *ret = TAKE_PTR(s);
-
         return 0;
 }
 
-Settings* settings_free(Settings *s) {
+static void free_oci_hooks(OciHook *h, size_t n) {
+        size_t i;
 
+        assert(h || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(h[i].path);
+                strv_free(h[i].args);
+                strv_free(h[i].env);
+        }
+
+        free(h);
+}
+
+void device_node_free_many(DeviceNode *node, size_t n) {
+        size_t i;
+
+        for (i = 0; i < n; i++)
+                free(node[i].path);
+
+        free(node);
+}
+
+Settings* settings_free(Settings *s) {
         if (!s)
                 return NULL;
 
@@ -96,6 +144,28 @@ Settings* settings_free(Settings *s) {
         expose_port_free_all(s->expose_ports);
 
         custom_mount_free_all(s->custom_mounts, s->n_custom_mounts);
+
+        free(s->bundle);
+        free(s->root);
+
+        free_oci_hooks(s->oci_hooks_prestart, s->n_oci_hooks_prestart);
+        free_oci_hooks(s->oci_hooks_poststart, s->n_oci_hooks_poststart);
+        free_oci_hooks(s->oci_hooks_poststop, s->n_oci_hooks_poststop);
+
+        free(s->slice);
+        sd_bus_message_unref(s->properties);
+
+        free(s->supplementary_gids);
+        device_node_free_many(s->extra_nodes, s->n_extra_nodes);
+        free(s->extra_nodes);
+        free(s->network_namespace_path);
+
+        strv_free(s->sysctl);
+
+#if HAVE_SECCOMP
+        seccomp_release(s->seccomp);
+#endif
+
         return mfree(s);
 }
 
@@ -120,6 +190,26 @@ bool settings_network_veth(Settings *s) {
                 s->network_veth > 0 ||
                 s->network_bridge ||
                 s->network_zone;
+}
+
+int settings_allocate_properties(Settings *s) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(s);
+
+        if (s->properties)
+                return 0;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new(bus, &s->properties, SD_BUS_MESSAGE_METHOD_CALL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_volatile_mode, volatile_mode, VolatileMode, "Failed to parse volatile mode");
@@ -309,6 +399,34 @@ int config_parse_tmpfs(
         r = tmpfs_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_inaccessible(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = inaccessible_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
                 return 0;
         }
 

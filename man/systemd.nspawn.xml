@@ -426,6 +426,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Inaccessible=</varname></term>
+
+        <listitem><para>Masks the specified file or directly in the container, by over-mounting it with an empty file
+        node of the same type with the most restrictive access mode. Takes a file system path as arugment. This option
+        may be used multiple times to mask multiple files or directories. This option is equivalent to the command line
+        switch <option>--inaccessible=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
+        about the specific options supported. This setting is privileged (see above).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Overlay=</varname></term>
         <term><varname>OverlayReadOnly=</varname></term>
 
