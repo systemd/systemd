@@ -272,16 +272,12 @@ int capability_bounding_set_drop_usermode(uint64_t keep) {
 }
 
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
-        _cleanup_cap_free_ cap_t d = NULL;
-        unsigned i, j = 0;
         int r;
 
-        /* Unfortunately we cannot leave privilege dropping to PID 1
-         * here, since we want to run as user but want to keep some
-         * capabilities. Since file capabilities have been introduced
-         * this cannot be done across exec() anymore, unless our
-         * binary has the capability configured in the file system,
-         * which we want to avoid. */
+        /* Unfortunately we cannot leave privilege dropping to PID 1 here, since we want to run as user but
+         * want to keep some capabilities. Since file capabilities have been introduced this cannot be done
+         * across exec() anymore, unless our binary has the capability configured in the file system, which
+         * we want to avoid. */
 
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
@@ -290,7 +286,9 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (r < 0)
                 return log_error_errno(r, "Failed to drop auxiliary groups list: %m");
 
-        /* Ensure we keep the permitted caps across the setresuid() */
+        /* Ensure we keep the permitted caps across the setresuid(). Note that we do this even if we actually
+         * don't want to keep any capabilities, since we want to be able to drop them from the bounding set
+         * too, and we can only do that if we have capabilities. */
         if (prctl(PR_SET_KEEPCAPS, 1) < 0)
                 return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
@@ -300,18 +298,21 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (prctl(PR_SET_KEEPCAPS, 0) < 0)
                 return log_error_errno(errno, "Failed to disable keep capabilities flag: %m");
 
-        /* Drop all caps from the bounding set, except the ones we want */
+        /* Drop all caps from the bounding set (as well as the inheritable/permitted/effective sets), except
+         * the ones we want to keep */
         r = capability_bounding_set_drop(keep_capabilities, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 
         /* Now upgrade the permitted caps we still kept to effective caps */
-        d = cap_init();
-        if (!d)
-                return log_oom();
-
-        if (keep_capabilities) {
+        if (keep_capabilities != 0) {
                 cap_value_t bits[u64log2(keep_capabilities) + 1];
+                _cleanup_cap_free_ cap_t d = NULL;
+                unsigned i, j = 0;
+
+                d = cap_init();
+                if (!d)
+                        return log_oom();
 
                 for (i = 0; i < ELEMENTSOF(bits); i++)
                         if (keep_capabilities & (1ULL << i))
