@@ -174,12 +174,7 @@ static NetDev *netdev_free(NetDev *netdev) {
         free(netdev->description);
         free(netdev->ifname);
         free(netdev->mac);
-
-        condition_free_list(netdev->match_host);
-        condition_free_list(netdev->match_virt);
-        condition_free_list(netdev->match_kernel_cmdline);
-        condition_free_list(netdev->match_kernel_version);
-        condition_free_list(netdev->match_arch);
+        condition_free_list(netdev->conditions);
 
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
          * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
@@ -683,11 +678,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         /* skip out early if configuration does not match the environment */
-        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
-                              netdev_raw->match_host, netdev_raw->match_virt,
-                              netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
-                              netdev_raw->match_arch,
-                              NULL, NULL, NULL, NULL, NULL)) {
+        if (!condition_test_list(netdev_raw->conditions, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions in the file do not match the system environment, skipping.", filename);
                 return 0;
         }

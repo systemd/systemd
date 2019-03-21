@@ -100,31 +100,11 @@ bool net_match_config(Set *match_mac,
                       char * const *match_drivers,
                       char * const *match_types,
                       char * const *match_names,
-                      Condition *match_host,
-                      Condition *match_virt,
-                      Condition *match_kernel_cmdline,
-                      Condition *match_kernel_version,
-                      Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
                       const char *dev_driver,
                       const char *dev_type,
                       const char *dev_name) {
-
-        if (match_host && condition_test(match_host) <= 0)
-                return false;
-
-        if (match_virt && condition_test(match_virt) <= 0)
-                return false;
-
-        if (match_kernel_cmdline && condition_test(match_kernel_cmdline) <= 0)
-                return false;
-
-        if (match_kernel_version && condition_test(match_kernel_version) <= 0)
-                return false;
-
-        if (match_arch && condition_test(match_arch) <= 0)
-                return false;
 
         if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;
@@ -156,32 +136,31 @@ int config_parse_net_condition(const char *unit,
                                void *userdata) {
 
         ConditionType cond = ltype;
-        Condition **ret = data;
+        Condition **list = data, *c;
         bool negate;
-        Condition *c;
-        _cleanup_free_ char *s = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                *list = condition_free_list_type(*list, cond);
+                return 0;
+        }
+
         negate = rvalue[0] == '!';
         if (negate)
                 rvalue++;
 
-        s = strdup(rvalue);
-        if (!s)
-                return log_oom();
-
-        c = condition_new(cond, s, false, negate);
+        c = condition_new(cond, rvalue, false, negate);
         if (!c)
                 return log_oom();
 
-        if (*ret)
-                condition_free(*ret);
+        /* Drop previous assignment. */
+        *list = condition_free_list_type(*list, cond);
 
-        *ret = c;
+        LIST_PREPEND(conditions, *list, c);
         return 0;
 }
 

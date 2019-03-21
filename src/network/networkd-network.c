@@ -174,10 +174,7 @@ int network_verify(Network *network) {
         assert(network->filename);
 
         /* skip out early if configuration does not match the environment */
-        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
-                              network->match_host, network->match_virt, network->match_kernel_cmdline,
-                              network->match_kernel_version, network->match_arch,
-                              NULL, NULL, NULL, NULL, NULL))
+        if (!condition_test_list(network->conditions, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
@@ -497,6 +494,7 @@ void network_free(Network *network) {
         strv_free(network->match_driver);
         strv_free(network->match_type);
         strv_free(network->match_name);
+        condition_free_list(network->conditions);
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
@@ -568,12 +566,6 @@ void network_free(Network *network) {
 
         free(network->name);
 
-        condition_free_list(network->match_host);
-        condition_free_list(network->match_virt);
-        condition_free_list(network->match_kernel_cmdline);
-        condition_free_list(network->match_kernel_version);
-        condition_free_list(network->match_arch);
-
         free(network->dhcp_server_timezone);
         free(network->dhcp_server_dns);
         free(network->dhcp_server_ntp);
@@ -619,9 +611,7 @@ int network_get(Manager *manager, sd_device *device,
         LIST_FOREACH(networks, network, manager->networks) {
                 if (net_match_config(network->match_mac, network->match_path,
                                      network->match_driver, network->match_type,
-                                     network->match_name, network->match_host,
-                                     network->match_virt, network->match_kernel_cmdline,
-                                     network->match_kernel_version, network->match_arch,
+                                     network->match_name,
                                      address, path, driver, devtype, ifname)) {
                         if (network->match_name && device) {
                                 const char *attr;

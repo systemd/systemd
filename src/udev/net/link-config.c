@@ -51,12 +51,7 @@ static void link_config_free(link_config *link) {
         strv_free(link->match_driver);
         strv_free(link->match_type);
         strv_free(link->match_name);
-
-        condition_free_list(link->match_host);
-        condition_free_list(link->match_virt);
-        condition_free_list(link->match_kernel_cmdline);
-        condition_free_list(link->match_kernel_version);
-        condition_free_list(link->match_arch);
+        condition_free_list(link->conditions);
 
         free(link->description);
         free(link->mac);
@@ -164,10 +159,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (link->speed > UINT_MAX)
                 return -ERANGE;
 
-        if (!net_match_config(NULL, NULL, NULL, NULL, NULL,
-                              link->match_host, link->match_virt, link->match_kernel_cmdline,
-                              link->match_kernel_version, link->match_arch,
-                              NULL, NULL, NULL, NULL, NULL)) {
+        if (!condition_test_list(link->conditions, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }
@@ -251,9 +243,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
                 (void) sd_device_get_sysname(device, &sysname);
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name, link->match_host,
-                                     link->match_virt, link->match_kernel_cmdline,
-                                     link->match_kernel_version, link->match_arch,
+                                     link->match_type, link->match_name,
                                      address ? ether_aton(address) : NULL,
                                      id_path,
                                      id_net_driver,

@@ -115,6 +115,19 @@ int log_internalv_realm(
         log_internalv_realm(LOG_REALM_PLUS_LEVEL(LOG_REALM, (level)), __VA_ARGS__)
 
 /* Realm is fixed to LOG_REALM_SYSTEMD for those */
+int log_object_internalv(
+                int level,
+                int error,
+                const char *file,
+                int line,
+                const char *func,
+                const char *object_field,
+                const char *object,
+                const char *extra_field,
+                const char *extra,
+                const char *format,
+                va_list ap) _printf_(10,0);
+
 int log_object_internal(
                 int level,
                 int error,

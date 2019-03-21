@@ -1021,35 +1021,35 @@
         <para><varname>ConditionArchitecture=</varname> may be used to
         check whether the system is running on a specific
         architecture. Takes one of
-        <varname>x86</varname>,
-        <varname>x86-64</varname>,
-        <varname>ppc</varname>,
-        <varname>ppc-le</varname>,
-        <varname>ppc64</varname>,
-        <varname>ppc64-le</varname>,
-        <varname>ia64</varname>,
-        <varname>parisc</varname>,
-        <varname>parisc64</varname>,
-        <varname>s390</varname>,
-        <varname>s390x</varname>,
-        <varname>sparc</varname>,
-        <varname>sparc64</varname>,
-        <varname>mips</varname>,
-        <varname>mips-le</varname>,
-        <varname>mips64</varname>,
-        <varname>mips64-le</varname>,
-        <varname>alpha</varname>,
-        <varname>arm</varname>,
-        <varname>arm-be</varname>,
-        <varname>arm64</varname>,
-        <varname>arm64-be</varname>,
-        <varname>sh</varname>,
-        <varname>sh64</varname>,
-        <varname>m68k</varname>,
-        <varname>tilegx</varname>,
-        <varname>cris</varname>,
-        <varname>arc</varname>,
-        <varname>arc-be</varname> to test
+        <literal>x86</literal>,
+        <literal>x86-64</literal>,
+        <literal>ppc</literal>,
+        <literal>ppc-le</literal>,
+        <literal>ppc64</literal>,
+        <literal>ppc64-le</literal>,
+        <literal>ia64</literal>,
+        <literal>parisc</literal>,
+        <literal>parisc64</literal>,
+        <literal>s390</literal>,
+        <literal>s390x</literal>,
+        <literal>sparc</literal>,
+        <literal>sparc64</literal>,
+        <literal>mips</literal>,
+        <literal>mips-le</literal>,
+        <literal>mips64</literal>,
+        <literal>mips64-le</literal>,
+        <literal>alpha</literal>,
+        <literal>arm</literal>,
+        <literal>arm-be</literal>,
+        <literal>arm64</literal>,
+        <literal>arm64-be</literal>,
+        <literal>sh</literal>,
+        <literal>sh64</literal>,
+        <literal>m68k</literal>,
+        <literal>tilegx</literal>,
+        <literal>cris</literal>,
+        <literal>arc</literal>,
+        <literal>arc-be</literal> to test
         against a specific architecture. The architecture is
         determined from the information returned by
         <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -1057,7 +1057,7 @@
         <citerefentry><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
         Note that a <varname>Personality=</varname> setting in the
         same unit file has no effect on this condition. A special
-        architecture name <varname>native</varname> is mapped to the
+        architecture name <literal>native</literal> is mapped to the
         architecture the system manager itself is compiled for. The
         test may be negated by prepending an exclamation mark.</para>
 
@@ -1066,30 +1066,30 @@
         environment and optionally test whether it is a specific
         implementation. Takes either boolean value to check if being
         executed in any virtualized environment, or one of
-        <varname>vm</varname> and
-        <varname>container</varname> to test against a generic type of
+        <literal>vm</literal> and
+        <literal>container</literal> to test against a generic type of
         virtualization solution, or one of
-        <varname>qemu</varname>,
-        <varname>kvm</varname>,
-        <varname>zvm</varname>,
-        <varname>vmware</varname>,
-        <varname>microsoft</varname>,
-        <varname>oracle</varname>,
-        <varname>xen</varname>,
-        <varname>bochs</varname>,
-        <varname>uml</varname>,
-        <varname>bhyve</varname>,
-        <varname>qnx</varname>,
-        <varname>openvz</varname>,
-        <varname>lxc</varname>,
-        <varname>lxc-libvirt</varname>,
-        <varname>systemd-nspawn</varname>,
-        <varname>docker</varname>,
-        <varname>rkt</varname>,
-        <varname>wsl</varname>,
-        <varname>acrn</varname> to test
+        <literal>qemu</literal>,
+        <literal>kvm</literal>,
+        <literal>zvm</literal>,
+        <literal>vmware</literal>,
+        <literal>microsoft</literal>,
+        <literal>oracle</literal>,
+        <literal>xen</literal>,
+        <literal>bochs</literal>,
+        <literal>uml</literal>,
+        <literal>bhyve</literal>,
+        <literal>qnx</literal>,
+        <literal>openvz</literal>,
+        <literal>lxc</literal>,
+        <literal>lxc-libvirt</literal>,
+        <literal>systemd-nspawn</literal>,
+        <literal>docker</literal>,
+        <literal>rkt</literal>,
+        <literal>wsl</literal>,
+        <literal>acrn</literal> to test
         against a specific implementation, or
-        <varname>private-users</varname> to check whether we are running in a user namespace. See
+        <literal>private-users</literal> to check whether we are running in a user namespace. See
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for a full list of known virtualization technologies and their
         identifiers. If multiple virtualization technologies are
@@ -1131,10 +1131,10 @@
         <para><varname>ConditionSecurity=</varname> may be used to check
         whether the given security technology is enabled on the
         system. Currently, the recognized values are
-        <varname>selinux</varname>, <varname>apparmor</varname>,
-        <varname>tomoyo</varname>, <varname>ima</varname>,
-        <varname>smack</varname>, <varname>audit</varname> and
-        <varname>uefi-secureboot</varname>. The test may be negated by
+        <literal>selinux</literal>, <literal>apparmor</literal>,
+        <literal>tomoyo</literal>, <literal>ima</literal>,
+        <literal>smack</literal>, <literal>audit</literal> and
+        <literal>uefi-secureboot</literal>. The test may be negated by
         prepending an exclamation mark.</para>
 
         <para><varname>ConditionCapability=</varname> may be used to
@@ -1150,11 +1150,11 @@
         <para><varname>ConditionACPower=</varname> may be used to
         check whether the system has AC power, or is exclusively
         battery powered at the time of activation of the unit. This
-        takes a boolean argument. If set to <varname>true</varname>,
+        takes a boolean argument. If set to <literal>true</literal>,
         the condition will hold only if at least one AC connector of
         the system is connected to a power source, or if no AC
         connectors are known. Conversely, if set to
-        <varname>false</varname>, the condition will hold only if
+        <literal>false</literal>, the condition will hold only if
         there is at least one AC connector known and all AC connectors
         are disconnected from a power source.</para>
 
@@ -1244,16 +1244,16 @@
         does not have a special value <literal>@system</literal>.</para>
 
         <para><varname>ConditionControlGroupController=</varname> takes a
-        cgroup controller name (eg. <option>cpu</option>), verifying that it is
+        cgroup controller name (eg. <literal>cpu</literal>), verifying that it is
         available for use on the system. For example, a particular controller
         may not be available if it was disabled on the kernel command line with
         <varname>cgroup_disable=controller</varname>. Multiple controllers may
         be passed with a space separating them; in this case the condition will
         only pass if all listed controllers are available for use. Controllers
         unknown to systemd are ignored. Valid controllers are
-        <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
-        <option>blkio</option>, <option>memory</option>,
-        <option>devices</option>, and <option>pids</option>.</para>
+        <literal>cpu</literal>, <literal>cpuacct</literal>, <literal>io</literal>,
+        <literal>blkio</literal>, <literal>memory</literal>,
+        <literal>devices</literal>, and <literal>pids</literal>.</para>
 
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).

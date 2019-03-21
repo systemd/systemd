@@ -40,11 +40,7 @@ struct link_config {
         char **match_driver;
         char **match_type;
         char **match_name;
-        Condition *match_host;
-        Condition *match_virt;
-        Condition *match_kernel_cmdline;
-        Condition *match_kernel_version;
-        Condition *match_arch;
+        Condition *conditions;
 
         char *description;
         struct ether_addr *mac;
