@@ -6356,7 +6356,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -6405,7 +6405,13 @@ static int enable_sysv_units(const char *verb, char **args) {
                         argv[c++] = q;
                 }
 
-                argv[c++] = verb;
+                /* Let's copy the verb, since it's still pointing directly into the original argv[] array we
+                 * got passed, but safe_fork() is likely going to rewrite that for the new child */
+                v = strdup(verb);
+                if (!v)
+                        return log_oom();
+
+                argv[c++] = v;
                 argv[c++] = basename(p);
                 argv[c] = NULL;
 
