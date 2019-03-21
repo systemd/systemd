@@ -3,3 +3,5 @@ Name=dummy98
 
 [Network]
 Tunnel=ipiptun99
+Tunnel=ipiptun98
+Tunnel=ipiptun97

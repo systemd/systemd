@@ -1,0 +1,7 @@
+[NetDev]
+Name=gretun97
+Kind=gre
+
+[Tunnel]
+Local=10.65.223.238
+Remote=any

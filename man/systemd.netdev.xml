@@ -98,9 +98,7 @@
           <entry>A Level 2 GRE tunnel over IPv4.</entry></row>
 
           <row><entry><varname>erspan</varname></entry>
-          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch.
-          The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch
-          and the destination switch.</entry></row>
+          <entry>ERSPAN mirrors traffic on one or more source ports and delivers the mirrored traffic to one or more destination ports on another switch. The traffic is encapsulated in generic routing encapsulation (GRE) and is therefore routable across a layer 3 network between the source switch and the destination switch.</entry></row>
 
           <row><entry><varname>ip6gre</varname></entry>
           <entry>A Level 3 GRE tunnel over IPv6.</entry></row>
@@ -874,14 +872,15 @@
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
-          <para>A static local address for tunneled packets. It must
-          be an address on another interface of this host.</para>
+          <para>A static local address for tunneled packets. It must be an address on another interface of
+          this host, or the special value <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
-          <para>The remote endpoint of the tunnel.</para>
+          <para>The remote endpoint of the tunnel. Takes an IP address or the special value
+          <literal>any</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

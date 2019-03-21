@@ -191,17 +191,31 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'bridge99',
         'dropin-test',
         'dummy98',
-        'erspan-test',
+        'erspan98',
+        'erspan99',
         'geneve99',
+        'gretap98',
         'gretap99',
+        'gretun97',
+        'gretun98',
         'gretun99',
+        'ip6gretap98',
         'ip6gretap99',
+        'ip6gretun97',
+        'ip6gretun98',
+        'ip6gretun99',
+        'ip6tnl97',
+        'ip6tnl98',
         'ip6tnl99',
+        'ipiptun97',
+        'ipiptun98',
         'ipiptun99',
         'ipvlan99',
         'isataptun99',
         'macvlan99',
         'macvtap99',
+        'sittun97',
+        'sittun98',
         'sittun99',
         'tap99',
         'test1',
@@ -210,7 +224,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'veth99',
         'vlan99',
         'vrf99',
+        'vti6tun97',
+        'vti6tun98',
         'vti6tun99',
+        'vtitun97',
+        'vtitun98',
         'vtitun99',
         'vxlan99',
         'wg98',
@@ -229,23 +247,41 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
+        '25-erspan-tunnel-local-any.netdev',
         '25-erspan-tunnel.netdev',
         '25-geneve.netdev',
+        '25-gretap-tunnel-local-any.netdev',
         '25-gretap-tunnel.netdev',
+        '25-gre-tunnel-local-any.netdev',
+        '25-gre-tunnel-remote-any.netdev',
         '25-gre-tunnel.netdev',
+        '25-ip6gretap-tunnel-local-any.netdev',
+        '25-ip6gretap-tunnel.netdev',
+        '25-ip6gre-tunnel-local-any.netdev',
+        '25-ip6gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel.netdev',
+        '25-ip6tnl-tunnel-remote-any.netdev',
+        '25-ip6tnl-tunnel-local-any.netdev',
         '25-ip6tnl-tunnel.netdev',
         '25-ipip-tunnel-independent.netdev',
+        '25-ipip-tunnel-local-any.netdev',
+        '25-ipip-tunnel-remote-any.netdev',
         '25-ipip-tunnel.netdev',
         '25-ipvlan.netdev',
         '25-isatap-tunnel.netdev',
+        '25-sit-tunnel-local-any.netdev',
+        '25-sit-tunnel-remote-any.netdev',
         '25-sit-tunnel.netdev',
         '25-tap.netdev',
         '25-tun.netdev',
         '25-vcan.netdev',
         '25-veth.netdev',
         '25-vrf.netdev',
+        '25-vti6-tunnel-local-any.netdev',
+        '25-vti6-tunnel-remote-any.netdev',
         '25-vti6-tunnel.netdev',
+        '25-vti-tunnel-local-any.netdev',
+        '25-vti-tunnel-remote-any.netdev',
         '25-vti-tunnel.netdev',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
@@ -257,6 +293,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'gretap.network',
         'gretun.network',
         'ip6gretap.network',
+        'ip6gretun.network',
         'ip6tnl.network',
         'ipip.network',
         'ipvlan.network',
@@ -495,60 +532,177 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(output, 'udp6zerocsumrx')
 
     def test_ipip_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ipip-tunnel.netdev', 'ipip.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ipip-tunnel.netdev', 'ipip.network',
+                                             '25-ipip-tunnel-local-any.netdev', '25-ipip-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('ipiptun99'))
+        self.assertTrue(self.link_exits('ipiptun98'))
+        self.assertTrue(self.link_exits('ipiptun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local 192.168.223.238 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ipip (?:ipip |)remote 192.169.224.239 local any dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ipip (?:ipip |)remote any local 192.168.223.238 dev dummy98')
 
     def test_gre_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gre-tunnel.netdev', 'gretun.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gre-tunnel.netdev', 'gretun.network',
+                                             '25-gre-tunnel-local-any.netdev', '25-gre-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('gretun99'))
+        self.assertTrue(self.link_exits('gretun98'))
+        self.assertTrue(self.link_exits('gretun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'gre remote 10.65.223.239 local 10.65.223.238 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'gre remote 10.65.223.239 local any dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'gre remote any local 10.65.223.238 dev dummy98')
+
+    def test_ip6gre_tunnel(self):
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gre-tunnel.netdev', 'ip6gretun.network',
+                                             '25-ip6gre-tunnel-local-any.netdev', '25-ip6gre-tunnel-remote-any.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('dummy98'))
+        self.assertTrue(self.link_exits('ip6gretun99'))
+        self.assertTrue(self.link_exits('ip6gretun98'))
+        self.assertTrue(self.link_exits('ip6gretun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6gre remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6gre remote 2001:473:fece:cafe::5179 local any dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6gre remote any local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_gretap_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gretap-tunnel.netdev', 'gretap.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-gretap-tunnel.netdev', 'gretap.network',
+                                             '25-gretap-tunnel-local-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('gretap99'))
+        self.assertTrue(self.link_exits('gretap98'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'gretap remote 10.65.223.239 local 10.65.223.238 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'gretap remote 10.65.223.239 local any dev dummy98')
 
     def test_ip6gretap_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gre-tunnel.netdev', 'ip6gretap.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6gretap-tunnel.netdev', 'ip6gretap.network',
+                                             '25-ip6gretap-tunnel-local-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('ip6gretap99'))
+        self.assertTrue(self.link_exits('ip6gretap98'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6gretap98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6gretap remote 2001:473:fece:cafe::5179 local any dev dummy98')
 
     def test_vti_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti-tunnel.netdev', 'vti.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti-tunnel.netdev', 'vti.network',
+                                             '25-vti-tunnel-local-any.netdev', '25-vti-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('vtitun99'))
+        self.assertTrue(self.link_exits('vtitun98'))
+        self.assertTrue(self.link_exits('vtitun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti remote 10.65.223.239 local 10.65.223.238 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti remote 10.65.223.239 local any dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vtitun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti remote any local 10.65.223.238 dev dummy98')
 
     def test_vti6_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti6-tunnel.netdev', 'vti6.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-vti6-tunnel.netdev', 'vti6.network',
+                                             '25-vti6-tunnel-local-any.netdev', '25-vti6-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('vti6tun99'))
+        self.assertTrue(self.link_exits('vti6tun98'))
+        self.assertTrue(self.link_exits('vti6tun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'vti6tun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'vti6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_ip6tnl_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6tnl-tunnel.netdev', 'ip6tnl.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-ip6tnl-tunnel.netdev', 'ip6tnl.network',
+                                             '25-ip6tnl-tunnel-local-any.netdev', '25-ip6tnl-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('ip6tnl99'))
+        self.assertTrue(self.link_exits('ip6tnl98'))
+        self.assertTrue(self.link_exits('ip6tnl97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local 2a00:ffde:4567:edde::4987 dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6tnl ip6ip6 remote 2001:473:fece:cafe::5179 local (?:any|::) dev dummy98')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ip6tnl97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'ip6tnl ip6ip6 remote (?:any|::) local 2a00:ffde:4567:edde::4987 dev dummy98')
 
     def test_sit_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-sit-tunnel.netdev', 'sit.network')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-sit-tunnel.netdev', 'sit.network',
+                                             '25-sit-tunnel-local-any.netdev',
+                                             '25-sit-tunnel-remote-any.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('sittun99'))
+        self.assertTrue(self.link_exits('sittun98'))
+        self.assertTrue(self.link_exits('sittun97'))
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local 10.65.223.238 dev dummy98")
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "sit (?:ip6ip |)remote 10.65.223.239 local any dev dummy98")
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun97']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, "sit (?:ip6ip |)remote any local 10.65.223.238 dev dummy98")
 
     def test_isatap_tunnel(self):
         self.copy_unit_to_networkd_unit_path('12-dummy.netdev', '25-isatap-tunnel.netdev', 'isatap.network')
@@ -568,18 +722,26 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('sittun99'))
 
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, '6rd-prefix 2602::/24')
+
     @expectedFailureIfERSPANModuleIsNotAvailable()
     def test_erspan_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('25-erspan-tunnel.netdev')
+        self.copy_unit_to_networkd_unit_path('25-erspan-tunnel.netdev', '25-erspan-tunnel-local-any.netdev')
         self.start_networkd()
 
-        self.assertTrue(self.link_exits('erspan-test'))
+        self.assertTrue(self.link_exits('erspan99'))
+        self.assertTrue(self.link_exits('erspan98'))
 
-        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan-test']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan99']).rstrip().decode('utf-8')
         print(output)
-        self.assertTrue(output, '172.16.1.200')
-        self.assertTrue(output, '172.16.1.100')
-        self.assertTrue(output, '101')
+        self.assertRegex(output, 'erspan remote 172.16.1.100 local 172.16.1.200')
+        self.assertRegex(output, '101')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'erspan98']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'erspan remote 172.16.1.100 local any')
+        self.assertRegex(output, '102')
 
     def test_tunnel_independent(self):
         self.copy_unit_to_networkd_unit_path('25-ipip-tunnel-independent.netdev')
