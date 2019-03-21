@@ -321,7 +321,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
                 /* use enough bits */
                 assert(i == 64 || (keep_capabilities >> i) == 0);
                 /* don't use too many bits */
-                assert(keep_capabilities & (1ULL << (i - 1)));
+                assert(keep_capabilities & (UINT64_C(1) << (i - 1)));
 
                 if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
                     cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
