@@ -2654,10 +2654,8 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
                 return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
         state = unit_active_state_from_string(buf);
-        if (state == _UNIT_ACTIVE_STATE_INVALID) {
-                log_error("Invalid unit state '%s' for: %s", buf, name);
-                return -EINVAL;
-        }
+        if (state < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit state '%s' for: %s", buf, name);
 
         *active_state = state;
         return 0;
@@ -3112,10 +3110,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         char **name;
 
-        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart")) {
-                log_error("--wait may only be used with the 'start' or 'restart' commands.");
-                return -EINVAL;
-        }
+        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--wait may only be used with the 'start' or 'restart' commands.");
 
         /* we cannot do sender tracking on the private bus, so we need the full
          * one for RefUnit to implement --wait */
@@ -3419,10 +3416,8 @@ static int logind_check_inhibitors(enum action a) {
                 if (!sv)
                         return log_oom();
 
-                if (!pid_is_valid((pid_t) pid)) {
-                        log_error("Invalid PID "PID_FMT".", (pid_t) pid);
-                        return -ERANGE;
-                }
+                if (!pid_is_valid((pid_t) pid))
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid PID "PID_FMT".", (pid_t) pid);
 
                 if (!strv_contains(sv,
                                    IN_SET(a,
@@ -3510,8 +3505,8 @@ static int prepare_firmware_setup(void) {
 
         return 0;
 #else
-        log_error("Booting into firmware setup not supported.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into firmware setup not supported.");
 #endif
 }
 
@@ -3543,8 +3538,8 @@ static int prepare_boot_loader_menu(void) {
 
         return 0;
 #else
-        log_error("Booting into boot loader menu not supported.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into boot loader menu not supported.");
 #endif
 }
 
@@ -5783,10 +5778,8 @@ static int cat(int argc, char *argv[], void *userdata) {
         bool first = true;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot remotely cat units.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -5882,10 +5875,8 @@ static int set_property(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         t = unit_name_to_type(n);
-        if (t < 0) {
-                log_error("Invalid unit type: %s", n);
-                return -EINVAL;
-        }
+        if (t < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit type: %s", n);
 
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
@@ -6123,15 +6114,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot switch root remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch root remotely.");
 
-        if (argc < 2 || argc > 3) {
-                log_error("Wrong number of arguments.");
-                return -EINVAL;
-        }
+        if (argc < 2 || argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         root = argv[1];
 
@@ -6270,10 +6257,8 @@ static int import_environment(int argc, char *argv[], void *userdata) {
 
                 STRV_FOREACH(a, strv_skip(argv, 1)) {
 
-                        if (!env_name_is_valid(*a)) {
-                                log_error("Not a valid environment variable name: %s", *a);
-                                return -EINVAL;
-                        }
+                        if (!env_name_is_valid(*a))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid environment variable name: %s", *a);
 
                         STRV_FOREACH(b, environ) {
                                 const char *eq;
@@ -7455,15 +7440,11 @@ static int edit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (!on_tty()) {
-                log_error("Cannot edit units if not on a tty.");
-                return -EINVAL;
-        }
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot edit units remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -7481,10 +7462,8 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        log_error("Cannot edit %s: unit is masked.", *tmp);
-                        return -EINVAL;
-                }
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }
 
         r = find_paths_to_edit(bus, names, &paths);
@@ -7885,10 +7864,8 @@ static int help_boot_loader_entry(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate boot loader entries: %s", bus_error_message(&error, r));
 
-        if (strv_isempty(l)) {
-                log_error("No boot loader entries discovered.");
-                return -ENODATA;
-        }
+        if (strv_isempty(l))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No boot loader entries discovered.");
 
         STRV_FOREACH(i, l)
                 puts(*i);
@@ -8948,8 +8925,8 @@ static int logind_schedule_shutdown(void) {
                 log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
 #else
-        log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
 #endif
 }
 
@@ -9055,8 +9032,8 @@ static int logind_cancel_shutdown(void) {
 
         return 0;
 #else
-        log_error("Not compiled with logind support, cannot cancel scheduled shutdowns.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Not compiled with logind support, cannot cancel scheduled shutdowns.");
 #endif
 }
 
