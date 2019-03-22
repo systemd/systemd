@@ -7532,7 +7532,7 @@ static int systemctl_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+        printf("%1$s [OPTIONS...] {COMMAND} ...\n\n"
                "Query or send control commands to the systemd manager.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
@@ -7591,7 +7591,7 @@ static int systemctl_help(void) {
                "     --boot-loader-entry=NAME\n"
                "                      Boot into a specific boot loader entry on next boot\n"
                "     --plain          Print unit dependencies as a list instead of a tree\n\n"
-               "Unit Commands:\n"
+               "%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
@@ -7621,7 +7621,7 @@ static int systemctl_help(void) {
                "  list-dependencies [UNIT]            Recursively show units which are required\n"
                "                                      or wanted by this unit or by which this\n"
                "                                      unit is required or wanted\n\n"
-               "Unit File Commands:\n"
+               "%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
@@ -7644,20 +7644,20 @@ static int systemctl_help(void) {
                "  edit UNIT...                        Edit one or more unit files\n"
                "  get-default                         Get the name of the default target\n"
                "  set-default TARGET                  Set the default target\n\n"
-               "Machine Commands:\n"
+               "%3$sMachine Commands:%4$s\n"
                "  list-machines [PATTERN...]          List local containers and host\n\n"
-               "Job Commands:\n"
+               "%3$sJob Commands:%4$s\n"
                "  list-jobs [PATTERN...]              List jobs\n"
                "  cancel [JOB...]                     Cancel all, one, or more jobs\n\n"
-               "Environment Commands:\n"
+               "%3$sEnvironment Commands:%4$s\n"
                "  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
                "  import-environment [VARIABLE...]    Import all or some environment variables\n\n"
-               "Manager Lifecycle Commands:\n"
+               "%3$sManager Lifecycle Commands:%4$s\n"
                "  daemon-reload                       Reload systemd manager configuration\n"
                "  daemon-reexec                       Reexecute systemd manager\n\n"
-               "System Commands:\n"
+               "%3$sSystem Commands:%4$s\n"
                "  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
@@ -7673,9 +7673,10 @@ static int systemctl_help(void) {
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
                "                                      time and put it into hibernate\n"
-               "\nSee the %s for details.\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
+               , ansi_underline(), ansi_normal()
         );
 
         return 0;
