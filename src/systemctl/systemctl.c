@@ -75,6 +75,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysv-compat.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-def.h"
@@ -84,25 +85,6 @@
 #include "utmp-wtmp.h"
 #include "verbs.h"
 #include "virt.h"
-
-/* The init script exit status codes
-   0       program is running or service is OK
-   1       program is dead and /var/run pid file exists
-   2       program is dead and /var/lock lock file exists
-   3       program is not running
-   4       program or service status is unknown
-   5-99    reserved for future LSB use
-   100-149 reserved for distribution use
-   150-199 reserved for application use
-   200-254 reserved
-*/
-enum {
-        EXIT_PROGRAM_RUNNING_OR_SERVICE_OK        = 0,
-        EXIT_PROGRAM_DEAD_AND_PID_EXISTS          = 1,
-        EXIT_PROGRAM_DEAD_AND_LOCK_FILE_EXISTS    = 2,
-        EXIT_PROGRAM_NOT_RUNNING                  = 3,
-        EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
-};
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -8465,56 +8447,6 @@ static int halt_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
-        assert(t);
-        assert(_u);
-
-        if (streq(t, "now"))
-                *_u = 0;
-        else if (!strchr(t, ':')) {
-                uint64_t u;
-
-                if (safe_atou64(t, &u) < 0)
-                        return -EINVAL;
-
-                *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
-        } else {
-                char *e = NULL;
-                long hour, minute;
-                struct tm tm = {};
-                time_t s;
-                usec_t n;
-
-                errno = 0;
-                hour = strtol(t, &e, 10);
-                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
-                        return -EINVAL;
-
-                minute = strtol(e+1, &e, 10);
-                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
-                        return -EINVAL;
-
-                n = now(CLOCK_REALTIME);
-                s = (time_t) (n / USEC_PER_SEC);
-
-                assert_se(localtime_r(&s, &tm));
-
-                tm.tm_hour = (int) hour;
-                tm.tm_min = (int) minute;
-                tm.tm_sec = 0;
-
-                s = mktime(&tm);
-                assert(s >= 0);
-
-                *_u = (usec_t) s * USEC_PER_SEC;
-
-                while (*_u <= n)
-                        *_u += USEC_PER_DAY;
-        }
-
-        return 0;
-}
-
 static int shutdown_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_HELP = 0x100,
@@ -8820,47 +8752,6 @@ _pure_ static int action_to_runlevel(void) {
 }
 #endif
 
-static int talk_initctl(void) {
-#if HAVE_SYSV_COMPAT
-        struct init_request request = {
-                .magic = INIT_MAGIC,
-                .sleeptime  = 0,
-                .cmd = INIT_CMD_RUNLVL
-        };
-
-        _cleanup_close_ int fd = -1;
-        char rl;
-        int r;
-        const char *p;
-
-        rl = action_to_runlevel();
-        if (!rl)
-                return 0;
-
-        request.runlevel = rl;
-
-        FOREACH_STRING(p, "/run/initctl", "/dev/initctl") {
-                fd = open(p, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd >= 0 || errno != ENOENT)
-                        break;
-        }
-        if (fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open initctl fifo: %m");
-        }
-
-        r = loop_write(fd, &request, sizeof(request), false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to %s: %m", p);
-
-        return 1;
-#else
-        return 0;
-#endif
-}
-
 static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
@@ -8956,7 +8847,7 @@ static int start_with_fallback(void) {
                 return 0;
 
         /* Nothing else worked, so let's try /dev/initctl */
-        if (talk_initctl() > 0)
+        if (talk_initctl(action_to_runlevel()) > 0)
                 return 0;
 
         return log_error_errno(SYNTHETIC_ERRNO(EIO),
