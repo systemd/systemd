@@ -254,4 +254,4 @@ TimezoneMode timezone_mode_from_string(const char *s) _pure_;
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
 
-void device_node_free_many(DeviceNode *node, size_t n);
+void device_node_array_free(DeviceNode *node, size_t n);

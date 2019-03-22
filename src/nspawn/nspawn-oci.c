@@ -517,6 +517,20 @@ static bool oci_exclude_mount(const char *path) {
         return false;
 }
 
+typedef struct oci_mount_data {
+        char *destination;
+        char *source;
+        char *type;
+        char **options;
+} oci_mount_data;
+
+static void cleanup_oci_mount_data(oci_mount_data *data) {
+        free(data->destination);
+        free(data->source);
+        strv_free(data->options);
+        free(data->type);
+}
+
 static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = userdata;
         JsonVariant *e;
@@ -525,56 +539,42 @@ static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags,
         assert(s);
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-
-                struct mount_data {
-                        char *destination;
-                        char *source;
-                        char *type;
-                        char **options;
-                } data = {};
-
                 static const JsonDispatch table[] = {
-                        { "destination", JSON_VARIANT_STRING, oci_absolute_path,    offsetof(struct mount_data, destination), JSON_MANDATORY },
-                        { "source",      JSON_VARIANT_STRING, json_dispatch_string, offsetof(struct mount_data, source),      0              },
-                        { "options",     JSON_VARIANT_ARRAY,  json_dispatch_strv,   offsetof(struct mount_data, options),     0,             },
-                        { "type",        JSON_VARIANT_STRING, json_dispatch_string, offsetof(struct mount_data, type),        0              },
+                        { "destination", JSON_VARIANT_STRING, oci_absolute_path,    offsetof(oci_mount_data, destination), JSON_MANDATORY },
+                        { "source",      JSON_VARIANT_STRING, json_dispatch_string, offsetof(oci_mount_data, source),      0              },
+                        { "options",     JSON_VARIANT_ARRAY,  json_dispatch_strv,   offsetof(oci_mount_data, options),     0,             },
+                        { "type",        JSON_VARIANT_STRING, json_dispatch_string, offsetof(oci_mount_data, type),        0              },
                         {}
                 };
 
                 _cleanup_free_ char *joined_options = NULL;
                 CustomMount *m;
+                _cleanup_(cleanup_oci_mount_data) oci_mount_data data = {};
 
                 r = json_dispatch(e, table, oci_unexpected, flags, &data);
                 if (r < 0)
-                        goto fail_item;
+                        return r;
 
-                if (!path_is_absolute(data.destination)) {
-                        r = json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                     "Mount destination not an absolute path: %s", data.destination);
-                        goto fail_item;
-                }
+                if (!path_is_absolute(data.destination))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "Mount destination not an absolute path: %s", data.destination);
 
                 if (oci_exclude_mount(data.destination))
-                        goto skip_item;
+                        continue;
 
                 if (data.options) {
                         joined_options = strv_join(data.options, ",");
-                        if (!joined_options) {
-                                r = log_oom();
-                                goto fail_item;
-                        }
+                        if (!joined_options)
+                                return log_oom();
                 }
 
                 if (!data.type || streq(data.type, "bind")) {
-
-                        if (!path_is_absolute(data.source)) {
+                        if (data.source && !path_is_absolute(data.source)) {
                                 char *joined;
 
                                 joined = path_join(s->bundle, data.source);
-                                if (!joined) {
-                                        r = log_oom();
-                                        goto fail_item;
-                                }
+                                if (!joined)
+                                        return log_oom();
 
                                 free_and_replace(data.source, joined);
                         }
@@ -584,32 +584,13 @@ static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags,
                         m = custom_mount_add(&s->custom_mounts, &s->n_custom_mounts, CUSTOM_MOUNT_BIND);
                 } else
                         m = custom_mount_add(&s->custom_mounts, &s->n_custom_mounts, CUSTOM_MOUNT_ARBITRARY);
-                if (!m) {
-                        r = log_oom();
-                        goto fail_item;
-                }
+                if (!m)
+                        return log_oom();
 
                 m->destination = TAKE_PTR(data.destination);
                 m->source = TAKE_PTR(data.source);
                 m->options = TAKE_PTR(joined_options);
                 m->type_argument = TAKE_PTR(data.type);
-
-                strv_free(data.options);
-                continue;
-
-        fail_item:
-                free(data.destination);
-                free(data.source);
-                strv_free(data.options);
-                free(data.type);
-
-                return r;
-
-        skip_item:
-                free(data.destination);
-                free(data.source);
-                strv_free(data.options);
-                free(data.type);
         }
 
         return 0;

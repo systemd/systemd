@@ -139,7 +139,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
 
         *link = (link_config) {
                 .filename = TAKE_PTR(name),
-                .mac_policy = _MACPOLICY_INVALID,
+                .mac_address_policy = _MAC_ADDRESS_POLICY_INVALID,
                 .wol = _WOL_INVALID,
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
@@ -280,12 +280,12 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         return -ENOENT;
 }
 
-static int get_mac(sd_device *device, MACPolicy policy, struct ether_addr *mac) {
+static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr *mac) {
         unsigned addr_type;
-        bool want_random = policy == MACPOLICY_RANDOM;
+        bool want_random = policy == MAC_ADDRESS_POLICY_RANDOM;
         int r;
 
-        assert(IN_SET(policy, MACPOLICY_RANDOM, MACPOLICY_PERSISTENT));
+        assert(IN_SET(policy, MAC_ADDRESS_POLICY_RANDOM, MAC_ADDRESS_POLICY_PERSISTENT));
 
         r = link_unsigned_attribute(device, "addr_assign_type", &addr_type);
         if (r < 0)
@@ -304,7 +304,7 @@ static int get_mac(sd_device *device, MACPolicy policy, struct ether_addr *mac) 
 
         if (want_random == (addr_type == NET_ADDR_RANDOM))
                 return log_device_debug(device, "MAC on the device already matches policy *%s*",
-                                        mac_policy_to_string(policy));
+                                        mac_address_policy_to_string(policy));
 
         if (want_random) {
                 log_device_debug(device, "Using random bytes to generate MAC");
@@ -444,8 +444,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 log_device_debug(device, "Policies didn't yield a name and Name= is not given, not renaming.");
  no_rename:
 
-        if (IN_SET(config->mac_policy, MACPOLICY_PERSISTENT, MACPOLICY_RANDOM)) {
-                if (get_mac(device, config->mac_policy, &generated_mac) > 0)
+        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM)) {
+                if (get_mac(device, config->mac_address_policy, &generated_mac) > 0)
                         mac = &generated_mac;
         } else
                 mac = config->mac;
@@ -476,14 +476,14 @@ int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
         return 0;
 }
 
-static const char* const mac_policy_table[_MACPOLICY_MAX] = {
-        [MACPOLICY_PERSISTENT] = "persistent",
-        [MACPOLICY_RANDOM] = "random",
-        [MACPOLICY_NONE] = "none",
+static const char* const mac_address_policy_table[_MAC_ADDRESS_POLICY_MAX] = {
+        [MAC_ADDRESS_POLICY_PERSISTENT] = "persistent",
+        [MAC_ADDRESS_POLICY_RANDOM] = "random",
+        [MAC_ADDRESS_POLICY_NONE] = "none",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(mac_policy, MACPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_policy, mac_policy, MACPolicy,
+DEFINE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_address_policy, mac_address_policy, MACAddressPolicy,
                          "Failed to parse MAC address policy");
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
