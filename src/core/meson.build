@@ -156,12 +156,15 @@ libcore_shared = static_library(
         dependencies : [versiondep,
                         libmount])
 
+libbpf_static_dep = libbpf_proj.get_variable('libbpf_static_dep')
+bpf_includes = libbpf_proj.get_variable('bpf_includes')
+
 libcore = static_library(
         'core',
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
-        include_directories : includes,
+        include_directories : [includes, bpf_includes],
         link_whole : libcore_shared,
         dependencies : [versiondep,
                         threads,
@@ -172,7 +175,8 @@ libcore = static_library(
                         libkmod,
                         libapparmor,
                         libselinux,
-                        libmount])
+                        libmount,
+                        libbpf_static_dep])
 
 systemd_sources = files('main.c')
 
