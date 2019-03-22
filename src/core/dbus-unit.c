@@ -319,9 +319,8 @@ int bus_unit_method_start_generic(
                 bool reload_if_possible,
                 sd_bus_error *error) {
 
-        const char *smode;
+        const char *smode, *verb;
         JobMode mode;
-        _cleanup_free_ char *verb = NULL;
         static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
                 [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
                 [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
@@ -351,11 +350,9 @@ int bus_unit_method_start_generic(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
 
         if (reload_if_possible)
-                verb = strjoin("reload-or-", job_type_to_string(job_type));
+                verb = strjoina("reload-or-", job_type_to_string(job_type));
         else
-                verb = strdup(job_type_to_string(job_type));
-        if (!verb)
-                return -ENOMEM;
+                verb = job_type_to_string(job_type);
 
         r = bus_verify_manage_units_async_full(
                         u,
