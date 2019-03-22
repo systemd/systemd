@@ -873,6 +873,22 @@ evdev:input:b0003v046Dp00*
  KEYBOARD_KEY_c104b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
  KEYBOARD_KEY_c104c=prog4           # Smartkey D (Fn + F12) → XF86Launch4
 
+# Cordless Access Keyboard (27 MHz, modelnumber Y-RH35)
+evdev:input:b0003v046Dp0042*
+ KEYBOARD_KEY_c1002=camera
+ KEYBOARD_KEY_c1041=new
+ KEYBOARD_KEY_c1042=reply
+ KEYBOARD_KEY_c1043=forward
+ KEYBOARD_KEY_c1044=send
+ KEYBOARD_KEY_c1045=previoussong
+ KEYBOARD_KEY_c1046=nextsong
+ KEYBOARD_KEY_c1047=playpause
+ KEYBOARD_KEY_c1048=stopcd
+ KEYBOARD_KEY_c1049=file
+ KEYBOARD_KEY_c104a=documents
+ KEYBOARD_KEY_c104b=images
+ KEYBOARD_KEY_c104c=audio
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
