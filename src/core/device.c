@@ -433,7 +433,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (strv_contains(d->wants_property, *i)) /* Was this unit already listed before? */
                                 continue;
 
-                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, &error, NULL);
+                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, NULL, &error, NULL);
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
                 }
