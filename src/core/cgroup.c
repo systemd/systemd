@@ -3179,20 +3179,18 @@ int unit_get_ip_accounting(
 }
 
 int unit_reset_cpu_accounting(Unit *u) {
-        nsec_t ns;
         int r;
 
         assert(u);
 
         u->cpu_usage_last = NSEC_INFINITY;
 
-        r = unit_get_cpu_usage_raw(u, &ns);
+        r = unit_get_cpu_usage_raw(u, &u->cpu_usage_base);
         if (r < 0) {
                 u->cpu_usage_base = 0;
                 return r;
         }
 
-        u->cpu_usage_base = ns;
         return 0;
 }
 
