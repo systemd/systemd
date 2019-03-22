@@ -18,9 +18,10 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "string-table.h"
 #include "string-util.h"
-#include "udevadm.h"
 #include "udevadm-util.h"
+#include "udevadm.h"
 
 typedef enum ActionType {
         ACTION_QUERY,
@@ -50,12 +51,8 @@ static bool skip_attribute(const char *name) {
                 "subsystem",
                 "module",
         };
-        unsigned i;
 
-        for (i = 0; i < ELEMENTSOF(skip); i++)
-                if (streq(name, skip[i]))
-                        return true;
-        return false;
+        return string_table_lookup(skip, ELEMENTSOF(skip), name) >= 0;
 }
 
 static void print_all_attributes(sd_device *device, const char *key) {

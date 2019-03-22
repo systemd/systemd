@@ -2185,26 +2185,21 @@ int bus_exec_context_set_transient_property(
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        char ***dirs = NULL;
                         ExecDirectoryType i;
+                        ExecDirectory *d;
 
-                        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                                if (streq(name, exec_directory_type_to_string(i))) {
-                                        dirs = &c->directories[i].paths;
-                                        break;
-                                }
-
-                        assert(dirs);
+                        assert_se((i = exec_directory_type_from_string(name)) >= 0);
+                        d = c->directories + i;
 
                         if (strv_isempty(l)) {
-                                *dirs = strv_free(*dirs);
+                                d->paths = strv_free(d->paths);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 _cleanup_free_ char *joined = NULL;
 
-                                r = strv_extend_strv(dirs, l, true);
+                                r = strv_extend_strv(&d->paths, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)

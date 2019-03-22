@@ -59,13 +59,13 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,scope) \
         scope type name##_from_string(const char *s) {                  \
-                type i;                                                 \
                 unsigned u = 0;                                         \
+                type i;                                                 \
                 if (!s)                                                 \
                         return (type) -1;                               \
-                for (i = 0; i < (type) ELEMENTSOF(name##_table); i++)   \
-                        if (streq_ptr(name##_table[i], s))              \
-                                return i;                               \
+                i = (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
+                if (i >= 0)                                             \
+                        return i;                                       \
                 if (safe_atou(s, &u) >= 0 && u <= max)                  \
                         return (type) u;                                \
                 return (type) -1;                                       \
