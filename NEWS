@@ -7,8 +7,8 @@ CHANGES WITH 242 in spe:
           similar interfaces that do not have other identifying information,
           the interface name is used as the basis for persistent seed for MAC
           and IPv4LL addresses. The way that devices that were handled
-          previously is not changed, and this change is about covering devices
-          then previously by the "persistent" policy.
+          previously is not changed, and this change is about covering more
+          devices then previously by the "persistent" policy.
 
           MACAddressPolicy=random may be used to force randomized MACs and
           IPv4LL addresses for a device if desired.
