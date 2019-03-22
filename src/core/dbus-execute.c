@@ -2199,7 +2199,7 @@ int bus_exec_context_set_transient_property(
 
                                 r = strv_extend_strv(&d->paths, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
                                 if (!joined)
