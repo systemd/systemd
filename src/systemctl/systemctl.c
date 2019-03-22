@@ -114,6 +114,7 @@ static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
+static bool arg_show_transaction = false;
 static int arg_force = 0;
 static bool arg_ask_password = false;
 static bool arg_runtime = false;
@@ -728,7 +729,6 @@ static int get_unit_list_recursive(
                 *_machines = NULL;
 
         *_unit_infos = TAKE_PTR(unit_infos);
-
         *_replies = TAKE_PTR(replies);
 
         return c;
@@ -2741,25 +2741,26 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
 }
 
 static const struct {
-        const char *verb;
-        const char *method;
+        const char *verb;      /* systemctl verb */
+        const char *method;    /* Name of the specific D-Bus method */
+        const char *job_type;  /* Job type when passing to the generic EnqueueUnitJob() method */
 } unit_actions[] = {
-        { "start",                 "StartUnit" },
-        { "stop",                  "StopUnit" },
-        { "condstop",              "StopUnit" },
-        { "reload",                "ReloadUnit" },
-        { "restart",               "RestartUnit" },
-        { "try-restart",           "TryRestartUnit" },
-        { "condrestart",           "TryRestartUnit" },
-        { "reload-or-restart",     "ReloadOrRestartUnit" },
-        { "try-reload-or-restart", "ReloadOrTryRestartUnit" },
-        { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
-        { "condreload",            "ReloadOrTryRestartUnit" },
-        { "force-reload",          "ReloadOrTryRestartUnit" }
+        { "start",                 "StartUnit",              "start"                 },
+        { "stop",                  "StopUnit",               "stop"                  },
+        { "condstop",              "StopUnit",               "stop"                  }, /* legacy alias */
+        { "reload",                "ReloadUnit",             "reload"                },
+        { "restart",               "RestartUnit",            "restart"               },
+        { "try-restart",           "TryRestartUnit",         "try-restart"           },
+        { "condrestart",           "TryRestartUnit",         "try-restart"           }, /* legacy alias */
+        { "reload-or-restart",     "ReloadOrRestartUnit",    "reload-or-restart"     },
+        { "try-reload-or-restart", "ReloadOrTryRestartUnit", "reload-or-try-restart" },
+        { "reload-or-try-restart", "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
+        { "condreload",            "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
+        { "force-reload",          "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
 };
 
 static const char *verb_to_method(const char *verb) {
-       uint i;
+       size_t i;
 
        for (i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
@@ -2768,14 +2769,14 @@ static const char *verb_to_method(const char *verb) {
        return "StartUnit";
 }
 
-static const char *method_to_verb(const char *method) {
-       uint i;
+static const char *verb_to_job_type(const char *verb) {
+       size_t i;
 
        for (i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].method, method))
-                        return unit_actions[i].verb;
+                if (streq_ptr(unit_actions[i].verb, verb))
+                        return unit_actions[i].job_type;
 
-       return "n/a";
+       return "start";
 }
 
 typedef struct {
@@ -2932,7 +2933,8 @@ static int wait_context_watch(
 
 static int start_unit_one(
                 sd_bus *bus,
-                const char *method,
+                const char *method,    /* When using classic per-job bus methods */
+                const char *job_type,  /* When using new-style EnqueueUnitJob() */
                 const char *name,
                 const char *mode,
                 sd_bus_error *error,
@@ -2941,6 +2943,7 @@ static int start_unit_one(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
+        bool done = false;
         int r;
 
         assert(method);
@@ -2957,44 +2960,80 @@ static int start_unit_one(
         log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
                   arg_dry_run ? "Would execute" : "Executing",
                   method, name, mode);
+
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method,
-                        error,
-                        &reply,
-                        "ss", name, mode);
-        if (r < 0) {
-                const char *verb;
+        if (arg_show_transaction) {
+                _cleanup_(sd_bus_error_free) sd_bus_error enqueue_error = SD_BUS_ERROR_NULL;
 
-                /* There's always a fallback possible for legacy actions. */
-                if (arg_action != ACTION_SYSTEMCTL)
-                        return r;
+                /* Use the new, fancy EnqueueUnitJob() API if the user wants us to print the transaction */
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "EnqueueUnitJob",
+                                &enqueue_error,
+                                &reply,
+                                "sss",
+                                name, job_type, mode);
+                if (r < 0) {
+                        if (!sd_bus_error_has_name(&enqueue_error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                                (void) sd_bus_error_move(error, &enqueue_error);
+                                goto fail;
+                        }
 
-                verb = method_to_verb(method);
+                        /* Hmm, the API is not yet available. Let's use the classic API instead (see below). */
+                        log_notice("--show-transaction not supported by this service manager, proceeding without.");
+                } else {
+                        const char *u, *jt;
+                        uint32_t id;
 
-                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
+                        r = sd_bus_message_read(reply, "uosos", &id, &path, &u, NULL, &jt);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
 
-                if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
-                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
-                    !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
-                        log_error("See %s logs and 'systemctl%s status%s %s' for details.",
-                                   arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
-                                   arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
-                                   name[0] == '-' ? " --" : "",
-                                   name);
+                        log_info("Enqueued anchor job %" PRIu32 " %s/%s.", id, u, jt);
 
-                return r;
+                        r = sd_bus_message_enter_container(reply, 'a', "(uosos)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        for (;;) {
+                                r = sd_bus_message_read(reply, "(uosos)", &id, NULL, &u, NULL, &jt);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                log_info("Enqueued auxiliary job %" PRIu32 " %s/%s.", id, u, jt);
+                        }
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        done = true;
+                }
         }
 
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        if (!done) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                method,
+                                error,
+                                &reply,
+                                "ss", name, mode);
+                if (r < 0)
+                        goto fail;
+
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
 
         if (need_daemon_reload(bus, name) > 0)
                 warn_unit_file_changed(name);
@@ -3007,6 +3046,24 @@ static int start_unit_one(
         }
 
         return 0;
+
+fail:
+        /* There's always a fallback possible for legacy actions. */
+        if (arg_action != ACTION_SYSTEMCTL)
+                return r;
+
+        log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
+
+        if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
+            !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
+            !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
+                log_error("See %s logs and 'systemctl%s status%s %s' for details.",
+                          arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
+                          arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                          name[0] == '-' ? " --" : "",
+                          name);
+
+        return r;
 }
 
 static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
@@ -3063,7 +3120,6 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         }
 
         *ret = TAKE_PTR(mangled);
-
         return 0;
 }
 
@@ -3122,7 +3178,7 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
 static int start_unit(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(wait_context_free) WaitContext wait_context = {};
-        const char *method, *mode, *one_name, *suffix = NULL;
+        const char *method, *job_type, *mode, *one_name, *suffix = NULL;
         _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
@@ -3148,27 +3204,34 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 action = verb_to_action(argv[0]);
 
                 if (action != _ACTION_INVALID) {
+                        /* A command in style "systemctl reboot", "systemctl poweroff", … */
                         method = "StartUnit";
+                        job_type = "start";
                         mode = action_table[action].mode;
                         one_name = action_table[action].target;
                 } else {
                         if (streq(argv[0], "isolate")) {
+                                /* A "systemctl isolate <unit1> <unit2> …" command */
                                 method = "StartUnit";
+                                job_type = "start";
                                 mode = "isolate";
-
                                 suffix = ".target";
                         } else {
+                                /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
+                                job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode;
                         }
                         one_name = NULL;
                 }
         } else {
+                /* A SysV legacy command such as "halt", "reboot", "poweroff", … */
                 assert(arg_action >= 0 && arg_action < _ACTION_MAX);
                 assert(action_table[arg_action].target);
                 assert(action_table[arg_action].mode);
 
                 method = "StartUnit";
+                job_type = "start";
                 mode = action_table[arg_action].mode;
                 one_name = action_table[arg_action].target;
         }
@@ -3201,9 +3264,11 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
+
                 r = sd_event_default(&wait_context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate event loop: %m");
+
                 r = sd_bus_attach_event(bus, wait_context.event, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach bus to event loop: %m");
@@ -3212,7 +3277,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
+                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
                 if (ret == EXIT_SUCCESS && r < 0)
                         ret = translate_bus_error_to_exit_status(r, &error);
 
@@ -7534,6 +7599,8 @@ static int systemctl_help(void) {
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
                "                      queueing a new job\n"
+               "  -T --show-transaction\n"
+               "                      When enqueuing a unit job, show full transaction\n"
                "     --show-types     When showing sockets, explicitly show their type\n"
                "     --value          When showing properties, only print the value\n"
                "  -i --ignore-inhibitors\n"
@@ -7941,6 +8008,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "boot-loader-entry",   required_argument, NULL, ARG_BOOT_LOADER_ENTRY   },
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
+                { "show-transaction",    no_argument,       NULL, 'T'                     },
                 {}
         };
 
@@ -7952,7 +8020,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* we default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -8287,6 +8355,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_MESSAGE:
                         if (strv_extend(&arg_wall, optarg) < 0)
                                 return log_oom();
+                        break;
+
+                case 'T':
+                        arg_show_transaction = true;
                         break;
 
                 case '.':
