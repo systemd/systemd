@@ -2871,7 +2871,7 @@ bool fd_is_cgroup_fs(int fd) {
         return is_cgroup_fs(&s);
 }
 
-static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
+static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_CPU] = "cpu",
         [CGROUP_CONTROLLER_CPUACCT] = "cpuacct",
         [CGROUP_CONTROLLER_IO] = "io",

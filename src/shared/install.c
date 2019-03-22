@@ -117,7 +117,7 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
-static const char *unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
+static const char *const unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
         [UNIT_FILE_TYPE_REGULAR] = "regular",
         [UNIT_FILE_TYPE_SYMLINK] = "symlink",
         [UNIT_FILE_TYPE_MASKED] = "masked",

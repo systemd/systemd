@@ -3195,7 +3195,7 @@ static int serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
         return serialize_item(f, key, s);
 }
 
-static const char *ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
         [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",

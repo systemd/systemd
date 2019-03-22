@@ -1504,7 +1504,7 @@ typedef enum {
         _CREATION_MODE_INVALID = -1
 } CreationMode;
 
-static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
+static const char *const creation_mode_verb_table[_CREATION_MODE_MAX] = {
         [CREATION_NORMAL] = "Created",
         [CREATION_EXISTING] = "Found existing",
         [CREATION_FORCE] = "Created replacement",

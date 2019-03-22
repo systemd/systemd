@@ -3787,7 +3787,7 @@ static bool generator_path_any(const char* const* paths) {
         return found;
 }
 
-static const char* system_env_generator_binary_paths[] = {
+static const char *const system_env_generator_binary_paths[] = {
         "/run/systemd/system-environment-generators",
         "/etc/systemd/system-environment-generators",
         "/usr/local/lib/systemd/system-environment-generators",
@@ -3795,7 +3795,7 @@ static const char* system_env_generator_binary_paths[] = {
         NULL
 };
 
-static const char* user_env_generator_binary_paths[] = {
+static const char *const user_env_generator_binary_paths[] = {
         "/run/systemd/user-environment-generators",
         "/etc/systemd/user-environment-generators",
         "/usr/local/lib/systemd/user-environment-generators",
@@ -3805,7 +3805,7 @@ static const char* user_env_generator_binary_paths[] = {
 
 static int manager_run_environment_generators(Manager *m) {
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
-        const char **paths;
+        const char *const *paths;
         void* args[] = {
                 [STDOUT_GENERATE] = &tmp,
                 [STDOUT_COLLECT] = &tmp,

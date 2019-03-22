@@ -219,7 +219,7 @@ struct rule_tmp {
 
 #if ENABLE_DEBUG_UDEV
 static const char *operation_str(enum operation_type type) {
-        static const char *operation_strs[] = {
+        static const char *const operation_strs[] = {
                 [OP_UNSET] =            "UNSET",
                 [OP_MATCH] =            "match",
                 [OP_NOMATCH] =          "nomatch",
@@ -235,7 +235,7 @@ static const char *operation_str(enum operation_type type) {
 }
 
 static const char *string_glob_str(enum string_glob_type type) {
-        static const char *string_glob_strs[] = {
+        static const char *const string_glob_strs[] = {
                 [GL_UNSET] =            "UNSET",
                 [GL_PLAIN] =            "plain",
                 [GL_GLOB] =             "glob",
@@ -248,7 +248,7 @@ static const char *string_glob_str(enum string_glob_type type) {
 }
 
 static const char *token_str(enum token_type type) {
-        static const char *token_strs[] = {
+        static const char *const token_strs[] = {
                 [TK_UNSET] =                    "UNSET",
                 [TK_RULE] =                     "RULE",
 
