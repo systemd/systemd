@@ -358,7 +358,7 @@ int bus_unit_method_start_generic(
                         u,
                         verb,
                         CAP_SYS_ADMIN,
-                        job_type < _JOB_TYPE_MAX ? polkit_message_for_job[job_type] : NULL,
+                        polkit_message_for_job[job_type],
                         true,
                         message,
                         error);
