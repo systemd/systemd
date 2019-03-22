@@ -4630,21 +4630,23 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
                 _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
 
-                c = new0(UnitCondition, 1);
+                c = new(UnitCondition, 1);
                 if (!c)
                         return -ENOMEM;
 
-                c->name = strdup(cond);
-                c->param = strdup(param);
+                *c = (UnitCondition) {
+                        .name = strdup(cond),
+                        .param = strdup(param),
+                        .trigger = trigger,
+                        .negate = negate,
+                        .tristate = state,
+                };
+
                 if (!c->name || !c->param)
                         return -ENOMEM;
 
-                c->trigger = trigger;
-                c->negate = negate;
-                c->tristate = state;
 
-                LIST_PREPEND(conditions, i->conditions, c);
-                c = NULL;
+                LIST_PREPEND(conditions, i->conditions, TAKE_PTR(c));
         }
         if (r < 0)
                 return r;
