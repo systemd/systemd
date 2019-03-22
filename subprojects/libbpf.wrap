@@ -1,0 +1,5 @@
+[wrap-git]
+directory = libbpf
+url = https://github.com/libbpf/libbpf
+revision = head
+clone-recursive = true
