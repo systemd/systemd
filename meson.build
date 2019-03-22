@@ -2732,7 +2732,8 @@ exe = executable('systemd-nspawn',
                  link_with : [libcore_shared,
                               libnspawn_core,
                               libshared],
-                 dependencies : [libblkid],
+                 dependencies : [libblkid,
+                                 libseccomp],
                  install_rpath : rootlibexecdir,
                  install : true)
 public_programs += exe
