@@ -141,7 +141,6 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
-static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
         ACTION_HALT,
@@ -6177,10 +6176,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                         init = NULL;
         }
 
-        /* Instruct PID1 to exclude us from its killing spree applied during
-         * the transition. Otherwise we would exit with a failure status even
-         * though the switch to the new root has succeed. */
-        argv_cmdline[0] = '@';
+        /* Instruct PID1 to exclude us from its killing spree applied during the transition. Otherwise we
+         * would exit with a failure status even though the switch to the new root has succeed. */
+        assert(saved_argv);
+        assert(saved_argv[0]);
+        saved_argv[0][0] = '@';
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -6350,13 +6350,13 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 const char *argv[] = {
                         ROOTLIBEXECDIR "/systemd-sysv-install",
-                        NULL,
-                        NULL,
-                        NULL,
+                        NULL, /* --root= */
+                        NULL, /* verb */
+                        NULL, /* service */
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -6397,10 +6397,21 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
                 }
 
-                if (!isempty(arg_root))
-                        argv[c++] = q = strappend("--root=", arg_root);
+                if (!isempty(arg_root)) {
+                        q = strappend("--root=", arg_root);
+                        if (!q)
+                                return log_oom();
 
-                argv[c++] = verb;
+                        argv[c++] = q;
+                }
+
+                /* Let's copy the verb, since it's still pointing directly into the original argv[] array we
+                 * got passed, but safe_fork() is likely going to rewrite that for the new child */
+                v = strdup(verb);
+                if (!v)
+                        return log_oom();
+
+                argv[c++] = v;
                 argv[c++] = basename(p);
                 argv[c] = NULL;
 
@@ -6444,7 +6455,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 assert(f > 0);
                 f--;
                 assert(args[f] == name);
-                strv_remove(args, name);
+                strv_remove(args + f, name);
         }
 
 #endif
@@ -9160,8 +9171,6 @@ static int logind_cancel_shutdown(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
-
-        argv_cmdline = argv[0];
 
         setlocale(LC_ALL, "");
         log_parse_environment();

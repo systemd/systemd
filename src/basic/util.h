@@ -46,6 +46,11 @@ static inline const char* enable_disable(bool b) {
 extern int saved_argc;
 extern char **saved_argv;
 
+static inline void save_argc_argv(int argc, char **argv) {
+        saved_argc = argc;
+        saved_argv = argv;
+}
+
 bool kexec_loaded(void);
 
 int prot_from_flags(int flags) _const_;

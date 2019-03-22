@@ -603,8 +603,7 @@ static void test_ioprio_class_from_to_string(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-        saved_argc = argc;
-        saved_argv = argv;
+        save_argc_argv(argc, argv);
 
         if (argc > 1) {
                 pid_t pid = 0;

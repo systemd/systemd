@@ -8,17 +8,19 @@
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
+#include "util.h"
 
 #define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
+                save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \
-                static_destruct();                                      \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
-                mac_selinux_finish();                                   \
                 pager_close();                                          \
+                mac_selinux_finish();                                   \
+                static_destruct();                                      \
                 return ret;                                             \
         }
 
