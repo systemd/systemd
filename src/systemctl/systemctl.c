@@ -3734,7 +3734,7 @@ static int start_special(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (a == ACTION_REBOOT && argc > 1) {
-                r = update_reboot_parameter_and_warn(argv[1]);
+                r = update_reboot_parameter_and_warn(argv[1], false);
                 if (r < 0)
                         return r;
 
@@ -8455,7 +8455,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
-                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL);
+                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL, false);
                 if (r < 0)
                         return r;
         } else if (optind < argc)

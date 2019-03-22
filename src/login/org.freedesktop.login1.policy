@@ -337,6 +337,17 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.set-reboot-parameter">
+                <description gettext-domain="systemd">Configure reboot parameter for kernel's reboot reason driver</description>
+                <message gettext-domain="systemd">Authentication is required to configure reboot parameter for kernel's reboot reason driver.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
+        </action>
+
         <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
                 <description gettext-domain="systemd">Indicate to the firmware to boot to setup interface</description>
                 <message gettext-domain="systemd">Authentication is required to indicate to the firmware to boot to setup interface.</message>

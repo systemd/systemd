@@ -12,10 +12,13 @@
 #include "umask-util.h"
 #include "virt.h"
 
-int update_reboot_parameter_and_warn(const char *parameter) {
+int update_reboot_parameter_and_warn(const char *parameter, bool keep) {
         int r;
 
         if (isempty(parameter)) {
+                if (keep)
+                        return 0;
+
                 if (unlink("/run/systemd/reboot-param") < 0) {
                         if (errno == ENOENT)
                                 return 0;
@@ -32,6 +35,18 @@ int update_reboot_parameter_and_warn(const char *parameter) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to write reboot parameter file: %m");
         }
+
+        return 0;
+}
+
+int read_reboot_parameter(char **parameter) {
+        int r;
+
+        assert(parameter);
+
+        r = read_one_line_file("/run/systemd/reboot-param", parameter);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Failed to read /run/systemd/reboot-param: %m");
 
         return 0;
 }

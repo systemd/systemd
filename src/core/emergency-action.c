@@ -47,7 +47,7 @@ void emergency_action(
         case EMERGENCY_ACTION_REBOOT:
                 log_and_status(m, warn, "Rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
                 (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
 
                 break;
@@ -55,7 +55,7 @@ void emergency_action(
         case EMERGENCY_ACTION_REBOOT_FORCE:
                 log_and_status(m, warn, "Forcibly rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
                 m->objective = MANAGER_REBOOT;
 
                 break;

@@ -32,6 +32,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "selinux-util.h"
 #include "sleep-config.h"
 #include "special.h"
@@ -42,6 +43,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+#include "virt.h"
 
 static int get_sender_session(Manager *m, sd_bus_message *message, sd_bus_error *error, Session **ret) {
 
@@ -166,6 +168,32 @@ int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char 
 
         *ret = seat;
         return 0;
+}
+
+static int return_test_polkit(
+                sd_bus_message *message,
+                int capability,
+                const char *action,
+                const char **details,
+                uid_t good_user,
+                sd_bus_error *e) {
+
+        const char *result;
+        bool challenge;
+        int r;
+
+        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
+        if (r < 0)
+                return r;
+
+        if (r > 0)
+                result = "yes";
+        else if (challenge)
+                result = "challenge";
+        else
+                result = "no";
+
+        return sd_bus_reply_method_return(message, "s", result);
 }
 
 static int property_get_idle_hint(
@@ -2382,6 +2410,97 @@ static int method_can_suspend_then_hibernate(sd_bus_message *message, void *user
                         error);
 }
 
+static int property_get_reboot_parameter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        _cleanup_free_ char *parameter = NULL;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(userdata);
+
+        r = read_reboot_parameter(&parameter);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append(reply, "s", parameter);
+}
+
+static int method_set_reboot_parameter(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        const char *arg;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &arg);
+        if (r < 0)
+                return r;
+
+        r = detect_container();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Reboot parameter not supported in containers, refusing.");
+
+        r = bus_verify_polkit_async(message,
+                                    CAP_SYS_ADMIN,
+                                    "org.freedesktop.login1.set-reboot-parameter",
+                                    NULL,
+                                    false,
+                                    UID_INVALID,
+                                    &m->polkit_registry,
+                                    error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = update_reboot_parameter_and_warn(arg, false);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+static int method_can_reboot_parameter(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = detect_container();
+        if (r < 0)
+                return r;
+        if (r > 0) /* Inside containers, specifying a reboot parameter, doesn't make much sense */
+                return sd_bus_reply_method_return(message, "s", "na");
+
+        return return_test_polkit(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.set-reboot-parameter",
+                        NULL,
+                        UID_INVALID,
+                        error);
+}
+
 static int property_get_reboot_to_firmware_setup(
                 sd_bus *bus,
                 const char *path,
@@ -2486,32 +2605,6 @@ static int method_set_reboot_to_firmware_setup(
         }
 
         return sd_bus_reply_method_return(message, NULL);
-}
-
-static int return_test_polkit(
-                sd_bus_message *message,
-                int capability,
-                const char *action,
-                const char **details,
-                uid_t good_user,
-                sd_bus_error *e) {
-
-        const char *result;
-        bool challenge;
-        int r;
-
-        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
-        if (r < 0)
-                return r;
-
-        if (r > 0)
-                result = "yes";
-        else if (challenge)
-                result = "challenge";
-        else
-                result = "no";
-
-        return sd_bus_reply_method_return(message, "s", result);
 }
 
 static int method_can_reboot_to_firmware_setup(
@@ -3137,6 +3230,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("KillOnlyUsers", "as", NULL, offsetof(Manager, kill_only_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillExcludeUsers", "as", NULL, offsetof(Manager, kill_exclude_users), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KillUserProcesses", "b", NULL, offsetof(Manager, kill_user_processes), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RebootParameter", "s", property_get_reboot_parameter, 0, 0),
         SD_BUS_PROPERTY("RebootToFirmwareSetup", "b", property_get_reboot_to_firmware_setup, 0, 0),
         SD_BUS_PROPERTY("RebootToBootLoaderMenu", "t", property_get_reboot_to_boot_loader_menu, 0, 0),
         SD_BUS_PROPERTY("RebootToBootLoaderEntry", "s", property_get_reboot_to_boot_loader_entry, 0, 0),
@@ -3213,6 +3307,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("ScheduleShutdown", "st", NULL, method_schedule_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelScheduledShutdown", NULL, "b", method_cancel_scheduled_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanRebootParameter", NULL, "s", method_can_reboot_parameter, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetRebootParameter", "s", NULL, method_set_reboot_parameter, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanRebootToFirmwareSetup", NULL, "s", method_can_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetRebootToFirmwareSetup", "b", NULL, method_set_reboot_to_firmware_setup, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanRebootToBootLoaderMenu", NULL, "s", method_can_reboot_to_boot_loader_menu, SD_BUS_VTABLE_UNPRIVILEGED),
