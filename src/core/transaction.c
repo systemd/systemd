@@ -585,7 +585,12 @@ rescan:
         }
 }
 
-static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
+static int transaction_apply(
+                Transaction *tr,
+                Manager *m,
+                JobMode mode,
+                Set *affected_jobs) {
+
         Iterator i;
         Job *j;
         int r;
@@ -642,6 +647,11 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 job_add_to_dbus_queue(j);
                 job_start_timer(j, false);
                 job_shutdown_magic(j);
+
+                /* When 'affected' is specified, let's track all in it all jobs that were touched because of
+                 * this transaction. */
+                if (affected_jobs)
+                        (void) set_put(affected_jobs, j);
         }
 
         return 0;
@@ -654,7 +664,13 @@ rollback:
         return r;
 }
 
-int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error *e) {
+int transaction_activate(
+                Transaction *tr,
+                Manager *m,
+                JobMode mode,
+                Set *affected_jobs,
+                sd_bus_error *e) {
+
         Iterator i;
         Job *j;
         int r;
@@ -731,7 +747,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
                 return log_notice_errno(r, "Requested transaction contradicts existing jobs: %s", bus_error_message(e, r));
 
         /* Tenth step: apply changes */
-        r = transaction_apply(tr, m, mode);
+        r = transaction_apply(tr, m, mode, affected_jobs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to apply transaction: %m");
 

@@ -54,8 +54,7 @@ int emergency_action(
                 log_and_status(m, "Rebooting", reason);
 
                 (void) update_reboot_parameter_and_warn(reboot_arg);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
-
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
         case EMERGENCY_ACTION_REBOOT_FORCE:
@@ -83,7 +82,7 @@ int emergency_action(
 
         case EMERGENCY_ACTION_POWEROFF:
                 log_and_status(m, "Powering off", reason);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
         case EMERGENCY_ACTION_POWEROFF_FORCE:

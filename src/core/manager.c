@@ -1242,7 +1242,7 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 }
 
                 /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, NULL);
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1685,9 +1685,17 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         return 0;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret) {
-        int r;
+int manager_add_job(
+                Manager *m,
+                JobType type,
+                Unit *unit,
+                JobMode mode,
+                Set *affected_jobs,
+                sd_bus_error *error,
+                Job **ret) {
+
         Transaction *tr;
+        int r;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
@@ -1695,10 +1703,10 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_e
         assert(mode < _JOB_MODE_MAX);
 
         if (mode == JOB_ISOLATE && type != JOB_START)
-                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
-                return sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return sd_bus_error_setf(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
@@ -1710,7 +1718,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_e
 
         r = transaction_add_job_and_dependencies(tr, type, unit, NULL, true, false,
                                                  IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS),
-                                                 mode == JOB_IGNORE_DEPENDENCIES, e);
+                                                 mode == JOB_IGNORE_DEPENDENCIES, error);
         if (r < 0)
                 goto tr_abort;
 
@@ -1720,7 +1728,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_e
                         goto tr_abort;
         }
 
-        r = transaction_activate(tr, m, mode, e);
+        r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
                 goto tr_abort;
 
@@ -1728,8 +1736,8 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_e
                        "Enqueued job %s/%s as %u", unit->id,
                        job_type_to_string(type), (unsigned) tr->anchor_job->id);
 
-        if (_ret)
-                *_ret = tr->anchor_job;
+        if (ret)
+                *ret = tr->anchor_job;
 
         transaction_free(tr);
         return 0;
@@ -1740,7 +1748,7 @@ tr_abort:
         return r;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, sd_bus_error *e, Job **ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
         Unit *unit = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
@@ -1754,10 +1762,10 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
                 return r;
         assert(unit);
 
-        return manager_add_job(m, type, unit, mode, e, ret);
+        return manager_add_job(m, type, unit, mode, affected_jobs, e, ret);
 }
 
-int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Job **ret) {
+int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -1766,7 +1774,7 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        r = manager_add_job_by_name(m, type, name, mode, &error, ret);
+        r = manager_add_job_by_name(m, type, name, mode, affected_jobs, &error, ret);
         if (r < 0)
                 return log_warning_errno(r, "Failed to enqueue %s job for %s: %s", job_mode_to_string(mode), name, bus_error_message(&error, r));
 
@@ -1794,7 +1802,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         /* Failure in adding individual dependencies is ignored, so this always succeeds. */
         transaction_add_propagate_reload_jobs(tr, unit, tr->anchor_job, mode == JOB_IGNORE_DEPENDENCIES, e);
 
-        r = transaction_activate(tr, m, mode, e);
+        r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
                 goto tr_abort;
 
@@ -2512,7 +2520,7 @@ static void manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         log_debug("Activating special unit %s", name);
 
-        r = manager_add_job_by_name(m, JOB_START, name, mode, &error, NULL);
+        r = manager_add_job_by_name(m, JOB_START, name, mode, NULL, &error, NULL);
         if (r < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error_message(&error, r));
 }

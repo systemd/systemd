@@ -2274,7 +2274,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                                 goto fail;
                         }
 
-                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, &error, NULL);
+                        r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, NULL, &error, NULL);
                         if (r < 0)
                                 goto fail;
                 }
@@ -2349,7 +2349,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 service->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the service
                          * closes and forgets the connection fd again, immediately. */

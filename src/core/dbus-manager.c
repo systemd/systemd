@@ -549,6 +549,26 @@ static int method_reload_or_try_restart_unit(sd_bus_message *message, void *user
         return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
+static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = manager_load_unit(m, name, NULL, error, &u);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_enqueue_job(message, u, error);
+}
+
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *old_name;
@@ -978,7 +998,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
                 return r;
 
         /* Finally, start it */
-        return bus_unit_queue_job(message, u, JOB_START, mode, false, error);
+        return bus_unit_queue_job(message, u, JOB_START, mode, 0, error);
 }
 
 static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2547,6 +2567,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("TryRestartUnit", "ss", "o", method_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrRestartUnit", "ss", "o", method_reload_or_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("EnqueueUnitJob", "sss", "uososa(uosos)", method_enqueue_unit_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("FreezeUnit", "s", NULL, method_freeze_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ThawUnit", "s", NULL, method_thaw_unit, SD_BUS_VTABLE_UNPRIVILEGED),
