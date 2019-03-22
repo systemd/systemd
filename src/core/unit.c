@@ -2124,11 +2124,11 @@ void unit_trigger_notify(Unit *u) {
 }
 
 static int unit_log_resources(Unit *u) {
-        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
-        bool any_traffic = false, have_ip_accounting = false;
-        _cleanup_free_ char *igress = NULL, *egress = NULL;
+        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
+        bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
+        _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
         size_t n_message_parts = 0, n_iovec = 0;
-        char* message_parts[3 + 1], *t;
+        char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         CGroupIPAccountingMetric m;
         size_t i;
@@ -2138,6 +2138,12 @@ static int unit_log_resources(Unit *u) {
                 [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
                 [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
                 [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
+        };
+        const char* const io_fields[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = "IO_METRIC_READ_BYTES",
+                [CGROUP_IO_WRITE_BYTES]      = "IO_METRIC_WRITE_BYTES",
+                [CGROUP_IO_READ_OPERATIONS]  = "IO_METRIC_READ_OPERATIONS",
+                [CGROUP_IO_WRITE_OPERATIONS] = "IO_METRIC_WRITE_OPERATIONS",
         };
 
         assert(u);
@@ -2166,6 +2172,66 @@ static int unit_log_resources(Unit *u) {
                 }
 
                 message_parts[n_message_parts++] = t;
+        }
+
+        for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
+                char buf[FORMAT_BYTES_MAX] = "";
+                uint64_t value = UINT64_MAX;
+
+                assert(io_fields[k]);
+
+                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                if (value == UINT64_MAX)
+                        continue;
+
+                have_io_accounting = true;
+                if (value > 0)
+                        any_io = true;
+
+                /* Format IO accounting data for inclusion in the structured log message */
+                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the IO accounting data for inclusion in the human language message string, but only
+                 * for the bytes counters (and not for the operations counters) */
+                if (k == CGROUP_IO_READ_BYTES) {
+                        assert(!rr);
+                        rr = strjoin("read ", format_bytes(buf, sizeof(buf), value), " from disk");
+                        if (!rr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                } else if (k == CGROUP_IO_WRITE_BYTES) {
+                        assert(!wr);
+                        wr = strjoin("written ", format_bytes(buf, sizeof(buf), value), " to disk");
+                        if (!wr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+        }
+
+        if (have_io_accounting) {
+                if (any_io) {
+                        if (rr)
+                                message_parts[n_message_parts++] = TAKE_PTR(rr);
+                        if (wr)
+                                message_parts[n_message_parts++] = TAKE_PTR(wr);
+
+                } else {
+                        char *k;
+
+                        k = strdup("no IO");
+                        if (!k) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        message_parts[n_message_parts++] = k;
+                }
         }
 
         for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
