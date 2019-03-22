@@ -247,6 +247,9 @@ shared_sources += shared_generated_gperf_headers
 
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
+libbpf_static_dep = libbpf_proj.get_variable('libbpf_static_dep')
+bpf_includes = libbpf_proj.get_variable('bpf_includes')
+
 libshared_deps = [threads,
                   librt,
                   libcap,
@@ -261,21 +264,22 @@ libshared_deps = [threads,
                   libidn,
                   libxz,
                   liblz4,
-                  libblkid]
+                  libblkid,
+                  libbpf_static_dep]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
 libshared_static = static_library(
         libshared_name,
         shared_sources,
-        include_directories : includes,
+        include_directories : [includes, bpf_includes],
         dependencies : libshared_deps,
         c_args : ['-fvisibility=default'])
 
 libshared = shared_library(
         libshared_name,
         libudev_sources,
-        include_directories : includes,
+        include_directories : [includes, bpf_includes],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
