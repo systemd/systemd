@@ -179,7 +179,14 @@ static void test_find_binary(const char *self) {
 }
 
 static void test_prefixes(void) {
-        static const char* values[] = { "/a/b/c/d", "/a/b/c", "/a/b", "/a", "", NULL};
+        static const char* const values[] = {
+                "/a/b/c/d",
+                "/a/b/c",
+                "/a/b",
+                "/a",
+                "",
+                NULL
+        };
         unsigned i;
         char s[PATH_MAX];
         bool b;

@@ -116,7 +116,7 @@ static const char *const bond_arp_all_targets_table[_NETDEV_BOND_ARP_ALL_TARGETS
 DEFINE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets, BondArpAllTargets, "Failed to parse bond Arp all targets");
 
-static const char *bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
+static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
         [NETDEV_BOND_PRIMARY_RESELECT_ALWAYS] = "always",
         [NETDEV_BOND_PRIMARY_RESELECT_BETTER]= "better",
         [NETDEV_BOND_PRIMARY_RESELECT_FAILURE]= "failure",

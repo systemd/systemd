@@ -16,7 +16,7 @@
 #include "util.h"
 
 static int help(void) {
-        static const char * short_descriptions[][2] = {
+        static const char *const short_descriptions[][2] = {
                 { "info",         "Query sysfs or the udev database" },
                 { "trigger",      "Request events from the kernel"   },
                 { "settle",       "Wait for pending udev events"     },
