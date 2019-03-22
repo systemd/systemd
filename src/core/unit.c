@@ -159,7 +159,6 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->io_accounting = u->manager->default_io_accounting;
-                cc->ip_accounting = u->manager->default_ip_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
