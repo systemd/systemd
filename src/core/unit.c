@@ -113,6 +113,9 @@ Unit *unit_new(Manager *m, size_t size) {
         RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
         RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
 
+        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
+                u->io_accounting_last[i] = UINT64_MAX;
+
         return u;
 }
 
@@ -3202,6 +3205,20 @@ static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC
         [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
 };
 
+static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
+};
+
+static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
+};
+
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         CGroupIPAccountingMetric m;
         int r;
@@ -3247,6 +3264,13 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         if (u->oom_kill_last > 0)
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
+
+        for (CGroupIOAccountingMetric im = 0; im < _CGROUP_IO_ACCOUNTING_METRIC_MAX; im++) {
+                (void) serialize_item_format(f, io_accounting_metric_field_base[im], "%" PRIu64, u->io_accounting_base[im]);
+
+                if (u->io_accounting_last[im] != UINT64_MAX)
+                        (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+        }
 
         if (u->cgroup_path)
                 (void) serialize_item(f, "cgroup", u->cgroup_path);
@@ -3585,6 +3609,30 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse IP accounting value %s, ignoring.", v);
                         else
                                 u->ip_accounting_extra[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_base, ELEMENTSOF(io_accounting_metric_field_base), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting base value %s, ignoring.", v);
+                        else
+                                u->io_accounting_base[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_last, ELEMENTSOF(io_accounting_metric_field_last), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting last value %s, ignoring.", v);
+                        else
+                                u->io_accounting_last[m] = c;
                         continue;
                 }
 

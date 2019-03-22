@@ -1051,6 +1051,36 @@ static int property_get_ip_counter(
         return sd_bus_message_append(reply, "t", value);
 }
 
+static int property_get_io_counter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        static const char *const table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
+                [CGROUP_IO_WRITE_BYTES]      = "IOWriteBytes",
+                [CGROUP_IO_READ_OPERATIONS]  = "IOReadOperations",
+                [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
+        };
+
+        uint64_t value = UINT64_MAX;
+        Unit *u = userdata;
+        ssize_t metric;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+        assert(u);
+
+        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
+        (void) unit_get_io_accounting(u, metric, false, &value);
+        return sd_bus_message_append(reply, "t", value);
+}
+
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -1174,6 +1204,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPIngressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressPackets", "t", property_get_ip_counter, 0, 0),
+        SD_BUS_PROPERTY("IOReadBytes", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOReadOperations", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOWriteBytes", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
         SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("AttachProcesses", "sau", NULL, bus_unit_method_attach_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
