@@ -1354,6 +1354,12 @@ config_h = configure_file(
 
 meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
 
+#####################################################################
+
+libbpf_proj = subproject('libbpf')
+
+#####################################################################
+
 includes = include_directories('src/basic',
                                'src/shared',
                                'src/systemd',
