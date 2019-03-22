@@ -48,25 +48,25 @@ int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds) {
         return 0;
 }
 
-FDSet* fdset_free(FDSet *s) {
+void fdset_close(FDSet *s) {
         void *p;
 
         while ((p = set_steal_first(MAKE_SET(s)))) {
-                /* Valgrind's fd might have ended up in this set here,
-                 * due to fdset_new_fill(). We'll ignore all failures
-                 * here, so that the EBADFD that valgrind will return
-                 * us on close() doesn't influence us */
+                /* Valgrind's fd might have ended up in this set here, due to fdset_new_fill(). We'll ignore
+                 * all failures here, so that the EBADFD that valgrind will return us on close() doesn't
+                 * influence us */
 
-                /* When reloading duplicates of the private bus
-                 * connection fds and suchlike are closed here, which
-                 * has no effect at all, since they are only
-                 * duplicates. So don't be surprised about these log
-                 * messages. */
+                /* When reloading duplicates of the private bus connection fds and suchlike are closed here,
+                 * which has no effect at all, since they are only duplicates. So don't be surprised about
+                 * these log messages. */
 
-                log_debug("Closing left-over fd %i", PTR_TO_FD(p));
-                close_nointr(PTR_TO_FD(p));
+                log_debug("Closing set fd %i", PTR_TO_FD(p));
+                (void) close_nointr(PTR_TO_FD(p));
         }
+}
 
+FDSet* fdset_free(FDSet *s) {
+        fdset_close(s);
         set_free(MAKE_SET(s));
         return NULL;
 }

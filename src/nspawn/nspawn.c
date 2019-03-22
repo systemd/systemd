@@ -4212,7 +4212,7 @@ static int run_container(int master,
 
         barrier_set_role(&barrier, BARRIER_PARENT);
 
-        fds = fdset_free(fds);
+        fdset_close(fds);
 
         kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
         rtnl_socket_pair[1] = safe_close(rtnl_socket_pair[1]);
