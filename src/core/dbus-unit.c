@@ -19,6 +19,7 @@
 #include "selinux-access.h"
 #include "signal-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -1029,26 +1030,23 @@ static int property_get_ip_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        CGroupIPAccountingMetric metric;
-        uint64_t value = (uint64_t) -1;
+        static const char *const table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
+                [CGROUP_IP_EGRESS_BYTES]    = "IPEgressBytes",
+                [CGROUP_IP_INGRESS_PACKETS] = "IPIngressPackets",
+                [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
+        };
+
+        uint64_t value = UINT64_MAX;
         Unit *u = userdata;
+        ssize_t metric;
 
         assert(bus);
         assert(reply);
         assert(property);
         assert(u);
 
-        if (streq(property, "IPIngressBytes"))
-                metric = CGROUP_IP_INGRESS_BYTES;
-        else if (streq(property, "IPIngressPackets"))
-                metric = CGROUP_IP_INGRESS_PACKETS;
-        else if (streq(property, "IPEgressBytes"))
-                metric = CGROUP_IP_EGRESS_BYTES;
-        else {
-                assert(streq(property, "IPEgressPackets"));
-                metric = CGROUP_IP_EGRESS_PACKETS;
-        }
-
+        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
         (void) unit_get_ip_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }

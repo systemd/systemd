@@ -3323,8 +3323,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                CGroupIPAccountingMetric m;
                 char *l, *v;
+                ssize_t m;
                 size_t k;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -3576,10 +3576,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 }
 
                 /* Check if this is an IP accounting metric serialization field */
-                for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++)
-                        if (streq(l, ip_accounting_metric_field[m]))
-                                break;
-                if (m < _CGROUP_IP_ACCOUNTING_METRIC_MAX) {
+                m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
+                if (m >= 0) {
                         uint64_t c;
 
                         r = safe_atou64(v, &c);
