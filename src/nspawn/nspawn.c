@@ -3958,7 +3958,7 @@ static int merge_settings(Settings *settings, const char *path) {
         arg_console_width = settings->console_width;
         arg_console_height = settings->console_height;
 
-        device_node_free_many(arg_extra_nodes, arg_n_extra_nodes);
+        device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
         arg_extra_nodes = TAKE_PTR(settings->extra_nodes);
         arg_n_extra_nodes = settings->n_extra_nodes;
 
@@ -5070,7 +5070,7 @@ finish:
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
         rlimit_free_all(arg_rlimit);
-        device_node_free_many(arg_extra_nodes, arg_n_extra_nodes);
+        device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
 
         if (r < 0)
                 return r;

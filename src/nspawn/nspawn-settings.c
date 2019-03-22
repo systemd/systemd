@@ -110,7 +110,7 @@ static void free_oci_hooks(OciHook *h, size_t n) {
         free(h);
 }
 
-void device_node_free_many(DeviceNode *node, size_t n) {
+void device_node_array_free(DeviceNode *node, size_t n) {
         size_t i;
 
         for (i = 0; i < n; i++)
@@ -156,8 +156,7 @@ Settings* settings_free(Settings *s) {
         sd_bus_message_unref(s->properties);
 
         free(s->supplementary_gids);
-        device_node_free_many(s->extra_nodes, s->n_extra_nodes);
-        free(s->extra_nodes);
+        device_node_array_free(s->extra_nodes, s->n_extra_nodes);
         free(s->network_namespace_path);
 
         strv_free(s->sysctl);
