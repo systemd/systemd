@@ -204,6 +204,7 @@ int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *r
 
 int unit_reset_cpu_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
+int unit_reset_accounting(Unit *u);
 
 #define UNIT_CGROUP_BOOL(u, name)                       \
         ({                                              \

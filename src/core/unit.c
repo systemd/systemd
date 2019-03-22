@@ -5393,8 +5393,7 @@ int unit_prepare_exec(Unit *u) {
         (void) unit_realize_cgroup(u);
 
         if (u->reset_accounting) {
-                (void) unit_reset_cpu_accounting(u);
-                (void) unit_reset_ip_accounting(u);
+                (void) unit_reset_accounting(u);
                 u->reset_accounting = false;
         }
 

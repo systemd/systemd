@@ -3210,6 +3210,17 @@ int unit_reset_ip_accounting(Unit *u) {
         return r < 0 ? r : q;
 }
 
+int unit_reset_accounting(Unit *u) {
+        int r, q;
+
+        assert(u);
+
+        r = unit_reset_cpu_accounting(u);
+        q = unit_reset_ip_accounting(u);
+
+        return r < 0 ? r : q;
+}
+
 void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
         assert(u);
 
