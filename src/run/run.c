@@ -930,6 +930,8 @@ typedef struct RunContext {
         uint64_t cpu_usage_nsec;
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
+        uint64_t io_read_bytes;
+        uint64_t io_write_bytes;
         uint32_t exit_code;
         uint32_t exit_status;
 } RunContext;
@@ -975,6 +977,8 @@ static int run_context_update(RunContext *c, const char *path) {
                 { "CPUUsageNSec",                     "t", NULL, offsetof(RunContext, cpu_usage_nsec)      },
                 { "IPIngressBytes",                   "t", NULL, offsetof(RunContext, ip_ingress_bytes)    },
                 { "IPEgressBytes",                    "t", NULL, offsetof(RunContext, ip_egress_bytes)     },
+                { "IOReadBytes",                      "t", NULL, offsetof(RunContext, io_read_bytes)       },
+                { "IOWriteBytes",                     "t", NULL, offsetof(RunContext, io_write_bytes)      },
                 {}
         };
 
@@ -1163,6 +1167,8 @@ static int start_transient_service(
                         .cpu_usage_nsec = NSEC_INFINITY,
                         .ip_ingress_bytes = UINT64_MAX,
                         .ip_egress_bytes = UINT64_MAX,
+                        .io_read_bytes = UINT64_MAX,
+                        .io_write_bytes = UINT64_MAX,
                         .inactive_exit_usec = USEC_INFINITY,
                         .inactive_enter_usec = USEC_INFINITY,
                 };
@@ -1261,6 +1267,14 @@ static int start_transient_service(
                         if (c.ip_egress_bytes != UINT64_MAX) {
                                 char bytes[FORMAT_BYTES_MAX];
                                 log_info("IP traffic sent: %s", format_bytes(bytes, sizeof(bytes), c.ip_egress_bytes));
+                        }
+                        if (c.io_read_bytes != UINT64_MAX) {
+                                char bytes[FORMAT_BYTES_MAX];
+                                log_info("IO bytes read: %s", format_bytes(bytes, sizeof(bytes), c.io_read_bytes));
+                        }
+                        if (c.io_write_bytes != UINT64_MAX) {
+                                char bytes[FORMAT_BYTES_MAX];
+                                log_info("IO bytes written: %s", format_bytes(bytes, sizeof(bytes), c.io_write_bytes));
                         }
                 }
 
