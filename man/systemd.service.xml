@@ -473,14 +473,18 @@
         start-up failed, for example because any of the commands specified in <varname>ExecStart=</varname>,
         <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and weren't prefixed with
         <literal>-</literal>, see above) or timed out. Use <varname>ExecStopPost=</varname> to invoke commands when a
-        service failed to start up correctly and is shut down again. Also note that, service restart requests are
-        implemented as stop operations followed by start operations. This means that <varname>ExecStop=</varname> and
-        <varname>ExecStopPost=</varname> are executed during a service restart operation.</para>
+        service failed to start up correctly and is shut down again. Also note that the stop operation is always
+        performed if the service started successfully, even if the processes in the service terminated on their
+        own or were killed. The stop commands must be prepared to deal with that case. <varname>$MAINPID</varname>
+        will be unset if systemd knows that the main process exited by the time the stop commands are called.</para>
 
-        <para>It is recommended to use this setting for commands that communicate with the service requesting clean
-        termination. When the commands specified with this option are executed it should be assumed that the service is
-        still fully up and is able to react correctly to all commands. For post-mortem clean-up steps use
-        <varname>ExecStopPost=</varname> instead.</para></listitem>
+        <para>Service restart requests are implemented as stop operations followed by start operations. This
+        means that <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> are executed during a
+        service restart operation.</para>
+
+        <para>It is recommended to use this setting for commands that communicate with the service requesting
+        clean termination. For post-mortem clean-up steps use <varname>ExecStopPost=</varname> instead.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
