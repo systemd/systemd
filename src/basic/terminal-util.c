@@ -898,23 +898,27 @@ int getttyname_malloc(int fd, char **ret) {
         assert(ret);
 
         for (;;) {
-                char path[l];
+                _cleanup_free_ char *buffer = NULL;
 
-                r = ttyname_r(fd, path, sizeof(path));
+                buffer = new(char, l);
+                if (!buffer)
+                        return -ENOMEM;
+
+                r = ttyname_r(fd, buffer, l);
                 if (r == 0) {
-                        char *c;
+                        const char *c;
 
-                        c = strdup(skip_dev_prefix(path));
-                        if (!c)
-                                return -ENOMEM;
+                        c = skip_dev_prefix(buffer);
+                        memmove(buffer, c, strlen(c) + 1);
 
-                        *ret = c;
+                        *ret = TAKE_PTR(buffer);
                         return 0;
                 }
-
                 if (r != ERANGE)
-                        return -r;
+                        return negative_errno();
 
+                if (l > SIZE_MAX/2) /* overflow check */
+                        return -ENOMEM;
                 l *= 2;
         }
 
