@@ -569,7 +569,7 @@ static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags,
                 }
 
                 if (!data.type || streq(data.type, "bind")) {
-                        if (!path_is_absolute(data.source)) {
+                        if (data.source && !path_is_absolute(data.source)) {
                                 char *joined;
 
                                 joined = path_join(s->bundle, data.source);
