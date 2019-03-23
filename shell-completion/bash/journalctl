@@ -52,6 +52,13 @@ _journalctl() {
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
 
+        # Use the default completion for shell redirect operators
+        if __contains_word "$prev" '>' '>>' '&>'; then
+                compopt -o filenames
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0;
+        fi
+
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
                         --boot|-b)
