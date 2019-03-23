@@ -81,7 +81,7 @@ typedef struct NetDev {
 
         char *filename;
 
-        Condition *conditions;
+        LIST_HEAD(Condition, conditions);
 
         NetDevState state;
         NetDevKind kind;
