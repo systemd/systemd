@@ -77,17 +77,17 @@ void condition_free(Condition *c) {
         free(c);
 }
 
-Condition* condition_free_list_type(Condition *first, ConditionType type) {
-        Condition *c, *n, *r = NULL;
+Condition* condition_free_list_type(Condition *head, ConditionType type) {
+        Condition *c, *n;
 
-        LIST_FOREACH_SAFE(conditions, c, n, first)
-                if (type < 0 || c->type == type)
+        LIST_FOREACH_SAFE(conditions, c, n, head)
+                if (type < 0 || c->type == type) {
+                        LIST_REMOVE(conditions, head, c);
                         condition_free(c);
-                else if (!r)
-                        r = c;
+                }
 
-        assert(type >= 0 || !r);
-        return r;
+        assert(type >= 0 || !head);
+        return head;
 }
 
 static int condition_test_kernel_command_line(Condition *c) {
