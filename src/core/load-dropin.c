@@ -39,7 +39,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                                         u->manager->unit_path_cache,
                                         dir_suffix,
                                         NULL,
-                                        u->names,
+                                        u->id,
                                         &paths);
         if (r < 0)
                 return r;

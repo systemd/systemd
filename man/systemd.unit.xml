@@ -174,7 +174,8 @@
     systematic naming structure is built around dashes as component separators. Note that equally named drop-in files
     further down the prefix hierarchy override those further up,
     i.e. <filename>foo-bar-.service.d/10-override.conf</filename> overrides
-    <filename>foo-.service.d/10-override.conf</filename>.</para>
+    <filename>foo-.service.d/10-override.conf</filename>. Also note that drop-ins are only loaded for the
+    "main" unit name, not for any aliases.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d/</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or

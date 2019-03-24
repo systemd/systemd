@@ -228,19 +228,17 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                Set *names,
+                const char *name,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        char *t, **p;
-        Iterator i;
+        char **p;
         int r;
 
         assert(ret);
 
-        SET_FOREACH(t, names, i)
-                STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+        STRV_FOREACH(p, lookup_path)
+                (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;
