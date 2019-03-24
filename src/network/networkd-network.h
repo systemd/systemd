@@ -97,7 +97,7 @@ struct Network {
         char **match_driver;
         char **match_type;
         char **match_name;
-        Condition *conditions;
+        LIST_HEAD(Condition, conditions);
 
         char *description;
 
