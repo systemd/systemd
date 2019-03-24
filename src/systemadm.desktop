@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=systemadm
+Comment=Manage Systemd Units
+Exec=systemadm
+Icon=applications-system
+Terminal=false
+Type=Application
+Categories=System;Settings;
