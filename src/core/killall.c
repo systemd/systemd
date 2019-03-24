@@ -133,8 +133,20 @@ static void wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
                         return;
 
                 n = now(CLOCK_MONOTONIC);
-                if (n >= until)
+                if (n >= until) {
+                        if (DEBUG_LOGGING) {
+                                log_debug("Children left (not killed):");
+
+                                SET_FOREACH(p, pids, i) {
+                                        _cleanup_free_ char *cmdline = NULL;
+
+                                        if (get_process_cmdline(PTR_TO_PID(p), 0, true, &cmdline) >= 0) {
+                                                log_debug("  %s", cmdline);
+                                        }
+                                }
+                        }
                         return;
+                }
 
                 timespec_store(&ts, until - n);
                 k = sigtimedwait(mask, NULL, &ts);
