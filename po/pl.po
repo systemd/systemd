@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-03-06 17:54+0000\n"
-"PO-Revision-Date: 2019-03-06 18:58+0100\n"
+"POT-Creation-Date: 2019-03-26 15:29+0000\n"
+"PO-Revision-Date: 2019-03-26 17:28+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -469,10 +469,20 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby zablokować lub odblokować aktywne sesje."
 
 #: src/login/org.freedesktop.login1.policy:341
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Ustawienie przyczyny ponownego uruchomienia w jądrze"
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby ustawić przyczynę ponownego uruchomienia "
+"w jądrze."
+
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Wskazanie oprogramowaniu sprzętowemu, aby uruchomić interfejs ustawień"
 
-#: src/login/org.freedesktop.login1.policy:342
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -480,11 +490,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać oprogramowaniu sprzętowemu, że "
 "należy uruchomić interfejs ustawień."
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Wskazanie programowi startowemu, aby uruchomić jego menu"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -492,11 +502,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
 "uruchomić jego menu."
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Wskazanie programowi startowemu, aby uruchomić podany wpis"
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -504,11 +514,11 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wskazać programowi startowemu, że należy "
 "uruchomić podany wpis."
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "Ustawienie komunikatu wall"
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić komunikat wall"
 
@@ -677,25 +687,25 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:326
+#: src/core/dbus-unit.c:325
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:327
+#: src/core/dbus-unit.c:326
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:328
+#: src/core/dbus-unit.c:327
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
+#: src/core/dbus-unit.c:328 src/core/dbus-unit.c:329
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:437
+#: src/core/dbus-unit.c:434
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -703,13 +713,13 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:468
+#: src/core/dbus-unit.c:465
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:501
+#: src/core/dbus-unit.c:498
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
