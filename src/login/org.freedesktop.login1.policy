@@ -338,8 +338,8 @@
         </action>
 
         <action id="org.freedesktop.login1.set-reboot-parameter">
-                <description gettext-domain="systemd">Configure reboot parameter for kernel's reboot reason driver</description>
-                <message gettext-domain="systemd">Authentication is required to configure reboot parameter for kernel's reboot reason driver.</message>
+                <description gettext-domain="systemd">Set the reboot "reason" in the kernel</description>
+                <message gettext-domain="systemd">Authentication is required to set the reboot "reason" in the kernel.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
