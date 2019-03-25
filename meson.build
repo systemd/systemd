@@ -1950,7 +1950,10 @@ else
                                libbasic_gcrypt]
 endif
 
-exe = executable('systemctl', 'src/systemctl/systemctl.c',
+exe = executable('systemctl',
+                 'src/systemctl/systemctl.c',
+                 'src/systemctl/sysv-compat.h',
+                 'src/systemctl/sysv-compat.c',
                  include_directories : includes,
                  link_with : systemctl_link_with,
                  dependencies : [threads,

@@ -75,6 +75,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysv-compat.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-def.h"
@@ -84,25 +85,6 @@
 #include "utmp-wtmp.h"
 #include "verbs.h"
 #include "virt.h"
-
-/* The init script exit status codes
-   0       program is running or service is OK
-   1       program is dead and /var/run pid file exists
-   2       program is dead and /var/lock lock file exists
-   3       program is not running
-   4       program or service status is unknown
-   5-99    reserved for future LSB use
-   100-149 reserved for distribution use
-   150-199 reserved for application use
-   200-254 reserved
-*/
-enum {
-        EXIT_PROGRAM_RUNNING_OR_SERVICE_OK        = 0,
-        EXIT_PROGRAM_DEAD_AND_PID_EXISTS          = 1,
-        EXIT_PROGRAM_DEAD_AND_LOCK_FILE_EXISTS    = 2,
-        EXIT_PROGRAM_NOT_RUNNING                  = 3,
-        EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
-};
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -2672,10 +2654,8 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
                 return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
         state = unit_active_state_from_string(buf);
-        if (state == _UNIT_ACTIVE_STATE_INVALID) {
-                log_error("Invalid unit state '%s' for: %s", buf, name);
-                return -EINVAL;
-        }
+        if (state < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit state '%s' for: %s", buf, name);
 
         *active_state = state;
         return 0;
@@ -3130,10 +3110,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         char **name;
 
-        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart")) {
-                log_error("--wait may only be used with the 'start' or 'restart' commands.");
-                return -EINVAL;
-        }
+        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--wait may only be used with the 'start' or 'restart' commands.");
 
         /* we cannot do sender tracking on the private bus, so we need the full
          * one for RefUnit to implement --wait */
@@ -3437,10 +3416,8 @@ static int logind_check_inhibitors(enum action a) {
                 if (!sv)
                         return log_oom();
 
-                if (!pid_is_valid((pid_t) pid)) {
-                        log_error("Invalid PID "PID_FMT".", (pid_t) pid);
-                        return -ERANGE;
-                }
+                if (!pid_is_valid((pid_t) pid))
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid PID "PID_FMT".", (pid_t) pid);
 
                 if (!strv_contains(sv,
                                    IN_SET(a,
@@ -3528,8 +3505,8 @@ static int prepare_firmware_setup(void) {
 
         return 0;
 #else
-        log_error("Booting into firmware setup not supported.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into firmware setup not supported.");
 #endif
 }
 
@@ -3561,8 +3538,8 @@ static int prepare_boot_loader_menu(void) {
 
         return 0;
 #else
-        log_error("Booting into boot loader menu not supported.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into boot loader menu not supported.");
 #endif
 }
 
@@ -4653,21 +4630,23 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
                 _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
 
-                c = new0(UnitCondition, 1);
+                c = new(UnitCondition, 1);
                 if (!c)
                         return -ENOMEM;
 
-                c->name = strdup(cond);
-                c->param = strdup(param);
+                *c = (UnitCondition) {
+                        .name = strdup(cond),
+                        .param = strdup(param),
+                        .trigger = trigger,
+                        .negate = negate,
+                        .tristate = state,
+                };
+
                 if (!c->name || !c->param)
                         return -ENOMEM;
 
-                c->trigger = trigger;
-                c->negate = negate;
-                c->tristate = state;
 
-                LIST_PREPEND(conditions, i->conditions, c);
-                c = NULL;
+                LIST_PREPEND(conditions, i->conditions, TAKE_PTR(c));
         }
         if (r < 0)
                 return r;
@@ -5801,10 +5780,8 @@ static int cat(int argc, char *argv[], void *userdata) {
         bool first = true;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot remotely cat units.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -5900,10 +5877,8 @@ static int set_property(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         t = unit_name_to_type(n);
-        if (t < 0) {
-                log_error("Invalid unit type: %s", n);
-                return -EINVAL;
-        }
+        if (t < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit type: %s", n);
 
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
@@ -6141,15 +6116,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot switch root remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch root remotely.");
 
-        if (argc < 2 || argc > 3) {
-                log_error("Wrong number of arguments.");
-                return -EINVAL;
-        }
+        if (argc < 2 || argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         root = argv[1];
 
@@ -6288,10 +6259,8 @@ static int import_environment(int argc, char *argv[], void *userdata) {
 
                 STRV_FOREACH(a, strv_skip(argv, 1)) {
 
-                        if (!env_name_is_valid(*a)) {
-                                log_error("Not a valid environment variable name: %s", *a);
-                                return -EINVAL;
-                        }
+                        if (!env_name_is_valid(*a))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid environment variable name: %s", *a);
 
                         STRV_FOREACH(b, environ) {
                                 const char *eq;
@@ -7473,15 +7442,11 @@ static int edit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (!on_tty()) {
-                log_error("Cannot edit units if not on a tty.");
-                return -EINVAL;
-        }
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot edit units remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -7499,10 +7464,8 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        log_error("Cannot edit %s: unit is masked.", *tmp);
-                        return -EINVAL;
-                }
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }
 
         r = find_paths_to_edit(bus, names, &paths);
@@ -7569,7 +7532,7 @@ static int systemctl_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
+        printf("%1$s [OPTIONS...] {COMMAND} ...\n\n"
                "Query or send control commands to the systemd manager.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
@@ -7581,11 +7544,11 @@ static int systemctl_help(void) {
                "                      Operate on local container\n"
                "  -t --type=TYPE      List units of a particular type\n"
                "     --state=STATE    List units with particular LOAD or SUB or ACTIVE state\n"
+               "     --failed         Shorcut for --state=failed\n"
                "  -p --property=NAME  Show only properties by this name\n"
                "  -a --all            Show all properties/all units currently in memory,\n"
                "                      including dead/empty ones. To list all units installed on\n"
                "                      the system, use the 'list-unit-files' command instead.\n"
-               "     --failed         Same as --state=failed\n"
                "  -l --full           Don't ellipsize unit names on output\n"
                "  -r --recursive      Show unit list of host and local containers\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
@@ -7628,7 +7591,7 @@ static int systemctl_help(void) {
                "     --boot-loader-entry=NAME\n"
                "                      Boot into a specific boot loader entry on next boot\n"
                "     --plain          Print unit dependencies as a list instead of a tree\n\n"
-               "Unit Commands:\n"
+               "%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
@@ -7658,7 +7621,7 @@ static int systemctl_help(void) {
                "  list-dependencies [UNIT]            Recursively show units which are required\n"
                "                                      or wanted by this unit or by which this\n"
                "                                      unit is required or wanted\n\n"
-               "Unit File Commands:\n"
+               "%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
@@ -7681,20 +7644,20 @@ static int systemctl_help(void) {
                "  edit UNIT...                        Edit one or more unit files\n"
                "  get-default                         Get the name of the default target\n"
                "  set-default TARGET                  Set the default target\n\n"
-               "Machine Commands:\n"
+               "%3$sMachine Commands:%4$s\n"
                "  list-machines [PATTERN...]          List local containers and host\n\n"
-               "Job Commands:\n"
+               "%3$sJob Commands:%4$s\n"
                "  list-jobs [PATTERN...]              List jobs\n"
                "  cancel [JOB...]                     Cancel all, one, or more jobs\n\n"
-               "Environment Commands:\n"
+               "%3$sEnvironment Commands:%4$s\n"
                "  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
                "  import-environment [VARIABLE...]    Import all or some environment variables\n\n"
-               "Manager Lifecycle Commands:\n"
+               "%3$sManager Lifecycle Commands:%4$s\n"
                "  daemon-reload                       Reload systemd manager configuration\n"
                "  daemon-reexec                       Reexecute systemd manager\n\n"
-               "System Commands:\n"
+               "%3$sSystem Commands:%4$s\n"
                "  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
@@ -7710,9 +7673,10 @@ static int systemctl_help(void) {
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
                "                                      time and put it into hibernate\n"
-               "\nSee the %s for details.\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
+               , ansi_underline(), ansi_normal()
         );
 
         return 0;
@@ -7903,10 +7867,8 @@ static int help_boot_loader_entry(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate boot loader entries: %s", bus_error_message(&error, r));
 
-        if (strv_isempty(l)) {
-                log_error("No boot loader entries discovered.");
-                return -ENODATA;
-        }
+        if (strv_isempty(l))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No boot loader entries discovered.");
 
         STRV_FOREACH(i, l)
                 puts(*i);
@@ -8465,56 +8427,6 @@ static int halt_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
-        assert(t);
-        assert(_u);
-
-        if (streq(t, "now"))
-                *_u = 0;
-        else if (!strchr(t, ':')) {
-                uint64_t u;
-
-                if (safe_atou64(t, &u) < 0)
-                        return -EINVAL;
-
-                *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
-        } else {
-                char *e = NULL;
-                long hour, minute;
-                struct tm tm = {};
-                time_t s;
-                usec_t n;
-
-                errno = 0;
-                hour = strtol(t, &e, 10);
-                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
-                        return -EINVAL;
-
-                minute = strtol(e+1, &e, 10);
-                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
-                        return -EINVAL;
-
-                n = now(CLOCK_REALTIME);
-                s = (time_t) (n / USEC_PER_SEC);
-
-                assert_se(localtime_r(&s, &tm));
-
-                tm.tm_hour = (int) hour;
-                tm.tm_min = (int) minute;
-                tm.tm_sec = 0;
-
-                s = mktime(&tm);
-                assert(s >= 0);
-
-                *_u = (usec_t) s * USEC_PER_SEC;
-
-                while (*_u <= n)
-                        *_u += USEC_PER_DAY;
-        }
-
-        return 0;
-}
-
 static int shutdown_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_HELP = 0x100,
@@ -8820,47 +8732,6 @@ _pure_ static int action_to_runlevel(void) {
 }
 #endif
 
-static int talk_initctl(void) {
-#if HAVE_SYSV_COMPAT
-        struct init_request request = {
-                .magic = INIT_MAGIC,
-                .sleeptime  = 0,
-                .cmd = INIT_CMD_RUNLVL
-        };
-
-        _cleanup_close_ int fd = -1;
-        char rl;
-        int r;
-        const char *p;
-
-        rl = action_to_runlevel();
-        if (!rl)
-                return 0;
-
-        request.runlevel = rl;
-
-        FOREACH_STRING(p, "/run/initctl", "/dev/initctl") {
-                fd = open(p, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd >= 0 || errno != ENOENT)
-                        break;
-        }
-        if (fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open initctl fifo: %m");
-        }
-
-        r = loop_write(fd, &request, sizeof(request), false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to %s: %m", p);
-
-        return 1;
-#else
-        return 0;
-#endif
-}
-
 static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
@@ -8956,7 +8827,7 @@ static int start_with_fallback(void) {
                 return 0;
 
         /* Nothing else worked, so let's try /dev/initctl */
-        if (talk_initctl() > 0)
+        if (talk_initctl(action_to_runlevel()) > 0)
                 return 0;
 
         return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -9057,8 +8928,8 @@ static int logind_schedule_shutdown(void) {
                 log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
 #else
-        log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
 #endif
 }
 
@@ -9164,8 +9035,8 @@ static int logind_cancel_shutdown(void) {
 
         return 0;
 #else
-        log_error("Not compiled with logind support, cannot cancel scheduled shutdowns.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Not compiled with logind support, cannot cancel scheduled shutdowns.");
 #endif
 }
 
