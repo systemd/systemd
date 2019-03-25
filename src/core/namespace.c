@@ -1044,11 +1044,10 @@ static int apply_mount(
 
 /* Change the per-mount readonly flag on an existing mount */
 static int remount_bind_readonly(const char *path, unsigned long orig_flags) {
-        int r;
+        if (mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL) < 0)
+                return -errno;
 
-        r = mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL);
-
-        return r < 0 ? -errno : 0;
+        return 0;
 }
 
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
