@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.01.17
-# Date:    2019-01-17 20:34:05
+# Version: 2019.03.20
+# Date:    2019-03-20 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -169,6 +169,7 @@
 	7617  AT76C505AS Wireless Adapter
 	7800  Mini Album
 	800c  Airspy HF+
+	ff02  WootingTwo
 	ff07  Tux Droid fish dongle
 03ec  Iwatsu America, Inc.
 03ed  Mitel Corp.
@@ -190,6 +191,7 @@
 	0012  DeskJet 1125C Printer Port
 	0024  KU-0316 Keyboard
 	002a  LaserJet P1102
+	0053  DeskJet 2620 All-in-One Printer
 	0101  ScanJet 4100c
 	0102  PhotoSmart S20
 	0104  DeskJet 880c/970c
@@ -244,6 +246,7 @@
 	0512  DeckJet 450
 	0517  LaserJet 1000
 	051d  Bluetooth Interface
+	052a  LaserJet M1212nf MFP
 	0601  ScanJet 6300c
 	0604  DeskJet 840c
 	0605  ScanJet 2200c
@@ -1289,6 +1292,7 @@
 0419  Samsung Info. Systems America, Inc.
 	0001  IrDA Remote Controller / Creative Cordless Mouse
 	0600  Desktop Wireless 6000
+	2694  Laila
 	3001  Xerox P1202 Laser Printer
 	3003  Olivetti PG L12L
 	3201  Docuprint P8ex
@@ -1610,7 +1614,6 @@
 	2228  9-in-2 Card Reader
 	223a  8-in-1 Card Reader
 	2503  USB 2.0 Hub
-	2504  USB 2.0 Hub
 	2507  hub
 	2512  USB 2.0 Hub
 	2513  2.0 Hub
@@ -1622,6 +1625,7 @@
 	2660  Hub
 	2744  Hub
 	274d  HTC Hub Controller
+	2807  Hub
 	3fcc  RME MADIface
 	4041  Hub and media card controller
 	4060  Ultra Fast Media Reader
@@ -1629,6 +1633,7 @@
 	5434  Hub
 	5534  Hub
 	5744  Hub
+	5807  Hub
 	7500  LAN7500 Ethernet 10/100/1000 Adapter
 	9500  LAN9500/LAN9500i
 	9512  SMC9512/9514 USB Hub
@@ -2404,6 +2409,7 @@
 	0799  Surface Pro embedded keyboard
 	07a5  Wireless Receiver 1461C
 	07b2  2.4GHz Transceiver v8.0 used by mouse Wireless Desktop 900
+	07b6  Comfort Curve Keyboard 3000
 	07b9  Wired Keyboard 200
 	07c6  RTL8153 GigE [Surface Dock Ethernet]
 	07ca  Surface Pro 3 Docking Station Audio Device
@@ -3200,6 +3206,7 @@
 	0100  Stor.E Slim USB 3.0
 	0200  External Disk
 	0820  Canvio Advance Disk
+	0821  Canvio Advance 2TB model DTC920
 	a006  External Disk 1.5TB
 	a007  External Disk USB 3.0
 	a009  Stor.E Basics
@@ -3262,6 +3269,7 @@
 	5730  Audio Speaker
 	5731  Microphone
 	5740  Virtual COM Port
+	5750  LED badge -- mini LED display -- 11x44
 	7270  ST Micro Serial Bridge
 	7554  56k SoftModem
 	8213  ThermaData Logger Cradle
@@ -3306,6 +3314,7 @@
 	9503  ITE it9503 feature-limited DVB-T transmission chip [ccHDtv]
 	9507  ITE it9507 full featured DVB-T transmission chip [ccHDtv]
 	9910  IT9910 chipset based grabber
+	ff59  Hdmi-CEC Bridge
 048f  Eicon Tech.
 0490  United Microelectronics Corp.
 0491  Capetronic
@@ -3373,6 +3382,7 @@
 	1054  S90XS Keyboard/Music Synthesizer
 	160f  P-105
 	1613  Clavinova CLP535
+	1617  PSR-E353 digital keyboard
 	1704  Steinberg UR44
 	2000  DGP-7
 	2001  DGP-5
@@ -4293,6 +4303,7 @@
 	0428  D7000
 	0429  D5100
 	042a  D800 (ptp)
+	0430  D7100
 	043f  D5600
 	0f03  PD-10 Wireless Printer Adapter
 	4000  Coolscan LS 40 ED
@@ -4869,6 +4880,8 @@
 	9015  ICD 4 In-Circuit Debugger
 	c001  PicoLCD 20x4
 	e11c  TL866CS EEPROM Programmer [MiniPRO]
+	edb4  micro PLC (ATSAMD51G19A) [Black Brix ECU II]
+	edb5  ATMEGA32U4 [Black Brix ECU]
 	f2c4  Macareux-labs Hygrometry Temperature Sensor
 	f2f7  Yepkit YKUSH
 	f3aa  Macareux-labs Usbce Bootloader mode
@@ -5176,6 +5189,7 @@
 	3426  SCX-4500 Laser Printer
 	342d  SCX-4x28 Series
 	344f  SCX-3400 Series
+	347e  C48x Series Color Laser Multifunction Printer
 	3605  InkJet Color Printer
 	3606  InkJet Color Printer
 	3609  InkJet Color Printer
@@ -5255,6 +5269,7 @@
 	6125  D3 Station External Hard Drive
 	61b5  M3 Portable Hard Drive 2TB
 	61b6  M3 Portable Hard Drive 1TB
+	61b7  M3 Portable Hard Drive 4TB
 	61f3  Portable SSD T3 (MU-PT250B, MU-PT500B)
 	61f5  Portable SSD T5
 	6601  Mobile Phone
@@ -5317,6 +5332,7 @@
 	7061  eHome Infrared Receiver
 	7080  Anycall SCH-W580
 	7081  Human Interface Device
+	7301  Fingerprint Device
 	8001  Handheld
 	d003  GT-I9003
 	e020  SERI E02 SCOM 6200 UMTS Phone
@@ -5459,6 +5475,7 @@
 	02f4  2.4G Cordless Mouse
 	0381  Touchscreen
 	04a0  Dream Cheeky Stress/Panic Button
+	2234  Touchscreen
 04f4  Harting Elektronik, Inc.
 04f5  Fujitsu-ICL Systems, Inc.
 04f6  Norand Corp.
@@ -5971,6 +5988,9 @@
 	2041  PT-2730 P-touch Label Printer
 	2061  PT-P700 P-touch Label Printer
 	2064  PT-P700 P-touch Label Printer RemovableDisk
+	209b  QL-800 P-touch Label Printer
+	209c  QL-810W P-touch Label Printer
+	209d  QL-820NWB P-touch Label Printer
 	2100  Card Reader Writer
 	2102  Sewing machine
 	60a0  ADS-2000
@@ -6387,6 +6407,7 @@
 	003c  VAIO-MX LCD Control
 	0045  Digital Imaging Video
 	0046  Network Walkman
+	0049  UP-D895
 	004a  Memory Stick Hi-Fi System
 	004b  Memory Stick Reader/Writer
 	004e  DSC-xxx (ptp)
@@ -6471,6 +6492,7 @@
 	01d0  DVD+RW External Drive DRU-700A
 	01d5  IC RECORDER
 	01de  VRD-VC10 [Video Capture]
+	01e7  UP-D897
 	01e8  UP-DR150 Photo Printer
 	01e9  Net MD
 	01ea  Hi-MD WALKMAN
@@ -6760,6 +6782,8 @@
 	0037  PL700
 	0038  PL510
 	0039  DTU-710
+	003a  DTI-520
+	003b  Integrated Hub
 	003f  DTZ-2100 [Cintiq 21UX]
 	0041  XD-0405-U [Intuos2 (4x5)]
 	0042  XD-0608-U [Intuos2 (6x8)]
@@ -6782,7 +6806,7 @@
 	006a  CTE-460 [Bamboo One Pen (S)]
 	006b  CTE-660 [Bamboo One Pen (M)]
 	0081  CTE-630BT [Graphire Wireless (6x8)]
-	0084  Wireless adapter for Bamboo tablets
+	0084  ACK-40401 [Wireless Accessory Kit]
 	0090  TPC90
 	0093  TPC93
 	0097  TPC97
@@ -6828,6 +6852,7 @@
 	00ec  TPCEC
 	00ed  TPCED
 	00ef  TPCEF
+	00f0  DTU-1631
 	00f4  DTK-2400 [Cintiq 24HD] tablet
 	00f6  DTH-2400 [Cintiq 24HD touch] touchscreen
 	00f8  DTH-2400 [Cintiq 24HD touch] tablet
@@ -6853,7 +6878,21 @@
 	0315  PTH-651 [Intuos pro (M)]
 	0317  PTH-851 [Intuos pro (L)]
 	0318  CTH-301 [Bamboo]
+	0319  CTH-300 [Bamboo Pad wireless]
+	0323  CTL-680 [Intuos Pen (M)]
+	032a  DTK-2700 [Cintiq 27QHD]
+	032b  DTH-2700 [Cintiq 27QHD touch] tablet
+	032c  DTH-2700 [Cintiq 27QHD touch] touchscreen
 	032f  DTU-1031X
+	0331  ACK-411050 [ExpressKey Remote]
+	0333  DTH-1300 [Cintiq 13HD Touch] tablet
+	0335  DTH-1300 [Cintiq 13HD Touch] touchscreen
+	0336  DTU-1141
+	033b  CTL-490 [Intuos Draw (S)]
+	033c  CTH-490 [Intuos Art/Photo/Comic (S)]
+	033d  CTL-690 [Intuos Draw (M)]
+	033e  CTH-690 [Intuos Art (M)]
+	0343  DTK-1651
 	0347  Integrated Hub
 	0348  Integrated Hub
 	034a  DTH-W1320 [MobileStudio Pro 13] touchscreen
@@ -6870,6 +6909,7 @@
 	0356  DTH-3220 [Cintiq Pro 32] touchscreen
 	0357  PTH-660 [Intuos Pro (M)]
 	0358  PTH-860 [Intuos Pro (L)]
+	0359  DTU-1141B
 	035a  DTH-1152 tablet
 	0368  DTH-1152 touchscreen
 	0374  CTL-4100 [Intuos (S)]
@@ -6920,6 +6960,9 @@
 	0074  Optical mouse M-FW1UL
 	0075  Laser mouse M-FW2DL
 	0077  Laser mouse M-LY2UL
+	0079  Laser mouse M-D21DL
+	007b  Laser mouse M-D20DR
+	007c  Laser Bluetooth mouse M-BT5BL
 	2003  JC-U3613M
 	2004  JC-U3613M
 	200c  LD-USB/TX
@@ -9351,6 +9394,7 @@
 	3020  Hercules Webcam EC300
 	a300  Dual Analog Leader GamePad
 	b000  Hercules DJ Console
+	b121  Hercules P32 DJ
 	c000  Hercules Muse Pocket
 	d002  Hercules DJ Console
 	e000  HWGUSB2-54 WLAN
@@ -12064,6 +12108,9 @@
 	0070  NRP-Z57
 	0083  NRP-Z85
 	0095  NRP-Z86
+	0117  HMF / HMP / HMS-X / HMO series Oscilloscopes
+	0118  HMF / HMP / HMS-X / HMO series Oscilloscopes
+	0119  HMF / HMP / HMS-X / HMO series Oscilloscopes
 0aae  NEC infrontia Corp. (Nitsuko)
 0aaf  Digitalway Co., Ltd
 0ab0  Arrow Strong Electronics Co., Ltd
@@ -19051,6 +19098,9 @@
 22b9  eTurboTouch Technology, Inc.
 	0006  Touch Screen
 22ba  Technology Innovation Holdings, Ltd
+22e0  secunet Security Networks AG
+	0002  SINA Flash Drive
+	0003  SINA ID Token A
 2304  Pinnacle Systems, Inc.
 	0109  Studio PCTV USB (SECAM)
 	0110  Studio PCTV USB (PAL)
@@ -19187,6 +19237,21 @@
 	1213  MediaTV Pro III MiniPCIe (US)
 2676  Basler AG
 	ba02  ace
+2717  Xiaomi Inc.
+	0011  100Mbps Network Card Adapter
+	0360  Mi3W
+	0368  Mi4 LTE
+	3801  Mi ANC & Type-C In-Ear Earphones
+	4106  MediaTek MT7601U [MI WiFi]
+	ff08  Redmi Note 3 (ADB Interface)
+	ff10  Mi/Redmi series (PTP)
+	ff18  Mi/Redmi series (PTP + ADB)
+	ff40  Mi/Redmi series (MTP)
+	ff48  Mi/Redmi series (MTP + ADB)
+	ff60  redmi prime 2
+	ff68  Mi-4c
+	ff80  Mi/Redmi series (RNDIS)
+	ff88  Mi/Redmi series (RNDIS + ADB)
 2730  Citizen
 	200f  CT-S310 Label printer
 2735  DigitalWay
