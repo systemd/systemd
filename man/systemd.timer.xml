@@ -105,16 +105,42 @@
         <term><varname>OnUnitInactiveSec=</varname></term>
 
         <listitem><para>Defines monotonic timers relative to different
-        starting points: <varname>OnActiveSec=</varname> defines a
-        timer relative to the moment the timer itself is activated.
-        <varname>OnBootSec=</varname> defines a timer relative to when
-        the machine was booted up. <varname>OnStartupSec=</varname>
-        defines a timer relative to when systemd was first started.
-        <varname>OnUnitActiveSec=</varname> defines a timer relative
-        to when the unit the timer is activating was last activated.
-        <varname>OnUnitInactiveSec=</varname> defines a timer relative
-        to when the unit the timer is activating was last
-        deactivated.</para>
+        starting points:</para>
+
+        <table>
+          <title>Settings and their starting points</title>
+
+          <tgroup cols='2'>
+            <thead>
+              <row>
+                <entry>Setting</entry>
+                <entry>Meaning</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><varname>OnActiveSec=</varname></entry>
+                <entry>Defines a timer relative to the moment the timer unit itself is activated.</entry>
+              </row>
+              <row>
+                <entry><varname>OnBootSec=</varname></entry>
+                <entry>Defines a timer relative to when the machine was booted up.</entry>
+              </row>
+              <row>
+                <entry><varname>OnStartupSec=</varname></entry>
+                <entry>Defines a timer relative to when the service manager was first started. For system timer units this is very similar to <varname>OnBootSec=</varname> as the system service manager is generally started very early at boot. It's primarily useful when configured in units running in the per-user service manager, as the user service manager is generally started on first login only, not already during boot.</entry>
+              </row>
+              <row>
+                <entry><varname>OnUnitActiveSec=</varname></entry>
+                <entry>Defines a timer relative to when the unit the timer unit is activating was last activated.</entry>
+              </row>
+              <row>
+                <entry><varname>OnUnitInactiveSec=</varname></entry>
+                <entry>Defines a timer relative to when the unit the timer unit is activating was last deactivated.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>Multiple directives may be combined of the same and of
         different types. For example, by combining
