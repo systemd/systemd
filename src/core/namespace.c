@@ -1182,7 +1182,7 @@ int setup_namespace(
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ void *root_hash = NULL;
-        MountEntry *m, *mounts = NULL;
+        MountEntry *m = NULL, *mounts = NULL;
         size_t n_mounts, root_hash_size = 0;
         bool require_prefix = false;
         const char *root;
@@ -1246,7 +1246,10 @@ int setup_namespace(
                         protect_home, protect_system);
 
         if (n_mounts > 0) {
-                m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));
+                m = mounts = new0(MountEntry, n_mounts);
+                if (!mounts)
+                        return -ENOMEM;
+
                 r = append_access_mounts(&m, read_write_paths, READWRITE, require_prefix);
                 if (r < 0)
                         goto finish;
@@ -1417,7 +1420,7 @@ int setup_namespace(
 
         if (n_mounts > 0) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-                char **blacklist;
+                _cleanup_free_ char **blacklist = NULL;
                 size_t j;
 
                 /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
@@ -1463,7 +1466,11 @@ int setup_namespace(
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
-                blacklist = newa(char*, n_mounts+1);
+                blacklist = new(char*, n_mounts+1);
+                if (!blacklist) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
                 for (j = 0; j < n_mounts; j++)
                         blacklist[j] = (char*) mount_entry_path(mounts+j);
                 blacklist[j] = NULL;
@@ -1496,6 +1503,8 @@ int setup_namespace(
 finish:
         for (m = mounts; m < mounts + n_mounts; m++)
                 mount_entry_done(m);
+
+        free(mounts);
 
         return r;
 }
