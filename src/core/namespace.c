@@ -1062,7 +1062,7 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
                         r = remount_bind_readonly(mount_entry_path(m), m->flags);
                 else {
                         submounts = true;
-                        r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
+                        r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_RDONLY, MS_RDONLY, blacklist, proc_self_mountinfo);
                 }
         } else if (m->mode == PRIVATE_DEV)
                 /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount
