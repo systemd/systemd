@@ -1058,30 +1058,29 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         assert(proc_self_mountinfo);
 
         if (mount_entry_read_only(m)) {
-                if (IN_SET(m->mode, EMPTY_DIR, TMPFS)) {
+                if (IN_SET(m->mode, EMPTY_DIR, TMPFS))
                         r = remount_bind_readonly(mount_entry_path(m), m->flags);
-                } else {
+                else {
                         submounts = true;
                         r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
                 }
-        } else if (m->mode == PRIVATE_DEV) {
-                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount read-only flag.
-                 * We can't set it on the superblock, if we are inside a user namespace and running Linux <= 4.17. */
+        } else if (m->mode == PRIVATE_DEV)
+                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount
+                 * read-only flag.  We can't set it on the superblock, if we are inside a user namespace and
+                 * running Linux <= 4.17. */
                 r = remount_bind_readonly(mount_entry_path(m), DEV_MOUNT_OPTIONS);
-        } else
+        else
                 return 0;
 
-        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked read-only
-         * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
-         * read-only mounts already applied. */
+        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
+         * read-only already stays this way. This improves compatibility with container managers, where we
+         * won't attempt to undo read-only mounts already applied. */
 
         if (r == -ENOENT && m->ignore)
-                r = 0;
-
+                return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to re-mount '%s'%s read-only: %m", mount_entry_path(m),
                                        submounts ? " and its submounts" : "");
-
         return 0;
 }
 
