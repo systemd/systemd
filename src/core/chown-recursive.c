@@ -13,7 +13,13 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+static int chown_one(
+                int fd,
+                const struct stat *st,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         const char *n;
 
@@ -42,13 +48,19 @@ static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
          * because on some kernels/file systems trying to change the access mode will succeed but has no effect while
          * on others it actively fails. */
         if (!S_ISLNK(st->st_mode))
-                if (chmod(procfs_path, st->st_mode & 07777) < 0)
+                if (chmod(procfs_path, st->st_mode & 07777 & mask) < 0)
                         return -errno;
 
         return 1;
 }
 
-static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+static int chown_recursive_internal(
+                int fd,
+                const struct stat *st,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
         struct dirent *de;
@@ -87,13 +99,13 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                         if (subdir_fd < 0)
                                 return subdir_fd;
 
-                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid); /* takes possession of subdir_fd even on failure */
+                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid, mask); /* takes possession of subdir_fd even on failure */
                         if (r < 0)
                                 return r;
                         if (r > 0)
                                 changed = true;
                 } else {
-                        r = chown_one(path_fd, &fst, uid, gid);
+                        r = chown_one(path_fd, &fst, uid, gid, mask);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -101,14 +113,19 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                 }
         }
 
-        r = chown_one(dirfd(d), st, uid, gid);
+        r = chown_one(dirfd(d), st, uid, gid, mask);
         if (r < 0)
                 return r;
 
         return r > 0 || changed;
 }
 
-int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
+int path_chown_recursive(
+                const char *path,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -129,5 +146,5 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
             (!gid_is_valid(gid) || st.st_gid == gid))
                 return 0;
 
-        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid); /* we donate the fd to the call, regardless if it succeeded or failed */
+        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid, mask); /* we donate the fd to the call, regardless if it succeeded or failed */
 }
