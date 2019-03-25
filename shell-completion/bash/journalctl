@@ -28,7 +28,7 @@ __contains_word () {
 __get_machines() {
         local a b
         (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+                { while read a b; do echo " $a"; done; } | sort -u;
 }
 
 __syslog_priorities=(emerg alert crit err warning notice info debug)
@@ -52,6 +52,13 @@ _journalctl() {
                               --vacuum-size --vacuum-time --vacuum-files --output-fields'
         )
 
+        # Use the default completion for shell redirect operators
+        if __contains_word "$prev" '>' '>>' '&>'; then
+                compopt -o filenames
+                COMPREPLY=( $(compgen -f -- "$cur") )
+                return 0;
+        fi
+
         if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
                 case $prev in
                         --boot|-b)
@@ -70,7 +77,7 @@ _journalctl() {
                         ;;
                         --field|-F)
                                 comps=$(journalctl --fields | sort 2>/dev/null)
-			;;
+                        ;;
                         --machine|-M)
                                 comps=$( __get_machines )
                         ;;
