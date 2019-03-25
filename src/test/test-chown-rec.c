@@ -106,7 +106,7 @@ static void test_chown_recursive(void) {
         assert_se(st.st_gid == gid);
         assert_se(has_xattr(p));
 
-        assert_se(path_chown_recursive(t, 1, 2) >= 0);
+        assert_se(path_chown_recursive(t, 1, 2, 07777) >= 0);
 
         p = strjoina(t, "/dir");
         assert_se(lstat(p, &st) >= 0);
