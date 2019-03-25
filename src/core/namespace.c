@@ -760,27 +760,27 @@ static int mount_private_dev(MountEntry *m) {
                 goto fail;
         }
 
-        rmdir(dev);
-        rmdir(temporary_mount);
+        (void) rmdir(dev);
+        (void) rmdir(temporary_mount);
 
         return 0;
 
 fail:
         if (devpts)
-                umount(devpts);
+                (void) umount(devpts);
 
         if (devshm)
-                umount(devshm);
+                (void) umount(devshm);
 
         if (devhugepages)
-                umount(devhugepages);
+                (void) umount(devhugepages);
 
         if (devmqueue)
-                umount(devmqueue);
+                (void) umount(devmqueue);
 
-        umount(dev);
-        rmdir(dev);
-        rmdir(temporary_mount);
+        (void) umount(dev);
+        (void) rmdir(dev);
+        (void) rmdir(temporary_mount);
 
         return r;
 }
