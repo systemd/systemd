@@ -85,6 +85,7 @@ _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     '--no-pager[Do not pipe output into a pager]' \
+    --no-hostname"[Don't show the hostname of local log messages]" \
     {-l,--full}'[Show long fields in full]' \
     {-a,--all}'[Show all fields, including long and unprintable]' \
     {-f,--follow}'[Follow journal]' \
