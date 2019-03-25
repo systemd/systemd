@@ -250,11 +250,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        x = strdup(cleaned);
-                        if (!x)
-                                return -ENOMEM;
-
-                        r = set_consume(done, x);
+                        r = set_put_strdup(done, cleaned);
                         if (r < 0)
                                 return r;
                 }
