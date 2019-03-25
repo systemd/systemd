@@ -59,6 +59,7 @@ struct BindMount {
         char *source;
         char *destination;
         bool read_only:1;
+        bool nosuid:1;
         bool recursive:1;
         bool ignore_enoent:1;
 };

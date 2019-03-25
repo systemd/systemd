@@ -61,6 +61,7 @@ typedef struct MountEntry {
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
+        bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
@@ -308,6 +309,7 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
                         .path_const = b->destination,
                         .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
                         .read_only = b->read_only,
+                        .nosuid = b->nosuid,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
@@ -1042,35 +1044,46 @@ static int apply_mount(
         return 0;
 }
 
-/* Change the per-mount readonly flag on an existing mount */
-static int remount_bind_readonly(const char *path, unsigned long orig_flags) {
-        if (mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL) < 0)
+/* Change per-mount flags on an existing mount */
+static int bind_remount_one(const char *path, unsigned long orig_flags, unsigned long new_flags, unsigned long flags_mask) {
+        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask) | MS_REMOUNT | MS_BIND | new_flags, NULL) < 0)
                 return -errno;
 
         return 0;
 }
 
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
+        unsigned long new_flags = 0, flags_mask = 0;
         bool submounts = false;
         int r = 0;
 
         assert(m);
         assert(proc_self_mountinfo);
 
-        if (mount_entry_read_only(m)) {
-                if (IN_SET(m->mode, EMPTY_DIR, TMPFS))
-                        r = remount_bind_readonly(mount_entry_path(m), m->flags);
-                else {
-                        submounts = true;
-                        r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_RDONLY, MS_RDONLY, blacklist, proc_self_mountinfo);
-                }
-        } else if (m->mode == PRIVATE_DEV)
-                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount
-                 * read-only flag.  We can't set it on the superblock, if we are inside a user namespace and
-                 * running Linux <= 4.17. */
-                r = remount_bind_readonly(mount_entry_path(m), DEV_MOUNT_OPTIONS);
-        else
+        if (mount_entry_read_only(m) || m->mode == PRIVATE_DEV) {
+                new_flags |= MS_RDONLY;
+                flags_mask |= MS_RDONLY;
+        }
+
+        if (m->nosuid) {
+                new_flags |= MS_NOSUID;
+                flags_mask |= MS_NOSUID;
+        }
+
+        if (flags_mask == 0) /* No Change? */
                 return 0;
+
+        /* We generally apply these changes recursively, except for /dev, and the cases we know there's
+         * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
+         * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
+         * and running Linux <= 4.17. */
+        submounts =
+                mount_entry_read_only(m) &&
+                !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+        if (submounts)
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, blacklist, proc_self_mountinfo);
+        else
+                r = bind_remount_one(mount_entry_path(m), m->flags, new_flags, flags_mask);
 
         /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
          * read-only already stays this way. This improves compatibility with container managers, where we
@@ -1079,7 +1092,7 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r < 0)
-                return log_debug_errno(r, "Failed to re-mount '%s'%s read-only: %m", mount_entry_path(m),
+                return log_debug_errno(r, "Failed to re-mount '%s'%s: %m", mount_entry_path(m),
                                        submounts ? " and its submounts" : "");
         return 0;
 }
@@ -1292,6 +1305,7 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/dev",
                                 .mode = PRIVATE_DEV,
+                                .flags = DEV_MOUNT_OPTIONS,
                         };
                 }
 
@@ -1546,6 +1560,7 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
+                .nosuid = item->nosuid,
                 .recursive = item->recursive,
                 .ignore_enoent = item->ignore_enoent,
         };
