@@ -22,12 +22,15 @@ CHANGES WITH 242 in spe:
           generators do not automatically pull in the corresponding .mount unit
           as a Wants= dependency. This means that simply plugging in the device
           will not cause the mount unit to be started automatically. But please
-          note that the mount unit may be started for other reasons, in particular
-          if it is part of local-fs.target, and any unit which (transitively)
-          depends on local-fs.target is started.
+          note that the mount unit may be started for other reasons, in
+          particular if it is part of local-fs.target, and any unit which
+          (transitively) depends on local-fs.target is started.
 
-        * $PIDFILE is set to point the absolute path configured with PIDFile=
-          for processes of that service.
+        * networkctl list/status/lldp now accept globbing wildcards for network
+          interface names to match against all existing interfaces.
+
+        * The $PIDFILE environment variable is set to point the absolute path
+          configured with PIDFile= for processes of that service.
 
         * The fallback DNS server list was augmented with Cloudflare public DNS
           servers. Use `-Ddns-servers=` to set a different fallback.
@@ -36,48 +39,70 @@ CHANGES WITH 242 in spe:
           when a USB Device Controller is detected (which means that the system
           is a USB peripheral).
 
-        * A new unit setting CPUQuotaPeriodSec= assigns the CPU time quota
-          specified by CPUQuota= is measured.
+        * A new unit setting CPUQuotaPeriodSec= assigns the time period
+          relatively to which the CPU time quota specified by CPUQuota= is
+          measured.
 
-          A new unit setting ProtectHostname= may be used to prevent services
+        * A new unit setting ProtectHostname= may be used to prevent services
           from modifying hostname information (even if they otherwise would
           have privileges to do so).
 
-          A new unit setting NetworkNamespacePath= may be used to specify a
+        * A new unit setting NetworkNamespacePath= may be used to specify a
           namespace for service or socket units through a path referring to a
           Linux network namespace pseudo-file.
 
-        * systemd-networkd recognizes a new operation state 'enslaved',
-          used (instead of 'degraded' or 'carrier') for interfaces which form
-          a bridge, bond, or similar, and an new 'degraded-carrier'
-          operational state used for the bond or bridge master interface
-          when one of the enslaved devices is not operational.
+        * The PrivateNetwork= setting and JoinsNamespaceOf= dependencies now
+          have an effect on .socket units: when used the listening socket is
+          created within the configured network namespace instead of the host
+          namespace.
 
-          The RequiredForOnline= setting in .network files may now specify a
+        * ExecStart= command lines in unit files may now be prefixed with ':'
+          in which case environment variable substitution is
+          disabled. (Supported for the other ExecXYZ= settings, too.)
+
+        * systemd-networkd recognizes a new operation state 'enslaved', used
+          (instead of 'degraded' or 'carrier') for interfaces which form a
+          bridge, bond, or similar, and an new 'degraded-carrier' operational
+          state used for the bond or bridge master interface when one of the
+          enslaved devices is not operational.
+
+        * .network files learnt the new IgnoreCarrierLoss= option for leaving
+          networks configured even if the carrier is lost.
+
+        * The RequiredForOnline= setting in .network files may now specify a
           minimum operational state required for the interface to be considered
-          "online" by systemd-networkd-wait-online.
+          "online" by systemd-networkd-wait-online. Related to this
+          systemd-networkd-wait-online gained a new option --operational-state=
+          to configure the same, and its --interface= option was updated to
+          optionally also take an operational state specific for an interface.
 
         * systemd-networkd now implements L2TP tunnels.
 
-        * Two new .network settings UseAutonomousPrefix= and UseOnLinkPrefix= may
-          be used to cause autonomous and onlink prefixes received in IPv6
+        * Two new .network settings UseAutonomousPrefix= and UseOnLinkPrefix=
+          may be used to cause autonomous and onlink prefixes received in IPv6
           Router Advertisements to be ignored.
 
-          New MulticastFlood=, NeighborSuppression=, and Learning= settings
-          may be used to tweak bridge behaviour.
+        * New MulticastFlood=, NeighborSuppression=, and Learning= .network
+          file settings may be used to tweak bridge behaviour.
+
+        * The new TripleSampling= option in .network files may be used to
+          configure CAN triple sampling.
 
         * A new .netdev setting PrivateKeyFile= may be used to point to private
           key for a WireGuard interface.
 
-        * crypttab now supports the same-cpu-crypt and submit-from-crypt-cpus
-          to tweak encryption work scheduling details.
+        * /etc/crypttab now supports the same-cpu-crypt and
+          submit-from-crypt-cpus options to tweak encryption work scheduling
+          details.
 
         * systemd-tmpfiles will now take a BSD file lock before operating on a
           contents of directory. This may be used to temporarily exclude
           directories from aging by taking the same lock (useful for example
           when extracting a tarball into /tmp or /var/tmp as a privileged user,
           which might create files with really old timestamps, which
-          nevertheless should not be deleted).
+          nevertheless should not be deleted). For further details, see:
+
+          https://systemd.io/TEMPORARY_DIRECTORIES
 
         * sd-boot and bootctl now implement support for an Extended Boot Loader
           (XBOOTLDR) partition, that is intended to be mounted to /boot, in
@@ -85,15 +110,20 @@ CHANGES WITH 242 in spe:
           Configuration file fragments, kernels, initrds and other EFI images
           to boot will be loaded from both the ESP and XBOOTLDR partitions.
           The XBOOTLDR partition was previously described by the Boot Loader
-          Specification, but implementation was missing in sd-boot.
+          Specification, but implementation was missing in sd-boot. Support for
+          this concept allows using the sd-boot boot loader in more
+          conservative scenarios where the boot loader itself is placed in the
+          ESP but the kernels to boot (and their metadata) in a separate
+          partition.
 
-        * A system may now be booted with systemd.volatile=overlay, which
-          causes the root file system to be set up an overlayfs mount combining
-          the root-only root directory with a writable tmpfs. In this setup,
-          the underlying root device is not modified, and any changes are lost
-          at reboot.
+        * A system may now be booted with systemd.volatile=overlay on the
+          kernel command line, which causes the root file system to be set up
+          an overlayfs mount combining the root-only root directory with a
+          writable tmpfs. In this setup, the underlying root device is not
+          modified, and any changes are lost at reboot.
 
-        * systemd-nspawn can now create volatile overlays with overlayfs.
+        * Similar, systemd-nspawn can now boot containers with a volatile
+          overlayfs root with the new --volatile=overlay switch.
 
         * systemd-nspawn can now consume OCI runtime bundles using a new
           --oci-bundle= option. This implementation is fully usable, with most
@@ -101,10 +131,10 @@ CHANGES WITH 242 in spe:
           new code and functionality, this feature should most likely not
           be used in production yet.
 
-          systmed-nspawn now supports various options described by the
-          OCI runtime specification on the command-line and in .nspawn files:
+        * systemd-nspawn now supports various options described by the OCI
+          runtime specification on the command-line and in .nspawn files:
           --inaccessible=/Inaccessible= may be used to mask parts of the file
-          system tree, --console/--pipe may be used to configure how standard
+          system tree, --console=/--pipe may be used to configure how standard
           input, output, and error are set up.
 
         * busctl learned the `emit` verb to generate D-Bus signals.
@@ -113,7 +143,17 @@ CHANGES WITH 242 in spe:
           configuration spread over multiple files, for example system and user
           presets, tmpfiles.d, sysusers.d, udev rules, etc.
 
-        * journalctl learnt a new --cursor-file option that points to a file
+        * systemd-analyze calendar now takes an optional new parameter
+          --iterations= which may be used to show a maximum number of iterations
+          the specified expression will elapse next.
+
+        * The sd-bus C API gained support for naming method parameters in the
+          introspection data.
+
+        * systemd-logind gained D-Bus APIs to specify the "reboot parameter"
+          the reboot() system call expects.
+
+        * journalctl learnt a new --cursor-file= option that points to a file
           from which a cursor should be loaded in the beginning and to which
           the updated cursor should be stored at the end.
 
@@ -135,8 +175,9 @@ CHANGES WITH 242 in spe:
           during reboot with their own operations.
 
         * systemctl can be used to request a reboot into the boot loader menu
-          or a specific boot loader entry with the new --boot-load-menu=
-          and --boot-loader-entry= options to a reboot command.
+          or a specific boot loader entry with the new --boot-load-menu= and
+          --boot-loader-entry= options to a reboot command. (This requires a
+          boot loader that supports this, for example sd-boot.)
 
         * kernel-install will no longer unconditionally create the output
           directory (e.g. /efi/<machine-id>/<kernel-version>) for boot loader
