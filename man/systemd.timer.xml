@@ -124,7 +124,7 @@
               </row>
               <row>
                 <entry><varname>OnBootSec=</varname></entry>
-                <entry>Defines a timer relative to when the machine was booted up.</entry>
+                <entry>Defines a timer relative to when the machine was booted up. In containers, for the system manager instance, this is mapped to <varname>OnStartupSec=</varname>, making both equivalent.</entry>
               </row>
               <row>
                 <entry><varname>OnStartupSec=</varname></entry>
