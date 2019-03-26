@@ -2822,17 +2822,17 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
 }
 
 static int presets_find_config(UnitFileScope scope, const char *root_dir, char ***files) {
+        static const char* const system_dirs[] = {CONF_PATHS("systemd/system-preset"), NULL};
+        static const char* const user_dirs[] = {CONF_PATHS_USR("systemd/user-preset"), NULL};
         const char* const* dirs;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
         if (scope == UNIT_FILE_SYSTEM)
-                dirs = (const char* const*) CONF_PATHS_STRV("systemd/system-preset");
-
+                dirs = system_dirs;
         else if (IN_SET(scope, UNIT_FILE_GLOBAL, UNIT_FILE_USER))
-                dirs = (const char* const*) CONF_PATHS_USR_STRV("systemd/user-preset");
-
+                dirs = user_dirs;
         else
                 assert_not_reached("Invalid unit file scope");
 
