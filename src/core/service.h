@@ -152,6 +152,7 @@ struct Service {
         /* Keep restart intention between UNIT_FAILED and UNIT_ACTIVATING */
         bool will_auto_restart:1;
         bool start_timeout_defined:1;
+        bool exec_fd_hot:1;
 
         char *bus_name;
         char *bus_name_owner; /* unique name of the current owner */
@@ -183,7 +184,6 @@ struct Service {
 
         unsigned n_restarts;
         bool flush_n_restarts;
-        bool exec_fd_hot;
 };
 
 extern const UnitVTable service_vtable;

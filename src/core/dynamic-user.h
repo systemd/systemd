@@ -15,8 +15,8 @@ typedef struct DynamicCreds {
  * used. This means, if you want to allocate a group and user pair, and they might have two different names, then you
  * need to allocated two of these objects. DynamicCreds below makes that easy. */
 struct DynamicUser {
-        unsigned n_ref;
         Manager *manager;
+        unsigned n_ref;
 
         /* An AF_UNIX socket pair that contains a datagram containing both the numeric ID assigned, as well as a lock
          * file fd locking the user ID we picked. */

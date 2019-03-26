@@ -79,9 +79,9 @@ typedef enum ExecKeyringMode {
 
 /* Contains start and exit information about an executed command.  */
 struct ExecStatus {
-        pid_t pid;
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
+        pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
@@ -148,8 +148,21 @@ struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image;
-        bool working_directory_missing_ok;
-        bool working_directory_home;
+        bool working_directory_missing_ok:1;
+        bool working_directory_home:1;
+
+        bool oom_score_adjust_set:1;
+        bool nice_set:1;
+        bool ioprio_set:1;
+        bool cpu_sched_set:1;
+
+        /* This is not exposed to the user but available internally. We need it to make sure that whenever we
+         * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
+         * that it belongs to us and we don't enter a trigger loop. */
+        bool same_pgrp;
+
+        bool cpu_sched_reset_on_fork;
+        bool non_blocking;
 
         mode_t umask;
         int oom_score_adjust;
@@ -158,12 +171,13 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
+        cpu_set_t *cpuset;
 
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+        bool stdio_as_fds;
         char *stdio_fdname[3];
         char *stdio_file[3];
 
@@ -172,8 +186,6 @@ struct ExecContext {
 
         nsec_t timer_slack_nsec;
 
-        bool stdio_as_fds;
-
         char *tty_path;
 
         bool tty_reset;
@@ -181,6 +193,8 @@ struct ExecContext {
         bool tty_vt_disallocate;
 
         bool ignore_sigpipe;
+
+        ExecKeyringMode keyring_mode;
 
         /* Since resolving these names might involve socket
          * connections and we don't want to deadlock ourselves these
@@ -195,16 +209,15 @@ struct ExecContext {
         char *utmp_id;
         ExecUtmpMode utmp_mode;
 
+        bool no_new_privileges;
+
         bool selinux_context_ignore;
-        char *selinux_context;
-
         bool apparmor_profile_ignore;
-        char *apparmor_profile;
-
         bool smack_process_label_ignore;
-        char *smack_process_label;
 
-        ExecKeyringMode keyring_mode;
+        char *selinux_context;
+        char *apparmor_profile;
+        char *smack_process_label;
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
@@ -218,10 +231,8 @@ struct ExecContext {
         int secure_bits;
 
         int syslog_priority;
-        char *syslog_identifier;
         bool syslog_level_prefix;
-
-        int log_level_max;
+        char *syslog_identifier;
 
         struct iovec* log_extra_fields;
         size_t n_log_extra_fields;
@@ -229,34 +240,29 @@ struct ExecContext {
         usec_t log_rate_limit_interval_usec;
         unsigned log_rate_limit_burst;
 
-        bool cpu_sched_reset_on_fork;
-        bool non_blocking;
+        int log_level_max;
+
         bool private_tmp;
         bool private_network;
         bool private_devices;
         bool private_users;
         bool private_mounts;
-        ProtectSystem protect_system;
-        ProtectHome protect_home;
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_control_groups;
+        ProtectSystem protect_system;
+        ProtectHome protect_home;
+        bool protect_hostname;
         bool mount_apivfs;
-
-        bool no_new_privileges;
 
         bool dynamic_user;
         bool remove_ipc;
 
-        /* This is not exposed to the user but available
-         * internally. We need it to make sure that whenever we spawn
-         * /usr/bin/mount it is run in the same process group as us so
-         * that the autofs logic detects that it belongs to us and we
-         * don't enter a trigger loop. */
-        bool same_pgrp;
+        bool memory_deny_write_execute;
+        bool restrict_realtime;
 
-        unsigned long personality;
         bool lock_personality;
+        unsigned long personality;
 
         unsigned long restrict_namespaces; /* The CLONE_NEWxyz flags permitted to the unit's processes */
 
@@ -265,22 +271,13 @@ struct ExecContext {
         int syscall_errno;
         bool syscall_whitelist:1;
 
-        Set *address_families;
         bool address_families_whitelist:1;
-
-        ExecPreserveMode runtime_directory_preserve_mode;
-        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
-
-        bool memory_deny_write_execute;
-        bool restrict_realtime;
-        bool protect_hostname;
-
-        bool oom_score_adjust_set:1;
-        bool nice_set:1;
-        bool ioprio_set:1;
-        bool cpu_sched_set:1;
+        Set *address_families;
 
         char *network_namespace_path;
+
+        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
+        ExecPreserveMode runtime_directory_preserve_mode;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
