@@ -3100,6 +3100,25 @@ static enum action verb_to_action(const char *verb) {
         return _ACTION_INVALID;
 }
 
+static const char** make_extra_args(const char *extra_args[static 4]) {
+        size_t n = 0;
+
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                extra_args[n++] = "--user";
+
+        if (arg_transport == BUS_TRANSPORT_REMOTE) {
+                extra_args[n++] = "-H";
+                extra_args[n++] = arg_host;
+        } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                extra_args[n++] = "-M";
+                extra_args[n++] = arg_host;
+        } else
+                assert(arg_transport == BUS_TRANSPORT_LOCAL);
+
+        extra_args[n] = NULL;
+        return extra_args;
+}
+
 static int start_unit(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(wait_context_free) WaitContext wait_context = {};
@@ -3205,22 +3224,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (!arg_no_block) {
-                const char* extra_args[4] = {};
-                int arg_count = 0;
+                const char* extra_args[4];
 
-                if (arg_scope != UNIT_FILE_SYSTEM)
-                        extra_args[arg_count++] = "--user";
-
-                assert(IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_REMOTE, BUS_TRANSPORT_MACHINE));
-                if (arg_transport == BUS_TRANSPORT_REMOTE) {
-                        extra_args[arg_count++] = "-H";
-                        extra_args[arg_count++] = arg_host;
-                } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        extra_args[arg_count++] = "-M";
-                        extra_args[arg_count++] = arg_host;
-                }
-
-                r = bus_wait_for_jobs(w, arg_quiet, extra_args);
+                r = bus_wait_for_jobs(w, arg_quiet, make_extra_args(extra_args));
                 if (r < 0)
                         return r;
 
