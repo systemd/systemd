@@ -1658,7 +1658,8 @@ static void initialize_clock(void) {
 
 static void initialize_coredump(bool skip_setup) {
 #if ENABLE_COREDUMP
-        if (getpid_cached() != 1)
+        /* Leave coredump settings as-is if systemd-coredump is unavailable */
+        if (getpid_cached() != 1 || access(ROOTLIBEXECDIR "/systemd-coredump", F_OK) < 0)
                 return;
 
         /* Don't limit the core dump size, so that coredump handlers such as systemd-coredump (which honour the limit)
