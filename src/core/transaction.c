@@ -279,32 +279,40 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
 }
 
 static void transaction_drop_redundant(Transaction *tr) {
-        Job *j;
-        Iterator i;
+        bool again;
 
-        /* Goes through the transaction and removes all jobs of the units
-         * whose jobs are all noops. If not all of a unit's jobs are
-         * redundant, they are kept. */
+        /* Goes through the transaction and removes all jobs of the units whose jobs are all noops. If not
+         * all of a unit's jobs are redundant, they are kept. */
 
         assert(tr);
 
-rescan:
-        HASHMAP_FOREACH(j, tr->jobs, i) {
-                Job *k;
+        do {
+                Iterator i;
+                Job *j;
 
-                LIST_FOREACH(transaction, k, j) {
+                again = false;
 
-                        if (tr->anchor_job == k ||
-                            !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
-                            (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type)))
-                                goto next_unit;
+                HASHMAP_FOREACH(j, tr->jobs, i) {
+                        bool keep = false;
+                        Job *k;
+
+                        LIST_FOREACH(transaction, k, j)
+                                if (tr->anchor_job == k ||
+                                    !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
+                                    (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type))) {
+                                        keep = true;
+                                        break;
+                                }
+
+                        if (!keep) {
+                                log_trace("Found redundant job %s/%s, dropping from transaction.",
+                                          j->unit->id, job_type_to_string(j->type));
+                                transaction_delete_job(tr, j, false);
+                                again = true;
+                                break;
+                        }
                 }
-
-                log_trace("Found redundant job %s/%s, dropping from transaction.", j->unit->id, job_type_to_string(j->type));
-                transaction_delete_job(tr, j, false);
-                goto rescan;
-        next_unit:;
-        }
+        } while (again);
 }
 
 _pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
@@ -485,29 +493,36 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
 }
 
 static void transaction_collect_garbage(Transaction *tr) {
-        Iterator i;
-        Job *j;
+        bool again;
 
         assert(tr);
 
         /* Drop jobs that are not required by any other job */
 
-rescan:
-        HASHMAP_FOREACH(j, tr->jobs, i) {
-                if (tr->anchor_job == j)
-                        continue;
-                if (j->object_list) {
+        do {
+                Iterator i;
+                Job *j;
+
+                again = false;
+
+                HASHMAP_FOREACH(j, tr->jobs, i) {
+                        if (tr->anchor_job == j)
+                                continue;
+
+                        if (!j->object_list) {
+                                log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
+                                transaction_delete_job(tr, j, true);
+                                again = true;
+                                break;
+                        }
+
                         log_trace("Keeping job %s/%s because of %s/%s",
                                   j->unit->id, job_type_to_string(j->type),
                                   j->object_list->subject ? j->object_list->subject->unit->id : "root",
                                   j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root");
-                        continue;
                 }
 
-                log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
-                transaction_delete_job(tr, j, true);
-                goto rescan;
-        }
+        } while (again);
 }
 
 static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_error *e) {
