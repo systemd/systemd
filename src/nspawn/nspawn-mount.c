@@ -580,6 +580,9 @@ int mount_all(const char *dest,
                 PROC_READ_ONLY("/proc/irq"),
                 PROC_READ_ONLY("/proc/scsi"),
 
+                { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_IN_USERNS },
+
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
                 { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP },
@@ -594,8 +597,6 @@ int mount_all(const char *dest,
                 { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL },
                 { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
-                { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       0,
                   MOUNT_FATAL },
 
 #if HAVE_SELINUX
