@@ -64,10 +64,10 @@ struct node {
 struct node_callback {
         struct node *node;
 
-        bool is_fallback;
-        sd_bus_message_handler_t callback;
-
+        bool is_fallback:1;
         unsigned last_iteration;
+
+        sd_bus_message_handler_t callback;
 
         LIST_FIELDS(struct node_callback, callbacks);
 };
@@ -91,12 +91,12 @@ struct node_object_manager {
 struct node_vtable {
         struct node *node;
 
+        bool is_fallback:1;
+        unsigned last_iteration;
+
         char *interface;
-        bool is_fallback;
         const sd_bus_vtable *vtable;
         sd_bus_object_find_t find;
-
-        unsigned last_iteration;
 
         LIST_FIELDS(struct node_vtable, vtables);
 };
@@ -123,9 +123,6 @@ typedef enum BusSlotType {
 
 struct sd_bus_slot {
         unsigned n_ref;
-        sd_bus *bus;
-        void *userdata;
-        sd_bus_destroy_t destroy_callback;
         BusSlotType type:5;
 
         /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
@@ -137,6 +134,11 @@ struct sd_bus_slot {
         bool floating:1;
 
         bool match_added:1;
+
+        sd_bus *bus;
+        void *userdata;
+        sd_bus_destroy_t destroy_callback;
+
         char *description;
 
         LIST_FIELDS(sd_bus_slot, slots);
@@ -209,7 +211,7 @@ struct sd_bus {
         bool connected_signal:1;
         bool close_on_exit:1;
 
-        int use_memfd;
+        int use_memfd:2;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -240,8 +242,8 @@ struct sd_bus {
         union sockaddr_union sockaddr;
         socklen_t sockaddr_size;
 
-        char *machine;
         pid_t nspid;
+        char *machine;
 
         sd_id128_t server_id;
 
@@ -251,9 +253,9 @@ struct sd_bus {
         int last_connect_error;
 
         enum bus_auth auth;
-        size_t auth_rbegin;
-        struct iovec auth_iovec[3];
         unsigned auth_index;
+        struct iovec auth_iovec[3];
+        size_t auth_rbegin;
         char *auth_buffer;
         usec_t auth_timeout;
 
@@ -270,8 +272,6 @@ struct sd_bus {
         char *exec_path;
         char **exec_argv;
 
-        unsigned iteration_counter;
-
         /* We do locking around the memfd cache, since we want to
          * allow people to process a sd_bus_message in a different
          * thread then it was generated on and free it there. Since
@@ -285,6 +285,8 @@ struct sd_bus {
         pid_t original_pid;
         pid_t busexec_pid;
 
+        unsigned iteration_counter;
+
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
         sd_event_source *time_event_source;
@@ -293,13 +295,14 @@ struct sd_bus {
         sd_event *event;
         int event_priority;
 
+        pid_t tid;
+
         sd_bus_message *current_message;
         sd_bus_slot *current_slot;
         sd_bus_message_handler_t current_handler;
         void *current_userdata;
 
         sd_bus **default_bus_ptr;
-        pid_t tid;
 
         char *description;
         char *patch_sender;

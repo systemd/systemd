@@ -79,6 +79,10 @@ struct CGroupContext {
         bool tasks_accounting;
         bool ip_accounting;
 
+        bool delegate;
+        CGroupMask delegate_controllers;
+        CGroupMask disable_controllers;
+
         /* For unified hierarchy */
         uint64_t cpu_weight;
         uint64_t startup_cpu_weight;
@@ -116,11 +120,6 @@ struct CGroupContext {
 
         /* Common */
         uint64_t tasks_max;
-
-        bool delegate;
-        CGroupMask delegate_controllers;
-
-        CGroupMask disable_controllers;
 };
 
 /* Used when querying IP accounting data */
