@@ -29,8 +29,8 @@
 #include "strv.h"
 
 int umount_recursive(const char *prefix, int flags) {
-        bool again;
         int n = 0, r;
+        bool again;
 
         /* Try to umount everything recursively below a
          * directory. Also, take care of stacked mounts, and keep
@@ -73,9 +73,9 @@ int umount_recursive(const char *prefix, int flags) {
                                 continue;
                         }
 
-                        r = cunescape(path, UNESCAPE_RELAX, &p);
-                        if (r < 0)
-                                return r;
+                        k = cunescape(path, UNESCAPE_RELAX, &p);
+                        if (k < 0)
+                                return k;
 
                         if (!path_startswith(p, prefix))
                                 continue;
@@ -95,7 +95,7 @@ int umount_recursive(const char *prefix, int flags) {
 
         } while (again);
 
-        return r ? r : n;
+        return r < 0 ? r : n;
 }
 
 static int get_mount_flags(const char *path, unsigned long *flags) {
@@ -107,10 +107,15 @@ static int get_mount_flags(const char *path, unsigned long *flags) {
         return 0;
 }
 
-/* Use this function only if do you have direct access to /proc/self/mountinfo
- * and need the caller to open it for you. This is the case when /proc is
- * masked or not mounted. Otherwise, use bind_remount_recursive. */
-int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **blacklist, FILE *proc_self_mountinfo) {
+/* Use this function only if do you have direct access to /proc/self/mountinfo and need the caller to open it
+ * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
+int bind_remount_recursive_with_mountinfo(
+                const char *prefix,
+                unsigned long new_flags,
+                unsigned long flags_mask,
+                char **blacklist,
+                FILE *proc_self_mountinfo) {
+
         _cleanup_set_free_free_ Set *done = NULL;
         _cleanup_free_ char *cleaned = NULL;
         int r;
@@ -245,16 +250,12 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(cleaned, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, cleaned, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL, cleaned, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        x = strdup(cleaned);
-                        if (!x)
-                                return -ENOMEM;
-
-                        r = set_consume(done, x);
+                        r = set_put_strdup(done, cleaned);
                         if (r < 0)
                                 return r;
                 }
@@ -291,7 +292,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                         (void) get_mount_flags(x, &orig_flags);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, x, NULL, orig_flags|MS_BIND|MS_REMOUNT|(ro ? MS_RDONLY : 0), NULL) < 0)
+                        if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
 
                         log_debug("Remounted %s read-only.", x);
@@ -299,7 +300,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
         }
 }
 
-int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
+int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
@@ -308,7 +309,7 @@ int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
 
         (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
-        return bind_remount_recursive_with_mountinfo(prefix, ro, blacklist, proc_self_mountinfo);
+        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, blacklist, proc_self_mountinfo);
 }
 
 int mount_move_root(const char *path) {

@@ -42,7 +42,7 @@ static int make_volatile(const char *path) {
         if (r < 0)
                 goto finish_umount;
 
-        r = bind_remount_recursive("/run/systemd/volatile-sysroot/usr", true, NULL);
+        r = bind_remount_recursive("/run/systemd/volatile-sysroot/usr", MS_RDONLY, MS_RDONLY, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to remount /usr read-only: %m");
                 goto finish_umount;

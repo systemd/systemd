@@ -2367,6 +2367,7 @@ static int compile_bind_mounts(
                                 .source = s,
                                 .destination = d,
                                 .read_only = false,
+                                .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
                                 .ignore_enoent = false,
                         };
