@@ -107,7 +107,7 @@ static int get_mount_flags(const char *path, unsigned long *flags) {
         return 0;
 }
 
-/* Use this function only if do you have direct access to /proc/self/mountinfo and need the caller to open it
+/* Use this function only if you do not have direct access to /proc/self/mountinfo but the caller can open it
  * for you. This is the case when /proc is masked or not mounted. Otherwise, use bind_remount_recursive. */
 int bind_remount_recursive_with_mountinfo(
                 const char *prefix,
