@@ -7,8 +7,8 @@
 #include "strv.h"
 #include "sysv-compat.h"
 
-int talk_initctl(char rl) {
 #if HAVE_SYSV_COMPAT
+int talk_initctl(char rl) {
         struct init_request request;
         _cleanup_close_ int fd = -1;
         const char *p;
@@ -44,10 +44,8 @@ int talk_initctl(char rl) {
                 return log_error_errno(r, "Failed to write to %s: %m", p);
 
         return 1;
-#else
-        return 0;
-#endif
 }
+#endif
 
 int parse_shutdown_time_spec(const char *t, usec_t *ret) {
         assert(t);
