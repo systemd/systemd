@@ -280,7 +280,12 @@ static void test_exec_privatedevices(Manager *m) {
 }
 
 static void test_exec_protecthome(Manager *m) {
-        test(__func__, m, "exec-protecthome-tmpfs-vs-protectsystem-strict.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        if (!can_unshare) {
+                log_notice("Cannot reliably unshare, skipping %s", __func__);
+                return;
+        }
+
+        test(__func__, m, "exec-protecthome-tmpfs-vs-protectsystem-strict.service", 0, CLD_EXITED);
 }
 
 static void test_exec_protectkernelmodules(Manager *m) {
