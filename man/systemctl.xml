@@ -299,6 +299,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--show-transaction</option></term>
+
+        <listitem>
+          <para>When enqueuing a unit job (for example as effect of a <command>systemctl start</command>
+          invocation or similar), show brief information about all jobs enqueued, covering both the requested
+          job and any added because of unit dependencies. Note that the output will only include jobs
+          immediately part of the transaction requested. It is possible that service start-up program code
+          run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
+          completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fail</option></term>
 
         <listitem>
