@@ -891,33 +891,24 @@ bool on_tty(void) {
 }
 
 int getttyname_malloc(int fd, char **ret) {
-        size_t l = 100;
+        char path[PATH_MAX], *c; /* PATH_MAX is counted *with* the trailing NUL byte */
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        for (;;) {
-                char path[l];
+        r = ttyname_r(fd, path, sizeof path); /* positive error */
+        assert(r >= 0);
+        if (r == ERANGE)
+                return -ENAMETOOLONG;
+        if (r > 0)
+                return -r;
 
-                r = ttyname_r(fd, path, sizeof(path));
-                if (r == 0) {
-                        char *c;
+        c = strdup(skip_dev_prefix(path));
+        if (!c)
+                return -ENOMEM;
 
-                        c = strdup(skip_dev_prefix(path));
-                        if (!c)
-                                return -ENOMEM;
-
-                        *ret = c;
-                        return 0;
-                }
-
-                if (r != ERANGE)
-                        return -r;
-
-                l *= 2;
-        }
-
+        *ret = c;
         return 0;
 }
 
