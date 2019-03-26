@@ -3279,64 +3279,38 @@ static int logind_set_wall_message(void) {
 }
 #endif
 
-/* Ask systemd-logind, which might grant access to unprivileged users
- * through polkit */
+/* Ask systemd-logind, which might grant access to unprivileged users through polkit */
 static int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
+        static const struct {
+                const char *method;
+                const char *description;
+        } actions[_ACTION_MAX] = {
+                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
+                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
+                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
+                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
+                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
+                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
+                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *method, *description;
         sd_bus *bus;
         int r;
+
+        if (a < 0 || a >= _ACTION_MAX || !actions[a].method)
+                return -EINVAL;
 
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
 
-        switch (a) {
-
-        case ACTION_POWEROFF:
-                method = "PowerOff";
-                description = "power off system";
-                break;
-
-        case ACTION_REBOOT:
-                method = "Reboot";
-                description = "reboot system";
-                break;
-
-        case ACTION_HALT:
-                method = "Halt";
-                description = "halt system";
-                break;
-
-        case ACTION_SUSPEND:
-                method = "Suspend";
-                description = "suspend system";
-                break;
-
-        case ACTION_HIBERNATE:
-                method = "Hibernate";
-                description = "hibernate system";
-                break;
-
-        case ACTION_HYBRID_SLEEP:
-                method = "HybridSleep";
-                description = "put system into hybrid sleep";
-                break;
-
-        case ACTION_SUSPEND_THEN_HIBERNATE:
-                method = "SuspendThenHibernate";
-                description = "put system into suspend followed by hibernate";
-                break;
-
-        default:
-                return -EINVAL;
-        }
-
         polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
-        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", method);
+        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", actions[a].method);
+
         if (arg_dry_run)
                 return 0;
 
@@ -3345,12 +3319,12 @@ static int logind_reboot(enum action a) {
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        method,
+                        actions[a].method,
                         &error,
                         NULL,
                         "b", arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to %s via logind: %s", description, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
 
         return 0;
 #else
