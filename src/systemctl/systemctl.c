@@ -3545,8 +3545,8 @@ static int prepare_boot_loader_entry(void) {
 
         return 0;
 #else
-        log_error("Booting into boot loader entry not supported.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into boot loader entry not supported.");
 #endif
 }
 
