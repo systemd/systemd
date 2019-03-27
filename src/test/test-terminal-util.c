@@ -16,6 +16,8 @@
 #include "util.h"
 
 static void test_default_term_for_tty(void) {
+        log_info("/* %s */", __func__);
+
         puts(default_term_for_tty("/dev/tty23"));
         puts(default_term_for_tty("/dev/ttyS23"));
         puts(default_term_for_tty("/dev/tty0"));
@@ -35,6 +37,8 @@ static void test_read_one_char(void) {
         char r;
         bool need_nl;
         char name[] = "/tmp/test-read_one_char.XXXXXX";
+
+        log_info("/* %s */", __func__);
 
         assert(fmkostemp_safe(name, "r+", &file) == 0);
 
@@ -62,8 +66,12 @@ static void test_getttyname_malloc(void) {
         _cleanup_free_ char *ttyname = NULL;
         _cleanup_close_ int master = -1;
 
+        log_info("/* %s */", __func__);
+
         assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
         assert_se(getttyname_malloc(master, &ttyname) >= 0);
+        log_info("ttyname = %s", ttyname);
+
         assert_se(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
 }
 
