@@ -912,20 +912,18 @@ int getttyname_malloc(int fd, char **ret) {
         return 0;
 }
 
-int getttyname_harder(int fd, char **r) {
-        int k;
-        char *s = NULL;
+int getttyname_harder(int fd, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
 
-        k = getttyname_malloc(fd, &s);
-        if (k < 0)
-                return k;
+        r = getttyname_malloc(fd, &s);
+        if (r < 0)
+                return r;
 
-        if (streq(s, "tty")) {
-                free(s);
-                return get_ctty(0, NULL, r);
-        }
+        if (streq(s, "tty"))
+                return get_ctty(0, NULL, ret);
 
-        *r = s;
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -1043,6 +1041,10 @@ int ptsname_malloc(int fd, char **ret) {
                 }
 
                 free(c);
+
+                if (l > SIZE_MAX / 2)
+                        return -ENOMEM;
+
                 l *= 2;
         }
 }
