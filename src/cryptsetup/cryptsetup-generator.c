@@ -265,6 +265,7 @@ static int create_disk(
                 "RemainAfterExit=yes\n"
                 "TimeoutSec=0\n" /* the binary handles timeouts anyway */
                 "KeyringMode=shared\n" /* make sure we can share cached keys among instances */
+                "OOMScoreAdjust=500\n" /* unlocking can allocate a lot of memory if Argon2 is used */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 name_escaped, u_escaped, strempty(password_escaped), strempty(filtered_escaped),
