@@ -17,6 +17,7 @@
 #include "missing_resource.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
+#include "time-util.h"
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */

@@ -11,7 +11,7 @@
 #include "dhcp-internal.h"
 #include "hashmap.h"
 #include "log.h"
-#include "util.h"
+#include "time-util.h"
 
 typedef struct DHCPClientId {
         size_t length;

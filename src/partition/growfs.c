@@ -25,6 +25,7 @@
 #include "pretty-print.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "util.h"
 
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;

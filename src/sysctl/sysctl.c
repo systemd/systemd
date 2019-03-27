@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "conf-files.h"
 #include "def.h"
@@ -21,7 +23,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "util.h"
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;

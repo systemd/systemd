@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <stdio_ext.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "bus-util.h"
@@ -420,8 +422,7 @@ int x11_write_data(Context *c) {
                 return 0;
         }
 
-        mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
-
+        (void) mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
         r = fopen_temporary("/etc/X11/xorg.conf.d/00-keyboard.conf", &f, &temp_path);
         if (r < 0)
                 return r;

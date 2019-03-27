@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "user-util.h"
-#include "util.h"
-#include "path-util.h"
 
 static void test_uid_to_name_one(uid_t uid, const char *name) {
         _cleanup_free_ char *t = NULL;

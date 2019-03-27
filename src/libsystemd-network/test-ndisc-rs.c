@@ -5,6 +5,7 @@
 
 #include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include "sd-ndisc.h"
 

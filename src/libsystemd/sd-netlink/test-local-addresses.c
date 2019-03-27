@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "in-addr-util.h"

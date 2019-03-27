@@ -5,6 +5,8 @@
 #include <linux/ip.h>
 #include <net/if.h>
 #include <linux/if_tunnel.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-netlink.h"
 

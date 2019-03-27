@@ -6,6 +6,8 @@
 
 #include "sd-id128.h"
 
+#include "time-util.h"
+
 typedef struct ClientContext ClientContext;
 
 #include "journald-server.h"

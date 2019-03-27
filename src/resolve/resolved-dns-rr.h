@@ -9,6 +9,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;

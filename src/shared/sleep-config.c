@@ -4,12 +4,15 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
 

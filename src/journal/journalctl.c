@@ -1901,6 +1901,21 @@ static int verify(sd_journal *j) {
         return r;
 }
 
+static int watch_run_systemd_journal(uint32_t mask) {
+        _cleanup_close_ int watch_fd = -1;
+
+        (void) mkdir_p("/run/systemd/journal", 0755);
+
+        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        if (watch_fd < 0)
+                return log_error_errno(errno, "Failed to create inotify object: %m");
+
+        if (inotify_add_watch(watch_fd, "/run/systemd/journal", mask) < 0)
+                return log_error_errno(errno, "Failed to watch \"/run/systemd/journal\": %m");
+
+        return TAKE_FD(watch_fd);
+}
+
 static int flush_to_var(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1934,19 +1949,13 @@ static int flush_to_var(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
 
-        mkdir_p("/run/systemd/journal", 0755);
-
-        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+        watch_fd = watch_run_systemd_journal(IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
         if (watch_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify watch: %m");
-
-        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to watch journal directory: %m");
+                return watch_fd;
 
         for (;;) {
                 if (access("/run/systemd/journal/flushed", F_OK) >= 0)
-                        break;
+                        return 0;
 
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to check for existence of /run/systemd/journal/flushed: %m");
@@ -1959,8 +1968,6 @@ static int flush_to_var(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to flush inotify events: %m");
         }
-
-        return 0;
 }
 
 static int send_signal_and_wait(int sig, const char *watch_path) {
@@ -2016,23 +2023,15 @@ static int send_signal_and_wait(int sig, const char *watch_path) {
 
                 /* Let's install the inotify watch, if we didn't do that yet. */
                 if (watch_fd < 0) {
-
-                        mkdir_p("/run/systemd/journal", 0755);
-
-                        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                        watch_fd = watch_run_systemd_journal(IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
                         if (watch_fd < 0)
-                                return log_error_errno(errno, "Failed to create inotify watch: %m");
-
-                        r = inotify_add_watch(watch_fd, "/run/systemd/journal", IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
-                        if (r < 0)
-                                return log_error_errno(errno, "Failed to watch journal directory: %m");
+                                return watch_fd;
 
                         /* Recheck the flag file immediately, so that we don't miss any event since the last check. */
                         continue;
                 }
 
-                /* OK, all preparatory steps done, let's wait until
-                 * inotify reports an event. */
+                /* OK, all preparatory steps done, let's wait until inotify reports an event. */
 
                 r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
                 if (r < 0)

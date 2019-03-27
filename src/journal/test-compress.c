@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/stat.h>
+
 #if HAVE_LZ4
 #include <lz4.h>
 #endif

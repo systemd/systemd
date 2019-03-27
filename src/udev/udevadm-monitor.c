@@ -19,6 +19,7 @@
 #include "string-util.h"
 #include "udevadm.h"
 #include "virt.h"
+#include "time-util.h"
 
 static bool arg_show_property = false;
 static bool arg_print_kernel = false;

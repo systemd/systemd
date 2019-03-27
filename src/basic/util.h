@@ -1,31 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <alloca.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <locale.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/inotify.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/statfs.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
 
-#include "format-util.h"
 #include "macro.h"
-#include "time-util.h"
 
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";

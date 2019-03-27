@@ -159,7 +159,7 @@ static int stdout_stream_save(StdoutStream *s) {
                         return log_oom();
         }
 
-        mkdir_p("/run/systemd/journal/streams", 0755);
+        (void) mkdir_p("/run/systemd/journal/streams", 0755);
 
         r = fopen_temporary(s->state_file, &f, &temp_path);
         if (r < 0)

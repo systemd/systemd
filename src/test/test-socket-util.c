@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
+#include <grp.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <grp.h>
 
 #include "alloc-util.h"
 #include "async.h"
@@ -19,7 +21,6 @@
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 static void test_ifname_valid(void) {
         log_info("/* %s */", __func__);

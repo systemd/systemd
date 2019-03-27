@@ -9,6 +9,9 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/swap.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 /* This needs to be after sys/mount.h :( */
 #include <libmount.h>

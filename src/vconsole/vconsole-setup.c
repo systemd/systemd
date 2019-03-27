@@ -15,6 +15,8 @@
 #include <sys/ioctl.h>
 #include <sysexits.h>
 #include <termios.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

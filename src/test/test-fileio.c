@@ -759,7 +759,11 @@ static void test_read_line3(void) {
         assert_se(f);
 
         r = read_line(f, LINE_MAX, &line);
-        assert_se((size_t) r == strlen(line) + 1);
+        assert_se(r >= 0);
+        if (r == 0)
+                assert_se(line && isempty(line));
+        else
+                assert_se((size_t) r == strlen(line) + 1);
         assert_se(read_line(f, LINE_MAX, NULL) == 0);
 }
 

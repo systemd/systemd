@@ -7,6 +7,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tests.h"
 
 void test_hashmap_funcs(void);

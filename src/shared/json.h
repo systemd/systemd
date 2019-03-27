@@ -4,10 +4,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "macro.h"
 #include "string-util.h"
-#include "util.h"
+#include "log.h"
 
 /*
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has

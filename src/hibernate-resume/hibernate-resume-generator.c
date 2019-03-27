@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fstab-util.h"
@@ -13,7 +14,6 @@
 #include "special.h"
 #include "string-util.h"
 #include "unit-name.h"
-#include "util.h"
 
 static const char *arg_dest = "/tmp";
 static char *arg_resume_device = NULL;

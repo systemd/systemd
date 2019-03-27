@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "sd-device.h"
 
 #include "alloc-util.h"

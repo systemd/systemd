@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,

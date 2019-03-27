@@ -9,7 +9,7 @@
 #include "list.h"
 #include "random-util.h"
 #include "string-util.h"
-#include "util.h"
+#include "time-util.h"
 
 #define POOLS_MAX 5
 #define BUCKETS_MAX 127

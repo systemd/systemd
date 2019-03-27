@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "mount-util.h"

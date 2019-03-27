@@ -10,6 +10,7 @@
 #include "bus-common-errors.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "macro.h"

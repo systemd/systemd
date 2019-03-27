@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <linux/netlink.h>
 #include <sys/capability.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #if HAVE_SECCOMP

@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <stdio_ext.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #if HAVE_LIBIDN2
 #include <idn2.h>

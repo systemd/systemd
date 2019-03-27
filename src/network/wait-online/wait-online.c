@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "sd-daemon.h"
 

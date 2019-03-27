@@ -1032,7 +1032,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         }
 
         if (p) {
-                mkdir_p("/run/systemd/nspawn/locks", 0700);
+                (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
 
                 r = make_lock_file(p, operation, global);
                 if (r < 0) {
@@ -1169,8 +1169,6 @@ int image_read_metadata(Image *i) {
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {
-        const char *p;
-
         assert(name);
         assert(ret);
 
@@ -1187,9 +1185,8 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         if (streq(name, ".host"))
                 return -EBUSY;
 
-        mkdir_p("/run/systemd/nspawn/locks", 0700);
-        p = strjoina("/run/systemd/nspawn/locks/name-", name);
-
+        const char *p = strjoina("/run/systemd/nspawn/locks/name-", name);
+        (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
         return make_lock_file(p, operation, ret);
 }
 

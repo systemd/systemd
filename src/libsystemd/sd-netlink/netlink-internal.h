@@ -8,6 +8,7 @@
 #include "list.h"
 #include "netlink-types.h"
 #include "prioq.h"
+#include "time-util.h"
 
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 

@@ -2,6 +2,7 @@
 
 #include <linux/sockios.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "fd-util.h"
 #include "fuzz.h"
