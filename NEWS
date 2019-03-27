@@ -214,7 +214,24 @@ CHANGES WITH 242 in spe:
           substantial, and the setting is still relatively new, hence we opted
           to make it mandatory for services with dynamic users.
 
-        …
+        Contributions from: Adam Jackson, Alexander Tsoy, Andrey Yashkin,
+        Andrzej Pietrasiewicz, Anita Zhang, Balint Reczey, Beniamino Galvani,
+        Ben Iofel, Benjamin Berg, Benjamin Dahlhoff, Chris, Chris Morin,
+        Christopher Wong, Claudius Ellsel, Clemens Gruber, dana, Daniel Black,
+        Davide Cavalca, David Michael, David Rheinsberg, emersion, Evgeny
+        Vereshchagin, Filipe Brandenburger, Franck Bui, Frantisek Sumsal,
+        Giacinto Cifelli, Hans de Goede, Hugo Kindel, Ignat Korchagin, Insun
+        Pyo, Jan Engelhardt, Jonathan Lebon, Jonathon Kowalski, Jörg Sommer,
+        Jörg Thalheim, Kai-Heng Feng, Lennart Poettering, Lubomir Rintel,
+        Martin Pitt, Matthias Klumpp, Michael Biebl, Michael Niewöhner, Michael
+        Olbrich, Michal Sekletar, Mike Lothian, Piotr Drąg, Riccardo Schirone,
+        Robin Elvedi, Roman Kulikov, Ronald Tschalär, Ross Burton, Ryan
+        Gonzalez, Stephane Chazelas, StKob, Susant Sahani, Sylvain Plantefève,
+        Szabolcs Fruhwald, Taro Yamada, Theo Ouzhinski, Thomas Haller, Tobias
+        Jungel, Tom Yan, Tony Asleson, Topi Miettinen, unixsysadmin, Van Laser,
+        Vesa Jääskeläinen, Yu, Li-Yu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+
+        — Somewhere, 2019-0X-YZ
 
 CHANGES WITH 241:
 
