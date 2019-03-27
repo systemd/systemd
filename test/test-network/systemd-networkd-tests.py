@@ -880,13 +880,8 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
         '25-link-local-addressing-no.network',
         '25-link-local-addressing-yes.network',
         '25-link-section-unmanaged.network',
-        '25-route-gateway.network',
-        '25-route-gateway-on-link.network',
         '25-route-ipv6-src.network',
-        '25-route-reverse-order.network',
-        '25-route-section.network',
-        '25-route-tcp-window-settings.network',
-        '25-route-type.network',
+        '25-route-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         'configure-without-carrier.network',
@@ -1049,100 +1044,46 @@ class NetworkdNetWorkTests(unittest.TestCase, Utilities):
 
         subprocess.call(['ip', 'rule', 'del', 'table', '7'])
 
-    def test_ip_route(self):
-        self.copy_unit_to_networkd_unit_path('25-route-section.network', '12-dummy.netdev')
-        self.start_networkd()
+    def test_route_static(self):
+        self.copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
+        self.start_networkd(0)
 
-        self.assertTrue(self.link_exits('dummy98'))
-
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, '192.168.0.1')
-        self.assertRegex(output, 'static')
-        self.assertRegex(output, '192.168.0.0/24')
-
-    def test_ip_route_reverse(self):
-        self.copy_unit_to_networkd_unit_path('25-route-reverse-order.network', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
+        self.wait_online(['dummy98:routable'])
 
         output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff')
-        self.assertRegex(output, '2001:1234:5:8f63::1')
+        self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff proto static')
+        self.assertRegex(output, '2001:1234:5:8f63::1 proto kernel')
 
-    def test_ip_route_blackhole_unreachable_prohibit(self):
-        self.copy_unit_to_networkd_unit_path('25-route-type.network', '12-dummy.netdev')
-        self.start_networkd()
+        output = subprocess.check_output(['ip', '-6', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'default via 2001:1234:5:8fff:ff:ff:ff:ff proto static metric 1024 pref medium')
 
-        self.assertTrue(self.link_exits('dummy98'))
-
-        output = subprocess.check_output(['ip', 'route', 'list']).rstrip().decode('utf-8')
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98']).rstrip().decode('utf-8')
         print(output)
-        self.assertRegex(output, 'blackhole')
-        self.assertRegex(output, 'unreachable')
-        self.assertRegex(output, 'prohibit')
+        self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
+        self.assertRegex(output, '149.10.124.64 proto static scope link')
+        self.assertRegex(output, '192.168.1.1 proto static initcwnd 20')
+        self.assertRegex(output, '192.168.1.2 proto static initrwnd 30')
+
+        output = subprocess.check_output(['ip', '-4', 'route', 'show', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
+        self.assertRegex(output, 'default via 149.10.125.65 proto static onlink')
+        self.assertRegex(output, 'default via 149.10.124.64 proto static')
+
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'blackhole']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'blackhole 202.54.1.2 proto static')
+
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'unreachable']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'unreachable 202.54.1.3 proto static')
+
+        output = subprocess.check_output(['ip', 'route', 'show', 'type', 'prohibit']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
 
         subprocess.call(['ip', 'route', 'del', 'blackhole', '202.54.1.2'])
         subprocess.call(['ip', 'route', 'del', 'unreachable', '202.54.1.3'])
         subprocess.call(['ip', 'route', 'del', 'prohibit', '202.54.1.4'])
-
-    def test_ip_route_tcp_window(self):
-        self.copy_unit_to_networkd_unit_path('25-route-tcp-window-settings.network', '11-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('test1'))
-
-        output = subprocess.check_output(['ip', 'route', 'list']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'initcwnd 20')
-        self.assertRegex(output, 'initrwnd 30')
-
-    def test_ip_route_gateway(self):
-        self.copy_unit_to_networkd_unit_path('25-route-gateway.network', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'default')
-        self.assertRegex(output, 'via')
-        self.assertRegex(output, '149.10.124.64')
-        self.assertRegex(output, 'proto')
-        self.assertRegex(output, 'static')
-
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'src', '149.10.124.58']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, '149.10.124.48/28')
-        self.assertRegex(output, 'proto')
-        self.assertRegex(output, 'kernel')
-        self.assertRegex(output, 'scope')
-        self.assertRegex(output, 'link')
-
-    def test_ip_route_gateway_on_link(self):
-        self.copy_unit_to_networkd_unit_path('25-route-gateway-on-link.network', '12-dummy.netdev')
-        self.start_networkd()
-
-        self.assertTrue(self.link_exits('dummy98'))
-
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'default']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, 'default')
-        self.assertRegex(output, 'via')
-        self.assertRegex(output, '149.10.125.65')
-        self.assertRegex(output, 'proto')
-        self.assertRegex(output, 'static')
-        self.assertRegex(output, 'onlink')
-
-        output = subprocess.check_output(['ip', 'route', 'list', 'dev', 'dummy98', 'src', '149.10.124.58']).rstrip().decode('utf-8')
-        print(output)
-        self.assertRegex(output, '149.10.124.48/28')
-        self.assertRegex(output, 'proto')
-        self.assertRegex(output, 'kernel')
-        self.assertRegex(output, 'scope')
-        self.assertRegex(output, 'link')
 
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
