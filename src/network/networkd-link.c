@@ -4018,7 +4018,7 @@ int link_save(Link *link) {
         assert(link->manager);
 
         if (link->state == LINK_STATE_LINGER) {
-                unlink(link->state_file);
+                (void) unlink(link->state_file);
                 return 0;
         }
 
@@ -4287,7 +4287,7 @@ int link_save(Link *link) {
                         "DHCP_LEASE=%s\n",
                         link->lease_file);
         } else
-                unlink(link->lease_file);
+                (void) unlink(link->lease_file);
 
         if (link->ipv4ll) {
                 struct in_addr address;

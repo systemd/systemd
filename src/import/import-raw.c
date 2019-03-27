@@ -183,7 +183,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
 
         r = qcow2_convert(i->output_fd, converted_fd);
         if (r < 0) {
-                unlink(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 

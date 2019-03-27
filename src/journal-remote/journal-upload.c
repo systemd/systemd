@@ -106,7 +106,7 @@ static int check_cursor_updating(Uploader *u) {
         if (r < 0)
                 return log_error_errno(r, "Cannot save state to %s: %m",
                                        u->state_file);
-        unlink(temp_path);
+        (void) unlink(temp_path);
 
         return 0;
 }
