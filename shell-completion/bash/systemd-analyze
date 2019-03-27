@@ -50,8 +50,8 @@ _systemd_analyze() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require
-                      --failure --triggers --no-pager --man=no --generators=yes'
-        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root --dependency-color-style'
+                      --no-pager --man=no --generators=yes'
+        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root --dependency-kind --dependency-color --dependency-style'
     )
 
     local -A VERBS=(
@@ -116,7 +116,7 @@ _systemd_analyze() {
 
     elif __contains_word "$verb" ${VERBS[DOT]}; then
         if [[ $cur = -* ]]; then
-            comps='--help --version --system --user --global --from-pattern --to-pattern --order --require --failure --triggers --dependency-color-style'
+            comps='--help --version --system --user --global --from-pattern --to-pattern --order --require --dependency-kind --dependency-color --dependency-style'
         fi
 
     elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then

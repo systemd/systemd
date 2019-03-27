@@ -69,17 +69,16 @@ _arguments \
     '--version[Show package version]' \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
-    '--global[Show global user instance config]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
-    '--failure[When generating graph for dot, show only onFailure]' \
-    '--triggers[When generating graph for dot, show only triggers]' \
     '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
     '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
     '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
-    '--dependency-color-style=[When generating a dependency graph, use color and style for dependency]:String' \
+    '--dependency-kind=[When generating graph for dot, show only order, requirement, onFailure or triggers]:order require failure triggers:(order require failure triggers)' \
+    '*--dependency-color=[When generating a dependency graph, use color for dependency]:After\:color Requires\:color Requisite\:color Wants\:color Conflicts\:color BindsTo\:color PartOf\:color OnFailure\:color Triggers\:color: ' \
+    '*--dependency-style=[When generating a dependency graph, use style for dependency]:After\:style Requires\:style Requisite\:style Wants\:style Conflicts\:style BindsTo\:style PartOf\:style OnFailure\:style Triggers\:style: ' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    '*::systemd-analyze commands:_systemd-analyze_commands'
+    '*::systemd-analyze commands:_systemd_analyze_command'
