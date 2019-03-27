@@ -3,7 +3,10 @@
 
 #include "time-util.h"
 
+#if HAVE_SYSV_COMPAT
 int talk_initctl(char runlevel);
+#endif
+
 int parse_shutdown_time_spec(const char *t, usec_t *ret);
 
 /* The init script exit codes for the LSB 'status' verb. (This is different from the 'start' verb, whose exit

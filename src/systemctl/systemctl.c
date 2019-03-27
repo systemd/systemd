@@ -8727,7 +8727,6 @@ _pure_ static int action_to_runlevel(void) {
         };
 
         assert(arg_action >= 0 && arg_action < _ACTION_MAX);
-
         return table[arg_action];
 }
 #endif
@@ -8826,9 +8825,11 @@ static int start_with_fallback(void) {
         if (start_unit(0, NULL, NULL) == 0)
                 return 0;
 
+#if HAVE_SYSV_COMPAT
         /* Nothing else worked, so let's try /dev/initctl */
         if (talk_initctl(action_to_runlevel()) > 0)
                 return 0;
+#endif
 
         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                "Failed to talk to init daemon.");
