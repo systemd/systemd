@@ -57,7 +57,7 @@ void inhibitor_free(Inhibitor *i) {
         free(i->why);
 
         if (i->state_file) {
-                unlink(i->state_file);
+                (void) unlink(i->state_file);
                 free(i->state_file);
         }
 
@@ -171,7 +171,7 @@ int inhibitor_stop(Inhibitor *i) {
                           inhibit_mode_to_string(i->mode));
 
         if (i->state_file)
-                unlink(i->state_file);
+                (void) unlink(i->state_file);
 
         i->started = false;
 
@@ -318,7 +318,7 @@ void inhibitor_remove_fifo(Inhibitor *i) {
         i->fifo_fd = safe_close(i->fifo_fd);
 
         if (i->fifo_path) {
-                unlink(i->fifo_path);
+                (void) unlink(i->fifo_path);
                 i->fifo_path = mfree(i->fifo_path);
         }
 }

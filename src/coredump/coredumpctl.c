@@ -859,7 +859,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
 error:
         if (temp) {
-                unlink(temp);
+                (void) unlink(temp);
                 log_debug("Removed temporary file %s", temp);
         }
         return r;
@@ -985,7 +985,7 @@ finish:
 
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);
-                unlink(path);
+                (void) unlink(path);
         }
 
         return r;

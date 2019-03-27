@@ -1674,8 +1674,8 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
                 char *t;
 
                 t = strjoina(a, "/tmp");
-                rmdir(t);
-                rmdir(a);
+                (void) rmdir(t);
+                (void) rmdir(a);
 
                 free(a);
                 return r;

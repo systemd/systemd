@@ -1841,7 +1841,7 @@ finish:
         safe_close(fd);
 
         if (k) {
-                unlink(k);
+                (void) unlink(k);
                 free(k);
         }
 

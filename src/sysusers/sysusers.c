@@ -244,7 +244,7 @@ static int make_backup(const char *target, const char *x) {
         return 0;
 
 fail:
-        unlink(temp);
+        (void) unlink(temp);
         return r;
 }
 

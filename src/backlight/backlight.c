@@ -408,7 +408,7 @@ static int run(int argc, char *argv[]) {
                 const char *value;
 
                 if (validate_device(device) == 0) {
-                        unlink(saved);
+                        (void) unlink(saved);
                         return 0;
                 }
 

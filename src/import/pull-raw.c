@@ -250,7 +250,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         r = qcow2_convert(i->raw_job->disk_fd, converted_fd);
         if (r < 0) {
-                unlink(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
@@ -364,7 +364,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
-                unlink(tp);
+                (void) unlink(tp);
                 return log_error_errno(r, "Failed to make writable copy of image: %m");
         }
 
@@ -376,7 +376,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         r = rename(tp, p);
         if (r < 0)  {
                 r = log_error_errno(errno, "Failed to move writable image into place: %m");
-                unlink(tp);
+                (void) unlink(tp);
                 return r;
         }
 
