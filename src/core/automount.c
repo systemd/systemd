@@ -759,7 +759,7 @@ static void automount_enter_running(Automount *a) {
                 return;
         }
 
-        mkdir_p_label(a->where, a->directory_mode);
+        (void) mkdir_p_label(a->where, a->directory_mode);
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
