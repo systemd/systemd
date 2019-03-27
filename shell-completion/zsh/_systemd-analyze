@@ -1,34 +1,29 @@
 #compdef systemd-analyze
 # SPDX-License-Identifier: LGPL-2.1+
 
-(( $+functions[_systemd-analyze_log-level] )) ||
-_systemd-analyze_log-level() {
+_systemd_analyze_log-level() {
     local -a _levels
     _levels=(debug info notice warning err crit alert emerg)
     _describe -t level 'logging level' _levels || compadd "$@"
 }
 
-(( $+functions[_systemd-analyze_log-target] )) ||
-_systemd-analyze_log-target() {
+_systemd_analyze_log-target() {
     local -a _targets
     _targets=(console journal kmsg journal-or-kmsg null)
     _describe -t target 'logging target' _targets || compadd "$@"
 }
 
-(( $+functions[_systemd-analyze_verify] )) ||
-_systemd-analyze_verify() {
+_systemd_analyze_verify() {
     _sd_unit_files
 }
 
-(( $+functions[_systemd-analyze_service-watchdogs] )) ||
-_systemd-analyze_service-watchdogs() {
+_systemd_analyze_service-watchdogs() {
     local -a _states
     _states=(on off)
     _describe -t state 'state' _states || compadd "$@"
 }
 
-(( $+functions[_systemd-analyze_commands] )) ||
-_systemd-analyze_commands(){
+_systemd_analyze_command(){
     local -a _systemd_analyze_cmds
     # Descriptions taken from systemd-analyze --help.
     _systemd_analyze_cmds=(
@@ -38,13 +33,11 @@ _systemd-analyze_commands(){
         'plot:Output SVG graphic showing service initialization'
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
-        'unit-paths:List unit load paths'
         'log-level:Get/set systemd log threshold'
         'log-target:Get/set systemd log target'
         'service-watchdogs:Get/set service watchdog status'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
-        'calendar:Validate repetitive calendar time events'
     )
 
     if (( CURRENT == 1 )); then
@@ -53,8 +46,8 @@ _systemd-analyze_commands(){
         local curcontext="$curcontext"
         cmd="${${_systemd_analyze_cmds[(r)$words[1]:*]%%:*}}"
         if (( $#cmd )); then
-            if (( $+functions[_systemd-analyze_$cmd] )) && (( CURRENT == 2 )); then
-                _systemd-analyze_$cmd
+            if (( $+functions[_systemd_analyze_$cmd] )) && (( CURRENT == 2 )); then
+                _systemd_analyze_$cmd
             else
                 _message "no more options"
             fi
@@ -69,17 +62,16 @@ _arguments \
     '--version[Show package version]' \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
-    '--global[Show global user instance config]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \
     '--require[When generating graph for dot, show only requirement]' \
-    '--failure[When generating graph for dot, show only onFailure]' \
-    '--triggers[When generating graph for dot, show only triggers]' \
     '--fuzz=[When printing the tree of the critical chain, print also services, which finished TIMESPAN earlier, than the latest in the branch]:TIMESPAN' \
     '--from-pattern=[When generating a dependency graph, filter only origins]:GLOB' \
     '--to-pattern=[When generating a dependency graph, filter only destinations]:GLOB' \
-    '--dependency-color-style=[When generating a dependency graph, use color and style for dependency]:String' \
+    '--dependency-kind=[When generating graph for dot, show only order, requirement, onFailure or triggers]:order require failure triggers:(order require failure triggers)' \
+    '*--dependency-color=[When generating a dependency graph, use color for dependency]:After\:color Requires\:color Requisite\:color Wants\:color Conflicts\:color BindsTo\:color PartOf\:color OnFailure\:color Triggers\:color: ' \
+    '*--dependency-style=[When generating a dependency graph, use style for dependency]:After\:style Requires\:style Requisite\:style Wants\:style Conflicts\:style BindsTo\:style PartOf\:style OnFailure\:style Triggers\:style: ' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    '*::systemd-analyze commands:_systemd-analyze_commands'
+    '*::systemd-analyze commands:_systemd_analyze_command'
