@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"

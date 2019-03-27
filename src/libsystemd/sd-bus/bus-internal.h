@@ -14,7 +14,7 @@
 #include "list.h"
 #include "prioq.h"
 #include "socket-util.h"
-#include "util.h"
+#include "time-util.h"
 
 /* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and
  * that way we become independent of /var being mounted */

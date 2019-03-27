@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "sd-hwdb.h"
 
@@ -20,6 +21,7 @@
 #include "hwdb-util.h"
 #include "nulstr-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 struct sd_hwdb {
         unsigned n_ref;

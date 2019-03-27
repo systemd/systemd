@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio_ext.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "dropin.h"

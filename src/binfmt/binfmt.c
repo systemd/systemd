@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -20,7 +22,6 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 static bool arg_cat_config = false;
 static PagerFlags arg_pager_flags = 0;

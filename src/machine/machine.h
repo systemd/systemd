@@ -7,6 +7,7 @@ typedef enum KillWho KillWho;
 #include "list.h"
 #include "machined.h"
 #include "operation.h"
+#include "time-util.h"
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */

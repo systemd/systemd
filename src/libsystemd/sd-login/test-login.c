@@ -11,6 +11,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "util.h"
 
 static char* format_uids(char **buf, uid_t* uids, int count) {

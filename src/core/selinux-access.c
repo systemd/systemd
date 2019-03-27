@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "format-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "selinux-util.h"

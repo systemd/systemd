@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "fileio-label.h"
 #include "selinux-util.h"
-#include "util.h"
+#include "time-util.h"
 
 #define MESSAGE                                                         \
         "# This file was created by systemd-update-done. Its only \n"   \

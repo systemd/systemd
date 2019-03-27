@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-event.h"
 #include "sd-id128.h"

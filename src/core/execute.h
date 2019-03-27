@@ -19,6 +19,7 @@ typedef struct Manager Manager;
 #include "missing_resource.h"
 #include "namespace.h"
 #include "nsflags.h"
+#include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
 

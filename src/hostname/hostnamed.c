@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"

@@ -10,6 +10,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "list.h"
 #include "macro.h"

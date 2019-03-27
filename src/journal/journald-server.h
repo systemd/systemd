@@ -16,6 +16,7 @@ typedef struct Server Server;
 #include "journald-stream.h"
 #include "list.h"
 #include "prioq.h"
+#include "time-util.h"
 
 typedef enum Storage {
         STORAGE_AUTO,

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"

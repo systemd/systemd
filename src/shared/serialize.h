@@ -5,6 +5,7 @@
 
 #include "fdset.h"
 #include "macro.h"
+#include "time-util.h"
 
 int serialize_item(FILE *f, const char *key, const char *value);
 int serialize_item_escaped(FILE *f, const char *key, const char *value);

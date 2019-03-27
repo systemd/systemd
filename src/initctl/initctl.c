@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"

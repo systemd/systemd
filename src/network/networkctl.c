@@ -4,6 +4,9 @@
 #include <linux/if_addrlabel.h>
 #include <net/if.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-hwdb.h"

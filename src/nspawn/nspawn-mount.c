@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "label.h"
 #include "mkdir.h"

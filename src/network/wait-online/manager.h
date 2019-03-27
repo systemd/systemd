@@ -7,6 +7,7 @@
 
 #include "hashmap.h"
 #include "network-util.h"
+#include "time-util.h"
 
 typedef struct Manager Manager;
 typedef struct Link Link;

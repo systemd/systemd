@@ -2,6 +2,7 @@
 #pragma once
 
 #include "networkd-link.h"
+#include "time-util.h"
 
 typedef struct NDiscRDNSS {
         usec_t valid_until;

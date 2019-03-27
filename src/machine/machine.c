@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio_ext.h>
+#include <sys/stat.h>
 
 #include "sd-messages.h"
 

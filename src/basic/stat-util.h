@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/stat.h>

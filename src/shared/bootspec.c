@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <linux/magic.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
@@ -27,6 +28,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
+#include "util.h"
 #include "virt.h"
 
 static void boot_entry_free(BootEntry *entry) {

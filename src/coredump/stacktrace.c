@@ -3,6 +3,8 @@
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
 #include <stdio_ext.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"

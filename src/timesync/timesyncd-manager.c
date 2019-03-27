@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "list.h"
 #include "log.h"

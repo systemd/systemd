@@ -14,6 +14,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "main-func.h"

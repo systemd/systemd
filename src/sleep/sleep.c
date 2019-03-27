@@ -5,15 +5,20 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <linux/fiemap.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-messages.h"
 
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "main-func.h"

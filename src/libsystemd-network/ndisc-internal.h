@@ -6,6 +6,7 @@
 ***/
 
 #include "log.h"
+#include "time-util.h"
 
 #include "sd-ndisc.h"
 

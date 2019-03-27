@@ -3,11 +3,14 @@
 #include <grp.h>
 #include <pwd.h>
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "clean-ipc.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
 #include "nscd-flush.h"

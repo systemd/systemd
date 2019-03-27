@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "mkdir.h"

@@ -4,6 +4,7 @@
 #include <linux/if.h>
 #include <linux/fib_rules.h>
 #include <stdio_ext.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"

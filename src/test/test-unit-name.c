@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "all-units.h"
 #include "glob-util.h"
+#include "format-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "manager.h"

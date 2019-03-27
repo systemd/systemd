@@ -7,6 +7,7 @@
 #include "sd-event.h"
 
 #include "hashmap.h"
+#include "time-util.h"
 
 typedef struct CurlGlue CurlGlue;
 

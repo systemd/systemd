@@ -2,6 +2,9 @@
 
 #include <resolv.h>
 #include <stdio_ext.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"

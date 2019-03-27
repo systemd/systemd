@@ -7,6 +7,7 @@
 
 #include "bus-error.h"
 #include "fs-util.h"
+#include "format-util.h"
 #include "label.h"
 #include "main-func.h"
 #include "mkdir.h"

@@ -2,6 +2,8 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "acl-util.h"
 #include "alloc-util.h"

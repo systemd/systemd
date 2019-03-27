@@ -6,7 +6,7 @@
 #include "hashmap.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
+#include "time-util.h"
 
 static void test_sd_device_one(sd_device *d) {
         const char *syspath, *subsystem, *val;

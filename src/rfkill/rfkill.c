@@ -1,7 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
 #include <linux/rfkill.h>
 #include <poll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-device.h"

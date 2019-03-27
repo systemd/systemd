@@ -9,6 +9,7 @@
 #include "cap-list.h"
 #include "cpu-set-util.h"
 #include "env-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "json.h"

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "macro.h"

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "generator.h"
 #include "mkdir.h"
@@ -9,7 +11,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
-#include "util.h"
 
 static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;

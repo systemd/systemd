@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-device.h"

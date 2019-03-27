@@ -13,6 +13,7 @@
 #include "conf-parser.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"

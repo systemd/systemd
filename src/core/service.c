@@ -2,6 +2,8 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-messages.h"

@@ -10,6 +10,9 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "audit-util.h"
@@ -31,7 +34,6 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int parse_argv(
                 pam_handle_t *handle,

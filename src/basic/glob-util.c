@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <glob.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "dirent-util.h"
 #include "glob-util.h"

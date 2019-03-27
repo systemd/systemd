@@ -21,7 +21,7 @@
 #include "random-util.h"
 #include "siphash24.h"
 #include "string-util.h"
-#include "util.h"
+#include "time-util.h"
 
 /* Constants from the RFC */
 #define PROBE_WAIT_USEC (1U * USEC_PER_SEC)
