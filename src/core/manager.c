@@ -292,10 +292,10 @@ static int manager_check_ask_password(Manager *m) {
 
                 m->ask_password_inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (m->ask_password_inotify_fd < 0)
-                        return log_error_errno(errno, "inotify_init1() failed: %m");
+                        return log_error_errno(errno, "Failed to create inotify object: %m");
 
                 if (inotify_add_watch(m->ask_password_inotify_fd, "/run/systemd/ask-password", IN_CREATE|IN_DELETE|IN_MOVE) < 0) {
-                        log_error_errno(errno, "Failed to add watch on /run/systemd/ask-password: %m");
+                        log_error_errno(errno, "Failed to watch \"/run/systemd/ask-password\": %m");
                         manager_close_ask_password(m);
                         return -errno;
                 }
