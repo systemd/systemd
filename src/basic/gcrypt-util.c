@@ -7,12 +7,10 @@
 #include "hexdecoct.h"
 
 void initialize_libgcrypt(bool secmem) {
-        const char *p;
         if (gcry_control(GCRYCTL_INITIALIZATION_FINISHED_P))
                 return;
 
-        p = gcry_check_version("1.4.5");
-        assert(p);
+        assert_se(gcry_check_version("1.4.5"));
 
         /* Turn off "secmem". Clients which wish to make use of this
          * feature should initialize the library manually */
