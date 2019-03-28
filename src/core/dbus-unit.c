@@ -312,6 +312,14 @@ static int bus_verify_manage_units_async_full(
                         error);
 }
 
+static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
+        [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
+        [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
+        [JOB_RELOAD]      = N_("Authentication is required to reload '$(unit)'."),
+        [JOB_RESTART]     = N_("Authentication is required to restart '$(unit)'."),
+        [JOB_TRY_RESTART] = N_("Authentication is required to restart '$(unit)'."),
+};
+
 int bus_unit_method_start_generic(
                 sd_bus_message *message,
                 Unit *u,
@@ -321,13 +329,6 @@ int bus_unit_method_start_generic(
 
         const char *smode, *verb;
         JobMode mode;
-        static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
-                [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
-                [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
-                [JOB_RELOAD]      = N_("Authentication is required to reload '$(unit)'."),
-                [JOB_RESTART]     = N_("Authentication is required to restart '$(unit)'."),
-                [JOB_TRY_RESTART] = N_("Authentication is required to restart '$(unit)'."),
-        };
         int r;
 
         assert(message);
@@ -367,7 +368,8 @@ int bus_unit_method_start_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        return bus_unit_queue_job(message, u, job_type, mode, reload_if_possible, error);
+        return bus_unit_queue_job(message, u, job_type, mode,
+                                  reload_if_possible ? BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE : 0, error);
 }
 
 static int method_start(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -396,6 +398,62 @@ static int method_reload_or_restart(sd_bus_message *message, void *userdata, sd_
 
 static int method_reload_or_try_restart(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return bus_unit_method_start_generic(message, userdata, JOB_TRY_RESTART, true, error);
+}
+
+int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        BusUnitQueueFlags flags = BUS_UNIT_QUEUE_VERBOSE_REPLY;
+        const char *jtype, *smode;
+        Unit *u = userdata;
+        JobType type;
+        JobMode mode;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        r = sd_bus_message_read(message, "ss", &jtype, &smode);
+        if (r < 0)
+                return r;
+
+        /* Parse the two magic reload types "reload-or-…" manually */
+        if (streq(jtype, "reload-or-restart")) {
+                type = JOB_RESTART;
+                flags |= BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
+        } else if (streq(jtype, "reload-or-try-restart")) {
+                type = JOB_TRY_RESTART;
+                flags |= BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
+        } else {
+                /* And the rest generically */
+                type = job_type_from_string(jtype);
+                if (type < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job type %s invalid", jtype);
+        }
+
+        mode = job_mode_from_string(smode);
+        if (mode < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Job mode %s invalid", smode);
+
+        r = mac_selinux_unit_access_check(
+                        u, message,
+                        job_type_to_access_method(type),
+                        error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        jtype,
+                        CAP_SYS_ADMIN,
+                        polkit_message_for_job[type],
+                        true,
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        return bus_unit_queue_job(message, u, type, mode, flags, error);
 }
 
 int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -683,6 +741,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_METHOD("TryRestart", "s", "o", method_try_restart, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrRestart", "s", "o", method_reload_or_restart, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrTryRestart", "s", "o", method_reload_or_try_restart, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("EnqueueJob", "ss", "uososa(uosos)", bus_unit_method_enqueue_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Kill", "si", NULL, bus_unit_method_kill, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetFailed", NULL, NULL, bus_unit_method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1269,11 +1328,14 @@ int bus_unit_queue_job(
                 Unit *u,
                 JobType type,
                 JobMode mode,
-                bool reload_if_possible,
+                BusUnitQueueFlags flags,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *path = NULL;
-        Job *j;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
+        _cleanup_(set_freep) Set *affected = NULL;
+        Iterator i;
+        Job *j, *a;
         int r;
 
         assert(message);
@@ -1288,7 +1350,7 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        if (reload_if_possible && unit_can_reload(u)) {
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE) && unit_can_reload(u)) {
                 if (type == JOB_RESTART)
                         type = JOB_RELOAD_OR_START;
                 else if (type == JOB_TRY_RESTART)
@@ -1306,7 +1368,13 @@ int bus_unit_queue_job(
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
 
-        r = manager_add_job(u->manager, type, u, mode, error, &j);
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
+                affected = set_new(NULL);
+                if (!affected)
+                        return -ENOMEM;
+        }
+
+        r = manager_add_job(u->manager, type, u, mode, affected, error, &j);
         if (r < 0)
                 return r;
 
@@ -1314,14 +1382,67 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        path = job_dbus_path(j);
-        if (!path)
-                return -ENOMEM;
-
         /* Before we send the method reply, force out the announcement JobNew for this job */
         bus_job_send_pending_change_signal(j, true);
 
-        return sd_bus_reply_method_return(message, "o", path);
+        job_path = job_dbus_path(j);
+        if (!job_path)
+                return -ENOMEM;
+
+        /* The classic response is just a job object path */
+        if (!FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY))
+                return sd_bus_reply_method_return(message, "o", job_path);
+
+        /* In verbose mode respond with the anchor job plus everything that has been affected */
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        unit_path = unit_dbus_path(j->unit);
+        if (!unit_path)
+                return -ENOMEM;
+
+        r = sd_bus_message_append(reply, "uosos",
+                                  j->id, job_path,
+                                  j->unit->id, unit_path,
+                                  job_type_to_string(j->type));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(uosos)");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(a, affected, i) {
+
+                if (a->id == j->id)
+                        continue;
+
+                /* Free paths from previous iteration */
+                job_path = mfree(job_path);
+                unit_path = mfree(unit_path);
+
+                job_path = job_dbus_path(a);
+                if (!job_path)
+                        return -ENOMEM;
+
+                unit_path = unit_dbus_path(a->unit);
+                if (!unit_path)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(uosos)",
+                                          a->id, job_path,
+                                          a->unit->id, unit_path,
+                                          job_type_to_string(a->type));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int bus_unit_set_live_property(

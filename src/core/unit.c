@@ -2035,7 +2035,7 @@ static void unit_check_binds_to(Unit *u) {
         log_unit_info(u, "Unit is bound to inactive unit %s. Stopping, too.", other->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
-        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, NULL);
+        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, NULL, &error, NULL);
         if (r < 0)
                 log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
 }
@@ -2051,25 +2051,25 @@ static void retroactively_start_dependencies(Unit *u) {
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRES], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_WANTS], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTS], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTED_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2083,7 +2083,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(Unit *u) {
@@ -2102,7 +2102,7 @@ void unit_start_on_failure(Unit *u) {
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, &error, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
         }

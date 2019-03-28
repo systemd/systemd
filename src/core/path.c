@@ -474,7 +474,7 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
 
