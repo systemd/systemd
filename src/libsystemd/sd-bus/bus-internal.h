@@ -211,7 +211,7 @@ struct sd_bus {
         bool connected_signal:1;
         bool close_on_exit:1;
 
-        int use_memfd:2;
+        signed int use_memfd:2;
 
         void *rbuffer;
         size_t rbuffer_size;
