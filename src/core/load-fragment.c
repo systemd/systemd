@@ -312,10 +312,9 @@ int config_parse_unit_path_strv_printf(
                 if (r < 0)
                         return 0;
 
-                r = strv_push(x, k);
+                r = strv_consume(x, TAKE_PTR(k));
                 if (r < 0)
                         return log_oom();
-                k = NULL;
         }
 }
 
