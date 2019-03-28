@@ -1,0 +1,8 @@
+[Unit]
+Description=DML passthrough set DML service
+
+[Service]
+Slice=dml-passthrough.slice
+Type=oneshot
+ExecStart=/bin/true
+DefaultMemoryLow=15

@@ -228,6 +228,7 @@ All cgroup/resource control settings are available for transient units
 ✓ CPUQuotaPeriodSec=
 ✓ MemoryAccounting=
 ✓ MemoryMin=
+✓ DefaultMemoryLow=
 ✓ MemoryLow=
 ✓ MemoryHigh=
 ✓ MemoryMax=
