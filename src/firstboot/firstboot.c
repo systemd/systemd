@@ -254,7 +254,7 @@ static int process_locale(void) {
         if (arg_copy_locale && arg_root) {
 
                 mkdir_parents(etc_localeconf, 0755);
-                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, COPY_REFLINK);
+                r = copy_file("/etc/locale.conf", etc_localeconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s: %m", etc_localeconf);
@@ -328,7 +328,7 @@ static int process_keymap(void) {
         if (arg_copy_keymap && arg_root) {
 
                 mkdir_parents(etc_vconsoleconf, 0755);
-                r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, COPY_REFLINK);
+                r = copy_file("/etc/vconsole.conf", etc_vconsoleconf, 0, 0644, 0, 0, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s: %m", etc_vconsoleconf);

@@ -299,7 +299,7 @@ static int raw_pull_copy_auxiliary_file(
 
         local = strjoina(i->image_root, "/", i->local, suffix);
 
-        r = copy_file_atomic(*path, local, 0644, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+        r = copy_file_atomic(*path, local, 0644, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
