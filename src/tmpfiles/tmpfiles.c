@@ -1096,23 +1096,6 @@ static int path_set_acls(Item *item, const char *path) {
         return r;
 }
 
-#define ATTRIBUTES_ALL                          \
-        (FS_NOATIME_FL      |                   \
-         FS_SYNC_FL         |                   \
-         FS_DIRSYNC_FL      |                   \
-         FS_APPEND_FL       |                   \
-         FS_COMPR_FL        |                   \
-         FS_NODUMP_FL       |                   \
-         FS_EXTENT_FL       |                   \
-         FS_IMMUTABLE_FL    |                   \
-         FS_JOURNAL_DATA_FL |                   \
-         FS_SECRM_FL        |                   \
-         FS_UNRM_FL         |                   \
-         FS_NOTAIL_FL       |                   \
-         FS_TOPDIR_FL       |                   \
-         FS_NOCOW_FL        |                   \
-         FS_PROJINHERIT_FL)
-
 static int parse_attribute_from_arg(Item *item) {
 
         static const struct {
@@ -1186,7 +1169,7 @@ static int parse_attribute_from_arg(Item *item) {
         }
 
         if (mode == MODE_SET)
-                mask |= ATTRIBUTES_ALL;
+                mask |= CHATTR_ALL_FL;
 
         assert(mask != 0);
 
