@@ -40,7 +40,7 @@ static void test_read_one_char(void) {
 
         log_info("/* %s */", __func__);
 
-        assert(fmkostemp_safe(name, "r+", &file) == 0);
+        assert_se(fmkostemp_safe(name, "r+", &file) == 0);
 
         assert_se(fputs("c\n", file) >= 0);
         rewind(file);
