@@ -513,23 +513,27 @@
         <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
 
         <listitem>
-          <para>Turn on address range network traffic filtering for packets sent and received over AF_INET and AF_INET6
-          sockets.  Both directives take a space separated list of IPv4 or IPv6 addresses, each optionally suffixed
-          with an address prefix length (separated by a <literal>/</literal> character). If the latter is omitted, the
-          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128 for IPv6).
-          </para>
+          <para>Turn on address range network traffic filtering for IP packets sent and received over
+          <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.  Both directives take a
+          space separated list of IPv4 or IPv6 addresses, each optionally suffixed with an address prefix
+          length in bits (separated by a <literal>/</literal> character). If the latter is omitted, the
+          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128
+          for IPv6).</para>
 
-          <para>The access lists configured with this option are applied to all sockets created by processes of this
-          unit (or in the case of socket units, associated with it). The lists are implicitly combined with any lists
-          configured for any of the parent slice units this unit might be a member of. By default all access lists are
-          empty. When configured the lists are enforced as follows:</para>
+          <para>The access lists configured with this option are applied to all sockets created by processes
+          of this unit (or in the case of socket units, associated with it). The lists are implicitly
+          combined with any lists configured for any of the parent slice units this unit might be a member
+          of. By default all access lists are empty. Both ingress and egress traffic is filtered by these
+          settings. In case of ingress traffic the source IP address is checked against these access lists,
+          in case of egress traffic the destination IP address is checked. When configured the lists are
+          enforced as follows:</para>
 
           <itemizedlist>
-            <listitem><para>Access will be granted in case its destination/source address matches any entry in the
-            <varname>IPAddressAllow=</varname> setting.</para></listitem>
+            <listitem><para>Access will be granted in case an IP packet's destination/source address matches
+            any entry in the <varname>IPAddressAllow=</varname> setting.</para></listitem>
 
-            <listitem><para>Otherwise, access will be denied in case its destination/source address matches any entry
-            in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
+            <listitem><para>Otherwise, access will be denied in case its destination/source address matches
+            any entry in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
 
             <listitem><para>Otherwise, access will be granted.</para></listitem>
           </itemizedlist>
