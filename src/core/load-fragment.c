@@ -318,16 +318,44 @@ int config_parse_unit_path_strv_printf(
         }
 }
 
-int config_parse_socket_listen(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+static int patch_var_run(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue,
+                char **path) {
+
+        const char *e;
+        char *z;
+
+        e = path_startswith(*path, "/var/run/");
+        if (!e)
+                return 0;
+
+        z = path_join("/run/", e);
+        if (!z)
+                return log_oom();
+
+        log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                   "%s= references a path below legacy directory /var/run/, updating %s → %s; "
+                   "please update the unit file accordingly.", lvalue, *path, z);
+
+        free_and_replace(*path, z);
+
+        return 1;
+}
+
+int config_parse_socket_listen(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         _cleanup_free_ SocketPort *p = NULL;
         SocketPort *tail;
@@ -364,6 +392,12 @@ int config_parse_socket_listen(const char *unit,
                 if (r < 0)
                         return 0;
 
+                if (ltype == SOCKET_FIFO) {
+                        r = patch_var_run(unit, filename, line, lvalue, &k);
+                        if (r < 0)
+                                return r;
+                }
+
                 free_and_replace(p->path, k);
                 p->type = ltype;
 
@@ -391,6 +425,12 @@ int config_parse_socket_listen(const char *unit,
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                         return 0;
+                }
+
+                if (k[0] == '/') { /* Only for AF_UNIX file system sockets… */
+                        r = patch_var_run(unit, filename, line, lvalue, &k);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = socket_address_parse_and_warn(&p->address, k);
@@ -4253,7 +4293,6 @@ int config_parse_pid_file(
         _cleanup_free_ char *k = NULL, *n = NULL;
         Unit *u = userdata;
         char **s = data;
-        const char *e;
         int r;
 
         assert(filename);
@@ -4283,20 +4322,11 @@ int config_parse_pid_file(
         if (r < 0)
                 return r;
 
-        e = path_startswith(n, "/var/run/");
-        if (e) {
-                char *z;
+        r = patch_var_run(unit, filename, line, lvalue, &n);
+        if (r < 0)
+                return r;
 
-                z = strjoin("/run/", e);
-                if (!z)
-                        return log_oom();
-
-                log_syntax(unit, LOG_NOTICE, filename, line, 0, "PIDFile= references path below legacy directory /var/run/, updating %s → %s; please update the unit file accordingly.", n, z);
-
-                free_and_replace(*s, z);
-        } else
-                free_and_replace(*s, n);
-
+        free_and_replace(*s, n);
         return 0;
 }
 
