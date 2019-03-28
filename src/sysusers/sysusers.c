@@ -1358,8 +1358,6 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
-DEFINE_PRIVATE_HASH_OPS_FULL(members_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
-
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         static const Specifier specifier_table[] = {
@@ -1511,8 +1509,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return 0;
 
         case ADD_MEMBER: {
-                char **l;
-
                 /* Try to extend an existing member or group item */
                 if (!name)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1535,38 +1531,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                                fname, line, action[0],
                                                description ? "GECOS" : home ? "home directory" : "login shell");
 
-                r = ordered_hashmap_ensure_allocated(&members, &members_hash_ops);
+                r = string_strv_ordered_hashmap_put(&members, resolved_id, resolved_name);
                 if (r < 0)
-                        return log_oom();
-
-                l = ordered_hashmap_get(members, resolved_id);
-                if (l) {
-                        /* A list for this group name already exists, let's append to it */
-                        r = strv_push(&l, resolved_name);
-                        if (r < 0)
-                                return log_oom();
-
-                        resolved_name = NULL;
-
-                        assert_se(ordered_hashmap_update(members, resolved_id, l) >= 0);
-                } else {
-                        /* No list for this group name exists yet, create one */
-
-                        l = new0(char *, 2);
-                        if (!l)
-                                return -ENOMEM;
-
-                        l[0] = resolved_name;
-                        l[1] = NULL;
-
-                        r = ordered_hashmap_put(members, resolved_id, l);
-                        if (r < 0) {
-                                free(l);
-                                return log_oom();
-                        }
-
-                        resolved_id = resolved_name = NULL;
-                }
+                        return log_error_errno(r, "Failed to store mapping for %s: %m", resolved_id);
 
                 return 0;
         }
