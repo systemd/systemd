@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <sys/uio.h>
 
 #if HAVE_GCRYPT
 #  include <gcrypt.h>
