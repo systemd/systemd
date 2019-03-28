@@ -305,6 +305,10 @@
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
+
+          <para>Units may can have their children use a default <literal>memory.low</literal> value by specifying
+          <varname>DefaultMemoryLow=</varname>, which has the same usage as <varname>MemoryLow=</varname>. This setting
+          does not affect <literal>memory.low</literal> in the unit itself.</para>
         </listitem>
       </varlistentry>
 

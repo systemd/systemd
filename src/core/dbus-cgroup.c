@@ -353,6 +353,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("BlockIOReadBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("BlockIOWriteBandwidth", "a(st)", property_get_blockio_device_bandwidths, 0, 0),
         SD_BUS_PROPERTY("MemoryAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, memory_accounting), 0),
+        SD_BUS_PROPERTY("DefaultMemoryLow", "t", NULL, offsetof(CGroupContext, default_memory_low), 0),
         SD_BUS_PROPERTY("MemoryMin", "t", NULL, offsetof(CGroupContext, memory_min), 0),
         SD_BUS_PROPERTY("MemoryLow", "t", NULL, offsetof(CGroupContext, memory_low), 0),
         SD_BUS_PROPERTY("MemoryHigh", "t", NULL, offsetof(CGroupContext, memory_high), 0),
@@ -668,6 +669,9 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLow"))
                 return bus_cgroup_set_memory(u, name, &c->memory_low, message, flags, error);
 
+        if (streq(name, "DefaultMemoryLow"))
+                return bus_cgroup_set_memory(u, name, &c->default_memory_low, message, flags, error);
+
         if (streq(name, "MemoryHigh"))
                 return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
 
@@ -685,6 +689,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemoryLowScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_low, message, flags, error);
+
+        if (streq(name, "DefaultMemoryLowScale"))
+                return bus_cgroup_set_memory_scale(u, name, &c->default_memory_low, message, flags, error);
 
         if (streq(name, "MemoryHighScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, error);

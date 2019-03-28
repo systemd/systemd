@@ -7,6 +7,16 @@ test_data_files = '''
         c.service
         d.service
         daughter.service
+        dml.slice
+        dml-passthrough.slice
+        dml-passthrough-empty.service
+        dml-passthrough-set-dml.service
+        dml-passthrough-set-ml.service
+        dml-override.slice
+        dml-override-empty.service
+        dml-discard.slice
+        dml-discard-empty.service
+        dml-discard-set-ml.service
         e.service
         end.service
         f.service

@@ -95,11 +95,15 @@ struct CGroupContext {
         LIST_HEAD(CGroupIODeviceLimit, io_device_limits);
         LIST_HEAD(CGroupIODeviceLatency, io_device_latencies);
 
+        uint64_t default_memory_low;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t memory_high;
         uint64_t memory_max;
         uint64_t memory_swap_max;
+
+        bool default_memory_low_set;
+        bool memory_low_set;
 
         LIST_HEAD(IPAddressAccessItem, ip_address_allow);
         LIST_HEAD(IPAddressAccessItem, ip_address_deny);
@@ -190,6 +194,8 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m);
 Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
 Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid);
 Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
+
+uint64_t unit_get_ancestor_memory_low(Unit *u);
 
 int unit_search_main_pid(Unit *u, pid_t *ret);
 int unit_watch_all_pids(Unit *u);
