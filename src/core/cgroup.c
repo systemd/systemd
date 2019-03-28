@@ -232,6 +232,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
+                "%sDefaultMemoryLow=%" PRIu64 "\n"
                 "%sMemoryMin=%" PRIu64 "\n"
                 "%sMemoryLow=%" PRIu64 "\n"
                 "%sMemoryHigh=%" PRIu64 "\n"
@@ -257,6 +258,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
+                prefix, c->default_memory_low,
                 prefix, c->memory_min,
                 prefix, c->memory_low,
                 prefix, c->memory_high,
@@ -378,6 +380,32 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         TAKE_PTR(a);
 
         return 0;
+}
+
+uint64_t unit_get_ancestor_memory_low(Unit *u) {
+        CGroupContext *c;
+
+        /* 1. Is MemoryLow set in this unit? If so, use that.
+         * 2. Is DefaultMemoryLow set in any ancestor? If so, use that.
+         * 3. Otherwise, return CGROUP_LIMIT_MIN. */
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+
+        if (c->memory_low_set)
+                return c->memory_low;
+
+        while (UNIT_ISSET(u->slice)) {
+                u = UNIT_DEREF(u->slice);
+                c = unit_get_cgroup_context(u);
+
+                if (c->default_memory_low_set)
+                        return c->default_memory_low;
+        }
+
+        /* We've reached the root, but nobody had DefaultMemoryLow set, so set it to the kernel default. */
+        return CGROUP_LIMIT_MIN;
 }
 
 static void cgroup_xattr_apply(Unit *u) {
@@ -875,8 +903,17 @@ static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint6
         (void) set_attribute_and_warn(u, "blkio", "blkio.throttle.write_bps_device", buf);
 }
 
-static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
-        return c->memory_min > 0 || c->memory_low > 0 || c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX || c->memory_swap_max != CGROUP_LIMIT_MAX;
+static bool unit_has_unified_memory_config(Unit *u) {
+        CGroupContext *c;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        assert(c);
+
+        return c->memory_min > 0 || unit_get_ancestor_memory_low(u) > 0 ||
+               c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX ||
+               c->memory_swap_max != CGROUP_LIMIT_MAX;
 }
 
 static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
@@ -1125,7 +1162,7 @@ static void cgroup_context_apply(
                 if (cg_all_unified() > 0) {
                         uint64_t max, swap_max = CGROUP_LIMIT_MAX;
 
-                        if (cgroup_context_has_unified_memory_config(c)) {
+                        if (unit_has_unified_memory_config(u)) {
                                 max = c->memory_max;
                                 swap_max = c->memory_swap_max;
                         } else {
@@ -1136,7 +1173,7 @@ static void cgroup_context_apply(
                         }
 
                         cgroup_apply_unified_memory_limit(u, "memory.min", c->memory_min);
-                        cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
+                        cgroup_apply_unified_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
                         cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
                         cgroup_apply_unified_memory_limit(u, "memory.max", max);
                         cgroup_apply_unified_memory_limit(u, "memory.swap.max", swap_max);
@@ -1145,7 +1182,7 @@ static void cgroup_context_apply(
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
                         uint64_t val;
 
-                        if (cgroup_context_has_unified_memory_config(c)) {
+                        if (unit_has_unified_memory_config(u)) {
                                 val = c->memory_max;
                                 log_cgroup_compat(u, "Applying MemoryMax=%" PRIi64 " as MemoryLimit=", val);
                         } else
@@ -1319,8 +1356,13 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         return false;
 }
 
-static CGroupMask cgroup_context_get_mask(CGroupContext *c) {
+static CGroupMask unit_get_cgroup_mask(Unit *u) {
         CGroupMask mask = 0;
+        CGroupContext *c;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
 
         /* Figure out which controllers we need, based on the cgroup context object */
 
@@ -1337,7 +1379,7 @@ static CGroupMask cgroup_context_get_mask(CGroupContext *c) {
 
         if (c->memory_accounting ||
             c->memory_limit != CGROUP_LIMIT_MAX ||
-            cgroup_context_has_unified_memory_config(c))
+            unit_has_unified_memory_config(u))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (c->device_allow ||
@@ -1376,7 +1418,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return (cgroup_context_get_mask(c) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
+        return (unit_get_cgroup_mask(u) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
