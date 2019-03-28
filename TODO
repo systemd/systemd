@@ -23,6 +23,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* tweak journald context caching. In addition to caching per-process attributes
+  keyed by PID, cache per-cgroup attributes (i.e. the various xattrs we read)
+  keyed by cgroup path, and guarded by ctime changes. This should provide us
+  with a nice speed-up on services that have many processes running in the same
+  cgroup.
+
 * clean up sleep.c:
   - Use CLOCK_BOOTTIME_ALARM for waking up s2h instead of RTC ioctls
   - Parse sleep.conf only once, and parse its whole contents so that we don't
