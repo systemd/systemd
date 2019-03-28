@@ -1519,9 +1519,15 @@ static int load_kernel_syscalls(Set **ret) {
         /* Let's read the available system calls from the list of available tracing events. Slightly dirty, but good
          * enough for analysis purposes. */
 
-        f = fopen("/sys/kernel/debug/tracing/available_events", "re");
-        if (!f)
-                return log_full_errno(IN_SET(errno, EPERM, EACCES, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno, "Can't read open /sys/kernel/debug/tracing/available_events: %m");
+        f = fopen("/sys/kernel/tracing/available_events", "re");
+        if (!f) {
+                /* We tried the non-debugfs mount point and that didn't work. If it wasn't mounted, maybe the
+                 * old debugfs mount point works? */
+                f = fopen("/sys/kernel/debug/tracing/available_events", "re");
+                if (!f)
+                        return log_full_errno(IN_SET(errno, EPERM, EACCES, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
+                                              "Can't read open tracefs' available_events file: %m");
+        }
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
