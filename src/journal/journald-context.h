@@ -2,6 +2,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include "sd-id128.h"
