@@ -322,7 +322,7 @@ static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
  * increasing time in milliseconds to wait starting at 200ms and capped at 25 seconds.
  */
 static int exponential_backoff_milliseconds(unsigned n_retries) {
-        return (2 << MAX(n_retries, 7U)) * 100 * USEC_PER_MSEC;
+        return (2 << MIN(n_retries, 7U)) * 100 * USEC_PER_MSEC;
 }
 
 static int wireguard_resolve_handler(sd_resolve_query *q,
