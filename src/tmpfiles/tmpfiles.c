@@ -1110,7 +1110,8 @@ static int path_set_acls(Item *item, const char *path) {
          FS_UNRM_FL         |                   \
          FS_NOTAIL_FL       |                   \
          FS_TOPDIR_FL       |                   \
-         FS_NOCOW_FL)
+         FS_NOCOW_FL        |                   \
+         FS_PROJINHERIT_FL)
 
 static int parse_attribute_from_arg(Item *item) {
 
@@ -1132,6 +1133,7 @@ static int parse_attribute_from_arg(Item *item) {
                 { 't', FS_NOTAIL_FL },       /* file tail should not be merged */
                 { 'T', FS_TOPDIR_FL },       /* Top of directory hierarchies */
                 { 'C', FS_NOCOW_FL },        /* Do not cow file */
+                { 'P', FS_PROJINHERIT_FL },  /* Inherit the quota project ID */
         };
 
         enum {
