@@ -383,6 +383,16 @@ if get_option('buildtype') != 'debug'
         possible_link_flags += '-Wl,--gc-sections'
 endif
 
+if get_option('b_ndebug') == 'true'
+        # With asserts disabled with get a bunch of warnings about variables which
+        # are used only in the asserts. This is not useful at all, so let's just silence
+        # those warnings.
+        possible_cc_flags += [
+                '-Wno-unused-variable',
+                '-Wno-unused-but-set-variable',
+        ]
+endif
+
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 add_project_link_arguments(cc.get_supported_link_arguments(possible_link_flags), language : 'c')
 

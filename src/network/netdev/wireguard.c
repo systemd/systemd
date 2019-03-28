@@ -430,11 +430,8 @@ static void resolve_endpoints(NetDev *netdev) {
 }
 
 static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Wireguard *w;
-
         assert(netdev);
-        w = WIREGUARD(netdev);
-        assert(w);
+        assert(WIREGUARD(netdev));
 
         (void) wireguard_set_interface(netdev);
         resolve_endpoints(netdev);

@@ -64,14 +64,10 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
 static int netdev_fou_tunnel_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint32_t serial;
-        FouTunnel *t;
         int r;
 
         assert(netdev);
-
-        t = FOU(netdev);
-
-        assert(t);
+        assert(FOU(netdev));
 
         r = netdev_fill_fou_tunnel_message(netdev, &m);
         if (r < 0)

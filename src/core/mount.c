@@ -1919,7 +1919,7 @@ static int mount_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
 
         assert(m);
 
-        return unit_kill_common(u, who, signo, -1, MOUNT(u)->control_pid, error);
+        return unit_kill_common(u, who, signo, -1, m->control_pid, error);
 }
 
 static int mount_control_pid(Unit *u) {
