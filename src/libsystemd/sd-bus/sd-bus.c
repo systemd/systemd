@@ -3327,7 +3327,7 @@ static int bus_add_match_full(
                                  * then make it floating. */
                                 r = sd_bus_slot_set_floating(s->match_callback.install_slot, true);
                         } else
-                                r = bus_add_match_internal(bus, s->match_callback.match_string);
+                                r = bus_add_match_internal(bus, s->match_callback.match_string, &s->match_callback.after);
                         if (r < 0)
                                 goto finish;
 

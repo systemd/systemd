@@ -287,8 +287,16 @@ int bus_match_run(
         case BUS_MATCH_LEAF:
 
                 if (bus) {
-                        if (node->leaf.callback->last_iteration == bus->iteration_counter)
-                                return 0;
+                        /* Don't run this match as long as the AddMatch() call is not complete yet.
+                         *
+                         * Don't run this match unless the 'after' counter has been reached.
+                         *
+                         * Don't run this match more than once per iteration */
+
+                        if (node->leaf.callback->install_slot ||
+                            m->read_counter <= node->leaf.callback->after ||
+                            node->leaf.callback->last_iteration == bus->iteration_counter)
+                                return bus_match_run(bus, node->next, m);
 
                         node->leaf.callback->last_iteration = bus->iteration_counter;
                 }

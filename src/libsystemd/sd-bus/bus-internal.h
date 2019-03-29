@@ -44,6 +44,11 @@ struct match_callback {
 
         unsigned last_iteration;
 
+        /* Don't dispatch this slot with with messages that arrived in any iteration before or at the this
+         * one. We use this to ensure that matches don't apply "retroactively" and thus can confuse the
+         * caller: matches will only match incoming messages from the moment on the match was installed. */
+        uint64_t after;
+
         char *match_string;
 
         struct bus_match_node *match_node;
