@@ -2695,7 +2695,9 @@ int config_parse_syscall_filter(
                         c->syscall_whitelist = true;
 
                         /* Accept default syscalls if we are on a whitelist */
-                        r = seccomp_parse_syscall_filter("@default", -1, c->syscall_filter, SECCOMP_PARSE_WHITELIST);
+                        r = seccomp_parse_syscall_filter(
+                                        "@default", -1, c->syscall_filter,
+                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_WHITELIST);
                         if (r < 0)
                                 return r;
                 }
@@ -2722,9 +2724,12 @@ int config_parse_syscall_filter(
                         continue;
                 }
 
-                r = seccomp_parse_syscall_filter_full(name, num, c->syscall_filter,
-                                                      SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|(invert ? SECCOMP_PARSE_INVERT : 0)|(c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
-                                                      unit, filename, line);
+                r = seccomp_parse_syscall_filter_full(
+                                name, num, c->syscall_filter,
+                                SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
+                                (invert ? SECCOMP_PARSE_INVERT : 0)|
+                                (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
+                                unit, filename, line);
                 if (r < 0)
                         return r;
         }
