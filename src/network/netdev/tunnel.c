@@ -141,7 +141,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         r = sd_netlink_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
         if (r < 0)
-                log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_TTL, t->ttl);
         if (r < 0)
@@ -149,7 +149,7 @@ static int netdev_gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_TOS, t->tos);
         if (r < 0)
-                log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TOS attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_TOS attribute: %m");
 
         r = sd_netlink_message_append_u8(m, IFLA_GRE_PMTUDISC, t->pmtudisc);
         if (r < 0)
@@ -224,7 +224,7 @@ static int netdev_erspan_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         r = sd_netlink_message_append_in_addr(m, IFLA_GRE_REMOTE, &t->remote.in);
         if (r < 0)
-                log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_REMOTE attribute: %m");
 
         return r;
 }
