@@ -857,6 +857,6 @@ const NetDevVTable erspan_vtable = {
         .init = erspan_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_erspan_fill_message_create,
-        .create_type = NETDEV_CREATE_INDEPENDENT,
+        .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_tunnel_verify,
 };

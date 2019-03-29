@@ -779,6 +779,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         case NETDEV_KIND_IP6TNL:
                 independent = IP6TNL(netdev)->independent;
                 break;
+        case NETDEV_KIND_ERSPAN:
+                independent = ERSPAN(netdev)->independent;
+                break;
         default:
                 break;
         }
