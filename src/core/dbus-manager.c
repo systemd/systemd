@@ -556,8 +556,18 @@ static int method_reload_or_try_restart_unit(sd_bus_message *message, void *user
         return method_start_unit_generic(message, userdata, JOB_TRY_RESTART, true, error);
 }
 
-static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+typedef enum GenericUnitOperationFlags {
+        GENERIC_UNIT_LOAD            = 1 << 0, /* Load if the unit is not loaded yet */
+        GENERIC_UNIT_VALIDATE_LOADED = 1 << 1, /* Verify unit is properly loaded before forwarding call */
+} GenericUnitOperationFlags;
+
+static int method_generic_unit_operation(
+                sd_bus_message *message,
+                Manager *m,
+                sd_bus_error *error,
+                sd_bus_message_handler_t handler,
+                GenericUnitOperationFlags flags) {
+
         const char *name;
         Unit *u;
         int r;
@@ -565,15 +575,32 @@ static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_b
         assert(message);
         assert(m);
 
+        /* Read the first argument from the command and pass the operation to the specified per-unit
+         * method. */
+
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        if (!isempty(name) && FLAGS_SET(flags, GENERIC_UNIT_LOAD))
+                r = manager_load_unit(m, name, NULL, error, &u);
+        else
+                r = bus_get_unit_by_name(m, message, name, &u, error);
         if (r < 0)
                 return r;
 
-        return bus_unit_method_enqueue_job(message, u, error);
+        if (FLAGS_SET(flags, GENERIC_UNIT_VALIDATE_LOADED)) {
+                r = bus_unit_validate_load_state(u, error);
+                if (r < 0)
+                        return r;
+        }
+
+        return handler(message, u, error);
+}
+
+static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* We don't bother with GENERIC_UNIT_VALIDATE_LOADED here, as the job logic validates that anyway */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
 }
 
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -599,115 +626,31 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_get_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_kill(message, u, error);
+        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_get_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_reset_failed(message, u, error);
+        /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
+         * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_reset_failed, 0);
 }
 
 static int method_set_unit_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_load_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        r = bus_unit_validate_load_state(u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_set_properties(message, u, error);
+        /* Only change properties on fully loaded units, and load them in order to set properties */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_set_properties, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_load_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        r = bus_unit_validate_load_state(u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_ref(message, u, error);
+        /* Only allow reffing of fully loaded units, and make sure reffing a unit loads it. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_load_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        r = bus_unit_validate_load_state(u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_unref(message, u, error);
+        /* Dropping a ref OTOH should not require the unit to still be loaded. And since a reffed unit is a
+         * loaded unit there's no need to load the unit for unreffing it. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_unref, 0);
 }
 
 static int reply_unit_info(sd_bus_message *reply, Unit *u) {
@@ -785,43 +728,16 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
 }
 
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_get_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_get_processes(message, u, error);
+        /* Don't load a unit (since it won't have any processes if it's not loaded), but don't insist on the
+         * unit being loaded (because even improperly loaded units might still have processes around */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        const char *name;
-        Unit *u;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        r = bus_get_unit_by_name(m, message, name, &u, error);
-        if (r < 0)
-                return r;
-
-        return bus_unit_method_attach_processes(message, u, error);
+        /* Don't allow attaching new processes to units that aren't loaded. Don't bother with loading a unit
+         * for this purpose though, as an unloaded unit is a stopped unit, and we don't allow attaching
+         * processes to stopped units anyway. */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int transient_unit_from_message(
