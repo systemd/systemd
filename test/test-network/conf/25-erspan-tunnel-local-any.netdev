@@ -3,7 +3,6 @@ Name=erspan98
 Kind=erspan
 
 [Tunnel]
-Independent=true
 ERSPANIndex=124
 Local = any
 Remote = 172.16.1.100
