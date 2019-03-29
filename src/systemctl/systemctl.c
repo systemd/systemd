@@ -3042,7 +3042,7 @@ static int start_unit_one(
                 log_debug("Adding %s to the set", path);
                 r = bus_wait_for_jobs_add(w, path);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to watch job for %s: %m", name);
         }
 
         return 0;
