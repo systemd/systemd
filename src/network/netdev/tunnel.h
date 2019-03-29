@@ -29,7 +29,7 @@ typedef struct Tunnel {
         int family;
         int ipv6_flowlabel;
         int allow_localremote;
-        int erspan_sequence;
+        int gre_erspan_sequence;
         int isatap;
 
         unsigned ttl;
