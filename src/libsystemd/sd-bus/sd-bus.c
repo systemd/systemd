@@ -3246,14 +3246,15 @@ static int add_match_callback(
                 bus->current_slot = match_slot->match_callback.install_slot;
                 bus->current_handler = add_match_callback;
                 bus->current_userdata = userdata;
-
-                match_slot->match_callback.install_slot = sd_bus_slot_unref(match_slot->match_callback.install_slot);
         } else {
                 if (failed) /* Generic failure handling: destroy the connection */
                         bus_enter_closing(sd_bus_message_get_bus(m));
 
                 r = 1;
         }
+
+        /* We don't need the install method reply slot anymore, let's free it */
+        match_slot->match_callback.install_slot = sd_bus_slot_unref(match_slot->match_callback.install_slot);
 
         if (failed && match_slot->floating)
                 bus_slot_disconnect(match_slot, true);
