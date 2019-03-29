@@ -165,6 +165,11 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         assert(path);
 
+        /* For now, don't support dropping subvols when also only dropping directories, since we can't do
+         * this race-freely. */
+        if (FLAGS_SET(flags, REMOVE_ONLY_DIRECTORIES|REMOVE_SUBVOLUME))
+                return -EINVAL;
+
         /* We refuse to clean the root file system with this
          * call. This is extra paranoia to never cause a really
          * seriously broken system. */
