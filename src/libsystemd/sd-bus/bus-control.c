@@ -825,6 +825,7 @@ int bus_add_match_internal(
                         "s",
                         e);
 }
+
 int bus_add_match_internal_async(
                 sd_bus *bus,
                 sd_bus_slot **ret_slot,
