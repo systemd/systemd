@@ -226,6 +226,7 @@ struct sd_bus {
         size_t wqueue_allocated;
 
         uint64_t cookie;
+        uint64_t read_counter; /* A counter for each incoming msg */
 
         char *unique_name;
         uint64_t unique_id;

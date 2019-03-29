@@ -1146,6 +1146,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         bus->n_fds = 0;
 
         if (t) {
+                t->read_counter = ++bus->read_counter;
                 bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(t, bus);
                 sd_bus_message_unref(t);
         }
