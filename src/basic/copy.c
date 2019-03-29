@@ -755,6 +755,7 @@ int copy_file_full(
                 int flags,
                 mode_t mode,
                 unsigned chattr_flags,
+                unsigned chattr_mask,
                 CopyFlags copy_flags,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -770,8 +771,8 @@ int copy_file_full(
                         return -errno;
         }
 
-        if (chattr_flags != 0)
-                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1, NULL);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
         r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0) {
@@ -779,6 +780,9 @@ int copy_file_full(
                 (void) unlink(to);
                 return r;
         }
+
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
         if (close(fdt) < 0) {
                 unlink_noerrno(to);
@@ -793,6 +797,7 @@ int copy_file_atomic_full(
                 const char *to,
                 mode_t mode,
                 unsigned chattr_flags,
+                unsigned chattr_mask,
                 CopyFlags copy_flags,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -826,8 +831,8 @@ int copy_file_atomic_full(
                         return fdt;
         }
 
-        if (chattr_flags != 0)
-                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1, NULL);
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
         r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
         if (r < 0)
@@ -844,6 +849,9 @@ int copy_file_atomic_full(
                 if (r < 0)
                         return r;
         }
+
+        if (chattr_mask != 0)
+                (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
         t = mfree(t);
         return 0;

@@ -104,6 +104,10 @@ CHANGES WITH 242 in spe:
 
           https://systemd.io/TEMPORARY_DIRECTORIES
 
+        * systemd-tmpfiles' h line type gained support for the
+          FS_PROJINHERIT_FL ('P') file attribute (introduced in kernel 4.5),
+          controlling project quota inheritance.
+
         * sd-boot and bootctl now implement support for an Extended Boot Loader
           (XBOOTLDR) partition, that is intended to be mounted to /boot, in
           addition to the ESP partition mounted to /efi or /boot/efi.

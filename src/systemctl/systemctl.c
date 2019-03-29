@@ -7210,7 +7210,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
 
-        r = copy_file(original_path, t, 0, 0644, 0, COPY_REFLINK);
+        r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
         if (r == -ENOENT) {
 
                 r = touch(t);

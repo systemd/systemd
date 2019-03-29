@@ -368,15 +368,11 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <listitem><para>Set file/directory attributes. Lines of this type
           accept shell-style globs in place of normal path names.</para>
 
-          <para>The format of the argument field is
-          <varname>[+-=][aAcCdDeijsStTu] </varname>. The prefix
-          <varname>+</varname> (the default one) causes the
-          attribute(s) to be added; <varname>-</varname> causes the
-          attribute(s) to be removed; <varname>=</varname> causes the
-          attributes to be set exactly as the following letters. The
-          letters <literal>aAcCdDeijsStTu</literal> select the new
-          attributes for the files, see
-          <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
+          <para>The format of the argument field is <varname>[+-=][aAcCdDeijPsStTu] </varname>. The prefix
+          <varname>+</varname> (the default one) causes the attribute(s) to be added; <varname>-</varname>
+          causes the attribute(s) to be removed; <varname>=</varname> causes the attributes to be set exactly
+          as the following letters. The letters <literal>aAcCdDeijPsStTu</literal> select the new attributes
+          for the files, see <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle>
           <manvolnum>1</manvolnum></citerefentry> for further information.
           </para>
           <para>Passing only <varname>=</varname> as argument resets

@@ -25,14 +25,14 @@ static inline int copy_file_fd(const char *from, int to, CopyFlags copy_flags) {
         return copy_file_fd_full(from, to, copy_flags, NULL, NULL);
 }
 
-int copy_file_full(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
-static inline int copy_file(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags) {
-        return copy_file_full(from, to, open_flags, mode, chattr_flags, copy_flags, NULL, NULL);
+int copy_file_full(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_file(const char *from, const char *to, int open_flags, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags) {
+        return copy_file_full(from, to, open_flags, mode, chattr_flags, chattr_mask, copy_flags, NULL, NULL);
 }
 
-int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
-static inline int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags) {
-        return copy_file_atomic_full(from, to, mode, chattr_flags, copy_flags, NULL, NULL);
+int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);
+static inline int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags) {
+        return copy_file_atomic_full(from, to, mode, chattr_flags, chattr_mask, copy_flags, NULL, NULL);
 }
 
 int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
