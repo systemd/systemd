@@ -358,7 +358,7 @@ int info_main(int argc, char *argv[], void *userdata) {
         ActionType action = ACTION_QUERY;
         QueryType query = QUERY_ALL;
 
-        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:RVh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "aced:n:p:q:rxP:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'n':
                 case 'p': {
