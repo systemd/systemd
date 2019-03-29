@@ -175,6 +175,13 @@
             <para>Cleanup the udev database.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--protected-tag=<replaceable>TAG</replaceable></option></term>
+          <listitem>
+            <para>Do not remove udev database for tagged devices. This is only allowed when
+            <option>--cleanup-db</option> is specified.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>

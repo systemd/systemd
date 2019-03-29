@@ -27,6 +27,7 @@ typedef enum ActionType {
         ACTION_QUERY,
         ACTION_ATTRIBUTE_WALK,
         ACTION_DEVICE_ID_FILE,
+        ACTION_CLEANUP_DB,
 } ActionType;
 
 typedef enum QueryType {
@@ -192,7 +193,7 @@ static int export_devices(void) {
         return 0;
 }
 
-static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
+static void cleanup_dir(DIR *dir, int depth, char **protected_directories) {
         struct dirent *dent;
 
         if (depth <= 0)
@@ -205,14 +206,15 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                         continue;
                 if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
                         continue;
-                if ((stats.st_mode & mask) != 0)
-                        continue;
                 if (S_ISDIR(stats.st_mode)) {
                         _cleanup_closedir_ DIR *dir2 = NULL;
 
+                        if (strv_contains(protected_directories, dent->d_name))
+                                continue;
+
                         dir2 = fdopendir(openat(dirfd(dir), dent->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
                         if (dir2)
-                                cleanup_dir(dir2, mask, depth-1);
+                                cleanup_dir(dir2, depth-1, protected_directories);
 
                         (void) unlinkat(dirfd(dir), dent->d_name, AT_REMOVEDIR);
                 } else
@@ -220,30 +222,72 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
         }
 }
 
-static void cleanup_db(void) {
-        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
+static bool database_is_protected(const char *name, char **protected_tags) {
+        struct stat s;
+        char **p;
+
+        assert(name);
+
+        STRV_FOREACH(p, protected_tags) {
+                _cleanup_free_ char *t = NULL;
+
+                t = path_join("/run/udev/tags/", *p, name);
+                if (!t)
+                        continue;
+
+                if (stat(t, &s) >= 0)
+                        return true;
+        }
+
+        return false;
+}
+
+static void cleanup_database(char **protected_tags) {
+        _cleanup_closedir_ DIR* dir = NULL;
+        struct dirent *dent;
+
+        dir = opendir("/run/udev/data");
+        if (!dir)
+                return;
+
+        FOREACH_DIRENT_ALL(dent, dir, break) {
+                struct stat stats;
+
+                if (dent->d_name[0] == '.')
+                        continue;
+                if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) != 0)
+                        continue;
+                if ((stats.st_mode & S_ISVTX) != 0)
+                        continue;
+                if (database_is_protected(dent->d_name, protected_tags))
+                        continue;
+
+                (void) unlinkat(dirfd(dir), dent->d_name, 0);
+        }
+}
+
+static void cleanup_db(char **protected_tags) {
+        _cleanup_closedir_ DIR *dir2 = NULL, *dir3 = NULL, *dir4 = NULL, *dir5 = NULL;
 
         (void) unlink("/run/udev/queue.bin");
 
-        dir1 = opendir("/run/udev/data");
-        if (dir1)
-                cleanup_dir(dir1, S_ISVTX, 1);
+        cleanup_database(protected_tags);
 
         dir2 = opendir("/run/udev/links");
         if (dir2)
-                cleanup_dir(dir2, 0, 2);
+                cleanup_dir(dir2, 2, NULL);
 
         dir3 = opendir("/run/udev/tags");
         if (dir3)
-                cleanup_dir(dir3, 0, 2);
+                cleanup_dir(dir3, 2, protected_tags);
 
         dir4 = opendir("/run/udev/static_node-tags");
         if (dir4)
-                cleanup_dir(dir4, 0, 2);
+                cleanup_dir(dir4, 2, NULL);
 
         dir5 = opendir("/run/udev/watch");
         if (dir5)
-                cleanup_dir(dir5, 0, 1);
+                cleanup_dir(dir5, 1, NULL);
 }
 
 static int query_device(QueryType query, sd_device* device) {
@@ -329,29 +373,35 @@ static int help(void) {
                "  -P --export-prefix          Export the key name with a prefix\n"
                "  -e --export-db              Export the content of the udev database\n"
                "  -c --cleanup-db             Clean up the udev database\n"
+               "     --protected-tag=TAG      Do not clear udev database for tagged devices\n"
                , program_invocation_short_name);
 
         return 0;
 }
 
 int info_main(int argc, char *argv[], void *userdata) {
-        _cleanup_strv_free_ char **devices = NULL;
+        _cleanup_strv_free_ char **devices = NULL, **protected_tags = NULL;
         _cleanup_free_ char *name = NULL;
         int c, r;
 
+        enum {
+                ARG_PROTECTED = 0x100,
+        };
+
         static const struct option options[] = {
-                { "name",              required_argument, NULL, 'n' },
-                { "path",              required_argument, NULL, 'p' },
-                { "query",             required_argument, NULL, 'q' },
-                { "attribute-walk",    no_argument,       NULL, 'a' },
-                { "cleanup-db",        no_argument,       NULL, 'c' },
-                { "export-db",         no_argument,       NULL, 'e' },
-                { "root",              no_argument,       NULL, 'r' },
-                { "device-id-of-file", required_argument, NULL, 'd' },
-                { "export",            no_argument,       NULL, 'x' },
-                { "export-prefix",     required_argument, NULL, 'P' },
-                { "version",           no_argument,       NULL, 'V' },
-                { "help",              no_argument,       NULL, 'h' },
+                { "name",              required_argument, NULL, 'n'           },
+                { "path",              required_argument, NULL, 'p'           },
+                { "query",             required_argument, NULL, 'q'           },
+                { "attribute-walk",    no_argument,       NULL, 'a'           },
+                { "cleanup-db",        no_argument,       NULL, 'c'           },
+                { "export-db",         no_argument,       NULL, 'e'           },
+                { "root",              no_argument,       NULL, 'r'           },
+                { "device-id-of-file", required_argument, NULL, 'd'           },
+                { "export",            no_argument,       NULL, 'x'           },
+                { "export-prefix",     required_argument, NULL, 'P'           },
+                { "protected-tag",     required_argument, NULL, ARG_PROTECTED },
+                { "version",           no_argument,       NULL, 'V'           },
+                { "help",              no_argument,       NULL, 'h'           },
                 {}
         };
 
@@ -405,14 +455,19 @@ int info_main(int argc, char *argv[], void *userdata) {
                 case 'e':
                         return export_devices();
                 case 'c':
-                        cleanup_db();
-                        return 0;
+                        action = ACTION_CLEANUP_DB;
+                        break;
                 case 'x':
                         arg_export = true;
                         break;
                 case 'P':
                         arg_export = true;
                         arg_export_prefix = optarg;
+                        break;
+                case ARG_PROTECTED:
+                        r = strv_extend(&protected_tags, optarg);
+                        if (r < 0)
+                                return log_oom();
                         break;
                 case 'V':
                         return print_version();
@@ -423,6 +478,15 @@ int info_main(int argc, char *argv[], void *userdata) {
                 default:
                         assert_not_reached("Unknown option");
                 }
+
+        if (action == ACTION_CLEANUP_DB) {
+                cleanup_db(protected_tags);
+                return 0;
+        }
+
+        if (!strv_isempty(protected_tags))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--protected-tag option takes effect only when --cleanup-db is specified.");
 
         if (action == ACTION_DEVICE_ID_FILE) {
                 if (argv[optind])
