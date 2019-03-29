@@ -889,6 +889,17 @@ evdev:input:b0003v046Dp0042*
  KEYBOARD_KEY_c104b=images
  KEYBOARD_KEY_c104c=audio
 
+# "Cordless Rechargeable Desktop" keyboard (27 MHz, modelnumber Y-RK49)
+evdev:input:b0003v046Dp0045*
+ KEYBOARD_KEY_c1041=new
+ KEYBOARD_KEY_c1042=reply
+ KEYBOARD_KEY_c1043=forward
+ KEYBOARD_KEY_c1044=send
+ KEYBOARD_KEY_c1049=file
+ KEYBOARD_KEY_c104a=documents
+ KEYBOARD_KEY_c104b=images
+ KEYBOARD_KEY_c104c=audio
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
