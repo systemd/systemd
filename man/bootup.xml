@@ -225,14 +225,8 @@
                                     initrd-switch-root.target
                                                |
                                                v
-                        ______________________/|
-                       /                       v
-                       |        initrd-udevadm-cleanup-db.service
-                       v                       |
-                (custom initrd                 |
-                 services...)                  |
-                       \______________________ |
-                                              \|
+                                   (custom initrd services...)
+                                               |
                                                v
                                    initrd-switch-root.target
                                                |

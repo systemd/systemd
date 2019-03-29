@@ -177,7 +177,6 @@ multi-user.target reached after 47.820s in userspace
          13.299s dev-vda1.device
          ...
             23ms sysroot.mount
-            11ms initrd-udevadm-cleanup-db.service
              3ms sys-kernel-config.mount
         </programlisting>
       </example>

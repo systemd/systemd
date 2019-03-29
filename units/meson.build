@@ -125,7 +125,6 @@ in_units = [
         ['initrd-cleanup.service',               ''],
         ['initrd-parse-etc.service',             ''],
         ['initrd-switch-root.service',           ''],
-        ['initrd-udevadm-cleanup-db.service',    ''],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
