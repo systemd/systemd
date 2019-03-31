@@ -7,6 +7,7 @@
 #include "conf-parser.h"
 #include "missing.h"
 #include "netdev/fou-tunnel.h"
+#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -71,9 +72,28 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         return 0;
 }
 
+static int fou_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->state != _NETDEV_STATE_INVALID);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r == -EEXIST)
+                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
+        else if (r < 0) {
+                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+                netdev_drop(netdev);
+
+                return 1;
+        }
+
+        log_netdev_debug(netdev, "FooOverUDP tunnel is created");
+        return 1;
+}
+
 static int netdev_fou_tunnel_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        uint32_t serial;
         int r;
 
         assert(netdev);
@@ -83,10 +103,12 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_send(netdev->manager->genl, m, &serial);
-        if (r < 0 && r != -EADDRINUSE)
-                return log_netdev_error_errno(netdev, r, "Failed to add FooOverUDP tunnel: %m");
+        r = netlink_call_async(netdev->manager->genl, NULL, m, fou_tunnel_create_handler,
+                               netdev_destroy_callback, netdev);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Failed to create FooOverUDP tunnel: %m");
 
+        netdev_ref(netdev);
         return 0;
 }
 
