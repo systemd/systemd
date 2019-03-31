@@ -27,6 +27,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDP
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         FouTunnel *t;
+        uint8_t encap_type;
         int r;
 
         assert(netdev);
@@ -43,7 +44,18 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PORT attribute: %m");
 
-        r = sd_netlink_message_append_u8(m, FOU_ATTR_TYPE, FOU_ENCAP_GUE);
+        switch (t->fou_encap_type) {
+        case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
+                encap_type = FOU_ENCAP_DIRECT;
+                break;
+        case NETDEV_FOO_OVER_UDP_ENCAP_GUE:
+                encap_type = FOU_ENCAP_GUE;
+                break;
+        default:
+                assert_not_reached("invalid encap type");
+        }
+
+        r = sd_netlink_message_append_u8(m, FOU_ATTR_TYPE, encap_type);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_TYPE attribute: %m");
 
@@ -55,9 +67,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_IPPROTO attribute: %m");
 
-        *ret = m;
-        m = NULL;
-
+        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -90,14 +100,21 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_DIRECT && t->fou_protocol <= 0) {
-                log_netdev_error(netdev, "FooOverUDP protocol not configured in %s. Rejecting configuration.", filename);
-                return -EINVAL;
-        }
-
-        if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_GUE && t->fou_protocol > 0) {
-                log_netdev_error(netdev, "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.", filename);
-                return -EINVAL;
+        switch (t->fou_encap_type) {
+        case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
+                if (t->fou_protocol <= 0)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "FooOverUDP protocol not configured in %s. Rejecting configuration.",
+                                                      filename);
+                break;
+        case NETDEV_FOO_OVER_UDP_ENCAP_GUE:
+                if (t->fou_protocol > 0)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.",
+                                                      filename);
+                break;
+        default:
+                assert_not_reached("Invalid fou encap type");
         }
 
         return 0;
