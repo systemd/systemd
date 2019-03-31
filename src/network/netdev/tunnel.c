@@ -683,20 +683,22 @@ int config_parse_6rd_prefix(const char* unit,
         return 0;
 }
 
-static void ipip_init(NetDev *n) {
-        Tunnel *t = IPIP(n);
+static void ipip_sit_init(NetDev *n) {
+        Tunnel *t;
 
         assert(n);
-        assert(t);
 
-        t->pmtudisc = true;
-        t->fou_encap_type = FOU_ENCAP_DIRECT;
-}
+        switch (n->kind) {
+        case NETDEV_KIND_IPIP:
+                t = IPIP(n);
+                break;
+        case NETDEV_KIND_SIT:
+                t = SIT(n);
+                break;
+        default:
+                assert_not_reached("invalid netdev kind");
+        }
 
-static void sit_init(NetDev *n) {
-        Tunnel *t = SIT(n);
-
-        assert(n);
         assert(t);
 
         t->pmtudisc = true;
@@ -775,7 +777,7 @@ static void ip6tnl_init(NetDev *n) {
 
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_init,
+        .init = ipip_sit_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -784,7 +786,7 @@ const NetDevVTable ipip_vtable = {
 
 const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = sit_init,
+        .init = ipip_sit_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
