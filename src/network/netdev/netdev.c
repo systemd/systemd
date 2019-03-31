@@ -684,12 +684,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
         }
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev has no Kind= configured in %s. Ignoring", filename);
                 return 0;
         }
 
         if (!netdev_raw->ifname) {
-                log_warning("NetDev without Name configured in %s. Ignoring", filename);
+                log_warning("NetDev without Name= configured in %s. Ignoring", filename);
                 return 0;
         }
 
@@ -704,7 +704,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
-        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time, so that done() will be called on destruction */
+        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time,
+                                                 so that done() will be called on destruction */
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
@@ -730,7 +731,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
+                        return log_netdev_error_errno(netdev, r,
+                                                      "Failed to generate predictable MAC address for %s: %m",
+                                                      netdev->ifname);
         }
 
         r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
