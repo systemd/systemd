@@ -245,6 +245,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '10-dropin-test.netdev',
         '11-dummy.netdev',
         '12-dummy.netdev',
+        '15-name-conflict-test.netdev',
         '21-macvlan.netdev',
         '21-macvtap.netdev',
         '21-vlan-test1.network',
@@ -322,10 +323,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.remove_unit_from_networkd_path(self.units)
 
     def test_dropin(self):
-        self.copy_unit_to_networkd_unit_path('10-dropin-test.netdev')
+        self.copy_unit_to_networkd_unit_path('10-dropin-test.netdev', '15-name-conflict-test.netdev')
         self.start_networkd()
 
         self.assertTrue(self.link_exits('dropin-test'))
+
+        # This also tests NetDev.Name= conflict and basic networkctl functionalities
 
         output = subprocess.check_output(['ip', 'link', 'show', 'dropin-test']).rstrip().decode('utf-8')
         print(output)
