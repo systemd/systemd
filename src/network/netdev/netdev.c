@@ -738,6 +738,19 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
+        if (r == -EEXIST) {
+                NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
+
+                assert(n);
+                log_netdev_warning_errno(netdev, r,
+                                         "The setting Name=%s in %s conflicts with the one in %s, ignoring",
+                                         netdev->ifname, netdev->filename, n->filename);
+
+                /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
+                 * removed from the hashmap 'manager->netdevs'. */
+                netdev->ifname = mfree(netdev->ifname);
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -810,7 +823,7 @@ int netdev_load(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH(f, files) {
                 r = netdev_load_one(manager, *f);
                 if (r < 0)
                         return r;
