@@ -5,3 +5,5 @@ Kind=gretap
 [Tunnel]
 Local=any
 Remote=10.65.223.239
+Key=107
+SerializeTunneledPackets=true

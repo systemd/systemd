@@ -5,3 +5,5 @@ Kind=gre
 [Tunnel]
 Local=any
 Remote=10.65.223.239
+Key=104
+SerializeTunneledPackets=false
