@@ -201,8 +201,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'erspan98',
         'erspan99',
         'geneve99',
+        'gretap96',
         'gretap98',
         'gretap99',
+        'gretun96',
         'gretun97',
         'gretun98',
         'gretun99',
@@ -214,6 +216,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'ip6tnl97',
         'ip6tnl98',
         'ip6tnl99',
+        'ipiptun96',
         'ipiptun97',
         'ipiptun98',
         'ipiptun99',
@@ -221,6 +224,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'isataptun99',
         'macvlan99',
         'macvtap99',
+        'sittun96',
         'sittun97',
         'sittun98',
         'sittun99',
@@ -257,6 +261,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bridge.netdev',
         '25-erspan-tunnel-local-any.netdev',
         '25-erspan-tunnel.netdev',
+        '25-fou-gretap.netdev',
+        '25-fou-gre.netdev',
+        '25-fou-ipip.netdev',
+        '25-fou-ipproto-gre.netdev',
+        '25-fou-ipproto-ipip.netdev',
+        '25-fou-sit.netdev',
         '25-geneve.netdev',
         '25-gretap-tunnel-local-any.netdev',
         '25-gretap-tunnel.netdev',
@@ -785,6 +795,43 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.start_networkd()
 
         self.assertTrue(self.link_exits('ipiptun99'))
+
+    @expectedFailureIfModuleIsNotAvailable('fou')
+    def test_fou(self):
+        # The following redundant check is necessary for CentOS CI.
+        # Maybe, error handling in lookup_id() in sd-netlink/generic-netlink.c needs to be updated.
+        self.assertTrue(is_module_available('fou'))
+
+        self.copy_unit_to_networkd_unit_path('25-fou-ipproto-ipip.netdev', '25-fou-ipproto-gre.netdev',
+                                             '25-fou-ipip.netdev', '25-fou-sit.netdev',
+                                             '25-fou-gre.netdev', '25-fou-gretap.netdev')
+        self.start_networkd()
+
+        self.assertTrue(self.link_exits('ipiptun96'))
+        self.assertTrue(self.link_exits('sittun96'))
+        self.assertTrue(self.link_exits('gretun96'))
+        self.assertTrue(self.link_exits('gretap96'))
+
+        output = subprocess.check_output(['ip', 'fou', 'show']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'port 55555 ipproto 4')
+        self.assertRegex(output, 'port 55556 ipproto 47')
+
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'ipiptun96']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55555')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'sittun96']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55555')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretun96']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'encap fou encap-sport 1001 encap-dport 55556')
+        output = subprocess.check_output(['ip', '-d', 'link', 'show', 'gretap96']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'encap fou encap-sport auto encap-dport 55556')
+
+        subprocess.call(['ip', 'fou', 'del', 'port', '55555'])
+        subprocess.call(['ip', 'fou', 'del', 'port', '55556'])
 
     def test_vxlan(self):
         self.copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network', '11-dummy.netdev')
