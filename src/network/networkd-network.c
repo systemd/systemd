@@ -104,7 +104,8 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
                                              NETDEV_KIND_IP6GRETAP,
                                              NETDEV_KIND_VTI,
                                              NETDEV_KIND_VTI6,
-                                             NETDEV_KIND_IP6TNL)))
+                                             NETDEV_KIND_IP6TNL,
+                                             NETDEV_KIND_ERSPAN)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: NetDev %s is not a %s, ignoring assignment",
                                        network->filename, name, kind_string);

@@ -957,22 +957,24 @@
           It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
           and control path) in ip xfrm (framework used to implement IPsec protocol).
           See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
-          ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6
-          tunnels.</para>
+          ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6,
+          GRE, GRETAP, and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>InputKey=</varname></term>
         <listitem>
           <para>The <varname>InputKey=</varname> parameter specifies the key to use for input.
-          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
+          and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>OutputKey=</varname></term>
         <listitem>
           <para>The <varname>OutputKey=</varname> parameter specifies the key to use for output.
-          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6 tunnels.</para>
+          The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
+          and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1048,8 +1050,8 @@
       <varlistentry>
         <term><varname>SerializeTunneledPackets=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for ERSPAN tunnel.
-          When unset, the kernel's default will be used.
+          <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for GRE,
+          GRETAP, and ERSPAN tunnels. When unset, the kernel's default will be used.
           </para>
         </listitem>
       </varlistentry>

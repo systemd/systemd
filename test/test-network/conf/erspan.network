@@ -1,0 +1,6 @@
+[Match]
+Name=dummy98
+
+[Network]
+Tunnel=erspan99
+Tunnel=erspan98

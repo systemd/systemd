@@ -296,6 +296,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
         '6rd.network',
+        'erspan.network',
         'gre.network',
         'gretap.network',
         'gretun.network',
@@ -735,9 +736,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfERSPANModuleIsNotAvailable()
     def test_erspan_tunnel(self):
-        self.copy_unit_to_networkd_unit_path('25-erspan-tunnel.netdev', '25-erspan-tunnel-local-any.netdev')
+        self.copy_unit_to_networkd_unit_path('12-dummy.netdev', 'erspan.network',
+                                             '25-erspan-tunnel.netdev', '25-erspan-tunnel-local-any.netdev')
         self.start_networkd()
 
+        self.assertTrue(self.link_exits('dummy98'))
         self.assertTrue(self.link_exits('erspan99'))
         self.assertTrue(self.link_exits('erspan98'))
 
