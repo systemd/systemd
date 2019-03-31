@@ -296,6 +296,9 @@ static void manager_free(Manager *manager) {
 
         udev_builtin_exit();
 
+        if (manager->pid == getpid_cached())
+                udev_ctrl_cleanup(manager->ctrl);
+
         manager_clear_for_worker(manager);
 
         sd_netlink_unref(manager->rtnl);
@@ -590,9 +593,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
         assert(dev);
 
         /* only one process can add events to the queue */
-        if (manager->pid == 0)
-                manager->pid = getpid_cached();
-
         assert(manager->pid == getpid_cached());
 
         /* We only accepts devices received by device monitor. */
@@ -1596,6 +1596,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
 static int main_loop(Manager *manager) {
         int fd_worker, r;
 
+        manager->pid = getpid_cached();
+
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
@@ -1813,10 +1815,7 @@ static int run(int argc, char *argv[]) {
                         log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
-        r = main_loop(manager);
-        /* FIXME: move this into manager_free() */
-        udev_ctrl_cleanup(manager->ctrl);
-        return r;
+        return main_loop(manager);
 }
 
 DEFINE_MAIN_FUNCTION(run);
