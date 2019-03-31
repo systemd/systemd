@@ -72,7 +72,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
-        if (netdev->kind == NETDEV_KIND_IPIP && t->fou_tunnel) {
+        if (t->fou_tunnel) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
@@ -213,6 +213,20 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         r = sd_netlink_message_append_u16(m, IFLA_GRE_OFLAGS, oflags);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OFLAGS, attribute: %m");
+
+        if (t->fou_tunnel) {
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_TYPE, t->fou_encap_type);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_TYPE attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_SPORT, htobe16(t->encap_src_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_SPORT attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_DPORT, htobe16(t->fou_destination_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_DPORT attribute: %m");
+        }
 
         return r;
 }
@@ -686,6 +700,7 @@ static void sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->fou_encap_type = FOU_ENCAP_DIRECT;
         t->isatap = -1;
 }
 
@@ -727,6 +742,7 @@ static void gre_erspan_init(NetDev *n) {
 
         t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
+        t->fou_encap_type = FOU_ENCAP_DIRECT;
 }
 
 static void ip6gre_init(NetDev *n) {
