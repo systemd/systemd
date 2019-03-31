@@ -295,6 +295,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-wireguard-23-peers.network',
         '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
+        '25-wireguard.network',
         '6rd.network',
         'erspan.network',
         'gre.network',
@@ -493,17 +494,25 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
-        self.copy_unit_to_networkd_unit_path('25-wireguard.netdev')
-        self.start_networkd()
+        self.copy_unit_to_networkd_unit_path('25-wireguard.netdev', '25-wireguard.network',
+                                             '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
+                                             '25-wireguard-private-key.txt')
+        self.start_networkd(0)
+        self.wait_online(['wg99:carrier', 'wg98:routable'])
+
+        self.assertTrue(self.link_exits('wg99'))
+        self.assertTrue(self.link_exits('wg98'))
 
         if shutil.which('wg'):
             subprocess.call('wg')
+
             output = subprocess.check_output(['wg', 'show', 'wg99', 'listen-port']).rstrip().decode('utf-8')
             self.assertTrue(output, '51820')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'fwmark']).rstrip().decode('utf-8')
             self.assertTrue(output, '0x4d2')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'allowed-ips']).rstrip().decode('utf-8')
             self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t192.168.26.0/24 fd31:bf08:57cb::/48')
+            self.assertTrue(output, 'lsDtM3AbjxNlauRKzHEPfgS1Zp7cp/VX5Use/P4PQSc=\tfdbc:bae2:7871:e1fe:793:8636::/96 fdbc:bae2:7871:500:e1fe:793:8636:dad1/128')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'persistent-keepalive']).rstrip().decode('utf-8')
             self.assertTrue(output, 'RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=\t20')
             output = subprocess.check_output(['wg', 'show', 'wg99', 'endpoints']).rstrip().decode('utf-8')
@@ -511,20 +520,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             output = subprocess.check_output(['wg', 'show', 'wg99', 'private-key']).rstrip().decode('utf-8')
             self.assertTrue(output, 'EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=')
 
-        self.assertTrue(self.link_exits('wg99'))
-
-    @expectedFailureIfModuleIsNotAvailable('wireguard')
-    def test_wireguard_23_peers(self):
-        self.copy_unit_to_networkd_unit_path('25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
-                                             '25-wireguard-private-key.txt')
-        self.start_networkd()
-
-        if shutil.which('wg'):
-            subprocess.call('wg')
             output = subprocess.check_output(['wg', 'show', 'wg98', 'private-key']).rstrip().decode('utf-8')
             self.assertTrue(output, 'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr+WHtZLZ90FU=')
-
-        self.assertTrue(self.link_exits('wg98'))
 
     def test_geneve(self):
         self.copy_unit_to_networkd_unit_path('25-geneve.netdev')
