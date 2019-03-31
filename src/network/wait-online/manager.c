@@ -59,7 +59,7 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {
         return 1;
 }
 
-bool manager_all_configured(Manager *m) {
+bool manager_configured(Manager *m) {
         bool one_ready = false;
         Iterator i;
         const char *ifname;
@@ -67,23 +67,32 @@ bool manager_all_configured(Manager *m) {
         Link *l;
         int r;
 
-        /* wait for all the links given on the command line to appear */
-        HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
-                LinkOperationalState s = PTR_TO_INT(p);
+        if (!hashmap_isempty(m->interfaces)) {
+                /* wait for all the links given on the command line to appear */
+                HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
+                        LinkOperationalState s = PTR_TO_INT(p);
 
-                l = hashmap_get(m->links_by_name, ifname);
-                if (!l) {
-                        log_debug("still waiting for %s", ifname);
-                        return false;
+                        l = hashmap_get(m->links_by_name, ifname);
+                        if (!l) {
+                                log_debug("still waiting for %s", ifname);
+                                if (!m->any)
+                                        return false;
+                                continue;
+                        }
+
+                        if (manager_link_is_online(m, l, s) <= 0) {
+                                if (!m->any)
+                                        return false;
+                                continue;
+                        }
+
+                        one_ready = true;
                 }
 
-                if (manager_link_is_online(m, l, s) <= 0)
-                        return false;
+                /* all interfaces given by the command line are online, or
+                 * one of the specified interfaces is online. */
+                return one_ready;
         }
-
-        if (!hashmap_isempty(m->interfaces))
-                /* all interfaces given by the command line are online. */
-                return true;
 
         /* wait for all links networkd manages to be in admin state 'configured'
          * and at least one link to gain a carrier */
@@ -94,7 +103,7 @@ bool manager_all_configured(Manager *m) {
                 }
 
                 r = manager_link_is_online(m, l, _LINK_OPERSTATE_INVALID);
-                if (r < 0)
+                if (r < 0 && !m->any)
                         return false;
                 if (r > 0)
                         /* we wait for at least one link to be ready,
@@ -180,7 +189,7 @@ static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdat
         if (r < 0)
                 return r;
 
-        if (manager_all_configured(m))
+        if (manager_configured(m))
                 sd_event_exit(m->event, 0);
 
         return 1;
@@ -248,7 +257,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
                         log_link_warning_errno(l, r, "Failed to update monitor information: %m");
         }
 
-        if (manager_all_configured(m))
+        if (manager_configured(m))
                 sd_event_exit(m->event, 0);
 
         return 0;
@@ -280,7 +289,8 @@ static int manager_network_monitor_listen(Manager *m) {
 }
 
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
-                LinkOperationalState required_operstate, usec_t timeout) {
+                LinkOperationalState required_operstate,
+                bool any, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -294,6 +304,7 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 .interfaces = interfaces,
                 .ignore = ignore,
                 .required_operstate = required_operstate,
+                .any = any,
         };
 
         r = sd_event_default(&m->event);

@@ -35,8 +35,9 @@
     configured. By default, it will wait for all links it is aware of
     and which are managed by
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    to be fully configured or failed, and for at least one link to
-    gain a carrier.</para>
+    to be fully configured or failed, and for at least one link to be online. Here, online means that
+    the link's operational state is equal or higher than <literal>degraded</literal>. The threshold
+    can be configured by <option>--operational-state=</option> option.</para>
   </refsect1>
 
   <refsect1>
@@ -49,13 +50,12 @@
         <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
         <term><option>--interface=</option><replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
 
-        <listitem><para>Network interface to wait for before deciding
-        if the system is online. This is useful when a system has
-        several interfaces which will be configured, but a particular
-        one is necessary to access some network resources. This option
-        may be used more than once to wait for multiple network
-        interfaces. When used, all other interfaces are ignored.
-        Optinally, required minimum operational state can be
+        <listitem><para>Network interface to wait for before deciding if the system is online. This
+        is useful when a system has several interfaces which will be configured, but a particular
+        one is necessary to access some network resources. When used, all other interfaces are ignored.
+        This option may be used more than once to wait for multiple network interfaces. When this
+        option is specified multiple times, then <command>systemd-networkd-wait-online</command> waits
+        for all specified interfaces to be online. Optinally, required minimum operational state can be
         specified after a colon <literal>:</literal>. Please see
         <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for possible operational states. If the operational state is not specified here, then
@@ -81,7 +81,18 @@
         <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for possible operational states. If set, the specified value overrides
         <varname>RequiredForOnline=</varname> settings in <filename>.network</filename> files.
-        But this does not override operational states specified in <option>--interface</option> option.
+        But this does not override operational states specified in <option>--interface=</option> option.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--any</option></term>
+
+        <listitem><para>Even if several interfaces are in configuring state,
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online. When this option is specified with <option>--interface=</option>, then
+        <command>systemd-networkd-wait-online</command> waits for one of the specified interfaces to be
+        online. This option is useful when some interfaces may not have carrier on boot.
         </para></listitem>
       </varlistentry>
 
