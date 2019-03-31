@@ -160,6 +160,7 @@ void boot_config_free(BootConfig *config) {
         free(config->editor);
         free(config->auto_entries);
         free(config->auto_firmware);
+        free(config->console_mode);
 
         free(config->entry_oneshot);
         free(config->entry_default);
