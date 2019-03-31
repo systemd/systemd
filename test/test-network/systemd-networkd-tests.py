@@ -71,7 +71,6 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
     return f
 
 def setUpModule():
-
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
 
@@ -187,7 +186,7 @@ class Utilities():
             time.sleep(sleep_sec)
 
     def wait_online(self, links_with_operstate, timeout='20s'):
-        args = [wait_online_bin, f' --timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+        args = [wait_online_bin, f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         subprocess.check_call(args)
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
