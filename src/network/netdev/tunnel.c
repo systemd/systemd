@@ -72,7 +72,7 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
 
-        if (netdev->kind == NETDEV_KIND_IPIP && t->fou_tunnel) {
+        if (t->fou_tunnel) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
@@ -213,6 +213,20 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         r = sd_netlink_message_append_u16(m, IFLA_GRE_OFLAGS, oflags);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_OFLAGS, attribute: %m");
+
+        if (t->fou_tunnel) {
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_TYPE, t->fou_encap_type);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_TYPE attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_SPORT, htobe16(t->encap_src_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_SPORT attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_GRE_ENCAP_DPORT, htobe16(t->fou_destination_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_GRE_ENCAP_DPORT attribute: %m");
+        }
 
         return r;
 }
@@ -669,23 +683,26 @@ int config_parse_6rd_prefix(const char* unit,
         return 0;
 }
 
-static void ipip_init(NetDev *n) {
-        Tunnel *t = IPIP(n);
+static void ipip_sit_init(NetDev *n) {
+        Tunnel *t;
 
         assert(n);
+
+        switch (n->kind) {
+        case NETDEV_KIND_IPIP:
+                t = IPIP(n);
+                break;
+        case NETDEV_KIND_SIT:
+                t = SIT(n);
+                break;
+        default:
+                assert_not_reached("invalid netdev kind");
+        }
+
         assert(t);
 
         t->pmtudisc = true;
         t->fou_encap_type = FOU_ENCAP_DIRECT;
-}
-
-static void sit_init(NetDev *n) {
-        Tunnel *t = SIT(n);
-
-        assert(n);
-        assert(t);
-
-        t->pmtudisc = true;
         t->isatap = -1;
 }
 
@@ -727,6 +744,7 @@ static void gre_erspan_init(NetDev *n) {
 
         t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
+        t->fou_encap_type = FOU_ENCAP_DIRECT;
 }
 
 static void ip6gre_init(NetDev *n) {
@@ -759,7 +777,7 @@ static void ip6tnl_init(NetDev *n) {
 
 const NetDevVTable ipip_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = ipip_init,
+        .init = ipip_sit_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
@@ -768,7 +786,7 @@ const NetDevVTable ipip_vtable = {
 
 const NetDevVTable sit_vtable = {
         .object_size = sizeof(Tunnel),
-        .init = sit_init,
+        .init = ipip_sit_init,
         .sections = "Match\0NetDev\0Tunnel\0",
         .fill_message_create = netdev_ipip_sit_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,

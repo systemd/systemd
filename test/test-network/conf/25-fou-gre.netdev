@@ -1,0 +1,14 @@
+[NetDev]
+Name=gretun96
+Kind=gre
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239
+Key=1.2.5.103
+SerializeTunneledPackets=true
+Independent=true
+
+FooOverUDP=yes
+FOUDestinationPort=55556
+FOUSourcePort=1001

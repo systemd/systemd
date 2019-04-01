@@ -5,8 +5,10 @@
 #include <linux/ip.h>
 
 #include "conf-parser.h"
+#include "ip-protocol-list.h"
 #include "missing.h"
 #include "netdev/fou-tunnel.h"
+#include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -27,6 +29,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDP
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         FouTunnel *t;
+        uint8_t encap_type;
         int r;
 
         assert(netdev);
@@ -43,7 +46,18 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_PORT attribute: %m");
 
-        r = sd_netlink_message_append_u8(m, FOU_ATTR_TYPE, FOU_ENCAP_GUE);
+        switch (t->fou_encap_type) {
+        case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
+                encap_type = FOU_ENCAP_DIRECT;
+                break;
+        case NETDEV_FOO_OVER_UDP_ENCAP_GUE:
+                encap_type = FOU_ENCAP_GUE;
+                break;
+        default:
+                assert_not_reached("invalid encap type");
+        }
+
+        r = sd_netlink_message_append_u8(m, FOU_ATTR_TYPE, encap_type);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_TYPE attribute: %m");
 
@@ -55,15 +69,32 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message **r
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append FOU_ATTR_IPPROTO attribute: %m");
 
-        *ret = m;
-        m = NULL;
-
+        *ret = TAKE_PTR(m);
         return 0;
+}
+
+static int fou_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
+        int r;
+
+        assert(netdev);
+        assert(netdev->state != _NETDEV_STATE_INVALID);
+
+        r = sd_netlink_message_get_errno(m);
+        if (r == -EEXIST)
+                log_netdev_info(netdev, "netdev exists, using existing without changing its parameters");
+        else if (r < 0) {
+                log_netdev_warning_errno(netdev, r, "netdev could not be created: %m");
+                netdev_drop(netdev);
+
+                return 1;
+        }
+
+        log_netdev_debug(netdev, "FooOverUDP tunnel is created");
+        return 1;
 }
 
 static int netdev_fou_tunnel_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        uint32_t serial;
         int r;
 
         assert(netdev);
@@ -73,10 +104,49 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_send(netdev->manager->genl, m, &serial);
-        if (r < 0 && r != -EADDRINUSE)
-                return log_netdev_error_errno(netdev, r, "Failed to add FooOverUDP tunnel: %m");
+        r = netlink_call_async(netdev->manager->genl, NULL, m, fou_tunnel_create_handler,
+                               netdev_destroy_callback, netdev);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Failed to create FooOverUDP tunnel: %m");
 
+        netdev_ref(netdev);
+        return 0;
+}
+
+int config_parse_ip_protocol(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint8_t *protocol = data;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        assert_cc(IPPROTO_MAX-1 <= UINT8_MAX);
+
+        r = parse_ip_protocol(rvalue);
+        if (r < 0) {
+                r = safe_atou8(rvalue, protocol);
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse IP protocol '%s' for Foo over UDP tunnel, "
+                                   "ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        *protocol = r;
         return 0;
 }
 
@@ -90,14 +160,21 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
 
         assert(t);
 
-        if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_DIRECT && t->fou_protocol <= 0) {
-                log_netdev_error(netdev, "FooOverUDP protocol not configured in %s. Rejecting configuration.", filename);
-                return -EINVAL;
-        }
-
-        if (t->fou_encap_type == NETDEV_FOO_OVER_UDP_ENCAP_GUE && t->fou_protocol > 0) {
-                log_netdev_error(netdev, "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.", filename);
-                return -EINVAL;
+        switch (t->fou_encap_type) {
+        case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
+                if (t->fou_protocol <= 0)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "FooOverUDP protocol not configured in %s. Rejecting configuration.",
+                                                      filename);
+                break;
+        case NETDEV_FOO_OVER_UDP_ENCAP_GUE:
+                if (t->fou_protocol > 0)
+                        return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "FooOverUDP GUE can't be set with protocol configured in %s. Rejecting configuration.",
+                                                      filename);
+                break;
+        default:
+                assert_not_reached("Invalid fou encap type");
         }
 
         return 0;
