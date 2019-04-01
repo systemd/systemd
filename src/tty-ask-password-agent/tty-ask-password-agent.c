@@ -804,6 +804,10 @@ static int ask_on_consoles(int argc, char *argv[]) {
         if (!pids)
                 return log_oom();
 
+        /* Unset saved argc and argv, as safe_fork() may clear argv when argc and argv are saved. */
+        saved_argc = 0;
+        saved_argv = NULL;
+
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
                 r = ask_on_this_console(*tty, &pid, argc, argv);
