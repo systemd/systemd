@@ -892,10 +892,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           </tgroup>
         </table>
 
-        <para>In case of <varname>RuntimeDirectory=</varname> the lowest subdirectories are removed when the unit is
-        stopped. It is possible to preserve the specified directories in this case if
-        <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>
-        (see below). The directories specified with <varname>StateDirectory=</varname>,
+        <para>In case of <varname>RuntimeDirectory=</varname> the innermost subdirectories are removed when
+        the unit is stopped. It is possible to preserve the specified directories in this case if
+        <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or
+        <option>yes</option> (see below). The directories specified with <varname>StateDirectory=</varname>,
         <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>,
         <varname>ConfigurationDirectory=</varname> are not removed when the unit is stopped.</para>
 
