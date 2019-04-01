@@ -117,6 +117,7 @@ typedef enum ServiceState {
         SERVICE_FINAL_SIGKILL,
         SERVICE_FAILED,
         SERVICE_AUTO_RESTART,
+        SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1
 } ServiceState;

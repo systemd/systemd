@@ -4774,6 +4774,60 @@ void exec_context_revert_tty(ExecContext *c) {
         }
 }
 
+int exec_context_get_clean_directories(
+                ExecContext *c,
+                char **prefix,
+                ExecCleanMask mask,
+                char ***ret) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        ExecDirectoryType t;
+        int r;
+
+        assert(c);
+        assert(prefix);
+        assert(ret);
+
+        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                char **i;
+
+                if (!FLAGS_SET(mask, 1U << t))
+                        continue;
+
+                if (!prefix[t])
+                        continue;
+
+                STRV_FOREACH(i, c->directories[t].paths) {
+                        char *j;
+
+                        j = path_join(prefix[t], *i);
+                        if (!j)
+                                return -ENOMEM;
+
+                        r = strv_consume(&l, j);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret) {
+        ExecCleanMask mask = 0;
+
+        assert(c);
+        assert(ret);
+
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                if (!strv_isempty(c->directories[t].paths))
+                        mask |= 1U << t;
+
+        *ret = mask;
+        return 0;
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 

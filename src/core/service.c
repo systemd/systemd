@@ -30,6 +30,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "serialize.h"
 #include "service.h"
 #include "signal-util.h"
@@ -59,7 +60,8 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
-        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
+        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
+        [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
@@ -80,7 +82,8 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
-        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
+        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
+        [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -103,6 +106,7 @@ static void service_init(Unit *u) {
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
         s->runtime_max_usec = USEC_INFINITY;
+        s->timeout_clean_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -1;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -1;
@@ -787,8 +791,9 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf_restart[FORMAT_TIMESPAN_MAX], buf_start[FORMAT_TIMESPAN_MAX], buf_stop[FORMAT_TIMESPAN_MAX];
-        char buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX], buf_abort[FORMAT_TIMESPAN_MAX];
+        char buf_restart[FORMAT_TIMESPAN_MAX], buf_start[FORMAT_TIMESPAN_MAX], buf_stop[FORMAT_TIMESPAN_MAX],
+                buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX], buf_abort[FORMAT_TIMESPAN_MAX],
+                buf_clean[FORMAT_TIMESPAN_MAX];
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
@@ -802,6 +807,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sService State: %s\n"
                 "%sResult: %s\n"
                 "%sReload Result: %s\n"
+                "%sClean Result: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
@@ -814,6 +820,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, service_state_to_string(s->state),
                 prefix, service_result_to_string(s->result),
                 prefix, service_result_to_string(s->reload_result),
+                prefix, service_result_to_string(s->clean_result),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
@@ -869,8 +876,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, format_timespan(buf_abort, sizeof(buf_abort), s->timeout_abort_usec, USEC_PER_SEC));
 
         fprintf(f,
+                "%sTimeoutCleanSec: %s\n"
                 "%sRuntimeMaxSec: %s\n"
                 "%sWatchdogSec: %s\n",
+                prefix, format_timespan(buf_clean, sizeof(buf_clean), s->timeout_clean_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC),
                 prefix, format_timespan(buf_watchdog, sizeof(buf_watchdog), s->watchdog_usec, USEC_PER_SEC));
 
@@ -1069,7 +1078,8 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                    SERVICE_AUTO_RESTART))
+                    SERVICE_AUTO_RESTART,
+                    SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
         if (!IN_SET(state,
@@ -1085,7 +1095,8 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                    SERVICE_CLEANING)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
@@ -1151,6 +1162,9 @@ static usec_t service_coldplug_timeout(Service *s) {
         case SERVICE_AUTO_RESTART:
                 return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, s->restart_usec);
 
+        case SERVICE_CLEANING:
+                return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->timeout_clean_usec);
+
         default:
                 return USEC_INFINITY;
         }
@@ -1188,13 +1202,14 @@ static int service_coldplug(Unit *u) {
                    SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                    SERVICE_RELOAD,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                   SERVICE_CLEANING)) {
                 r = unit_watch_pid(UNIT(s), s->control_pid, false);
                 if (r < 0)
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
+        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART, SERVICE_CLEANING)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_dynamic_creds(u);
                 (void) unit_setup_exec_runtime(u);
@@ -2368,7 +2383,7 @@ static int service_start(Unit *u) {
          * please! */
         if (IN_SET(s->state,
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
+                   SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL, SERVICE_CLEANING))
                 return -EAGAIN;
 
         /* Already on it! */
@@ -2452,6 +2467,12 @@ static int service_stop(Unit *u) {
          * kill mode. */
         if (IN_SET(s->state, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD, SERVICE_STOP_WATCHDOG)) {
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
+                return 0;
+        }
+
+        /* If we are currently cleaning, then abort it, brutally. */
+        if (s->state == SERVICE_CLEANING) {
+                service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
                 return 0;
         }
 
@@ -3563,6 +3584,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_enter_dead(s, f, true);
                                 break;
 
+                        case SERVICE_CLEANING:
+
+                                if (s->clean_result == SERVICE_SUCCESS)
+                                        s->clean_result = f;
+
+                                service_enter_dead(s, SERVICE_SUCCESS, false);
+                                break;
+
                         default:
                                 assert_not_reached("Uh, control process died at wrong time.");
                         }
@@ -3677,6 +3706,15 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                                       "Service has no hold-off time (RestartSec=0), scheduling restart.");
 
                 service_enter_restart(s);
+                break;
+
+        case SERVICE_CLEANING:
+                log_unit_warning(UNIT(s), "Cleaning timed out. killing.");
+
+                if (s->clean_result == SERVICE_SUCCESS)
+                        s->clean_result = SERVICE_FAILURE_TIMEOUT;
+
+                service_enter_signal(s, SERVICE_FINAL_SIGKILL, 0);
                 break;
 
         default:
@@ -4086,6 +4124,7 @@ static void service_reset_failed(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
+        s->clean_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
         s->flush_n_restarts = false;
 }
@@ -4153,6 +4192,77 @@ static int service_exit_status(Unit *u) {
                 return -EBADE;
 
         return s->main_exec_status.status;
+}
+
+static int service_clean(Unit *u, ExecCleanMask mask) {
+        _cleanup_strv_free_ char **l = NULL;
+        Service *s = SERVICE(u);
+        pid_t pid;
+        int r;
+
+        assert(s);
+        assert(mask != 0);
+
+        if (s->state != SERVICE_DEAD)
+                return -EBUSY;
+
+        r = exec_context_get_clean_directories(&s->exec_context, u->manager->prefix, mask, &l);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(l))
+                return -EUNATCH;
+
+        service_unwatch_control_pid(s);
+        s->clean_result = SERVICE_SUCCESS;
+        s->control_command = NULL;
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_clean_usec));
+        if (r < 0)
+                goto fail;
+
+        r = unit_fork_helper_process(UNIT(s), "(sd-rmrf)", &pid);
+        if (r < 0)
+                goto fail;
+        if (r == 0) {
+                int ret = EXIT_SUCCESS;
+                char **i;
+
+                STRV_FOREACH(i, l) {
+                        r = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to remove '%s': %m", *i);
+                                ret = EXIT_FAILURE;
+                        }
+                }
+
+                _exit(ret);
+        }
+
+        r = unit_watch_pid(u, pid, true);
+        if (r < 0)
+                goto fail;
+
+        s->control_pid = pid;
+
+        service_set_state(s, SERVICE_CLEANING);
+
+        return 0;
+
+fail:
+        log_unit_warning_errno(UNIT(s), r, "Failed to initiate cleaning: %m");
+        s->clean_result = SERVICE_FAILURE_RESOURCES;
+        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        return r;
+}
+
+static int service_can_clean(Unit *u, ExecCleanMask *ret) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
@@ -4255,6 +4365,8 @@ const UnitVTable service_vtable = {
         .can_reload = service_can_reload,
 
         .kill = service_kill,
+        .clean = service_clean,
+        .can_clean = service_can_clean,
 
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,

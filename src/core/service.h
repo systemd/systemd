@@ -99,6 +99,7 @@ struct Service {
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
         bool timeout_abort_set;
+        usec_t timeout_clean_usec;
         usec_t runtime_max_usec;
 
         dual_timestamp watchdog_timestamp;
@@ -147,6 +148,7 @@ struct Service {
         /* If we shut down, remember why */
         ServiceResult result;
         ServiceResult reload_result;
+        ServiceResult clean_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
