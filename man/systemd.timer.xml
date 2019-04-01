@@ -125,12 +125,12 @@
         to when the unit the timer is activating was last
         deactivated.</para>
 
-        <para>Multiple directives may be combined of the same and of
-        different types. For example, by combining
-        <varname>OnBootSec=</varname> and
-        <varname>OnUnitActiveSec=</varname>, it is possible to define
-        a timer that elapses in regular intervals and activates a
-        specific service each time.</para>
+        <para>Multiple directives may be combined of the same and of different types, in which case the timer
+        unit will trigger whenever any of the specified timer expressions elapse. For example, by combining
+        <varname>OnBootSec=</varname> and <varname>OnUnitActiveSec=</varname>, it is possible to define a
+        timer that elapses in regular intervals and activates a specific service each time. Moreover, both
+        monotonic time expressions and <varname>OnCalendar=</varname> calendar expressions may be combined in
+        the same timer unit.</para>
 
         <para>The arguments to the directives are time spans
         configured in seconds. Example: "OnBootSec=50" means 50s after
@@ -145,13 +145,12 @@
         and the configured unit is started. This is not the case for
         timers defined in the other directives.</para>
 
-        <para>These are monotonic timers, independent of wall-clock
-        time and timezones. If the computer is temporarily suspended,
-        the monotonic clock stops too.</para>
+        <para>These are monotonic timers, independent of wall-clock time and timezones. If the computer is
+        temporarily suspended, the monotonic clock pauses, too.</para>
 
-        <para>If the empty string is assigned to any of these options,
-        the list of timers is reset, and all prior assignments will
-        have no effect.</para>
+        <para>If the empty string is assigned to any of these options, the list of timers is reset (both
+        monotonic timers and <varname>OnCalendar=</varname> timers, see below), and all prior assignments
+        will have no effect.</para>
 
         <para>Note that timers do not necessarily expire at the
         precise time configured with these settings, as they are
@@ -175,7 +174,13 @@
         the <varname>AccuracySec=</varname> setting
         below.</para>
 
-       <para>May be specified more than once.</para></listitem>
+        <para>May be specified more than once, in which case the timer unit will trigger whenever any of the
+        specified expressions elapse. Moreover calendar timers and monotonic timers (see above) may be
+        combined within the same timer unit.</para>
+
+        <para>If the empty string is assigned to any of these options, the list of timers is reset (both
+        <varname>OnCalendar=</varname> timers and monotonic timers, see above), and all prior assignments
+        will have no effect.</para></listitem>
       </varlistentry>
 
       <varlistentry>
