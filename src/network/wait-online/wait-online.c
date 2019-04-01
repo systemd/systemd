@@ -19,6 +19,7 @@ static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static Hashmap *arg_interfaces = NULL;
 static char **arg_ignore = NULL;
 static LinkOperationalState arg_required_operstate = _LINK_OPERSTATE_INVALID;
+static bool arg_any = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_keyp);
 STATIC_DESTRUCTOR_REGISTER(arg_ignore, strv_freep);
@@ -41,6 +42,7 @@ static int help(void) {
                "     --ignore=INTERFACE     Don't take these interfaces into account\n"
                "  -o --operational-state=OPERSTATE\n"
                "                            Required operational state\n"
+               "     --any                  Wait until at least one of the interfaces is online\n"
                "     --timeout=SECS         Maximum time to wait for network connectivity\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
@@ -101,6 +103,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_IGNORE,
+                ARG_ANY,
                 ARG_TIMEOUT,
         };
 
@@ -111,6 +114,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "interface",         required_argument, NULL, 'i'         },
                 { "ignore",            required_argument, NULL, ARG_IGNORE  },
                 { "operational-state", required_argument, NULL, 'o'         },
+                { "any",               no_argument,       NULL, ARG_ANY     },
                 { "timeout",           required_argument, NULL, ARG_TIMEOUT },
                 {}
         };
@@ -158,6 +162,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_required_operstate = s;
                         break;
                 }
+                case ARG_ANY:
+                        arg_any = true;
+                        break;
+
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
@@ -192,11 +200,11 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_timeout);
+        r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_any, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 
-        if (manager_all_configured(m))
+        if (manager_configured(m))
                 goto success;
 
         notify_message = notify_start("READY=1\n"

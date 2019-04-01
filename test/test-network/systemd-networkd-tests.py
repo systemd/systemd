@@ -71,7 +71,6 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
     return f
 
 def setUpModule():
-
     os.makedirs(network_unit_file_path, exist_ok=True)
     os.makedirs(networkd_ci_path, exist_ok=True)
 
@@ -186,8 +185,10 @@ class Utilities():
         if sleep_sec > 0:
             time.sleep(sleep_sec)
 
-    def wait_online(self, links_with_operstate, timeout='20s'):
-        args = [wait_online_bin, f' --timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False):
+        args = [wait_online_bin, f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
+        if bool_any:
+            args += ['--any']
         subprocess.check_call(args)
 
 class NetworkdNetDevTests(unittest.TestCase, Utilities):
@@ -248,6 +249,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     units = [
         '10-dropin-test.netdev',
         '11-dummy.netdev',
+        '11-dummy.network',
         '12-dummy.netdev',
         '15-name-conflict-test.netdev',
         '21-macvlan.netdev',
@@ -259,6 +261,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
+        '25-bridge.network',
         '25-erspan-tunnel-local-any.netdev',
         '25-erspan-tunnel.netdev',
         '25-fou-gretap.netdev',
@@ -366,6 +369,22 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             self.assertRegex(output, 'Driver: dummy')
         else:
             print('ethtool does not support driver field at least for dummy interfaces, skipping test for Driver field of networkctl.')
+
+    def test_wait_online_any(self):
+        self.copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
+        self.start_networkd(0)
+
+        self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
+        self.assertTrue(self.link_exits('bridge99'))
+        self.assertTrue(self.link_exits('test1'))
+
+        output = subprocess.check_output(['networkctl', 'status', 'bridge99']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: (?:off|no-carrier) \(configuring\)')
+
+        output = subprocess.check_output(['networkctl', 'status', 'test1']).rstrip().decode('utf-8')
+        print(output)
+        self.assertRegex(output, 'State: degraded \(configured\)')
 
     def test_bridge(self):
         self.copy_unit_to_networkd_unit_path('25-bridge.netdev')
