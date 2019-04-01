@@ -41,6 +41,8 @@ EOF
         cat >$initdir/etc/systemd/system/fail-on-restart.service <<EOF
 [Unit]
 Description=Fail on restart
+StartLimitIntervalSec=1m
+StartLimitBurst=3
 
 [Service]
 Type=simple
