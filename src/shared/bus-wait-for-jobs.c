@@ -11,8 +11,11 @@
 
 typedef struct BusWaitForJobs {
         sd_bus *bus;
+
+        /* The set of jobs to wait for, as bus object paths */
         Set *jobs;
 
+        /* The unit name and job result of the last Job message */
         char *name;
         char *result;
 
@@ -52,6 +55,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
         free(found);
 
         (void) free_and_strdup(&d->result, empty_to_null(result));
+
         (void) free_and_strdup(&d->name, empty_to_null(unit));
 
         return 0;
