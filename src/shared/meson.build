@@ -18,6 +18,8 @@ shared_sources = files('''
         bus-unit-util.h
         bus-util.c
         bus-util.h
+        bus-wait-for-units.c
+        bus-wait-for-units.h
         cgroup-show.c
         cgroup-show.h
         clean-ipc.c
