@@ -22,7 +22,7 @@ units = [
         ['halt.target',                         ''],
         ['hibernate.target',                    'ENABLE_HIBERNATE'],
         ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
-        ['suspend-then-hibernate.target',         'ENABLE_HIBERNATE'],
+        ['suspend-then-hibernate.target',       'ENABLE_HIBERNATE'],
         ['initrd-fs.target',                    ''],
         ['initrd-root-device.target',           ''],
         ['initrd-root-fs.target',               ''],
