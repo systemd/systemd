@@ -313,9 +313,6 @@ Features:
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
 
-* add "systemctl purge" for flushing out configuration, state, logs, ... of a
-  unit when it is stopped
-
 * show whether a service has out-of-date configuration in "systemctl status" by
   using mtime data of ConfigurationDirectory=.
 
