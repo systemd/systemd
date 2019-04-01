@@ -427,12 +427,12 @@ EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 m4_dnl
-Timer.OnCalendar,                config_parse_timer,                 0,                             0
-Timer.OnActiveSec,               config_parse_timer,                 0,                             0
-Timer.OnBootSec,                 config_parse_timer,                 0,                             0
-Timer.OnStartupSec,              config_parse_timer,                 0,                             0
-Timer.OnUnitActiveSec,           config_parse_timer,                 0,                             0
-Timer.OnUnitInactiveSec,         config_parse_timer,                 0,                             0
+Timer.OnCalendar,                config_parse_timer,                 TIMER_CALENDAR,                0
+Timer.OnActiveSec,               config_parse_timer,                 TIMER_ACTIVE,                  0
+Timer.OnBootSec,                 config_parse_timer,                 TIMER_BOOT,                    0
+Timer.OnStartupSec,              config_parse_timer,                 TIMER_STARTUP,                 0
+Timer.OnUnitActiveSec,           config_parse_timer,                 TIMER_UNIT_ACTIVE,             0
+Timer.OnUnitInactiveSec,         config_parse_timer,                 TIMER_UNIT_INACTIVE,           0
 Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
 Timer.WakeSystem,                config_parse_bool,                  0,                             offsetof(Timer, wake_system)
 Timer.RemainAfterElapse,         config_parse_bool,                  0,                             offsetof(Timer, remain_after_elapse)

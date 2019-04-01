@@ -1498,24 +1498,24 @@ int config_parse_exec_smack_process_label(
         return 0;
 }
 
-int config_parse_timer(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       unsigned section_line,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_timer(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free_ char *k = NULL;
+        Unit *u = userdata;
         Timer *t = data;
         usec_t usec = 0;
         TimerValue *v;
-        TimerBase b;
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
-        Unit *u = userdata;
-        _cleanup_free_ char *k = NULL;
         int r;
 
         assert(filename);
@@ -1529,36 +1529,35 @@ int config_parse_timer(const char *unit,
                 return 0;
         }
 
-        b = timer_base_from_string(lvalue);
-        if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer base, ignoring: %s", lvalue);
-                return 0;
-        }
-
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (b == TIMER_CALENDAR) {
-                if (calendar_spec_from_string(k, &c) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse calendar specification, ignoring: %s", k);
+        if (ltype == TIMER_CALENDAR) {
+                r = calendar_spec_from_string(k, &c);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse calendar specification, ignoring: %s", k);
                         return 0;
                 }
-        } else
-                if (parse_sec(k, &usec) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer value, ignoring: %s", k);
+        } else {
+                r = parse_sec(k, &usec);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse timer value, ignoring: %s", k);
                         return 0;
                 }
+        }
 
-        v = new0(TimerValue, 1);
+        v = new(TimerValue, 1);
         if (!v)
                 return log_oom();
 
-        v->base = b;
-        v->value = usec;
-        v->calendar_spec = TAKE_PTR(c);
+        *v = (TimerValue) {
+                .base = ltype,
+                .value = usec,
+                .calendar_spec = TAKE_PTR(c),
+        };
 
         LIST_PREPEND(value, t->values, v);
 
