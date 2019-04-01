@@ -334,8 +334,25 @@ static int bus_load_unit_by_name(Manager *m, sd_bus_message *message, const char
         return manager_load_unit(m, name, NULL, error, ret_unit);
 }
 
-static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(u);
+        assert(message);
+
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
+        path = unit_dbus_path(u);
+        if (!path)
+                return log_oom();
+
+        return sd_bus_reply_method_return(message, "o", path);
+}
+
+static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *name;
         Unit *u;
@@ -354,19 +371,10 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
-        if (r < 0)
-                return r;
-
-        path = unit_dbus_path(u);
-        if (!path)
-                return -ENOMEM;
-
-        return sd_bus_reply_method_return(message, "o", path);
+        return reply_unit_path(u, message, error);
 }
 
 static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         pid_t pid;
         Unit *u;
@@ -401,15 +409,7 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
-        if (r < 0)
-                return r;
-
-        path = unit_dbus_path(u);
-        if (!path)
-                return -ENOMEM;
-
-        return sd_bus_reply_method_return(message, "o", path);
+        return reply_unit_path(u, message, error);
 }
 
 static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -471,7 +471,6 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_by_control_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         const char *cgroup;
         Unit *u;
@@ -485,19 +484,10 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Control group '%s' is not valid or not managed by this instance", cgroup);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
-        if (r < 0)
-                return r;
-
-        path = unit_dbus_path(u);
-        if (!path)
-                return -ENOMEM;
-
-        return sd_bus_reply_method_return(message, "o", path);
+        return reply_unit_path(u, message, error);
 }
 
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
         const char *name;
         Unit *u;
@@ -516,15 +506,7 @@ static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
-        if (r < 0)
-                return r;
-
-        path = unit_dbus_path(u);
-        if (!path)
-                return -ENOMEM;
-
-        return sd_bus_reply_method_return(message, "o", path);
+        return reply_unit_path(u, message, error);
 }
 
 static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobType job_type, bool reload_if_possible, sd_bus_error *error) {
