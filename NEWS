@@ -192,6 +192,15 @@ CHANGES WITH 242 in spe:
           This makes it easier to use kernel-install with plugins which support
           a different layout of the bootloader partitions (for example grub2).
 
+        * During package installation (with `ninja install`), we would create
+          symlinks for systemd-networkd.service, systemd-networkd.socket,
+          systemd-resolved.service, remote-cryptsetup.target, remote-fs.target,
+          systemd-networkd-wait-online.service, and systemd-timesyncd.service
+          in /etc, as if `systemctl enable` was called for those units, to make
+          the system usable immediately after installation. Now this is not
+          done anymore, and instead calling `systemctl preset-all` is
+          recommended after the first installation of systemd.
+
 CHANGES WITH 241:
 
         * The default locale can now be configured at compile time. Otherwise,
