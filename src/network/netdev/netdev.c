@@ -684,12 +684,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
         }
 
         if (netdev_raw->kind == _NETDEV_KIND_INVALID) {
-                log_warning("NetDev has no Kind configured in %s. Ignoring", filename);
+                log_warning("NetDev has no Kind= configured in %s. Ignoring", filename);
                 return 0;
         }
 
         if (!netdev_raw->ifname) {
-                log_warning("NetDev without Name configured in %s. Ignoring", filename);
+                log_warning("NetDev without Name= configured in %s. Ignoring", filename);
                 return 0;
         }
 
@@ -704,7 +704,8 @@ int netdev_load_one(Manager *manager, const char *filename) {
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
-        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time, so that done() will be called on destruction */
+        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time,
+                                                 so that done() will be called on destruction */
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
@@ -730,7 +731,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev->mac && netdev->kind != NETDEV_KIND_VLAN) {
                 r = netdev_get_mac(netdev->ifname, &netdev->mac);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for %s: %m", netdev->ifname);
+                        return log_netdev_error_errno(netdev, r,
+                                                      "Failed to generate predictable MAC address for %s: %m",
+                                                      netdev->ifname);
         }
 
         r = hashmap_ensure_allocated(&netdev->manager->netdevs, &string_hash_ops);
@@ -738,6 +741,19 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
+        if (r == -EEXIST) {
+                NetDev *n = hashmap_get(netdev->manager->netdevs, netdev->ifname);
+
+                assert(n);
+                log_netdev_warning_errno(netdev, r,
+                                         "The setting Name=%s in %s conflicts with the one in %s, ignoring",
+                                         netdev->ifname, netdev->filename, n->filename);
+
+                /* Clear ifname before netdev_free() is called. Otherwise, the NetDev object 'n' is
+                 * removed from the hashmap 'manager->netdevs'. */
+                netdev->ifname = mfree(netdev->ifname);
+                return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -810,7 +826,7 @@ int netdev_load(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
-        STRV_FOREACH_BACKWARDS(f, files) {
+        STRV_FOREACH(f, files) {
                 r = netdev_load_one(manager, *f);
                 if (r < 0)
                         return r;

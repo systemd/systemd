@@ -166,9 +166,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
 
         log_debug("Parsed configuration file %s", filename);
 
-        LIST_PREPEND(links, ctx->links, link);
-        link = NULL;
-
+        LIST_PREPEND(links, ctx->links, TAKE_PTR(link));
         return 0;
 }
 
