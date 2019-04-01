@@ -353,6 +353,10 @@ int fd_warn_permissions(const char *path, int fd) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
+        /* Don't complain if we are reading something that is not a file, for example /dev/null */
+        if (!S_ISREG(st.st_mode))
+                return 0;
+
         if (st.st_mode & 0111)
                 log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
 
