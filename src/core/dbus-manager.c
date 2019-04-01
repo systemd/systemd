@@ -634,6 +634,12 @@ static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
 }
 
+static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
+         * cleaned */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+}
+
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
          * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
@@ -2473,6 +2479,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("EnqueueUnitJob", "sss", "uososa(uosos)", method_enqueue_unit_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CleanUnit", "sas", NULL, method_clean_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetUnitProperties", "sba(sv)", NULL, method_set_unit_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RefUnit", "s", NULL, method_ref_unit, SD_BUS_VTABLE_UNPRIVILEGED),
