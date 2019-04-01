@@ -1536,15 +1536,18 @@ int config_parse_timer(
         }
 
         if (ltype == TIMER_CALENDAR) {
-                if (calendar_spec_from_string(k, &c) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse calendar specification, ignoring: %s", k);
+                r = calendar_spec_from_string(k, &c);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse calendar specification, ignoring: %s", k);
                         return 0;
                 }
-        } else
-                if (parse_sec(k, &usec) < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer value, ignoring: %s", k);
+        } else {
+                r = parse_sec(k, &usec);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse timer value, ignoring: %s", k);
                         return 0;
                 }
+        }
 
         v = new(TimerValue, 1);
         if (!v)
