@@ -851,40 +851,40 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
           <tgroup cols='4'>
             <thead>
               <row>
-                <entry>Locations</entry>
-                <entry>for system</entry>
-                <entry>for users</entry>
-                <entry>Environment variable</entry>
+                <entry>Directory</entry>
+                <entry>Below path for system units</entry>
+                <entry>Below path for user units</entry>
+                <entry>Environment variable set</entry>
               </row>
             </thead>
             <tbody>
               <row>
                 <entry><varname>RuntimeDirectory=</varname></entry>
-                <entry><filename>/run</filename></entry>
+                <entry><filename>/run/</filename></entry>
                 <entry><varname>$XDG_RUNTIME_DIR</varname></entry>
                 <entry><varname>$RUNTIME_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>StateDirectory=</varname></entry>
-                <entry><filename>/var/lib</filename></entry>
+                <entry><filename>/var/lib/</filename></entry>
                 <entry><varname>$XDG_CONFIG_HOME</varname></entry>
                 <entry><varname>$STATE_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>CacheDirectory=</varname></entry>
-                <entry><filename>/var/cache</filename></entry>
+                <entry><filename>/var/cache/</filename></entry>
                 <entry><varname>$XDG_CACHE_HOME</varname></entry>
                 <entry><varname>$CACHE_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>LogsDirectory=</varname></entry>
-                <entry><filename>/var/log</filename></entry>
-                <entry><varname>$XDG_CONFIG_HOME</varname><filename>/log</filename></entry>
+                <entry><filename>/var/log/</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname><filename>/log/</filename></entry>
                 <entry><varname>$LOGS_DIRECTORY</varname></entry>
               </row>
               <row>
                 <entry><varname>ConfigurationDirectory=</varname></entry>
-                <entry><filename>/etc</filename></entry>
+                <entry><filename>/etc/</filename></entry>
                 <entry><varname>$XDG_CONFIG_HOME</varname></entry>
                 <entry><varname>$CONFIGURATION_DIRECTORY</varname></entry>
               </row>
