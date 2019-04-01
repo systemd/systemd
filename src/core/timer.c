@@ -833,6 +833,41 @@ static void timer_timezone_change(Unit *u) {
         }
 }
 
+static int timer_clean(Unit *u, ExecCleanMask mask) {
+        Timer *t = TIMER(u);
+        int r;
+
+        assert(t);
+        assert(mask != 0);
+
+        if (t->state != TIMER_DEAD)
+                return -EBUSY;
+
+        if (!IN_SET(mask, EXEC_CLEAN_STATE))
+                return -EUNATCH;
+
+        r = timer_setup_persistent(t);
+        if (r < 0)
+                return r;
+
+        if (!t->stamp_path)
+                return -EUNATCH;
+
+        if (unlink(t->stamp_path) && errno != ENOENT)
+                return log_unit_error_errno(u, errno, "Failed to clean stamp file of timer: %m");
+
+        return 0;
+}
+
+static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
+        Timer *t = TIMER(u);
+
+        assert(t);
+
+        *ret = t->persistent ? EXEC_CLEAN_STATE : 0;
+        return 0;
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE] = "OnActiveSec",
         [TIMER_BOOT] = "OnBootSec",
@@ -871,6 +906,9 @@ const UnitVTable timer_vtable = {
 
         .start = timer_start,
         .stop = timer_stop,
+
+        .clean = timer_clean,
+        .can_clean = timer_can_clean,
 
         .serialize = timer_serialize,
         .deserialize_item = timer_deserialize_item,
