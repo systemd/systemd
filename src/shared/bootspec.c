@@ -160,6 +160,7 @@ void boot_config_free(BootConfig *config) {
         free(config->editor);
         free(config->auto_entries);
         free(config->auto_firmware);
+        free(config->console_mode);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -735,7 +736,7 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
-        _cleanup_free_ char **found_by_loader = NULL;
+        _cleanup_strv_free_ char **found_by_loader = NULL;
         size_t n_allocated;
         char **i;
         int r;
