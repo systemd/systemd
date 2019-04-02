@@ -709,7 +709,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
-        assert_se(sigemptyset(&sig.sa_mask) >= 0);
         assert_se(sigaction(SIGCHLD, &sig, NULL) >= 0);
 
         sig.sa_handler = SIG_DFL;
