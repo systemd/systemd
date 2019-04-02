@@ -688,51 +688,58 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 /*
- * To be able to ask on all terminal devices of /dev/console
- * the devices are collected. If more than one device is found,
- * then on each of the terminals a inquiring task is forked.
- * Every task has its own session and its own controlling terminal.
- * If one of the tasks does handle a password, the remaining tasks
- * will be terminated.
+ * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
+ * device is found, then on each of the terminals a inquiring task is forked.  Every task has its own session
+ * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
+ * terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *argv[]) {
-        struct sigaction sig = {
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
+        _cleanup_strv_free_ char **arguments = NULL;
+        static const struct sigaction sigchld = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
-        pid_t pid;
+        static const struct sigaction sighup = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_RESTART,
+        };
         int r;
 
+        arguments = strv_copy(argv);
+        if (!arguments)
+                return log_oom();
+
+        assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
+        assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
-        assert_se(sigemptyset(&sig.sa_mask) >= 0);
-        assert_se(sigaction(SIGCHLD, &sig, NULL) >= 0);
-
-        sig.sa_handler = SIG_DFL;
-        assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
-
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                int ac;
+                char **i;
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
 
-                for (ac = 0; ac < argc; ac++) {
-                        if (streq(argv[ac], "--console")) {
-                                argv[ac] = strjoina("--console=", tty);
-                                break;
-                        }
-                }
+                STRV_FOREACH(i, arguments) {
+                        char *k;
 
-                assert(ac < argc);
+                        if (!streq(*i, "--console"))
+                                continue;
+
+                        k = strjoin("--console=", tty);
+                        if (!k) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        free_and_replace(*i, k);
+                }
 
                 execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
                 _exit(EXIT_FAILURE);
         }
 
-        *ret_pid = pid;
         return 0;
 }
 
@@ -788,7 +795,7 @@ static void terminate_agents(Set *pids) {
         }
 }
 
-static int ask_on_consoles(int argc, char *argv[]) {
+static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
         _cleanup_strv_free_ char **consoles = NULL;
         siginfo_t status = {};
@@ -806,7 +813,7 @@ static int ask_on_consoles(int argc, char *argv[]) {
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, argc, argv);
+                r = ask_on_this_console(*tty, &pid, argv);
                 if (r < 0)
                         return r;
 
@@ -851,7 +858,7 @@ static int run(int argc, char *argv[]) {
                 /*
                  * Spawn a separate process for each console device.
                  */
-                return ask_on_consoles(argc, argv);
+                return ask_on_consoles(argv);
 
         if (arg_device) {
                 /*
