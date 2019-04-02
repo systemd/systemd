@@ -195,17 +195,17 @@ wonder what the most minimal image would be that complies with the requirements
 above, it could consist of this:
 
 ```
-/usr/bin/minimald                        # a statically compiled binary
-/usr/lib/systemd/minimal-test.service    # the unit file for the service, with ExecStart=/usr/bin/minimald
-/usr/lib/os-release                      # an os-release file explaining what this is
-/etc/resolv.conf                         # empty file to mount over with host's version
-/etc/machine-id                          # ditto
-/proc/                                   # empty directory to use as mount point for host's API fs
-/sys/                                    # ditto
-/dev/                                    # ditto
-/run/                                    # ditto
-/tmp/                                    # ditto
-/var/tmp/                                # ditto
+/usr/bin/minimald                            # a statically compiled binary
+/usr/lib/systemd/system/minimal-test.service # the unit file for the service, with ExecStart=/usr/bin/minimald
+/usr/lib/os-release                          # an os-release file explaining what this is
+/etc/resolv.conf                             # empty file to mount over with host's version
+/etc/machine-id                              # ditto
+/proc/                                       # empty directory to use as mount point for host's API fs
+/sys/                                        # ditto
+/dev/                                        # ditto
+/run/                                        # ditto
+/tmp/                                        # ditto
+/var/tmp/                                    # ditto
 ```
 
 And that's it.
