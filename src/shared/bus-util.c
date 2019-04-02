@@ -756,7 +756,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
 
                         if ((u & NAMESPACE_FLAGS_ALL) == 0)
                                 result = "yes";
-                        else if ((u & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
+                        else if (FLAGS_SET(u, NAMESPACE_FLAGS_ALL))
                                 result = "no";
                         else {
                                 r = namespace_flags_to_string(u, &s);

@@ -922,10 +922,9 @@ static int run(int argc, char *argv[]) {
 
         arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
-        if (arg_recursive_unset && arg_count == COUNT_PIDS) {
-                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
-                return -EINVAL;
-        }
+        if (arg_recursive_unset && arg_count == COUNT_PIDS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
         if (r < 0)

@@ -675,7 +675,7 @@ static int insert_into_order(uint16_t slot, bool first) {
         }
 
         /* extend array */
-        t = realloc(order, (n + 1) * sizeof(uint16_t));
+        t = reallocarray(order, n + 1, sizeof(uint16_t));
         if (!t)
                 return -ENOMEM;
         order = t;

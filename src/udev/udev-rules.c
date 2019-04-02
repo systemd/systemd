@@ -1645,8 +1645,7 @@ static bool match_key(UdevRules *rules, struct token *token, const char *val) {
         char *pos;
         bool match = false;
 
-        if (!val)
-                val = "";
+        val = strempty(val);
 
         switch (token->key.glob) {
         case GL_PLAIN:

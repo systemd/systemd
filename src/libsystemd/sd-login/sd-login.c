@@ -818,7 +818,7 @@ _public_ int sd_get_uids(uid_t **users) {
                                 uid_t *t;
 
                                 n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(uid_t) * n);
+                                t = reallocarray(l, sizeof(uid_t), n);
                                 if (!t)
                                         return -ENOMEM;
 

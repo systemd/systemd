@@ -237,7 +237,7 @@ _public_ int sd_device_new_from_devnum(sd_device **ret, char type, dev_t devnum)
         assert_return(IN_SET(type, 'b', 'c'), -EINVAL);
 
         /* use /sys/dev/{block,char}/<maj>:<min> link */
-        snprintf(id, sizeof(id), "%u:%u", major(devnum), minor(devnum));
+        xsprintf(id, "%u:%u", major(devnum), minor(devnum));
 
         syspath = strjoina("/sys/dev/", (type == 'b' ? "block" : "char"), "/", id);
 
