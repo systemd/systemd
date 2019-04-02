@@ -122,8 +122,7 @@ EFI_STATUS efivar_get(const CHAR16 *name, CHAR16 **value) {
 
         /* Return buffer directly if it happens to be NUL terminated already */
         if (size >= 2 && buf[size-2] == 0 && buf[size-1] == 0) {
-                *value = (CHAR16*) buf;
-                buf = NULL;
+                *value = (CHAR16*) TAKE_PTR(buf);
                 return EFI_SUCCESS;
         }
 

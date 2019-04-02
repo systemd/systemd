@@ -269,10 +269,8 @@ static BOOLEAN line_edit(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
-                        if (StrCmp(line, line_in) != 0) {
-                                *line_out = line;
-                                line = NULL;
-                        }
+                        if (StrCmp(line, line_in) != 0)
+                                *line_out = TAKE_PTR(line);
                         enter = TRUE;
                         exit = TRUE;
                         break;
@@ -1258,8 +1256,7 @@ static VOID config_entry_bump_counters(
         /* If the file we just renamed is the loader path, then let's update that. */
         if (StrCmp(entry->loader, old_path) == 0) {
                 FreePool(entry->loader);
-                entry->loader = new_path;
-                new_path = NULL;
+                entry->loader = TAKE_PTR(new_path);
         }
 }
 
@@ -1360,10 +1357,8 @@ static VOID config_entry_add_from_file(
                                 s = PoolPrint(L"%s %s", entry->options, new);
                                 FreePool(entry->options);
                                 entry->options = s;
-                        } else {
-                                entry->options = new;
-                                new = NULL;
-                        }
+                        } else
+                                entry->options = TAKE_PTR(new);
 
                         continue;
                 }
@@ -1382,10 +1377,8 @@ static VOID config_entry_add_from_file(
                         s = PoolPrint(L"%s %s", initrd, entry->options);
                         FreePool(entry->options);
                         entry->options = s;
-                } else {
-                        entry->options = initrd;
-                        initrd = NULL;
-                }
+                } else
+                        entry->options = TAKE_PTR(initrd);
         }
 
         entry->device = device;
