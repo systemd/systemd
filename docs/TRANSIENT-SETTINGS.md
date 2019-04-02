@@ -335,10 +335,12 @@ All automount unit setting is available to transient units:
 Most timer unit settings are available to transient units.
 
 ```
-✓ OnCalendar=
 ✓ OnActiveSec=
 ✓ OnBootSec=
+✓ OnCalendar=
+✓ OnClockChange=
 ✓ OnStartupSec=
+✓ OnTimezoneChange
 ✓ OnUnitActiveSec=
 ✓ OnUnitInactiveSec=
 ✓ Persistent=

@@ -77,7 +77,7 @@ static int timer_verify(Timer *t) {
         if (UNIT(t)->load_state != UNIT_LOADED)
                 return 0;
 
-        if (!t->values) {
+        if (!t->values && !t->on_clock_change && !t->on_timezone_change) {
                 log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
                 return -ENOEXEC;
         }
@@ -215,14 +215,18 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPersistent: %s\n"
                 "%sWakeSystem: %s\n"
                 "%sAccuracy: %s\n"
-                "%sRemainAfterElapse: %s\n",
+                "%sRemainAfterElapse: %s\n"
+                "%sOnClockChange: %s\n"
+                "%sOnTimeZoneChange %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
                 prefix, yes_no(t->persistent),
                 prefix, yes_no(t->wake_system),
                 prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
-                prefix, yes_no(t->remain_after_elapse));
+                prefix, yes_no(t->remain_after_elapse),
+                prefix, yes_no(t->on_clock_change),
+                prefix, yes_no(t->on_timezone_change));
 
         LIST_FOREACH(value, v, t->values) {
 
@@ -474,7 +478,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 }
         }
 
-        if (!found_monotonic && !found_realtime) {
+        if (!found_monotonic && !found_realtime && !t->on_timezone_change && !t->on_clock_change) {
                 log_unit_debug(UNIT(t), "Timer is elapsed.");
                 timer_enter_elapsed(t, leave_around);
                 return;
@@ -815,8 +819,13 @@ static void timer_time_change(Unit *u) {
         if (t->last_trigger.realtime > ts)
                 t->last_trigger.realtime = ts;
 
-        log_unit_debug(u, "Time change, recalculating next elapse.");
-        timer_enter_waiting(t, true);
+        if (t->on_clock_change) {
+                log_unit_debug(u, "Time change, triggering activation.");
+                timer_enter_running(t);
+        } else {
+                log_unit_debug(u, "Time change, recalculating next elapse.");
+                timer_enter_waiting(t, true);
+        }
 }
 
 static void timer_timezone_change(Unit *u) {
@@ -827,8 +836,13 @@ static void timer_timezone_change(Unit *u) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_unit_debug(u, "Timezone change, recalculating next elapse.");
-        timer_enter_waiting(t, false);
+        if (t->on_timezone_change) {
+                log_unit_debug(u, "Timezone change, triggering activation.");
+                timer_enter_running(t);
+        } else {
+                log_unit_debug(u, "Timezone change, recalculating next elapse.");
+                timer_enter_waiting(t, false);
+        }
 }
 
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
