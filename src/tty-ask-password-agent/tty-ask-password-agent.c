@@ -697,9 +697,13 @@ static int parse_argv(int argc, char *argv[]) {
  */
 static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
         _cleanup_strv_free_ char **arguments = NULL;
-        struct sigaction sig = {
+        static const struct sigaction sigchld = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
+        };
+        static const struct sigaction sighup = {
+                .sa_handler = SIG_DFL,
+                .sa_flags = SA_RESTART,
         };
         int r;
 
@@ -707,12 +711,9 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
         if (!arguments)
                 return log_oom();
 
+        assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
+        assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
-
-        assert_se(sigaction(SIGCHLD, &sig, NULL) >= 0);
-
-        sig.sa_handler = SIG_DFL;
-        assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
         r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
         if (r < 0)
