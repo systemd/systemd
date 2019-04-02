@@ -125,6 +125,11 @@ case $COMMAND in
             exit 1
         fi
 
+        if [[ ! -f "$KERNEL_IMAGE" ]]; then
+            echo "Kernel image argument ${KERNEL_IMAGE} not a file" >&2
+            exit 1
+        fi
+
         for f in "${PLUGINS[@]}"; do
             if [[ -x $f ]]; then
                 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
