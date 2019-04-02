@@ -1619,6 +1619,8 @@ static void manager_ready(Manager *m) {
 
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
+
+        m->honor_device_enumeration = true;
 }
 
 static Manager* manager_reloading_start(Manager *m) {
@@ -3149,6 +3151,9 @@ int manager_serialize(
         (void) serialize_bool(f, "taint-logged", m->taint_logged);
         (void) serialize_bool(f, "service-watchdogs", m->service_watchdogs);
 
+        /* After switching root, udevd has not been started yet. So, enumeration results should not be emitted. */
+        (void) serialize_bool(f, "honor-device-enumeration", !switching_root);
+
         t = show_status_to_string(m->show_status);
         if (t)
                 (void) serialize_item(f, "show-status", t);
@@ -3377,6 +3382,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 m->service_watchdogs = b;
 
+                } else if ((val = startswith(l, "honor-device-enumeration="))) {
+                        int b;
+
+                        b = parse_boolean(val);
+                        if (b < 0)
+                                log_notice("Failed to parse honor-device-enumeration flag '%s', ignoring.", val);
+                        else
+                                m->honor_device_enumeration = b;
+
                 } else if ((val = startswith(l, "show-status="))) {
                         ShowStatus s;
 
@@ -3566,6 +3580,11 @@ int manager_reload(Manager *m) {
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
         m->n_reloading--;
+
+        /* On manager reloading, device tag data should exists, thus, we should honor the results of device
+         * enumeration. The flag should be always set correctly by the serialized data, but it may fail. So,
+         * let's always set the flag here for safety. */
+        m->honor_device_enumeration = true;
 
         manager_ready(m);
 

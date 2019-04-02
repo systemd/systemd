@@ -1492,7 +1492,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 }
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        char *ri = NULL, *rt = NULL;
+        _cleanup_free_ char *ri = NULL, *rt = NULL;
         const char *root, *init;
         Manager *m = userdata;
         struct statvfs svfs;
@@ -1564,17 +1564,12 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         if (!isempty(init)) {
                 ri = strdup(init);
-                if (!ri) {
-                        free(rt);
+                if (!ri)
                         return -ENOMEM;
-                }
         }
 
-        free(m->switch_root);
-        m->switch_root = rt;
-
-        free(m->switch_root_init);
-        m->switch_root_init = ri;
+        free_and_replace(m->switch_root, rt);
+        free_and_replace(m->switch_root_init, ri);
 
         m->objective = MANAGER_SWITCH_ROOT;
 
