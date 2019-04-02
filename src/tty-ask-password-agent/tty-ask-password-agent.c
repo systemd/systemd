@@ -688,12 +688,10 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 /*
- * To be able to ask on all terminal devices of /dev/console
- * the devices are collected. If more than one device is found,
- * then on each of the terminals a inquiring task is forked.
- * Every task has its own session and its own controlling terminal.
- * If one of the tasks does handle a password, the remaining tasks
- * will be terminated.
+ * To be able to ask on all terminal devices of /dev/console the devices are collected. If more than one
+ * device is found, then on each of the terminals a inquiring task is forked.  Every task has its own session
+ * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
+ * terminated.
  */
 static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
         _cleanup_strv_free_ char **arguments = NULL;
