@@ -958,6 +958,22 @@ evdev:input:b0003v046Dp0066*
  KEYBOARD_KEY_c1048=config          # Window with gear icon (Fn + F8)
  KEYBOARD_KEY_c106f=battery         # Battery icon
 
+# MX5000 keyboard (HID proxy mode and bluetooth matches)
+# The 4 buttons below the LCD send codes 0xc100c - 0xc100f. They only send
+# these codes when the LCD is displaying text send to it. These codes are
+# directly consumed by recent versions of lcdproc when it is driving the LCD,
+# so these codes should not be mapped
+evdev:input:b0003v046DpB305*
+evdev:input:b0005v046DpB305*
+ KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
+ KEYBOARD_KEY_c1004=send	# Send and receive / sync button
+ KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
+ KEYBOARD_KEY_c1007=camera	# Webcam button
+ KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
