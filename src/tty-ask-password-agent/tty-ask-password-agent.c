@@ -701,7 +701,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
-        pid_t pid;
         int r;
 
         arguments = strv_copy(argv);
@@ -716,7 +715,7 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -743,7 +742,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
                 _exit(EXIT_FAILURE);
         }
 
-        *ret_pid = pid;
         return 0;
 }
 
