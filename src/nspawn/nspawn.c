@@ -949,10 +949,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LINK_JOURNAL:
                         r = parse_link_journal(optarg, &arg_link_journal, &arg_link_journal_try);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to parse link journal mode %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse link journal mode %s", optarg);
 
                         arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
@@ -1243,9 +1241,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
                         if (l < sizeof(sd_id128_t)) {
-                                log_error("Root hash must be at least 128bit long: %s", optarg);
                                 free(k);
-                                return -EINVAL;
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128bit long: %s", optarg);
                         }
 
                         free(arg_root_hash);
@@ -1389,10 +1386,8 @@ static int parse_argv(int argc, char *argv[]) {
                                      "read-only\n"
                                      "passive\n"
                                      "pipe");
-                        else {
-                                log_error("Unknown console mode: %s", optarg);
-                                return -EINVAL;
-                        }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
 
                         arg_settings_mask |= SETTING_CONSOLE_MODE;
                         break;
@@ -2618,10 +2613,8 @@ static int determine_names(void) {
                                 return log_error_errno(r, "Failed to determine current directory: %m");
                 }
 
-                if (!arg_directory && !arg_image) {
-                        log_error("Failed to determine path, please use -D or -i.");
-                        return -EINVAL;
-                }
+                if (!arg_directory && !arg_image)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
         }
 
         if (!arg_machine) {
@@ -2644,10 +2637,8 @@ static int determine_names(void) {
                         return log_oom();
 
                 hostname_cleanup(arg_machine);
-                if (!machine_name_is_valid(arg_machine)) {
-                        log_error("Failed to determine machine name automatically, please use -M.");
-                        return -EINVAL;
-                }
+                if (!machine_name_is_valid(arg_machine))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
 
                 if (arg_ephemeral) {
                         char *b;
@@ -2774,10 +2765,8 @@ static int patch_sysctl(void) {
                                 break;
                 }
 
-                if (!good) {
-                        log_error("Refusing to write to sysctl '%s', as it is not safe in the selected namespaces.", *k);
-                        return -EPERM;
-                }
+                if (!good)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Refusing to write to sysctl '%s', as it is not safe in the selected namespaces.", *k);
 
                 r = sysctl_write(*k, *v);
                 if (r < 0)
@@ -4162,10 +4151,9 @@ static int run_container(int master,
                         log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
                 else if (r < 0)
                         return log_error_errno(r, "Failed to check %s fs type: %m", arg_network_namespace_path);
-                else if (r == 0) {
-                        log_error("Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
-                        return -EINVAL;
-                }
+                else if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path %s doesn't refer to a network namespace, refusing.", arg_network_namespace_path);
         }
 
         *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
@@ -4228,10 +4216,8 @@ static int run_container(int master,
                 l = recv(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read UID shift: %m");
-                if (l != sizeof arg_uid_shift) {
-                        log_error("Short read while reading UID shift.");
-                        return -EIO;
-                }
+                if (l != sizeof arg_uid_shift)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading UID shift.");
 
                 if (arg_userns_mode == USER_NAMESPACE_PICK) {
                         /* If we are supposed to pick the UID shift, let's try to use the shift read from the
@@ -4245,10 +4231,8 @@ static int run_container(int master,
                         l = send(uid_shift_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, MSG_NOSIGNAL);
                         if (l < 0)
                                 return log_error_errno(errno, "Failed to send UID shift: %m");
-                        if (l != sizeof arg_uid_shift) {
-                                log_error("Short write while writing UID shift.");
-                                return -EIO;
-                        }
+                        if (l != sizeof arg_uid_shift)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while writing UID shift.");
                 }
         }
 
@@ -4257,11 +4241,9 @@ static int run_container(int master,
                 l = recv(unified_cgroup_hierarchy_socket_pair[0], &arg_unified_cgroup_hierarchy, sizeof(arg_unified_cgroup_hierarchy), 0);
                 if (l < 0)
                         return log_error_errno(errno, "Failed to read cgroup mode: %m");
-                if (l != sizeof(arg_unified_cgroup_hierarchy)) {
-                        log_error("Short read while reading cgroup mode (%zu bytes).%s",
-                                  l, l == 0 ? " The child is most likely dead." : "");
-                        return -EIO;
-                }
+                if (l != sizeof(arg_unified_cgroup_hierarchy))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading cgroup mode (%zu bytes).%s",
+                                               l, l == 0 ? " The child is most likely dead." : "");
         }
 
         /* Wait for the outer child. */
@@ -4275,19 +4257,15 @@ static int run_container(int master,
         l = recv(pid_socket_pair[0], pid, sizeof *pid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read inner child PID: %m");
-        if (l != sizeof *pid) {
-                log_error("Short read while reading inner child PID.");
-                return -EIO;
-        }
+        if (l != sizeof *pid)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading inner child PID.");
 
         /* We also retrieve container UUID in case it was generated by outer child */
         l = recv(uuid_socket_pair[0], &arg_uuid, sizeof arg_uuid, 0);
         if (l < 0)
                 return log_error_errno(errno, "Failed to read container machine ID: %m");
-        if (l != sizeof(arg_uuid)) {
-                log_error("Short read while reading container machined ID.");
-                return -EIO;
-        }
+        if (l != sizeof(arg_uuid))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading container machined ID.");
 
         /* We also retrieve the socket used for notifications generated by outer child */
         notify_socket = receive_one_fd(notify_socket_pair[0], 0);
@@ -4298,10 +4276,8 @@ static int run_container(int master,
         log_debug("Init process invoked as PID "PID_FMT, *pid);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                if (!barrier_place_and_sync(&barrier)) { /* #1 */
-                        log_error("Child died too early.");
-                        return -ESRCH;
-                }
+                if (!barrier_place_and_sync(&barrier)) /* #1 */
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
                 r = setup_uid_map(*pid);
                 if (r < 0)
@@ -4313,10 +4289,8 @@ static int run_container(int master,
         if (arg_private_network) {
                 if (!arg_network_namespace_path) {
                         /* Wait until the child has unshared its network namespace. */
-                        if (!barrier_place_and_sync(&barrier)) { /* #3 */
-                                log_error("Child died too early");
-                                return -ESRCH;
-                        }
+                        if (!barrier_place_and_sync(&barrier)) /* #3 */
+                                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early");
                 }
 
                 r = move_network_interfaces(*pid, arg_network_interfaces);
@@ -4472,10 +4446,8 @@ static int run_container(int master,
                 return r;
 
         /* Let the child know that we are ready and wait that the child is completely ready now. */
-        if (!barrier_place_and_sync(&barrier)) { /* #5 */
-                log_error("Child died too early.");
-                return -ESRCH;
-        }
+        if (!barrier_place_and_sync(&barrier)) /* #5 */
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         /* At this point we have made use of the UID we picked, and thus nss-mymachines
          * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
