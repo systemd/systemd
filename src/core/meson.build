@@ -211,8 +211,6 @@ meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
-meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfsystemgeneratordir))
-meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfusergeneratordir))
 
 meson.add_install_script('sh', '-c',
                          mkdir_p.format(join_paths(pkgsysconfdir, 'system/multi-user.target.wants')))
