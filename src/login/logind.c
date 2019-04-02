@@ -378,73 +378,75 @@ static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
         return 0;
 }
 
+static int deliver_fd(Manager *m, const char *fdname, int fd) {
+        _cleanup_free_ char *id = NULL;
+        SessionDevice *sd;
+        struct stat st;
+        Session *s;
+        dev_t dev;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+
+        r = parse_fdname(fdname, &id, &dev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse fd name %s: %m", fdname);
+
+        s = hashmap_get(m->sessions, id);
+        if (!s)
+                /* If the session doesn't exist anymore, the associated session device attached to this fd
+                 * doesn't either. Let's simply close this fd. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to attach fd for unknown session: %s", id);
+
+        if (fstat(fd, &st) < 0)
+                /* The device is allowed to go away at a random point, in which case fstat() failing is
+                 * expected. */
+                return log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
+
+        if (!S_ISCHR(st.st_mode) || st.st_rdev != dev)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "Device fd doesn't point to the expected character device node");
+
+        sd = hashmap_get(s->devices, &dev);
+        if (!sd)
+                /* Weird, we got an fd for a session device which wasn't recorded in the session state
+                 * file... */
+                return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "Got fd for missing session device [%u:%u] in session %s",
+                                         major(dev), minor(dev), s->id);
+
+        log_debug("Attaching fd to session device [%u:%u] for session %s",
+                  major(dev), minor(dev), s->id);
+
+        session_device_attach_fd(sd, fd, s->was_active);
+        return 0;
+}
+
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int n, i, fd;
+        int n;
 
-        /* Upon restart, PID1 will send us back all fds of session devices
-         * that we previously opened. Each file descriptor is associated
-         * with a given session. The session ids are passed through FDNAMES. */
+        /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
+         * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
 
         n = sd_listen_fds_with_names(true, &fdnames);
-        if (n <= 0)
-                return n;
+        if (n < 0)
+                return log_warning_errno(n, "Failed to acquire passed fd list: %m");
+        if (n == 0)
+                return 0;
 
-        for (i = 0; i < n; i++) {
-                _cleanup_free_ char *id = NULL;
-                dev_t dev;
-                struct stat st;
-                SessionDevice *sd;
-                Session *s;
-                int r;
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
 
-                fd = SD_LISTEN_FDS_START + i;
-
-                r = parse_fdname(fdnames[i], &id, &dev);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse fd name %s: %m", fdnames[i]);
-                        close_nointr(fd);
+                if (deliver_fd(m, fdnames[i], fd) >= 0)
                         continue;
-                }
 
-                s = hashmap_get(m->sessions, id);
-                if (!s) {
-                        /* If the session doesn't exist anymore, the associated session
-                         * device attached to this fd doesn't either. Let's simply close
-                         * this fd. */
-                        log_debug("Failed to attach fd for unknown session: %s", id);
-                        close_nointr(fd);
-                        continue;
-                }
+                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd */
+                safe_close(fd);
 
-                if (fstat(fd, &st) < 0) {
-                        /* The device is allowed to go away at a random point, in which
-                         * case fstat failing is expected. */
-                        log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
-                        close_nointr(fd);
-                        continue;
-                }
-
-                if (!S_ISCHR(st.st_mode) || st.st_rdev != dev) {
-                        log_debug("Device fd doesn't point to the expected character device node");
-                        close_nointr(fd);
-                        continue;
-                }
-
-                sd = hashmap_get(s->devices, &dev);
-                if (!sd) {
-                        /* Weird, we got an fd for a session device which wasn't
-                         * recorded in the session state file... */
-                        log_warning("Got fd for missing session device [%u:%u] in session %s",
-                                    major(dev), minor(dev), s->id);
-                        close_nointr(fd);
-                        continue;
-                }
-
-                log_debug("Attaching fd to session device [%u:%u] for session %s",
-                          major(dev), minor(dev), s->id);
-
-                session_device_attach_fd(sd, fd, s->was_active);
+                /* Remove from fdstore as well */
+                (void) sd_notifyf(false,
+                                  "FDSTOREREMOVE=1\n"
+                                  "FDNAME=%s", fdnames[i]);
         }
 
         return 0;
@@ -492,11 +494,9 @@ static int manager_enumerate_sessions(Manager *m) {
                         r = k;
         }
 
-        /* We might be restarted and PID1 could have sent us back the
-         * session device fds we previously saved. */
-        k = manager_attach_fds(m);
-        if (k < 0)
-                log_warning_errno(k, "Failed to reattach session device fds: %m");
+        /* We might be restarted and PID1 could have sent us back the session device fds we previously
+         * saved. */
+        (void) manager_attach_fds(m);
 
         return r;
 }
