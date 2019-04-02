@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <linux/seccomp.h>
 #include <seccomp.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -1776,22 +1778,156 @@ int seccomp_protect_hostname(void) {
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(sethostname),
                                 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add sethostname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                         continue;
+                }
 
                 r = seccomp_rule_add_exact(
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),
                                 SCMP_SYS(setdomainname),
                                 0);
-                if (r < 0)
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add setdomainname() rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
                         continue;
+                }
 
                 r = seccomp_load(seccomp);
                 if (IN_SET(r, -EPERM, -EACCES))
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to apply hostname restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+        }
+
+        return 0;
+}
+
+int seccomp_restrict_suid_sgid(void) {
+        uint32_t arch;
+        int r;
+
+        SECCOMP_FOREACH_LOCAL_ARCH(arch) {
+                _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
+                if (r < 0)
+                        return r;
+
+                /* Checks the mode_t parameter of the following system calls:
+                 *
+                 *       → chmod() + fchmod() + fchmodat()
+                 *       → open() + creat() + openat()
+                 *       → mkdir() + mkdirat()
+                 *       → mknod() + mknodat()
+                 */
+
+                for (unsigned bit = 0; bit < 2; bit ++) {
+                        /* Block S_ISUID in the first iteration, S_ISGID in the second */
+                        mode_t m = bit == 0 ? S_ISUID : S_ISGID;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(chmod),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(fchmod),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(fchmodat),
+                                        1,
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(mkdir),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(mkdirat),
+                                        1,
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(mknod),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(mknodat),
+                                        1,
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(open),
+                                        2,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, O_CREAT, O_CREAT),
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(openat),
+                                        2,
+                                        SCMP_A2(SCMP_CMP_MASKED_EQ, O_CREAT, O_CREAT),
+                                        SCMP_A3(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+
+                        r = seccomp_rule_add_exact(
+                                        seccomp,
+                                        SCMP_ACT_ERRNO(EPERM),
+                                        SCMP_SYS(creat),
+                                        1,
+                                        SCMP_A1(SCMP_CMP_MASKED_EQ, m, m));
+                        if (r < 0)
+                                break;
+                }
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to add suid/sgid rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        continue;
+                }
+
+                r = seccomp_load(seccomp);
+                if (IN_SET(r, -EPERM, -EACCES))
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to apply suid/sgid restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
         }
 
         return 0;

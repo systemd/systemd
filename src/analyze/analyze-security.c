@@ -75,6 +75,7 @@ struct security_info {
 
         uint64_t restrict_namespaces;
         bool restrict_realtime;
+        bool restrict_suid_sgid;
 
         char *root_directory;
         char *root_image;
@@ -1149,6 +1150,16 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(struct security_info, restrict_realtime),
         },
         {
+                .id = "RestrictSUIDSGID=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictSUIDSGID=",
+                .description_good = "SUID/SGID file creation by service is restricted",
+                .description_bad = "Service may create SUID/SGID files",
+                .weight = 1000,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, restrict_suid_sgid),
+        },
+        {
                 .id = "RestrictNamespaces=~CLONE_NEWUSER",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create user namespaces",
@@ -1881,6 +1892,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                         },
                 { "RestrictNamespaces",      "t",       NULL,                                    offsetof(struct security_info, restrict_namespaces)       },
                 { "RestrictRealtime",        "b",       NULL,                                    offsetof(struct security_info, restrict_realtime)         },
+                { "RestrictSUIDSGID",        "b",       NULL,                                    offsetof(struct security_info, restrict_suid_sgid)        },
                 { "RootDirectory",           "s",       NULL,                                    offsetof(struct security_info, root_directory)            },
                 { "RootImage",               "s",       NULL,                                    offsetof(struct security_info, root_image)                },
                 { "SupplementaryGroups",     "as",      NULL,                                    offsetof(struct security_info, supplementary_groups)      },

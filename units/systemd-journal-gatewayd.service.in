@@ -17,7 +17,6 @@ DynamicUser=yes
 ExecStart=@rootlibexecdir@/systemd-journal-gatewayd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 ProtectControlGroups=yes

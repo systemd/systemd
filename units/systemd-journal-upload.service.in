@@ -18,7 +18,6 @@ DynamicUser=yes
 ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
 PrivateDevices=yes
 ProtectControlGroups=yes
 ProtectHome=yes

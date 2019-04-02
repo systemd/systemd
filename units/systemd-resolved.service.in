@@ -38,6 +38,7 @@ RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/resolve
 RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native

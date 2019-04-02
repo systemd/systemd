@@ -36,6 +36,7 @@ ProtectSystem=strict
 RestrictAddressFamilies=AF_UNIX
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 RuntimeMaxSec=5min
 StateDirectory=systemd/coredump
 SystemCallArchitectures=native
