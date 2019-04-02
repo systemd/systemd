@@ -137,6 +137,10 @@ tests += [
          [],
          'ENABLE_EFI'],
 
+        [['src/test/test-unit-file.c'],
+         [],
+         []],
+
         [['src/test/test-unit-name.c',
           'src/test/test-helper.c'],
          [libcore,

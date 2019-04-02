@@ -35,3 +35,5 @@ enum UnitFileScope {
 
 bool unit_type_may_alias(UnitType type) _const_;
 bool unit_type_may_template(UnitType type) _const_;
+
+int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
