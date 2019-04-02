@@ -695,13 +695,18 @@ static int parse_argv(int argc, char *argv[]) {
  * If one of the tasks does handle a password, the remaining tasks
  * will be terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *argv[]) {
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
+        _cleanup_strv_free_ char **arguments = NULL;
         struct sigaction sig = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
         pid_t pid;
         int r;
+
+        arguments = strv_copy(argv);
+        if (!arguments)
+                return log_oom();
 
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -715,18 +720,24 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *
         if (r < 0)
                 return r;
         if (r == 0) {
-                int ac;
+                char **i;
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
 
-                for (ac = 0; ac < argc; ac++) {
-                        if (streq(argv[ac], "--console")) {
-                                argv[ac] = strjoina("--console=", tty);
-                                break;
-                        }
-                }
+                STRV_FOREACH(i, arguments) {
+                        char *k;
 
-                assert(ac < argc);
+                        if (!streq(*i, "--console"))
+                                continue;
+
+                        k = strjoin("--console=", tty);
+                        if (!k) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        free_and_replace(*i, k);
+                }
 
                 execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
                 _exit(EXIT_FAILURE);
@@ -788,7 +799,7 @@ static void terminate_agents(Set *pids) {
         }
 }
 
-static int ask_on_consoles(int argc, char *argv[]) {
+static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
         _cleanup_strv_free_ char **consoles = NULL;
         siginfo_t status = {};
@@ -806,7 +817,7 @@ static int ask_on_consoles(int argc, char *argv[]) {
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, argc, argv);
+                r = ask_on_this_console(*tty, &pid, argv);
                 if (r < 0)
                         return r;
 
@@ -851,7 +862,7 @@ static int run(int argc, char *argv[]) {
                 /*
                  * Spawn a separate process for each console device.
                  */
-                return ask_on_consoles(argc, argv);
+                return ask_on_consoles(argv);
 
         if (arg_device) {
                 /*
