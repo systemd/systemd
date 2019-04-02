@@ -1411,9 +1411,9 @@ int open_parent(const char *path, int flags, mode_t mode) {
         /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
          * O_TMPFILE file, because in that case we are actually create a regular file below the parent directory. */
 
-        if ((flags & O_PATH) == O_PATH)
+        if (FLAGS_SET(flags, O_PATH))
                 flags |= O_DIRECTORY;
-        else if ((flags & O_TMPFILE) != O_TMPFILE)
+        else if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY|O_RDONLY;
 
         fd = open(parent, flags, mode);
