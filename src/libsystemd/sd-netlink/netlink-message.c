@@ -318,6 +318,23 @@ int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, ui
         return 0;
 }
 
+int sd_netlink_message_append_u64(sd_netlink_message *m, unsigned short type, uint64_t data) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_U64);
+        if (r < 0)
+                return r;
+
+        r = add_rtattr(m, type, &data, sizeof(uint64_t));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len) {
         int r;
 

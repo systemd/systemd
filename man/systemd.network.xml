@@ -768,6 +768,14 @@
             This option may be specified more than once.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>MACsec=</varname></term>
+          <listitem>
+            <para>The name of a MACsec device to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
       <varlistentry>
         <term><varname>ActiveSlave=</varname></term>
         <listitem>
