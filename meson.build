@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 project('systemd', 'c',
-        version : '241',
+        version : '242',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
