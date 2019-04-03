@@ -77,13 +77,16 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         return true;
 }
 
-static void wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
+static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
         usec_t until;
 
         assert(mask);
 
+        /* Return the number of children remaining in the pids set: That correspond to the number
+         * of processes still "alive" after the timeout */
+
         if (set_isempty(pids))
-                return;
+                return 0;
 
         until = now(CLOCK_MONOTONIC) + timeout;
         for (;;) {
@@ -107,8 +110,7 @@ static void wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
                                 if (errno == ECHILD)
                                         break;
 
-                                log_error_errno(errno, "waitpid() failed: %m");
-                                return;
+                                return log_error_errno(errno, "waitpid() failed: %m");
                         }
 
                         (void) set_remove(pids, PID_TO_PTR(pid));
@@ -130,20 +132,18 @@ static void wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
                 }
 
                 if (set_isempty(pids))
-                        return;
+                        return 0;
 
                 n = now(CLOCK_MONOTONIC);
                 if (n >= until)
-                        return;
+                        return set_size(pids);
 
                 timespec_store(&ts, until - n);
                 k = sigtimedwait(mask, NULL, &ts);
                 if (k != SIGCHLD) {
 
-                        if (k < 0 && errno != EAGAIN) {
-                                log_error_errno(errno, "sigtimedwait() failed: %m");
-                                return;
-                        }
+                        if (k < 0 && errno != EAGAIN)
+                                return log_error_errno(errno, "sigtimedwait() failed: %m");
 
                         if (k >= 0)
                                 log_warning("sigtimedwait() returned unexpected signal.");
@@ -154,10 +154,14 @@ static void wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
 static int killall(int sig, Set *pids, bool send_sighup) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *d;
+        int n_killed = 0;
+
+        /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
+         * Returns the number of processes to which the specified signal was sent */
 
         dir = opendir("/proc");
         if (!dir)
-                return -errno;
+                return log_warning_errno(errno, "opendir(/proc) failed: %m");
 
         FOREACH_DIRENT_ALL(d, dir, break) {
                 pid_t pid;
@@ -180,6 +184,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 }
 
                 if (kill(pid, sig) >= 0) {
+                        n_killed++;
                         if (pids) {
                                 r = set_put(pids, PID_TO_PTR(pid));
                                 if (r < 0)
@@ -205,10 +210,11 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 }
         }
 
-        return set_size(pids);
+        return n_killed;
 }
 
-void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
+int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
+        int n_children_left;
         sigset_t mask, oldmask;
         _cleanup_set_free_ Set *pids = NULL;
 
@@ -222,13 +228,15 @@ void broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t time
         if (kill(-1, SIGSTOP) < 0 && errno != ESRCH)
                 log_warning_errno(errno, "kill(-1, SIGSTOP) failed: %m");
 
-        killall(sig, pids, send_sighup);
+        n_children_left = killall(sig, pids, send_sighup);
 
         if (kill(-1, SIGCONT) < 0 && errno != ESRCH)
                 log_warning_errno(errno, "kill(-1, SIGCONT) failed: %m");
 
-        if (wait_for_exit)
-                wait_for_children(pids, &mask, timeout);
+        if (wait_for_exit && n_children_left > 0)
+                n_children_left = wait_for_children(pids, &mask, timeout);
 
         assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
+
+        return n_children_left;
 }
