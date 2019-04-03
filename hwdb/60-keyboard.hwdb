@@ -900,6 +900,25 @@ evdev:input:b0003v046Dp0045*
  KEYBOARD_KEY_c104b=images
  KEYBOARD_KEY_c104c=audio
 
+# MX3000 keyboard (27 MHz, modelnumber Y-RAM74)
+# We ignore the scroll up / down keypress events since these buttons also
+# generate scroll-wheel events and we do not want to generate duplicate events
+# Note if the "Special Button Function" in the HID++ features register gets
+# cleared then the scroll-wheel events for these buttons go away and then
+# tilting the scrollwheel left/right starts sending c1022 / c1024 events
+evdev:input:b0003v046Dp0057*
+ KEYBOARD_KEY_c1011=channeldown  # Playlist back button
+ KEYBOARD_KEY_c1012=channelup    # Playlist advance button
+ KEYBOARD_KEY_c1019=f14          # Preset 1 → f14 → XF86Launch5
+ KEYBOARD_KEY_c101a=f15          # Preset 2 → f15 → XF86Launch6
+ KEYBOARD_KEY_c101b=f16          # Preset 3 → f16 → XF86Launch7
+ KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+
+#KEYBOARD_KEY_c101d=scrolldown   # Button below scrollwheel (see note above)
+#KEYBOARD_KEY_c101e=scrollup     # Button above scrollwheel (see note above)
+#KEYBOARD_KEY_c1022=scrollleft   # Left click on scroll-wheel (see note above)
+#KEYBOARD_KEY_c1024=scrollright  # Right click on scroll-wheel (see note above)
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
