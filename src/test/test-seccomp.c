@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <sys/personality.h>
 #include <sys/shm.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -763,9 +764,14 @@ static void test_lock_personality(void) {
 
 static int real_open(const char *path, int flags, mode_t mode) {
         /* glibc internally calls openat() when open() is requested. Let's hence define our own wrapper for
-         * testing purposes that calls the real syscall. */
+         * testing purposes that calls the real syscall, on architectures where SYS_open is defined. On
+         * other architectures, let's just fall back to the glibc call. */
 
+#ifdef SYS_open
         return (int) syscall(SYS_open, path, flags, mode);
+#else
+        return open(path, flags, mode);
+#endif
 }
 
 static void test_restrict_suid_sgid(void) {
