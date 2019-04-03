@@ -4,8 +4,8 @@
 set -ex
 set -o pipefail
 
-systemd-analyze set-log-level debug
-systemd-analyze set-log-target console
+systemd-analyze log-level debug
+systemd-analyze log-target console
 
 systemctl disable --now systemd-timesyncd.service
 
@@ -26,7 +26,7 @@ timedatectl set-time 2018-1-1
 
 while ! test -f /tmp/clock-changed ; do sleep .5 ; done
 
-systemd-analyze set-log-level info
+systemd-analyze log-level info
 
 echo OK > /testok
 
