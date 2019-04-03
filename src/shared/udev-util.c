@@ -133,7 +133,7 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, sd_
 
         /* Wait until the device is initialized, so that we can get access to the ID_PATH property */
 
-        r = sd_event_default(&event);
+        r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to get default event: %m");
 
