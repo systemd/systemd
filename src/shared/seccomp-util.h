@@ -70,13 +70,13 @@ typedef enum SeccompParseFlags {
         SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
 
-int seccomp_parse_syscall_filter_full(
-                const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags,
-                const char *unit, const char *filename, unsigned line);
-
-static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
-        return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
-}
+int seccomp_parse_syscall_filter(
+                const char *name,
+                int errno_num,
+                Hashmap *filter,
+                SeccompParseFlags flags,
+                const char *unit,
+                const char *filename, unsigned line);
 
 int seccomp_restrict_archs(Set *archs);
 int seccomp_restrict_namespaces(unsigned long retain);

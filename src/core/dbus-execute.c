@@ -1417,7 +1417,9 @@ int bus_exec_context_set_transient_property(
                                         r = seccomp_parse_syscall_filter("@default",
                                                                          -1,
                                                                          c->syscall_filter,
-                                                                         SECCOMP_PARSE_WHITELIST | invert_flag);
+                                                                         SECCOMP_PARSE_WHITELIST | invert_flag,
+                                                                         u->id,
+                                                                         NULL, 0);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -1434,7 +1436,9 @@ int bus_exec_context_set_transient_property(
                                 r = seccomp_parse_syscall_filter(n,
                                                                  e,
                                                                  c->syscall_filter,
-                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0) | invert_flag);
+                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0) | invert_flag,
+                                                                 u->id,
+                                                                 NULL, 0);
                                 if (r < 0)
                                         return r;
                         }

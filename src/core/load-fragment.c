@@ -2735,7 +2735,9 @@ int config_parse_syscall_filter(
                         /* Accept default syscalls if we are on a whitelist */
                         r = seccomp_parse_syscall_filter(
                                         "@default", -1, c->syscall_filter,
-                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_WHITELIST);
+                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_WHITELIST,
+                                        unit,
+                                        NULL, 0);
                         if (r < 0)
                                 return r;
                 }
@@ -2762,7 +2764,7 @@ int config_parse_syscall_filter(
                         continue;
                 }
 
-                r = seccomp_parse_syscall_filter_full(
+                r = seccomp_parse_syscall_filter(
                                 name, num, c->syscall_filter,
                                 SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
                                 (invert ? SECCOMP_PARSE_INVERT : 0)|

@@ -1016,7 +1016,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
-int seccomp_parse_syscall_filter_full(
+int seccomp_parse_syscall_filter(
                 const char *name,
                 int errno_num,
                 Hashmap *filter,
@@ -1049,7 +1049,7 @@ int seccomp_parse_syscall_filter_full(
                          * away the SECCOMP_PARSE_LOG flag) since any issues in the group table are our own problem,
                          * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
                          * about them. */
-                        r = seccomp_parse_syscall_filter_full(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
+                        r = seccomp_parse_syscall_filter(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
                 }
