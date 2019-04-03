@@ -84,9 +84,15 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         if (!target)
                                 continue;
 
-                        r = symlinkat(target, fd, table[i].dir);
-                        if (r < 0 && errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+                        if (symlinkat(target, fd, table[i].dir) < 0) {
+                                log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
+                                               "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+
+                                if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
+                                        continue;
+
+                                return -errno;
+                        }
 
                         if (uid_is_valid(uid) || gid_is_valid(gid)) {
                                 if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
@@ -98,14 +104,14 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                 RUN_WITH_UMASK(0000)
                         r = mkdirat(fd, table[i].dir, table[i].mode);
-                if (r < 0 && errno != EEXIST) {
-                        log_full_errno(table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
+                if (r < 0) {
+                        log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
                                        "Failed to create directory at %s/%s: %m", root, table[i].dir);
 
-                        if (!table[i].ignore_failure)
-                                return -errno;
+                        if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
+                                continue;
 
-                        continue;
+                        return -errno;
                 }
 
                 if (uid != UID_INVALID || gid != UID_INVALID) {
