@@ -4,8 +4,8 @@
 set -ex
 set -o pipefail
 
-systemd-analyze set-log-level debug
-systemd-analyze set-log-target console
+systemd-analyze log-level debug
+systemd-analyze log-target console
 
 systemd-run --wait --unit=one -p StandardOutput=file:/tmp/stdout -p StandardError=file:/tmp/stderr -p Type=exec sh -c 'echo x ; echo y >&2'
 cmp /tmp/stdout <<EOF
@@ -33,7 +33,7 @@ a
 c
 EOF
 
-systemd-analyze set-log-level info
+systemd-analyze log-level info
 
 echo OK > /testok
 

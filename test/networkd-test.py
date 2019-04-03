@@ -283,11 +283,11 @@ class ClientTestBase(NetworkdTestingUtilities):
         klass.orig_log_level = subprocess.check_output(
             ['systemctl', 'show', '--value', '--property', 'LogLevel'],
             universal_newlines=True).strip()
-        subprocess.check_call(['systemd-analyze', 'set-log-level', 'debug'])
+        subprocess.check_call(['systemd-analyze', 'log-level', 'debug'])
 
     @classmethod
     def tearDownClass(klass):
-        subprocess.check_call(['systemd-analyze', 'set-log-level', klass.orig_log_level])
+        subprocess.check_call(['systemd-analyze', 'log-level', klass.orig_log_level])
 
     def setUp(self):
         self.iface = 'test_eth42'
