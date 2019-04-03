@@ -736,7 +736,7 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
                         free_and_replace(*i, k);
                 }
 
-                execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
+                execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, arguments);
                 _exit(EXIT_FAILURE);
         }
 
