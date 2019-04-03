@@ -12,7 +12,7 @@ title: Steps to a Successful Release
 6. Do `ninja -C build`
 7. Make sure that the version string and package string match: `build/systemctl --version`
 8. Upload the documentation: `ninja -C build doc-sync`
-9. Close the github milestone and open a new one (https://github.com/systemd/systemd/milestones)
+9. [After final release] Close the github milestone and open a new one (https://github.com/systemd/systemd/milestones)
 10. "Draft" a new release on github (https://github.com/systemd/systemd/releases/new), mark "This is a pre-release" if appropriate.
 11. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 12. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released`)
