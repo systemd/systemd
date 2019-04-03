@@ -14,6 +14,7 @@
 #include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "umask-util.h"
 #include "user-util.h"
@@ -68,7 +69,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                                 if (table[i].exists) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        p = strjoin(s, "/", table[i].exists);
+                                        p = path_join(s, table[i].exists);
                                         if (!p)
                                                 return log_oom();
 
