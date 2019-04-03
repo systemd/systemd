@@ -40,6 +40,7 @@ typedef enum sd_gen_family {
         SD_GENL_WIREGUARD,
         SD_GENL_FOU,
         SD_GENL_L2TP,
+        SD_GENL_MACSEC,
 } sd_genl_family;
 
 /* callback */
@@ -81,6 +82,7 @@ int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uint8_t data);
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data);
 int sd_netlink_message_append_u32(sd_netlink_message *m, unsigned short type, uint32_t data);
+int sd_netlink_message_append_u64(sd_netlink_message *m, unsigned short type, uint64_t data);
 int sd_netlink_message_append_data(sd_netlink_message *m, unsigned short type, const void *data, size_t len);
 int sd_netlink_message_append_in_addr(sd_netlink_message *m, unsigned short type, const struct in_addr *data);
 int sd_netlink_message_append_in6_addr(sd_netlink_message *m, unsigned short type, const struct in6_addr *data);

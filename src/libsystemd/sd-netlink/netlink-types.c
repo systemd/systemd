@@ -14,6 +14,7 @@
 #include <linux/if_addrlabel.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
+#include <linux/if_macsec.h>
 #include <linux/if_tunnel.h>
 #include <linux/l2tp.h>
 #include <linux/veth.h>
@@ -312,6 +313,22 @@ static const NLType rtnl_link_info_data_can_types[] = {
         [IFLA_CAN_CTRLMODE]             = { .size = sizeof(struct can_ctrlmode) },
 };
 
+static const NLType rtnl_link_info_data_macsec_types[] = {
+        [IFLA_MACSEC_SCI]            = { .type = NETLINK_TYPE_U64 },
+        [IFLA_MACSEC_PORT]           = { .type = NETLINK_TYPE_U16 },
+        [IFLA_MACSEC_ICV_LEN]        = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_CIPHER_SUITE]   = { .type = NETLINK_TYPE_U64 },
+        [IFLA_MACSEC_WINDOW]         = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACSEC_ENCODING_SA]    = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_ENCRYPT]        = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_PROTECT]        = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_INC_SCI]        = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_ES]             = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_SCB]            = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_REPLAY_PROTECT] = { .type = NETLINK_TYPE_U8 },
+        [IFLA_MACSEC_VALIDATION]     = { .type = NETLINK_TYPE_U8 },
+};
+
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -340,6 +357,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_WIREGUARD] = "wireguard",
         [NL_UNION_LINK_INFO_DATA_NETDEVSIM] = "netdevsim",
         [NL_UNION_LINK_INFO_DATA_CAN] = "can",
+        [NL_UNION_LINK_INFO_DATA_MACSEC] = "macsec",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -389,6 +407,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_vxcan_types },
         [NL_UNION_LINK_INFO_DATA_CAN] =              { .count = ELEMENTSOF(rtnl_link_info_data_can_types),
                                                        .types = rtnl_link_info_data_can_types },
+        [NL_UNION_LINK_INFO_DATA_MACSEC] =           { .count = ELEMENTSOF(rtnl_link_info_data_macsec_types),
+                                                       .types = rtnl_link_info_data_macsec_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
@@ -849,11 +869,76 @@ static const NLTypeSystem genl_l2tp_tunnel_session_type_system = {
         .types = genl_l2tp,
 };
 
+static const NLType genl_rxsc_types[] = {
+        [MACSEC_RXSC_ATTR_SCI]     = { .type = NETLINK_TYPE_U64 },
+};
+
+static const NLTypeSystem genl_rxsc_config_type_system = {
+        .count = ELEMENTSOF(genl_rxsc_types),
+        .types = genl_rxsc_types,
+};
+
+static const NLType genl_macsec_rxsc_types[] = {
+        [MACSEC_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
+        [MACSEC_ATTR_RXSC_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_rxsc_config_type_system },
+};
+
+static const NLTypeSystem genl_macsec_rxsc_type_system = {
+        .count = ELEMENTSOF(genl_macsec_rxsc_types),
+        .types = genl_macsec_rxsc_types,
+};
+
+static const NLType genl_macsec_sa_config_types[] = {
+        [MACSEC_SA_ATTR_AN]     = { .type = NETLINK_TYPE_U8 },
+        [MACSEC_SA_ATTR_ACTIVE] = { .type = NETLINK_TYPE_U8 },
+        [MACSEC_SA_ATTR_PN]     = { .type = NETLINK_TYPE_U32 },
+        [MACSEC_SA_ATTR_KEYID]  = { .size = MACSEC_KEYID_LEN },
+        [MACSEC_SA_ATTR_KEY]    = { .size = MACSEC_MAX_KEY_LEN },
+};
+
+static const NLTypeSystem genl_macsec_sa_config_type_system = {
+        .count = ELEMENTSOF(genl_macsec_sa_config_types),
+        .types = genl_macsec_sa_config_types,
+};
+
+static const NLType genl_macsec_rxsa_types[] = {
+        [MACSEC_ATTR_IFINDEX]   = { .type = NETLINK_TYPE_U32 },
+        [MACSEC_ATTR_SA_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_config_type_system },
+};
+
+static const NLTypeSystem genl_macsec_rxsa_type_system = {
+        .count = ELEMENTSOF(genl_macsec_rxsa_types),
+        .types = genl_macsec_rxsa_types,
+};
+
+static const NLType genl_macsec_sa_types[] = {
+        [MACSEC_ATTR_IFINDEX]     = { .type = NETLINK_TYPE_U32 },
+        [MACSEC_ATTR_RXSC_CONFIG] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_rxsc_config_type_system },
+        [MACSEC_ATTR_SA_CONFIG]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_config_type_system },
+};
+
+static const NLTypeSystem genl_macsec_sa_type_system = {
+        .count = ELEMENTSOF(genl_macsec_sa_types),
+        .types = genl_macsec_sa_types,
+};
+
+static const NLType genl_macsec[]   = {
+        [MACSEC_CMD_ADD_RXSC]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_rxsc_type_system },
+        [MACSEC_CMD_ADD_TXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_rxsa_type_system},
+        [MACSEC_CMD_ADD_RXSA]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_sa_type_system },
+};
+
+static const NLTypeSystem genl_macsec_device_type_system = {
+        .count = ELEMENTSOF(genl_macsec),
+        .types = genl_macsec,
+};
+
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
         [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_cmds_type_system},
         [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
+        [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
 };
 
 const NLTypeSystem genl_family_type_system_root = {

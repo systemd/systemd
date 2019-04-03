@@ -151,6 +151,9 @@
           <row><entry><varname>l2tp</varname></entry>
           <entry>A Layer 2 Tunneling Protocol (L2TP) is a tunneling protocol used to support virtual private networks (VPNs) or as part of the delivery of services by ISPs. It does not provide any encryption or confidentiality by itself</entry></row>
 
+          <row><entry><varname>macsec</varname></entry>
+          <entry>Media Access Control Security (MACsec) is an 802.1AE IEEE industry-standard security technology that provides secure communication for all traffic on Ethernet links. MACsec provides point-to-point security on Ethernet links between directly connected nodes and is capable of identifying and preventing most security threats.</entry></row>
+
           <row><entry><varname>vrf</varname></entry>
           <entry>A Virtual Routing and Forwarding (<ulink url="https://www.kernel.org/doc/Documentation/networking/vrf.txt">VRF</ulink>) interface to create separate routing and forwarding domains.</entry></row>
 
@@ -851,6 +854,120 @@
       </varlistentry>
     </variablelist>
   </refsect1>
+  <refsect1>
+    <title>[MACsec] Section Options</title>
+    <para>The <literal>[MACsec]</literal> section only applies for
+    network devices of kind <literal>macsec</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para>Specifies the port to be used for the MACsec. Takes a value between 1 and 65535. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Encrypt=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, enable encryption. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1>
+    <title>[MACsecReceiveChannel] Section Options</title>
+    <para>The <literal>[MACsecReceiveChannel]</literal> section only applies for
+    network devices of kind <literal>macsec</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para>Specifies the port to be used for the MACsec Receive Channel. The port used to make Secure Channel Identifier (SCI).
+          Takes a value between 1 and 65535. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>Specifies the MAC address to be used for the MACsec Receive Channel. The MAC address used to make Secure Channel Identifier (SCI).
+          This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+   <refsect1>
+    <title>[MACsecTransmitAssociation] Section Options</title>
+    <para>The <literal>[MACsecTransmitAssociation]</literal> section only applies for
+    network devices of kind <literal>macsec</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PacketNumber=</varname></term>
+        <listitem>
+          <para>Specifies the packet number to be used for replay protection and the construction of
+          the initialization vector (along with the secure channel identifier [SCI]). Ranges a number between 1-4,294,967,295.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeyId=</varname></term>
+        <listitem>
+          <para>Specifies the identification for the key. Ranges a number between 0-255. This option is compulsory.</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
+        <term><varname>Key=</varname></term>
+        <listitem>
+          <para>Specifies the identification for the key used in the transmission channel. That same key must be configured on the peer’s matching receive channel.
+          This option is compulsory. Takes a 128-bit key encoded in a hexadecimal string, for example "dffafc8d7b9a43d5b9a3dfbbf6a30c16".</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+   </refsect1>
+   <refsect1>
+    <title>[MACsecReceiveAssociation] Section Options</title>
+    <para>The <literal>[MACsecReceiveAssociation]</literal> section only applies for
+    network devices of kind <literal>macsec</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para>See [MACsecReceiveChannel] Section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>See [MACsecReceiveChannel] Section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PacketNumber=</varname></term>
+        <listitem>
+          <para>See [MACsecTransmitAssociation] Section.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KeyId=</varname></term>
+        <listitem>
+          <para>See [MACsecTransmitAssociation] Section.</para>
+        </listitem>
+      </varlistentry>
+        <varlistentry>
+        <term><varname>Key=</varname></term>
+        <listitem>
+          <para>See [MACsecTransmitAssociation] Section.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+   </refsect1>
   <refsect1>
     <title>[Tunnel] Section Options</title>
 
