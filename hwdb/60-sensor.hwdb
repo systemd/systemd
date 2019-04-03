@@ -476,6 +476,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.011:bd11/03/20
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF5:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+# Teclast F6 Pro
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF6Pro:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
 #########################################
 # Trekstor
 #########################################
