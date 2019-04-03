@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 242 in spe:
+CHANGES WITH 242:
 
         * In .link files, MACAddressPolicy=persistent (the default) is changed
           to cover more devices. For devices like bridges, tun, tap, bond, and
@@ -60,6 +60,25 @@ CHANGES WITH 242 in spe:
           in which case environment variable substitution is
           disabled. (Supported for the other ExecXYZ= settings, too.)
 
+        * .timer units gained two new boolean settings OnClockChange= and
+          OnTimezoneChange= which may be used to also trigger a unit when the
+          system clock is changed or the local timezone is
+          modified. systemd-run has been updated to make these options easily
+          accessible from the command line for transient timers.
+
+        * Two new conditions for units have been added: ConditionMemory= may be
+          used to conditionalize a unit based on installed system
+          RAM. ConditionCPUs= may be used to conditionalize a unit based on
+          install CPU cores.
+
+        * The @default system call filter group understood by SystemCallFilter=
+          has been updated to include the new rseq() system call introduced in
+          kernel 4.15.
+
+        * "systemctl start" (and related commands) learnt a new
+          --show-transaction option. If specified brief information about all
+          jobs queued because of the requested operation is shown.
+
         * systemd-networkd recognizes a new operation state 'enslaved', used
           (instead of 'degraded' or 'carrier') for interfaces which form a
           bridge, bond, or similar, and an new 'degraded-carrier' operational
@@ -75,6 +94,9 @@ CHANGES WITH 242 in spe:
           systemd-networkd-wait-online gained a new option --operational-state=
           to configure the same, and its --interface= option was updated to
           optionally also take an operational state specific for an interface.
+
+        * systemd-networkd-wait-online gained a new setting --any for waiting
+          for only one of the requested interfaces instead of all of them.
 
         * systemd-networkd now implements L2TP tunnels.
 
@@ -214,7 +236,24 @@ CHANGES WITH 242 in spe:
           substantial, and the setting is still relatively new, hence we opted
           to make it mandatory for services with dynamic users.
 
-        …
+        Contributions from: Adam Jackson, Alexander Tsoy, Andrey Yashkin,
+        Andrzej Pietrasiewicz, Anita Zhang, Balint Reczey, Beniamino Galvani,
+        Ben Iofel, Benjamin Berg, Benjamin Dahlhoff, Chris, Chris Morin,
+        Christopher Wong, Claudius Ellsel, Clemens Gruber, dana, Daniel Black,
+        Davide Cavalca, David Michael, David Rheinsberg, emersion, Evgeny
+        Vereshchagin, Filipe Brandenburger, Franck Bui, Frantisek Sumsal,
+        Giacinto Cifelli, Hans de Goede, Hugo Kindel, Ignat Korchagin, Insun
+        Pyo, Jan Engelhardt, Jonathan Lebon, Jonathon Kowalski, Jörg Sommer,
+        Jörg Thalheim, Kai-Heng Feng, Lennart Poettering, Lubomir Rintel,
+        Martin Pitt, Matthias Klumpp, Michael Biebl, Michael Niewöhner, Michael
+        Olbrich, Michal Sekletar, Mike Lothian, Piotr Drąg, Riccardo Schirone,
+        Robin Elvedi, Roman Kulikov, Ronald Tschalär, Ross Burton, Ryan
+        Gonzalez, Stephane Chazelas, StKob, Susant Sahani, Sylvain Plantefève,
+        Szabolcs Fruhwald, Taro Yamada, Theo Ouzhinski, Thomas Haller, Tobias
+        Jungel, Tom Yan, Tony Asleson, Topi Miettinen, unixsysadmin, Van Laser,
+        Vesa Jääskeläinen, Yu, Li-Yu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+
+        — Warsaw, 2019-04-03
 
 CHANGES WITH 241:
 
