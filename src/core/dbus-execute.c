@@ -1395,7 +1395,7 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
-                        bool invert = !whitelist;
+                        SeccompParseFlags invert_flag = whitelist ? 0 : SECCOMP_PARSE_INVERT;
                         char **s;
 
                         if (strv_isempty(l)) {
@@ -1414,7 +1414,10 @@ int bus_exec_context_set_transient_property(
                                 c->syscall_whitelist = whitelist;
 
                                 if (c->syscall_whitelist) {
-                                        r = seccomp_parse_syscall_filter("@default", -1, c->syscall_filter, SECCOMP_PARSE_WHITELIST | (invert ? SECCOMP_PARSE_INVERT : 0));
+                                        r = seccomp_parse_syscall_filter("@default",
+                                                                         -1,
+                                                                         c->syscall_filter,
+                                                                         SECCOMP_PARSE_WHITELIST | invert_flag);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -1428,7 +1431,10 @@ int bus_exec_context_set_transient_property(
                                 if (r < 0)
                                         return r;
 
-                                r = seccomp_parse_syscall_filter(n, e, c->syscall_filter, (invert ? SECCOMP_PARSE_INVERT : 0) | (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0));
+                                r = seccomp_parse_syscall_filter(n,
+                                                                 e,
+                                                                 c->syscall_filter,
+                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0) | invert_flag);
                                 if (r < 0)
                                         return r;
                         }
@@ -1506,7 +1512,6 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
-                        bool invert = !whitelist;
                         char **s;
 
                         if (strv_isempty(l)) {
@@ -1532,7 +1537,7 @@ int bus_exec_context_set_transient_property(
                                 if (af < 0)
                                         return af;
 
-                                if (!invert == c->address_families_whitelist) {
+                                if (whitelist == c->address_families_whitelist) {
                                         r = set_put(c->address_families, INT_TO_PTR(af));
                                         if (r < 0)
                                                 return r;
