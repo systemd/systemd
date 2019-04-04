@@ -1330,13 +1330,10 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         return 0;
 }
 
-static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
+static void server_full_flush(Server *s) {
         int r;
 
         assert(s);
-
-        log_info("Received request to flush runtime journal from PID " PID_FMT, si->ssi_pid);
 
         (void) server_flush_to_var(s, false);
         server_sync(s);
@@ -1347,16 +1344,24 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
                 log_warning_errno(r, "Failed to touch /run/systemd/journal/flushed, ignoring: %m");
 
         server_space_usage_message(s, NULL);
+}
+
+static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        Server *s = userdata;
+
+        assert(s);
+
+        log_info("Received request to flush runtime journal from PID " PID_FMT, si->ssi_pid);
+        server_full_flush(s);
+
         return 0;
 }
 
-static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
+static void server_full_rotate(Server *s) {
         int r;
 
         assert(s);
 
-        log_info("Received request to rotate journal from PID " PID_FMT, si->ssi_pid);
         server_rotate(s);
         server_vacuum(s, true);
 
@@ -1369,6 +1374,15 @@ static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *
         r = write_timestamp_file_atomic("/run/systemd/journal/rotated", now(CLOCK_MONOTONIC));
         if (r < 0)
                 log_warning_errno(r, "Failed to write /run/systemd/journal/rotated, ignoring: %m");
+}
+
+static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        Server *s = userdata;
+
+        assert(s);
+
+        log_info("Received request to rotate journal from PID " PID_FMT, si->ssi_pid);
+        server_full_rotate(s);
 
         return 0;
 }
@@ -1384,13 +1398,10 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
         return 0;
 }
 
-static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Server *s = userdata;
+static void server_full_sync(Server *s) {
         int r;
 
         assert(s);
-
-        log_debug("Received request to sync from PID " PID_FMT, si->ssi_pid);
 
         server_sync(s);
 
@@ -1398,6 +1409,17 @@ static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo
         r = write_timestamp_file_atomic("/run/systemd/journal/synced", now(CLOCK_MONOTONIC));
         if (r < 0)
                 log_warning_errno(r, "Failed to write /run/systemd/journal/synced, ignoring: %m");
+
+        return;
+}
+
+static int dispatch_sigrtmin1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
+        Server *s = userdata;
+
+        assert(s);
+
+        log_debug("Received request to sync from PID " PID_FMT, si->ssi_pid);
+        server_full_sync(s);
 
         return 0;
 }
@@ -1803,6 +1825,81 @@ static int server_connect_notify(Server *s) {
         return 0;
 }
 
+static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Server *s = userdata;
+
+        assert(link);
+        assert(s);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_info("Received client request to rotate journal.");
+        server_full_sync(s);
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Server *s = userdata;
+
+        assert(link);
+        assert(s);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_info("Received client request to rotate journal.");
+        server_full_rotate(s);
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Server *s = userdata;
+
+        assert(link);
+        assert(s);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_info("Received client request to flush runtime journal.");
+        server_full_flush(s);
+
+        return varlink_reply(link, NULL);
+}
+
+static int server_open_varlink(Server *s) {
+        int r;
+
+        assert(s);
+
+        r = varlink_server_new(&s->varlink_server, VARLINK_SERVER_ROOT_ONLY);
+        if (r < 0)
+                return r;
+
+        varlink_server_set_userdata(s->varlink_server, s);
+
+        r = varlink_server_bind_method_many(
+                        s->varlink_server,
+                        "io.systemd.Journal.Synchronize", vl_method_synchronize,
+                        "io.systemd.Journal.Rotate",      vl_method_rotate,
+                        "io.systemd.Journal.FlushToVar",  vl_method_flush_to_var);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_listen_address(s->varlink_server, "/run/systemd/journal/io.systemd.journal", 0600);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_attach_event(s->varlink_server, s->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int server_init(Server *s) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, fd;
@@ -1973,6 +2070,10 @@ int server_init(Server *s) {
                         return r;
         }
 
+        r = server_open_varlink(s);
+        if (r < 0)
+                return r;
+
         r = server_open_kernel_seqnum(s);
         if (r < 0)
                 return r;
@@ -2042,6 +2143,8 @@ void server_done(Server *s) {
                 (void) journal_file_close(s->runtime_journal);
 
         ordered_hashmap_free_with_destructor(s->user_journals, journal_file_close);
+
+        varlink_server_unref(s->varlink_server);
 
         sd_event_source_unref(s->syslog_event_source);
         sd_event_source_unref(s->native_event_source);
