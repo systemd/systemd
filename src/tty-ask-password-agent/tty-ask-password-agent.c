@@ -693,8 +693,7 @@ static int parse_argv(int argc, char *argv[]) {
  * and its own controlling terminal.  If one of the tasks does handle a password, the remaining tasks will be
  * terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
-        _cleanup_strv_free_ char **arguments = NULL;
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments) {
         static const struct sigaction sigchld = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
@@ -704,10 +703,6 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char *argv[]) {
                 .sa_flags = SA_RESTART,
         };
         int r;
-
-        arguments = strv_copy(argv);
-        if (!arguments)
-                return log_oom();
 
         assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
         assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
@@ -797,7 +792,7 @@ static void terminate_agents(Set *pids) {
 
 static int ask_on_consoles(char *argv[]) {
         _cleanup_set_free_ Set *pids = NULL;
-        _cleanup_strv_free_ char **consoles = NULL;
+        _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
         siginfo_t status = {};
         char **tty;
         pid_t pid;
@@ -811,9 +806,13 @@ static int ask_on_consoles(char *argv[]) {
         if (!pids)
                 return log_oom();
 
+        arguments = strv_copy(argv);
+        if (!arguments)
+                return log_oom();
+
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                r = ask_on_this_console(*tty, &pid, argv);
+                r = ask_on_this_console(*tty, &pid, arguments);
                 if (r < 0)
                         return r;
 
