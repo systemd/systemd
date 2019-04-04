@@ -1621,26 +1621,26 @@ static bool sysctl_key_valid(const char *s) {
 
 static int oci_sysctl(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = userdata;
-        JsonVariant *k, *w;
+        JsonVariant *w;
+        const char *k;
         int r;
 
         assert(s);
 
         JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
-                const char *n, *m;
+                const char *m;
 
                 if (!json_variant_is_string(w))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "sysctl parameter is not a string, refusing.");
 
-                assert_se(n = json_variant_string(k));
                 assert_se(m = json_variant_string(w));
 
-                if (sysctl_key_valid(n))
+                if (sysctl_key_valid(k))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "sysctl key invalid, refusing: %s", n);
+                                        "sysctl key invalid, refusing: %s", k);
 
-                r = strv_extend_strv(&s->sysctl, STRV_MAKE(n, m), false);
+                r = strv_extend_strv(&s->sysctl, STRV_MAKE(k, m), false);
                 if (r < 0)
                         return log_oom();
         }
@@ -2171,22 +2171,20 @@ static int oci_hooks(const char *name, JsonVariant *v, JsonDispatchFlags flags, 
 }
 
 static int oci_annotations(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        JsonVariant *k, *w;
+        JsonVariant *w;
+        const char *k;
 
         JSON_VARIANT_OBJECT_FOREACH(k, w, v) {
-                const char *n;
 
-                assert_se(n = json_variant_string(k));
-
-                if (isempty(n))
-                        return json_log(k, flags, SYNTHETIC_ERRNO(EINVAL),
+                if (isempty(k))
+                        return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Annotation with empty key, refusing.");
 
                 if (!json_variant_is_string(w))
                         return json_log(w, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Annotation has non-string value, refusing.");
 
-                json_log(k, flags|JSON_DEBUG, 0, "Ignoring annotation '%s' with value '%s'.", n, json_variant_string(w));
+                json_log(w, flags|JSON_DEBUG, 0, "Ignoring annotation '%s' with value '%s'.", k, json_variant_string(w));
         }
 
         return 0;
