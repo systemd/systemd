@@ -193,6 +193,17 @@ int efi_set_reboot_to_firmware(bool value) {
         return 0;
 }
 
+char* efi_variable_path(sd_id128_t vendor, const char *name) {
+        char *p;
+
+        if (asprintf(&p,
+                     "/sys/firmware/efi/efivars/%s-" SD_ID128_UUID_FORMAT_STR,
+                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
+                return NULL;
+
+        return p;
+}
+
 int efi_get_variable(
                 sd_id128_t vendor,
                 const char *name,
@@ -211,9 +222,8 @@ int efi_get_variable(
         assert(value);
         assert(size);
 
-        if (asprintf(&p,
-                     "/sys/firmware/efi/efivars/%s-%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
+        p = efi_variable_path(vendor, name);
+        if (!p)
                 return -ENOMEM;
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
@@ -293,9 +303,8 @@ int efi_set_variable(
         assert(name);
         assert(value || size == 0);
 
-        if (asprintf(&p,
-                     "/sys/firmware/efi/efivars/%s-%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
+        p = efi_variable_path(vendor, name);
+        if (!p)
                 return -ENOMEM;
 
         /* Newer efivarfs protects variables that are not in a whitelist with FS_IMMUTABLE_FL by default, to protect
