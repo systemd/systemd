@@ -12,6 +12,7 @@
 #include "dirent-util.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "locale-util.h"
@@ -272,10 +273,9 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-
                 _cleanup_fclose_ FILE *f;
 
-                f = fmemopen((void*) data, sz, "re");
+                f = fmemopen_unlocked((void*) data, sz, "re");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 

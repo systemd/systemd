@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "fileio.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "json.h"
@@ -14,13 +15,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size == 0)
                 return 0;
 
-        f = fmemopen((char*) data, size, "re");
+        f = fmemopen_unlocked((char*) data, size, "re");
         assert_se(f);
 
         if (json_parse_file(f, NULL, &v, NULL, NULL) < 0)
                 return 0;
 
-        g = open_memstream(&out, &out_size);
+        g = open_memstream_unlocked(&out, &out_size);
         assert_se(g);
 
         json_variant_dump(v, 0, g, NULL);

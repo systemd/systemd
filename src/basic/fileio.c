@@ -65,6 +65,16 @@ FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc) {
         return f;
 }
 
+FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode) {
+        FILE *f = fmemopen(buf, size, mode);
+        if (!f)
+                return NULL;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        return f;
+}
+
 int write_string_stream_ts(
                 FILE *f,
                 const char *line,

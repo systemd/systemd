@@ -637,7 +637,7 @@ static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
         char c;
 
-        f = fmemopen((void*) chars, sizeof(chars), "re");
+        f = fmemopen_unlocked((void*) chars, sizeof(chars), "re");
         assert_se(f);
 
         for (unsigned i = 0; i < sizeof(chars); i++) {
@@ -727,7 +727,7 @@ static void test_read_line_one_file(FILE *f) {
 static void test_read_line(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        f = fmemopen((void*) buffer, sizeof(buffer), "re");
+        f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "re");
         assert_se(f);
 
         test_read_line_one_file(f);
@@ -792,7 +792,7 @@ static void test_read_line4(void) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *s = NULL;
 
-                assert_se(f = fmemopen((void*) eof_endings[i].string, eof_endings[i].length, "r"));
+                assert_se(f = fmemopen_unlocked((void*) eof_endings[i].string, eof_endings[i].length, "r"));
 
                 r = read_line(f, (size_t) -1, &s);
                 assert_se((size_t) r == eof_endings[i].length);
@@ -813,7 +813,7 @@ static void test_read_nul_string(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *s = NULL;
 
-        assert_se(f = fmemopen((void*) test, sizeof(test)-1, "r"));
+        assert_se(f = fmemopen_unlocked((void*) test, sizeof(test)-1, "r"));
 
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 13 && streq_ptr(s, "string nr. 1"));
         s = mfree(s);

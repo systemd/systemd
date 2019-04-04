@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <errno.h>
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "fileio.h"
 #include "fd-util.h"
 #include "fuzz.h"
 #include "strv.h"
@@ -15,7 +16,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size == 0 || size > 65535)
                 return 0;
 
-        f = fmemopen((char*) data, size, "re");
+        f = fmemopen_unlocked((char*) data, size, "re");
         assert_se(f);
 
         /* We don't want to fill the logs with messages about parse errors.
