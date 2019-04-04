@@ -1423,11 +1423,3 @@ found:
 
         return 0;
 }
-
-static const char* const boot_entry_type_table[_BOOT_ENTRY_MAX] = {
-        [BOOT_ENTRY_CONF] = "conf",
-        [BOOT_ENTRY_UNIFIED] = "unified",
-        [BOOT_ENTRY_LOADER] = "loader",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
