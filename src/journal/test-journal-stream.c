@@ -6,6 +6,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "log.h"
@@ -59,7 +60,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 
 int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
-        char t[] = "/tmp/journal-stream-XXXXXX";
+        char t[] = "/var/tmp/journal-stream-XXXXXX";
         unsigned i;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *z;
@@ -75,6 +76,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);
         assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &two) == 0);

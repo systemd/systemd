@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "chattr-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "journal-file.h"
@@ -51,7 +52,7 @@ static int raw_verify(const char *fn, const char *verification_key) {
 }
 
 int main(int argc, char *argv[]) {
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
         unsigned n;
         JournalFile *f;
         const char *verification_key = argv[1];
@@ -70,6 +71,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(mkdtemp(t));
         assert_se(chdir(t) >= 0);
+        (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         log_info("Generating...");
 
