@@ -919,6 +919,23 @@ evdev:input:b0003v046Dp0057*
 #KEYBOARD_KEY_c1022=scrollleft   # Left click on scroll-wheel (see note above)
 #KEYBOARD_KEY_c1024=scrollright  # Right click on scroll-wheel (see note above)
 
+# MX3200 keyboard (27 MHz, modelnumber Y-RAV80)
+evdev:input:b0003v046Dp005C*
+ KEYBOARD_KEY_c1001=phone           # VOIP button
+ KEYBOARD_KEY_c100f=f14             # Track 1 button → f14 → XF86Launch5
+ KEYBOARD_KEY_c1010=f15             # Track 2 button → f15 → XF86Launch6
+ KEYBOARD_KEY_c1016=record          # Record button
+ KEYBOARD_KEY_c1031=connect         # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_c1032=cancel          # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=calendar        # Calendar icon (Fn + F3)
+ KEYBOARD_KEY_c1044=documents       # My Documents icon (Fn + F4)
+ KEYBOARD_KEY_c1045=prog1           # Smartkey A (Fn + F5) → XF86Launch1
+ KEYBOARD_KEY_c1046=prog2           # Smartkey B (Fn + F6) → XF86Launch2
+ KEYBOARD_KEY_c1047=prog3           # Smartkey C (Fn + F7) → XF86Launch3
+ KEYBOARD_KEY_c1048=prog4           # Smartkey D (Fn + F8) → XF86Launch4
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
