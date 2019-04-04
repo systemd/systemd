@@ -313,18 +313,14 @@ static int status_variables(void) {
 static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         assert(e);
 
-        printf("        title: %s%s%s%s%s%s\n"
-               "         type: %s\n",
-               ansi_highlight(),
-               boot_entry_title(e),
-               ansi_normal(),
-               ansi_highlight_green(),
-               show_as_default ? " (default)" : "",
-               ansi_normal(),
-               boot_entry_type_to_string(e->type));
+        printf("        title: %s%s%s" "%s%s%s\n",
+               ansi_highlight(), boot_entry_title(e), ansi_normal(),
+               ansi_highlight_green(), show_as_default ? " (default)" : "", ansi_normal());
 
         if (e->id)
                 printf("           id: %s\n", e->id);
+        if (e->path)
+                printf("       source: %s\n", e->path);
         if (e->version)
                 printf("      version: %s\n", e->version);
         if (e->machine_id)

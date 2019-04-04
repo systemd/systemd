@@ -688,7 +688,6 @@ Features:
 * bootctl
   - verify that the files boot entries point to exist
   - recognize the case when not booted on EFI
-  - specify paths for boot entries
 
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
 
