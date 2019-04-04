@@ -410,14 +410,14 @@ int bus_verify_polkit_async(
                 if (sd_bus_message_is_method_error(q->reply, NULL)) {
                         const sd_bus_error *e;
 
-                        /* Copy error from polkit reply */
                         e = sd_bus_message_get_error(q->reply);
-                        sd_bus_error_copy(error, e);
 
                         /* Treat no PK available as access denied */
                         if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN))
                                 return -EACCES;
 
+                        /* Copy error from polkit reply */
+                        sd_bus_error_copy(error, e);
                         return -sd_bus_error_get_errno(e);
                 }
 
