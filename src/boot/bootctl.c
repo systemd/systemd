@@ -323,7 +323,7 @@ static int boot_entry_file_check(const char *root, const char *p) {
         return 0;
 }
 
-static void boot_entry_file_list(const char *field, const char *root, const char *p) {
+static void boot_entry_file_list(const char *field, const char *root, const char *p, int *ret_status) {
         int status = boot_entry_file_check(root, p);
 
         printf("%13s%s", strempty(field), field ? ":" : " ");
@@ -332,9 +332,17 @@ static void boot_entry_file_list(const char *field, const char *root, const char
                 printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
         } else
                 printf("%s\n", p);
+
+        if (*ret_status == 0 && status < 0)
+                *ret_status = status;
 }
 
 static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+        int status = 0;
+
+        /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
+           boot entry itself. */
+
         assert(e);
 
         printf("        title: %s%s%s" "%s%s%s\n",
@@ -352,13 +360,14 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         if (e->architecture)
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
-                boot_entry_file_list("linux", e->root, e->kernel);
+                boot_entry_file_list("linux", e->root, e->kernel, &status);
 
         char **s;
         STRV_FOREACH(s, e->initrd)
                 boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
                                      e->root,
-                                     *s);
+                                     *s,
+                                     &status);
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t;
 
@@ -369,9 +378,9 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                 printf("      options: %s\n", t);
         }
         if (e->device_tree)
-                boot_entry_file_list("devicetree", e->root, e->device_tree);
+                boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
 
-        return 0;
+        return -status;
 }
 
 static int status_entries(
@@ -411,7 +420,11 @@ static int status_entries(
         else {
                 printf("Default Boot Loader Entry:\n");
 
-                boot_entry_show(config.entries + config.default_entry, false);
+                r = boot_entry_show(config.entries + config.default_entry, false);
+                if (r > 0)
+                        /* < 0 is already logged by the function itself, let's just emit an extra warning if
+                           the default entry is broken */
+                        printf("\nWARNING: default boot entry is broken\n");
         }
 
         return 0;
