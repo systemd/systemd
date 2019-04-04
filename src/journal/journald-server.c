@@ -1820,32 +1820,43 @@ int server_init(Server *s) {
 
         assert(s);
 
-        zero(*s);
-        s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
-        s->compress.enabled = true;
-        s->compress.threshold_bytes = (uint64_t) -1;
-        s->seal = true;
-        s->read_kmsg = true;
+        *s = (Server) {
+                .syslog_fd = -1,
+                .native_fd = -1,
+                .stdout_fd = -1,
+                .dev_kmsg_fd = -1,
+                .audit_fd = -1,
+                .hostname_fd = -1,
+                .notify_fd = -1,
 
-        s->watchdog_usec = USEC_INFINITY;
+                .compress.enabled = true,
+                .compress.threshold_bytes = (uint64_t) -1,
+                .seal = true,
+                .read_kmsg = true,
 
-        s->sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC;
-        s->sync_scheduled = false;
+                .watchdog_usec = USEC_INFINITY,
 
-        s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
-        s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
+                .sync_interval_usec = DEFAULT_SYNC_INTERVAL_USEC,
+                .sync_scheduled = false,
 
-        s->forward_to_wall = true;
+                .rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
+                .rate_limit_burst = DEFAULT_RATE_LIMIT_BURST,
 
-        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
+                .forward_to_wall = true,
 
-        s->max_level_store = LOG_DEBUG;
-        s->max_level_syslog = LOG_DEBUG;
-        s->max_level_kmsg = LOG_NOTICE;
-        s->max_level_console = LOG_INFO;
-        s->max_level_wall = LOG_EMERG;
+                .max_file_usec = DEFAULT_MAX_FILE_USEC,
 
-        s->line_max = DEFAULT_LINE_MAX;
+                .max_level_store = LOG_DEBUG,
+                .max_level_syslog = LOG_DEBUG,
+                .max_level_kmsg = LOG_NOTICE,
+                .max_level_console = LOG_INFO,
+                .max_level_wall = LOG_EMERG,
+
+                .line_max = DEFAULT_LINE_MAX,
+
+                .runtime_storage.name = "Runtime Journal",
+                .system_storage.name = "System Journal",
+        };
 
         journal_reset_metrics(&s->system_storage.metrics);
         journal_reset_metrics(&s->runtime_storage.metrics);
@@ -1995,9 +2006,6 @@ int server_init(Server *s) {
         server_cache_hostname(s);
         server_cache_boot_id(s);
         server_cache_machine_id(s);
-
-        s->runtime_storage.name = "Runtime journal";
-        s->system_storage.name = "System journal";
 
         s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
         s->system_storage.path  = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
