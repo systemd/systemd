@@ -6,6 +6,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
 #include "io-util.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -130,13 +131,21 @@ static void setup_interleaved(void) {
         test_close(two);
 }
 
+static void mkdtemp_chdir_chattr(char *path) {
+        assert_se(mkdtemp(path));
+        assert_se(chdir(path) >= 0);
+
+        /* Speed up things a bit on btrfs, ensuring that CoW is turned off for all files created in our
+         * directory during the test run */
+        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+}
+
 static void test_skip(void (*setup)(void)) {
-        char t[] = "/tmp/journal-skip-XXXXXX";
+        char t[] = "/var/tmp/journal-skip-XXXXXX";
         sd_journal *j;
         int r;
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         setup();
 
@@ -189,13 +198,12 @@ static void test_skip(void (*setup)(void)) {
 
 static void test_sequence_numbers(void) {
 
-        char t[] = "/tmp/journal-seq-XXXXXX";
+        char t[] = "/var/tmp/journal-seq-XXXXXX";
         JournalFile *one, *two;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, 0644,
                                     true, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &one) == 0);

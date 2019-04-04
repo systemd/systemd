@@ -6,6 +6,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "macro.h"
@@ -20,6 +21,8 @@ int main(int argc, char *argv[]) {
         int r;
 
         assert_se(mkdtemp(dn));
+        (void) chattr_path(dn, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+
         fn = strappend(dn, "/test.journal");
 
         r = journal_file_open(-1, fn, O_CREAT|O_RDWR, 0644, false, 0, false, NULL, NULL, NULL, NULL, &new_journal);
