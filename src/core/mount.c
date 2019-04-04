@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <sys/epoll.h>
 
-#include <libmount.h>
-
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -17,6 +15,7 @@
 #include "exit-status.h"
 #include "format-util.h"
 #include "fstab-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir.h"
@@ -35,9 +34,6 @@
 #include "unit.h"
 
 #define RETRY_UMOUNT_MAX 32
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
