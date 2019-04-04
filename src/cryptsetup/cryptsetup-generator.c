@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -479,14 +478,12 @@ static int add_crypttab_devices(void) {
         if (!arg_read_crypttab)
                 return 0;
 
-        f = fopen("/etc/crypttab", "re");
-        if (!f) {
+        r = fopen_unlocked("/etc/crypttab", "re", &f);
+        if (r < 0) {
                 if (errno != ENOENT)
                         log_error_errno(errno, "Failed to open /etc/crypttab: %m");
                 return 0;
         }
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (fstat(fileno(f), &st) < 0) {
                 log_error_errno(errno, "Failed to stat /etc/crypttab: %m");

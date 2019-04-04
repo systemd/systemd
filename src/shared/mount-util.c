@@ -40,13 +40,10 @@ int umount_recursive(const char *prefix, int flags) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
                 again = false;
-                r = 0;
 
-                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-                if (!proc_self_mountinfo)
-                        return -errno;
-
-                (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+                r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
+                if (r < 0)
+                        return r;
 
                 for (;;) {
                         _cleanup_free_ char *path = NULL, *p = NULL;
@@ -302,12 +299,11 @@ int bind_remount_recursive_with_mountinfo(
 
 int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        int r;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return -errno;
-
-        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
+        if (r < 0)
+                return r;
 
         return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, blacklist, proc_self_mountinfo);
 }
