@@ -310,6 +310,30 @@ static int status_variables(void) {
         return 0;
 }
 
+static int boot_entry_file_check(const char *root, const char *p) {
+        _cleanup_free_ char *path;
+
+        path = path_join(root, p);
+        if (!path)
+                return log_oom();
+
+        if (access(path, F_OK) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static void boot_entry_file_list(const char *field, const char *root, const char *p) {
+        int status = boot_entry_file_check(root, p);
+
+        printf("%13s%s", strempty(field), field ? ":" : " ");
+        if (status < 0) {
+                errno = -status;
+                printf("%s%s%s (%m)\n", ansi_highlight_red(), p, ansi_normal());
+        } else
+                printf("%s\n", p);
+}
+
 static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         assert(e);
 
@@ -328,16 +352,13 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
         if (e->architecture)
                 printf(" architecture: %s\n", e->architecture);
         if (e->kernel)
-                printf("        linux: %s\n", e->kernel);
-        if (!strv_isempty(e->initrd)) {
-                _cleanup_free_ char *t;
+                boot_entry_file_list("linux", e->root, e->kernel);
 
-                t = strv_join(e->initrd, " ");
-                if (!t)
-                        return log_oom();
-
-                printf("       initrd: %s\n", t);
-        }
+        char **s;
+        STRV_FOREACH(s, e->initrd)
+                boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
+                                     e->root,
+                                     *s);
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t;
 
@@ -348,7 +369,7 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
                 printf("      options: %s\n", t);
         }
         if (e->device_tree)
-                printf("   devicetree: %s\n", e->device_tree);
+                boot_entry_file_list("devicetree", e->root, e->device_tree);
 
         return 0;
 }

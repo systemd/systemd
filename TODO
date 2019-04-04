@@ -686,7 +686,6 @@ Features:
   - honor timezone efi variables for default timezone selection (if there are any?)
   - change bootctl to be backed by systemd-bootd to control temporary and persistent default boot goal plus efi variables
 * bootctl
-  - verify that the files boot entries point to exist
   - recognize the case when not booted on EFI
 
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
