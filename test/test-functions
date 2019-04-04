@@ -159,15 +159,15 @@ run_qemu() {
         exit 1
     fi
 
-if [[ "$LOOKS_LIKE_SUSE" ]]; then
-    PARAMS+="rd.hostonly=0"
-elif [[ "$LOOKS_LIKE_ARCH" ]]; then
-    PARAMS+="rw"
-else
-    PARAMS+="ro"
-fi
+    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+        PARAMS+="rd.hostonly=0"
+    elif [[ "$LOOKS_LIKE_ARCH" ]]; then
+        PARAMS+="rw"
+    else
+        PARAMS+="ro"
+    fi
 
-KERNEL_APPEND="$PARAMS \
+    KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
@@ -1639,7 +1639,7 @@ do_test() {
         exit 0
     fi
 
-# Detect lib paths
+    # Detect lib paths
     [[ $libdir ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break
     done

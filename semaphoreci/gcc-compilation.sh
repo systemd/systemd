@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -ex
 
 # keep this in sync with setup.sh
@@ -40,4 +39,9 @@ dpkg-buildpackage -S -I -I$(basename "$SEMAPHORE_CACHE_DIR") -d -us -uc -nc
 # now build the package and run the tests
 rm -rf "$ARTIFACTS_DIR"
 # autopkgtest exits with 2 for "some tests skipped", accept that
-$AUTOPKGTESTDIR/runner/autopkgtest --apt-upgrade --env DEB_BUILD_OPTIONS=noudeb --env TEST_UPSTREAM=1 ../systemd_*.dsc -o "$ARTIFACTS_DIR" -- lxc -s $CONTAINER || [ $? -eq 2 ]
+$AUTOPKGTESTDIR/runner/autopkgtest --apt-upgrade \
+                                   --env DEB_BUILD_OPTIONS=noudeb \
+                                   --env TEST_UPSTREAM=1 ../systemd_*.dsc \
+                                   -o "$ARTIFACTS_DIR" \
+                                   -- lxc -s $CONTAINER \
+    || [ $? -eq 2 ]
