@@ -1091,12 +1091,10 @@ static int test_chroot_dropin(
                 return log_debug_errno(errno, "Failed to open %s/%s: %m", where, p);
         }
 
-        f = fdopen(fd, "r");
-        if (!f)
-                return log_debug_errno(errno, "Failed to convert file handle: %m");
-        fd = -1;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        r = fdopen_unlocked(fd, "r", &f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to convert file handle: %m");
+        TAKE_FD(fd);
 
         r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)

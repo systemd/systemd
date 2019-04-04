@@ -49,3 +49,15 @@ expression f, g, path, p;
   if (r < 0)
     return ...;
 - (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+@@
+expression f, fd, options;
+@@
+- f = fdopen(fd, options);
++ r = fdopen_unlocked(fd, options, &f);
++ if (r < 0) {
+- if (!f) {
+        ...
+-       return -errno;
++       return r;
+  }
+- (void) __fsetlocking(f, FSETLOCKING_BYCALLER);

@@ -42,6 +42,19 @@ int fopen_unlocked(const char *path, const char *options, FILE **ret) {
         return 0;
 }
 
+int fdopen_unlocked(int fd, const char *options, FILE **ret) {
+        assert(ret);
+
+        FILE *f = fdopen(fd, options);
+        if (!f)
+                return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        *ret = f;
+        return 0;
+}
+
 int write_string_stream_ts(
                 FILE *f,
                 const char *line,
@@ -167,14 +180,11 @@ int write_string_file_ts(
                         goto fail;
                 }
 
-                f = fdopen(fd, "w");
-                if (!f) {
-                        r = -errno;
+                r = fdopen_unlocked(fd, "w", &f);
+                if (r < 0) {
                         safe_close(fd);
                         goto fail;
                 }
-
-                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         }
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)

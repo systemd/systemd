@@ -34,6 +34,7 @@ typedef enum {
 } ReadFullFileFlags;
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret);
+int fdopen_unlocked(int fd, const char *options, FILE **ret);
 
 int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags, struct timespec *ts);
 static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
