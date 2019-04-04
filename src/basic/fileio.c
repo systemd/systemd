@@ -108,7 +108,6 @@ static int write_string_file_atomic(
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream_ts(f, line, flags, ts);
@@ -154,11 +153,9 @@ int write_string_file_ts(
                 assert(!ts);
 
         if (flags & WRITE_STRING_FILE_CREATE) {
-                f = fopen(fn, "we");
-                if (!f) {
-                        r = -errno;
+                r = fopen_unlocked(fn, "we", &f);
+                if (r < 0)
                         goto fail;
-                }
         } else {
                 int fd;
 
@@ -176,9 +173,9 @@ int write_string_file_ts(
                         safe_close(fd);
                         goto fail;
                 }
-        }
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        }
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>

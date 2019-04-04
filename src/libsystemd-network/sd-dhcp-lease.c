@@ -6,7 +6,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -832,7 +831,6 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

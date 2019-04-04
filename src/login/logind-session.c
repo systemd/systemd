@@ -5,7 +5,6 @@
 #include <linux/kd.h>
 #include <linux/vt.h>
 #include <signal.h>
-#include <stdio_ext.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -214,7 +213,6 @@ int session_save(Session *s) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

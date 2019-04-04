@@ -35,3 +35,17 @@ expression f, path, options;
 +     return -ESRCH;
 + if (r < 0)
 +       return r;
+@@
+expression f, path, p;
+@@
+  r = fopen_temporary(path, &f, &p);
+  if (r < 0)
+    return ...;
+- (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+@@
+expression f, g, path, p;
+@@
+  r = fopen_temporary_label(path, g, &f, &p);
+  if (r < 0)
+    return ...;
+- (void) __fsetlocking(f, FSETLOCKING_BYCALLER);

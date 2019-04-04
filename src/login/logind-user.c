@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -162,7 +161,6 @@ static int user_save_internal(User *u) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
+#include <stdio_ext.h>
 #include <sys/mman.h>
 
 #include "alloc-util.h"
@@ -37,6 +39,9 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
                 return -errno;
         }
 
+        /* This assumes that returned FILE object is short-lived and used within the same single-threaded
+         * context and never shared externally, hence locking is not necessary. */
+
         f = fdopen(fd, "w");
         if (!f) {
                 unlink_noerrno(t);
@@ -44,6 +49,8 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
                 safe_close(fd);
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         *_f = f;
         *_temp_path = t;

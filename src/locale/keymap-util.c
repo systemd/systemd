@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <stdio_ext.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -423,7 +422,6 @@ int x11_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"

@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdio_ext.h>
 #include <sys/stat.h>
 
 #include "sd-messages.h"
@@ -126,7 +125,6 @@ int machine_save(Machine *m) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
