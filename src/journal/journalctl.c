@@ -67,6 +67,7 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "varlink.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
@@ -1901,156 +1902,35 @@ static int verify(sd_journal *j) {
         return r;
 }
 
-static int watch_run_systemd_journal(uint32_t mask) {
-        _cleanup_close_ int watch_fd = -1;
-
-        (void) mkdir_p("/run/systemd/journal", 0755);
-
-        watch_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
-        if (watch_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify object: %m");
-
-        if (inotify_add_watch(watch_fd, "/run/systemd/journal", mask) < 0)
-                return log_error_errno(errno, "Failed to watch \"/run/systemd/journal\": %m");
-
-        return TAKE_FD(watch_fd);
-}
-
-static int flush_to_var(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int watch_fd = -1;
+static int simple_varlink_call(const char *option, const char *method) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        const char *error;
         int r;
 
-        if (arg_machine) {
-                log_error("--flush is not supported in conjunction with --machine=.");
-                return -EOPNOTSUPP;
-        }
+        if (arg_machine)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
 
-        /* Quick exit */
-        if (access("/run/systemd/journal/flushed", F_OK) >= 0)
-                return 0;
-
-        /* OK, let's actually do the full logic, send SIGUSR1 to the
-         * daemon and set up inotify to wait for the flushed file to appear */
-        r = bus_connect_system_systemd(&bus);
+        r = varlink_connect_address(&link, "/run/systemd/journal/io.systemd.journal");
         if (r < 0)
-                return log_error_errno(r, "Failed to get D-Bus connection: %m");
+                return log_error_errno(r, "Failed to connect to journal: %m");
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi", "systemd-journald.service", "main", SIGUSR1);
+        r = varlink_call(link, method, NULL, NULL, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
-
-        watch_fd = watch_run_systemd_journal(IN_CREATE|IN_DONT_FOLLOW|IN_ONLYDIR);
-        if (watch_fd < 0)
-                return watch_fd;
-
-        for (;;) {
-                if (access("/run/systemd/journal/flushed", F_OK) >= 0)
-                        return 0;
-
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to check for existence of /run/systemd/journal/flushed: %m");
-
-                r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for event: %m");
-
-                r = flush_fd(watch_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to flush inotify events: %m");
-        }
-}
-
-static int send_signal_and_wait(int sig, const char *watch_path) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int watch_fd = -1;
-        usec_t start;
-        int r;
-
-        if (arg_machine) {
-                log_error("--sync and --rotate are not supported in conjunction with --machine=.");
-                return -EOPNOTSUPP;
-        }
-
-        start = now(CLOCK_MONOTONIC);
-
-        /* This call sends the specified signal to journald, and waits
-         * for acknowledgment by watching the mtime of the specified
-         * flag file. This is used to trigger syncing or rotation and
-         * then wait for the operation to complete. */
-
-        for (;;) {
-                usec_t tstamp;
-
-                /* See if a sync happened by now. */
-                r = read_timestamp_file(watch_path, &tstamp);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read %s: %m", watch_path);
-                if (r >= 0 && tstamp >= start)
-                        return 0;
-
-                /* Let's ask for a sync, but only once. */
-                if (!bus) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                        r = bus_connect_system_systemd(&bus);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get D-Bus connection: %m");
-
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "KillUnit",
-                                        &error,
-                                        NULL,
-                                        "ssi", "systemd-journald.service", "main", sig);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to kill journal service: %s", bus_error_message(&error, r));
-
-                        continue;
-                }
-
-                /* Let's install the inotify watch, if we didn't do that yet. */
-                if (watch_fd < 0) {
-                        watch_fd = watch_run_systemd_journal(IN_MOVED_TO|IN_DONT_FOLLOW|IN_ONLYDIR);
-                        if (watch_fd < 0)
-                                return watch_fd;
-
-                        /* Recheck the flag file immediately, so that we don't miss any event since the last check. */
-                        continue;
-                }
-
-                /* OK, all preparatory steps done, let's wait until inotify reports an event. */
-
-                r = fd_wait_for_event(watch_fd, POLLIN, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for event: %m");
-
-                r = flush_fd(watch_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to flush inotify events: %m");
-        }
+                return log_error_errno(r, "Failed to execute operation: %s", error);
 
         return 0;
 }
 
+static int flush_to_var(void) {
+        return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
+}
+
 static int rotate(void) {
-        return send_signal_and_wait(SIGUSR2, "/run/systemd/journal/rotated");
+        return simple_varlink_call("--rotate", "io.systemd.Journal.Rotate");
 }
 
 static int sync_journal(void) {
-        return send_signal_and_wait(SIGRTMIN+1, "/run/systemd/journal/synced");
+        return simple_varlink_call("--sync", "io.systemd.Journal.Synchronize");
 }
 
 static int wait_for_change(sd_journal *j, int poll_fd) {

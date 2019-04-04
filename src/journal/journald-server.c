@@ -1825,8 +1825,37 @@ static int server_connect_notify(Server *s) {
         return 0;
 }
 
+static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
+        Varlink *link = userdata;
+        Server *s;
+        int r;
+
+        assert(link);
+        assert_se(s = varlink_get_userdata(link));
+
+        /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
+         * event source at a low priority to ensure the synchronization completes after all queued log
+         * messages are processed. */
+        server_full_sync(s);
+
+        /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
+         * anymore and is immediately destroyed after we return from this function, i.e. from this event
+         * source handler at the end. */
+        r = sd_event_source_set_floating(event_source, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mark event source as non-floating: %m");
+
+        return varlink_reply(link, NULL);
+}
+
+static void synchronize_destroy(void *userdata) {
+        varlink_unref(userdata);
+}
+
 static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
         Server *s = userdata;
+        int r;
 
         assert(link);
         assert(s);
@@ -1835,9 +1864,34 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
                 return varlink_error_invalid_parameter(link, parameters);
 
         log_info("Received client request to rotate journal.");
-        server_full_sync(s);
 
-        return varlink_reply(link, NULL);
+        /* We don't do the main work now, but instead enqueue a deferred event loop job which will do
+         * it. That job is scheduled at low priority, so that we return from this method call only after all
+         * queued but not processed log messages are written to disk, so that this method call returning can
+         * be used as nice synchronization point. */
+        r = sd_event_add_defer(s->event, &event_source, synchronize_second_half, link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate defer event source: %m");
+
+        r = sd_event_source_set_destroy_callback(event_source, synchronize_destroy);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set event source destroy callback: %m");
+
+        varlink_ref(link); /* The varlink object is now left to the destroy callack to unref */
+
+        r = sd_event_source_set_priority(event_source, SD_EVENT_PRIORITY_NORMAL+15);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set defer event source priority: %m");
+
+        /* Give up ownership of this event source. It will now be destroyed along with event loop itself,
+         * unless it destroys itself earlier. */
+        r = sd_event_source_set_floating(event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mark event source as floating: %m");
+
+        (void) sd_event_source_set_description(event_source, "deferred-sync");
+
+        return 0;
 }
 
 static int vl_method_rotate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
