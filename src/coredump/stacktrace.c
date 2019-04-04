@@ -2,11 +2,11 @@
 
 #include <dwarf.h>
 #include <elfutils/libdwfl.h>
-#include <stdio_ext.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "macro.h"
@@ -126,11 +126,9 @@ int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return -errno;
 
-        c.f = open_memstream(&buf, &sz);
+        c.f = open_memstream_unlocked(&buf, &sz);
         if (!c.f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(c.f, FSETLOCKING_BYCALLER);
 
         elf_version(EV_CURRENT);
 

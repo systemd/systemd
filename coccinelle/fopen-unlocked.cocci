@@ -61,3 +61,11 @@ expression f, fd, options;
 +       return r;
   }
 - (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+@@
+expression f, buf, sz;
+@@
+- f = open_memstream(&buf, &sz);
++ f = open_memstream_unlocked(&buf, &sz);
+  if (!f)
+        return ...;
+- (void) __fsetlocking(f, FSETLOCKING_BYCALLER);

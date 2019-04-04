@@ -4,7 +4,6 @@
 #include <locale.h>
 #include <math.h>
 #include <stdarg.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -1558,11 +1557,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                f = open_memstream(&s, &sz);
+                f = open_memstream_unlocked(&s, &sz);
                 if (!f)
                         return -ENOMEM;
-
-                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                 json_variant_dump(v, flags, f, NULL);
 

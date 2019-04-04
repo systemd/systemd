@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "conf-files.h"

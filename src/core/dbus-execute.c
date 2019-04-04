@@ -2,7 +2,6 @@
 
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <stdio_ext.h>
 
 #if HAVE_SECCOMP
 #include <seccomp.h>
@@ -958,11 +957,9 @@ int bus_set_transient_exec_command(
                 if (n == 0)
                         *exec_command = exec_command_free_list(*exec_command);
 
-                f = open_memstream(&buf, &size);
+                f = open_memstream_unlocked(&buf, &size);
                 if (!f)
                         return -ENOMEM;
-
-                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                 fputs("ExecStart=\n", f);
 
@@ -2015,11 +2012,9 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                f = open_memstream(&joined, &size);
+                f = open_memstream_unlocked(&joined, &size);
                 if (!f)
                         return -ENOMEM;
-
-                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                 fputs("EnvironmentFile=\n", f);
 

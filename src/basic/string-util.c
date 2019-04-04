@@ -4,7 +4,6 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -761,22 +760,19 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
          * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
          * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
          *
-         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as are any
-         * other special characters. Truncated ANSI sequences are left-as is too. This call is supposed to suppress the
-         * most basic formatting noise, but nothing else.
+         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as
+         * are any other special characters. Truncated ANSI sequences are left-as is too. This call is
+         * supposed to suppress the most basic formatting noise, but nothing else.
          *
          * Why care for CSO sequences? Well, to undo what terminal_urlify() and friends generate. */
 
         isz = _isz ? *_isz : strlen(*ibuf);
 
-        f = open_memstream(&obuf, &osz);
+        /* Note we turn off internal locking on f for performance reasons. It's safe to do so since we
+         * created f here and it doesn't leave our scope. */
+        f = open_memstream_unlocked(&obuf, &osz);
         if (!f)
                 return NULL;
-
-        /* Note we turn off internal locking on f for performance reasons.  It's safe to do so since we created f here
-         * and it doesn't leave our scope. */
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         for (i = *ibuf; i < *ibuf + isz + 1; i++) {
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <ctype.h>
-#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -1376,11 +1375,9 @@ int table_format(Table *t, char **ret) {
         size_t sz = 0;
         int r;
 
-        f = open_memstream(&buf, &sz);
+        f = open_memstream_unlocked(&buf, &sz);
         if (!f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         r = table_print(t, f);
         if (r < 0)

@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <sys/prctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -530,11 +529,9 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (proc_fdinfo_fd < 0)
                 return -errno;
 
-        stream = open_memstream(&buffer, &size);
+        stream = open_memstream_unlocked(&buffer, &size);
         if (!stream)
                 return -ENOMEM;
-
-        (void) __fsetlocking(stream, FSETLOCKING_BYCALLER);
 
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;

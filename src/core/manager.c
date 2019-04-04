@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <linux/kd.h>
 #include <signal.h>
-#include <stdio_ext.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
@@ -2111,11 +2110,9 @@ int manager_get_dump_string(Manager *m, char **ret) {
         assert(m);
         assert(ret);
 
-        f = open_memstream(&dump, &size);
+        f = open_memstream_unlocked(&dump, &size);
         if (!f)
                 return -errno;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         manager_dump(m, f, NULL);
 
