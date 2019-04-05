@@ -1421,14 +1421,13 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        /* Let's process SIGTERM late, so that we flush all queued
-         * messages to disk before we exit */
+        /* Let's process SIGTERM late, so that we flush all queued messages to disk before we exit */
         r = sd_event_source_set_priority(s->sigterm_event_source, SD_EVENT_PRIORITY_NORMAL+20);
         if (r < 0)
                 return r;
 
-        /* When journald is invoked on the terminal (when debugging),
-         * it's useful if C-c is handled equivalent to SIGTERM. */
+        /* When journald is invoked on the terminal (when debugging), it's useful if C-c is handled
+         * equivalent to SIGTERM. */
         r = sd_event_add_signal(s->event, &s->sigint_event_source, SIGINT, dispatch_sigterm, s);
         if (r < 0)
                 return r;
@@ -1437,11 +1436,9 @@ static int setup_signals(Server *s) {
         if (r < 0)
                 return r;
 
-        /* SIGRTMIN+1 causes an immediate sync. We process this very
-         * late, so that everything else queued at this point is
-         * really written to disk. Clients can watch
-         * /run/systemd/journal/synced with inotify until its mtime
-         * changes to see when a sync happened. */
+        /* SIGRTMIN+1 causes an immediate sync. We process this very late, so that everything else queued at
+         * this point is really written to disk. Clients can watch /run/systemd/journal/synced with inotify
+         * until its mtime changes to see when a sync happened. */
         r = sd_event_add_signal(s->event, &s->sigrtmin1_event_source, SIGRTMIN+1, dispatch_sigrtmin1, s);
         if (r < 0)
                 return r;
@@ -1759,23 +1756,17 @@ static int server_connect_notify(Server *s) {
         assert(!s->notify_event_source);
 
         /*
-          So here's the problem: we'd like to send notification
-          messages to PID 1, but we cannot do that via sd_notify(),
-          since that's synchronous, and we might end up blocking on
-          it. Specifically: given that PID 1 might block on
-          dbus-daemon during IPC, and dbus-daemon is logging to us,
-          and might hence block on us, we might end up in a deadlock
-          if we block on sending PID 1 notification messages — by
-          generating a full blocking circle. To avoid this, let's
-          create a non-blocking socket, and connect it to the
-          notification socket, and then wait for POLLOUT before we
-          send anything. This should efficiently avoid any deadlocks,
-          as we'll never block on PID 1, hence PID 1 can safely block
-          on dbus-daemon which can safely block on us again.
-
-          Don't think that this issue is real? It is, see:
-          https://github.com/systemd/systemd/issues/1505
-        */
+         * So here's the problem: we'd like to send notification messages to PID 1, but we cannot do that via
+         * sd_notify(), since that's synchronous, and we might end up blocking on it. Specifically: given
+         * that PID 1 might block on dbus-daemon during IPC, and dbus-daemon is logging to us, and might
+         * hence block on us, we might end up in a deadlock if we block on sending PID 1 notification
+         * messages — by generating a full blocking circle. To avoid this, let's create a non-blocking
+         * socket, and connect it to the notification socket, and then wait for POLLOUT before we send
+         * anything. This should efficiently avoid any deadlocks, as we'll never block on PID 1, hence PID 1
+         * can safely block on dbus-daemon which can safely block on us again.
+         *
+         * Don't think that this issue is real? It is, see: https://github.com/systemd/systemd/issues/1505
+         */
 
         e = getenv("NOTIFY_SOCKET");
         if (!e)
@@ -1807,8 +1798,7 @@ static int server_connect_notify(Server *s) {
                         return log_error_errno(r, "Failed to add watchdog time event: %m");
         }
 
-        /* This should fire pretty soon, which we'll use to send the
-         * READY=1 event. */
+        /* This should fire pretty soon, which we'll use to send the READY=1 event. */
 
         return 0;
 }
