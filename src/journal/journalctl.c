@@ -52,6 +52,7 @@
 #include "logs-show.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -168,6 +169,7 @@ static enum {
         ACTION_UPDATE_CATALOG,
         ACTION_LIST_BOOTS,
         ACTION_FLUSH,
+        ACTION_RELINQUISH_VAR,
         ACTION_SYNC,
         ACTION_ROTATE,
         ACTION_VACUUM,
@@ -369,6 +371,8 @@ static int help(void) {
                "     --vacuum-time=TIME      Remove journal files older than specified time\n"
                "     --verify                Verify journal file consistency\n"
                "     --sync                  Synchronize unwritten journal messages to disk\n"
+               "     --relinquish-var        Stop logging to disk, log to temporary file system\n"
+               "     --smart-relinquish-var  Similar, but NOP if log directory is on root mount\n"
                "     --flush                 Flush all journal data from /run into /var\n"
                "     --rotate                Request immediate rotation of the journal files\n"
                "     --header                Show journal header information\n"
@@ -416,6 +420,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UTC,
                 ARG_SYNC,
                 ARG_FLUSH,
+                ARG_RELINQUISH_VAR,
+                ARG_SMART_RELINQUISH_VAR,
                 ARG_ROTATE,
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
@@ -425,65 +431,67 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version" ,       no_argument,       NULL, ARG_VERSION        },
-                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
-                { "pager-end",      no_argument,       NULL, 'e'                },
-                { "follow",         no_argument,       NULL, 'f'                },
-                { "force",          no_argument,       NULL, ARG_FORCE          },
-                { "output",         required_argument, NULL, 'o'                },
-                { "all",            no_argument,       NULL, 'a'                },
-                { "full",           no_argument,       NULL, 'l'                },
-                { "no-full",        no_argument,       NULL, ARG_NO_FULL        },
-                { "lines",          optional_argument, NULL, 'n'                },
-                { "no-tail",        no_argument,       NULL, ARG_NO_TAIL        },
-                { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      }, /* deprecated */
-                { "quiet",          no_argument,       NULL, 'q'                },
-                { "merge",          no_argument,       NULL, 'm'                },
-                { "this-boot",      no_argument,       NULL, ARG_THIS_BOOT      }, /* deprecated */
-                { "boot",           optional_argument, NULL, 'b'                },
-                { "list-boots",     no_argument,       NULL, ARG_LIST_BOOTS     },
-                { "dmesg",          no_argument,       NULL, 'k'                },
-                { "system",         no_argument,       NULL, ARG_SYSTEM         },
-                { "user",           no_argument,       NULL, ARG_USER           },
-                { "directory",      required_argument, NULL, 'D'                },
-                { "file",           required_argument, NULL, ARG_FILE           },
-                { "root",           required_argument, NULL, ARG_ROOT           },
-                { "header",         no_argument,       NULL, ARG_HEADER         },
-                { "identifier",     required_argument, NULL, 't'                },
-                { "priority",       required_argument, NULL, 'p'                },
-                { "grep",           required_argument, NULL, 'g'                },
-                { "case-sensitive", optional_argument, NULL, ARG_CASE_SENSITIVE },
-                { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
-                { "interval",       required_argument, NULL, ARG_INTERVAL       },
-                { "verify",         no_argument,       NULL, ARG_VERIFY         },
-                { "verify-key",     required_argument, NULL, ARG_VERIFY_KEY     },
-                { "disk-usage",     no_argument,       NULL, ARG_DISK_USAGE     },
-                { "cursor",         required_argument, NULL, 'c'                },
-                { "cursor-file",    required_argument, NULL, ARG_CURSOR_FILE    },
-                { "after-cursor",   required_argument, NULL, ARG_AFTER_CURSOR   },
-                { "show-cursor",    no_argument,       NULL, ARG_SHOW_CURSOR    },
-                { "since",          required_argument, NULL, 'S'                },
-                { "until",          required_argument, NULL, 'U'                },
-                { "unit",           required_argument, NULL, 'u'                },
-                { "user-unit",      required_argument, NULL, ARG_USER_UNIT      },
-                { "field",          required_argument, NULL, 'F'                },
-                { "fields",         no_argument,       NULL, 'N'                },
-                { "catalog",        no_argument,       NULL, 'x'                },
-                { "list-catalog",   no_argument,       NULL, ARG_LIST_CATALOG   },
-                { "dump-catalog",   no_argument,       NULL, ARG_DUMP_CATALOG   },
-                { "update-catalog", no_argument,       NULL, ARG_UPDATE_CATALOG },
-                { "reverse",        no_argument,       NULL, 'r'                },
-                { "machine",        required_argument, NULL, 'M'                },
-                { "utc",            no_argument,       NULL, ARG_UTC            },
-                { "flush",          no_argument,       NULL, ARG_FLUSH          },
-                { "sync",           no_argument,       NULL, ARG_SYNC           },
-                { "rotate",         no_argument,       NULL, ARG_ROTATE         },
-                { "vacuum-size",    required_argument, NULL, ARG_VACUUM_SIZE    },
-                { "vacuum-files",   required_argument, NULL, ARG_VACUUM_FILES   },
-                { "vacuum-time",    required_argument, NULL, ARG_VACUUM_TIME    },
-                { "no-hostname",    no_argument,       NULL, ARG_NO_HOSTNAME    },
-                { "output-fields",  required_argument, NULL, ARG_OUTPUT_FIELDS  },
+                { "help",                 no_argument,       NULL, 'h'                      },
+                { "version" ,             no_argument,       NULL, ARG_VERSION              },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "pager-end",            no_argument,       NULL, 'e'                      },
+                { "follow",               no_argument,       NULL, 'f'                      },
+                { "force",                no_argument,       NULL, ARG_FORCE                },
+                { "output",               required_argument, NULL, 'o'                      },
+                { "all",                  no_argument,       NULL, 'a'                      },
+                { "full",                 no_argument,       NULL, 'l'                      },
+                { "no-full",              no_argument,       NULL, ARG_NO_FULL              },
+                { "lines",                optional_argument, NULL, 'n'                      },
+                { "no-tail",              no_argument,       NULL, ARG_NO_TAIL              },
+                { "new-id128",            no_argument,       NULL, ARG_NEW_ID128            }, /* deprecated */
+                { "quiet",                no_argument,       NULL, 'q'                      },
+                { "merge",                no_argument,       NULL, 'm'                      },
+                { "this-boot",            no_argument,       NULL, ARG_THIS_BOOT            }, /* deprecated */
+                { "boot",                 optional_argument, NULL, 'b'                      },
+                { "list-boots",           no_argument,       NULL, ARG_LIST_BOOTS           },
+                { "dmesg",                no_argument,       NULL, 'k'                      },
+                { "system",               no_argument,       NULL, ARG_SYSTEM               },
+                { "user",                 no_argument,       NULL, ARG_USER                 },
+                { "directory",            required_argument, NULL, 'D'                      },
+                { "file",                 required_argument, NULL, ARG_FILE                 },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "header",               no_argument,       NULL, ARG_HEADER               },
+                { "identifier",           required_argument, NULL, 't'                      },
+                { "priority",             required_argument, NULL, 'p'                      },
+                { "grep",                 required_argument, NULL, 'g'                      },
+                { "case-sensitive",       optional_argument, NULL, ARG_CASE_SENSITIVE       },
+                { "setup-keys",           no_argument,       NULL, ARG_SETUP_KEYS           },
+                { "interval",             required_argument, NULL, ARG_INTERVAL             },
+                { "verify",               no_argument,       NULL, ARG_VERIFY               },
+                { "verify-key",           required_argument, NULL, ARG_VERIFY_KEY           },
+                { "disk-usage",           no_argument,       NULL, ARG_DISK_USAGE           },
+                { "cursor",               required_argument, NULL, 'c'                      },
+                { "cursor-file",          required_argument, NULL, ARG_CURSOR_FILE          },
+                { "after-cursor",         required_argument, NULL, ARG_AFTER_CURSOR         },
+                { "show-cursor",          no_argument,       NULL, ARG_SHOW_CURSOR          },
+                { "since",                required_argument, NULL, 'S'                      },
+                { "until",                required_argument, NULL, 'U'                      },
+                { "unit",                 required_argument, NULL, 'u'                      },
+                { "user-unit",            required_argument, NULL, ARG_USER_UNIT            },
+                { "field",                required_argument, NULL, 'F'                      },
+                { "fields",               no_argument,       NULL, 'N'                      },
+                { "catalog",              no_argument,       NULL, 'x'                      },
+                { "list-catalog",         no_argument,       NULL, ARG_LIST_CATALOG         },
+                { "dump-catalog",         no_argument,       NULL, ARG_DUMP_CATALOG         },
+                { "update-catalog",       no_argument,       NULL, ARG_UPDATE_CATALOG       },
+                { "reverse",              no_argument,       NULL, 'r'                      },
+                { "machine",              required_argument, NULL, 'M'                      },
+                { "utc",                  no_argument,       NULL, ARG_UTC                  },
+                { "flush",                no_argument,       NULL, ARG_FLUSH                },
+                { "relinquish-var",       no_argument,       NULL, ARG_RELINQUISH_VAR       },
+                { "smart-relinquish-var", no_argument,       NULL, ARG_SMART_RELINQUISH_VAR },
+                { "sync",                 no_argument,       NULL, ARG_SYNC                 },
+                { "rotate",               no_argument,       NULL, ARG_ROTATE               },
+                { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
+                { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
+                { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
+                { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
+                { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 {}
         };
 
@@ -913,6 +921,35 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FLUSH:
                         arg_action = ACTION_FLUSH;
+                        break;
+
+                case ARG_SMART_RELINQUISH_VAR: {
+                        int root_mnt_id, log_mnt_id;
+
+                        /* Try to be smart about relinquishing access to /var/log/journal/ during shutdown:
+                         * if it's on the same mount as the root file system there's no point in
+                         * relinquishing access and we can leave journald write to it until the very last
+                         * moment. */
+
+                        r = path_get_mnt_id("/", &root_mnt_id);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get root mount ID, ignoring: %m");
+                        else {
+                                r = path_get_mnt_id("/var/log/journal/", &log_mnt_id);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to get journal directory mount ID, ignoring: %m");
+                                else if (root_mnt_id == log_mnt_id) {
+                                        log_debug("/var/log/journal/ is on root file system, not relinquishing access to /var.");
+                                        return 0;
+                                } else
+                                        log_debug("/var/log/journal/ is not on the root file system, relinquishing access to it.");
+                        }
+
+                        _fallthrough_;
+                }
+
+                case ARG_RELINQUISH_VAR:
+                        arg_action = ACTION_RELINQUISH_VAR;
                         break;
 
                 case ARG_ROTATE:
@@ -1925,6 +1962,10 @@ static int flush_to_var(void) {
         return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
 }
 
+static int relinquish_var(void) {
+        return simple_varlink_call("--relinquish-var", "io.systemd.Journal.RelinquishVar");
+}
+
 static int rotate(void) {
         return simple_varlink_call("--rotate", "io.systemd.Journal.Rotate");
 }
@@ -2038,6 +2079,10 @@ int main(int argc, char *argv[]) {
 
         case ACTION_FLUSH:
                 r = flush_to_var();
+                goto finish;
+
+        case ACTION_RELINQUISH_VAR:
+                r = relinquish_var();
                 goto finish;
 
         case ACTION_SYNC:
