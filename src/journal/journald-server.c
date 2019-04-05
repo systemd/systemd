@@ -2090,8 +2090,7 @@ void server_done(Server *s) {
         free(s->runtime_storage.path);
         free(s->system_storage.path);
 
-        if (s->mmap)
-                mmap_cache_unref(s->mmap);
+        mmap_cache_unref(s->mmap);
 }
 
 static const char* const storage_table[_STORAGE_MAX] = {
