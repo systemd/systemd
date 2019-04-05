@@ -1,4 +1,4 @@
-#compdef systemd-resolve
+#compdef systemd-resolve                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # This file is part of systemd.

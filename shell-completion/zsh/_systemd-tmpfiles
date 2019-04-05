@@ -1,4 +1,4 @@
-#compdef systemd-tmpfiles
+#compdef systemd-tmpfiles                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 _arguments \
