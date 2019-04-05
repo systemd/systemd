@@ -38,6 +38,9 @@ predicate potentiallyDangerousFunction(Function f, string message) {
   ) or (
     f.getQualifiedName() = "ntohs" and
     message = "Call to ntohs() is confusing. Use be16toh() instead."
+  ) or (
+    f.getQualifiedName() = "strerror" and
+    message = "Call to strerror() is not thread-safe. Use strerror_r() or printf()'s %m format string instead."
   )
 }
 
