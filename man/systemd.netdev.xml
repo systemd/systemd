@@ -1241,7 +1241,7 @@
       <varlistentry>
         <term><varname>PrivateKeyFile=</varname></term>
         <listitem>
-          <para>Takes a absolute path to a file which contains the Base64 encoded private key for the interface.
+          <para>Takes an absolute path to a file which contains the Base64 encoded private key for the interface.
           When this option is specified, then <varname>PrivateKey=</varname> is ignored.
           Note that the file must be readable by the user <literal>systemd-network</literal>, so it
           should be, e.g., owned by <literal>root:systemd-network</literal> with a
@@ -1294,6 +1294,16 @@
             Note that because this information is secret, you may want to set
             the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
             with a <literal>0640</literal> file mode.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PresharedKeyFile=</varname></term>
+        <listitem>
+          <para>Takes an absolute path to a file which contains the Base64 encoded preshared key for the
+          peer. When this option is specified, then <varname>PresharedKey=</varname> is ignored.
+          Note that the file must be readable by the user <literal>systemd-network</literal>, so it
+          should be, e.g., owned by <literal>root:systemd-network</literal> with a
+          <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

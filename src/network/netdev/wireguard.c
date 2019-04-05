@@ -53,6 +53,7 @@ static void wireguard_peer_free(WireguardPeer *peer) {
 
         free(peer->endpoint_host);
         free(peer->endpoint_port);
+        free(peer->preshared_key_file);
         explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
         free(peer);
@@ -602,6 +603,49 @@ int config_parse_wireguard_preshared_key(
         return 0;
 }
 
+int config_parse_wireguard_preshared_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        _cleanup_free_ char *path = NULL;
+        Wireguard *w;
+        int r;
+
+        assert(data);
+        w = WIREGUARD(data);
+        assert(w);
+
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                peer->preshared_key_file = mfree(peer->preshared_key_file);
+                TAKE_PTR(peer);
+                return 0;
+        }
+
+        path = strdup(rvalue);
+        if (!path)
+                return log_oom();
+
+        if (path_simplify_and_warn(path, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue) < 0)
+                return 0;
+
+        free_and_replace(peer->preshared_key_file, path);
+        TAKE_PTR(peer);
+        return 0;
+}
+
 int config_parse_wireguard_public_key(
                 const char *unit,
                 const char *filename,
@@ -879,6 +923,7 @@ finalize:
 
 static int wireguard_peer_verify(WireguardPeer *peer) {
         NetDev *netdev = NETDEV(peer->wireguard);
+        int r;
 
         if (section_is_invalid(peer->section))
                 return -EINVAL;
@@ -888,6 +933,14 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
                                               "%s: WireGuardPeer section without PublicKey= configured. "
                                               "Ignoring [WireGuardPeer] section from line %u.",
                                               peer->section->filename, peer->section->line);
+
+        r = wireguard_read_key_file(peer->preshared_key_file, peer->preshared_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "%s: Failed to read preshared key from '%s'. "
+                                              "Ignoring [WireGuardPeer] section from line %u.",
+                                              peer->section->filename, peer->preshared_key_file,
+                                              peer->section->line);
 
         return 0;
 }
