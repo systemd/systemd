@@ -904,8 +904,6 @@ Features:
 
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
-* default to actual 32-bit PIDs, via /proc/sys/kernel/pid_max
-
 * be able to specify a forced restart of service A where service B depends on, in case B
   needs to be auto-respawned?
 
