@@ -2154,20 +2154,25 @@ int config_parse_line_max(
         return 0;
 }
 
-int config_parse_compress(const char* unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_compress(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         JournalCompressOptions* compress = data;
         int r;
 
-        if (streq(rvalue, "1")) {
+        if (isempty(rvalue)) {
+                compress->enabled = true;
+                compress->threshold_bytes = (uint64_t) -1;
+        } else if (streq(rvalue, "1")) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 1, enabling compression with default threshold");
                 compress->enabled = true;
@@ -2175,15 +2180,18 @@ int config_parse_compress(const char* unit,
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Compress= ambiguously specified as 0, disabling compression");
                 compress->enabled = false;
-        } else if ((r = parse_boolean(rvalue)) >= 0)
-                compress->enabled = r;
-        else if (parse_size(rvalue, 1024, &compress->threshold_bytes) == 0)
-                compress->enabled = true;
-        else if (isempty(rvalue)) {
-                compress->enabled = true;
-                compress->threshold_bytes = (uint64_t) -1;
-        } else
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
+        } else {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        r = parse_size(rvalue, 1024, &compress->threshold_bytes);
+                        if (r < 0)
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to parse Compress= value, ignoring: %s", rvalue);
+                        else
+                                compress->enabled = true;
+                } else
+                        compress->enabled = r;
+        }
 
         return 0;
 }
