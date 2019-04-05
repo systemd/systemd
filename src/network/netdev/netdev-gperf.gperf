@@ -141,12 +141,14 @@ MACsecTransmitAssociation.PacketNumber, config_parse_macsec_packet_number, 0,   
 MACsecTransmitAssociation.KeyId,   config_parse_macsec_key_id,           0,                             0
 MACsecTransmitAssociation.Key,     config_parse_macsec_key,              0,                             0
 MACsecTransmitAssociation.KeyFile, config_parse_macsec_key_file,         0,                             0
+MACsecTransmitAssociation.Activate, config_parse_macsec_sa_activate,     0,                             0
 MACsecReceiveAssociation.Port,     config_parse_macsec_port,             0,                             0
 MACsecReceiveAssociation.MACAddress, config_parse_macsec_hw_address,     0,                             0
 MACsecReceiveAssociation.PacketNumber, config_parse_macsec_packet_number, 0,                            0
 MACsecReceiveAssociation.KeyId,    config_parse_macsec_key_id,           0,                             0
 MACsecReceiveAssociation.Key,      config_parse_macsec_key,              0,                             0
 MACsecReceiveAssociation.KeyFile,  config_parse_macsec_key_file,         0,                             0
+MACsecReceiveAssociation.Activate, config_parse_macsec_sa_activate,      0,                             0
 Tun.OneQueue,                      config_parse_bool,                    0,                             offsetof(TunTap, one_queue)
 Tun.MultiQueue,                    config_parse_bool,                    0,                             offsetof(TunTap, multi_queue)
 Tun.PacketInfo,                    config_parse_bool,                    0,                             offsetof(TunTap, packet_info)

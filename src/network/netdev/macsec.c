@@ -32,6 +32,12 @@ static void security_association_clear(SecurityAssociation *sa) {
         free(sa->key_file);
 }
 
+static void security_association_init(SecurityAssociation *sa) {
+        assert(sa);
+
+        sa->activate = -1;
+}
+
 static void macsec_receive_association_free(ReceiveAssociation *c) {
         if (!c)
                 return;
@@ -75,6 +81,8 @@ static int macsec_receive_association_new_static(MACsec *s, const char *filename
                 .macsec = s,
                 .section = TAKE_PTR(n),
         };
+
+        security_association_init(&c->sa);
 
         r = ordered_hashmap_ensure_allocated(&s->receive_associations_by_section, &network_config_hash_ops);
         if (r < 0)
@@ -209,6 +217,8 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
                 .section = TAKE_PTR(n),
         };
 
+        security_association_init(&a->sa);
+
         r = ordered_hashmap_ensure_allocated(&s->transmit_associations_by_section, &network_config_hash_ops);
         if (r < 0)
                 return r;
@@ -293,6 +303,12 @@ static int netdev_macsec_fill_message_sa(NetDev *netdev, SecurityAssociation *a,
                 r = sd_netlink_message_append_data(m, MACSEC_SA_ATTR_KEY, a->key, a->key_len);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append MACSEC_SA_ATTR_KEY attribute: %m");
+        }
+
+        if (a->activate >= 0) {
+                r = sd_netlink_message_append_u8(m, MACSEC_SA_ATTR_ACTIVE, a->activate);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append MACSEC_SA_ATTR_ACTIVE attribute: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -843,6 +859,60 @@ int config_parse_macsec_key_id(
         memcpy_safe(dest, p, l);
         memzero(dest + l, MACSEC_KEYID_LEN - l);
 
+        TAKE_PTR(a);
+        TAKE_PTR(b);
+
+        return 0;
+}
+
+int config_parse_macsec_sa_activate(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
+        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
+        MACsec *s = userdata;
+        int *dest;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(section, "MACsecTransmitAssociation"))
+                r = macsec_transmit_association_new_static(s, filename, section_line, &a);
+        else
+                r = macsec_receive_association_new_static(s, filename, section_line, &b);
+        if (r < 0)
+                return r;
+
+        dest = a ? &a->sa.activate : &b->sa.activate;
+
+        if (isempty(rvalue))
+                r = -1;
+        else {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse activation mode of %s security association. "
+                                   "Ignoring assignment: %s",
+                                   streq(section, "MACsecTransmitAssociation") ? "transmit" : "receive",
+                                   rvalue);
+                        return 0;
+                }
+        }
+
+        *dest = r;
         TAKE_PTR(a);
         TAKE_PTR(b);
 

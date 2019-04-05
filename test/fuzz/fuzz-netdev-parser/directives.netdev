@@ -184,6 +184,7 @@ PacketNumber=
 KeyId=
 Key=
 KeyFile=
+Activate=
 [MACsecReceiveChannel]
 Port=
 MACAddress=
@@ -192,3 +193,4 @@ PacketNumber=
 KeyId=
 Key=
 KeyFile=
+Activate=
