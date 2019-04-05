@@ -726,12 +726,7 @@ static int find_mount_points(const char *what, char ***list) {
         /* Returns all mount points obtained from /proc/self/mountinfo in *list,
          * and the number of mount points as return value. */
 
-        table = mnt_new_table();
-        iter = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!table || !iter)
-                return log_oom();
-
-        r = mnt_table_parse_mtab(table, NULL);
+        r = libmount_parse(NULL, NULL, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 

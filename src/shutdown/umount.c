@@ -61,12 +61,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
         assert(head);
 
-        table = mnt_new_table();
-        iter = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!table || !iter)
-                return log_oom();
-
-        r = mnt_table_parse_mtab(table, mountinfo);
+        r = libmount_parse(mountinfo, NULL, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse %s: %m", mountinfo);
 

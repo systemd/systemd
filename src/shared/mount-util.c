@@ -38,12 +38,7 @@ int umount_recursive(const char *prefix, int flags) {
 
                 again = false;
 
-                table = mnt_new_table();
-                iter = mnt_new_iter(MNT_ITER_FORWARD);
-                if (!table || !iter)
-                        return -ENOMEM;
-
-                r = mnt_table_parse_mtab(table, NULL);
+                r = libmount_parse(NULL, NULL, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -139,14 +134,9 @@ int bind_remount_recursive_with_mountinfo(
                 if (!todo)
                         return -ENOMEM;
 
-                table = mnt_new_table();
-                iter = mnt_new_iter(MNT_ITER_FORWARD);
-                if (!table || !iter)
-                        return -ENOMEM;
-
                 rewind(proc_self_mountinfo);
 
-                r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+                r = libmount_parse("/proc/self/mountinfo", proc_self_mountinfo, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
