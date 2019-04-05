@@ -941,6 +941,23 @@ evdev:input:b0003v046Dp0065*
  KEYBOARD_KEY_c104b=battery         # Battery icon (Fn + F11)
  KEYBOARD_KEY_c104c=ejectcd         # Eject icon (Fn + F12)
 
+# S520 keyboard (27 MHz, modelnumber Y-RBA97)
+# Note this one uses non-standard codes for FN + F9 - Fn + F12?
+evdev:input:b0003v046Dp0066*
+ KEYBOARD_KEY_c100e=prog4           # Smartkey D (Fn + F12) → XF86Launch4
+ KEYBOARD_KEY_c1019=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
+ KEYBOARD_KEY_c101a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
+ KEYBOARD_KEY_c101b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
+ KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=presentation    # Presentation icon (Fn + F3)
+ KEYBOARD_KEY_c1044=calendar        # Calendar icon (Fn + F4)
+ KEYBOARD_KEY_c1045=homepage        # Home icon (Fn + F5)
+ KEYBOARD_KEY_c1046=email           # Letter icon (Fn + F6)
+ KEYBOARD_KEY_c1047=search          # Magnifying glass icon (Fn + F7)
+ KEYBOARD_KEY_c1048=config          # Window with gear icon (Fn + F8)
+ KEYBOARD_KEY_c106f=battery         # Battery icon
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
