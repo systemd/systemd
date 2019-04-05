@@ -101,6 +101,7 @@ manpages = [
    'SD_ID128_MAKE',
    'SD_ID128_MAKE_STR',
    'SD_ID128_NULL',
+   'SD_ID128_UUID_FORMAT_STR',
    'sd_id128_equal',
    'sd_id128_is_null',
    'sd_id128_t'],
