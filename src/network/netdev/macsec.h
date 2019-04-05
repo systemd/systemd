@@ -32,6 +32,7 @@ typedef struct SecurityAssociation {
         uint32_t key_len;
         char *key_file;
         int activate;
+        int use_for_encoding;
 } SecurityAssociation;
 
 typedef struct TransmitAssociation {
@@ -63,6 +64,7 @@ struct MACsec {
 
         uint16_t port;
         int encrypt;
+        uint8_t encoding_an;
 
         OrderedHashmap *receive_channels;
         OrderedHashmap *receive_channels_by_section;
@@ -80,3 +82,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_key_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_macsec_sa_activate);
+CONFIG_PARSER_PROTOTYPE(config_parse_macsec_use_for_encoding);

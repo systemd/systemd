@@ -948,6 +948,14 @@
           unset.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>UseForEncoding=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If enabled, then the security association is used for encoding. Only
+          one <literal>[MACsecTransmitAssociation]</literal> section can enable this option. When enabled,
+          <varname>Activate=yes</varname> is implied. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

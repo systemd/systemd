@@ -185,6 +185,7 @@ KeyId=
 Key=
 KeyFile=
 Activate=
+UseForEncoding=
 [MACsecReceiveChannel]
 Port=
 MACAddress=

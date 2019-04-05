@@ -142,6 +142,7 @@ MACsecTransmitAssociation.KeyId,   config_parse_macsec_key_id,           0,     
 MACsecTransmitAssociation.Key,     config_parse_macsec_key,              0,                             0
 MACsecTransmitAssociation.KeyFile, config_parse_macsec_key_file,         0,                             0
 MACsecTransmitAssociation.Activate, config_parse_macsec_sa_activate,     0,                             0
+MACsecTransmitAssociation.UseForEncoding, config_parse_macsec_use_for_encoding, 0,                      0
 MACsecReceiveAssociation.Port,     config_parse_macsec_port,             0,                             0
 MACsecReceiveAssociation.MACAddress, config_parse_macsec_hw_address,     0,                             0
 MACsecReceiveAssociation.PacketNumber, config_parse_macsec_packet_number, 0,                            0

@@ -36,6 +36,7 @@ static void security_association_init(SecurityAssociation *sa) {
         assert(sa);
 
         sa->activate = -1;
+        sa->use_for_encoding = -1;
 }
 
 static void macsec_receive_association_free(ReceiveAssociation *c) {
@@ -539,6 +540,10 @@ static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netl
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACSEC_ENCRYPT attribute: %m");
         }
 
+        r = sd_netlink_message_append_u8(m, IFLA_MACSEC_ENCODING_SA, v->encoding_an);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACSEC_ENCODING_SA attribute: %m");
+
         return r;
 }
 
@@ -919,6 +924,53 @@ int config_parse_macsec_sa_activate(
         return 0;
 }
 
+int config_parse_macsec_use_for_encoding(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
+        MACsec *s = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = macsec_transmit_association_new_static(s, filename, section_line, &a);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue))
+                r = -1;
+        else {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse %s= setting. Ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+        }
+
+        a->sa.use_for_encoding = r;
+        if (a->sa.use_for_encoding > 0)
+                a->sa.activate = true;
+
+        TAKE_PTR(a);
+
+        return 0;
+}
+
 static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
         _cleanup_free_ uint8_t *key = NULL;
         size_t key_len;
@@ -1095,7 +1147,8 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         ReceiveAssociation *n;
         ReceiveChannel *c;
         Iterator i;
-        uint8_t an;
+        uint8_t an, encoding_an;
+        bool use_for_encoding;
         int r;
 
         assert(netdev);
@@ -1109,6 +1162,8 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         }
 
         an = 0;
+        use_for_encoding = false;
+        encoding_an = 0;
         ORDERED_HASHMAP_FOREACH(a, v->transmit_associations_by_section, i) {
                 r = macsec_transmit_association_verify(a);
                 if (r < 0) {
@@ -1126,7 +1181,23 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
                 }
 
                 a->sa.association_number = an++;
+
+                if (a->sa.use_for_encoding > 0) {
+                        if (use_for_encoding) {
+                                log_netdev_warning(netdev,
+                                                   "%s: Multiple security associations are set to be used for transmit channel."
+                                                   "Disabling UseForEncoding= in [MACsecTransmitAssociation] section from line %u",
+                                                   a->section->filename, a->section->line);
+                                a->sa.use_for_encoding = false;
+                        } else {
+                                encoding_an = a->sa.association_number;
+                                use_for_encoding = true;
+                        }
+                }
         }
+
+        assert(encoding_an < MACSEC_MAX_ASSOCIATION_NUMBER);
+        v->encoding_an = encoding_an;
 
         ORDERED_HASHMAP_FOREACH(n, v->receive_associations_by_section, i) {
                 r = macsec_receive_association_verify(n);
