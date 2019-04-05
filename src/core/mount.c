@@ -11,7 +11,6 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
-#include "escape.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fstab-util.h"
@@ -1616,7 +1615,6 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         for (;;) {
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
-                _cleanup_free_ char *d = NULL, *p = NULL;
                 int k;
 
                 k = mnt_table_next_fs(t, i, &fs);
@@ -1633,15 +1631,9 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
-                if (cunescape(device, UNESCAPE_RELAX, &d) < 0)
-                        return log_oom();
+                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
-                        return log_oom();
-
-                device_found_node(m, d, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
-
-                (void) mount_setup_unit(m, d, p, options, fstype, set_flags);
+                (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
 
         return 0;
