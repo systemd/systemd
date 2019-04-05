@@ -772,7 +772,7 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         if (r < 0)
                 return r;
 
-        if (sscanf(p, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        if (sscanf(p, SD_ID128_UUID_FORMAT_STR,
                    &parsed[0], &parsed[1], &parsed[2], &parsed[3],
                    &parsed[4], &parsed[5], &parsed[6], &parsed[7],
                    &parsed[8], &parsed[9], &parsed[10], &parsed[11],

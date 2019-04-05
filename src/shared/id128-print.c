@@ -33,7 +33,7 @@ int id128_pretty_print(sd_id128_t id, bool pretty) {
         printf("As string:\n"
                "%s" SD_ID128_FORMAT_STR "%s\n\n"
                "As UUID:\n"
-               "%s%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x%s\n\n"
+               "%s" SD_ID128_UUID_FORMAT_STR "%s\n\n"
                "As %s macro:\n"
                "%s#define MESSAGE_XYZ SD_ID128_MAKE(",
                on, SD_ID128_FORMAT_VAL(id), off,

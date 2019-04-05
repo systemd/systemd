@@ -220,7 +220,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("          ESP: %s", esp_path);
         if (!sd_id128_is_null(partition))
-                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(partition));
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
@@ -262,7 +262,8 @@ static int print_efi_option(uint16_t id, bool in_order) {
         printf("        Title: %s%s%s\n", ansi_highlight(), strna(title), ansi_normal());
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
-        printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
+        printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+               SD_ID128_FORMAT_VAL(partition));
         printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
         printf("\n");
 
@@ -380,7 +381,8 @@ static int status_entries(
         printf("Boot Loader Entries:\n"
                "        $BOOT: %s", dollar_boot_path);
         if (!sd_id128_is_null(dollar_boot_partition_uuid))
-                printf(" (/dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x)", SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
+                printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")",
+                       SD_ID128_FORMAT_VAL(dollar_boot_partition_uuid));
         printf("\n\n");
 
         r = boot_entries_load_config(esp_path, xbootldr_path, &config);
@@ -1150,7 +1152,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (stub)
                         printf("         Stub: %s\n", stub);
                 if (!sd_id128_is_null(loader_part_uuid))
-                        printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+                        printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
                 else
                         printf("          ESP: n/a\n");
