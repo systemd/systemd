@@ -351,8 +351,16 @@ static int boot_entry_show(const BootEntry *e, bool show_as_default) {
 
         if (e->id)
                 printf("           id: %s\n", e->id);
-        if (e->path)
-                printf("       source: %s\n", e->path);
+        if (e->path) {
+                _cleanup_free_ char *link = NULL;
+
+                /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
+                 * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
+                if (e->type == BOOT_ENTRY_CONF)
+                        (void) terminal_urlify_path(e->path, NULL, &link);
+
+                printf("       source: %s\n", link ?: e->path);
+        }
         if (e->version)
                 printf("      version: %s\n", e->version);
         if (e->machine_id)
