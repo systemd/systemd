@@ -936,6 +936,11 @@ evdev:input:b0003v046Dp005C*
  KEYBOARD_KEY_c1047=prog3           # Smartkey C (Fn + F7) → XF86Launch3
  KEYBOARD_KEY_c1048=prog4           # Smartkey D (Fn + F8) → XF86Launch4
 
+# EX100 keyboard (27 MHz, modelnumber Y-RBH94)
+evdev:input:b0003v046Dp0065*
+ KEYBOARD_KEY_c104b=battery         # Battery icon (Fn + F11)
+ KEYBOARD_KEY_c104c=ejectcd         # Eject icon (Fn + F12)
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
