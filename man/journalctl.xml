@@ -887,18 +887,34 @@
       <varlistentry>
         <term><option>--flush</option></term>
 
-        <listitem><para>Asks the journal daemon to flush any log data
-        stored in <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename>, if persistent storage
-        is enabled. This call does not return until the operation is
-        complete. Note that this call is idempotent: the data is only
-        flushed from <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename> once during system
-        runtime, and this command exits cleanly without executing any
-        operation if this has already happened. This command
-        effectively guarantees that all data is flushed to
-        <filename>/var/log/journal</filename> at the time it
-        returns.</para></listitem>
+        <listitem><para>Asks the journal daemon to flush any log data stored in
+        <filename>/run/log/journal/</filename> into <filename>/var/log/journal/</filename>, if persistent
+        storage is enabled. This call does not return until the operation is complete. Note that this call is
+        idempotent: the data is only flushed from <filename>/run/log/journal/</filename> into
+        <filename>/var/log/journal</filename> once during system runtime (but see
+        <option>--relinquish-var</option> below), and this command exits cleanly without executing any
+        operation if this has already happened. This command effectively guarantees that all data is flushed
+        to <filename>/var/log/journal</filename> at the time it returns.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--relinquish-var</option></term>
+
+        <listitem><para>Asks the journal daemon for the reverse operation to <option>--flush</option>: if
+        requested the daemon will write further log data to <filename>/run/log/journal/</filename> and stops
+        writing to <filename>/var/log/journal/</filename>. A subsequent call to <option>--flush</option>
+        causes the log output to switch back to <filename>/var/log/journal/</filename>, see
+        above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--smart-relinquish-var</option></term>
+
+        <listitem><para>Similar to <option>--relinquish-var</option> but executes no operation if the root file
+        system and <filename>/var/lib/journal/</filename> reside on the same mount point. This operation is
+        used during system shutdown in order to make the journal daemon stop writing data to
+        <filename>/var/log/journal/</filename> in case that directory is located on a mount point that needs
+        to be unmounted.</para></listitem>
       </varlistentry>
 
       <varlistentry>
