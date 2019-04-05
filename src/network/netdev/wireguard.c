@@ -846,41 +846,29 @@ static void wireguard_done(NetDev *netdev) {
         set_free(w->peers_with_failed_endpoint);
 }
 
-static int wireguard_read_private_key_file(Wireguard *w, bool fatal) {
-        _cleanup_free_ char *contents = NULL;
-        _cleanup_free_ void *key = NULL;
-        size_t size, key_len;
-        NetDev *netdev;
-        int level, r;
+static int wireguard_read_key_file(const char *filename, uint8_t dest[static WG_KEY_LEN]) {
+        _cleanup_free_ char *key = NULL;
+        size_t key_len;
+        int r;
 
-        assert(w);
-
-        netdev = NETDEV(w);
-
-        if (!w->private_key_file)
+        if (!filename)
                 return 0;
 
-        level = fatal ? LOG_ERR : LOG_INFO;
-
-        r = read_full_file(w->private_key_file, &contents, &size);
+        r = read_full_file_full(filename, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNBASE64, &key, &key_len);
         if (r < 0)
-                return log_netdev_full(netdev, level, r,
-                                       "Failed to read private key from '%s'%s: %m",
-                                       w->private_key_file, fatal ? "" : ", ignoring");
+                return r;
 
-        r = unbase64mem(contents, size, &key, &key_len);
-        if (r < 0)
-                return log_netdev_full(netdev, level, r,
-                                       "Failed to decode private key%s: %m",
-                                       fatal ? "" : ", ignoring");
+        if (key_len != WG_KEY_LEN) {
+                r = -EINVAL;
+                goto finalize;
+        }
 
-        if (key_len != WG_KEY_LEN)
-                return log_netdev_full(netdev, level, SYNTHETIC_ERRNO(EINVAL),
-                                       "Wireguard private key has invalid length (%zu bytes)%s: %m",
-                                       key_len, fatal ? "" : ", ignoring");
+        memcpy(dest, key, WG_KEY_LEN);
+        r = 0;
 
-        memcpy(w->private_key, key, WG_KEY_LEN);
-        return 0;
+finalize:
+        explicit_bzero_safe(key, key_len);
+        return r;
 }
 
 static int wireguard_peer_verify(WireguardPeer *peer) {
@@ -901,22 +889,23 @@ static int wireguard_peer_verify(WireguardPeer *peer) {
 static int wireguard_verify(NetDev *netdev, const char *filename) {
         WireguardPeer *peer, *peer_next;
         Wireguard *w;
-        bool empty;
         int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        empty = eqzero(w->private_key);
-        if (empty && !w->private_key_file)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "%s: Missing PrivateKey= or PrivateKeyFile=, ignoring.",
-                                              filename);
+        r = wireguard_read_key_file(w->private_key_file, w->private_key);
+        if (r < 0)
+                return log_netdev_error_errno(netdev, r,
+                                              "Failed to read private key from %s. Dropping network device %s.",
+                                              w->private_key_file, netdev->ifname);
 
-        r = wireguard_read_private_key_file(w, empty);
-        if (r < 0 && empty)
-                return r;
+        if (eqzero(w->private_key))
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s: Missing PrivateKey= or PrivateKeyFile=, "
+                                              "Dropping network device %s.",
+                                              filename, netdev->ifname);
 
         LIST_FOREACH_SAFE(peers, peer, peer_next, w->peers)
                 if (wireguard_peer_verify(peer) < 0)

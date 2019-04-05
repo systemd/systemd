@@ -1242,9 +1242,7 @@
         <term><varname>PrivateKeyFile=</varname></term>
         <listitem>
           <para>Takes a absolute path to a file which contains the Base64 encoded private key for the interface.
-          If both <varname>PrivateKey=</varname> and <varname>PrivateKeyFile=</varname> are specified, and if
-          the file specified in <varname>PrivateKeyFile=</varname> contains valid wireguard key, then
-          the key provided by <varname>PrivateKey=</varname> is ignored.
+          When this option is specified, then <varname>PrivateKey=</varname> is ignored.
           Note that the file must be readable by the user <literal>systemd-network</literal>, so it
           should be, e.g., owned by <literal>root:systemd-network</literal> with a
           <literal>0640</literal> file mode.</para>
