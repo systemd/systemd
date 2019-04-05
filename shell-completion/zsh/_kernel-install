@@ -25,5 +25,3 @@ _arguments \
     '1::add or remove:(add remove)' \
     '2::kernel versions:_kernel-install_kernels' \
     '3::kernel images:_kernel-install_images'
-
-#vim: set ft=zsh sw=4 ts=4 et

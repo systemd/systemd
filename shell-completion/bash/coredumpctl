@@ -19,10 +19,10 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
@@ -36,59 +36,59 @@ __journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                   _UDEV_{SYSNAME,DEVNODE,DEVLINK}
                   __CURSOR __{REALTIME,MONOTONIC}_TIMESTAMP)
 _coredumpctl() {
-        local i verb comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field -1
-                    -r --reverse -S --since -U --until -D --directory -q --quiet --debugger'
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field -1
+                -r --reverse -S --since -U --until -D --directory -q --quiet --debugger'
 
-        local -A VERBS=(
-            [LIST]='list info'
-            [DUMP]='dump debug'
-        )
+    local -A VERBS=(
+        [LIST]='list info'
+        [DUMP]='dump debug'
+    )
 
-        if __contains_word "$prev" '--output -o'; then
-                comps=$( compgen -A file -- "$cur" )
-                compopt -o filenames
-        elif __contains_word "$prev" '-D --directory'; then
-                comps=$( compgen -A directory -- "$cur" )
-                compopt -o filenames
-        elif __contains_word "$prev" '--debugger'; then
-                comps=$( compgen -A command -- "$cur" )
-                compopt -o filenames
-        elif __contains_word "$prev" '--field -F'; then
-                comps=$( compgen -W '${__journal_fields[*]}' -- "$cur" )
-        elif [[ $cur = -* ]]; then
-                comps=${OPTS}
-        elif __contains_word "$prev" ${VERBS[*]} &&
-           ! __contains_word ${COMP_WORDS[COMP_CWORD-2]} \
-             '--output -o -D --directory -F --field --debugger'; then
-                compopt -o nospace
-                COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
-               return 0
-        elif [[ $cur = *=* ]]; then
-                mapfile -t field_vals < <(coredumpctl -F "${prev%=}" 2>/dev/null)
-                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
-                return 0
-        elif [[ $prev = '=' ]]; then
-                mapfile -t field_vals < <(coredumpctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
-                comps=${field_vals[*]}
-        else
-                for ((i=0; i <= COMP_CWORD; i++)); do
-                        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
-                                verb=${COMP_WORDS[i]}
-                                break
-                        fi
-                done
-
-                if [[ -z $verb ]]; then
-                        comps=${VERBS[*]}
-                elif __contains_word "$verb" ${VERBS[LIST]} ${VERBS[DUMP]}; then
-                        comps=''
-                fi
-        fi
-
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    if __contains_word "$prev" '--output -o'; then
+        comps=$( compgen -A file -- "$cur" )
+        compopt -o filenames
+    elif __contains_word "$prev" '-D --directory'; then
+        comps=$( compgen -A directory -- "$cur" )
+        compopt -o filenames
+    elif __contains_word "$prev" '--debugger'; then
+        comps=$( compgen -A command -- "$cur" )
+        compopt -o filenames
+    elif __contains_word "$prev" '--field -F'; then
+        comps=$( compgen -W '${__journal_fields[*]}' -- "$cur" )
+    elif [[ $cur = -* ]]; then
+        comps=${OPTS}
+    elif __contains_word "$prev" ${VERBS[*]} &&
+            ! __contains_word ${COMP_WORDS[COMP_CWORD-2]} \
+              '--output -o -D --directory -F --field --debugger'; then
+        compopt -o nospace
+        COMPREPLY=( $(compgen -W '${__journal_fields[*]}' -S= -- "$cur") )
         return 0
+    elif [[ $cur = *=* ]]; then
+        mapfile -t field_vals < <(coredumpctl -F "${prev%=}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+        return 0
+    elif [[ $prev = '=' ]]; then
+        mapfile -t field_vals < <(coredumpctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+        comps=${field_vals[*]}
+    else
+        for ((i=0; i <= COMP_CWORD; i++)); do
+            if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                verb=${COMP_WORDS[i]}
+                break
+            fi
+        done
+
+        if [[ -z $verb ]]; then
+            comps=${VERBS[*]}
+        elif __contains_word "$verb" ${VERBS[LIST]} ${VERBS[DUMP]}; then
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _coredumpctl coredumpctl

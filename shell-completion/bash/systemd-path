@@ -17,45 +17,45 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
-        return 1
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
+    return 1
 }
 
 __get_names() {
-        systemd-path | { while IFS=: read -r a b; do echo " $a"; done; }
+    systemd-path | { while IFS=: read -r a b; do echo " $a"; done; }
 }
 
 _systemd_path() {
-        local comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version'
-                      [ARG]='--suffix'
-        )
+    local comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version'
+        [ARG]='--suffix'
+    )
 
-        _init_completion || return
+    _init_completion || return
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --suffix)
-                                comps=''
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        comps=$( __get_names )
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --suffix)
+                comps=''
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    comps=$( __get_names )
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _systemd_path systemd-path
