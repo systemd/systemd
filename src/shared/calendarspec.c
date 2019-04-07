@@ -579,6 +579,9 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         if (!gmtime_r(&time, &tm))
                 return -ERANGE;
 
+        if (tm.tm_year > INT_MAX - 1900)
+                return -ERANGE;
+
         r = const_chain(tm.tm_year + 1900, &year);
         if (r < 0)
                 return r;
