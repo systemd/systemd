@@ -551,14 +551,16 @@ static int const_chain(int value, CalendarComponent **c) {
 
         assert(c);
 
-        cc = new0(CalendarComponent, 1);
+        cc = new(CalendarComponent, 1);
         if (!cc)
                 return -ENOMEM;
 
-        cc->start = value;
-        cc->stop = -1;
-        cc->repeat = 0;
-        cc->next = *c;
+        *cc = (CalendarComponent) {
+                .start = value,
+                .stop = -1,
+                .repeat = 0,
+                .next = *c,
+        };
 
         *c = cc;
 
@@ -644,14 +646,16 @@ static int prepend_component(const char **p, bool usec, unsigned nesting, Calend
         if (!IN_SET(*e, 0, ' ', ',', '-', '~', ':'))
                 return -EINVAL;
 
-        cc = new0(CalendarComponent, 1);
+        cc = new(CalendarComponent, 1);
         if (!cc)
                 return -ENOMEM;
 
-        cc->start = start;
-        cc->stop = stop;
-        cc->repeat = repeat;
-        cc->next = *c;
+        *cc = (CalendarComponent) {
+                .start = start,
+                .stop = stop,
+                .repeat = repeat,
+                .next = *c,
+        };
 
         *p = e;
         *c = cc;
@@ -888,11 +892,14 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         assert(p);
         assert(spec);
 
-        c = new0(CalendarSpec, 1);
+        c = new(CalendarSpec, 1);
         if (!c)
                 return -ENOMEM;
-        c->dst = -1;
-        c->timezone = NULL;
+
+        *c = (CalendarSpec) {
+                .dst = -1,
+                .timezone = NULL,
+        };
 
         utc = endswith_no_case(p, " UTC");
         if (utc) {
