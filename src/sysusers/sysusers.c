@@ -1381,7 +1381,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 *id = NULL, *resolved_id = NULL,
                 *description = NULL, *resolved_description = NULL,
                 *home = NULL, *resolved_home = NULL,
-                *shell, *resolved_shell = NULL;
+                *shell = NULL, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
