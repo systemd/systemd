@@ -53,6 +53,7 @@ static void wireguard_peer_free(WireguardPeer *peer) {
 
         free(peer->endpoint_host);
         free(peer->endpoint_port);
+        explicit_bzero_safe(peer->preshared_key, WG_KEY_LEN);
 
         free(peer);
 }
@@ -492,21 +493,25 @@ static int wireguard_decode_key_and_warn(
                 return 0;
         }
 
-        r = unbase64mem(rvalue, strlen(rvalue), &key, &len);
+        r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
-                return 0;
+                goto finalize;
         }
         if (len != WG_KEY_LEN) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
                            lvalue, len);
-                return 0;
+                goto finalize;
         }
 
         memcpy(ret, key, WG_KEY_LEN);
-        return true;
+        r = 0;
+
+finalize:
+        explicit_bzero_safe(key, len);
+        return r;
 }
 
 int config_parse_wireguard_private_key(
@@ -527,8 +532,8 @@ int config_parse_wireguard_private_key(
         w = WIREGUARD(data);
         assert(w);
 
-        return wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
-
+        (void) wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
+        return 0;
 }
 
 int config_parse_wireguard_private_key_file(
@@ -839,6 +844,7 @@ static void wireguard_done(NetDev *netdev) {
 
         sd_event_source_unref(w->resolve_retry_event_source);
 
+        explicit_bzero_safe(w->private_key, WG_KEY_LEN);
         free(w->private_key_file);
 
         hashmap_free_with_destructor(w->peers_by_section, wireguard_peer_free);
