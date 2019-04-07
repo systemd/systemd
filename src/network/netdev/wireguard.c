@@ -494,6 +494,9 @@ static int wireguard_decode_key_and_warn(
                 return 0;
         }
 
+        if (!streq(lvalue, "PublicKey"))
+                (void) warn_file_is_world_accessible(filename, NULL, unit, line);
+
         r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
