@@ -33,7 +33,7 @@
  * linked compenents anyway. */
 #define CALENDARSPEC_COMPONENTS_MAX 240
 
-static void free_chain(CalendarComponent *c) {
+static void chain_free(CalendarComponent *c) {
         CalendarComponent *n;
 
         while (c) {
@@ -48,12 +48,12 @@ CalendarSpec* calendar_spec_free(CalendarSpec *c) {
         if (!c)
                 return NULL;
 
-        free_chain(c->year);
-        free_chain(c->month);
-        free_chain(c->day);
-        free_chain(c->hour);
-        free_chain(c->minute);
-        free_chain(c->microsecond);
+        chain_free(c->year);
+        chain_free(c->month);
+        chain_free(c->day);
+        chain_free(c->hour);
+        chain_free(c->minute);
+        chain_free(c->microsecond);
         free(c->timezone);
 
         return mfree(c);
@@ -568,8 +568,8 @@ static int const_chain(int value, CalendarComponent **c) {
 }
 
 static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
+        _cleanup_CalendarComponent *year = NULL, *month = NULL, *day = NULL, *hour = NULL, *minute = NULL, *us = NULL;
         struct tm tm;
-        CalendarComponent *year = NULL, *month = NULL, *day = NULL, *hour = NULL, *minute = NULL, *us = NULL;
         int r;
 
         if (!gmtime_r(&time, &tm))
@@ -693,7 +693,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
 
         r = prepend_component(&t, usec, 0, &cc);
         if (r < 0) {
-                free_chain(cc);
+                chain_free(cc);
                 return r;
         }
 
@@ -743,21 +743,21 @@ static int parse_date(const char **p, CalendarSpec *c) {
 
         /* Already the end? A ':' as separator? In that case this was a time, not a date */
         if (IN_SET(*t, 0, ':')) {
-                free_chain(first);
+                chain_free(first);
                 return 0;
         }
 
         if (*t == '~')
                 c->end_of_month = true;
         else if (*t != '-') {
-                free_chain(first);
+                chain_free(first);
                 return -EINVAL;
         }
 
         t++;
         r = parse_chain(&t, false, &second);
         if (r < 0) {
-                free_chain(first);
+                chain_free(first);
                 return r;
         }
 
@@ -768,24 +768,24 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 c->day = second;
                 return 0;
         } else if (c->end_of_month) {
-                free_chain(first);
-                free_chain(second);
+                chain_free(first);
+                chain_free(second);
                 return -EINVAL;
         }
 
         if (*t == '~')
                 c->end_of_month = true;
         else if (*t != '-') {
-                free_chain(first);
-                free_chain(second);
+                chain_free(first);
+                chain_free(second);
                 return -EINVAL;
         }
 
         t++;
         r = parse_chain(&t, false, &third);
         if (r < 0) {
-                free_chain(first);
-                free_chain(second);
+                chain_free(first);
+                chain_free(second);
                 return r;
         }
 
@@ -798,9 +798,9 @@ static int parse_date(const char **p, CalendarSpec *c) {
                 return 0;
         }
 
-        free_chain(first);
-        free_chain(second);
-        free_chain(third);
+        chain_free(first);
+        chain_free(second);
+        chain_free(third);
         return -EINVAL;
 }
 
@@ -877,9 +877,9 @@ finish:
         return 0;
 
 fail:
-        free_chain(h);
-        free_chain(m);
-        free_chain(s);
+        chain_free(h);
+        chain_free(m);
+        chain_free(s);
         return r;
 }
 
