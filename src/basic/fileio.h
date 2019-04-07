@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -86,3 +87,5 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
 }
 
 int safe_fgetc(FILE *f, char *ret);
+
+int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
