@@ -286,8 +286,9 @@ static int run(int argc, char *argv[]) {
 
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_strv_free_ char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
+                _cleanup_close_ int fd = -1;
                 pid_t pid;
 
                 /* Ignore SIGINT and allow the forked process to receive it */
@@ -303,12 +304,16 @@ static int run(int argc, char *argv[]) {
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
 
+                arguments = strv_copy(argv + optind);
+                if (!arguments)
+                        return log_oom();
+
                 r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         /* Child */
-                        execvp(argv[optind], argv + optind);
+                        execvp(arguments[0], arguments);
                         log_open();
                         log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
