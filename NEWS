@@ -243,17 +243,18 @@ CHANGES WITH 242:
         Davide Cavalca, David Michael, David Rheinsberg, emersion, Evgeny
         Vereshchagin, Filipe Brandenburger, Franck Bui, Frantisek Sumsal,
         Giacinto Cifelli, Hans de Goede, Hugo Kindel, Ignat Korchagin, Insun
-        Pyo, Jan Engelhardt, Jonathan Lebon, Jonathon Kowalski, Jörg Sommer,
-        Jörg Thalheim, Kai-Heng Feng, Lennart Poettering, Lubomir Rintel,
-        Martin Pitt, Matthias Klumpp, Michael Biebl, Michael Niewöhner, Michael
-        Olbrich, Michal Sekletar, Mike Lothian, Piotr Drąg, Riccardo Schirone,
-        Robin Elvedi, Roman Kulikov, Ronald Tschalär, Ross Burton, Ryan
-        Gonzalez, Stephane Chazelas, StKob, Susant Sahani, Sylvain Plantefève,
-        Szabolcs Fruhwald, Taro Yamada, Theo Ouzhinski, Thomas Haller, Tobias
-        Jungel, Tom Yan, Tony Asleson, Topi Miettinen, unixsysadmin, Van Laser,
-        Vesa Jääskeläinen, Yu, Li-Yu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+        Pyo, Jan Engelhardt, Jonas Dorel, Jonathan Lebon, Jonathon Kowalski,
+        Jörg Sommer, Jörg Thalheim, Jussi Pakkanen, Kai-Heng Feng, Lennart
+        Poettering, Lubomir Rintel, Luís Ferreira, Martin Pitt, Matthias
+        Klumpp, Michael Biebl, Michael Niewöhner, Michael Olbrich, Michal
+        Sekletar, Mike Lothian, Piotr Drąg, Riccardo Schirone, Robin Elvedi,
+        Roman Kulikov, Ronald Tschalär, Ross Burton, Ryan Gonzalez, Stephane
+        Chazelas, StKob, Susant Sahani, Sylvain Plantefève, Szabolcs Fruhwald,
+        Taro Yamada, Theo Ouzhinski, Thomas Haller, Tobias Jungel, Tom Yan,
+        Tony Asleson, Topi Miettinen, unixsysadmin, Van Laser, Vesa
+        Jääskeläinen, Yu, Li-Yu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
-        — Warsaw, 2019-04-03
+        — Warsaw, 2019-04-08
 
 CHANGES WITH 241:
 
