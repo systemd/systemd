@@ -474,7 +474,7 @@ int config_parse_wireguard_listen_port(
 
 static int wireguard_decode_key_and_warn(
                 const char *rvalue,
-                uint8_t *ret,
+                uint8_t ret[static WG_KEY_LEN],
                 const char *unit,
                 const char *filename,
                 unsigned line,
