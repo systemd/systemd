@@ -110,8 +110,8 @@ CHANGES WITH 242:
         * The new TripleSampling= option in .network files may be used to
           configure CAN triple sampling.
 
-        * A new .netdev setting PrivateKeyFile= may be used to point to private
-          key for a WireGuard interface.
+        * A new .netdev settings PrivateKeyFile= and PresharedKeyFile= may be
+          used to point to private or preshared key for a WireGuard interface.
 
         * /etc/crypttab now supports the same-cpu-crypt and
           submit-from-crypt-cpus options to tweak encryption work scheduling
