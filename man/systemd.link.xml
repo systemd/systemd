@@ -242,9 +242,11 @@
         <listitem>
           <para>An ordered, space-separated list of policies by which the interface name should be set.
           <varname>NamePolicy=</varname> may be disabled by specifying <option>net.ifnames=0</option> on the
-          kernel command line.  Each of the policies may fail, and the first successful one is used. The name
+          kernel command line. Each of the policies may fail, and the first successful one is used. The name
           is not set directly, but is exported to udev as the property <option>ID_NET_NAME</option>, which
-          is, by default, used by a udev rule to set <varname>NAME</varname>. The available policies are:
+          is, by default, used by a
+          <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+          rule to set <varname>NAME</varname>. The available policies are:
           </para>
 
           <variablelist>
@@ -312,11 +314,10 @@
       <varlistentry>
         <term><varname>Name=</varname></term>
         <listitem>
-          <para>The interface name to use in case all the
-          policies specified in
-          <varname>NamePolicy=</varname> fail, or in case
-          <varname>NamePolicy=</varname> is missing or
-          disabled.</para>
+          <para>The interface name to use. This option has lower precedence than
+          <varname>NamePolicy=</varname>, so for this setting to take effect, <varname>NamePolicy=</varname>
+          must either be unset, empty, disabled, or all policies configured there must fail. Also see the
+          example below with <literal>Name=dmz0</literal>.</para>
 
           <para>Note that specifying a name that the kernel might use for another
           interface (for example <literal>eth0</literal>) is dangerous because the
@@ -618,8 +619,7 @@ MACAddressPolicy=persistent</programlisting>
     <example>
       <title>/etc/systemd/network/10-dmz.link</title>
 
-      <para>This example assigns the fixed name
-      <literal>dmz0</literal> to the interface with the MAC address
+      <para>This example assigns the fixed name <literal>dmz0</literal> to the interface with the MAC address
       00:a0:de:63:7a:e6:</para>
 
       <programlisting>[Match]
@@ -627,6 +627,62 @@ MACAddress=00:a0:de:63:7a:e6
 
 [Link]
 Name=dmz0</programlisting>
+
+      <para><varname>NamePolicy=</varname> is not set, so <varname>Name=</varname> takes effect. We use the
+      <literal>10-</literal> prefix to order this file early in the list. Note that it needs to before
+      <literal>99-link</literal>, i.e. it needs a numerical prefix, to have any effect at all.</para>
+    </example>
+
+    <example>
+      <title>Debugging <varname>NamePolicy=</varname> assignments</title>
+
+      <programlisting>$ sudo SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/hub0
+…
+Parsed configuration file /usr/lib/systemd/network/99-default.link
+Parsed configuration file /etc/systemd/network/10-eth0.link
+ID_NET_DRIVER=cdc_ether
+Config file /etc/systemd/network/10-eth0.link applies to device hub0
+link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.
+hub0: Device has name_assign_type=4
+Using default interface naming scheme 'v240'.
+hub0: Policies didn't yield a name, using specified Name=hub0.
+ID_NET_LINK_FILE=/etc/systemd/network/10-eth0.link
+ID_NET_NAME=hub0
+…</programlisting>
+
+     <para>Explicit <varname>Name=</varname> configuration wins in this case.</para>
+
+     <programlisting>sudo SYSTEMD_LOG_LEVEL=debug udevadm test-builtin net_setup_link /sys/class/net/enp0s31f6
+…
+Parsed configuration file /usr/lib/systemd/network/99-default.link
+Parsed configuration file /etc/systemd/network/10-eth0.link
+Created link configuration context.
+ID_NET_DRIVER=e1000e
+Config file /usr/lib/systemd/network/99-default.link applies to device enp0s31f6
+link_config: autonegotiation is unset or enabled, the speed and duplex are not writable.
+enp0s31f6: Device has name_assign_type=4
+Using default interface naming scheme 'v240'.
+enp0s31f6: Policy *keep*: keeping existing userspace name
+enp0s31f6: Device has addr_assign_type=0
+enp0s31f6: MAC on the device already matches policy *persistent*
+ID_NET_LINK_FILE=/usr/lib/systemd/network/99-default.link
+…
+</programlisting>
+
+     <para>In this case, the interface was already renamed, so the <option>keep</option> policy specified as
+     the first option in <filename noindex='true'>99-default.link</filename> means that the existing name is
+     preserved. If <option>keep</option> was removed, or if were in boot before the renaming has happened,
+     we might get the following instead:</para>
+
+     <programlisting>enp0s31f6: Policy *path* yields "enp0s31f6".
+enp0s31f6: Device has addr_assign_type=0
+enp0s31f6: MAC on the device already matches policy *persistent*
+ID_NET_LINK_FILE=/usr/lib/systemd/network/99-default.link
+ID_NET_NAME=enp0s31f6
+…
+</programlisting>
+
+      <para>Please note that the details of output are subject to change.</para>
     </example>
 
     <example>
