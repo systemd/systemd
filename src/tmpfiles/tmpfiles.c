@@ -2507,7 +2507,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return -EIO;
         }
 
-        if (!isempty(buffer) && !streq(buffer, "-")) {
+        if (!empty_or_dash(buffer)) {
                 i.argument = strdup(buffer);
                 if (!i.argument)
                         return log_oom();
@@ -2704,7 +2704,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 free_and_replace(i.path, p);
         }
 
-        if (!isempty(user) && !streq(user, "-")) {
+        if (!empty_or_dash(user)) {
                 const char *u = user;
 
                 r = get_user_creds(&u, &i.uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
@@ -2716,7 +2716,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 i.uid_set = true;
         }
 
-        if (!isempty(group) && !streq(group, "-")) {
+        if (!empty_or_dash(group)) {
                 const char *g = group;
 
                 r = get_group_creds(&g, &i.gid, USER_CREDS_ALLOW_MISSING);
@@ -2729,7 +2729,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 i.gid_set = true;
         }
 
-        if (!isempty(mode) && !streq(mode, "-")) {
+        if (!empty_or_dash(mode)) {
                 const char *mm = mode;
                 unsigned m;
 
@@ -2749,7 +2749,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         } else
                 i.mode = IN_SET(i.type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA) ? 0755 : 0644;
 
-        if (!isempty(age) && !streq(age, "-")) {
+        if (!empty_or_dash(age)) {
                 const char *a = age;
 
                 if (*a == '~') {

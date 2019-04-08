@@ -64,7 +64,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
+        if (empty_or_dash(local))
                 local = NULL;
 
         if (local) {
@@ -151,7 +151,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
+        if (empty_or_dash(local))
                 local = NULL;
 
         if (local) {

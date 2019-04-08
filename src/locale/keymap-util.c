@@ -33,7 +33,7 @@ static bool startswith_comma(const char *s, const char *prefix) {
 }
 
 static const char* strnulldash(const char *s) {
-        return isempty(s) || streq(s, "-") ? NULL : s;
+        return empty_or_dash(s) ? NULL : s;
 }
 
 static const char* systemd_kbd_model_map(void) {

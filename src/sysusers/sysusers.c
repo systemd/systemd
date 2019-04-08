@@ -1411,7 +1411,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                        "[%s:%u] Unknown command type '%c'.", fname, line, action[0]);
 
         /* Verify name */
-        if (isempty(name) || streq(name, "-"))
+        if (empty_or_dash(name))
                 name = mfree(name);
 
         if (name) {
@@ -1426,7 +1426,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify id */
-        if (isempty(id) || streq(id, "-"))
+        if (empty_or_dash(id))
                 id = mfree(id);
 
         if (id) {
@@ -1437,7 +1437,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify description */
-        if (isempty(description) || streq(description, "-"))
+        if (empty_or_dash(description))
                 description = mfree(description);
 
         if (description) {
@@ -1453,7 +1453,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify home */
-        if (isempty(home) || streq(home, "-"))
+        if (empty_or_dash(home))
                 home = mfree(home);
 
         if (home) {
@@ -1469,7 +1469,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         /* Verify shell */
-        if (isempty(shell) || streq(shell, "-"))
+        if (empty_or_dash(shell))
                 shell = mfree(shell);
 
         if (shell) {

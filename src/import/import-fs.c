@@ -117,14 +117,14 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         if (argc >= 2)
                 path = argv[1];
-        if (isempty(path) || streq(path, "-"))
+        if (empty_or_dash(path))
                 path = NULL;
 
         if (argc >= 3)
                 local = argv[2];
         else if (path)
                 local = basename(path);
-        if (isempty(local) || streq(local, "-"))
+        if (empty_or_dash(local))
                 local = NULL;
 
         if (local) {

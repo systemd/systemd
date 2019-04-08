@@ -78,7 +78,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
+        if (empty_or_dash(path))
                 path = NULL;
 
         determine_compression_from_filename(path);
@@ -155,7 +155,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
+        if (empty_or_dash(path))
                 path = NULL;
 
         determine_compression_from_filename(path);

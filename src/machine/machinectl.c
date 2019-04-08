@@ -1994,13 +1994,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 }
 
 static const char *nullify_dash(const char *p) {
-        if (isempty(p))
-                return NULL;
-
-        if (streq(p, "-"))
-                return NULL;
-
-        return p;
+        return empty_or_dash(p) ? NULL : p;
 }
 
 static int import_tar(int argc, char *argv[], void *userdata) {
@@ -2230,7 +2224,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
+        if (empty_or_dash(path))
                 path = NULL;
 
         if (path) {
@@ -2280,7 +2274,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
+        if (empty_or_dash(path))
                 path = NULL;
 
         if (path) {
@@ -2338,7 +2332,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
+        if (empty_or_dash(local))
                 local = NULL;
 
         if (local) {
@@ -2402,7 +2396,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
+        if (empty_or_dash(local))
                 local = NULL;
 
         if (local) {
