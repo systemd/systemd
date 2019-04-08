@@ -32,10 +32,6 @@ static bool startswith_comma(const char *s, const char *prefix) {
         return IN_SET(*s, ',', '\0');
 }
 
-static const char* strnulldash(const char *s) {
-        return empty_or_dash(s) ? NULL : s;
-}
-
 static const char* systemd_kbd_model_map(void) {
         const char* s;
 
@@ -551,15 +547,15 @@ int vconsole_convert_to_x11(Context *c) {
                         if (!streq(c->vc_keymap, a[0]))
                                 continue;
 
-                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
-                            !streq_ptr(c->x11_model, strnulldash(a[2])) ||
-                            !streq_ptr(c->x11_variant, strnulldash(a[3])) ||
-                            !streq_ptr(c->x11_options, strnulldash(a[4]))) {
+                        if (!streq_ptr(c->x11_layout, empty_or_dash_to_null(a[1])) ||
+                            !streq_ptr(c->x11_model, empty_or_dash_to_null(a[2])) ||
+                            !streq_ptr(c->x11_variant, empty_or_dash_to_null(a[3])) ||
+                            !streq_ptr(c->x11_options, empty_or_dash_to_null(a[4]))) {
 
-                                if (free_and_strdup(&c->x11_layout, strnulldash(a[1])) < 0 ||
-                                    free_and_strdup(&c->x11_model, strnulldash(a[2])) < 0 ||
-                                    free_and_strdup(&c->x11_variant, strnulldash(a[3])) < 0 ||
-                                    free_and_strdup(&c->x11_options, strnulldash(a[4])) < 0)
+                                if (free_and_strdup(&c->x11_layout, empty_or_dash_to_null(a[1])) < 0 ||
+                                    free_and_strdup(&c->x11_model, empty_or_dash_to_null(a[2])) < 0 ||
+                                    free_and_strdup(&c->x11_variant, empty_or_dash_to_null(a[3])) < 0 ||
+                                    free_and_strdup(&c->x11_options, empty_or_dash_to_null(a[4])) < 0)
                                         return -ENOMEM;
 
                                 modified = true;

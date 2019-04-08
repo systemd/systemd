@@ -117,15 +117,13 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         if (argc >= 2)
                 path = argv[1];
-        if (empty_or_dash(path))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (argc >= 3)
                 local = argv[2];
         else if (path)
                 local = basename(path);
-        if (empty_or_dash(local))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 if (!machine_name_is_valid(local)) {
