@@ -161,6 +161,12 @@
     "floating", and will be destroyed implicitly when the event loop
     itself is destroyed.</para>
 
+    <para>Note that this call does not take possession of the file descriptor passed in, ownership (and thus
+    the duty to close it when it is no longer needed) remains with the caller. However, with the
+    <function>sd_event_source_set_io_fd_own()</function> call (see below) the event source may optionally
+    take ownership of the file descriptor after the event source has been created. In that case the file
+    descriptor is closed automatically as soon as the event source is released.</para>
+
     <para>It is recommended to use
     <function>sd_event_add_io()</function> only in conjunction with
     file descriptors that have <constant>O_NONBLOCK</constant> set, to
