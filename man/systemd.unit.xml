@@ -326,7 +326,7 @@
           </row>
           <row>
             <entry><filename>/etc/systemd/system</filename></entry>
-            <entry>Local configuration</entry>
+            <entry>System units created by the administrator</entry>
           </row>
           <row>
             <entry><filename>/run/systemd/system</filename></entry>
@@ -339,10 +339,11 @@
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/system</filename></entry>
-            <entry morerows="1">Units of installed packages</entry>
+            <entry>System units installed by the administrator </entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/system</filename></entry>
+            <entry>System units installed by the distribution package manager</entry>
           </row>
           <row>
             <entry><filename>/run/systemd/generator.late</filename></entry>
@@ -391,7 +392,7 @@
           </row>
           <row>
             <entry><filename>/etc/systemd/user</filename></entry>
-            <entry>Local configuration</entry>
+            <entry>User units created by the administrator</entry>
           </row>
           <row>
             <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
@@ -416,10 +417,11 @@
           </row>
           <row>
             <entry><filename>/usr/local/lib/systemd/user</filename></entry>
-            <entry morerows="1">Units of packages that have been installed system-wide</entry>
+            <entry>User units installed by the administrator</entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/user</filename></entry>
+            <entry>User units installed by the distribution package manager</entry>
           </row>
           <row>
             <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename></entry>
