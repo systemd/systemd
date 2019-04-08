@@ -95,7 +95,7 @@
           placing <filename>/etc/sysusers.d/radvd.conf</filename> or even
           <filename>/etc/sysusers.d/00-overrides.conf</filename>.</para>
 
-          <para>Note that this is the expanded from, and when used in a package, this
+          <para>Note that this is the expanded form, and when used in a package, this
           would be written using a macro with "radvd" and a file containing the
           configuration line as arguments.</para>
         </example>
