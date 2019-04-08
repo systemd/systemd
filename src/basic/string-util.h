@@ -57,6 +57,16 @@ static inline const char *empty_to_dash(const char *str) {
         return isempty(str) ? "-" : str;
 }
 
+static inline bool empty_or_dash(const char *str) {
+        return !str ||
+                str[0] == 0 ||
+                (str[0] == '-' && str[1] == 0);
+}
+
+static inline const char *empty_or_dash_to_null(const char *p) {
+        return empty_or_dash(p) ? NULL : p;
+}
+
 static inline char *startswith(const char *s, const char *prefix) {
         size_t l;
 

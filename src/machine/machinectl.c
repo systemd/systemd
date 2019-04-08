@@ -1993,16 +1993,6 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
-static const char *nullify_dash(const char *p) {
-        if (isempty(p))
-                return NULL;
-
-        if (streq(p, "-"))
-                return NULL;
-
-        return p;
-}
-
 static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
@@ -2014,10 +2004,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2081,10 +2071,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2148,10 +2138,10 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2230,8 +2220,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (path) {
                 determine_compression_from_filename(path);
@@ -2280,8 +2269,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (path) {
                 determine_compression_from_filename(path);
@@ -2338,8 +2326,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
@@ -2402,8 +2389,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = raw_strip_suffixes(local, &ll);
